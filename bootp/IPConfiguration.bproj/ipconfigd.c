@@ -231,6 +231,7 @@ typedef dynarray_t	IFStateList_t;
 #define ARP_RETRY_SECS				0
 #define ARP_RETRY_USECS				300000
 #define DHCP_INIT_REBOOT_RETRY_COUNT		2
+#define DHCP_SELECT_RETRY_COUNT			3
 #define DHCP_ALLOCATE_LINKLOCAL_AT_RETRY_COUNT	2
 #define DHCP_FAILURE_CONFIGURES_LINKLOCAL	TRUE
 #define DHCP_SUCCESS_DECONFIGURES_LINKLOCAL	TRUE
@@ -252,6 +253,8 @@ u_long				G_dhcp_allocate_linklocal_at_retry_count
 				    = DHCP_ALLOCATE_LINKLOCAL_AT_RETRY_COUNT;
 u_long				G_dhcp_init_reboot_retry_count 
 				    = DHCP_INIT_REBOOT_RETRY_COUNT;
+u_long				G_dhcp_select_retry_count 
+				    = DHCP_SELECT_RETRY_COUNT;
 u_short 			G_server_port = IPPORT_BOOTPS;
 
 /* 
@@ -5265,6 +5268,9 @@ S_set_globals(const char * bundleDir)
 	G_dhcp_init_reboot_retry_count
 	    = S_get_plist_int(plist, CFSTR("DHCPInitRebootRetryCount"), 
 			      DHCP_INIT_REBOOT_RETRY_COUNT);
+	G_dhcp_select_retry_count
+	    = S_get_plist_int(plist, CFSTR("DHCPSelectRetryCount"), 
+			      DHCP_SELECT_RETRY_COUNT);
 	G_dhcp_allocate_linklocal_at_retry_count
 	    = S_get_plist_int(plist, CFSTR("DHCPAllocateLinkLocalAtRetryCount"),
 			      DHCP_ALLOCATE_LINKLOCAL_AT_RETRY_COUNT);

@@ -971,6 +971,17 @@ IOSCSIBlockCommandsDevice::ClearNotReadyStatus ( void )
 					
 					if ( ( ( senseBuffer.SENSE_KEY  & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY  ) &&
 							( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
+							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+					{
+						
+						STATUS_LOG ( ( "%s::logical unit not ready\n", getName ( ) ) );
+						driveReady = false;
+						IOSleep ( 200 );
+						
+					}
+					
+					else if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) &&
+								( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
 							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x01 ) )
 					{
 						
@@ -2790,24 +2801,50 @@ IOSCSIBlockCommandsDevice::AsyncReadWriteCompletion (
 		// Set a generic IO error for starters
 		status = kIOReturnIOError;
 		
-		// Either the task never completed or we have a status other than GOOD,
-		// return an error.		
-		if ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_CHECK_CONDITION )
+		if ( GetServiceResponse ( completedTask ) == kSCSIServiceResponse_TASK_COMPLETE )
 		{
 			
-			SCSI_Sense_Data		senseDataBuffer;
-			bool				senseIsValid;
-			
-			senseIsValid = GetAutoSenseData ( completedTask, &senseDataBuffer, sizeof ( senseDataBuffer ) );
-			if ( senseIsValid )
+			// We have a status other than GOOD, see why.		
+			if ( GetTaskStatus ( completedTask ) == kSCSITaskStatus_CHECK_CONDITION )
 			{
 				
-				ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n",
-				senseDataBuffer.ADDITIONAL_SENSE_CODE,
-				senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				SCSI_Sense_Data		senseDataBuffer = { 0 };
+				bool				senseIsValid	= false;
+				
+				senseIsValid = GetAutoSenseData ( completedTask, &senseDataBuffer, sizeof ( senseDataBuffer ) );
+				if ( senseIsValid )
+				{
+					
+					// Check if this is a recovered error and the amount of data transferred
+					// was the amount requested. If so, don't treat those as hard errors.
+					if ( ( ( senseDataBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_RECOVERED_ERROR ) &&
+						 ( GetRequestedDataTransferCount ( completedTask ) == GetRealizedDataTransferCount ( completedTask ) ) )
+					{
+						
+						IOLog ( "READ or WRITE succeeded, but recoverable (soft) error occurred, SENSE_KEY = 0x%01x, ASC = 0x%02x, ASCQ = 0x%02x, LBA = 0x%08x\n",
+								senseDataBuffer.SENSE_KEY & kSENSE_KEY_Mask,
+								senseDataBuffer.ADDITIONAL_SENSE_CODE,
+								senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER,
+								OSReadBigInt32 ( &senseDataBuffer.INFORMATION_1, 0 ) );
+						
+						status 		= kIOReturnSuccess;
+						actCount 	= GetRealizedDataTransferCount ( completedTask );
+						
+					}
+					
+					else
+					{
+						
+						ERROR_LOG ( ( "READ or WRITE failed, ASC = 0x%02x, ASCQ = 0x%02x\n",
+						senseDataBuffer.ADDITIONAL_SENSE_CODE,
+						senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+						
+					}
+					
+				}
 				
 			}
-			
+	
 		}
 		
 	}

@@ -172,7 +172,7 @@ AppleUSBEHCI::GetRootHubConfDescriptor(OSData *desc)
         0x81,                   //UInt8  endpointAddress; In, 1
         kUSBInterrupt,          //UInt8 attributes;
         HostToUSBWord(8),      	//UInt16 maxPacketSize;
-        255,                    //UInt8 interval;
+        12,                    //UInt8 interval;
     };
 
     if (!desc)

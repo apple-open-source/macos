@@ -3236,7 +3236,7 @@ IOReturn 	AppleTexas2Audio::Texas2_WriteRegister(UInt8 regAddr, UInt8* registerD
 					closeI2C();
 					//	[3166905]	begin {
 					if ( !success ) {
-						debugIOLog (3,  "%d = interface->writeI2CBus ( %X, %X, %X, %X ) FAILED ><><>< RESETTING & FLUSHING CACHE", 
+						debugIOLog (3,  "%d = interface->writeI2CBus ( %X, %X, %X, %X ) FAILED: RESETTING & FLUSHING CACHE", 
 							(unsigned int)success, (unsigned int)DEQAddress, (unsigned int)regAddr, (unsigned int)registerData, (unsigned int)registerSize );
 						success = Texas2_Initialize();
 					}

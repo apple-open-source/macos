@@ -854,7 +854,7 @@ DEBUGLOG( "BeginServerSession, inSock = %d", inSock );
 		snprintf(inContext->remoteaddr, sizeof(inContext->remoteaddr), "%s;%s", inContext->psName, inContext->psPort);
 		
 		// retrieve the password server's list of available auth methods
-		serverResult = SendFlushRead( inContext, "LIST RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
+		serverResult = SendFlushReadWithMutex( inContext, "LIST RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
 		if ( serverResult.err != 0 )
 			throw( PWSErrToDirServiceError(serverResult) );
 		
@@ -999,7 +999,7 @@ sInt32 CPSPlugIn::GetRSAPublicKey( sPSContextData *inContext, char *inData )
 		if ( inData == NULL )
 		{
 			// get string
-			serverResult = SendFlushRead( inContext, "RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
+			serverResult = SendFlushReadWithMutex( inContext, "RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
 			if ( serverResult.err != 0 )
 			{
 				DEBUGLOG( "no public key");
@@ -1330,7 +1330,7 @@ sInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 		time( &now );
 		sprintf( timeBuf, "%lu", (unsigned long)now );
 		
-		serverResult = SendFlushRead( inContext, "SYNC SESSIONKEY", buf, timeBuf, buf, sizeof(buf) );
+		serverResult = SendFlushReadWithMutex( inContext, "SYNC SESSIONKEY", buf, timeBuf, buf, sizeof(buf) );
 		if ( serverResult.err != 0 )
 			throw( PWSErrToDirServiceError(serverResult) );
 		
@@ -1402,7 +1402,7 @@ sInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 		if ( ConvertBinaryTo64( encNonceStr, nonceLen, base64Buf ) == SASL_OK )
 		{
 			// send it
-			serverResult = SendFlushRead( inContext, "SYNC SESSIONKEYV", base64Buf, NULL, buf, sizeof(buf) );
+			serverResult = SendFlushReadWithMutex( inContext, "SYNC SESSIONKEYV", base64Buf, NULL, buf, sizeof(buf) );
 			if ( serverResult.err == kAuthUserNotAuthenticated && serverResult.type == kPolicyError )
 				siResult = eDSNotAuthorized;
 			else
@@ -2417,7 +2417,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 		if ( pContext->madeFirstContact )
 		{
 			// make sure there is a connection
-			if ( Connected(pContext) )
+			if ( TestConnectedWithMutex(pContext) )
 			{
 				bNeedsRSAValidation = false;
 			}
@@ -2454,7 +2454,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 			if ( siResult != eDSNoErr )
 				throw( siResult );
 			
-			if ( ! Connected(pContext) )
+			if ( ! TestConnectedWithMutex(pContext) )
 			{
 				// close out anything stale
 				EndServerSession( pContext );
@@ -5322,7 +5322,7 @@ CPSPlugIn::DoSASLAuth(
             else
                 snprintf(buf, sizeof(buf), "USER %s AUTH %s", userName, chosenmech);
 			
-			serverResult = SendFlushRead( inContext, buf, NULL, NULL, buf, sizeof(buf) );
+			serverResult = SendFlushReadWithMutex( inContext, buf, NULL, NULL, buf, sizeof(buf) );
             if (serverResult.err != 0) {
                 DEBUGLOG( "server returned an error, err=%d", serverResult.err);
                 throw( PWSErrToDirServiceError(serverResult) );
@@ -5340,7 +5340,7 @@ CPSPlugIn::DoSASLAuth(
 				else
 					snprintf(buf, sizeof(buf), "AUTH %s", chosenmech);
 				
-				serverResult = SendFlushRead( inContext, buf, NULL, NULL, buf, sizeof(buf) );
+				serverResult = SendFlushReadWithMutex( inContext, buf, NULL, NULL, buf, sizeof(buf) );
 				if (serverResult.err != 0) {
 					DEBUGLOG( "server returned an error, err=%d", serverResult.err);
 					throw( PWSErrToDirServiceError(serverResult) );
@@ -5409,13 +5409,13 @@ CPSPlugIn::DoSASLAuth(
                     ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
                     
                     DEBUGLOG( "AUTH2 %s", dataBuf);
-					serverResult = SendFlushRead( inContext, "AUTH2", dataBuf, NULL, buf, sizeof(buf) );
+					serverResult = SendFlushReadWithMutex( inContext, "AUTH2", dataBuf, NULL, buf, sizeof(buf) );
                 }
                 else
                 if (r==SASL_CONTINUE)
                 {
                     DEBUGLOG( "sending null response");
-                    serverResult = SendFlushRead( inContext, "AUTH2 ", NULL, NULL, buf, sizeof(buf) );
+                    serverResult = SendFlushReadWithMutex( inContext, "AUTH2 ", NULL, NULL, buf, sizeof(buf) );
                 }
                 else
 				{
@@ -5757,7 +5757,23 @@ CPSPlugIn::SendFlushReadWithMutex(
 	return serverResult;
 }
 
-														
+
+// ---------------------------------------------------------------------------
+//	* TestConnectedWithMutex
+// ---------------------------------------------------------------------------
+Boolean
+CPSPlugIn::TestConnectedWithMutex( sPSContextData *inContext )
+{
+	Boolean result;
+	
+	gPWSConnMutex->Wait();
+	result = Connected( inContext );
+	gPWSConnMutex->Signal();
+	
+	return result;
+}
+
+
 // ---------------------------------------------------------------------------
 //	* GetServerListFromDSDiscovery
 // ---------------------------------------------------------------------------

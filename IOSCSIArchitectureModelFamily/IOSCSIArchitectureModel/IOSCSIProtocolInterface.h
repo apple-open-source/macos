@@ -158,7 +158,14 @@ enum
 	// kIOPropertySCSIInquiryLengthKey value set in the dictionary
 	// or if it doesn't exist, then the size of the data will be
 	// the size of the full amount of Inquiry retrieved from the device.
-	kSCSIProtocolFeature_SubmitDefaultInquiryData			= 10
+	kSCSIProtocolFeature_SubmitDefaultInquiryData			= 10,
+	
+	// kSCSIProtocolFeature_ProtocolAlwaysReportsAutosenseData:
+	// If the SCSI Protocol Services driver always reports available
+	// autosense data when a kSCSITaskStatus_CHECK_CONDITION is set,
+	// then the protocol layer should return true. E.g. FireWire
+	// transport drivers should respond true to this.
+	kSCSIProtocolFeature_ProtocolAlwaysReportsAutosenseData	= 11
 	
 };
 

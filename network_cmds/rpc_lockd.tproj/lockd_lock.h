@@ -17,6 +17,10 @@ void granted_failed(nlm4_res *arg);
 
 void notify(const char *hostname, const int state);
 
+void monitor_lock_host_by_name(const char *hostname);
+void monitor_lock_host_by_addr(const struct sockaddr *addr);
+void unmonitor_lock_host(const char *hostname);
+
 /* flags for testlock, getlock & unlock */
 #define LOCK_ASYNC	0x01 /* async version (getlock only) */
 #define LOCK_V4 	0x02 /* v4 version */
@@ -27,9 +31,10 @@ void notify(const char *hostname, const int state);
 #define LOCK_ANSWER_LOCK_EXCL	0x0004	/* lock is exclusive */
 
 /* callbacks from lock_proc.c */
-void	transmit_result(int, nlm_res *, struct sockaddr *);
-void	transmit4_result(int, nlm4_res *, struct sockaddr *);
+int	transmit_result(int, nlm_res *, struct sockaddr *);
+int	transmit4_result(int, nlm4_res *, struct sockaddr *);
 CLIENT  *get_client(struct sockaddr *, rpcvers_t);
+int	addrcmp(const struct sockaddr *, const struct sockaddr *);
 
 extern time_t currsec;
 

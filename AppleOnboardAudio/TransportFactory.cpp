@@ -14,6 +14,8 @@
 
 const char* TransportFactory::I2SString = "i2s";
 const char* TransportFactory::I2SSlaveOnlyString = "i2sSlaveOnly";
+const char* TransportFactory::I2SOpaqueSlaveOnlyString = "i2sOpaqueSlaveOnly";
+
 
 TransportInterface* TransportFactory::createTransport ( const OSString* inTransportString )
 {

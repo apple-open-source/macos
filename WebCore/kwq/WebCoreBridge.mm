@@ -1126,6 +1126,7 @@ static HTMLFormElementImpl *formElementFromDOMElement(id <WebDOMElement>element)
 
 -(id)accessibilityTree
 {
+    KWQAccObjectCache::enableAccessibility();
     if (!_part || !_part->xmlDocImpl()) return nil;
     RenderCanvas* root = static_cast<khtml::RenderCanvas *>(_part->xmlDocImpl()->renderer());
     if (!root) return nil;

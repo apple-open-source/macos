@@ -161,7 +161,7 @@
 				PRODUCT_NAME = OpticalMediaSpeed;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);

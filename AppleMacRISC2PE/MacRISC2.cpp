@@ -104,6 +104,7 @@ bool MacRISC2PE::start(IOService *provider)
     // If this machine is a P99, P84, P72D, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
     hasPMon = (!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")) || (!strcmp (provider_name, "PowerBook6,2")) || (!strcmp (provider_name, "PowerBook6,3"));
     
+    // Or a Q72, Q54A or a Q16A
     if (!hasPMon)
         hasPMon = (!strcmp (provider_name, "PowerBook6,4")) || (!strcmp (provider_name, "PowerBook6,5")) || (!strcmp (provider_name, "PowerBook5,4")) || (!strcmp (provider_name, "PowerBook5,5"));
         
@@ -277,15 +278,15 @@ bool MacRISC2PE::start(IOService *provider)
 			nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
 			dict->setObject (nameKey, nameValueData);
 			compatKey = OSSymbol::withCStringNoCopy("compatible");
-                        if ((!strcmp(provider_name, "PowerBook5,2")) ||
-                            (!strcmp(provider_name, "PowerBook5,3")) ||
-                            (!strcmp(provider_name, "PowerBook6,2")) ||
-                            (!strcmp(provider_name, "PowerBook6,3"))) {
+                        if ((!strcmp(provider_name, "PowerBook5,2")) || 	// Q16
+                            (!strcmp(provider_name, "PowerBook5,3")) || 	// Q41
+                            (!strcmp(provider_name, "PowerBook6,2")) || 	// P54
+                            (!strcmp(provider_name, "PowerBook6,3"))) {  	// P72D
                             strcpy (tmpCompat, "Portable2003");
-                        } else if ((!strcmp(provider_name, "PowerBook5,4")) ||
-                            (!strcmp(provider_name, "PowerBook5,5")) ||
-                            (!strcmp(provider_name, "PowerBook6,4")) ||
-                            (!strcmp(provider_name, "PowerBook6,5"))) {
+                        } else if ((!strcmp(provider_name, "PowerBook5,4")) || 	// Q16A
+                            (!strcmp(provider_name, "PowerBook5,5")) || 	// Q41A
+                            (!strcmp(provider_name, "PowerBook6,4")) || 	// Q54A
+                            (!strcmp(provider_name, "PowerBook6,5"))) {  	// Q72
                             strcpy (tmpCompat, "Portable2004");
                         } else {
                             strcpy (tmpCompat, provider_name);

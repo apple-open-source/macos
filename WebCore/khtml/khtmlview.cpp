@@ -58,6 +58,10 @@
 #include <kurldrag.h>
 #include <qobjectlist.h>
 
+#if APPLE_CHANGES
+#include "KWQAccObjectCache.h"
+#endif
+
 #define PAINT_BUFFER_HEIGHT 128
 
 using namespace DOM;
@@ -157,6 +161,7 @@ public:
 #endif        
         layoutSchedulingEnabled = true;
         layoutSuppressed = false;
+        layoutCount = 0;
 #if APPLE_CHANGES
         firstLayout = true;
 #endif
@@ -198,6 +203,8 @@ public:
     bool complete;
     bool layoutSchedulingEnabled;
     bool layoutSuppressed;
+    int layoutCount;
+
 #if APPLE_CHANGES
     bool firstLayout;
     bool needToInitScrollBars;
@@ -497,6 +504,11 @@ bool KHTMLView::inLayout() const
     return d->layoutSuppressed;
 }
 
+int KHTMLView::layoutCount() const
+{
+    return d->layoutCount;
+}
+
 #ifdef INCREMENTAL_REPAINTING
 bool KHTMLView::needsFullRepaint() const
 {
@@ -629,6 +641,12 @@ void KHTMLView::layout()
     root->updateWidgetPositions();
 #endif
     
+    d->layoutCount++;
+#if APPLE_CHANGES
+    if (KWQAccObjectCache::accessibilityEnabled())
+        root->document()->getOrCreateAccObjectCache()->postNotification(root, "AXLayoutComplete");
+#endif
+
 #ifdef INCREMENTAL_REPAINTING
     if (root->needsLayout())
 #else

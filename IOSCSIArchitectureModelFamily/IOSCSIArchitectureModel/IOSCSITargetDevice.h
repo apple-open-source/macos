@@ -29,11 +29,13 @@
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
+// Libkern headers
+#include <libkern/c++/OSData.h>
+
 // General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOSyncer.h>
-#include <IOKit/IOBufferMemoryDescriptor.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
@@ -48,16 +50,50 @@
 //	Class Declarations
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-// ¥¥¥¥¥ The current implmentation of IOSCSITargetDevice is not designed to be
+// ¥¥¥¥¥ The current implementation of IOSCSITargetDevice is not designed to be
 // ¥¥¥¥¥ subclassed and any object subclassed from this version will definitely
 // ¥¥¥¥¥ not be compatible in future system releases.
+
+// Forward declaration of path manager base class
+class SCSITargetDevicePathManager;
+class IOSCSITargetDeviceHashTable;
 
 class IOSCSITargetDevice : public IOSCSIPrimaryCommandsDevice
 {
 	
 	OSDeclareDefaultStructors ( IOSCSITargetDevice )
 	
+public:
+	
+	
+	static bool			Create ( IOSCSIProtocolServices * provider );
+	virtual IOReturn 	message ( UInt32 type, IOService * nub, void * arg );
+	
 protected:
+	
+	friend class SCSITargetDevicePathManager;
+	friend class IOSCSITargetDeviceHashTable;
+	
+	// Methods used by IOSCSITargetDeviceHashTable
+	void		SetHashEntry ( void * newEntry );
+	OSObject *	GetNodeUniqueIdentifier ( void );
+	void		SetNodeUniqueIdentifier ( OSObject * uniqueID );
+	void		AddPath ( IOSCSIProtocolServices * provider );
+	
+	// Methods used by SCSITargetDevicePathManager
+	void			TargetTaskCompletion ( SCSITaskIdentifier request );
+	static bool		SetTargetLayerReference ( SCSITaskIdentifier request, void * target );
+	static void *	GetTargetLayerReference ( SCSITaskIdentifier request );
+	
+protected:
+	
+	bool	CreateTargetDeviceOrPath (
+				IOSCSIProtocolServices * 	provider );
+	
+	bool	IsProviderAnotherPathToTarget (
+				IOSCSIProtocolServices * 	provider );
+	
+	bool	DoesLUNObjectExist ( SCSILogicalUnitNumber logicalUnitNumber );
 	
 	bool		InitializeDeviceSupport ( void );
 	void		StartDeviceSupport ( void );
@@ -68,6 +104,7 @@ protected:
 	UInt32		GetNumberOfPowerStateTransitions ( void );
 	bool		ClearNotReadyStatus ( void );
 	
+	void	ScanForLogicalUnits ( void );
 	void 	RetrieveCharacteristicsFromProvider ( void );
 
 	bool	DetermineTargetCharacteristics ( void );
@@ -93,7 +130,12 @@ protected:
 						UInt8									inquiryPage,
 						UInt8									inquirySize );
 	
-	void	PublishDeviceIdentification ( void );
+	bool	PublishDefaultINQUIRYInformation ( void );
+	void	PublishINQUIRYVitalProductDataInformation ( IOService * object, SCSILogicalUnitNumber logicalUnit );
+	void	PublishDeviceIdentification ( IOService * object, SCSILogicalUnitNumber logicalUnit );
+	void	PublishUnitSerialNumber ( IOService * object, SCSILogicalUnitNumber logicalUnit );
+	
+	void	SetLogicalUnitNumber ( SCSITaskIdentifier request, SCSILogicalUnitNumber logicalUnit );
 	
 	// Power management overrides
 	virtual UInt32		GetInitialPowerState ( void );
@@ -101,14 +143,27 @@ protected:
 	virtual void		HandleCheckPowerState ( void );
 	virtual void		TicklePowerManager ( void );
 	
+	virtual void					ExecuteCommand ( SCSITaskIdentifier request );
+	virtual SCSIServiceResponse		AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag );
+	virtual SCSIServiceResponse		AbortTaskSet ( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		ClearACA ( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		ClearTaskSet ( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		LogicalUnitReset ( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		TargetReset ( void );
+	
+	virtual void		detach ( IOService * provider );
+	virtual void		free ( void );
+	
 private:
 	
 	// Reserve space for future expansion.
 	struct IOSCSITargetDeviceExpansionData { };
 	IOSCSITargetDeviceExpansionData * fIOSCSITargetDeviceReserved;
 	
-	OSSet *						fClients;
-	IOBufferMemoryDescriptor *	fInquiryDataBuffer;
+	OSSet *							fClients;
+	OSObject *						fNodeUniqueIdentifier;
+	void *							fTargetHashEntry;
+	SCSITargetDevicePathManager *	fPathManager;
 	
 	// Target Characteristics determined from LUN 0 INQUIRY data.
 	UInt8							fTargetPeripheralDeviceType;

@@ -850,6 +850,7 @@ SCSITask::SetAutoSenseDataBuffer ( SCSI_Sense_Data * 	senseData,
 		
 		IOFree ( fAutoSenseData, fAutoSenseDataSize );
 		fAutoSenseData = NULL;
+		fAutoSenseDataSize = 0;
 		
 	}
 	
@@ -859,15 +860,7 @@ SCSITask::SetAutoSenseDataBuffer ( SCSI_Sense_Data * 	senseData,
 	fAutoSenseDataIsValid	= false;
 	fAutosenseTaskMap		= task;
 	
-	fAutosenseDescriptor = IOMemoryDescriptor::withAddress (
-						( vm_address_t ) fAutoSenseData,
-						fAutoSenseDataSize,
-						kIODirectionIn,
-						fAutosenseTaskMap );
-	
-	check ( fAutosenseDescriptor );
-	
-	return ( fAutosenseDescriptor != NULL ) ? true : false;
+	return true;
 	
 }
 
@@ -883,9 +876,22 @@ SCSITask::SetAutoSenseData ( SCSI_Sense_Data * senseData, UInt8 senseDataSize )
 	UInt8	size = min ( fAutoSenseDataSize, senseDataSize );
 	
 	require_nonzero ( size, Exit );
-	require_nonzero ( fAutosenseDescriptor, Exit );
 	
-	fAutosenseDescriptor->writeBytes ( 0, senseData, size );
+	if ( fAutosenseTaskMap == kernel_task )
+	{
+		
+		bcopy ( senseData, fAutoSenseData, size );
+		
+	}
+	
+	else
+	{
+		
+		require_nonzero ( fAutosenseDescriptor, Exit );
+		fAutosenseDescriptor->writeBytes ( 0, senseData, size );
+		
+	}
+	
 	fAutoSenseDataIsValid = true;
 	SetAutosenseRealizedDataCount ( size );
 	
@@ -912,13 +918,27 @@ SCSITask::GetAutoSenseData ( SCSI_Sense_Data *	receivingBuffer,
 	
 	require ( fAutoSenseDataIsValid, Exit );
 	require_nonzero_action ( receivingBuffer, Exit, result = fAutoSenseDataIsValid );
-	require_nonzero ( fAutosenseDescriptor, Exit );
 	
 	size = min ( fAutoSenseDataSize, senseDataSize );
 	require_nonzero ( size, Exit );
 	
-	// Copy the data, but don't overflow the buffer
-	fAutosenseDescriptor->readBytes ( 0, receivingBuffer, size );
+	if ( fAutosenseTaskMap == kernel_task )
+	{
+		
+		bcopy ( fAutoSenseData, receivingBuffer, size );
+		
+	}
+	
+	else
+	{
+		
+		require_nonzero ( fAutosenseDescriptor, Exit );
+		
+		// Copy the data, but don't overflow the buffer
+		fAutosenseDescriptor->readBytes ( 0, receivingBuffer, size );
+		
+	}
+	
 	result = true;
 	
 	
@@ -939,6 +959,29 @@ SCSITask::GetAutoSenseDataSize ( void )
 {
 	
 	return fAutoSenseDataSize;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ EnsureAutosenseDescriptorExists - Ensures autosense descriptor is allocated.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void	
+SCSITask::EnsureAutosenseDescriptorExists ( void )
+{
+	
+	if ( fAutosenseDescriptor == NULL )
+	{
+		
+		fAutosenseDescriptor = IOMemoryDescriptor::withAddress (
+						( vm_address_t ) fAutoSenseData,
+						fAutoSenseDataSize,
+						kIODirectionIn,
+						fAutosenseTaskMap );
+		
+	}
 	
 }
 
@@ -1001,6 +1044,68 @@ SCSITask::GetApplicationLayerReference ( void )
 
 	check ( fApplicationLayerReference );
 	return fApplicationLayerReference;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTargetLayerReference - Sets the target layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool	
+SCSITask::SetTargetLayerReference ( void * newReferenceValue )
+{
+	
+	check ( newReferenceValue );
+	fTargetLayerReference = newReferenceValue;
+	return true;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTargetLayerReference - Gets the target layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void *
+SCSITask::GetTargetLayerReference ( void )
+{
+	
+	check ( fTargetLayerReference );
+	return fTargetLayerReference;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetPathLayerReference - Sets the path layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool	
+SCSITask::SetPathLayerReference ( void * newReferenceValue )
+{
+	
+	check ( newReferenceValue );
+	fPathLayerReference = newReferenceValue;
+	return true;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetPathLayerReference - Gets the path layer reference value.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void *
+SCSITask::GetPathLayerReference ( void )
+{
+	
+	check ( fPathLayerReference );
+	return fPathLayerReference;
 	
 }
 
@@ -1149,7 +1254,10 @@ SCSITask::GetAutosenseRealizedDataCount ( void )
 IOMemoryDescriptor *
 SCSITask::GetAutosenseDataBuffer ( void )
 {
+	
+	EnsureAutosenseDescriptorExists ( );
 	return fAutosenseDescriptor;
+	
 }
 
 
@@ -1166,6 +1274,8 @@ SCSITask::SetAutosenseCommand (
 					UInt8			cdbByte4,
 					UInt8			cdbByte5 )
 {
+	
+	bool	result = false;
 	
 	fAutosenseCDB[0] = cdbByte0;
 	fAutosenseCDB[1] = cdbByte1;
@@ -1186,8 +1296,9 @@ SCSITask::SetAutosenseCommand (
 	
 	fAutosenseCDBSize = kSCSICDBSize_6Byte;
 	fAutosenseDataRequested = true;
+	result = true;
 	
-	return true;
+	return result;
 	
 }
 
@@ -1270,21 +1381,3 @@ SCSITask::ReplaceFollowingSCSITask ( SCSITask * newFollowingTask )
 	return returnTask;
 	
 }
-
-
-#if 0
-#pragma mark -
-#pragma mark ¥ VTable Padding
-#pragma mark -
-#endif
-
-
-// Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( SCSITask, 1 );
-OSMetaClassDefineReservedUnused ( SCSITask, 2 );
-OSMetaClassDefineReservedUnused ( SCSITask, 3 );
-OSMetaClassDefineReservedUnused ( SCSITask, 4 );
-OSMetaClassDefineReservedUnused ( SCSITask, 5 );
-OSMetaClassDefineReservedUnused ( SCSITask, 6 );
-OSMetaClassDefineReservedUnused ( SCSITask, 7 );
-OSMetaClassDefineReservedUnused ( SCSITask, 8 );

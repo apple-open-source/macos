@@ -157,6 +157,7 @@ public:
     void layout();
 
     bool inLayout() const;
+    int layoutCount() const;
 
 #ifdef INCREMENTAL_REPAINTING
     bool needsFullRepaint() const;

@@ -35,6 +35,8 @@ public:
 	
 	virtual UInt32		transportGetSampleRate ( void );
 
+	virtual IOReturn	performTransportPostWake ( void );
+	
 protected:
 
 private:

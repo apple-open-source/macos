@@ -26,12 +26,17 @@
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
+// Libkern includes
+#include <libkern/c++/OSData.h>
+#include <libkern/c++/OSDictionary.h>
+
 // General IOKit includes
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOMessage.h>
 
 // IOKit storage includes
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/SCSICommandOperationCodes.h>
@@ -83,12 +88,62 @@ OSDefineMetaClassAndStructors ( IOSCSIParallelInterfaceDevice, IOSCSIProtocolSer
 
 #define kIOPropertyIOUnitKey		"IOUnit"
 
+enum
+{
+	kWorldWideNameDataSize 		= 8,
+	kAddressIdentifierDataSize 	= 3,
+	kALPADataSize				= 1
+};
+
 
 #if 0
 #pragma mark -
 #pragma mark ¥ IOKit Member Routines
 #pragma mark -
 #endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetInitialTargetProperties									   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceDevice::SetInitialTargetProperties (
+										OSDictionary * properties )
+{
+	
+	OSDictionary *	protocolDict	= NULL;
+	OSObject *		value			= NULL;
+	bool			result			= false;
+	
+	protocolDict = OSDictionary::withCapacity ( properties->getCount ( ) );
+	require_nonzero ( protocolDict, INIT_FAILURE );
+	
+	setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
+	protocolDict->release ( );
+	
+	// Set the properties from the dictionary
+	value = properties->getObject ( kIOPropertyFibreChannelNodeWorldWideNameKey );
+	SetTargetProperty ( kIOPropertyFibreChannelNodeWorldWideNameKey, value );
+	
+	value = properties->getObject ( kIOPropertyFibreChannelPortWorldWideNameKey );
+	SetTargetProperty ( kIOPropertyFibreChannelPortWorldWideNameKey, value );
+	
+	value = properties->getObject ( kIOPropertyFibreChannelAddressIdentifierKey );
+	SetTargetProperty ( kIOPropertyFibreChannelAddressIdentifierKey, value );
+	
+	value = properties->getObject ( kIOPropertyFibreChannelALPAKey );
+	SetTargetProperty ( kIOPropertyFibreChannelALPAKey, value );
+	
+	result = true;
+	
+	
+INIT_FAILURE:
+	
+	
+	return result;
+	
+}
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -124,23 +179,7 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	// Setup power management for this object.
 	InitializePowerManagement ( provider );
 	
-	// Since the IOSCSIProtocolServices object will handle copying an existing 
-	// Protocol Characteristics dictionary from the provider, check if one exists
-	// for this object.
 	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );	
-	if ( protocolDict == NULL )	
-	{
-		
-		STATUS_LOG ( ( "Creating a new dictionary for this device\n" ) );
-		protocolDict = OSDictionary::withCapacity ( 1 );
-		
-	}
-	
-	else
-	{
-		protocolDict->retain ( );
-	}
-	
 	if ( protocolDict != NULL )
 	{
 		
@@ -160,9 +199,6 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 			
 		}
 			
-		setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
-		protocolDict->release ( );
-		
 	}
 	
 	// Set the location to allow booting 
@@ -318,6 +354,15 @@ IOSCSIParallelInterfaceDevice::message (
 		}
 		break;
 		
+		case kSCSIControllerNotificationPortStatus:
+		{
+			
+			// Port status is changing, let target device object know
+			// about it.
+			messageClients ( kSCSIControllerNotificationPortStatus, argument );
+			
+		}
+		
 		default:
 		{
 			result = super::message ( type, provider, argument );
@@ -354,6 +399,7 @@ IOSCSIParallelInterfaceDevice::requestProbe ( IOOptionBits options )
 	else
 	{
 		return kIOReturnNotPermitted;
+		
 	}
 	
 }
@@ -830,6 +876,108 @@ IOSCSIParallelInterfaceDevice::FindTaskForControllerIdentifier (
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTargetProperty - Sets a target property. 					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool	
+IOSCSIParallelInterfaceDevice::SetTargetProperty ( 
+									const char * 		key,
+									OSObject *			value )
+{
+	
+	bool			result 		 = false;
+	OSDictionary *	protocolDict = NULL;
+	
+	require_nonzero ( key, ErrorExit );
+	require_nonzero ( value, ErrorExit );
+	
+	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	
+	if ( strcmp ( key, kIOPropertyFibreChannelPortWorldWideNameKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		result = protocolDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelNodeWorldWideNameKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		result = protocolDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelAddressIdentifierKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kAddressIdentifierDataSize ), ErrorExit );
+		result = protocolDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelALPAKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kALPADataSize ), ErrorExit );
+		result = protocolDict->setObject ( key, value );
+		
+	}
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ RemoveTargetProperty - Removes a property for this object. 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void	
+IOSCSIParallelInterfaceDevice::RemoveTargetProperty ( const char * key )
+{
+	
+	OSDictionary *	protocolDict = NULL;
+	
+	require_nonzero ( key, ErrorExit );
+	
+	protocolDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	require_nonzero ( protocolDict, ErrorExit );
+	
+	if ( protocolDict->getObject ( key ) != NULL )
+	{
+		
+		protocolDict->removeObject ( key );
+		
+	}
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ SCSI Protocol Services Member Routines
@@ -1109,6 +1257,10 @@ IOSCSIParallelInterfaceDevice::HandleProtocolServiceFeature (
 			
 			DetermineParallelFeatures ( ( UInt8 * ) serviceValue );
 			wasHandled = true;
+			
+			// Put us in the IORegistry so we can be found by utilities like
+			// System Profiler easily.
+			registerService ( );
 			
 		}
 		break;

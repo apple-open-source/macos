@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -176,6 +173,7 @@ bool CudahasRoot( OSObject * us, void *, IOService * yourDevice );
 static IOReturn AppleCudaReadIIC( UInt8 address, UInt8 * buffer, IOByteCount * count );
 static IOReturn AppleCudaWriteIIC( UInt8 address, const UInt8 * buffer, IOByteCount * count );
 
+IOReturn settingControllerCallback(IOPMSystemSettingType arg_type, int arg_val, void *info);
 
 //
 // inline functions
@@ -452,6 +450,10 @@ unsigned char	* cuda_base;
     addNotification( gIOPublishNotification,serviceMatching("IOPMrootDomain"),
                  (IOServiceNotificationHandler)CudahasRoot, this, 0 );
 
+	//Register for PM callbacks of old userClient functions
+	if (kIOReturnSuccess != getPMRootDomain()->registerPMSettingController(settingControllerCallback, this))
+			IOLog("ApplePMU_registerPMSettingController with pmRootDomain - failed\n");
+			
     ourADBinterface->start( this );
 
     kprintf( "%s::start exiting normally\n", getName() );
@@ -1017,6 +1019,55 @@ AppleCudaUserClient * client = NULL;
 }
 
 
+// --------------------------------------------------------------------------
+// Method: settingControllerCallback
+//
+// Purpose:  Allows rootDomain one entry point for setting various kIOPM settings
+//
+IOReturn settingControllerCallback(IOPMSystemSettingType arg_type, int arg_val, void *arg)
+{
+	AppleCuda * me = (AppleCuda *) arg;
+
+    if (me == NULL)
+		{
+		IOLog ("AppleCuda::settingControllerCallback NULL \n");
+        return kIOReturnError;
+		}
+		
+    me->handleSettingCallback (arg_type, arg_val);
+	
+	return kIOReturnSuccess;
+}
+
+// --------------------------------------------------------------------------
+// Method: handleSettingCallback
+//
+// Purpose:  Dispatcher for setting various kIOPM settings
+//
+void AppleCuda::handleSettingCallback(IOPMSystemSettingType arg_type, int arg_val)
+{	
+	switch( arg_type ) 
+		{
+	    case kIOPMAutoWakeSetting:
+			IOLog("AppleCuda_AutoWakeSetting - entered\n");
+            setWakeTime(arg_val);  			
+        break;
+
+    	case kIOPMAutoPowerOnSetting:
+			IOLog("AppleCuda_AutoPowerOnSetting - entered\n");
+			setPowerOnTime(arg_val);			
+        break;
+
+    	case kIOPMAutoRestartOnPowerLossSetting:
+			IOLog("AppleCuda_AutoRestartOnPowerLossSetting - entered\n");
+            setFileServerMode(arg_val);		  		
+        break;
+
+    	default:
+        break;
+		}
+
+}
 
 
 // **********************************************************************************

@@ -1,0 +1,19 @@
+{
+    IBClasses = (
+        {
+            CLASS = AppPreferences; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                descriptionButton = NSButton; 
+                featuresButton = NSButton; 
+                pdtButton = NSButton; 
+                prefPanel = NSPanel; 
+                revisionButton = NSButton; 
+                targetIdentifierButton = NSButton; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+    ); 
+    IBVersion = 1; 
+}

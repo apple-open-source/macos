@@ -15,6 +15,10 @@ OSDefineMetaClassAndStructors ( AppleTopazPluginCS8420, super )
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 bool	AppleTopazPluginCS8420::init ( OSDictionary *properties ) {
+	mChanStatusStruct.sampleRate	= 44100;						//  [3669626]   
+	mChanStatusStruct.sampleDepth   = 16;							//  [3669626]   
+	mChanStatusStruct.nonAudio		= kConsumerMode_audio;			//  [3669626]   
+	mChanStatusStruct.consumerMode  = kConsumer;					//  [3669626]   
 	return super::init (properties);
 }
 
@@ -145,6 +149,8 @@ IOReturn	AppleTopazPluginCS8420::performDeviceWake ( void ) {
 	result = CODEC_WriteRegister ( map_CS8420_CLOCK_SOURCE_CTRL, mShadowRegs[map_CS8420_CLOCK_SOURCE_CTRL] );
 	FailIf ( kIOReturnSuccess != result, Exit );
 
+	setChannelStatus ( &mChanStatusStruct );		//  [3669626]   Flush channel status buffer
+
 Exit:
 	debugIOLog (3,  "- AppleTopazPluginCS8420::performDeviceWake()" );
 	return result;
@@ -157,44 +163,58 @@ IOReturn	AppleTopazPluginCS8420::setChannelStatus ( ChanStatusStructPtr channelS
 
 	FailIf ( NULL == channelStatus, Exit );
 	
+	if ( 0 != channelStatus->sampleRate ) {
+		mChanStatusStruct.sampleRate	= channelStatus->sampleRate;		//  [3669626]   
+	}
+	if ( 0 != channelStatus->sampleDepth ) {
+		mChanStatusStruct.sampleDepth   = channelStatus->sampleDepth;		//  [3669626]   
+	}
+	mChanStatusStruct.nonAudio		= channelStatus->nonAudio;				//  [3669626]   
+	mChanStatusStruct.consumerMode  = channelStatus->consumerMode;			//  [3669626]   
+	
 	//	Assumes consumer mode
 	data = ( ( kCopyPermited << ( 7 - kBACopyright ) ) | ( kConsumer << ( 7 -  kBAProConsumer ) ) );
-	if ( channelStatus->nonAudio ) {
-		data |= ( kConsumerMode_nonAudio << ( 7 - kBANonAudio ) );		//	consumer mode encoded
+	if ( mChanStatusStruct.nonAudio ) {
+		data |= ( kConsumerMode_nonAudio << ( 7 - kBANonAudio ) );								//	consumer mode encoded
 	} else {
-		data |= ( kConsumerMode_audio << ( 7 - kBANonAudio ) );			//	consumer mode linear PCM
+		data |= ( kConsumerMode_audio << ( 7 - kBANonAudio ) );									//	consumer mode linear PCM
 	}
-	result = CODEC_WriteRegister ( map_CS8420_BUFFER_0, data );
+	result = CODEC_WriteRegister ( map_CS8420_BUFFER_0, data );									//  [0É7]   consumer/format/copyright/pre-emphasis/
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
-	if ( channelStatus->nonAudio ) {
-		result = CODEC_WriteRegister ( map_CS8420_BUFFER_1, 0 );		//	category code is not valid
+	if ( mChanStatusStruct.nonAudio ) {
+		result = CODEC_WriteRegister ( map_CS8420_BUFFER_1, kIEC60958_CategoryCode_DVD );		//	[8É15]  category code is not valid
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		result = CODEC_WriteRegister ( map_CS8420_BUFFER_2, 0 );		//	source & channel are not valid
+		result = CODEC_WriteRegister ( map_CS8420_BUFFER_2, 0 );								//	[16É23] source & channel are not valid
 		FailIf ( kIOReturnSuccess != result, Exit );
 			
-		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, 0 );		//	not valid
+		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_NotIndicated );	//	[24É31] sample frequency not indicated
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		result = CODEC_WriteRegister ( map_CS8420_BUFFER_4, 0 );		//	not valid
+		result = CODEC_WriteRegister ( map_CS8420_BUFFER_4, cWordLength_20Max_16bits );			//	[32É39] word length & original sample frequency
 		FailIf ( kIOReturnSuccess != result, Exit );
 	} else {
-		result = CODEC_WriteRegister ( map_CS8420_BUFFER_1, 0x01 );		//	category code is CD
+		result = CODEC_WriteRegister ( map_CS8420_BUFFER_1, kIEC60958_CategoryCode_CD );		//	[8É15]  category code is CD
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		result = CODEC_WriteRegister ( map_CS8420_BUFFER_2, 0 );		//	source & channel are not specified
+		result = CODEC_WriteRegister ( map_CS8420_BUFFER_2, 0 );								//	[16É23] source & channel are not specified
 		FailIf ( kIOReturnSuccess != result, Exit );
 			
-		switch ( channelStatus->sampleRate ) {
+		switch ( mChanStatusStruct.sampleRate ) {												//	[24É31] sample frequency
+			case 24000:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_24Khz );			break;
 			case 32000:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_32Khz );			break;
 			case 44100:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_44Khz );			break;
 			case 48000:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_48Khz );			break;
+			case 88200:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_88Khz );			break;
+			case 96000:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_96Khz );			break;
+			case 176400:	result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_176Khz );			break;
+			case 192000:	result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_192Khz );			break;
 			default:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_3, cSampleFrequency_44Khz );			break;
 		}
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		switch ( channelStatus->sampleDepth ) {
+		switch ( mChanStatusStruct.sampleDepth ) {												//	[32É39] word length & original sample frequency
 			case 16:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_4, cWordLength_20Max_16bits );			break;
 			case 24:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_4, cWordLength_24Max_24bits );			break;
 			default:		result = CODEC_WriteRegister ( map_CS8420_BUFFER_4, cWordLength_20Max_16bits );			break;
@@ -211,7 +231,7 @@ IOReturn	AppleTopazPluginCS8420::breakClockSelect ( UInt32 clockSource ) {
 	UInt8				data;
 	IOReturn			result;
 
-	debugIOLog (7,  "+ AppleTopazPluginCS8420::breakClockSelect ( %d )", (unsigned int)clockSource );
+	debugIOLog (5,  "+ AppleTopazPluginCS8420::breakClockSelect ( %d )", (unsigned int)clockSource );
 	
 	//	Disable error interrupts during completing clock source selection
 	result = CODEC_WriteRegister ( map_CS8420_RX_ERROR_MASK, kCS8420_RX_ERROR_MASK_DISABLE_RERR );
@@ -294,7 +314,7 @@ IOReturn	AppleTopazPluginCS8420::breakClockSelect ( UInt32 clockSource ) {
 			break;
 	}
 Exit:
-	debugIOLog (7,  "- AppleTopazPluginCS8420::breakClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
+	debugIOLog (5,  "- AppleTopazPluginCS8420::breakClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
 
 	return result;
 }
@@ -304,7 +324,7 @@ IOReturn	AppleTopazPluginCS8420::makeClockSelectPreLock ( UInt32 clockSource ) {
 	IOReturn			result;
 	UInt8				data;
 	
-	debugIOLog (7,  "+ AppleTopazPluginCS8420::makeClockSelect ( %d )", (unsigned int)clockSource );
+	debugIOLog (5,  "+ AppleTopazPluginCS8420::makeClockSelect ( %d )", (unsigned int)clockSource );
 
 	//	Clear any pending error interrupt status and re-enable error interrupts after completing clock source selection
 	result = CODEC_ReadRegister ( map_CS8420_RX_ERROR, &data, 1 );
@@ -347,16 +367,10 @@ IOReturn	AppleTopazPluginCS8420::makeClockSelectPreLock ( UInt32 clockSource ) {
 	data |= ( bvCS8420_runNORMAL << baCS8420_RUN );
 	result = CODEC_WriteRegister ( map_CS8420_CLOCK_SOURCE_CTRL, data );
 
-	if ( kTRANSPORT_SLAVE_CLOCK == clockSource ) {
-		//	It is necessary to restart the I2S cell here after the clocks have been
-		//	established using the CS8420 as the clock source.  Ask AOA to restart
-		//	the I2S cell.
-		FailIf ( NULL == mAudioDeviceProvider, Exit );
-		mAudioDeviceProvider->interruptEventHandler ( kRestartTransport, (UInt32)0 );
+	setChannelStatus ( &mChanStatusStruct );		//  [3669626]   Flush channel status buffer
 
-	}
 Exit:
-	debugIOLog (7,  "- AppleTopazPluginCS8420::makeClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
+	debugIOLog (5,  "- AppleTopazPluginCS8420::makeClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
 
 	return result;
 }
@@ -366,7 +380,7 @@ IOReturn	AppleTopazPluginCS8420::makeClockSelectPostLock ( UInt32 clockSource ) 
 	IOReturn			result;
 	UInt8				data;
 	
-	debugIOLog (7,  "+ AppleTopazPluginCS8420::makeClockSelect ( %d )", (unsigned int)clockSource );
+	debugIOLog (5,  "+ AppleTopazPluginCS8420::makeClockSelectPostLock ( %d )", (unsigned int)clockSource );
 
 	//	Unmute the coded output
 	data = mShadowRegs[map_CS8420_MISC_CNTRL_1];
@@ -375,8 +389,13 @@ IOReturn	AppleTopazPluginCS8420::makeClockSelectPostLock ( UInt32 clockSource ) 
 	result = CODEC_WriteRegister ( map_CS8420_MISC_CNTRL_1, data );
 	FailIf ( result != kIOReturnSuccess, Exit );
 	
+	if ( kTRANSPORT_SLAVE_CLOCK == clockSource ) {
+		mLockStatus = TRUE;
+		mUnlockErrorCount = 0;
+	}
+	
 Exit:
-	debugIOLog (7,  "- AppleTopazPluginCS8420::makeClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
+	debugIOLog (5,  "- AppleTopazPluginCS8420::makeClockSelectPostLock ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
 
 	return result;
 }
@@ -384,6 +403,10 @@ Exit:
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTopazPluginCS8420::setRunMode ( UInt8 mode ) {
 	CODEC_WriteRegister ( map_CS8420_CLOCK_SOURCE_CTRL, mode );
+	
+	if ( ( mode & ( 1 << baCS8420_RUN ) ) == ( 1 << baCS8420_RUN ) ) {		//  [3669626]
+		setChannelStatus ( &mChanStatusStruct );							//  [3669626]   Flush channel status buffer
+	}
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -412,30 +435,6 @@ IOReturn	AppleTopazPluginCS8420::getCodecErrorStatus ( UInt32 * dataPtr ) {
 	*dataPtr = (UInt32)regData;
 Exit:
 	return err;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8420::phaseLocked ( void ) {
-	return ( bvCS8420_pllLocked << baCS8420_UNLOCK ) == ( mShadowRegs[map_CS8420_RX_ERROR] & ( bvCS8420_pllUnlocked << baCS8420_UNLOCK ) ) ? true : false ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8420::confidenceError ( void ) {
-	return ( bvCS8420_confError << baCS8420_CONF ) == ( mShadowRegs[map_CS8420_RX_ERROR] & ( bvCS8420_confError << baCS8420_CONF ) ) ? true : false ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8420::biphaseError ( void ) {
-	return ( bvCS8420_bipError << baCS8420_BIP ) == ( mShadowRegs[map_CS8420_RX_ERROR] & ( bvCS8420_bipError << baCS8420_BIP ) ) ? true : false ;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -474,6 +473,51 @@ void	AppleTopazPluginCS8420::useInternalCLK ( void ) {
 	mShadowRegs[map_CS8420_CLOCK_SOURCE_CTRL] &= ~( kCS84XX_TWO_BIT_MASK << baCS8420_RXD );
 	mShadowRegs[map_CS8420_CLOCK_SOURCE_CTRL] |= ( bvCS8420_rxd256fsiILRCLK << baCS8420_RXD );
 	CODEC_WriteRegister( map_CS8420_CLOCK_SOURCE_CTRL, mShadowRegs[map_CS8420_CLOCK_SOURCE_CTRL] );
+	return;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	Poll the status registers to keep the register cache somewhat coherent
+//	for the user client to access status data properly.  Polling avoids 
+//  accessing any interrupt register that is processed in the 'notifyHardwareEvent'
+//  method to avoid potential corruption of the interrupt status.
+void AppleTopazPluginCS8420::poll ( void ) {
+	for ( UInt32 registerAddress = map_CS8420_MISC_CNTRL_1; registerAddress <= map_CS8420_BUFFER_23; registerAddress++ ) {
+		if ( ( 0x31 != registerAddress ) && ( map_CS8420_RX_ERROR != registerAddress ) ) {
+			CODEC_ReadRegister ( registerAddress, &mShadowRegs[registerAddress], 1 );
+			if ( map_CS8420_SERIAL_OUTPUT_FMT >= registerAddress ) {	//  [3686032]   initialize so log will show register dump a while longer
+				debugIOLog ( 5, "  AppleTopazPluginCS8420::poll register 0x%2.2X : 0x%2.2X", registerAddress, mShadowRegs[registerAddress] );
+			}
+		}
+	}
+	CODEC_ReadRegister ( map_ID_VERSION, &mShadowRegs[map_ID_VERSION], 1 );
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//  This method is invoked from the 'codecErrorInterruptHandler' residing in the
+//  platform interface object.  The 'codecErrorInterruptHandler' may be invoked
+//  through GPIO hardware interrupt dispatch services or throught timer polled
+//  services.
+void AppleTopazPluginCS8420::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
+	if ( kCodecErrorInterruptStatus == statusSelector ) {
+		CODEC_ReadRegister ( map_CS8420_RX_ERROR, &mShadowRegs[map_CS8420_RX_ERROR], 1 );
+		if ( ( bvCS8420_pllLocked << baCS8420_UNLOCK ) == ( ( bvCS8420_pllUnlocked << baCS8420_UNLOCK ) & mShadowRegs[map_CS8420_RX_ERROR] ) ) {
+			mUnlockErrorCount = 0;
+			mLockStatus = TRUE;
+		} else {
+			mUnlockErrorCount++;
+			if ( kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT < mUnlockErrorCount ) {
+				mUnlockErrorCount = 0;
+				mLockStatus = FALSE;
+			}
+		}
+		if ( mLockStatus ) {
+			mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)0 );
+		} else {
+			mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
+		}
+	} else if ( kCodecInterruptStatus == statusSelector ) {
+	}
 	return;
 }
 

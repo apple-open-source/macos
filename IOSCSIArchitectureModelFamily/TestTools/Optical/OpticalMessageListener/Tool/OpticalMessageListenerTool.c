@@ -49,7 +49,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define DEBUG 0
+
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING "OpticalMessageListenerTool"
+
+#if DEBUG
 #define DEBUG_ASSERT_MESSAGE(componentNameString,	\
 							 assertionString,		\
 							 exceptionLabelString,	\
@@ -92,6 +95,8 @@ DebugAssert ( const char *	componentNameString,
 	
 }
 
+#endif	/* DEBUG */
+
 #include <AssertMacros.h>
 
 
@@ -100,6 +105,7 @@ DebugAssert ( const char *	componentNameString,
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define kIOCDBlockStorageDeviceString		"IOCDBlockStorageDevice"
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Prototypes

@@ -37,6 +37,8 @@ bool	AppleTopazPluginCS8416::preDMAEngineInit ( void ) {
 	bool			result = false;
 	IOReturn		err;
 	
+	mUnlockFilterCounter = kUnlockFilterCounterSeed;				//  [3678605]
+
 	debugIOLog ( 6, "+ AppleToapzPluginCS8416::preDMAEngineInit ()" );
 	err = CODEC_WriteRegister ( mapControl_0, kControl_0_INIT );
 	FailIf ( kIOReturnSuccess != err, Exit );
@@ -56,7 +58,7 @@ bool	AppleTopazPluginCS8416::preDMAEngineInit ( void ) {
 	err = CODEC_WriteRegister ( mapSerialAudioDataFormat, kSerialAudioDataFormat_INIT );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
-	err = CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_DISABLE );
+	err = CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_ENABLE );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
 	err = CODEC_WriteRegister ( mapInterruptMask, kInterruptMask_INIT );
@@ -111,6 +113,26 @@ IOReturn	AppleTopazPluginCS8416::performDeviceSleep ( void ) {
 	
 	debugIOLog (3, "+ AppleTopazPluginCS8416::performDeviceSleep()");
 
+	mTopazCS8416isSLEEP = TRUE;																	//  [3678605]
+	mDelayPollAfterWakeCounter = kPollsToDelayReportingAfterWake;								//  [3678605]
+	
+	//  [3678605]   begin {
+	//  Preserve the state of the RATIO register when sleeping so that
+	//  a change in ratio upon wake can be interpretted as a loss of
+	//  LOCK.
+	result = CODEC_ReadRegister ( mapControl_4, &mShadowRegs[mapControl_4], 1 );
+	FailIf ( kIOReturnSuccess != result, Exit );
+	debugIOLog ( 4, "  mShadowRegs[mapControl_4] = 0x%0.2X", mShadowRegs[mapControl_4] );
+	FailIf ( ( ( ( 1 << baRun ) & mShadowRegs[mapControl_4] ) != ( 1 << baRun ) ), Exit );
+
+	result = CODEC_ReadRegister ( mapOMCK_RMCK_Ratio, &mShadowRegs[mapOMCK_RMCK_Ratio], 1 );
+	FailIf ( kIOReturnSuccess != result, Exit );
+	
+	mRatioEnteringSleep = mShadowRegs[mapOMCK_RMCK_Ratio];
+	debugIOLog ( 4, "  mRatioEnteringSleep 0x%0.2X", mRatioEnteringSleep );
+	//  }   end		[3678605]
+
+	
 	mShadowRegs[mapControl_4] &= ~( 1 << baRun );
 	mShadowRegs[mapControl_4] |= ( bvStopped << baRun );
 	result = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );
@@ -127,10 +149,20 @@ IOReturn	AppleTopazPluginCS8416::performDeviceWake ( void ) {
 	
 	debugIOLog (3,  "+ AppleTopazPluginCS8416::performDeviceWake()" );
 
+	mDelayPollAfterWakeCounter = kPollsToDelayReportingAfterWake;								//  [3678605]
+
 	mShadowRegs[mapControl_4] &= ~( 1 << baRun );
-	mShadowRegs[mapControl_4] |= ( bvRunning << baRun );
-	result = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_2] );
+	result = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );					//  [3678605]
 	FailIf ( kIOReturnSuccess != result, Exit );
+
+	mShadowRegs[mapControl_4] |= ( bvRunning << baRun );
+	result = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );
+	FailIf ( kIOReturnSuccess != result, Exit );
+
+	result = flushControlRegisters ();															//  [3674345]   [3678605]
+	FailIf ( kIOReturnSuccess != result, Exit );
+
+	mTopazCS8416isSLEEP = FALSE;																//  [3678605]
 Exit:
 	debugIOLog (3, "- AppleTopazPluginCS8416::performDeviceWake()" );
 
@@ -142,10 +174,7 @@ IOReturn	AppleTopazPluginCS8416::breakClockSelect ( UInt32 clockSource ) {
 	IOReturn		result = kIOReturnError;
 	UInt8			regData;
 
-	//	Disable error interrupts
-	result = CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_DISABLE );
-	FailIf ( kIOReturnSuccess != result, Exit );
-	
+	debugIOLog ( 5, "+ AppleTopazPluginCS8416::breakClockSelect ( 0x%0.8X )", clockSource );
 	//	Mute
 	result = setMute ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
@@ -180,6 +209,7 @@ IOReturn	AppleTopazPluginCS8416::breakClockSelect ( UInt32 clockSource ) {
 			break;
 	}
 Exit:
+	debugIOLog ( 5, "- AppleTopazPluginCS8416::breakClockSelect ( 0x%0.8X ) returns 0x%0.8X", clockSource, result );
 	return result;
 }
 
@@ -188,6 +218,7 @@ IOReturn	AppleTopazPluginCS8416::makeClockSelectPreLock ( UInt32 clockSource ) {
 	IOReturn		result = kIOReturnError;
 	UInt8			regData;
 	
+	debugIOLog ( 5, "+ AppleTopazPluginCS8416::makeClockSelectPreLock ( 0x%0.8X )", clockSource );
 	//	Clear any pending error interrupt and re-enable error interrupts after completing clock source selection
 	FailIf ( kIOReturnSuccess != CODEC_ReadRegister ( mapReceiverError, &regData, 1 ), Exit );
 	
@@ -200,10 +231,17 @@ IOReturn	AppleTopazPluginCS8416::makeClockSelectPreLock ( UInt32 clockSource ) {
 	//	Restart the CODEC
 	FailIf ( kIOReturnSuccess != CODEC_ReadRegister ( mapControl_4, &regData, 1 ), Exit );
 	regData = regData & ~( 1 << baRun );
+
+	result = CODEC_WriteRegister ( mapControl_4, regData );										//  [3674345]
+	FailIf ( kIOReturnSuccess != result, Exit );
+
 	regData = regData | ( bvRunning << baRun );
 	result = CODEC_WriteRegister ( mapControl_4, regData );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
+	result = flushControlRegisters ();															//  [3674345]
+	FailIf ( kIOReturnSuccess != result, Exit );
+
 	if ( kTRANSPORT_SLAVE_CLOCK == clockSource ) {
 		//	It is necessary to restart the I2S cell here after the clocks have been
 		//	established using the CS8420 as the clock source.  Ask AOA to restart
@@ -211,7 +249,9 @@ IOReturn	AppleTopazPluginCS8416::makeClockSelectPreLock ( UInt32 clockSource ) {
 		FailIf ( NULL == mAudioDeviceProvider, Exit );
 		mAudioDeviceProvider->interruptEventHandler ( kRestartTransport, (UInt32)0 );
 	}
+
 Exit:
+	debugIOLog ( 5, "- AppleTopazPluginCS8416::makeClockSelectPreLock ( 0x%0.8X ) returns 0x%0.8X", clockSource, result );
 	return result;
 }
 
@@ -252,7 +292,7 @@ UInt8 AppleTopazPluginCS8416::setStopMode ( void ) {
 	mShadowRegs[mapControl_4] &= ~( 1 << baRun );
 	mShadowRegs[mapControl_4] |= ( bvStopped << baRun );
 	err = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );
-	FailIf ( kIOReturnSuccess != result, Exit );
+	FailIf ( kIOReturnSuccess != err, Exit );
 Exit:
 	debugIOLog (3, "- AppleTopazPluginCS8416::setStopMode() returns %X", result);
 	return result;
@@ -277,32 +317,12 @@ Exit:
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8416::phaseLocked ( void ) {
-	return ( mShadowRegs[mapReceiverError] & ( 1 << baUNLOCK )) ? FALSE : TRUE ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8416::confidenceError ( void ) {
-	return ( mShadowRegs[mapReceiverError] & ( 1 << baCONF )) ? TRUE : FALSE ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8416::biphaseError ( void ) {
-	return ( mShadowRegs[mapReceiverError] & ( 1 << baBIP )) ? TRUE : FALSE ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//  Never disable the receiver errors on the CS8416.  The CS8416 is an input
+//  only device with no hardware sample rate conversion so the I2S module 
+//  always operates in slave mode.  Receiver errors are used to broadcast
+//  status to other AppleOnboardAudio instances and are not used in the context
+//  of the AppleOnboardAudio instance owning this plugin module.
 void	AppleTopazPluginCS8416::disableReceiverError ( void ) {
-	(void)CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_DISABLE );
 	return;
 }
 
@@ -315,6 +335,13 @@ IOReturn	AppleTopazPluginCS8416::flushControlRegisters ( void ) {
 			result = CODEC_WriteRegister ( regAddr, mShadowRegs[regAddr] );
 			FailIf ( kIOReturnSuccess != result, Exit );
 		}
+	}
+	if ( kReceiverErrorMask_ENABLE == ( mShadowRegs[mapReceiverErrorMask] & kReceiverErrorMask_ENABLE ) ) {
+		result = CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_DISABLE );			//  [3678605]
+		FailIf ( kIOReturnSuccess != result, Exit );
+
+		result = CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_ENABLE );			//  [3674345]
+		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 Exit:
 	return result; 
@@ -334,10 +361,13 @@ Exit:
 //			
 void	AppleTopazPluginCS8416::useExternalCLK ( void ) {
 	IOReturn		err;
+	UInt8			data = kSerialAudioDataFormat_INIT | ( bvSerialOutputMasterMode << baSOMS );
 	
-	err = CODEC_WriteRegister ( mapSerialAudioDataFormat, kSerialAudioDataFormat_INIT );
+	debugIOLog ( 5, "+ AppleTopazPluginCS8416::useExternalCLK () about to write 0x%X to mapSerialAudioDataFormat", data );
+	err = CODEC_WriteRegister ( mapSerialAudioDataFormat, data );
 	FailIf ( kIOReturnSuccess != err, Exit );
 Exit:
+	debugIOLog ( 5, "- AppleTopazPluginCS8416::useExternalCLK ()" );
 	return;
 }
 
@@ -355,21 +385,141 @@ Exit:
 //			
 void	AppleTopazPluginCS8416::useInternalCLK ( void ) {
 	IOReturn		err;
+	UInt8			data = kSerialAudioDataFormat_INIT | ( bvSerialOutputSlaveMode << baSOMS );
 	
-	err = CODEC_WriteRegister ( mapSerialAudioDataFormat, kSerialAudioDataFormat_INIT | ( bvSerialOutputMasterMode << baSOMS ) );
+	debugIOLog ( 5, "+ AppleTopazPluginCS8416::useInternalCLK () about to write 0x%X to mapSerialAudioDataFormat", data );
+	err = CODEC_WriteRegister ( mapSerialAudioDataFormat, data );
 	FailIf ( kIOReturnSuccess != err, Exit );
 Exit:
+	debugIOLog ( 5, "- AppleTopazPluginCS8416::useInternalCLK ()" );
 	return;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	Poll the status registers to keep the register cache somewhat coherent
-//	for the user client to access status data properly.
+//	for the user client to access status data properly.  Polling avoids 
+//  accessing any interrupt register that is processed in the 'notifyHardwareEvent'
+//  method to avoid potential corruption of the interrupt status.
 void AppleTopazPluginCS8416::poll ( void ) {
-	for ( UInt8 registerAddress = mapReceiverChannelStatus; registerAddress <= mapBurstPreamblePD_1; registerAddress++ ) {
-		CODEC_ReadRegister ( registerAddress, &mShadowRegs[registerAddress], 1 );
+	for ( UInt8 registerAddress = mapControl_0; registerAddress <= mapBurstPreamblePD_1; registerAddress++ ) {
+		if ( ( kIOReturnSuccess == CODEC_IsControlRegister ( registerAddress ) ) || ( kIOReturnSuccess == CODEC_IsStatusRegister ( registerAddress ) ) ) {
+			if ( mapReceiverError != registerAddress ) {
+				CODEC_ReadRegister ( registerAddress, &mShadowRegs[registerAddress], 1 );
+			}
+		}
 	}
 	CODEC_ReadRegister ( map_ID_VERSION, &mShadowRegs[map_ID_VERSION], 1 );
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//  This method is invoked from the 'codecErrorInterruptHandler' residing in the
+//  platform interface object.  The 'codecErrorInterruptHandler' may be invoked
+//  through GPIO hardware interrupt dispatch services or throught timer polled
+//  services.  Section 7.1.1 of the CS8416 DS578PP4 Data Sheet indicates that the
+//  codec interrupt status bits are "sticky" and require two transactions to
+//  validate the current interrupt status and clear the interrupt.
+void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
+	IOReturn		error = kIOReturnError;
+	bool			unlockStatusDetected = FALSE;														//  [3678605]
+	bool			done = FALSE;																		//  [3678605]
+
+	switch ( statusSelector ) {
+		case kCodecErrorInterruptStatus:	debugIOLog ( 4, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecErrorInterruptStatus, %d ), mDelayPollAfterWakeCounter %ld", statusSelector, newValue, mDelayPollAfterWakeCounter );	break;
+		case kCodecInterruptStatus:			debugIOLog ( 5, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecInterruptStatus, %d )", statusSelector, newValue );			break;
+		default:							debugIOLog ( 5, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d, %d )", statusSelector, newValue );									break;
+	}
+	
+	if ( !mTopazCS8416isSLEEP ) {																				//  [3678605]
+		switch ( statusSelector ) {
+			case kCodecErrorInterruptStatus:
+				//  Interaction exists between sleep / wake cycles and the ability to obtain a valid UNLOCK
+				//  status from the CODEC receiver error register.  During wake the CODEC is restarted and
+				//  then the RATIO register is checked to see if the sample rate as determined by the AES3
+				//  receiver has changed.  Any change in AES3 recovered sample rate is assumed to be due to
+				//  a loss of external clock and a 'kClockUnLockStatus' message will be posted.  If the RATIO
+				//  remains constant through a sleep / wake cycle then normal handling of the UNLOCK status
+				//  obtained from the receiver error register will resume.
+				if ( 0 != mDelayPollAfterWakeCounter ) {														//  [3678605]
+					mDelayPollAfterWakeCounter--;
+				}
+				if ( 0 == mDelayPollAfterWakeCounter ) {														//  [3678605]
+					//  All hardware is assumed to be running correctly when the 'mDelayPollAfterWakeCounter'
+					//  reaches zero so normal handling of LOCK resumes...
+					do {																						//  [3678605]
+						error = CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 );
+						FailIf ( kIOReturnSuccess != error, Exit );
+						
+						debugIOLog ( 4, "  CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 ) returns data 0x%0.2X", mShadowRegs[mapReceiverError] );
+						
+						if ( ( 1 << baUNLOCK ) == ( ( 1 << baUNLOCK ) & mShadowRegs[mapReceiverError] ) ) {
+							unlockStatusDetected = TRUE;
+						} else if ( 0 == mShadowRegs[mapReceiverError] ) {
+							done = TRUE;
+						}
+					} while ( !done );																			//  [3678605]
+					if ( unlockStatusDetected ) {
+						if ( 0 != mUnlockFilterCounter ) {														//  [3678605]
+							mUnlockFilterCounter--;
+						}
+						if ( 0 == mUnlockFilterCounter ) {														//  [3678605]
+							debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockUnLockStatus, mShadowRegs[mapReceiverError] = 0x%0.2X", mShadowRegs[mapReceiverError] );
+							mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
+						}
+					} else {
+						mUnlockFilterCounter = kUnlockFilterCounterSeed;										//  [3678605]
+						debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockLockStatus, mShadowRegs[mapReceiverError] = 0x%0.2X, mUnlockFilterCounter = %ld", mShadowRegs[mapReceiverError], mUnlockFilterCounter );
+						mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)0 );
+					}
+#if 0   //  {   If the CS8416 is set to RUN only after the MCLK is present (i.e. from 'i2s-a') then toggling RUN is not expected to be required
+				} else if ( ( kPollsToCheckRatioAfterWake == mDelayPollAfterWakeCounter ) && 1 ) {
+					//  If the ratio has changed since sleep then the clock source is assumed to
+					//  have been removed and an kClockUnLockStatus message is posted to any
+					//  AppleOnboardAudio instance that uses this AppleOnboardAudio instance's
+					//  hardware as a clock source.
+					error = CODEC_ReadRegister ( mapOMCK_RMCK_Ratio, NULL, 1 );									//  [3678605]
+					FailIf ( kIOReturnSuccess != error, Exit );
+					
+					debugIOLog ( 4, "  mRatioEnteringSleep 0x%0.2X, mShadowRegs[mapOMCK_RMCK_Ratio] 0x%0.2X", mRatioEnteringSleep, mShadowRegs[mapOMCK_RMCK_Ratio] );
+					if ( ( mShadowRegs[mapOMCK_RMCK_Ratio] != mRatioEnteringSleep ) && ( 0 != mRatioEnteringSleep ) ) {
+						debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockUnLockStatus from ratio change from 0x%0.2X to 0x%0.2X", mRatioEnteringSleep, mShadowRegs[mapOMCK_RMCK_Ratio] );
+						mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
+					}
+				} else if ( kPollsToRestoreRunAfterWake == mDelayPollAfterWakeCounter ) {
+					//  Toggle RUN and flush the registers to get things going
+					mShadowRegs[mapControl_4] &= ~( 1 << baRun );
+					error = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );					//  [3678605]
+					FailIf ( kIOReturnSuccess != error, Exit );
+
+					mShadowRegs[mapControl_4] |= ( bvRunning << baRun );
+					error = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );
+					FailIf ( kIOReturnSuccess != error, Exit );
+
+					error = flushControlRegisters ();															//  [3678605]
+					FailIf ( kIOReturnSuccess != error, Exit );
+#endif  //		}
+				}
+				break;
+			case kCodecInterruptStatus:
+				break;
+		}
+	} else {
+		mUnlockFilterCounter = kUnlockFilterCounterSeed;												//  [3678605]
+	}
+	
+Exit:
+	switch ( statusSelector ) {
+		case kCodecErrorInterruptStatus:	debugIOLog ( 4, "- AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecErrorInterruptStatus, %d )", statusSelector, newValue );	break;
+		case kCodecInterruptStatus:			debugIOLog ( 5, "- AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecInterruptStatus, %d )", statusSelector, newValue );			break;
+		default:							debugIOLog ( 5, "- AppleTopazPluginCS8416::notifyHardwareEvent ( %d, %d )", statusSelector, newValue );									break;
+	}
+	return;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+UInt32	AppleTopazPluginCS8416::getClockLock ( void ) {
+	UInt32  result = ( ( mShadowRegs[mapReceiverError] & ( 1 << baUNLOCK ) ) == ( 1 << baUNLOCK ) ) ? FALSE : TRUE ;
+	debugIOLog ( 5, "  ##### AppleTopazPluginCS8416::getClockLock() returns %d", result );
+	return result;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -379,30 +529,12 @@ IOReturn	AppleTopazPluginCS8416::CODEC_GetRegSize ( UInt8 regAddr, UInt32 * code
 	if ( NULL != codecRegSizePtr ) {
 		if ( kIOReturnSuccess == CODEC_IsStatusRegister ( regAddr ) || kIOReturnSuccess == CODEC_IsControlRegister ( regAddr ) ) {
 			switch ( regAddr ) {
-				case mapQChannelSubcode: {
-						*codecRegSizePtr = ( mapQChannelSubcode_72_79 - mapQChannelSubcode_0_7 ) + 1;
-					}
-					break;
-				case mapChannelAStatus: {
-						*codecRegSizePtr = ( mapChannelAStatus_4 - mapChannelAStatus_0 ) + 1;
-					}
-					break;
-				case mapChannelBStatus: {
-						*codecRegSizePtr = ( mapChannelBStatus_4 - mapChannelBStatus_0 ) + 1;
-					}
-					break;
-				case mapBurstPreamblePC: {
-						*codecRegSizePtr = ( mapBurstPreamblePC_1 - mapBurstPreamblePC_0 ) + 1;
-					}
-					break;
-				case mapBurstPreamblePD: {
-						*codecRegSizePtr = ( mapBurstPreamblePD_1 - mapBurstPreamblePD_0 ) + 1;
-					}
-					break;
-				default: {
-						*codecRegSizePtr = 1;
-					}
-					break;
+				case mapQChannelSubcode:	*codecRegSizePtr = ( mapQChannelSubcode_72_79 - mapQChannelSubcode_0_7 ) + 1;   break;
+				case mapChannelAStatus:		*codecRegSizePtr = ( mapChannelAStatus_4 - mapChannelAStatus_0 ) + 1;			break;
+				case mapChannelBStatus:		*codecRegSizePtr = ( mapChannelBStatus_4 - mapChannelBStatus_0 ) + 1;			break;
+				case mapBurstPreamblePC:	*codecRegSizePtr = ( mapBurstPreamblePC_1 - mapBurstPreamblePC_0 ) + 1;			break;
+				case mapBurstPreamblePD:	*codecRegSizePtr = ( mapBurstPreamblePD_1 - mapBurstPreamblePD_0 ) + 1;			break;
+				default:					*codecRegSizePtr = 1;															break;
 			}
 			result = kIOReturnSuccess;
 		}
@@ -465,4 +597,15 @@ IOReturn	AppleTopazPluginCS8416::setPluginState ( HardwarePluginDescriptorPtr in
 Exit:
 	return result;
 }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+UInt32	AppleTopazPluginCS8416::getClockLockTerminalCount () {
+	UInt32			result = kClockLockFilterCountSeed;
+	
+	if ( mCodecHasLocked ) {
+		result = kClockUnlockFilterCountSeed;
+	}
+	return result;
+}
+
 

@@ -717,25 +717,30 @@ ntfs_calccfree(
 	u_int8_t *tmp;
 	int j, error;
 	long cfree = 0;
-	size_t bmsize, i;
+	size_t bmsize, i, bmbase, readsize;
 
 	vp = ntmp->ntm_sysvn[NTFS_BITMAPINO];
 
 	bmsize = VTOF(vp)->f_size;
 
-	MALLOC(tmp, u_int8_t *, bmsize, M_TEMP, M_WAITOK);
+	MALLOC(tmp, u_int8_t *, MAXBSIZE, M_TEMP, M_WAITOK);
 
-	error = ntfs_readattr(ntmp, VTONT(vp), NTFS_A_DATA, NULL,
-			       0, bmsize, tmp, NULL);
-	if (error)
-		goto out;
+	for (bmbase = 0; bmbase < bmsize; bmbase += MAXBSIZE) {
+		readsize = MIN(bmsize - bmbase, MAXBSIZE);
 
-	for(i=0;i<bmsize;i++)
-		for(j=0;j<8;j++)
-			if(~tmp[i] & (1 << j)) cfree++;
+		error = ntfs_readattr(ntmp, VTONT(vp), NTFS_A_DATA, NULL,
+					   bmbase, readsize, tmp, NULL);
+		if (error)
+			goto out;
+	
+		for(i=0;i<readsize;i++)
+			for(j=0;j<8;j++)
+				if(~tmp[i] & (1 << j)) cfree++;
+	}
+
 	*cfreep = cfree;
 
-    out:
+out:
 	FREE(tmp, M_TEMP);
 	return(error);
 }
@@ -914,7 +919,9 @@ ntfs_vgetex(
 		*vpp = FTOV(fp);
 		ntfs_ntput(ip);
 #ifdef APPLE
-		UBCINFOCHECK("ntfs_vgetex", *vpp);
+		if (UBCISVALID(*vpp)) {
+			UBCINFOCHECK("ntfs_vgetex", *vpp);
+		}
 #endif
 		return (0);
 	}

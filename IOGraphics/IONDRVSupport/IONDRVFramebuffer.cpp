@@ -1266,6 +1266,8 @@ IOReturn IONDRVFramebuffer::getResInfoForArbMode( IODisplayModeID modeID,
             info->refreshRate	= detailed->csPixelClock * 65536ULL /
                                 ((detailed->csVerticalActive + detailed->csVerticalBlanking)
                                  * (detailed->csHorizontalActive + detailed->csHorizontalBlanking));
+	    if (kIOInterlacedCEATiming & detailed->csSignalConfig)
+		info->refreshRate *= 2;
         }
         else
         {
@@ -1786,22 +1788,32 @@ IOReturn IONDRVFramebuffer::setDetailedTimings( OSArray * array )
             scaler.csDisplayModeID = kDisplayModeIDBootProgrammable;
             bootScaled = (noErr == _doStatus( this, cscGetScaler, &scaler ));
 
+	    if (bootScaled 
+	      && (scaler.csHorizontalPixels == look.csHorizontalActive)
+	      && (scaler.csVerticalPixels   == look.csVerticalActive))
+	    {
+		scaler.csHorizontalPixels = 0;
+		scaler.csVerticalPixels   = 0;
+		scaler.csScalerFlags      = 0;
+	    }
+
             if (kIOReturnSuccess == err)
             {
                 for (int i = 0;
                         (data = OSDynamicCast(OSData, detailedTimings->getObject(i)));
                         i++)
                 {
+
                     detailed = (IODetailedTimingInformationV2 *) data->getBytesNoCopy();
+
                     if ((detailed->horizontalActive != look.csHorizontalActive)
                             || (detailed->verticalActive != look.csVerticalActive))
                         continue;
 
                     if (bootScaled
                             && ((detailed->horizontalScaled != scaler.csHorizontalPixels)
-                                || (detailed->horizontalScaled != scaler.csHorizontalPixels)
-                                || (detailed->verticalScaled   != scaler.csVerticalPixels)
-                                || (detailed->scalerFlags      != scaler.csScalerFlags)))
+                             || (detailed->verticalScaled   != scaler.csVerticalPixels)
+                             || (detailed->scalerFlags      != scaler.csScalerFlags)))
                         continue;
 
                     newDisplayMode = i + kDisplayModeIDReservedBase;
@@ -2325,7 +2337,8 @@ IOReturn IONDRVFramebuffer::setAttribute( IOSelect attribute, UInt32 _value )
 
         case kIOFBSpeedAttribute:
 	    __private->reducedSpeed = _value;
-            err = ndrvUpdatePowerState();
+	    if (powerState)
+		err = ndrvUpdatePowerState();
             break;
 
         case kIOMirrorAttribute:

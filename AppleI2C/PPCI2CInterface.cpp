@@ -2029,8 +2029,6 @@ PPCI2CInterface::readSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * readBuf, I
         retries = MAXIICRETRYCOUNT;
         while (retries--)
         {
-            IOSleep( 15 );
-
             iicPB.bus		= kI2CStatusBus;
             readLen 		= count+1;		// added one byte for the leading pmu status byte
             myreadbuffer[0]	= 0xff;
@@ -2050,6 +2048,9 @@ PPCI2CInterface::readSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * readBuf, I
 #endif // DEBUGPMU
                 break;
             }
+			//kprintf("I2C READ SMU END 15 ms DELAY\n");
+            IOSleep( 15 );
+
         }
     }
     return(success);
@@ -2141,8 +2142,6 @@ PPCI2CInterface::writeSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, I
         retries = MAXIICRETRYCOUNT;
         while (retries--) {
 
-            IOSleep( 15 );
-
             // attempt to recover status
 
             iicPB.bus		= kI2CStatusBus;
@@ -2158,6 +2157,9 @@ PPCI2CInterface::writeSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, I
                 success = true;
                 break;
             }
+			//kprintf("I2C WRITE SMU END 15 ms DELAY\n");
+            IOSleep( 15 );
+
         }
     }
 

@@ -271,6 +271,7 @@ private:
 	typedef volatile MPICTimers *MPICTimersPtr;
 
 	struct K2MPICState {
+        UInt32			mpicGlobal0;
 		UInt32 			mpicIPI[kKeyLargoMPICIPICount];
 		UInt32 			mpicSpuriousVector;
 		UInt32 			mpicTimerFrequencyReporting;
@@ -396,6 +397,8 @@ public:
 	void initForPM (IOService *provider);
 	IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
   
+	virtual IOReturn setAggressiveness( unsigned long selector, unsigned long newLevel );
+
 	virtual bool getHTLinkFrequency (UInt32 *freqResult);
 	virtual bool setHTLinkFrequency (UInt32 newFreq);
 	virtual bool getHTLinkWidth (UInt32 *linkOutWidthResult, UInt32 *linkInWidthResult);

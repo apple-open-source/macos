@@ -28,6 +28,7 @@ bool AppleTopazAudio::init(OSDictionary *properties)
 	mCurrentMachine2State = kMachine2_idleState;
 	mUnlockStatus = false;
 	mRecoveryInProcess = false;
+	mDigitalInStatus = kGPIO_Connected;
 	
 	mClockSource = kTRANSPORT_MASTER_CLOCK;
 	
@@ -113,7 +114,30 @@ bool AppleTopazAudio::preDMAEngineInit () {
 	debugIOLog (3,  "+AppleTopazAudio::preDMAEngineInit" );
 
 	FailIf ( NULL == mPlatformInterface, Exit );
+	FailIf ( NULL == mAudioDeviceProvider, Exit );									//  [3648867]
 	
+	//  [3648867]   Ask the Provider for the transport interface index.  There
+	//  is a hard association or binding between the transport interface index
+	//  and the CS84xx device address as follows:
+	//
+	//  AD2		AD1		AD0		I2C Address		Transport Index
+	//
+	//   0		 0		 0		0x20			0
+	//   0		 0		 1		0x22			1
+	//   0		 1		 0		0x24			2
+	//   0		 1		 1		0x26			3
+	//   1		 0		 0		0x28			4
+	//   1		 0		 1		0x2A			5
+	//   1		 1		 0		0x2C			6
+	//   1		 1		 1		0x2E			7
+	//
+	//  Since the transport index shifted by one is equal to the offset from the
+	//  I2C base address, the target address can be easily calculated as follows:
+	
+	mTopaz_I2C_Address = kCS84xx_I2C_ADDRESS + ( mAudioDeviceProvider->getTransportIndex () << 1 ); //  [3648867]
+
+	mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT;
+
 	CODEC_Reset ();
 	data = CODEC_ReadID();
 	FailIf ( 0 == data, Exit );
@@ -122,15 +146,16 @@ bool AppleTopazAudio::preDMAEngineInit () {
 	data >>= baID;
 	
 	switch ( data ) {
-		case cs8420_id:			mCodecID = kCS8420_CODEC;			break;
 		case cs8406_id:			mCodecID = kCS8406_CODEC;			break;
 		case cs8416_id:			mCodecID = kCS8416_CODEC;			break;
+		case cs8420_id:			mCodecID = kCS8420_CODEC;			break;
 		default:				FailIf ( true, Exit );				break;
 	}
 	
 	mTopazPlugin = AppleTopazPluginFactory::createTopazPlugin ( mCodecID );
 	FailIf (NULL == mTopazPlugin, Exit);
-	mTopazPlugin->initPlugin ( mPlatformInterface );
+	
+	mTopazPlugin->initPlugin ( mPlatformInterface, mAudioDeviceProvider, mTopaz_I2C_Address, mCodecID );   //  [3648867]
 	
 	mTopazPlugin->initCodecRegisterCache ();
 	result = mTopazPlugin->preDMAEngineInit ();
@@ -151,13 +176,23 @@ IOReturn AppleTopazAudio::setCodecMute (bool muteState) {
 IOReturn AppleTopazAudio::setCodecMute (bool muteState, UInt32 streamType) {
 	IOReturn		result = kIOReturnError;
 	
-	debugIOLog (3, "+ AppleTopazAudio::setMute (%d, %4s)", muteState, (char*)&streamType);
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginCS8406", muteState, (char*)&streamType );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginCS8416", muteState, (char*)&streamType );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginCS8420", muteState, (char*)&streamType );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginUNKNOWN", muteState, (char*)&streamType );		break;
+	}
 
 	if ( ( 0 != mTopazPlugin ) && ( kDigitalAudioSelector == streamType ) ) {
 		result = mTopazPlugin->setMute ( muteState );
 	}
 
-	debugIOLog (3, "- AppleTopazAudio::setMute (%d, %4s) returns %X", muteState, (char*)&streamType, result);
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginCS8406", muteState, (char*)&streamType );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginCS8416", muteState, (char*)&streamType );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginCS8420", muteState, (char*)&streamType );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::setMute ( %d, %4s ) using AppleTopazPluginUNKNOWN", muteState, (char*)&streamType );		break;
+	}
 	return result;
 }
 
@@ -175,13 +210,24 @@ bool AppleTopazAudio::hasDigitalMute ()
 IOReturn AppleTopazAudio::performDeviceSleep () {
 	IOReturn		result = kIOReturnError;
 	
-	debugIOLog (3, "+ AppleTopazAudio::performDeviceSleep()");
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceSleep () using AppleTopazPluginCS8406" );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceSleep () using AppleTopazPluginCS8416" );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceSleep () using AppleTopazPluginCS8420" );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceSleep () using AppleTopazPluginUNKNOWN" );	break;
+	}
+	
 
 	if ( 0 != mTopazPlugin ) {
 		result = mTopazPlugin->performDeviceSleep ();
 	}
 	
-	debugIOLog (3, "- AppleTopazAudio::performDeviceSleep()");
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::performDeviceSleep () using AppleTopazPluginCS8406 returns %lX", result );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::performDeviceSleep () using AppleTopazPluginCS8416 returns %lX", result );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::performDeviceSleep () using AppleTopazPluginCS8420 returns %lX", result );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::performDeviceSleep () using AppleTopazPluginUNKNOWN returns %lX", result );	break;
+	}
 	return result;
 }
 
@@ -194,8 +240,13 @@ IOReturn AppleTopazAudio::performDeviceSleep () {
 IOReturn AppleTopazAudio::performDeviceWake () {
 	IOReturn		result = kIOReturnError;
 	
-	debugIOLog (3,  "+ AppleTopazAudio::performDeviceWake()" );
-
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8406" );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8416" );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8420" );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::performDeviceWake () using AppleTopazPluginUNKNOWN" );		break;
+	}
+	
 	CODEC_Reset ();
 	if ( 0 != mTopazPlugin ) { 
 		result = mTopazPlugin->performDeviceWake (); 
@@ -210,7 +261,15 @@ IOReturn AppleTopazAudio::performDeviceWake () {
 	if ( kTRANSPORT_MASTER_CLOCK == mClockSource ) {
 		mCurrentMachine2State = kMachine2_startState;
 	}
-	debugIOLog (3,  "- AppleTopazAudio::performDeviceWake()" );
+	
+	mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
+
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8406 returns %lX", result );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8416 returns %lX", result );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::performDeviceWake () using AppleTopazPluginCS8420 returns %lX", result );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::performDeviceWake () using AppleTopazPluginUNKNOWN returns %lX", result );		break;
+	}
 	return result;
 }
 
@@ -218,26 +277,39 @@ IOReturn AppleTopazAudio::performDeviceWake () {
 IOReturn	AppleTopazAudio::setSampleRate ( UInt32 sampleRate ) {
 	IOReturn		result = kIOReturnBadArgument;
 
-	debugIOLog ( 6, "+ AppleTopazAudio::setSampleRate ( %ld )", sampleRate );
-	FailIf ( 0 == sampleRate, Exit );
-	FailIf ( ( 198000 < sampleRate || sampleRate < 7800 ), Exit );
-	
-	mChannelStatus.sampleRate = sampleRate;
-	
-	//	Avoid general recovery when running on external clock as a reset
-	//	will set the clocks back to internal.  Just indicate if the sample
-	//	rate is valid so that AppleOnboardAudio's poll method that validates
-	//	sample rate changes can operate correctly but leave the hardware alone!
-	if ( kTRANSPORT_MASTER_CLOCK == mClockSource ) {
-		generalRecovery();
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginCS8406", sampleRate );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginCS8416", sampleRate );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginCS8420", sampleRate );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginUNKNOWN", sampleRate );	break;
 	}
 	
-	if ( 0 != mTopazPlugin ) { 
-		result = mTopazPlugin->setChannelStatus ( &mChannelStatus ); 
+	//  [3684994]   Reject sample rates that the hardware cannot lock to.  The CS84xx 
+	//				family cannot lock below 32.000 kHz.
+	if ( 0 != sampleRate ) {
+		if ( ( kMinimumSupportedCS84xxSampleRate <= sampleRate ) && ( kMaximumSupportedCS84xxSampleRate >= sampleRate ) ) {	//  [3684994]
+			mChannelStatus.sampleRate = sampleRate;
+			
+			//	Avoid general recovery when running on external clock as a reset
+			//	will set the clocks back to internal.  Just indicate if the sample
+			//	rate is valid so that AppleOnboardAudio's poll method that validates
+			//	sample rate changes can operate correctly but leave the hardware alone!
+			if ( kTRANSPORT_MASTER_CLOCK == mClockSource && !mTopazPlugin->canOnlyMasterTheClock() ) {
+				generalRecovery();
+			}
+			
+			if ( 0 != mTopazPlugin ) { 
+				result = mTopazPlugin->setChannelStatus ( &mChannelStatus ); 
+			}
+		}
 	}
 	
-Exit:
-	debugIOLog ( 6, "- AppleTopazAudio::setSampleRate ( %ld ) returns %lX", sampleRate, result );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginCS8406 returns %lX", sampleRate, result );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginCS8416 returns %lX", sampleRate, result );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginCS8420 returns %lX", sampleRate, result );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::setSampleRate ( %ld ) using AppleTopazPluginUNKNOWN returns %lX", sampleRate, result );	break;
+	}
 	return result;
 }
 
@@ -245,7 +317,13 @@ Exit:
 IOReturn	AppleTopazAudio::setSampleDepth ( UInt32 sampleDepth ) {
 	IOReturn		result = kIOReturnBadArgument;
 	
-	debugIOLog ( 6, "+ AppleTopazAudio::setSampleDepth ( %ld )", sampleDepth );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginCS8406", sampleDepth );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginCS8416", sampleDepth );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginCS8420", sampleDepth );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginUNKNOWN", sampleDepth );		break;
+	}
+	
 	FailIf ( !( 16 == sampleDepth || 24 == sampleDepth ), Exit );
 	//	Avoid general recovery when running on external clock as a reset
 	//	will set the clocks back to internal.  Just indicate if the bit
@@ -262,7 +340,12 @@ IOReturn	AppleTopazAudio::setSampleDepth ( UInt32 sampleDepth ) {
 	}
 	
 Exit:
-	debugIOLog ( 6, "- AppleTopazAudio::setSampleDepth ( %ld ) returns %lX", sampleDepth, result );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginCS8406", sampleDepth );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginCS8416", sampleDepth );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginCS8420", sampleDepth );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::setSampleDepth ( %ld ) using AppleTopazPluginUNKNOWN", sampleDepth );		break;
+	}
 	return result;
 }
 
@@ -270,7 +353,13 @@ Exit:
 IOReturn AppleTopazAudio::setSampleType ( UInt32 sampleType ) {
 	IOReturn			result;
 	
-	debugIOLog ( 6, "+ AppleTopazAudio::setSampleType ( %ld )", sampleType );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginCS8406", sampleType );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginCS8416", sampleType );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginCS8420", sampleType );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginUNKNOWN", sampleType );	break;
+	}
+	
 	result = kIOReturnSuccess;
 	switch ( sampleType ) {
 		case kIOAudioStreamSampleFormat1937AC3:		mChannelStatus.nonAudio = TRUE;		break;
@@ -282,7 +371,13 @@ IOReturn AppleTopazAudio::setSampleType ( UInt32 sampleType ) {
 			result = mTopazPlugin->setChannelStatus ( &mChannelStatus ); 
 		}
 	}
-	debugIOLog ( 6, "- AppleTopazAudio::setSampleType ( %ld ) returns %lX", sampleType, result );
+
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginCS8406", sampleType );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginCS8416", sampleType );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginCS8420", sampleType );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::setSampleType ( %ld ) using AppleTopazPluginUNKNOWN", sampleType );	break;
+	}
 	return result;
 }
 
@@ -333,7 +428,12 @@ UInt32	AppleTopazAudio::getClockLock ( void ) {
 IOReturn	AppleTopazAudio::breakClockSelect ( UInt32 clockSource ) {
 	IOReturn			result = kIOReturnError;
 
-	debugIOLog (7,  "+ AppleTopazAudio::breakClockSelect ( %d )", (unsigned int)clockSource );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginCS8406", (unsigned int)clockSource );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginCS8416", (unsigned int)clockSource );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginCS8420", (unsigned int)clockSource );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginUNKNOWN", (unsigned int)clockSource );		break;
+	}
 	
 	if (mAttemptingExternalLock) {
 		mAttemptingExternalLock = false;
@@ -341,11 +441,17 @@ IOReturn	AppleTopazAudio::breakClockSelect ( UInt32 clockSource ) {
 	
 	if ( 0 != mTopazPlugin ) { 
 		result = mTopazPlugin->breakClockSelect ( clockSource ); 
+	} else {
+		debugIOLog ( 5, " AppleTopazAudio::breakClockSelect attempt to redirect clock source with no plugin present" );
 	}
 	
 	mUnlockErrorCount = 0;
-	debugIOLog (7,  "- AppleTopazAudio::breakClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
-
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginCS8406 returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginCS8416 returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginCS8420 returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::breakClockSelect ( %d ) using AppleTopazPluginUNKNOWN returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+	}
 	return result;
 }
 
@@ -386,7 +492,12 @@ IOReturn	AppleTopazAudio::breakClockSelect ( UInt32 clockSource ) {
 IOReturn	AppleTopazAudio::makeClockSelect ( UInt32 clockSource ) {
 	IOReturn			result = kIOReturnError;
 	
-	debugIOLog (7,  "+ AppleTopazAudio::makeClockSelect ( %d )", (unsigned int)clockSource );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginCS8406", (unsigned int)clockSource );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginCS8416", (unsigned int)clockSource );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginCS8420", (unsigned int)clockSource );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginUNKNOWN", (unsigned int)clockSource );	break;
+	}
 
 	FailIf ( NULL == mTopazPlugin, Exit );
 	FailIf ( NULL == mAudioDeviceProvider, Exit );
@@ -395,7 +506,9 @@ IOReturn	AppleTopazAudio::makeClockSelect ( UInt32 clockSource ) {
 	if ( kTRANSPORT_SLAVE_CLOCK == clockSource && mTopazPlugin->supportsDigitalInput() ) {
 		//	It is necessary to restart the I2S cell here after the clocks have been
 		//	established using the CS8420 as the clock source.  Ask AOA to restart
-		//	the I2S cell.
+		//	the I2S cell.  This is only done if the CODEC can provide a clock source
+		//  and should not be done if the CODEC is an output only device such as the CS8406.
+		debugIOLog ( 4, "  *** AppleTopazAudio::makeClockSelect about to post kRestartTransport request" );
 		mAudioDeviceProvider->interruptEventHandler ( kRestartTransport, (UInt32)0 );
 		// [3253678], set flag to broadcast lock success to AOA so it can unmute analog part
 		mAttemptingExternalLock = true;
@@ -415,7 +528,12 @@ IOReturn	AppleTopazAudio::makeClockSelect ( UInt32 clockSource ) {
 	
 Exit:
 	mUnlockErrorCount = 0;
-	debugIOLog (7,  "- AppleTopazAudio::makeClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginCS8406 returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginCS8416 returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginCS8420 returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::makeClockSelect ( %d ) using AppleTopazPluginUNKNOWN returns %lX", (unsigned int)clockSource, (unsigned int)result );		break;
+	}
 
 	return result;
 }
@@ -431,18 +549,21 @@ void AppleTopazAudio::generalRecovery ( void ) {
 	UInt8		data;
 	
 	FailIf ( 0 == mTopazPlugin, Exit );
-	data = mTopazPlugin->setStopMode ();
-	CODEC_Reset();
-	mTopazPlugin->flushControlRegisters ();
-	mTopazPlugin->setRunMode ( data );
-	mCurrentMachine2State = kMachine2_startState;
+	if ( !mGeneralRecoveryInProcess ) {
+		mGeneralRecoveryInProcess = TRUE;
+		data = mTopazPlugin->setStopMode ();
+		CODEC_Reset();
+		mTopazPlugin->flushControlRegisters ();
+		mTopazPlugin->setRunMode ( data );
+		mCurrentMachine2State = kMachine2_startState;
+		mGeneralRecoveryInProcess = FALSE;
+	}
 Exit:
 	return;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	Fatal error recovery 
-#pragma WARNING NEED TO IMPLEMENT RECEIVER IN AOA AND BROADCASTER IN HW PLUGINS
 IOReturn AppleTopazAudio::recoverFromFatalError ( FatalRecoverySelector selector ) {
 
 	FailIf ( NULL == mPlatformInterface, Exit );
@@ -468,88 +589,77 @@ Exit:
 #pragma mark ---------------------
 #pragma mark •	INTERRUPT HANDLERS
 #pragma mark ---------------------
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//  This method is invoked from the 'codecErrorInterruptHandler' residing in the
+//  platform interface object.  The 'codecErrorInterruptHandler' may be invoked
+//  through GPIO hardware interrupt dispatch services or throught timer polled
+//  services.
 void AppleTopazAudio::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
-	IOReturn		err;
-	UInt32			data;
-	UInt8			saveMAP = 0;
+	UInt8					saveMAP = 0;
+	
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8406", statusSelector, newValue );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8416", statusSelector, newValue );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "+ AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8420", statusSelector, newValue );		break;
+		default:				debugIOLog ( 5,  "+ AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginUNKNOWN", statusSelector, newValue );		break;
+	}
 	
 	FailIf ( NULL == mTopazPlugin, Exit );
 	FailIf ( NULL == mAudioDeviceProvider, Exit );
+
+	saveMAP = mTopazPlugin->getMemoryAddressPointer();		//  Preserve illusion of atomic I2C register access outside of this interrupt handler
 	
-	saveMAP = mTopazPlugin->getMemoryAddressPointer();
-	if ( kCodecInterruptStatus == statusSelector ) {
-		
-	} else if ( kCodecErrorInterruptStatus == statusSelector ) {
-		if ( 0 != mTopazPlugin ) { err = mTopazPlugin->getCodecErrorStatus ( &data ); }
-		//	Only process data bits that have interrupts enabled
-
-#if 0	// !!!FIX missing defines!!!
-		debugIOLog (7,  "AppleTopazAudio::notifyHardwareEvent ### Receiver Error: 0x%X = %s %s %s %s %s %s %s",
-							data,
-							0 == ( data & ( 1 << baQCRC ) ) ? "qcrc" : "QCRC" ,
-							0 == ( data & ( 1 << baCCRC ) ) ? "ccrc" : "CCRC" ,
-							0 == ( data & ( 1 << baUNLOCK ) ) ? "unlock" : "UNLOCK" ,
-							0 == ( data & ( 1 << baVALID ) ) ? "v" : "V" ,
-							0 == ( data & ( 1 << baCONF ) ) ? "conf" : "CONF" ,
-							0 == ( data & ( 1 << baBIP ) ) ? "bip" : "BIP" ,
-							0 == ( data & ( 1 << baPARITY ) ) ? "par" : "PAR" 
-						);
-#endif
-		//	The CS8420 generates UNLOCK errors immediately after switching the clock source.  Posting
-		//	an error immediately would result in automatically switching the clock source from SLAVE
-		//	to MASTER after the user selects SLAVE, even if a valid clock source is present.  Accumulate
-		//	the number of errors toward a threshold trigger level before reporting an error.
-		if ( !mTopazPlugin->phaseLocked() ) {
-			if ( kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT > mUnlockErrorCount ) {
-				mUnlockErrorCount++;
-			}
-			if ( kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT == mUnlockErrorCount ) {
-				mUnlockStatus = true;
-				debugIOLog (7,  "ERROR RECOVERY: mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)1 );" );
-				if ( 0 != mTopazPlugin ) { mTopazPlugin->disableReceiverError(); }
-				mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)1 );
-				mUnlockErrorCount = 0;
-				mAttemptingExternalLock = false;
-				// [3253678], lock failed, don't look for success anymore
-			}
-		} else {
-			mUnlockErrorCount = 0;
-			// [3253678], broadcast lock success to AOA so it can unmute analog part
-			if (mAttemptingExternalLock) {
-				mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
-				mAttemptingExternalLock = false;
-			}
-		}
-		
-		//	Radar 3264127 requires that the recovered clock be derived from the I2S I/O 
-		//	Module LRCLK in the absence of an AES3 stream in order to guarantee that the
-		//	digital output is operational.  The AES3 input stream is detected by monitoring
-		//	the 'confidence' and 'bi-phase' error bits.  An AES3 stream is present if there
-		//	are no 'confidence' or 'bi-phase' errors.  The AES3 connection status is
-		//	maintained in the mAES3detected member variable which governs operation of
-		//	a state machine that is implemented in the 'poll' method which periodically
-		//	attempts to use the AES3 input to derive the recovered clock and reverts to
-		//	the I2S I/O Module if the AES3 input is unavailable.
-		if ( !mTopazPlugin->confidenceError() && !mTopazPlugin->biphaseError() ) {
-			mAES3detected = true;
-		} else {
-			mAES3detected = false;
+	//  [3629501]   If there is a digital input detect (either a dedicated detect or
+	//  a combo jack detect) then indicate 'Unlock' when the detect indicates that
+	//  the digital plug is removed.  If no digital input is located then the initial
+	//  digital detect status that was written to the 'mDigitalInStatus' member
+	//  variable, which indicates that a device is connected to the digital input, will
+	//  be used.  NOTE:  The digital input detect may not be associated with this
+	//  AppleOnboardAudio instance.  It is necessary to receive notifications from
+	//  the AppleOnboardAudio object of the current digital input detect status and
+	//  the source of these messages may be from a broadcast message conveyed from
+	//  another AppleOnboardAudio instance!
+	
+	if ( kDigitalInStatus == statusSelector ) {
+		mDigitalInStatus = newValue;
+		debugIOLog ( 6, "  AppleTopazAudio::notifyHardwareEvent ( %d, %d ) updates mDigitalInStatus to %d", statusSelector, newValue, mDigitalInStatus );
+	}
+	
+	if ( ( kCodecErrorInterruptStatus == statusSelector ) || ( kCodecInterruptStatus == statusSelector ) ) {
+		switch ( mDigitalInStatus ) {
+			case kGPIO_Unknown:			mTopazPlugin->notifyHardwareEvent( statusSelector, newValue );						break;
+			case kGPIO_Connected:		mTopazPlugin->notifyHardwareEvent( statusSelector, newValue );						break;
+			case kGPIO_Disconnected:	mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );		break;
 		}
 	}
-
+	
 	if ( mTopazPlugin->getMemoryAddressPointer() != saveMAP ) {
-		mTopazPlugin->setMemoryAddressPointer ( saveMAP );
+		mTopazPlugin->setMemoryAddressPointer ( saveMAP );		//  Preserve illusion of atomic I2C register access outside of this interrupt handler
 	}
-	IOSleep ( 10 );
 Exit:
+	switch ( mCodecID ) {
+		case kCS8406_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8406", statusSelector, newValue );		break;
+		case kCS8416_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8416", statusSelector, newValue );		break;
+		case kCS8420_CODEC:		debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8420", statusSelector, newValue );		break;
+		default:				debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginUNKNOWN", statusSelector, newValue );		break;
+	}
 	return;
 }
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTopazAudio::poll ( void ) {
-	if ( mTopazPlugin ) { mTopazPlugin->poll (); }
+	//  Time optimization:  Only poll the hardware plugins to collect ALL of
+	//  the CODEC register (excluding interrupt status) contents into the 
+	//  register cache when not using the user client interface to view the
+	//  register data.
+	if ( 0 != mOptimizePollForUserClient_counter ) {
+		if ( mTopazPlugin ) {
+			mTopazPlugin->poll ();
+		}
+		mOptimizePollForUserClient_counter--;
+	}
 	stateMachine1 ();
 	stateMachine2 ();
 }
@@ -612,16 +722,24 @@ void AppleTopazAudio::stateMachine2 ( void ) {
 		case kMachine2_idleState:
 			break;
 		case kMachine2_startState:
+			debugIOLog ( 5, "± AppleTopazAudio::stateMachine2 advancing from kMachine2_startState to kMachine2_delay1State" );
+			mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
 			mCurrentMachine2State = kMachine2_delay1State;
 			break;
 		case kMachine2_delay1State:
+			debugIOLog ( 5, "± AppleTopazAudio::stateMachine2 advancing from kMachine2_delay1State to kMachine2_setRxd_ILRCK" );
+			mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
 			mCurrentMachine2State = kMachine2_setRxd_ILRCK;
 			break;
 		case kMachine2_setRxd_ILRCK:
+			debugIOLog ( 5, "± AppleTopazAudio::stateMachine2 advancing from kMachine2_setRxd_ILRCK to kMachine2_setRxd_AES3" );
+			mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
 			mTopazPlugin->useInternalCLK();
 			mCurrentMachine2State = kMachine2_setRxd_AES3;
 			break;
 		case kMachine2_setRxd_AES3:
+			debugIOLog ( 5, "± AppleTopazAudio::stateMachine2 advancing from kMachine2_setRxd_AES3 to kMachine2_idleState" );
+			mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
 			mTopazPlugin->useExternalCLK();
 			mCurrentMachine2State = kMachine2_idleState;
 			break;
@@ -638,16 +756,29 @@ UInt8 	AppleTopazAudio::CODEC_ReadID ( void ) {
 	UInt8			result;
 	Boolean			success;
 	UInt8			regAddr;
+	UInt32			retryCount;
 
 	result = kIOReturnError;
 	regAddr = map_ID_VERSION;
 	FailIf ( NULL == mPlatformInterface, Exit );
 	result = 0;
-	success = mPlatformInterface->writeCodecRegister( kCS84xx_I2C_ADDRESS, 0, &regAddr, 1, kI2C_StandardMode);
-	FailIf ( !success, Exit );
-	success = mPlatformInterface->readCodecRegister( kCS84xx_I2C_ADDRESS, 0, &result, 1, kI2C_StandardMode );
-	FailIf ( !success, Exit );
- 
+	
+	//  [3648867]   Attempt to use the specified I2C address.  If failure occurs
+	//  AND the I2C address is not the default address then switch to the default
+	//  address and try again.  This will allow CS84xx devices that are not wired
+	//  compliant with the dynamic probing specification to continue to operate.
+	retryCount = kCS84xx_I2C_ADDRESS == mTopaz_I2C_Address ? 1 : 2 ;
+	do {
+		success = mPlatformInterface->writeCodecRegister( mTopaz_I2C_Address, 0, &regAddr, 1, kI2C_StandardMode);
+		if ( success ) {
+			success = mPlatformInterface->readCodecRegister( mTopaz_I2C_Address, 0, &result, 1, kI2C_StandardMode );
+		}
+		if ( !success ) {
+			mTopaz_I2C_Address = kCS84xx_I2C_ADDRESS;
+		}
+		retryCount--;
+	} while ( !success && ( 0 != retryCount ) );
+	 
 Exit:	
 	return result;
 }
@@ -680,6 +811,7 @@ Exit:
 IOReturn	AppleTopazAudio::getPluginState ( HardwarePluginDescriptorPtr outState ) {
 	IOReturn		result = kIOReturnError;
 	
+	mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT;
 	if ( mTopazPlugin ) {
 		result = mTopazPlugin->getPluginState ( outState );
 	}

@@ -95,6 +95,7 @@
 #define ARG_LIVE            "live"
 #define ARG_SCHED           "sched"
 #define ARG_UPS             "ups"
+#define ARG_SYS_PROFILES    "profiles"
 
 // return values for parseArgs
 #define kParseChangedUPSThresholds      1       // success
@@ -135,6 +136,47 @@ enum ArgumentType {
     ApplyToUPS     = 4
 };
 
+// function declarations
+static void usage(void);
+static IOReturn setRootDomainProperty(CFStringRef key, CFTypeRef val);
+static io_registry_entry_t getCudaPMURef(void);
+static void print_setting_value(CFTypeRef a);
+static void show_pm_settings_dict(CFDictionaryRef d, int indent);
+static void show_supported_pm_features(char *power_source);
+static void show_disk_pm_settings(void);
+static void show_live_pm_settings(void);
+static void show_ups_settings(void);
+static CFArrayRef _copySystemProfiles(void);
+static void show_system_profiles(void);
+static CFDictionaryRef getPowerEvent(int type, CFDictionaryRef events);
+static int getRepeatingDictionaryMinutes(CFDictionaryRef event);
+static int getRepeatingDictionaryDayMask(CFDictionaryRef event);
+static CFStringRef getRepeatingDictionaryType(CFDictionaryRef event);
+static void print_time_of_day_to_buf(int m, char *buf);
+static void print_days_to_buf(int d, char *buf);
+static void print_repeating_report(CFDictionaryRef repeat);
+static void print_cfdate_to_buf(CFDateRef date, char *buf);
+static void print_scheduled_report(CFArrayRef events);
+static void show_scheduled_events(void);
+static int checkAndSetIntValue(char *valstr, CFStringRef settingKey, int apply,
+         int isOnOffSetting, CFMutableDictionaryRef ac, 
+         CFMutableDictionaryRef batt, CFMutableDictionaryRef ups);
+static int setUPSValue(char *valstr, 
+        CFStringRef    whichUPS, 
+        CFStringRef settingKey, 
+        int apply, 
+        CFMutableDictionaryRef thresholds);
+static int parseArgs(int argc, 
+        char* argv[], 
+        CFMutableDictionaryRef settings, 
+        CFMutableDictionaryRef ups_thresholds);
+static int arePowerSourceSettingsInconsistent(CFDictionaryRef set);
+static void checkSettingConsistency(CFDictionaryRef profiles);
+
+
+//****************************
+//****************************
+//****************************
 
 static void usage(void)
 {
@@ -215,11 +257,12 @@ static void print_setting_value(CFTypeRef a)
     } else printf("oops - print_setting_value unknown data type\n");
 }
 
-static void show_pm_settings_dict(CFDictionaryRef d)
+static void show_pm_settings_dict(CFDictionaryRef d, int indent)
 {
-    int                 count;
-    int                 i;
-    char                *ps;
+    int                     count;
+    int                     i;
+    int                     j;
+    char                    *ps;
     CFStringRef             *keys;
     CFTypeRef               *vals;
 
@@ -233,31 +276,33 @@ static void show_pm_settings_dict(CFDictionaryRef d)
     {
         ps = (char *)CFStringGetCStringPtr(keys[i], 0);
         if(!ps) continue; // with for loop
+        
+        for(j=0; j<indent;j++) printf(" ");
 
-    if (strcmp(ps, kIOPMDisplaySleepKey) == 0)
-            printf(" dim\t\t");  
-    else if (strcmp(ps, kIOPMDiskSleepKey) == 0)
-            printf(" spindown\t");  
-    else if (strcmp(ps, kIOPMSystemSleepKey) == 0)
-            printf(" sleep\t\t");  
-    else if (strcmp(ps, kIOPMWakeOnLANKey) == 0)
-            printf(" womp\t\t");  
-    else if (strcmp(ps, kIOPMWakeOnRingKey) == 0)
-            printf(" ring\t\t");  
-    else if (strcmp(ps, kIOPMRestartOnPowerLossKey) == 0)
-            printf(" autorestart\t");  
-    else if (strcmp(ps, kIOPMReduceSpeedKey) == 0)
-            printf(" reduce\t\t");  
-    else if (strcmp(ps, kIOPMDynamicPowerStepKey) == 0)
-            printf(" dps\t\t");  
-    else if (strcmp(ps, kIOPMSleepOnPowerButtonKey) == 0)
-            printf(" powerbutton\t");
-    else if (strcmp(ps, kIOPMWakeOnClamshellKey) == 0)
-            printf(" lidwake\t");
-    else if (strcmp(ps, kIOPMWakeOnACChangeKey) == 0)
-            printf(" acwake\t\t");
-    else
-            printf("Error.  Unknown setting.\t");
+        if (strcmp(ps, kIOPMDisplaySleepKey) == 0)
+                printf(" dim\t\t");  
+        else if (strcmp(ps, kIOPMDiskSleepKey) == 0)
+                printf(" spindown\t");  
+        else if (strcmp(ps, kIOPMSystemSleepKey) == 0)
+                printf(" sleep\t\t");  
+        else if (strcmp(ps, kIOPMWakeOnLANKey) == 0)
+                printf(" womp\t\t");  
+        else if (strcmp(ps, kIOPMWakeOnRingKey) == 0)
+                printf(" ring\t\t");  
+        else if (strcmp(ps, kIOPMRestartOnPowerLossKey) == 0)
+                printf(" autorestart\t");  
+        else if (strcmp(ps, kIOPMReduceSpeedKey) == 0)
+                printf(" reduce\t\t");  
+        else if (strcmp(ps, kIOPMDynamicPowerStepKey) == 0)
+                printf(" dps\t\t");  
+        else if (strcmp(ps, kIOPMSleepOnPowerButtonKey) == 0)
+                printf(" powerbutton\t");
+        else if (strcmp(ps, kIOPMWakeOnClamshellKey) == 0)
+                printf(" lidwake\t");
+        else if (strcmp(ps, kIOPMWakeOnACChangeKey) == 0)
+                printf(" acwake\t\t");
+        else
+                printf("Error.  Unknown setting.\t");
   
         print_setting_value(vals[i]);  
         printf("\n");
@@ -312,19 +357,18 @@ static void show_supported_pm_features(char *power_source)
     }
 }
 
-static void show_disk_pm_settings(void)
+static void show_power_profile(
+    CFDictionaryRef     es,
+    int                 indent)
 {
-    CFDictionaryRef     es = NULL;
     int                 num_profiles;
-    int                 i;
+    int                 i, j;
     char                *ps;
     CFStringRef         *keys;
     CFDictionaryRef     *values;
 
-    // read settings file from /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
-    es = IOPMCopyPMPreferences();
-    if(!isA_CFDictionary(es)) return;
-    
+    if(indent<0 || indent>30) indent=0;
+
     num_profiles = CFDictionaryGetCount(es);
     keys = (CFStringRef *)malloc(num_profiles * sizeof(void *));
     values = (CFDictionaryRef *)malloc(num_profiles * sizeof(void *));
@@ -335,12 +379,25 @@ static void show_disk_pm_settings(void)
     {
         ps = (char *)CFStringGetCStringPtr(keys[i], 0);
         if(!ps) continue; // with for loop
+        for(j=0; j<indent; j++) {
+            printf(" ");
+        }
         printf("%s:\n", ps);
-        show_pm_settings_dict(values[i]);
+        show_pm_settings_dict(values[i], indent);
     }
 
     free(keys);
     free(values);
+}
+
+static void show_disk_pm_settings(void)
+{
+    CFDictionaryRef     es = NULL;
+
+    // read settings file from /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
+    es = IOPMCopyPMPreferences();
+    if(!isA_CFDictionary(es)) return;
+    show_power_profile(es, 0);
     CFRelease(es);
 }
 
@@ -355,7 +412,7 @@ static void show_live_pm_settings(void)
     live = SCDynamicStoreCopyValue(ds, CFSTR(kIOPMDynamicStoreSettingsKey));
     if(!isA_CFDictionary(live)) return;
     printf("Currently in use:\n");
-    show_pm_settings_dict(live);
+    show_pm_settings_dict(live, 0);
 
     CFRelease(live);
     CFRelease(ds);
@@ -396,6 +453,49 @@ static void show_ups_settings(void)
         printf("  %s\t%s\t%d\n", ARG_HALTREMAIN, (kCFBooleanTrue==b)?"on":"off", val);        
     }
     CFRelease(thresholds);
+}
+
+static CFArrayRef
+_copySystemProfiles(void)
+{
+    io_registry_entry_t		    registry_entry;
+    io_iterator_t		        tmp;
+    CFTypeRef                   ret_type;
+    
+    IOServiceGetMatchingServices(NULL, IOServiceNameMatching("IOPMrootDomain"), &tmp);
+    registry_entry = IOIteratorNext(tmp);
+    IOObjectRelease(tmp);
+
+    ret_type = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("SystemPowerProfiles"),
+            kCFAllocatorDefault, 0);
+
+    if(!isA_CFArray(ret_type)) ret_type = 0;
+
+    IOObjectRelease(registry_entry);
+    return (CFArrayRef)ret_type;
+}
+
+static void
+show_system_profiles(void)
+{
+    CFArrayRef                  sys_prof;
+    int                         prof_count;
+    int                         i;
+    
+    sys_prof = _copySystemProfiles();
+    if(!sys_prof) {
+        printf("No system profiles found\n");
+        return;
+    }
+
+    prof_count = CFArrayGetCount(sys_prof);
+    for(i=0; i<prof_count;i++)
+    {
+        printf("Profile %d:\n", i);
+        show_power_profile( CFArrayGetValueAtIndex(sys_prof, i), 2 );        
+    }
+
+    CFRelease(sys_prof);
 }
 
 static CFDictionaryRef
@@ -803,6 +903,9 @@ static int parseArgs(int argc,
                     {
                         // show UPS
                         show_ups_settings();
+                    } else if(!strcmp(argv[i], ARG_SYS_PROFILES))
+                    {
+                        show_system_profiles();
                     }
 
                     // return immediately - don't handle any more setting arguments

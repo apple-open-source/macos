@@ -130,7 +130,7 @@ sInt32 CLDAPv3Configs::Init ( CPlugInRef *inConfigTable, uInt32 &inConfigTableLe
 	if (!CheckForConfig((char *)"unknown", sIndex))
 	{
 		//build a default config entry that can be used when no config exists
-		pConfig = MakeLDAPConfigData((char *)"Generic",(char *)"unknown",15,2,120,120,389,false, 0, 0, false, false, false, nil, nil);
+		pConfig = MakeLDAPConfigData((char *)"Generic",(char *)"unknown",15,2,120,120,389,false, 0, 0, false, false, false, nil, true, nil );
 		pConfigTable->AddItem( fConfigTableLen, pConfig );
 		fConfigTableLen++;
 	}
@@ -466,6 +466,7 @@ sInt32 CLDAPv3Configs::AddToConfig ( CFDataRef inXMLData )
 	bool					bIsSSL				= false;
 	bool					bServerMappings		= false;
 	bool					bUseConfig			= false;
+	bool					bReferrals			= true; // default to true
 	int						opencloseTO			= 15;
 	int						idleTO				= 2;
 	int						delayRebindTry		= 120;
@@ -666,8 +667,16 @@ sInt32 CLDAPv3Configs::AddToConfig ( CFDataRef inXMLData )
 								//CFRelease(cfStringRef); // no since pointer only from Get
 							}
 						}
+						
+						if( cfBool = (CFBooleanRef) CFDictionaryGetValue( configDict, CFSTR(kXMLReferralFlagKey) ) )
+						{
+							if( CFGetTypeID(cfBool) == CFBooleanGetTypeID() )
+							{
+								bReferrals = CFBooleanGetValue( cfBool );
+							}
+						}
 							
-						siResult = MakeServerBasedMappingsLDAPConfig( server, mapSearchBase, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bIsSSL, true );
+						siResult = MakeServerBasedMappingsLDAPConfig( server, mapSearchBase, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bIsSSL, true, bReferrals );
 						
 						if ( server != nil ) 
 						{
@@ -834,6 +843,7 @@ CFDataRef CLDAPv3Configs::CopyXMLConfig ( void )
 					CFDictionaryAddValue( curConfigDict, CFSTR(kXMLMakeDefLDAPFlagKey), kCFBooleanTrue );
 					CFDictionaryAddValue( curConfigDict, CFSTR(kXMLEnableUseFlagKey), kCFBooleanTrue );
 					CFDictionaryAddValue( curConfigDict, CFSTR(kXMLServerMappingsFlagKey), (pConfig->bServerMappings)?kCFBooleanTrue:kCFBooleanFalse );
+					CFDictionaryAddValue( curConfigDict, CFSTR(kXMLReferralFlagKey), (pConfig->bReferrals ? kCFBooleanTrue : kCFBooleanFalse) );
 					
 					CFArrayAppendValue( dhcpConfigArray, curConfigDict );
 					
@@ -911,13 +921,13 @@ bool CLDAPv3Configs::VerifyXML ( void )
 //	* UpdateLDAPConfigWithServerMappings
 // --------------------------------------------------------------------------------
 
-sInt32 CLDAPv3Configs::UpdateLDAPConfigWithServerMappings ( char *inServer, char *inMapSearchBase, int inPortNumber, bool inIsSSL, bool inMakeDefLDAP, LDAP *inServerHost)
+sInt32 CLDAPv3Configs::UpdateLDAPConfigWithServerMappings ( char *inServer, char *inMapSearchBase, int inPortNumber, bool inIsSSL, bool inMakeDefLDAP, bool inReferrals, LDAP *inServerHost)
 {
 	sInt32		siResult	= eDSNoErr;
 	CFDataRef	ourXMLData	= nil;
 	CFDataRef	newXMLData	= nil;
 	
-	ourXMLData = RetrieveServerMappings( inServer, inMapSearchBase, inPortNumber, inIsSSL, inServerHost );
+	ourXMLData = RetrieveServerMappings( inServer, inMapSearchBase, inPortNumber, inIsSSL, inReferrals, inServerHost );
 	if (ourXMLData != nil)
 	{
 		//here we will make sure that the server location and port/SSL in the XML data is the same as given above
@@ -1098,7 +1108,7 @@ sInt32 CLDAPv3Configs::ConfigLDAPServers ( void )
 //	* RetrieveServerMappings
 //------------------------------------------------------------------------------------
 
-CFDataRef CLDAPv3Configs::RetrieveServerMappings ( char *inServer, char *inMapSearchBase, int inPortNumber, bool inIsSSL, LDAP *inServerHost )
+CFDataRef CLDAPv3Configs::RetrieveServerMappings ( char *inServer, char *inMapSearchBase, int inPortNumber, bool inIsSSL, bool inReferrals, LDAP *inServerHost )
 {
 	sInt32				siResult		= eDSNoErr;
 	bool				bResultFound	= false;
@@ -1134,6 +1144,8 @@ CFDataRef CLDAPv3Configs::RetrieveServerMappings ( char *inServer, char *inMapSe
 				int ldapOptVal = LDAP_OPT_X_TLS_HARD;
 				ldap_set_option(serverHost, LDAP_OPT_X_TLS, &ldapOptVal);
 			}
+			
+			ldap_set_option( serverHost, LDAP_OPT_REFERRALS, (inReferrals ? LDAP_OPT_ON : LDAP_OPT_OFF) );
 			
 			if (inMapSearchBase == nil)
 			{
@@ -1704,7 +1716,7 @@ CFDataRef CLDAPv3Configs::ReadServerMappings ( LDAP *serverHost, CFDataRef inMap
 	
 			}//if (configPropertyList != nil )
 			
-			outMappings = RetrieveServerMappings( server, mapSearchBase, portNumber, bIsSSL );
+			outMappings = RetrieveServerMappings( server, mapSearchBase, portNumber, bIsSSL, true );
 
 		} // inMappings != nil
 		
@@ -2050,6 +2062,7 @@ CFDictionaryRef CLDAPv3Configs::CheckForServerMappings ( CFDictionaryRef ldapDic
 	bool				bIsSSL		= false;
 	bool				bServerMappings	= false;
 	bool				bUseConfig	= false;
+	bool				bReferrals  = true;		// referrals by default
 	CFDictionaryRef		outDict		= nil;
 	CFStringRef			errorString;
 
@@ -2143,8 +2156,16 @@ CFDictionaryRef CLDAPv3Configs::CheckForServerMappings ( CFDictionaryRef ldapDic
 					}
 				}
 				
+				if( cfBool = (CFBooleanRef)CFDictionaryGetValue( ldapDict, CFSTR(kXMLReferralFlagKey) ) )
+				{
+					if( CFGetTypeID( cfBool ) == CFBooleanGetTypeID() )
+					{
+						bReferrals = CFBooleanGetValue( cfBool );
+					}
+				}
+				
 				CFDataRef ourXMLData = nil;
-				ourXMLData = RetrieveServerMappings( server, mapSearchBase, portNumber, bIsSSL );
+				ourXMLData = RetrieveServerMappings( server, mapSearchBase, portNumber, bIsSSL, bReferrals );
 				if (ourXMLData != nil)
 				{
 					CFPropertyListRef configPropertyList = nil;
@@ -2224,6 +2245,7 @@ sInt32 CLDAPv3Configs::MakeLDAPConfig( CFDictionaryRef ldapDict, sInt32 inIndex,
 	bool				bMakeDefLDAP= false;
 	bool				bUseSecure	= false;
 	bool				bUseConfig	= false;
+	bool				bReferrals  = true;		// default to referrals on
     sLDAPConfigData	   *pConfig		= nil;
     sLDAPConfigData	   *xConfig		= nil;
 	uInt32				serverIndex = 0;
@@ -2469,16 +2491,24 @@ sInt32 CLDAPv3Configs::MakeLDAPConfig( CFDictionaryRef ldapDict, sInt32 inIndex,
                     //CFRelease(cfStringRef); // no since pointer only from Get
                 }
             }
-				
+
+			if( cfBool = (CFBooleanRef) CFDictionaryGetValue( ldapDict, CFSTR(kXMLReferralFlagKey) ) )
+			{
+				if( CFGetTypeID(cfBool) == CFBooleanGetTypeID() )
+				{
+					bReferrals = CFBooleanGetValue( cfBool );
+				}
+			}
+						
 			//setup the config table
 			// MakeLDAPConfigData does not consume the strings passed in so we need to free them below
 			if (reuseEntry)
 			{
-				pConfig = MakeLDAPConfigData( uiName, server, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bUseSecure, account, password, bMakeDefLDAP, bServerMappings, bIsSSL, mapSearchBase, xConfig );
+				pConfig = MakeLDAPConfigData( uiName, server, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bUseSecure, account, password, bMakeDefLDAP, bServerMappings, bIsSSL, mapSearchBase, bReferrals, xConfig );
             }
 			else
 			{
-				pConfig = MakeLDAPConfigData( uiName, server, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bUseSecure, account, password, bMakeDefLDAP, bServerMappings, bIsSSL, mapSearchBase, nil );
+				pConfig = MakeLDAPConfigData( uiName, server, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bUseSecure, account, password, bMakeDefLDAP, bServerMappings, bIsSSL, mapSearchBase, bReferrals, nil );
 			}
 			//get the mappings from the config ldap dict
 			BuildLDAPMap( pConfig, ldapDict, bServerMappings );
@@ -2536,7 +2566,7 @@ sInt32 CLDAPv3Configs::MakeLDAPConfig( CFDictionaryRef ldapDict, sInt32 inIndex,
 //	* MakeServerBasedMappingsLDAPConfig
 // --------------------------------------------------------------------------------
 
-sInt32 CLDAPv3Configs::MakeServerBasedMappingsLDAPConfig ( char *inServer, char *inMapSearchBase, int inOpenCloseTO, int inIdleTO, int inDelayRebindTry, int inSearchTO, int inPortNumber, bool inIsSSL, bool inMakeDefLDAP )
+sInt32 CLDAPv3Configs::MakeServerBasedMappingsLDAPConfig ( char *inServer, char *inMapSearchBase, int inOpenCloseTO, int inIdleTO, int inDelayRebindTry, int inSearchTO, int inPortNumber, bool inIsSSL, bool inMakeDefLDAP, bool inReferrals )
 {
 	sInt32				siResult	= eDSNoErr;
 	uInt32				serverIndex = 0;
@@ -2571,14 +2601,14 @@ sInt32 CLDAPv3Configs::MakeServerBasedMappingsLDAPConfig ( char *inServer, char 
     {
 		//setup the config table
 		// MakeLDAPConfigData does not consume the strings passed in but them are arguments so don't need to free them below
-		pConfig = MakeLDAPConfigData( inServer, inServer, inOpenCloseTO, inIdleTO, inDelayRebindTry, inSearchTO, inPortNumber, false, nil, nil, inMakeDefLDAP, true, inIsSSL, inMapSearchBase, xConfig );
+		pConfig = MakeLDAPConfigData( inServer, inServer, inOpenCloseTO, inIdleTO, inDelayRebindTry, inSearchTO, inPortNumber, false, nil, nil, inMakeDefLDAP, true, inIsSSL, inMapSearchBase, inReferrals, xConfig );
         //pConfigTable->AddItem( serverIndex, pConfig ); //no longer removed above
     }
     else
     {
 		//setup the config table
 		// MakeLDAPConfigData does not consume the strings passed in but them are arguments so don't need to free them below
-		pConfig = MakeLDAPConfigData( inServer, inServer, inOpenCloseTO, inIdleTO, inDelayRebindTry, inSearchTO, inPortNumber, false, nil, nil, inMakeDefLDAP, true, inIsSSL, inMapSearchBase, nil );
+		pConfig = MakeLDAPConfigData( inServer, inServer, inOpenCloseTO, inIdleTO, inDelayRebindTry, inSearchTO, inPortNumber, false, nil, nil, inMakeDefLDAP, true, inIsSSL, inMapSearchBase, inReferrals, nil );
     
         pConfigTable->AddItem( fConfigTableLen, pConfig );
         fConfigTableLen++;
@@ -2921,6 +2951,7 @@ sLDAPConfigData *CLDAPv3Configs::MakeLDAPConfigData (	char *inName, char *inServ
 													bool inServerMappings,
 													bool inIsSSL,
                                                     char *inMapSearchBase,
+													bool inReferrals,
 													sLDAPConfigData *inLDAPConfigData )
 {
 	sInt32				siResult		= eDSNoErr;
@@ -2981,6 +3012,7 @@ sLDAPConfigData *CLDAPv3Configs::MakeLDAPConfigData (	char *inName, char *inServ
 			configOut->bServerMappings		= inServerMappings;
 			configOut->bIsSSL				= inIsSSL;
 			configOut->fSASLmethods			= saslMethods;
+			configOut->bReferrals			= inReferrals;
 			
 			if (inAccount != nil)
 			{
@@ -3101,6 +3133,7 @@ sInt32 CLDAPv3Configs::CleanLDAPConfigData ( sLDAPConfigData *inConfig, bool inS
 		inConfig->bOCBuilt				= false;
 		inConfig->bGetServerMappings	= false;
 		inConfig->bBuildReplicaList		= false;
+		inConfig->bReferrals			= true; // we follow referrals by default
 		
 		if( inConfig->fSASLmethods )
 		{

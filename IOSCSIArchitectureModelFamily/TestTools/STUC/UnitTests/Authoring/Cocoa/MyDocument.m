@@ -43,7 +43,9 @@
 #import "AuthoringDevice.h"
 
 #import <sys/mount.h>
+#import <libkern/OSByteOrder.h>
 #import <IOKit/IOBSD.h>
+#import <IOKit/IOKitLib.h>
 #import <IOKit/storage/IOMedia.h>
 #import <IOKit/scsi/SCSICommandOperationCodes.h>
 #import <IOKit/scsi/SCSITask.h>
@@ -61,12 +63,13 @@ enum
 	kStatusOK			= 0
 };
 
-#define	kNumBlocks				(1)
-#define	kRequestSize			(2048 * kNumBlocks)
-#define	kMyDocumentString		@"MyDocument"
-#define kAlertString			@"Alert"
-#define kOKString				@"OK"
-#define kCancelString			@"Cancel"
+#define	kNumBlocks					(1)
+#define	kRequestSize				(2048 * kNumBlocks)
+#define	kMyDocumentString			@"MyDocument"
+#define kAlertString				@"Alert"
+#define kOKString					@"OK"
+#define kCancelString				@"Cancel"
+#define IOBlockStorageDriverString	"IOBlockStorageDriver"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -301,27 +304,12 @@ ErrorExit:
 {
 	
 	io_service_t	service 	= MACH_PORT_NULL;
-	io_service_t	child 		= MACH_PORT_NULL;
-	IOReturn		err			= kIOReturnSuccess;
 	int				result		= kStatusOK;
 	
 	// Get a handle to the io_service_t that represents our MMC Device
 	service = [ [ self theAuthoringDeviceTester ] getServiceObject: [ self theAuthoringDevice ] ];
 	require ( ( service != MACH_PORT_NULL ), ErrorExit );
 	
-	// Get the IO*BlockStorageDriver node
-	err = IORegistryEntryGetChildEntry ( service, kIOServicePlane, &child );
-	( void ) IOObjectRelease ( service );
-	require ( ( err == kIOReturnSuccess ), ErrorExit );
-	
-	// Check for existence of an IOMedia node below the IO*BlockStorageDriver node
-	err = IORegistryEntryGetChildEntry ( child, kIOServicePlane, &service );
-	( void ) IOObjectRelease ( child );
-	require ( ( err == kIOReturnSuccess ), ErrorExit );
-	require ( ( service != NULL ), ErrorExit );
-	
-	// There is an IOMedia object. We should find its name, and present a dialog
-	// to see if the user wants to unmount the volume.
 	result = [ self findWholeMediaBSDName: service ];
 	( void ) IOObjectRelease ( service );
 	
@@ -338,32 +326,22 @@ ErrorExit:
 //	findWholeMediaBSDName
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-- ( int ) findWholeMediaBSDName : ( io_service_t ) ioMediaNub
+- ( int ) findWholeMediaBSDName : ( io_service_t ) service
 {
 	
-	CFMutableDictionaryRef	dict	= NULL;
 	CFStringRef				bsdName	= NULL;
-	IOReturn				err		= kIOReturnSuccess;
 	int						result	= kUnmountFailed;
 	
-	// Sanity Check
-	require ( ( IOObjectConformsTo ( ioMediaNub, kIOMediaClass ) ), ErrorExit );
-	
 	// Get the CF Properties for the IOMedia object
-	err = IORegistryEntryCreateCFProperties ( ioMediaNub, &dict, kCFAllocatorDefault, kNilOptions );
-	require ( ( err == kIOReturnSuccess ), ErrorExit );
+	bsdName = ( CFStringRef ) IORegistryEntrySearchCFProperty ( service,
+																kIOServicePlane,
+																CFSTR ( kIOBSDNameKey ),
+																kCFAllocatorDefault,
+																kIORegistryIterateRecursively );
+	require ( ( bsdName != NULL ), ErrorExit );
+	result = [ self unmountAllPartitions: bsdName ];
 	
-	// Check for the BSD Name key
-	if ( CFDictionaryContainsKey ( dict, CFSTR ( kIOBSDNameKey ) ) )
-	{
-		
-		// Get the value for it
-		bsdName = ( CFStringRef ) CFDictionaryGetValue ( dict, CFSTR ( kIOBSDNameKey ) );
-		result = [ self unmountAllPartitions: bsdName ];
-		
-	}
-	
-	CFRelease ( dict );
+	CFRelease ( bsdName );
 	
 	
 ErrorExit:
@@ -528,13 +506,13 @@ ErrorExit:
 	cdb[0] = kSCSICmd_READ_10;
 	
 	// Set the block to be the block zero
-	*( UInt32 * ) &cdb[2] = 0;
+	OSWriteBigInt32 ( &cdb[2], 0, 0 );
 	
 	// Tell the drive we only want this many blocks
-	*( UInt16 * ) &cdb[7] = kNumBlocks;
+	OSWriteBigInt16 ( &cdb[7], 0, kNumBlocks );
 	
 	// Set the actual cdb in the task
-	err = ( *task )->SetCommandDescriptorBlock ( task, cdb, kSCSICDBSize_6Byte );
+	err = ( *task )->SetCommandDescriptorBlock ( task, cdb, kSCSICDBSize_10Byte );
 	require ( ( err == kIOReturnSuccess ), ReleaseBuffer );
 	
 	// Set the scatter-gather entry in the task

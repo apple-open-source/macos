@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -44,10 +41,13 @@
 #include "IOGraphicsLibInternal.h"
 
 #define DEBUGPARAMS		0
-#define LOG			0
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes,
+				CFIndex *length, CFIndex maxLength);
+Boolean _IOWriteBytesToFile(const char *path, const void *bytes, CFIndex length);
 
 __private_extern__ IOReturn
 readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
@@ -401,6 +401,7 @@ MaxTimingRangeRec( IODisplayTimingRange * range )
 
     range->supportedSyncFlags			= 0xffffffff;
     range->supportedSignalLevels		= 0xffffffff;
+    range->supportedSignalConfigs		= 0xffffffff;
 
     range->maxFrameRate				= 0xffffffff;
     range->maxLineRate				= 0xffffffff;
@@ -460,6 +461,8 @@ EDIDDescToDisplayTimingRangeRec( EDID * edid, EDIDGeneralDesc * desc,
                                   | ((byte & 4) ? kIORangeSupportsCompositeSync : 0)
                                   | ((byte & 8) ? kIORangeSupportsVSyncSerration : 0);
 
+    range->supportedSignalConfigs = kIORangeSupportsInterlacedCEATiming;
+
     range->minFrameRate  = desc->data[0];
     range->maxFrameRate  = desc->data[1];
     range->minLineRate   = desc->data[2] * 1000;
@@ -509,15 +512,28 @@ DecodeStandardTiming( EDID * edid, UInt16 standardTiming,
     }
 
     if (refreshRate)
-	*refreshRate = (float) ((standardTiming & 31) + 60);
+	*refreshRate = (float) ((standardTiming & 63) + 60);
 
     return (kIOReturnSuccess);
+}
+
+static void
+AdjustTimingForInterlace( IODetailedTimingInformation * timing )
+{
+    timing->signalConfig 	  |= kIOInterlacedCEATiming;
+    timing->verticalActive         = (timing->verticalActive << 1);
+    timing->verticalBlanking       = (timing->verticalBlanking << 1) | 1;
+    timing->verticalSyncPulseWidth = (timing->verticalSyncPulseWidth << 1);
+    timing->verticalSyncOffset     = (timing->verticalSyncOffset << 1) | 1;
+    timing->verticalBorderTop      = (timing->verticalBorderTop << 1);
+    timing->verticalBorderBottom   = (timing->verticalBorderBottom << 1);
 }
 
 static IOReturn
 EDIDDescToDetailedTiming( EDID * edid, EDIDDetailedTimingDesc * desc,
                             IODetailedTimingInformation * timing )
 {
+    bool interlaced;
 
     bzero( timing, sizeof( IODetailedTimingInformation) );
     timing->__reservedA[0] = sizeof( IODetailedTimingInformation);	// csTimingSize
@@ -527,10 +543,14 @@ EDIDDescToDetailedTiming( EDID * edid, EDIDDetailedTimingDesc * desc,
 
     timing->signalConfig		= (edid->displayParams[0] & 16)
                                         ? kIOAnalogSetupExpected : 0;
+    interlaced = (0 != (desc->flags & 0x80));
+
     timing->signalLevels		= (edid->displayParams[0] >> 5) & 3;
 
     timing->pixelClock 			= ((UInt64) OSReadLittleInt16(&desc->clock, 0))
                                         * 10000ULL;
+    timing->maxPixelClock 		= timing->pixelClock;
+    timing->minPixelClock 		= timing->pixelClock;
 
     timing->horizontalActive		= desc->horizActive
                                         | ((desc->horizHigh & 0xf0) << 4);
@@ -563,6 +583,9 @@ EDIDDescToDetailedTiming( EDID * edid, EDIDDetailedTimingDesc * desc,
     timing->verticalSyncConfig		= (desc->flags & 4)
                                         ? kIOSyncPositivePolarity : 0;
     timing->verticalSyncLevel		= 0;
+
+    if (interlaced)
+	AdjustTimingForInterlace(timing);
 
     return( kIOReturnSuccess );
 }
@@ -613,6 +636,9 @@ StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
     const void *    key;
     CFDataRef	    data;
 
+    if (kResSpecNeedInterlace & spec->flags)
+	return (kIOReturnUnsupportedMode);
+
     stdModes = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("std-modes"));
     if (!stdModes)
 	return (kIOReturnUnsupportedMode);
@@ -641,77 +667,258 @@ StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
     return (kIOReturnSuccess);
 }
 
+static UInt32
+IODisplayGetCVTSyncWidth( UInt32 horizontalActive, UInt32 verticalActive )
+{
+    // CVT Table 2
+    enum {
+	kCVTAspect4By3    = 4,
+	kCVTAspect16By9   = 5,
+	kCVTAspect16By10  = 6,
+	kCVTAspect5By4    = 7,
+	kCVTAspect15By9   = 7,
+	kCVTAspectUnknown = 10
+    };
+
+    float ratio = ((float) horizontalActive) / ((float) verticalActive);
+
+    if (ratioOver(ratio, 4.0 / 3.0) <= 1.03125)
+	return (kCVTAspect4By3);
+
+    if (ratioOver(ratio, 16.0 / 9.0) <= 1.03125)
+	return (kCVTAspect16By9);
+
+    if (ratioOver(ratio, 16.0 / 10.0) <= 1.03125)
+	return (kCVTAspect16By10);
+
+    if (ratioOver(ratio, 5.0 / 4.0) <= 1.03125)
+	return (kCVTAspect5By4);
+
+    if (ratioOver(ratio, 15.0 / 9.0) <= 1.03125)
+	return (kCVTAspect15By9);
+
+    return (kCVTAspectUnknown);
+}
+
 static IOReturn
 GTFToDetailedTiming( IOFBConnectRef connectRef, EDID * edid, 
-		     IOFBResolutionSpec  * spec, UInt32 characterSize,
+		     IOFBResolutionSpec * spec, UInt32 characterSize,
 		     IODetailedTimingInformation * timing )
 {
-    SInt32	curve;
-    int		vSyncRqd	= 3;
-    float	hSyncPct	= 8.0/100.0;
-    float	minVSyncBP	= 550e-6;    // s
-    int		minPorchRnd	= 1;
-
-    float	interlace	= spec->needInterlace ? 0.5 : 0.0;
-    float	interlaceFactor = spec->needInterlace ? 2.0 : 1.0;
-    float	vFieldRateRqd	= spec->refreshRate * interlaceFactor;
-
-    // 1.
-    int		hPixelsRnd	= roundf(spec->width / characterSize) * characterSize;
-    int		vLinesRnd	= roundf(spec->height / interlaceFactor);
-    
+    float	interlace	= (kResSpecNeedInterlace & spec->flags) ? 0.5 : 0.0;
+    float	interlaceFactor = (kResSpecNeedInterlace & spec->flags) ? 2.0 : 1.0;
+    float	fieldRate;						// V_FIELD_RATE_RQD
+    float	pixelFrequency;						// ACT_PIXEL_FREQ
+    int		horizontalTotal;					// TOTAL_PIXELS
+    int		horizontalActive;					// TOTAL_ACTIVE_PIXELS 
+    int		horizontalBlanking;					// H_BLANK
+    int 	horizontalSyncWidth;					// H_SYNC_PIXELS
+    int		verticalActive;						// V_LINES_RND
+    int		verticalBlanking;					// VBI_LINES
+    int		verticalSyncWidth = 3; 					// V_SYNC_RND
+    int		verticalSyncAndBackPorch;    				// V_SYNC_BP
+    int		verticalSyncFrontPorch;
     // 4,5,15,16.
     int		topMargin	= 0;
     int		bottomMargin	= 0;
     int		leftMargin	= 0;
     int		rightMargin	= 0;
 
-    // 7.
-    float	hPeriodEst	= ((1 / vFieldRateRqd) - (minVSyncBP)) 
-				/ (vLinesRnd + (2 * topMargin) + minPorchRnd + interlace);
-    // 8.
-    int		vSyncBP		= roundf( minVSyncBP / hPeriodEst );
-    // 10.
-    float	totalVLines	= vLinesRnd + topMargin + bottomMargin + vSyncBP + interlace + minPorchRnd;
-    // 11.
-    float	vFieldRateEst	= 1 / hPeriodEst / totalVLines;
-    // 12.
-    float	hPeriod		= hPeriodEst / (vFieldRateRqd / vFieldRateEst);
-    // 17.
-    int		totalActivePixels = hPixelsRnd + leftMargin + rightMargin;
+    UInt32	horizontalSyncConfig;
+    UInt32	verticalSyncConfig;
 
-    //
-    for (curve = (connectRef->numGTFCurves - 1); curve >= 0; curve--)
+    enum { kGTF, kCVT, kCVTRB } genType;
+
+    // 1.
+    fieldRate = spec->refreshRate; // * interlaceFactor;
+    // 4.
+    horizontalActive = roundf(spec->width / characterSize) * characterSize
+				    + leftMargin + rightMargin;
+    // 5.
+    verticalActive = roundf(spec->height / interlaceFactor);
+
+#if TIGER
+    if (kResSpecReducedBlank & spec->flags)
+	genType = kCVTRB;
+    else if (connectRef->gtfDisplay && !connectRef->cvtDisplay)
+	genType = kGTF;
+    else
+	genType = kCVT;
+#else
+	genType = kGTF;
+#endif
+
+    if (kGTF != genType)
+	verticalSyncWidth = IODisplayGetCVTSyncWidth(horizontalActive, verticalActive * interlaceFactor);
+
+    if (kGTF == genType)
     {
-	if ((1 / hPeriod) > connectRef->gtfCurves[curve].startHFrequency)
-	    break;
+	/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * GTF */
+
+	float horizontalSyncPercent        = 8.0/100.0;			// H_SYNC_PER
+	float verticalSyncAndBackPorchTime = 550e-6; 			// MIN_VSYNC_BP
+	int   minVerticalFrontPorch        = 1;  			// MIN_V_PORCH_RND
+	float estimatedHorizontalPeriod;				// H_PERIOD_EST 
+	float verticalFieldTotal;					// TOTAL_V_LINES 
+	float estimatedFieldRate;					// V_FIELD_RATE_EST
+	SInt32 curve;
+
+	// 7.
+	estimatedHorizontalPeriod = 
+	    ((1 / fieldRate) - verticalSyncAndBackPorchTime) 
+	    / (verticalActive + (2 * topMargin) + minVerticalFrontPorch + interlace);
+
+	// 8.
+	verticalSyncAndBackPorch = roundf(verticalSyncAndBackPorchTime / estimatedHorizontalPeriod);
+	verticalSyncFrontPorch   = minVerticalFrontPorch;
+	verticalBlanking	 = verticalSyncFrontPorch + verticalSyncAndBackPorch;
+
+	// 10.
+	verticalFieldTotal = verticalActive + topMargin + bottomMargin 
+			    + verticalBlanking + interlace;
+	// 11.
+	estimatedFieldRate = 1.0 / estimatedHorizontalPeriod / verticalFieldTotal;
+    
+	// 12.
+	float hPeriod = estimatedHorizontalPeriod / (fieldRate / estimatedFieldRate);
+    
+	for (curve = (connectRef->numGTFCurves - 1); curve >= 0; curve--)
+	{
+	    if ((1 / hPeriod) > connectRef->gtfCurves[curve].startHFrequency)
+		break;
+	}
+    
+	float cPrime = ((((float) connectRef->gtfCurves[curve].c) - ((float) connectRef->gtfCurves[curve].j)) 
+				    * ((float) connectRef->gtfCurves[curve].k) / 256.0) 
+				    + ((float) connectRef->gtfCurves[curve].j);
+	float mPrime = ((float) connectRef->gtfCurves[curve].k) / 256.0 * ((float) connectRef->gtfCurves[curve].m);
+
+	// 18.
+	float idealDutyCycle = cPrime - (mPrime * hPeriod * 1e6 / 1000.0);
+	// 19.
+	horizontalBlanking = 2 * characterSize * roundf(
+				(horizontalActive * idealDutyCycle / (100.0 - idealDutyCycle) 
+				/ (2 * characterSize)));
+
+	// 20.
+	horizontalTotal = horizontalActive + horizontalBlanking;
+	// 21.
+	pixelFrequency  = horizontalTotal / hPeriod;
+    
+	// gtf 2.17.
+	horizontalSyncWidth = characterSize *
+		    roundf(horizontalSyncPercent * horizontalTotal / characterSize);
+
+	horizontalSyncConfig	= (curve == 0) ? 0 : kIOSyncPositivePolarity;
+	verticalSyncConfig	= (curve == 0) ? kIOSyncPositivePolarity : 0;
     }
+    else if (kCVT == genType)
+    {
+	/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * CVT */
 
-    float	cPrime		= ((((float) connectRef->gtfCurves[curve].c) - ((float) connectRef->gtfCurves[curve].j)) 
-				* ((float) connectRef->gtfCurves[curve].k) / 256.0) + ((float) connectRef->gtfCurves[curve].j);
-    float	mPrime		= ((float) connectRef->gtfCurves[curve].k) / 256.0 * ((float) connectRef->gtfCurves[curve].m);
+	float horizontalSyncPercent        = 8.0/100.0; 		// H_SYNC_PER
+	float verticalSyncAndBackPorchTime = 550e-6; 			// MIN_VSYNC_BP
+        int   minVerticalBackPorch         = 6;				// MIN_VBPORCH
+	int   minVerticalFrontPorch        = 3; 			// MIN_V_PORCH_RND
+	float estimatedHorizontalPeriod;				// H_PERIOD_EST 
+	float verticalFieldTotal;					// TOTAL_V_LINES 
+	SInt32 curve = 0;
 
-    // 18.
-    float	idealDutyCycle	= cPrime - (mPrime * hPeriod * 1e6 / 1000.0);
-    // 19.
-    int		hBlankPixels	= roundf((totalActivePixels * idealDutyCycle / (100.0 - idealDutyCycle)
-				/ (2 * characterSize))) * 2 * characterSize;
-    // 20.
-    int		totalPixels	= totalActivePixels + hBlankPixels;
-    // 21.
-    float	pixelFreq	= totalPixels / hPeriod;
+	float cPrime = ((((float) connectRef->gtfCurves[curve].c) - ((float) connectRef->gtfCurves[curve].j)) 
+				    * ((float) connectRef->gtfCurves[curve].k) / 256.0) 
+				    + ((float) connectRef->gtfCurves[curve].j);
+	float mPrime = ((float) connectRef->gtfCurves[curve].k) / 256.0 * ((float) connectRef->gtfCurves[curve].m);
 
-    // stage 2 - 17.
-    int		hSyncPixels	= roundf( hSyncPct * totalPixels / characterSize) * characterSize;
-    int		hFPPixels	= (hBlankPixels / 2) - hSyncPixels;
-    // 30.
-    float	vOddBlankingLines = vSyncBP + minPorchRnd;
-    // 36.
-    float	vOddFPLines	= minPorchRnd + interlace;
+	// 8.
+	estimatedHorizontalPeriod = 
+	    ((1 / fieldRate) - verticalSyncAndBackPorchTime) 
+	    / (verticalActive + (topMargin + bottomMargin) + minVerticalFrontPorch + interlace);
+	// 9.
+
+	verticalSyncAndBackPorch = 1 + truncf(verticalSyncAndBackPorchTime / estimatedHorizontalPeriod);
+    
+	if (verticalSyncAndBackPorch < (verticalSyncWidth + minVerticalBackPorch))
+	    verticalSyncAndBackPorch = verticalSyncWidth + minVerticalBackPorch;
+    
+	// 10.
+
+	verticalSyncFrontPorch = minVerticalFrontPorch;
+	verticalBlanking       = verticalSyncFrontPorch + verticalSyncAndBackPorch;
+    
+	// 11.
+	verticalFieldTotal = verticalActive + topMargin + bottomMargin 
+			    + verticalBlanking + interlace;
+	// 12.
+	float idealDutyCycle = cPrime - (mPrime * estimatedHorizontalPeriod * 1e6 / 1000.0);
+    
+	// 13.
+	if (idealDutyCycle < 20.0)
+	    idealDutyCycle = 20.0;
+
+	horizontalBlanking = 2 * characterSize * truncf(
+			    (horizontalActive * idealDutyCycle / (100.0 - idealDutyCycle) 
+			    / (2 * characterSize)));
+    	// 14.
+	horizontalTotal = horizontalActive + horizontalBlanking;
+
+	// 15.
+	float frequencyStep = 0.25e6;					// CLOCK_STEP
+	pixelFrequency = frequencyStep * truncf(
+			(horizontalTotal / estimatedHorizontalPeriod) / frequencyStep);
+
+	// gtf 2.17.
+	horizontalSyncWidth = characterSize * truncf(
+	    horizontalSyncPercent * horizontalTotal / characterSize);
+
+	horizontalSyncConfig	= 0 * kIOSyncPositivePolarity;
+	verticalSyncConfig	= 1 * kIOSyncPositivePolarity;
+    }
+    else
+    {
+	/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * CVT reduced blank */
+
+	float minVerticalBlankTime      = 460e-6;			// RB_MIN_V_BLANK 
+        int   minVerticalBackPorch      = 6;				// MIN_VBPORCH
+	float estimatedHorizontalPeriod;				// H_PERIOD_EST 
+	verticalSyncFrontPorch          = 3;				// RB_V_FPORCH
+	horizontalBlanking              = 160;				// RB_H_BLANK
+	horizontalSyncWidth             = 32;				// RB_H_SYNC
+
+    
+	// 8.
+	estimatedHorizontalPeriod = ((1 / fieldRate) - minVerticalBlankTime) 
+				    / (verticalActive + topMargin + bottomMargin);
+	// 9.
+	verticalBlanking = truncf(minVerticalBlankTime / estimatedHorizontalPeriod) + 1; // VBI_LINES
+
+	// 10.
+	if (verticalBlanking < (verticalSyncFrontPorch + verticalSyncWidth + minVerticalBackPorch))
+	    verticalBlanking = (verticalSyncFrontPorch + verticalSyncWidth + minVerticalBackPorch);
+
+	verticalSyncAndBackPorch = verticalBlanking - verticalSyncFrontPorch;
+
+	// 11.
+	int verticalFieldTotal = verticalBlanking  + verticalActive 
+				+ topMargin + bottomMargin + interlace;
+
+	// 12.
+	horizontalTotal = horizontalActive + horizontalBlanking;
+
+	// 13.
+	float frequencyStep = 0.25e6;					// CLOCK_STEP
+    	pixelFrequency = frequencyStep * truncf(
+			    (horizontalTotal * verticalFieldTotal * fieldRate) / frequencyStep);
+
+	horizontalSyncConfig	= 1 * kIOSyncPositivePolarity;
+	verticalSyncConfig	= 0 * kIOSyncPositivePolarity;
+    }
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    int horizontalSyncOffset = (horizontalBlanking / 2) - horizontalSyncWidth;
 
     // --
-    bzero( timing, sizeof( IODetailedTimingInformation) );
-    timing->__reservedA[0] = sizeof( IODetailedTimingInformation);	// csTimingSize
+    bzero( timing, sizeof(IODetailedTimingInformation) );
+    timing->__reservedA[0] = sizeof(IODetailedTimingInformation);	// csTimingSize
 
     if (edid)
     {
@@ -725,50 +932,201 @@ GTFToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
         timing->signalLevels		= kIOAnalogSignalLevel_0700_0300;
     }
 
-    timing->pixelClock 			= pixelFreq;
+    timing->pixelClock 			= pixelFrequency;
 
-    timing->horizontalActive		= totalActivePixels;
-    timing->horizontalBlanking		= hBlankPixels;
+    timing->horizontalActive		= horizontalActive;
+    timing->horizontalBlanking		= horizontalBlanking;
 
-    timing->verticalActive 		= vLinesRnd;
-    timing->verticalBlanking  		= vOddBlankingLines;
+    timing->verticalActive 		= verticalActive;
+    timing->verticalBlanking  		= verticalBlanking;
 
-    timing->horizontalSyncOffset	= hFPPixels;
-    timing->horizontalSyncPulseWidth	= hSyncPixels;
+    timing->horizontalSyncOffset	= horizontalSyncOffset;
+    timing->horizontalSyncPulseWidth	= horizontalSyncWidth;
 
-    timing->verticalSyncOffset		= vOddFPLines;
-    timing->verticalSyncPulseWidth	= vSyncRqd;
+    timing->verticalSyncOffset		= verticalSyncFrontPorch;
+    timing->verticalSyncPulseWidth	= verticalSyncWidth;
 
     timing->horizontalBorderLeft	= leftMargin;
     timing->horizontalBorderRight	= rightMargin;
     timing->verticalBorderTop		= topMargin;
     timing->verticalBorderBottom	= bottomMargin;
 
-    timing->horizontalSyncConfig	= (curve == 0)
-                                        ? 0 : kIOSyncPositivePolarity;
+    timing->horizontalSyncConfig	= horizontalSyncConfig;
     timing->horizontalSyncLevel		= 0;
-    timing->verticalSyncConfig		= (curve == 0)
-                                        ? kIOSyncPositivePolarity : 0;
+    timing->verticalSyncConfig		= verticalSyncConfig;
     timing->verticalSyncLevel		= 0;
+
+    if (kResSpecNeedInterlace & spec->flags)
+	AdjustTimingForInterlace(timing);
 
     return( kIOReturnSuccess );
 }
 
-static Boolean
-CheckTimingWithRange( IODisplayTimingRange * range,
+#if RLOG
+__private_extern__ void
+IOFBLogRange(IOFBConnectRef connectRef, const IODisplayTimingRange * range)
+{
+    if (!connectRef->logfile || !range)
+	return;
+
+    fprintf(connectRef->logfile, "  minPixelClock                 %qd\n", range->minPixelClock);
+    fprintf(connectRef->logfile, "  maxPixelClock                 %qd\n", range->maxPixelClock);
+    
+    fprintf(connectRef->logfile, "  maxPixelError                 %ld\n", range->maxPixelError);
+    fprintf(connectRef->logfile, "  supportedSyncFlags            %lx\n", range->supportedSyncFlags);
+    fprintf(connectRef->logfile, "  supportedSignalLevels         %lx\n", range->supportedSignalLevels);
+    fprintf(connectRef->logfile, "  supportedSignalConfigs        %lx\n", range->supportedSignalConfigs);
+    fprintf(connectRef->logfile, "  minFrameRate                  %ld\n", range->minFrameRate);
+    fprintf(connectRef->logfile, "  maxFrameRate                  %ld\n", range->maxFrameRate);
+    fprintf(connectRef->logfile, "  minLineRate                   %ld\n", range->minLineRate);
+    fprintf(connectRef->logfile, "  maxLineRate                   %ld\n", range->maxLineRate);
+
+    fprintf(connectRef->logfile, "  maxHorizontalTotal            %ld\n", range->maxHorizontalTotal);
+    fprintf(connectRef->logfile, "  maxVerticalTotal              %ld\n", range->maxVerticalTotal);
+    fprintf(connectRef->logfile, "  charSizeHorizontalActive      %d\n", range->charSizeHorizontalActive);
+    fprintf(connectRef->logfile, "  charSizeHorizontalBlanking    %d\n", range->charSizeHorizontalBlanking);
+    fprintf(connectRef->logfile, "  charSizeHorizontalSyncOffset  %d\n", range->charSizeHorizontalSyncOffset);
+    fprintf(connectRef->logfile, "  charSizeHorizontalSyncPulse   %d\n", range->charSizeHorizontalSyncPulse);
+    fprintf(connectRef->logfile, "  charSizeVerticalActive        %d\n", range->charSizeVerticalActive);
+    fprintf(connectRef->logfile, "  charSizeVerticalBlanking      %d\n", range->charSizeVerticalBlanking);
+    fprintf(connectRef->logfile, "  charSizeVerticalSyncOffset    %d\n", range->charSizeVerticalSyncOffset);
+    fprintf(connectRef->logfile, "  charSizeVerticalSyncPulse     %d\n", range->charSizeVerticalSyncPulse);
+    fprintf(connectRef->logfile, "  charSizeHorizontalBorderLeft  %d\n", range->charSizeHorizontalBorderLeft);
+    fprintf(connectRef->logfile, "  charSizeHorizontalBorderRight %d\n", range->charSizeHorizontalBorderRight);
+    fprintf(connectRef->logfile, "  charSizeVerticalBorderTop     %d\n", range->charSizeVerticalBorderTop);
+    fprintf(connectRef->logfile, "  charSizeVerticalBorderBottom  %d\n", range->charSizeVerticalBorderBottom);
+    fprintf(connectRef->logfile, "  charSizeHorizontalTotal       %d\n", range->charSizeHorizontalTotal);
+    fprintf(connectRef->logfile, "  charSizeVerticalTotal         %d\n", range->charSizeVerticalTotal);
+
+    fprintf(connectRef->logfile, "  minHorizontalActiveClocks     %ld\n", range->minHorizontalActiveClocks);
+    fprintf(connectRef->logfile, "  maxHorizontalActiveClocks     %ld\n", range->maxHorizontalActiveClocks);
+    fprintf(connectRef->logfile, "  minHorizontalBlankingClocks   %ld\n", range->minHorizontalBlankingClocks);
+    fprintf(connectRef->logfile, "  maxHorizontalBlankingClocks   %ld\n", range->maxHorizontalBlankingClocks);
+    fprintf(connectRef->logfile, "  minHorizontalSyncOffsetClocks %ld\n", range->minHorizontalSyncOffsetClocks);
+    fprintf(connectRef->logfile, "  maxHorizontalSyncOffsetClocks %ld\n", range->maxHorizontalSyncOffsetClocks);
+    fprintf(connectRef->logfile, "  minHorizontalPulseWidthClocks %ld\n", range->minHorizontalPulseWidthClocks);
+    fprintf(connectRef->logfile, "  maxHorizontalPulseWidthClocks %ld\n", range->maxHorizontalPulseWidthClocks);
+
+    fprintf(connectRef->logfile, "  minVerticalActiveClocks       %ld\n", range->minVerticalActiveClocks);
+    fprintf(connectRef->logfile, "  maxVerticalActiveClocks       %ld\n", range->maxVerticalActiveClocks);
+    fprintf(connectRef->logfile, "  minVerticalBlankingClocks     %ld\n", range->minVerticalBlankingClocks);
+    fprintf(connectRef->logfile, "  maxVerticalBlankingClocks     %ld\n", range->maxVerticalBlankingClocks);
+
+    fprintf(connectRef->logfile, "  minVerticalSyncOffsetClocks   %ld\n", range->minVerticalSyncOffsetClocks);
+    fprintf(connectRef->logfile, "  maxVerticalSyncOffsetClocks   %ld\n", range->maxVerticalSyncOffsetClocks);
+    fprintf(connectRef->logfile, "  minVerticalPulseWidthClocks   %ld\n", range->minVerticalPulseWidthClocks);
+    fprintf(connectRef->logfile, "  maxVerticalPulseWidthClocks   %ld\n", range->maxVerticalPulseWidthClocks);
+
+    fprintf(connectRef->logfile, "  minHorizontalBorderLeft       %ld\n", range->minHorizontalBorderLeft);
+    fprintf(connectRef->logfile, "  maxHorizontalBorderLeft       %ld\n", range->maxHorizontalBorderLeft);
+    fprintf(connectRef->logfile, "  minHorizontalBorderRight      %ld\n", range->minHorizontalBorderRight);
+    fprintf(connectRef->logfile, "  maxHorizontalBorderRight      %ld\n", range->maxHorizontalBorderRight);
+
+    fprintf(connectRef->logfile, "  minVerticalBorderTop          %ld\n", range->minVerticalBorderTop);
+    fprintf(connectRef->logfile, "  maxVerticalBorderTop          %ld\n", range->maxVerticalBorderTop);
+    fprintf(connectRef->logfile, "  minVerticalBorderBottom       %ld\n", range->minVerticalBorderBottom);
+    fprintf(connectRef->logfile, "  maxVerticalBorderBottom       %ld\n", range->maxVerticalBorderBottom);
+
+    fprintf(connectRef->logfile, "  maxNumLinks                   %ld\n", range->maxNumLinks);
+    fprintf(connectRef->logfile, "  minLink0PixelClock            %ld\n", range->minLink0PixelClock);
+    fprintf(connectRef->logfile, "  maxLink0PixelClock            %ld\n", range->maxLink0PixelClock);
+    fprintf(connectRef->logfile, "  minLink1PixelClock            %ld\n", range->minLink1PixelClock);
+    fprintf(connectRef->logfile, "  maxLink1PixelClock            %ld\n", range->maxLink1PixelClock);
+
+    fflush(connectRef->logfile);
+}
+
+__private_extern__ void
+IOFBLogTiming(IOFBConnectRef connectRef, const IOTimingInformation * timing)
+{
+    if (!connectRef->logfile || !timing)
+	return;
+
+    fprintf(connectRef->logfile, "  pixelClock                    %qd\n", timing->detailedInfo.v2.pixelClock);
+    fprintf(connectRef->logfile, "  minPixelClock                 %qd\n", timing->detailedInfo.v2.minPixelClock);
+    fprintf(connectRef->logfile, "  maxPixelClock                 %qd\n", timing->detailedInfo.v2.maxPixelClock);
+    fprintf(connectRef->logfile, "  signalConfig                  %lx\n", timing->detailedInfo.v2.signalConfig);
+    fprintf(connectRef->logfile, "  signalLevels                  %lx\n", timing->detailedInfo.v2.signalLevels);
+    fprintf(connectRef->logfile, "  horizontalActive              %ld\n", timing->detailedInfo.v2.horizontalActive);
+    fprintf(connectRef->logfile, "  horizontalBlanking            %ld\n", timing->detailedInfo.v2.horizontalBlanking);
+    fprintf(connectRef->logfile, "  horizontalSyncOffset          %ld\n", timing->detailedInfo.v2.horizontalSyncOffset);
+    fprintf(connectRef->logfile, "  horizontalSyncPulseWidth      %ld\n", timing->detailedInfo.v2.horizontalSyncPulseWidth);
+    fprintf(connectRef->logfile, "  verticalActive                %ld\n", timing->detailedInfo.v2.verticalActive);
+    fprintf(connectRef->logfile, "  verticalBlanking              %ld\n", timing->detailedInfo.v2.verticalBlanking);
+    fprintf(connectRef->logfile, "  verticalSyncOffset            %ld\n", timing->detailedInfo.v2.verticalSyncOffset);
+    fprintf(connectRef->logfile, "  verticalSyncPulseWidth        %ld\n", timing->detailedInfo.v2.verticalSyncPulseWidth);
+    fprintf(connectRef->logfile, "  horizontalSyncConfig          %ld\n", timing->detailedInfo.v2.horizontalSyncConfig);
+    fprintf(connectRef->logfile, "  horizontalSyncLevel           %ld\n", timing->detailedInfo.v2.horizontalSyncLevel);
+    fprintf(connectRef->logfile, "  verticalSyncConfig            %ld\n", timing->detailedInfo.v2.verticalSyncConfig);
+    fprintf(connectRef->logfile, "  verticalSyncLevel             %ld\n", timing->detailedInfo.v2.verticalSyncLevel);
+    fprintf(connectRef->logfile, "  numLinks                      %ld\n", timing->detailedInfo.v2.numLinks);
+
+    fprintf(connectRef->logfile, "  scalerFlags                   %lx\n", timing->detailedInfo.v2.scalerFlags);
+    fprintf(connectRef->logfile, "  horizontalScaled              %ld\n", timing->detailedInfo.v2.horizontalScaled);
+    fprintf(connectRef->logfile, "  verticalScaled                %ld\n", timing->detailedInfo.v2.verticalScaled);
+
+    fflush(connectRef->logfile);
+}
+#endif
+
+static void
+AdjustTimingForRange( IODisplayTimingRange * range,
                         IODetailedTimingInformation * timing )
+{
+    if( timing->horizontalSyncPulseWidth % range->charSizeHorizontalSyncPulse)
+    // digital only?
+#if 0
+	// round
+        timing->horizontalSyncPulseWidth += range->charSizeHorizontalSyncPulse 
+			    - (timing->horizontalSyncPulseWidth % range->charSizeHorizontalSyncPulse);
+#else
+	// trunc
+        timing->horizontalSyncPulseWidth -= 
+			    (timing->horizontalSyncPulseWidth % range->charSizeHorizontalSyncPulse);
+#endif
+}
+
+static UInt32
+GetAssumedPixelRepetition( IODetailedTimingInformation * timing )
+{
+    if (!(kIOInterlacedCEATiming & timing->signalConfig))
+	return (0);
+
+    if ((1440 == timing->horizontalActive)
+     && ((480 == timing->verticalActive) || (576 == timing->verticalActive)))
+	return (2);
+
+    if ((2880 == timing->horizontalActive)
+     && ((480 == timing->verticalActive) || (576 == timing->verticalActive)))
+	return (4);	// 1 - 10
+
+    return (0);
+}
+
+static int
+CheckTimingWithRange( IOFBConnectRef connectRef,
+		      IODisplayTimingRange * range, IODetailedTimingInformation * timing )
 {
     UInt64	pixelClock;
     UInt64	rate;
     UInt64	hTotal, vTotal;
 
     if( kIODigitalSignal & timing->signalConfig)
-        return( false);
+        return(1);
+
+    if ((kIOInterlacedCEATiming & timing->signalConfig)
+     && !(kIORangeSupportsInterlacedCEATiming & range->supportedSignalConfigs))
+        return(34);
+
+    if ((timing->numLinks > 1) 
+	&& range->maxNumLinks
+	&& (timing->numLinks > range->maxNumLinks))
+        return(35);
 
 //    if( 0 == (range->supportedSyncFlags & (1 << (timing->signalLevels))))
-//        return( false);
+//        return(2);
 //    if( 0 == (range->supportedSignalLevels & (1 << (timing->signalLevels))))
-//        return( false);
+//        return(3);
 
     pixelClock = timing->pixelClock;
     hTotal  = timing->horizontalActive;
@@ -778,95 +1136,98 @@ CheckTimingWithRange( IODisplayTimingRange * range,
 
     if( (pixelClock > range->maxPixelClock)
      || (pixelClock < range->minPixelClock))
-        return( false);
+        return(4);
 
     // line rate
     rate = pixelClock / hTotal;
     if( (rate > range->maxLineRate)
      || (rate < range->minLineRate))
-        return( false);
+        return(5);
 
     // frame rate
-    rate = pixelClock / (hTotal * vTotal);
+    rate = pixelClock;
+    if (kIOInterlacedCEATiming & timing->signalConfig)
+	rate *= 2;
+    rate /= (hTotal * vTotal);
     if( (rate > range->maxFrameRate)
      || (rate < range->minFrameRate))
-        return( false);
+        return(6);
 
     if( hTotal > range->maxHorizontalTotal)
-        return( false);
+        return(7);
     if( vTotal > range->maxVerticalTotal)
-        return( false);
+        return(8);
 
     if( (timing->horizontalActive > range->maxHorizontalActiveClocks)
      || (timing->horizontalActive < range->minHorizontalActiveClocks))
-        return( false);
+        return(9);
     if( (timing->verticalActive > range->maxVerticalActiveClocks)
      || (timing->verticalActive < range->minVerticalActiveClocks))
-        return( false);
+        return(10);
 
 /*
     if( (timing->horizontalBlanking > range->maxHorizontalBlankingClocks)
      || (timing->horizontalBlanking < range->minHorizontalBlankingClocks))
-        return( false);
+        return(11);
     if( (timing->verticalBlanking > range->maxVerticalBlankingClocks)
      || (timing->verticalBlanking < range->minVerticalBlankingClocks))
-        return( false);
+        return(12);
 */
     if( (timing->horizontalSyncOffset > range->maxHorizontalSyncOffsetClocks)
      || (timing->horizontalSyncOffset < range->minHorizontalSyncOffsetClocks))
-        return( false);
+        return(13);
     if( (timing->horizontalSyncPulseWidth > range->maxHorizontalPulseWidthClocks)
      || (timing->horizontalSyncPulseWidth < range->minHorizontalPulseWidthClocks))
-        return( false);
+        return(14);
 
     if( (timing->verticalSyncOffset > range->maxVerticalSyncOffsetClocks)
      || (timing->verticalSyncOffset < range->minVerticalSyncOffsetClocks))
-        return( false);
+        return(15);
     if( (timing->verticalSyncPulseWidth > range->maxVerticalPulseWidthClocks)
      || (timing->verticalSyncPulseWidth < range->minVerticalPulseWidthClocks))
-        return( false);
+        return(16);
 
     if( (timing->horizontalBorderLeft > range->maxHorizontalBorderLeft)
      || (timing->horizontalBorderLeft < range->minHorizontalBorderLeft))
-        return( false);
+        return(17);
     if( (timing->horizontalBorderRight > range->maxHorizontalBorderRight)
      || (timing->horizontalBorderRight < range->minHorizontalBorderRight))
-        return( false);
+        return(18);
     if( (timing->verticalBorderTop > range->maxVerticalBorderTop)
      || (timing->verticalBorderTop < range->minVerticalBorderTop))
-        return( false);
+        return(19);
     if( (timing->verticalBorderBottom > range->maxVerticalBorderBottom)
      || (timing->verticalBorderBottom < range->minVerticalBorderBottom))
-        return( false);
+        return(20);
 
-    if( timing->horizontalActive & (range->charSizeHorizontalActive - 1))
-        return( false);
-    if( timing->horizontalBlanking & (range->charSizeHorizontalBlanking - 1))
-        return( false);
-    if( timing->horizontalSyncOffset & (range->charSizeHorizontalSyncOffset - 1))
-        return( false);
-    if( timing->horizontalSyncPulseWidth & (range->charSizeHorizontalSyncPulse - 1))
-        return( false);
-    if( timing->verticalBlanking & (range->charSizeVerticalBlanking - 1))
-        return( false);
-    if( timing->verticalSyncOffset & (range->charSizeVerticalSyncOffset - 1))
-        return( false);
-    if( timing->verticalSyncPulseWidth & (range->charSizeVerticalSyncPulse - 1))
-        return( false);
-    if( timing->horizontalBorderLeft & (range->charSizeHorizontalBorderLeft - 1))
-        return( false);
-    if( timing->horizontalBorderRight & (range->charSizeHorizontalBorderRight - 1))
-        return( false);
-    if( timing->verticalBorderTop & (range->charSizeVerticalBorderTop - 1))
-        return( false);
-    if( timing->verticalBorderBottom & (range->charSizeVerticalBorderBottom - 1))
-        return( false);
-    if( hTotal & (range->charSizeHorizontalTotal - 1))
-        return( false);
-    if( vTotal & (range->charSizeVerticalTotal - 1))
-        return( false);
+    if( timing->horizontalActive % range->charSizeHorizontalActive)
+        return(21);
+    if( timing->horizontalBlanking % range->charSizeHorizontalBlanking)
+        return(22);
+    if( timing->horizontalSyncOffset % range->charSizeHorizontalSyncOffset)
+        return(23);
+    if( timing->horizontalSyncPulseWidth % range->charSizeHorizontalSyncPulse)
+        return(24);
+    if( timing->verticalBlanking % range->charSizeVerticalBlanking)
+        return(25);
+    if( timing->verticalSyncOffset % range->charSizeVerticalSyncOffset)
+        return(26);
+    if( timing->verticalSyncPulseWidth % range->charSizeVerticalSyncPulse)
+        return(27);
+    if( timing->horizontalBorderLeft % range->charSizeHorizontalBorderLeft)
+        return(28);
+    if( timing->horizontalBorderRight % range->charSizeHorizontalBorderRight)
+        return(29);
+    if( timing->verticalBorderTop % range->charSizeVerticalBorderTop)
+        return(30);
+    if( timing->verticalBorderBottom % range->charSizeVerticalBorderBottom)
+        return(31);
+    if( hTotal % range->charSizeHorizontalTotal)
+        return(32);
+    if( vTotal % range->charSizeVerticalTotal)
+        return(33);
 
-    return( true );
+    return (0);
 }
 
 static Boolean
@@ -894,50 +1255,56 @@ HasEstablishedTiming( IOFBConnectRef connectRef, UInt32 appleTimingID )
 
 __private_extern__ IOReturn
 IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
-			  const IOTimingInformation * timing,
+			  IOTimingInformation * timing,
 			  IOOptionBits modeGenFlags )
 {
     IOReturn	result;
     CFDataRef	edidData;
     CFDataRef	data;
+    int		diag;
 
     do 
     {
         if (connectRef->fbRange && !(kIOFBDriverMode & modeGenFlags))
 	{
-	    unsigned int len;
+	    AdjustTimingForRange(connectRef->fbRange,  &timing->detailedInfo.v2);
 
-	    if (!CheckTimingWithRange(connectRef->fbRange, 
-					(IODetailedTimingInformation *) &timing->detailedInfo.v2))
+	    if ((diag = CheckTimingWithRange(connectRef, connectRef->fbRange, &timing->detailedInfo.v2)))
 	    {
-#if LOG
-		printf("Out of fb\n");
+#if RLOG
+		DEBG(connectRef, "out of cards range(%d) %ld x %ld\n", diag,
+				timing->detailedInfo.v2.horizontalActive, 
+				timing->detailedInfo.v2.verticalActive );
+		IOFBLogTiming(connectRef, timing);
 #endif
 		result = kIOReturnUnsupportedMode;
 		continue;
 	    }
-	    len = sizeof(IODetailedTimingInformation);
-	    result = io_connect_method_structureI_structureO( connectRef->connect, 17, /*index*/
-			    (void *) &timing->detailedInfo.v2, len, (void *) &timing->detailedInfo.v2, &len);
+
+	    result = IOFBDriverPreflight(connectRef, timing);
 	    if (kIOReturnSuccess != result)
-	    {
-#if LOG
-		printf("preflight (%x)\n", result);
-#endif
-		result = kIOReturnUnsupportedMode;
 		continue;
-	    }
 	}
 
 	result = kIOReturnNotFound;
 	if(!connectRef->overrides)
 	    continue;
 
-	if (kIOFBDriverMode & modeGenFlags)
+	if (!(kIOFBEDIDStdEstMode & modeGenFlags))
 	{
 	    edidData = CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayEDIDKey));
 	    if (edidData && HasEstablishedTiming(connectRef, timing->appleTimingID))
+	    {
+		result = kIOReturnUnsupportedMode;
 		continue;
+	    }
+	}
+
+	if (connectRef->hasCEAExt 
+	    && !((kIOFBScaledMode | kIOFBEDIDDetailedMode | kIOFBEDIDStdEstMode) & modeGenFlags))
+	{
+	    result = kIOReturnUnsupportedMode;
+	    continue;
 	}
 
 	if (kIODetailedTimingValid & timing->flags)
@@ -961,13 +1328,43 @@ IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
 		    continue;
 		}
 	    }
-    
+
+	    if ((timing->detailedInfo.v2.numLinks > 1) 
+		&& connectRef->maxDisplayLinks
+		&& (timing->detailedInfo.v2.numLinks > connectRef->maxDisplayLinks))
+	    {
+#if RLOG
+		DEBG(connectRef, "out display maxDisplayLinks\n");
+		IOFBLogTiming(connectRef, timing);
+#endif
+		result = kIOReturnUnsupportedMode;
+		continue;
+	    }
+
 	    data = CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"));
 	    if (data && ((kIOFBGTFMode | kIOFBStdMode | kIOFBDriverMode) & modeGenFlags))
 	    {
-		result = CheckTimingWithRange((IODisplayTimingRange *) CFDataGetBytePtr(data),
-					      (IODetailedTimingInformation *) &timing->detailedInfo.v2)
-			? kIOReturnSuccess : kIOReturnUnsupportedMode;
+		if ((diag = CheckTimingWithRange(connectRef, (IODisplayTimingRange *) CFDataGetBytePtr(data),
+					      (IODetailedTimingInformation *) &timing->detailedInfo.v2)))
+		{
+#if RLOG
+		    DEBG(connectRef, "out display range(%d)\n", diag);
+		    IOFBLogTiming(connectRef, timing);
+#endif
+		    result = kIOReturnUnsupportedMode;
+		    continue;
+		}
+		if (kIOFBDriverMode & modeGenFlags)
+		{
+		    if (ratioOver(
+			((float) timing->detailedInfo.v2.horizontalActive) 
+				/ ((float) timing->detailedInfo.v2.verticalActive),
+			connectRef->nativeAspect) > 1.2)
+		    {
+			continue;
+		    }
+		}
+		result = kIOReturnSuccess;
 	    }
 	}
     }
@@ -985,8 +1382,18 @@ InstallTiming( IOFBConnectRef             connectRef,
     IOReturn			err;
     IODisplayModeInformation	dmInfo;
 
+    if (connectRef->dualLinkCrossover)
+    {
+	if (timing->detailedInfo.v2.pixelClock >= connectRef->dualLinkCrossover)
+	    timing->detailedInfo.v2.numLinks = 2;
+	else
+	    timing->detailedInfo.v2.numLinks = 1;
+    }
+    else
+	timing->detailedInfo.v2.numLinks = 0;
+
     err = IOCheckTimingWithDisplay( connectRef, timing, modeGenFlags );
-    if(kIOReturnUnsupportedMode == err)
+    if (kIOReturnUnsupportedMode == err)
         return( err );
 
     if ((kIOFBEDIDStdEstMode | kIOFBEDIDDetailedMode) & modeGenFlags)
@@ -1009,26 +1416,70 @@ InstallTiming( IOFBConnectRef             connectRef,
 	    dmFlags &= ~kDisplayModeSafeFlag;
     }
 
+    if (timing->detailedInfo.v2.signalConfig & kIOInterlacedCEATiming)
+	dmFlags |= (kDisplayModeInterlacedFlag /*| kDisplayModeTelevisionFlag*/);
+
     bzero( &dmInfo, sizeof( dmInfo ));
     dmInfo.flags = dmFlags;
+
     err = IOFBInstallMode( connectRef, 0xffffffff, &dmInfo, timing, 0, modeGenFlags );
+
+#if RLOG
+    if (timing->detailedInfo.v2.signalConfig & kIOInterlacedCEATiming)
+    {
+	DEBG(connectRef, "interlaced: %lx\n", modeGenFlags);
+	IOFBLogTiming(connectRef, timing);
+    }
+#endif
 
     return( err );
 }
 
 static kern_return_t
 InstallFromEDIDDesc( IOFBConnectRef connectRef, 
-                            EDID * edid, EDIDDetailedTimingDesc * desc )
+		     EDID * edid, EDIDDetailedTimingDesc * desc,
+		     IOOptionBits dmFlags)
 {
     IOReturn		err;
     IOTimingInformation	timing;
+    UInt32		pixelRep;
 
     bzero( &timing, sizeof( timing ));
     timing.flags = kIODetailedTimingValid;
 
     err = EDIDDescToDetailedTiming( edid, desc, (IODetailedTimingInformation *) &timing.detailedInfo.v2 );
     if( kIOReturnSuccess != err)
-        return( err );
+        return (err);
+    
+    if (kIOInterlacedCEATiming & timing.detailedInfo.v2.signalConfig)
+    {
+	connectRef->hasInterlaced = true;
+	DEBG(connectRef, "hasInterlaced\n");
+    }
+
+    if ((pixelRep = GetAssumedPixelRepetition((IODetailedTimingInformation *) &timing.detailedInfo.v2)))
+    {
+	enum { kNeedFeatures = (kIOScaleCanUpSamplePixels | kIOScaleCanScaleInterlaced) };
+
+	if (2 != pixelRep || !connectRef->scalerInfo)
+	    return (kIOReturnUnsupported);
+
+	if (kNeedFeatures != (kNeedFeatures & connectRef->scalerInfo->scalerFeatures)) 
+	    return (kIOReturnUnsupported);
+
+	if (timing.detailedInfo.v2.verticalActive > connectRef->scalerInfo->maxVerticalPixels)
+	    return (kIOReturnUnsupported);
+	if ((timing.detailedInfo.v2.horizontalActive >> 1) > connectRef->scalerInfo->maxHorizontalPixels)
+	    return (kIOReturnUnsupported);
+
+	timing.detailedInfo.v2.scalerFlags      = kIOScaleStretchToFit;
+	timing.detailedInfo.v2.horizontalScaled = timing.detailedInfo.v2.horizontalActive >> 1;
+	timing.detailedInfo.v2.verticalScaled   = timing.detailedInfo.v2.verticalActive;
+#if RLOG
+	DEBG(connectRef, "pixel rep: %ld\n", pixelRep);
+	IOFBLogTiming(connectRef, &timing);
+#endif
+    }
 
     if (!connectRef->defaultWidth)
     {
@@ -1037,15 +1488,17 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
 	connectRef->defaultImageWidth  = desc->horizImageSize    | ((desc->imageSizeHigh & 0xf0) << 4);
 	connectRef->defaultImageHeight = desc->verticalImageSize | ((desc->imageSizeHigh & 0x0f) << 8);
     }
+
     err = InstallTiming( connectRef, &timing,
-			    kDisplayModeValidFlag | kDisplayModeSafeFlag,
-			    kIOFBEDIDDetailedMode );
+			    dmFlags, kIOFBEDIDDetailedMode );
 
     return( err );
 }
 
 static kern_return_t
-InstallFromTimingOverride( IOFBConnectRef connectRef, IODetailedTimingInformation * desc)
+InstallFromTimingOverride( IOFBConnectRef connectRef, 
+			   IODetailedTimingInformation * desc,
+		           IOOptionBits dmFlags)
 {
     IOReturn		err;
     IOTimingInformation	timing;
@@ -1064,7 +1517,7 @@ InstallFromTimingOverride( IOFBConnectRef connectRef, IODetailedTimingInformatio
 	connectRef->defaultImageHeight = timing.detailedInfo.v2.verticalActive;
     }
     err = InstallTiming( connectRef, &timing,
-			    kDisplayModeValidFlag | kDisplayModeSafeFlag,
+			    dmFlags,
 			    kIOFBEDIDDetailedMode );
 
     return( err );
@@ -1086,12 +1539,13 @@ InstallTimingForResolution( IOFBConnectRef connectRef, EDID * edid,
     {
 	err = StandardResolutionToDetailedTiming( connectRef, edid, spec, &timing );
 
+	DEBG(connectRef, "%s std-mode for %ldx%ld@%ld, id %ld, genFlags 0x%lx\n", 
+		(kIOReturnSuccess == err) ? "Have" : "No",
+		spec->width, spec->height, (UInt32)(spec->refreshRate + 0.5),
+		timing.appleTimingID, modeGenFlags);
+
 	if (kIOReturnSuccess == err)
 	{
-#if LOG
-	    printf("Using std-modes for %ldx%ld@%ld, %ld\n",
-		    spec->width, spec->height, (UInt32)(spec->refreshRate + 0.5), timing.appleTimingID);
-#endif
 	    if (kIOFBGTFMode & modeGenFlags)
 	    {
 		modeGenFlags = kIOFBStdMode;
@@ -1100,17 +1554,19 @@ InstallTimingForResolution( IOFBConnectRef connectRef, EDID * edid,
 	}
 	else
 	{
-#if LOG
-	    printf("Not using std-modes for %ldx%ld@%ld, %ld\n",
-		    spec->width, spec->height, (UInt32)(spec->refreshRate + 0.5), timing.appleTimingID);
+	    if (!(kIOFBCVTEstMode & modeGenFlags)
+#if GTF_ON_TV
+		&& !(connectRef->hasInterlaced)
 #endif
-	    if (connectRef->overrides && CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
+		&& (connectRef->overrides 
+		&& CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey))))
 	    {
 		err = kIOReturnUnsupportedMode;
 		continue;
 	    }
 	    err = GTFToDetailedTiming( connectRef, edid, spec, 8,
 					  (IODetailedTimingInformation *) &timing.detailedInfo.v2 );
+
 	    if( kIOReturnSuccess != err)
 		continue;
 	}
@@ -1134,15 +1590,18 @@ InstallTimingForResolution( IOFBConnectRef connectRef, EDID * edid,
 	}
     
 	err = InstallTiming( connectRef, &timing, dmFlags, modeGenFlags );
+
     }
     while (false);
+
+    DEBG(connectRef, "%x\n", err);
     
     return (err);
 }
 
 static IOReturn
 InstallGTFResolution( IOFBConnectRef connectRef, EDID * edid,
-                      float h, float v, float nativeAspect )
+                      float h, float v )
 {
     IOReturn	 	err = kIOReturnSuccess;
     CFArrayRef	 	array;
@@ -1152,7 +1611,6 @@ InstallGTFResolution( IOFBConnectRef connectRef, EDID * edid,
     IOFBResolutionSpec	spec = { 0 };
     UInt32       	width  = (UInt32) h;
     UInt32       	height = (UInt32) v;		    // rounding?
-    Boolean	 	gtfDisplay;
 
     if (width > connectRef->dimensions.width)
         return (kIOReturnNoSpace);
@@ -1162,17 +1620,17 @@ InstallGTFResolution( IOFBConnectRef connectRef, EDID * edid,
     array = CFDictionaryGetValue( connectRef->iographicsProperties, CFSTR("gtf-refresh-rates") );
     count = array ? CFArrayGetCount(array) : 0;
 
-    gtfDisplay = (edid && (0 != (edid->displayParams[4] & 1)));
-
     dmFlags = kDisplayModeValidFlag;
-    if (gtfDisplay)
+    if (connectRef->gtfDisplay)
 	dmFlags |= kDisplayModeSafeFlag;
-    if( !gtfDisplay || (ratioOver( nativeAspect, h / v ) > 1.03125))
+    if( !connectRef->gtfDisplay || (ratioOver(connectRef->nativeAspect, h / v) > 1.03125))
         dmFlags |= kDisplayModeNotPresetFlag;
 
     spec.width         = width;
     spec.height        = height;
-    spec.needInterlace = false;
+    spec.flags	       = 0;
+    if (connectRef->supportsReducedBlank)
+	spec.flags |= kResSpecReducedBlank;
 
     for (i = 0; i < count; i++)
     {
@@ -1183,6 +1641,15 @@ InstallGTFResolution( IOFBConnectRef connectRef, EDID * edid,
 
 	err = InstallTimingForResolution( connectRef, edid,
                                           &spec, dmFlags, kIOFBGTFMode );
+
+	if ((kIOReturnSuccess != err) 
+	  && connectRef->hasInterlaced)
+	{
+	    spec.flags |= kResSpecNeedInterlace;
+	    err = InstallTimingForResolution( connectRef, edid,
+					      &spec, dmFlags, kIOFBGTFMode );
+	    spec.flags &= ~kResSpecNeedInterlace;
+	}
     }
     
     return (err);
@@ -1212,7 +1679,7 @@ InstallStandardEstablishedTimings( IOFBConnectRef connectRef, EDID * edid  )
     else
 	establishedIDs = 0;
 
-    spec.needInterlace = false;
+    spec.flags = 0;
 
     for( i = 7; establishedIDs && (i < 24); i++ )
     {
@@ -1233,6 +1700,72 @@ InstallStandardEstablishedTimings( IOFBConnectRef connectRef, EDID * edid  )
 	InstallStandardEstablishedTiming(connectRef, edid, &spec);
     }
 }
+
+#if TIGER
+static void
+InstallCVTStandardTimings( IOFBConnectRef connectRef, EDID * edid  )
+{
+    EDIDGeneralDesc *	desc;
+    CFDataRef		data;
+    CFArrayRef		array;
+    CFIndex		i, count;
+    IOFBResolutionSpec	spec = { 0 };
+    UInt8 *		bits;
+
+    connectRef->gtfDisplay = (0 != (edid->featureSupport & 1));
+
+    data = CFDictionaryGetValue(connectRef->overrides, CFSTR("drng"));
+    if (!data)
+	return;
+    desc = (EDIDGeneralDesc *) CFDataGetBytePtr(data);
+
+    if (0x04 == desc->data[5])
+    {
+	connectRef->cvtDisplay = true;
+	connectRef->gtfDisplay = true;
+    }
+
+    if (!connectRef->cvtDisplay)
+	return;
+
+    array = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("cvt-established-ids"));
+    if (!array)
+	return;
+
+    count = CFArrayGetCount(array);
+    if (count > (7 * 8))
+	count = 7 * 8;
+    bits = &desc->data[6];
+    for (i = 0; i < count; i++)
+    {
+        if (0 != (bits[i / 8] & (0x80 >> (i % 8))))
+	{
+	    UInt32 * rec;
+	    CFIndex  num;
+	    
+	    data = CFArrayGetValueAtIndex(array, i);
+	    rec = (UInt32 *) CFDataGetBytePtr(data);
+	    num = CFDataGetLength(data) / sizeof(UInt32);
+	    if (num < 4)
+		continue;
+
+	    spec.width         = OSReadBigInt32(rec, 0);
+	    spec.height        = OSReadBigInt32(rec, 4);
+	    spec.refreshRate   = OSReadBigInt32(rec, 8);
+	    spec.flags         = OSReadBigInt32(rec, 12);
+	    if (num >= 5)
+		spec.timingID  = OSReadBigInt32(rec, 16);
+	    else
+		spec.timingID  = kIOTimingIDInvalid;
+
+	    connectRef->supportsReducedBlank |= (0 != (kResSpecReducedBlank & spec.flags));
+
+	    InstallTimingForResolution(connectRef, edid, &spec,
+					kDisplayModeValidFlag | kDisplayModeSafeFlag, kIOFBCVTEstMode);
+	}
+    }
+}
+#endif
 
 static Boolean
 IODisplayConsiderAspect( float w, float h, float * aspectWidth, float * aspectHeight )
@@ -1276,27 +1809,25 @@ IODisplayConsiderAspect( float w, float h, float * aspectWidth, float * aspectHe
 }
 
 static void
-IODisplayGetAspect( IOFBConnectRef connectRef, 
-                    EDID * edid,
-                    float * aspectWidth, float * aspectHeight )
+IODisplayGetAspect( IOFBConnectRef connectRef )
 {
     CFDictionaryRef ovr;
     CFNumberRef     imageH, imageV;
+    float	    aspectWidth, aspectHeight;
     float	    w, h;
 
-    *aspectWidth = 4.0;
-    *aspectHeight = 3.0;
+    aspectWidth    = 4.0;
+    aspectHeight   = 3.0;
 
     ovr = connectRef->overrides;
-
     do
     {
 	if (IODisplayConsiderAspect(connectRef->defaultWidth, connectRef->defaultHeight,
-				    aspectWidth, aspectHeight))
+				    &aspectWidth, &aspectHeight))
 	    break;
 
 	if (IODisplayConsiderAspect(connectRef->defaultImageWidth, connectRef->defaultImageHeight,
-				    aspectWidth, aspectHeight))
+				    &aspectWidth, &aspectHeight))
 	    break;
 
 	if( ovr)
@@ -1307,12 +1838,14 @@ IODisplayGetAspect( IOFBConnectRef connectRef,
 	    {
 		CFNumberGetValue( imageH, kCFNumberFloatType, &w );
 		CFNumberGetValue( imageV, kCFNumberFloatType, &h );
-		if (IODisplayConsiderAspect(w, h, aspectWidth, aspectHeight))
+		if (IODisplayConsiderAspect(w, h, &aspectWidth, &aspectHeight))
 		    break;
 	    } 
 	}
     }
     while (false);
+
+    connectRef->nativeAspect = aspectWidth / aspectHeight;
 }
 
 
@@ -1324,14 +1857,12 @@ InstallGTFTimings( IOFBConnectRef connectRef, EDID * edid )
     CFArrayRef		array;
     CFIndex		count;
     CFStringRef		key;
-    float		h, v, nh, nv, nativeAspect;
+    float		h, v, nativeAspect;
     Boolean		wide, displayNot4By3;
 
     // arb timings
 
-    IODisplayGetAspect( connectRef, edid, &nh, &nv );
-
-    nativeAspect = nh / nv;
+    nativeAspect = connectRef->nativeAspect;
     wide = (nativeAspect > 1.45);
     displayNot4By3 = (ratioOver(nativeAspect, 4.0 / 3.0) > 1.03125);
 
@@ -1355,27 +1886,194 @@ InstallGTFTimings( IOFBConnectRef connectRef, EDID * edid )
 
 	if (v)
         {
-            err = InstallGTFResolution( connectRef, edid,
-                                        h, v, nativeAspect );
+            err = InstallGTFResolution( connectRef, edid, h, v );
         }
         else
         {
             if (displayNot4By3)
-                err = InstallGTFResolution( connectRef, edid,
-                                            h, (h * 3.0) / 4.0, nativeAspect );
-
-            err = InstallGTFResolution( connectRef, edid,
-                                        h, (h * nv) / nh, nativeAspect );
+	    {
+                err = InstallGTFResolution( connectRef, edid, h, (h * 3.0) / 4.0 );
+	    }
+            err = InstallGTFResolution( connectRef, edid, h, h / nativeAspect );
         }
     }
 
     return( err );
 }
 
+static void
+InstallDIEXT( IOFBConnectRef connectRef, EDID * edid, DIEXT * ext )
+{
+    UInt16 minPixelClockPerLink, maxPixelClockPerLink, crossover;
+    
+    minPixelClockPerLink = ext->minPixelClockPerLink;
+    maxPixelClockPerLink = (ext->maxPixelClockPerLink[1] << 16) | ext->maxPixelClockPerLink[0];
+    crossover = (ext->crossoverFreq[1] << 16) | ext->crossoverFreq[0];
+
+    if ((3 == ext->standardSupported) || (4 == ext->standardSupported))
+    {
+	connectRef->dualLinkCrossover = ((UInt64) crossover) * 1000000ULL;
+	connectRef->maxDisplayLinks = 2;
+    }
+    else
+	connectRef->maxDisplayLinks = 1;
+
+    DEBG(connectRef, "(%d) minPixelClockPerLink %d, maxPixelClockPerLink %d, cross %qd\n", 
+	    ext->standardSupported,
+	    minPixelClockPerLink, maxPixelClockPerLink, connectRef->dualLinkCrossover);
+}
+
+#if TIGER
+static void
+InstallVTBEXT( IOFBConnectRef connectRef, EDID * edid, VTBEXT * ext )
+{
+    IOByteCount        offset = 0;
+    IOItemCount        idx, count;
+    IOFBResolutionSpec spec;
+    Boolean            malformed = false;
+
+    do
+    {
+	count = ext->numDetailedTimings;
+	for (idx = 0; idx < count; idx++)
+	{
+	    malformed = (offset > (sizeof(ext->data) - sizeof(EDIDDetailedTimingDesc)));
+	    if (malformed)
+		break;
+	    InstallFromEDIDDesc( connectRef,
+				    edid, (EDIDDetailedTimingDesc *) &ext->data[offset],
+				    kDisplayModeValidFlag | kDisplayModeSafeFlag );
+	    offset += sizeof(EDIDDetailedTimingDesc);
+	}
+	if (malformed)
+	    break;
+
+	// --
+	count = ext->numCVTTimings;
+	for (idx = 0; idx < count; idx++)
+	{
+	    SInt32              refreshBit;
+	    UInt32              vsize;
+	    VTBCVTTimingDesc *  desc;
+	    static const UInt32 cvtRefreshRates[] = { 60, 85, 75, 60, 50 };
+
+	    malformed = (offset > (sizeof(ext->data) - sizeof(VTBCVTTimingDesc)));
+	    if (malformed)
+		break;
+
+	    desc = (VTBCVTTimingDesc *) &ext->data[offset];
+	    vsize = ((desc->verticalSizeHigh & 0xf0) << 4) | desc->verticalSize;
+	    vsize = 2 * (vsize + 1);
+	    spec.height = vsize;
+	    switch (kVTBCVTAspectRatioMask & desc->verticalSizeHigh)
+	    {
+		case kVTBCVTAspectRatio16By10:
+		    spec.width = (vsize * 16) / 10;
+		    break;
+		case kVTBCVTAspectRatio16By9:
+		    spec.width = (vsize * 16) / 9;
+		    break;
+		case kVTBCVTAspectRatio4By3:
+		default:
+		    spec.width = (vsize * 4) / 3;
+		    break;
+	    }
+	    spec.timingID      = kIOTimingIDInvalid;
+	    spec.width &= ~7;
+	    for (refreshBit = 4; refreshBit >= 0; refreshBit--)
+	    {
+		if ((1 << refreshBit) & desc->refreshRates)
+		{
+		    spec.refreshRate   = cvtRefreshRates[refreshBit];
+		    spec.flags = (kVTBCVTRefresh60RBlank == (1 << refreshBit)) ? kResSpecReducedBlank : kNilOptions;
+		    InstallTimingForResolution(connectRef, edid, &spec,
+					    kDisplayModeValidFlag | kDisplayModeSafeFlag, kIOFBCVTEstMode);
+		    DEBG(connectRef, "VTB cvt: %ldx%ld @ %f (%lx)\n", 
+			    spec.width, spec.height, spec.refreshRate, spec.flags);
+		}
+	    }
+	    offset += sizeof(VTBCVTTimingDesc);
+	}
+
+	// --
+	count = ext->numStandardTimings;
+	for (idx = 0; idx < count; idx++)
+	{
+	    UInt16 stdTiming;
+
+	    malformed = (offset > (sizeof(ext->data) - sizeof(UInt16)));
+	    if (malformed)
+		break;
+
+	    spec.flags    = 0;
+	    spec.timingID = kIOTimingIDInvalid;
+	    stdTiming = (ext->data[offset] << 8) | ext->data[offset + 1];
+
+	    DEBG(connectRef, "VTB st: %04x\n", stdTiming);
+	    if (kIOReturnSuccess != DecodeStandardTiming(edid, stdTiming,
+							    &spec.width, &spec.height, &spec.refreshRate))
+		continue;
+	    DEBG(connectRef, "VTB st: %ldx%ld @ %f (%lx)\n", 
+		    spec.width, spec.height, spec.refreshRate, spec.flags);
+	    InstallStandardEstablishedTiming(connectRef, edid, &spec);
+	    offset += sizeof(UInt16);
+	}
+    }
+    while (false);
+}
+#endif
+
+static void
+InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext )
+{
+    IOByteCount offset = ext->detailedTimingsOffset;
+
+    if (offset < 4)
+	return;
+    offset -= 4;
+    while (offset <= (sizeof(ext->data) - sizeof(EDIDDetailedTimingDesc)))
+    {
+	DEBG(connectRef, "FromCEA:\n");
+	InstallFromEDIDDesc( connectRef,
+ 				 edid, (EDIDDetailedTimingDesc *) &ext->data[offset],
+				 kDisplayModeValidFlag | kDisplayModeSafeFlag );
+	offset += sizeof(EDIDDetailedTimingDesc);
+    }
+}
+
+static void
+LookExtensions( IOFBConnectRef connectRef, EDID * edid, UInt8 * blocks, IOByteCount length)
+{
+    UInt8 tag;
+    
+    while (length >= 128)
+    {
+
+	tag = blocks[0];
+	switch (tag)
+	{
+	    case kExtTagDI:
+		InstallDIEXT( connectRef, edid, (DIEXT *) blocks);
+		connectRef->hasDIEXT = true;
+		break;
+#if TIGER
+	    case kExtTagVTB:
+		InstallVTBEXT( connectRef, edid, (VTBEXT *) blocks);
+		break;
+#endif
+	    case kExtTagCEA:
+		InstallCEA861EXT( connectRef, edid, (CEA861EXT *) blocks);
+		connectRef->hasCEAExt = true;
+		break;
+	}
+	length -= 128;
+    }
+}
+
 __private_extern__ void
 IODisplayInstallTimings( IOFBConnectRef connectRef )
 {
-    int				i;
+    int				i, defaultIndex;
     io_service_t		service = connectRef->framebuffer;
     EDID *			edid = 0;
     CFDataRef			fbRange;
@@ -1395,8 +2093,37 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     if (fbRange && CFDataGetLength(fbRange) >= sizeof(IODisplayTimingRange))
 	connectRef->fbRange = (IODisplayTimingRange *) CFDataGetBytePtr(fbRange);
 
-    connectRef->numGTFCurves = 1;
+
+    connectRef->gtfDisplay	     = false;
+    connectRef->cvtDisplay	     = false;
+    connectRef->supportsReducedBlank = false;
+    connectRef->hasInterlaced	     = false;
+    connectRef->hasDIEXT	     = false;
+    connectRef->hasCEAExt	     = false;
+    connectRef->numGTFCurves         = 1;
     bcopy(&defaultGTFCurves, &connectRef->gtfCurves, sizeof(connectRef->gtfCurves));
+
+    // defaults for no DIEXT
+    if (CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
+    {
+	connectRef->dualLinkCrossover = 165000000ULL;
+	connectRef->maxDisplayLinks   = 2;
+    }
+    else
+    {
+	connectRef->dualLinkCrossover = 0;
+	connectRef->maxDisplayLinks   = 0;
+    }
+
+#if RLOG
+    DEBG(connectRef, "FB range:\n");
+    IOFBLogRange(connectRef, connectRef->fbRange);
+
+    DEBG(connectRef, "Display range:\n");
+    data = CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"));
+    if (data && CFDataGetLength(data) >= sizeof(IODisplayTimingRange))
+	IOFBLogRange(connectRef, (IODisplayTimingRange *) CFDataGetBytePtr(data));
+#endif
 
     do 
     {
@@ -1405,8 +2132,29 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
         data = CFDictionaryGetValue( connectRef->overrides, CFSTR(kIODisplayEDIDKey) );
         if( !data || (CFDataGetLength(data) < sizeof( EDID)) )
             continue;
-
+#if RLOG
+	if (connectRef->logfile)
+	{
+	    DEBG(connectRef, "EDID\n");
+	    fprintf(connectRef->logfile, "/*          0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */");
+	    for (i = 0; i < CFDataGetLength(data); i++)
+	    {
+		if( 0 == (i & 15))
+		    fprintf(connectRef->logfile, "\n/* %02X */ ", i);
+		fprintf(connectRef->logfile, "0x%02x,", CFDataGetBytePtr( data )[i]);
+	    }
+	    fprintf(connectRef->logfile, "\n");
+	    fflush(connectRef->logfile);
+	}
+#endif
         edid = (EDID *) CFDataGetBytePtr( data );
+
+	count = CFDataGetLength(data);
+	if (count > sizeof(EDID))
+	    LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID));
+
+	DEBG(connectRef, "Display maxLinks %ld, crossover %qd\n", 
+			connectRef->maxDisplayLinks, connectRef->dualLinkCrossover);
 
         // max dimensions
         connectRef->dimensions.setFlags = kDisplayModeNotPresetFlag;
@@ -1429,8 +2177,38 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
                 continue;
 
             InstallFromEDIDDesc( connectRef,
- 				 edid, (EDIDDetailedTimingDesc *) CFDataGetBytePtr(data) );
+ 				 edid, (EDIDDetailedTimingDesc *) CFDataGetBytePtr(data),
+				 kDisplayModeValidFlag | kDisplayModeSafeFlag );
         }
+
+	if ((edid->version > 1) || (edid->revision >= 3))
+	{
+	    if (2 & edid->featureSupport)
+		defaultIndex = 0;
+	    else if (connectRef->hasDIEXT)
+		defaultIndex = 1;
+	    else
+		defaultIndex = 0;
+	}
+	else if (2 & edid->featureSupport)
+	    defaultIndex = 0;
+	else
+	    defaultIndex = -1;
+
+	DEBG(connectRef, "EDID default idx %d\n", defaultIndex);
+
+	if ((1 == defaultIndex) 
+	 && !CFDictionaryGetValue(connectRef->overrides, CFSTR("trng")))
+	{
+	    // just install the default for scaling, if it works
+	    IOReturn
+	    err = InstallFromEDIDDesc(connectRef,
+                                 edid,
+                                 &edid->descriptors[1].timing,
+				 kDisplayModeValidFlag | kDisplayModeSafeFlag | kDisplayModeDefaultFlag);
+	    if ((kIOReturnSuccess == err) || (kIOReturnPortExists == err))
+		continue;
+	}
 
         // EDID timing recs
 	for( i = 0; i < 4; i++ )
@@ -1439,11 +2217,17 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
                                  &edid->descriptors[i].timing,
                                  sizeof( EDIDDetailedTimingDesc))))
                 continue;
+
             InstallFromEDIDDesc( connectRef,
                                  edid,
-                                 &edid->descriptors[i].timing );
+                                 &edid->descriptors[i].timing,
+				 kDisplayModeValidFlag | kDisplayModeSafeFlag
+				 | ((i == defaultIndex) ? kDisplayModeDefaultFlag : 0));
         }
 
+#if TIGER
+        InstallCVTStandardTimings( connectRef, edid );
+#endif
         InstallStandardEstablishedTimings( connectRef, edid );
     }
     while( false );
@@ -1460,8 +2244,11 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 	    continue;
 
 	InstallFromTimingOverride(connectRef, 
-		(IODetailedTimingInformation *) CFDataGetBytePtr(data));
+		(IODetailedTimingInformation *) CFDataGetBytePtr(data),
+		kDisplayModeValidFlag | kDisplayModeSafeFlag);
     }
+
+    IODisplayGetAspect( connectRef );
 
     if (CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"))
     || ((!CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
@@ -1704,8 +2491,8 @@ _IODisplayCreateInfoDictionary(
             CFDictionaryAddValue( dict, CFSTR(kIODisplayEDIDKey), data);
         // get final edid
         data = CFDictionaryGetValue( dict, CFSTR(kIODisplayEDIDKey));
-        if( data)
-            edid = (EDID *) CFDataGetBytePtr( data );
+        if(data)
+            edid = (EDID *) CFDataGetBytePtr(data);
             // no point in serial# / manufacture date from override
         else
             edid = 0;
@@ -1753,23 +2540,32 @@ _IODisplayCreateInfoDictionary(
             }
         }
 
-        if( !CFDictionaryGetValue( dict, CFSTR("trng"))) {
-            // EDID timing range
-            for( i = 0; i < 4; i++ ) {
-                if( EDIDDescToDisplayTimingRangeRec( edid, 
-                                    &edid->descriptors[i].general,
-                                    &displayRange )) {
-                                    
-                    data = CFDataCreate( kCFAllocatorDefault,
-                                (UInt8 *) &displayRange, sizeof(displayRange));
-                    if( data) {
-                        CFDictionarySetValue(dict, CFSTR("trng"), data);
-                        CFRelease(data);
-                    }
-                    break;
-                }
-            }
-        }
+	// EDID timing range
+	for( i = 0; i < 4; i++ ) {
+	    if( EDIDDescToDisplayTimingRangeRec( edid, 
+				&edid->descriptors[i].general,
+				&displayRange )) {
+				
+		if( !CFDictionaryGetValue( dict, CFSTR("drng"))) {
+		    data = CFDataCreate( kCFAllocatorDefault,
+				(UInt8 *) &edid->descriptors[i].general, sizeof(EDIDGeneralDesc));
+		    if( data) {
+			CFDictionarySetValue(dict, CFSTR("drng"), data);
+			CFRelease(data);
+		    }
+		}
+
+		if( !CFDictionaryGetValue( dict, CFSTR("trng"))) {
+		    data = CFDataCreate( kCFAllocatorDefault,
+				(UInt8 *) &displayRange, sizeof(displayRange));
+		    if( data) {
+			CFDictionarySetValue(dict, CFSTR("trng"), data);
+			CFRelease(data);
+		    }
+		}
+		break;
+	    }
+	}
 
 	sint = edid->weekOfManufacture;
 	makeInt( CFSTR( kDisplayWeekOfManufacture ), sint );

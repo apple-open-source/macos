@@ -1,0 +1,29 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {changeSearchCategory = id; search = id; }; 
+            CLASS = FilteringArrayController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {searchField = NSSearchField; sortMenu = NSMenu; }; 
+            SUPERCLASS = NSArrayController; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = HBAArrayController; LANGUAGE = ObjC; SUPERCLASS = NSArrayController; }, 
+        {CLASS = SCSIDevice; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = SCSIInitiator; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {reprobeTarget = id; toggleDrawer = id; }; 
+            CLASS = SCSITargetProberDocument; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                controller = id; 
+                infoView = NSView; 
+                menu = NSPopUpButton; 
+                proberWindow = NSWindow; 
+                table = NSTableView; 
+            }; 
+            SUPERCLASS = NSDocument; 
+        }
+    ); 
+    IBVersion = 1; 
+}

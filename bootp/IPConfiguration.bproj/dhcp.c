@@ -1899,8 +1899,7 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
       }
       case IFEventID_timeout_e: {
 	  dhcp->try++;
-#define SELECT_RETRIES	1
-	  if (dhcp->try > (SELECT_RETRIES + 1)) {
+	  if (dhcp->try > (G_dhcp_select_retry_count + 1)) {
 	      my_log(LOG_DEBUG, "DHCP %s: SELECT timed out", if_name(if_p));
 	      /* go back to INIT and try again */
 	      dhcp_init(service_p, IFEventID_start_e, NULL);

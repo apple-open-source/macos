@@ -631,6 +631,7 @@ void AppleK2::saveK2State(void)
 
     savedK2MPICState = &savedK2State.savedMPICState;
 
+    savedK2MPICState->mpicGlobal0 = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICGlobal0);
     savedK2MPICState->mpicIPI[0] = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI0);
     savedK2MPICState->mpicIPI[1] = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI1);
     savedK2MPICState->mpicIPI[2] = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI2);
@@ -686,6 +687,8 @@ void AppleK2::restoreK2State(void)
 
     savedK2MPICState = &savedK2State.savedMPICState;
 
+    *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICGlobal0) = savedK2MPICState->mpicGlobal0;
+    eieio();
     *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI0) = savedK2MPICState->mpicIPI[0];
     eieio();
     *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI1) = savedK2MPICState->mpicIPI[1];
@@ -1162,6 +1165,10 @@ void AppleK2::EnableSCC(bool state, UInt8 device, bool type)
 void AppleK2::PowerModem(bool state)
 {
     OSData *prop;
+    
+    // Make sure ChooseSCCA is 0.
+    safeWriteRegUInt32 (kKeyLargoFCR0, kKeyLargoFCR0ChooseSCCA, 0);
+    
     if(fHasSoftModem) {
         // Turn the I2S1 clock on or off.
         if(state) {
@@ -1335,6 +1342,7 @@ void AppleK2::resetUniNEthernetPhy(void)
 	// to change - see 3475890
 	
 	if (!hasVesta) /* using a discrete Ethernet PHY */ {
+		// Q45 Ethernet PHY (BCM5221) reset is controlled by GPIO 29.
 		// This should be determined from the device tree.
 	
 		// Assert GPIO29 for 10ms (> 1ms) (active high)
@@ -1516,6 +1524,28 @@ void AppleK2::EnableI2SModem(bool enable)
         safeWriteRegUInt32 (kKeyLargoFCR1, fcr1ToSet, 0);
     }
 }
+
+
+IOReturn AppleK2::setAggressiveness( unsigned long selector, unsigned long newLevel )
+	{
+	if ( selector == kPMEthernetWakeOnLANSettings )
+		{
+		UInt32						value = 0;
+
+		// If wake-on-lan is enabled, clear EnableGBpadPwrdown in Shasta/K2 FCR3.
+		// If wake-on-lan is disabled, set EnableGBpadPwrdown in Shasta/K2 FCR3.
+
+		if ( newLevel == 0 )
+			{
+			value = kK2FCR3EnableGBpadPwrdown;
+			}
+
+		safeWriteRegUInt32( kKeyLargoFCR3, kK2FCR3EnableGBpadPwrdown, value );
+		}
+
+	return( super::setAggressiveness( selector, newLevel ) );
+	}
+
 
 void AppleK2::logClockState()
 {

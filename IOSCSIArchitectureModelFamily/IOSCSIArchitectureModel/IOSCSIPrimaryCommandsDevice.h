@@ -112,6 +112,10 @@ private:
 											  IOService *	newService );
 	
 	static void		TaskCallback ( SCSITaskIdentifier completedTask );
+	void			TaskCompletion ( SCSITaskIdentifier completedTask );
+	
+	static IOReturn	sWaitForTask ( void * object, SCSITaskIdentifier request );
+	IOReturn		GatedWaitForTask ( SCSITaskIdentifier request );
 	
 protected:
 	

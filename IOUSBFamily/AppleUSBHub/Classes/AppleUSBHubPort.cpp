@@ -606,6 +606,20 @@ AppleUSBHubPort::ResetPort()
                 USBLog(3, "AppleUSBHubPort[%p]::ResetPort Could not ClearPortFeature (%d) (kHubPortSuspend): (0x%x)", this, _portNum, err);
                 break;
             }
+
+            // Now, check to see if the suspend did get cleared:
+            //
+            err = _hub->GetPortStatus(&status, _portNum);
+            if (kIOReturnSuccess != err)
+            {
+                USBLog(3, "AppleUSBHubPort[%p]::ResetPort for port %d could not get port status (0x%x)", this, _portNum, err);
+                break;
+            }
+
+            if ( status.statusFlags & kHubPortSuspend)
+            {
+                USBError(1, "AppleUSBHubPort[%p]::ResetPort for port %d Port is still suspended after clearing it", this, _portNum);
+           }
         }
     
         // OK, set our handler for a reset to the portReset handler and call the
@@ -1070,7 +1084,10 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
             {
                 USBLog(5, "**1** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - leaving (kHubPortBeingReset)", this, _portNum, _hub);
                 // we should never be here, just wait for another status change int
-                break;
+                // OK, set our handler for a reset to the portReset handler
+                //
+                SetPortVector(&AppleUSBHubPort::HandleResetPortHandler, kHubPortBeingReset);
+                return kIOReturnSuccess;
             }
             
             // If the device attached to this port misbehaved last time we tried to enumerate it, let's
@@ -1590,11 +1607,11 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
             if (!(_portStatus.changeFlags & _changeHandler[which].bit))
                 continue;
             
-            USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - change %d clearing %x feature.", this, _portNum, which, _changeHandler[which].clearFeature);
+            USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - change %d clearing 0x%x feature.", this, _portNum, which, _changeHandler[which].clearFeature);
             _statusChangedState = 4;
             if ((err = _hub->ClearPortFeature(_changeHandler[which].clearFeature, _portNum)))
             {
-                USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - error %x clearing %x feature.", this, _portNum, err, _changeHandler[which].clearFeature);
+                USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - error %x clearing 0x%x feature.", this, _portNum, err, _changeHandler[which].clearFeature);
                 FatalError(err, "clear port vector bit feature");
                 goto errorExit;
             }

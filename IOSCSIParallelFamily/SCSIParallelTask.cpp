@@ -31,7 +31,7 @@
 
 // General IOKit includes
 #include <IOKit/IOLib.h>
-#include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -93,8 +93,10 @@ SCSIParallelTask *
 SCSIParallelTask::Create ( UInt32 sizeOfHBAData )
 {
 	
-	SCSIParallelTask *	newTask = NULL;
-	UInt32				size	= 0;
+	SCSIParallelTask *			newTask = NULL;
+	IOBufferMemoryDescriptor *	buffer	= NULL;
+	IOReturn					result	= kIOReturnSuccess;
+	UInt32						size	= 0;
 	
 	newTask = OSTypeAlloc ( SCSIParallelTask );
 	require_nonzero ( newTask, ErrorExit );
@@ -104,33 +106,41 @@ SCSIParallelTask::Create ( UInt32 sizeOfHBAData )
 	sizeOfHBAData = size;
 	newTask->fHBADataSize = sizeOfHBAData;
 	
-	newTask->fHBAData = IOMallocContiguous ( sizeOfHBAData, 16, 0 );
-	require_nonzero ( newTask->fHBAData, FreeTask );
+	buffer = IOBufferMemoryDescriptor::withOptions (
+										kIOMemoryPhysicallyContiguous,
+										sizeOfHBAData,
+										16 );
+	require_nonzero ( buffer, FreeTask );
+	
+	result = buffer->prepare ( kIODirectionOutIn );
+	require_success ( result, FreeHBAData );
+	
+	newTask->fHBAData = buffer->getBytesNoCopy ( );
+	require_nonzero ( newTask->fHBAData, CompleteHBAData );
 	
 	bzero ( newTask->fHBAData, newTask->fHBADataSize );
 	
-	newTask->fHBADataDescriptor = IOMemoryDescriptor::withAddress (
-										newTask->fHBAData,
-										sizeOfHBAData,
-										kIODirectionOutIn );
-	
-	require_nonzero ( newTask->fHBADataDescriptor, FreeHBAData );
+	newTask->fHBADataDescriptor = buffer;
 	
 	return newTask;
+	
+
+CompleteHBAData:
+	
+	
+	buffer->complete ( );
 	
 	
 FreeHBAData:
 	
 	
-	require_nonzero_quiet ( newTask->fHBAData, FreeTask );
-	IOFreeContiguous ( newTask->fHBAData, newTask->fHBADataSize );
-	newTask->fHBAData = NULL;
+	buffer->release ( );
+	buffer = NULL;
 	
 	
 FreeTask:
 	
 	
-	require_nonzero_quiet ( newTask->fHBAData, ErrorExit );
 	newTask->release ( );
 	newTask = NULL;
 	
@@ -154,16 +164,9 @@ SCSIParallelTask::free ( void )
 	if ( fHBADataDescriptor != NULL )
 	{
 		
+		fHBADataDescriptor->complete ( );
 		fHBADataDescriptor->release ( );
 		fHBADataDescriptor = NULL;
-		
-	}
-	
-	if ( fHBAData != NULL )
-	{
-		
-		IOFreeContiguous ( fHBAData, fHBADataSize );
-		fHBAData = NULL;
 		
 	}
 	

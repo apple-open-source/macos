@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
 	<key>PBXProjectSourcePath</key>
-	<string>/var/automount/Network/Servers/riemann/homes/legolas/townsle1/AppleI2C-343.0.1/AppleI2C.pbproj</string>
+	<string>/Volumes/Data/sources/AppleI2CreduceDelay/AppleI2C.pbproj</string>
 </dict>
 </plist>

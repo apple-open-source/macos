@@ -1,6 +1,7 @@
 #include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi/SCSICmds_MODE_Definitions.h>
 #include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
+#include <IOKit/scsi/SCSICmds_REPORT_LUNS_Definitions.h>
 
 static void
 PrintSCSICmds_INQUIRY_Sizes ( void );
@@ -10,6 +11,9 @@ PrintSCSICmds_MODE_Sizes ( void );
 
 static void
 PrintSCSICmds_REQUEST_SENSE_Sizes ( void );
+
+static void
+PrintSCSICmds_REPORT_LUNS_Sizes ( void );
 
 
 int
@@ -21,6 +25,7 @@ main ( int argc, const char * argv[] )
 	PrintSCSICmds_INQUIRY_Sizes ( );
 	PrintSCSICmds_MODE_Sizes ( );
 	PrintSCSICmds_REQUEST_SENSE_Sizes ( );
+	PrintSCSICmds_REPORT_LUNS_Sizes ( );
 	
 	return 0;
 	
@@ -85,6 +90,21 @@ PrintSCSICmds_REQUEST_SENSE_Sizes ( void )
 	
 	// Standard REQUEST_SENSE data
 	printf ( "SCSI_Sense_Data = %ld\n", ( UInt32 ) sizeof ( SCSI_Sense_Data ) );
+	
+	printf ( "\n" );
+	
+}
+
+
+static void
+PrintSCSICmds_REPORT_LUNS_Sizes ( void )
+{
+
+	printf ( "REPORT_LUNS sizes\n" );
+	
+	// Standard REQUEST_SENSE data
+	printf ( "SCSICmd_REPORT_LUNS_Header = %ld\n", ( UInt32 ) sizeof ( SCSICmd_REPORT_LUNS_Header ) );
+	printf ( "SCSICmd_REPORT_LUNS_LUN_ENTRY = %ld\n", ( UInt32 ) sizeof ( SCSICmd_REPORT_LUNS_LUN_ENTRY ) );
 	
 	printf ( "\n" );
 	

@@ -41,7 +41,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <mach/mach_error.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/scsi/SCSITaskLib.h>
 #include <IOKit/scsi/SCSITask.h>
@@ -57,7 +56,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define DEBUG	0
+
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING "AuthoringUnitTestUnixTool"
+
+#if DEBUG
 #define DEBUG_ASSERT_MESSAGE(componentNameString,	\
 							 assertionString,		\
 							 exceptionLabelString,	\
@@ -99,6 +101,8 @@ DebugAssert ( const char *	componentNameString,
 		printf ( "	 error: %d\n", errorCode );
 	
 }
+
+#endif	/* DEBUG */
 
 #include <AssertMacros.h>
 
@@ -152,7 +156,7 @@ static void
 DeviceDisappeared ( void * refCon, io_iterator_t iterator );
 
 static void
-StripWhiteSpace ( char * buffer, UInt32 length );
+StripWhiteSpace ( char * buffer, SInt32 length );
 
 static void
 SignalHandler ( int sigraised );
@@ -204,6 +208,9 @@ ReadFormatCapacities ( MMCDeviceInterface ** interface );
 int
 main ( int argc, const char * argv[] )
 {
+
+#pragma unused ( argc )
+#pragma unused ( argv )
 	
 	CFMutableDictionaryRef 	matchingDict	= NULL;
 	CFMutableDictionaryRef 	subDict			= NULL;
@@ -415,7 +422,7 @@ TestUnitReady ( MMCDeviceInterface ** interface )
 	
 	// Issue a TEST_UNIT_READY through the non-exclusive MMCDeviceInterface
 	err = ( *interface )->TestUnitReady ( interface, &taskStatus, &senseBuffer );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "TestUnitReady failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -461,7 +468,7 @@ Inquiry ( MMCDeviceInterface ** interface )
 	
 	// Issue a TEST_UNIT_READY through the non-exclusive MMCDeviceInterface
 	err = ( *interface )->Inquiry ( interface, &inqBuffer, sizeof ( inqBuffer ), &taskStatus, &senseBuffer );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "Inquiry failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -545,7 +552,7 @@ ModeSense10 ( MMCDeviceInterface ** interface )
 										kModeSenseParameterHeaderSize,
 										&taskStatus,
 										&senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ModeSense10 failed, err = 0x%08x\n", err ) );
 	
 	printf ( "Mode Sense Data\n" );
 	
@@ -569,7 +576,7 @@ ModeSense10 ( MMCDeviceInterface ** interface )
 										size,
 										&taskStatus,
 										&senseData );
-	require_action ( ( err == kIOReturnSuccess ), FreeBuffer, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), FreeBuffer, printf ( "ModeSense10 failed, err = 0x%08x\n", err ) );
 	
 	mechanicalCapabilities = &buffer[kModeSenseParameterHeaderSize + 2];
 	
@@ -649,7 +656,7 @@ GetTrayState ( MMCDeviceInterface ** interface )
 	
 	// Ask the device if its tray state is closed or open.
 	err = ( *interface )->GetTrayState ( interface, &trayState );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "GetTrayState failed, err = 0x%08x\n", err ) );
 	
 	if ( trayState == kMMCDeviceTrayOpen )
 	{
@@ -715,7 +722,7 @@ SetTrayState ( MMCDeviceInterface ** interface, UInt8 trayState )
 	
 	else
 	{
-		printf ( "Error = %s\n", mach_error_string ( err ) );
+		printf ( "Error = 0x%08x\n", err );
 	}
 	
 	printf ( "\n" );
@@ -750,7 +757,7 @@ ReadTableOfContents ( MMCDeviceInterface ** interface )
 												4,
 												&taskStatus,
 												&senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadTableOfContents failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -771,7 +778,7 @@ ReadTableOfContents ( MMCDeviceInterface ** interface )
 													requestSize,
 													&taskStatus,
 													&senseData );
-		require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+		require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadTableOfContents failed, err = 0x%08x\n", err ) );
 		
 		if ( taskStatus == kSCSITaskStatus_GOOD )
 		{
@@ -841,7 +848,7 @@ ReadDiscInformation ( MMCDeviceInterface ** interface )
 												4,
 												&taskStatus,
 												&senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadDiscInformation failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -859,7 +866,7 @@ ReadDiscInformation ( MMCDeviceInterface ** interface )
 													requestSize,
 													&taskStatus,
 													&senseData );
-		require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+		require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadDiscInformation failed, err = 0x%08x\n", err ) );
 		
 		if ( taskStatus == kSCSITaskStatus_GOOD )
 		{
@@ -930,7 +937,7 @@ ReadTrackRZoneInformation ( MMCDeviceInterface ** interface )
 												 4,
 												 &taskStatus,
 												 &senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadTrackInformation failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -951,7 +958,7 @@ ReadTrackRZoneInformation ( MMCDeviceInterface ** interface )
 													 requestSize,
 													 &taskStatus,
 													 &senseData );
-		require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+		require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadTrackInformation failed, err = 0x%08x\n", err ) );
 		
 		if ( taskStatus == kSCSITaskStatus_GOOD )
 		{
@@ -1019,7 +1026,7 @@ ReadDVDStructure ( MMCDeviceInterface ** interface )
 											 8,
 											 &taskStatus,
 											 &senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadDVDStructure failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -1067,7 +1074,7 @@ SetCDSpeed ( MMCDeviceInterface ** interface )
 									   0xFFFF,
 									   &taskStatus,
 									   &senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "SetCDSpeed failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -1115,7 +1122,7 @@ ReadFormatCapacities ( MMCDeviceInterface ** interface )
 												 sizeof ( buffer ),
 												 &taskStatus,
 												 &senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ReadFormatCapacities failed, err = 0x%08x\n", err ) );
 	
 	if ( taskStatus == kSCSITaskStatus_GOOD )
 	{
@@ -1828,18 +1835,20 @@ PrintSenseString ( SCSI_Sense_Data * sense, Boolean addRawValues )
 static void
 DeviceAppeared ( void * refCon, io_iterator_t iterator )
 {
+
+#pragma unused ( refCon )
+
+	io_service_t	obj	= MACH_PORT_NULL;
 	
-	IOReturn		error	= kIOReturnSuccess;
-	io_service_t	obj		= MACH_PORT_NULL;
+	obj = IOIteratorNext ( iterator );
 	
-	while ( obj = IOIteratorNext ( iterator ) )
+	while ( obj != MACH_PORT_NULL )
 	{
 		
 		printf ( "Device appeared.\n" );
-		
 		TestDevice ( obj );
-		
-		error = IOObjectRelease ( obj );
+		( void ) IOObjectRelease ( obj );
+		obj = IOIteratorNext ( iterator );
 		
 	}
 	
@@ -1853,15 +1862,19 @@ DeviceAppeared ( void * refCon, io_iterator_t iterator )
 static void
 DeviceDisappeared ( void * refCon, io_iterator_t iterator )
 {
+
+#pragma unused ( refCon )
+
+	io_service_t	obj	= MACH_PORT_NULL;
 	
-	IOReturn		error	= kIOReturnSuccess;
-	io_service_t	obj		= MACH_PORT_NULL;
+	obj = IOIteratorNext ( iterator );
 	
-	while ( obj = IOIteratorNext ( iterator ) )
+	while ( obj != MACH_PORT_NULL )
 	{
 		
 		printf ( "Device disappeared.\n" );
-		error = IOObjectRelease ( obj );
+		( void ) IOObjectRelease ( obj );
+		obj = IOIteratorNext ( iterator );
 		
 	}
 	
@@ -1873,15 +1886,18 @@ DeviceDisappeared ( void * refCon, io_iterator_t iterator )
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static void
-StripWhiteSpace ( char * buffer, UInt32 length )
+StripWhiteSpace ( char * buffer, SInt32 length )
 {
 	
-	UInt32		index = 0;
+	SInt32		index = 0;
 	
 	for ( index = ( length - 1 ); index >= 0; index-- )
 	{
 		
 		if ( buffer[index] == 0 )
+			break;
+		
+		if ( buffer[index] != ' ' )
 			break;
 		
 		if ( buffer[index] == ' ' )
@@ -1899,6 +1915,8 @@ StripWhiteSpace ( char * buffer, UInt32 length )
 static void
 SignalHandler ( int sigraised )
 {
+
+#pragma unused ( sigraised )
 	
 	printf ( "\nInterrupted\n" );
 	

@@ -17,7 +17,8 @@
 #pragma mark ------------------------ 
 
 #ifdef _TIME_CLIP_ROUTINE
-#define kCallFrequency 50
+#define kIOProcTimingCountCurrent 10
+#define kIOProcTimingCountAverage 100
 #endif 
 
 extern "C" {
@@ -36,6 +37,7 @@ const int AppleDBDMAAudio::kDBDMAInputIndex		= 2;
 #pragma mark еее IOAudioEngine Methods
 #pragma mark ------------------------ 
 
+//	DO NOT I/O LOG THIS METHOD!
 bool AppleDBDMAAudio::filterInterrupt (int index) {
 	UInt32 resultOut = 1;
     UInt32 resultIn = 1;
@@ -49,10 +51,18 @@ bool AppleDBDMAAudio::filterInterrupt (int index) {
 		resultIn = IOGetDBDMAChannelStatus (ioBaseDMAInput) & kdbdmaActive;
 	}
 
-    if (!(resultOut & kdbdmaActive) || !resultIn) {
-		mNeedToRestartDMA = TRUE;
+	if ( mHasOutput ) {
+		if ( !(resultOut & kdbdmaActive) ) {
+			mNeedToRestartDMA = TRUE;
+		}
 	}
-
+	
+	if ( mHasInput ) {
+		if ( !(resultIn & kdbdmaActive) ) {
+			mNeedToRestartDMA = TRUE;
+		}
+	}
+	
 	// test the takeTimeStamp :it will increment the fCurrentLoopCount and time stamp it with the time now
 	takeTimeStamp ();
 	
@@ -98,6 +108,7 @@ void AppleDBDMAAudio::free()
 		deviceFormats->release ();
 		deviceFormats = NULL;
 	}
+
 
     super::free();
 
@@ -161,12 +172,14 @@ bool AppleDBDMAAudio::init (OSDictionary *			properties,
 	//	encapsulates both the input and output channel registers.  Since there is a system I/O controller
 	//	dependency, it would seem prudent to move the acquisition of these addresses to the appropriate
 	//	platform interface instance (i.e. K2 Platform Interface or Keylargo Platform Interface).
+	
 	ioBaseDMAOutput = hasOutput ? mPlatformObject->GetOutputChannelRegistersVirtualAddress ( mDeviceProvider ) : NULL ;
 	if ( NULL == ioBaseDMAOutput && hasOutput ) {
 		debugIOLog (3,  "ioBaseDMAOutput = NULL" );
 		IOSleep ( 50000 );
 		FailIf ( true, Exit );
 	}
+
 	ioBaseDMAInput = hasInput ? mPlatformObject->GetInputChannelRegistersVirtualAddress ( mDeviceProvider ) : NULL ;
 	if ( NULL == ioBaseDMAInput && hasInput ) {
 		debugIOLog (3,  "ioBaseDMAInput = NULL" );
@@ -191,12 +204,18 @@ bool AppleDBDMAAudio::init (OSDictionary *			properties,
 	mInputGainLPtr = NULL;	
 	mInputGainRPtr = NULL;	
 
+
     mOutputSampleBuffer = IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
 
 #ifdef _TIME_CLIP_ROUTINE
 	mCallCount = 0;
-	mPreviousUptime.hi = 0;
-	mPreviousUptime.lo = 0;
+	mStartIOProcUptime.hi = 0;
+	mStartIOProcUptime.lo = 0;
+	mEndProcessingUptime.hi = 0;
+	mEndProcessingUptime.lo = 0;
+	mCurrentTotalNanos = 0;
+	mTotalProcessingNanos = 0;
+	mTotalIOProcNanos = 0;
 #endif
 
 	result = TRUE;
@@ -208,7 +227,7 @@ Exit:
 }
 
 bool AppleDBDMAAudio::initHardware (IOService *provider) {
-    UInt32						interruptIndex;
+    UInt32						interruptIndex = kDBDMADeviceIndex;
     IOWorkLoop *				workLoop;
 	Boolean						result;
 
@@ -236,7 +255,11 @@ bool AppleDBDMAAudio::initHardware (IOService *provider) {
 
 	debugIOLog (3, "AppleDBDMAudio::initHardware() interrupt source's name = %s", mDeviceProvider->getName());	
 
-    interruptIndex = kDBDMAOutputIndex;
+	if ( mHasOutput ) {
+		interruptIndex = kDBDMAOutputIndex;
+	} else if ( mHasInput ) {
+		interruptIndex = kDBDMAInputIndex;
+	}
     interruptEventSource = IOFilterInterruptEventSource::filterInterruptEventSource(this,
 																					AppleDBDMAAudio::interruptHandler,
 																					AppleDBDMAAudio::interruptFilter,
@@ -306,11 +329,11 @@ bool AppleDBDMAAudio::publishStreamFormats (void) {
 
 	result = FALSE;
 
-    if (ioBaseDMAInput) {
+    if (ioBaseDMAInput && mHasInput) {
 		mInputStream = new IOAudioStream;
 	}
 	
-	if ( ioBaseDMAOutput ) {
+	if ( ioBaseDMAOutput && mHasOutput ) {
 		mOutputStream = new IOAudioStream;
 	}
 	
@@ -325,7 +348,8 @@ bool AppleDBDMAAudio::publishStreamFormats (void) {
 		result = mInputStream->initWithAudioEngine (this, kIOAudioStreamDirectionInput, 1, 0, 0); 
 		FailIf ( !result, Exit );
 	}
-
+	
+	mDBDMAOutputFormat.fSampleFormat = kIOAudioStreamSampleFormatLinearPCM;
 	mDBDMAInputFormat.fSampleFormat = kIOAudioStreamSampleFormatLinearPCM;
 	mDBDMAInputFormat.fIsMixable = TRUE;
 
@@ -456,7 +480,9 @@ void AppleDBDMAAudio::allocateDMABuffers (void) {
 
 	debugIOLog (3, "allocateDMABuffers: buffer size = %ld", numBlocks * blockSize);
 
+	// integer sample buffer
     mOutputSampleBuffer = IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
+	// floating point copy buffer
     mIntermediateSampleBuffer = IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
 
 	if(ioBaseDMAInput) {
@@ -597,7 +623,7 @@ bool AppleDBDMAAudio::createDMAPrograms ( void ) {
     
 	// create the DMA input code
     if(ioBaseDMAInput) {
-        doInterrupt = false;
+		doInterrupt = false;
         offset = 0;
         dmaCommand = kdbdmaInputMore;    
         
@@ -625,8 +651,10 @@ bool AppleDBDMAAudio::createDMAPrograms ( void ) {
                 // If this is the last block, branch to the first block
             if (blockNum == (numBlocks - 1)) {
                 cmdDest = commandBufferPhys;
-                // doInterrupt = true;
                 // Else if the next block starts on a page boundry, branch to it
+				if ( NULL == ioBaseDMAOutput ) {
+					doInterrupt = true;												//  [3514709] If input only then enable interrupt on input DMA
+				}
             } else if ((((blockNum + 1) * sizeof(IODBDMADescriptor)) % PAGE_SIZE) == 0) {
 				cmdDest = dmaCommandBufferInMemDescriptor->getPhysicalSegment ((blockNum + 1) * sizeof(IODBDMADescriptor), 0);
 				FailIf (NULL == cmdDest, Exit);
@@ -690,6 +718,11 @@ bool AppleDBDMAAudio::interruptFilter(OSObject *owner, IOFilterInterruptEventSou
 
 void AppleDBDMAAudio::interruptHandler(OSObject *owner, IOInterruptEventSource *source, int count)
 {
+    register AppleDBDMAAudio *dmaEngine = (AppleDBDMAAudio *)owner;
+
+	if ( NULL != dmaEngine ) {
+		dmaEngine->mInterruptActionCount++;
+	}
     return;
 }
 
@@ -698,7 +731,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 	IOPhysicalAddress			commandBufferPhys;
 	IOReturn					result;
 
-	debugIOLog (3, " + AppleDBDMAAudio::performAudioEngineStart()");
+	debugIOLog (3, "+ AppleDBDMAAudio::performAudioEngineStart() for AOA with mInstanceIndex of %ld", ourProvider->getAOAInstanceIndex());
 	result = kIOReturnError;
 	
     FailIf (!interruptEventSource, Exit);
@@ -715,6 +748,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 	*((UInt32 *)&mLastOutputSample) = 0;
 	*((UInt32 *)&mLastInputSample) = 0;
 
+
     if (NULL != iSubEngine) {
 		startiSub = TRUE;
 		needToSync = TRUE;
@@ -725,7 +759,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 	// add the time stamp take to test
     takeTimeStamp(false);
 
-	debugIOLog (3, "getNumSampleFramesPerBuffer %ld", getNumSampleFramesPerBuffer() );
+	debugIOLog (6, "  getNumSampleFramesPerBuffer %ld", getNumSampleFramesPerBuffer() );
 	((AppleOnboardAudio *)audioDevice)->setCurrentSampleFrame (0);
 
 	// start the input DMA first
@@ -735,7 +769,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 		commandBufferPhys = dmaCommandBufferInMemDescriptor->getPhysicalAddress ();
 		FailIf (NULL == commandBufferPhys, Exit);
 		IODBDMAStart(ioBaseDMAInput, (IODBDMADescriptor *)commandBufferPhys);
-		debugIOLog (3, "AppleDBDMAAudio::performAudioEngineStart - starting input DMA");
+		debugIOLog (3, "  AppleDBDMAAudio::performAudioEngineStart - starting input DMA for AOA with mInstanceIndex of %ld", ourProvider->getAOAInstanceIndex());
 	}
     
 	if (ioBaseDMAOutput) {
@@ -744,6 +778,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 		commandBufferPhys = dmaCommandBufferOutMemDescriptor->getPhysicalAddress ();
 		FailIf (NULL == commandBufferPhys, Exit);
 		IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)commandBufferPhys);
+		debugIOLog (3, "  AppleDBDMAAudio::performAudioEngineStart - starting output DMA for AOA with mInstanceIndex of %ld", ourProvider->getAOAInstanceIndex());
 	}
 
 	// start with the lastest user set volume before playback [3527440] aml
@@ -755,7 +790,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 	dmaRunState = TRUE;				//	rbm 7.12.02	added for user client support
 	result = kIOReturnSuccess;
 
-    debugIOLog (3, " - AppleDBDMAAudio::performAudioEngineStart() returns %X", result);
+    debugIOLog (3, "- AppleDBDMAAudio::performAudioEngineStart() returns %X", result);
 
 Exit:
     return result;
@@ -765,7 +800,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStop()
 {
     UInt16 attemptsToStop = kDBDMAAttemptsToStop; // [3282437], was 1000
 
-    debugIOLog (3, "+ AppleDBDMAAudio::performAudioEngineStop()");
+    debugIOLog (3, "+ AppleDBDMAAudio::performAudioEngineStop() for AOA with mInstanceIndex of %ld", ourProvider->getAOAInstanceIndex());
 
     if (NULL != iSubEngine) {
         iSubEngine->StopiSub ();
@@ -810,7 +845,18 @@ IOReturn AppleDBDMAAudio::performAudioEngineStop()
 	dmaRunState = FALSE;				//	rbm 7.12.02	added for user client support
     interruptEventSource->enable();
 
-    debugIOLog (3, "- AppleDBDMAAudio::performAudioEngineStop()");
+#ifdef _TIME_CLIP_ROUTINE
+	mCallCount = 0;
+	mStartIOProcUptime.hi = 0;
+	mStartIOProcUptime.lo = 0;
+	mEndProcessingUptime.hi = 0;
+	mEndProcessingUptime.lo = 0;
+	mCurrentTotalNanos = 0;
+	mTotalProcessingNanos = 0;
+	mTotalIOProcNanos = 0;
+#endif
+
+    debugIOLog (3, "- AppleDBDMAAudio::performAudioEngineStop() for AOA with mInstanceIndex of %ld", ourProvider->getAOAInstanceIndex());
     return kIOReturnSuccess;
 }
 
@@ -818,6 +864,7 @@ IOReturn AppleDBDMAAudio::performAudioEngineStop()
 void AppleDBDMAAudio::resetClipPosition (IOAudioStream *audioStream, UInt32 clipSampleFrame) {
 
 	debugIOLog (3, "AppleDBDMAAudio::resetClipPosition (%p, %ld)", audioStream, clipSampleFrame);
+
 
 	if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
 				
@@ -971,6 +1018,7 @@ void AppleDBDMAAudio::chooseOutputClippingRoutinePtr()
 {
 	if (FALSE == mDBDMAOutputFormat.fIsMixable) { // [3281454], no iSub during encoded playback either
 		mClipAppleDBDMAToOutputStreamRoutine = &AppleDBDMAAudio::clipMemCopyToOutputStream;
+		debugIOLog (3, "AppleDBDMAAudio::chooseOutputClippingRoutinePtr - using memcpy clip routine for non-mixable format.");
 	} else {
 		if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
 			if (32 == mDBDMAOutputFormat.fBitWidth) {
@@ -1207,6 +1255,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *inFloat
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
+	iSubCoefficients* coefficients = &(miSubProcessingParams.coefficients);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
@@ -1224,7 +1273,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *inFloat
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, coefficients, filterState, filterState2);
 
 	outputBuf16 = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
 
@@ -1253,6 +1302,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(cons
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
+	iSubCoefficients* coefficients = &(miSubProcessingParams.coefficients);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
@@ -1271,7 +1321,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(cons
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
     // Filter audio into low and high buffers using a 24 dB/octave crossover
-	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, coefficients, filterState, filterState2);
 
 	outputBuf16 = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
 	mixAndMuteRightChannel( (float *)mIntermediateSampleBuffer, (float *)mIntermediateSampleBuffer, numSamples );
@@ -1300,6 +1350,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *inFloat
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
+	iSubCoefficients* coefficients = &(miSubProcessingParams.coefficients);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
@@ -1317,7 +1368,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *inFloat
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, coefficients, filterState, filterState2);
 
 	outputBuf32 = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 
@@ -1345,6 +1396,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSubMixRightChannel(cons
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
+	iSubCoefficients* coefficients = &(miSubProcessingParams.coefficients);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
@@ -1362,7 +1414,7 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSubMixRightChannel(cons
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-	StereoLowPass4thOrder ((float *) mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	StereoLowPass4thOrder ((float *) mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, coefficients, filterState, filterState2);
 
 	outputBuf32 = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 	mixAndMuteRightChannel( (float *)mIntermediateSampleBuffer, (float *)mIntermediateSampleBuffer, numSamples );
@@ -1667,8 +1719,43 @@ IOReturn AppleDBDMAAudio::copyDMAStateAndFormat (DBDMAUserClientStructPtr outSta
 	outState->dmaFrozenInterruptCount = mNumberOfFrozenDmaInterruptCounts;
 	outState->dmaRecoveryInProcess = mDmaRecoveryInProcess;
 	//	} end	[3305011]
+	//	[3514079]	begin {
+	outState->dmaStalledCount = mDmaStalledCount;
+	outState->dmaHwDiedCount = mDmaHwDiedCount;
+	outState->interruptActionCount = mInterruptActionCount;
+	outState->hasInput = mHasInput;
+	outState->hasOutput = mHasOutput;
+	//	} end	[3514079]
+	outState->inputGainL = NULL == mInputGainLPtr ? 0.0 : *mInputGainLPtr ;
+	outState->inputGainR = NULL == mInputGainRPtr ? 0.0 : *mInputGainRPtr ;
+	
+	outState->dmaFlags = mUseSoftwareOutputVolume ? ( 1 << kDMA_FLAG_useSoftwareOutputVolume ) : ( 0 << kDMA_FLAG_useSoftwareOutputVolume );
+	outState->softwareOutputLeftVolume = mLeftVolume[0];
+	outState->softwareOutputRightVolume = mRightVolume[0];
+	outState->softwareOutputMinimumVolume = mMinVolumedB;
+	outState->softwareOutputMaximumVolume = mMaxVolumedB;
 	
 	return kIOReturnSuccess;
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+IOReturn AppleDBDMAAudio::setDMAStateAndFormat ( DBDMAUserClientStructPtr inState ) {
+	IOReturn			result = kIOReturnBadArgument;
+	
+	FailIf ( inState->softwareOutputLeftVolume > mMaxVolumedB, Exit );
+	FailIf ( inState->softwareOutputLeftVolume < mMinVolumedB, Exit );
+	FailIf ( inState->softwareOutputRightVolume > mMaxVolumedB, Exit );
+	FailIf ( inState->softwareOutputRightVolume < mMinVolumedB, Exit );
+	
+	mUseSoftwareOutputVolume = ( 0 != ( ( 1 << kDMA_FLAG_useSoftwareOutputVolume ) & inState->dmaFlags )) ? TRUE : FALSE ;
+	mLeftVolume[0] = inState->softwareOutputLeftVolume;
+	mRightVolume[0] = inState->softwareOutputRightVolume;
+	
+	result = kIOReturnSuccess;
+	
+Exit:
+	return result;
 }
 
 
@@ -1779,28 +1866,34 @@ IOReturn AppleDBDMAAudio::copyOutputChannelRegisters (void * outState) {
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn AppleDBDMAAudio::copySoftwareProcessingState (GetSoftProcUserClientStructPtr outState) {
-
-	debugIOLog (3, "AppleDBDMAAudio::copySoftwareProcessingState (0x%p), mode = %s", outState, outState->inputMode ? "input" : "output");
-	if (FALSE == outState->inputMode) {
-		mOutputDSPManager->getState (outState);
-	} else {
-		mInputDSPManager->getState (outState);
-	}
-	return kIOReturnSuccess;
-}
-
-IOReturn AppleDBDMAAudio::applySoftwareProcessingState (SetSoftProcUserClientStructPtr inState) {
-	debugIOLog (3, "AppleDBDMAAudio::applySoftwareProcessingState (0x%p), mode = %s", inState, inState->processInput ? "input" : "output");
-
-	if (FALSE == inState->processInput) {
-		mOutputDSPManager->setParameters (inState);
-	} else {
-		mInputDSPManager->setParameters (inState);
-	}
+IOReturn AppleDBDMAAudio::setInputChannelRegisters (void * inState) {
+	IOReturn			result;
 	
-	return kIOReturnSuccess;
+	result = kIOReturnError;
+	if ( NULL != inState ) {
+		if ( NULL != ioBaseDMAInput ) {
+			OSWriteLittleInt32 ( (volatile void *)&ioBaseDMAInput->channelControl, 0, ((IODBDMAChannelRegisters*)inState)->channelControl );
+			result = kIOReturnSuccess;
+		}
+	}
+	return result;
 }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+IOReturn AppleDBDMAAudio::setOutputChannelRegisters (void * inState) {
+	IOReturn			result;
+	
+	result = kIOReturnError;
+	if ( NULL != inState ) {
+		if ( NULL != ioBaseDMAOutput ) {
+			OSWriteLittleInt32 ( (volatile void *)&ioBaseDMAOutput->channelControl, 0, ((IODBDMAChannelRegisters*)inState)->channelControl );
+			result = kIOReturnSuccess;
+		}
+	}
+	return result;
+}
+
 
 #pragma mark ------------------------ 
 #pragma mark еее Format Routines
@@ -1817,79 +1910,107 @@ IOReturn AppleDBDMAAudio::performFormatChange(IOAudioStream *audioStream, const 
 	
 	result = kIOReturnError;
 	
-	debugIOLog (3, "AppleDBDMAAudio::performFormatChange (%p, %p, %p)", audioStream, newFormat, newSampleRate);	
+	debugIOLog (3, "+ AppleDBDMAAudio::performFormatChange (%p, %p, %p)", audioStream, newFormat, newSampleRate);	
 	
-	if ( NULL != newFormat ) {	
-		debugIOLog (3, "user commands us to switch to format '%4s'", (char *)&newFormat->fSampleFormat);
+	// [3656784] verify that this is a valid format change before updating everything below - right now this just checks
+	// if an encoded format is valid based on digital out connection states.  Other format info is validated by IOAudioFamily
+	// and by the list we publish and doesn't need to be checked again. aml
+	if (audioStream == mOutputStream) {
+		result = ourProvider->validateOutputFormatChangeRequest (newFormat, newSampleRate);
+	} else {
+		result = ourProvider->validateInputFormatChangeRequest (newFormat, newSampleRate);
+	}
+	if (kIOReturnSuccess == result) {
+		if ( NULL != newFormat ) {	
+			debugIOLog (3, "  user commands us to switch to format '%4s'", (char *)&newFormat->fSampleFormat);
 
-		if (audioStream == mOutputStream)
-			mDBDMAOutputFormat.fSampleFormat = newFormat->fSampleFormat;
+			if (audioStream == mOutputStream)
+				mDBDMAOutputFormat.fSampleFormat = newFormat->fSampleFormat;
 
-		mDBDMAOutputFormat.fNumChannels = newFormat->fNumChannels;
-		mDBDMAOutputFormat.fNumericRepresentation = newFormat->fNumericRepresentation;
-		mDBDMAOutputFormat.fBitDepth = newFormat->fBitDepth;
-		mDBDMAOutputFormat.fAlignment = newFormat->fAlignment;
-		mDBDMAOutputFormat.fByteOrder = newFormat->fByteOrder;
-		mDBDMAOutputFormat.fIsMixable = newFormat->fIsMixable;
-		mDBDMAOutputFormat.fDriverTag = newFormat->fDriverTag;
+			mDBDMAOutputFormat.fNumChannels = newFormat->fNumChannels;
+			mDBDMAOutputFormat.fNumericRepresentation = newFormat->fNumericRepresentation;
+			mDBDMAOutputFormat.fBitDepth = newFormat->fBitDepth;
+			mDBDMAOutputFormat.fAlignment = newFormat->fAlignment;
+			mDBDMAOutputFormat.fByteOrder = newFormat->fByteOrder;
+			mDBDMAOutputFormat.fIsMixable = newFormat->fIsMixable;
+			mDBDMAOutputFormat.fDriverTag = newFormat->fDriverTag;
 
-		mDBDMAInputFormat.fNumChannels = newFormat->fNumChannels;
-		mDBDMAInputFormat.fNumericRepresentation = newFormat->fNumericRepresentation;
-		mDBDMAInputFormat.fBitDepth = newFormat->fBitDepth;
-		mDBDMAInputFormat.fAlignment = newFormat->fAlignment;
-		mDBDMAInputFormat.fByteOrder = newFormat->fByteOrder;
-		mDBDMAInputFormat.fDriverTag = newFormat->fDriverTag;
+			mDBDMAInputFormat.fNumChannels = newFormat->fNumChannels;
+			mDBDMAInputFormat.fNumericRepresentation = newFormat->fNumericRepresentation;
+			mDBDMAInputFormat.fBitDepth = newFormat->fBitDepth;
+			mDBDMAInputFormat.fAlignment = newFormat->fAlignment;
+			mDBDMAInputFormat.fByteOrder = newFormat->fByteOrder;
+			mDBDMAInputFormat.fDriverTag = newFormat->fDriverTag;
 
-		// Always keep the input and output bit depths the same
-		if (mDBDMAOutputFormat.fBitWidth != newFormat->fBitWidth) {
-			blockSize = ( DBDMAAUDIODMAENGINE_ROOT_BLOCK_SIZE * ( newFormat->fBitWidth / 8 ) );
+			// Always keep the input and output bit depths the same
+			if (mDBDMAOutputFormat.fBitWidth != newFormat->fBitWidth) {
+				debugIOLog (3, "  changing bit width");
 
-			mDBDMAOutputFormat.fBitWidth = newFormat->fBitWidth;
-			mDBDMAInputFormat.fBitWidth = newFormat->fBitWidth;
+				blockSize = ( DBDMAAUDIODMAENGINE_ROOT_BLOCK_SIZE * ( newFormat->fBitWidth / 8 ) );
 
-			// If you switch to something other than 16 bit, then you can't do AC-3 for output.
-			if (mDBDMAOutputFormat.fBitWidth != 16) {
-				mDBDMAOutputFormat.fSampleFormat = kIOAudioStreamSampleFormatLinearPCM;
+				mDBDMAOutputFormat.fBitWidth = newFormat->fBitWidth;
+				mDBDMAInputFormat.fBitWidth = newFormat->fBitWidth;
+
+				// If you switch to something other than 16 bit, then you can't do AC-3 for output.
+				if (mDBDMAOutputFormat.fBitWidth != 16) {
+					mDBDMAOutputFormat.fSampleFormat = kIOAudioStreamSampleFormatLinearPCM;
+				}
+
+				deallocateDMAMemory ();
+				allocateDMABuffers ();
+
+				FailIf (NULL == mOutputSampleBuffer, Exit);
+				if (ioBaseDMAInput) 
+					FailIf (NULL == mInputSampleBuffer, Exit);
+
+				if ( mOutputStream ) {
+					mOutputStream->setSampleBuffer ((void *)mOutputSampleBuffer, numBlocks * blockSize);
+				}
+				if (mInputStream) {
+					mInputStream->setSampleBuffer ((void *)mInputSampleBuffer, numBlocks * blockSize);
+				}
+
+				FailIf (FALSE == createDMAPrograms (), Exit);
 			}
-
-			deallocateDMAMemory ();
-			allocateDMABuffers ();
-
-			FailIf (NULL == mOutputSampleBuffer, Exit);
-			if (ioBaseDMAInput) 
-				FailIf (NULL == mInputSampleBuffer, Exit);
-
-			if ( mOutputStream ) {
-				mOutputStream->setSampleBuffer ((void *)mOutputSampleBuffer, numBlocks * blockSize);
-			}
-			if (mInputStream) {
-				mInputStream->setSampleBuffer ((void *)mInputSampleBuffer, numBlocks * blockSize);
-			}
-
-			FailIf (FALSE == createDMAPrograms (), Exit);
 		}
-	}
 
-	if (audioStream != mInputStream && NULL != mInputStream) {
-		mInputStream->hardwareFormatChanged (&mDBDMAInputFormat);
-	} else if (audioStream != mOutputStream && NULL != mOutputStream) {
-		mOutputStream->hardwareFormatChanged (&mDBDMAOutputFormat);
-	}
-
-	if (NULL != newSampleRate) {
-		if (newSampleRate->whole != sampleRate.whole) {
-			updateDSPForSampleRate (newSampleRate->whole);
+		if (audioStream != mInputStream && NULL != mInputStream) {
+			mInputStream->hardwareFormatChanged (&mDBDMAInputFormat);
+		} else if (audioStream != mOutputStream && NULL != mOutputStream) {
+			mOutputStream->hardwareFormatChanged (&mDBDMAOutputFormat);
 		}
+
+		if (NULL != newSampleRate) {
+			if (newSampleRate->whole != sampleRate.whole) {
+				UInt32			newSampleOffset;
+
+				debugIOLog (3,   "changing sample rate");
+				updateDSPForSampleRate (newSampleRate->whole);
+				// update iSub coefficients for new sample rate
+				if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
+					debugIOLog (3, "setting iSub coefficient for sample rate (%ld)", newSampleRate->whole);
+					Set4thOrderCoefficients (&(miSubProcessingParams.coefficients), newSampleRate->whole);
+
+					newSampleOffset = (kMinimumLatencyiSub * ((newSampleRate->whole * 1000) / 44100)) / 1000;
+				} else {
+					newSampleOffset = (kMinimumLatency * ((newSampleRate->whole * 1000) / 44100)) / 1000;
+				}
+				setSampleOffset (newSampleOffset);
+			}
+			resetiSubProcessingState ();
+		}
+		
+		// Tell AppleOnboardAudio about the format or sample rate change.
+		result = ourProvider->formatChangeRequest (newFormat, newSampleRate);
+
+		debugIOLog (3, "  ourProvider->formatChangeRequest returns %d", result);
+
+		// in and out have the same format always.
+		chooseOutputClippingRoutinePtr();
+		chooseInputConversionRoutinePtr();
 	}
-	
-	// Tell AppleOnboardAudio about the format or sample rate change.
-	result = ourProvider->formatChangeRequest (newFormat, newSampleRate);
-
-	// in and out have the same format always.
-	chooseOutputClippingRoutinePtr();
-	chooseInputConversionRoutinePtr();
-
 Exit:
+	debugIOLog (3, "- AppleDBDMAAudio::performFormatChange (%p, %p, %p) returns %lX", audioStream, newFormat, newSampleRate, result);	
     return result;
 }
 
@@ -1968,6 +2089,8 @@ bool AppleDBDMAAudio::iSubEnginePublished (AppleDBDMAAudio * dbdmaEngineObject, 
 	FailIf (NULL == dbdmaEngineObject->miSubProcessingParams.lowFreqSamples, Exit);
     dbdmaEngineObject->miSubProcessingParams.highFreqSamples = (float *)IOMallocAligned ((dbdmaEngineObject->numBlocks * dbdmaEngineObject->blockSize) * sizeof (float), PAGE_SIZE);
 	FailIf (NULL == dbdmaEngineObject->miSubProcessingParams.highFreqSamples, Exit);
+
+    Set4thOrderCoefficients (&(dbdmaEngineObject->miSubProcessingParams.coefficients), (dbdmaEngineObject->getSampleRate())->whole);
 
 	// Open the iSub which will cause it to create mute and volume controls
 //	dbdmaEngineObject->attach (dbdmaEngineObject->iSubEngine);
@@ -2152,18 +2275,19 @@ void AppleDBDMAAudio::iSubSynchronize(UInt32 firstSampleFrame, UInt32 numSampleF
 			distance = initialiSubLead;
 		}
 
-		if (distance < (initialiSubLead / 2)) {			
-			// Write more samples into the iSub's buffer
-//				debugIOLog (3, "speed up! %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
-			adaptiveSampleRate = sampleRate - (sampleRate >> 4);
-		} else if (distance > (initialiSubLead + (initialiSubLead / 2))) {
-			// Write fewer samples into the iSub's buffer
-//				debugIOLog (3, "slow down! %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
-			adaptiveSampleRate = sampleRate + (sampleRate >> 4);
-		} else {
-			// The sample rate is just right
-//				debugIOLog (3, "just right %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
-			adaptiveSampleRate = sampleRate;
+		if (sampleRate < 64000) {
+			if (distance < (initialiSubLead / 2)) {			
+				// Write more samples into the iSub's buffer
+				debugIOLog (3, "speed up! %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+				adaptiveSampleRate = sampleRate - (sampleRate >> 4);
+			} else if (distance > (initialiSubLead + (initialiSubLead / 2))) {
+				// Write fewer samples into the iSub's buffer
+				debugIOLog (3, "slow down! %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+				adaptiveSampleRate = sampleRate + (sampleRate >> 4);
+			} else {
+				// The sample rate is just right
+				debugIOLog (3, "just right %ld, %ld, %ld", initialiSubLead, distance, iSubEngine->GetCurrentByteCount () / 2);
+			}
 		}
 	}
 	
@@ -2179,7 +2303,7 @@ void AppleDBDMAAudio::iSubSynchronize(UInt32 firstSampleFrame, UInt32 numSampleF
 			#if DEBUGLOG
 			distance = miSubProcessingParams.iSubBufferOffset - (iSubEngine->GetCurrentByteCount () / 2);
 			debugIOLog (3, "****iSub is in front of write head safetyOffset = %ld, iSubEngine->GetCurrentByteCount () / 2 = %ld", safetyOffset, iSubEngine->GetCurrentByteCount () / 2);
-//				debugIOLog (3, "distance = %ld", distance);
+//			debugIOLog (3, "distance = %ld", distance);
 			#endif
 			needToSync = TRUE;
 			startiSub = TRUE;
@@ -2261,7 +2385,7 @@ void AppleDBDMAAudio::iSubSynchronize(UInt32 firstSampleFrame, UInt32 numSampleF
 				offsetDelta = (firstSampleFrame - curSampleFrame) * iSubEngine->GetNumChannels();
 			}
 			#if DEBUGLOG
-			debugIOLog (3, "clipOutput: need to sync: 44.1kHz offsetDelta = %ld", offsetDelta);
+			debugIOLog (3, "clipOutput: need to sync: internal sample rate offsetDelta = %ld", offsetDelta);
 
 			if (offsetDelta < kMinimumLatency) {
 				debugIOLog (3, "clipOutput: no sync: 44.1 offsetDelta < min, offsetDelta=%ld", offsetDelta); 
@@ -2269,7 +2393,8 @@ void AppleDBDMAAudio::iSubSynchronize(UInt32 firstSampleFrame, UInt32 numSampleF
 			#endif
 			// aml 3.21.02, adjust for new sample rate
 			offsetDelta = (offsetDelta * 1000) / ((sampleRate * 1000) / iSubFormat.outputSampleRate);
-			debugIOLog (3, "clipOutput: need to sync: iSubBufferOffset = %ld, offsetDelta = %ld", miSubProcessingParams.iSubBufferOffset, offsetDelta);
+			debugIOLog (3, "clipOutput: need to sync: before iSubBufferOffset = %ld", miSubProcessingParams.iSubBufferOffset);
+			debugIOLog (3, "clipOutput: need to sync: iSub sample rate offsetDelta = %ld", offsetDelta);
 
 			miSubProcessingParams.iSubBufferOffset = offsetDelta;
 			debugIOLog (3, "clipOutput: need to sync: offsetDelta = %ld", offsetDelta);
@@ -2278,7 +2403,7 @@ void AppleDBDMAAudio::iSubSynchronize(UInt32 firstSampleFrame, UInt32 numSampleF
 			if (miSubProcessingParams.iSubBufferOffset > (SInt32)iSubBufferLen) {
 		
 				needToSync = TRUE;	// aml 4.24.02, requests larger than our buffer size = bad!
-				debugIOLog (3, "clipOutput: need to sync: SubBufferOffset too big (%ld) RESYNC!", miSubProcessingParams.iSubBufferOffset);
+				debugIOLog (3, "clipOutput: need to sync: iSubBufferOffset too big (%ld) RESYNC!", miSubProcessingParams.iSubBufferOffset);
 				
 				// Our calculated spot has actually wrapped around the iSub's buffer.
 
@@ -2420,70 +2545,115 @@ void AppleDBDMAAudio::updateiSubPosition(UInt32 firstSampleFrame, UInt32 numSamp
 
 inline void AppleDBDMAAudio::startTiming() {
 #ifdef _TIME_CLIP_ROUTINE
-	AbsoluteTime				uptime;
-	AbsoluteTime				tempTime;
-
 	mCallCount++;
-	clock_get_uptime (&uptime);
-	tempTime = uptime;
-	if ((mCallCount % kCallFrequency) == 0) {
+	if ((mCallCount % kIOProcTimingCountCurrent) == 0) {
+		AbsoluteTime				uptime;
 		UInt64						nanos;
-		SUB_ABSOLUTETIME (&uptime, &mPreviousUptime);
-		absolutetime_to_nanoseconds (uptime, &nanos);
-		mTotalNanos = nanos;
-		//IOLog (1, "clipOutputSamples[%ld]:\t%ld:", mCallCount, uptime.lo);
+		// get time for end of last cycle
+		clock_get_uptime (&uptime);
+		// calculate total time between start of last cycle and end of last cycle
+		SUB_ABSOLUTETIME (&uptime, &mStartIOProcUptime);
+		// convert total time to nanos
+		absolutetime_to_nanoseconds (uptime, &mCurrentTotalNanos);
+		mTotalIOProcNanos += mCurrentTotalNanos >> 10;
+		// calculate time between start of last cycle and end of output processing time
+		SUB_ABSOLUTETIME (&mEndProcessingUptime, &mStartIOProcUptime);
+		// convert output processing time to nanos
+		absolutetime_to_nanoseconds (mEndProcessingUptime, &nanos);
+		mTotalProcessingNanos += nanos >> 10;
+		// calculate the percentage of nonos out of the cycle spent in output processing
+		convertNanosToPercent(nanos, mCurrentTotalNanos, &mCurrentCPUUsagePercent);
+//		IOLog1Float ("CPU usage:\t\t", &mCurrentCPUUsagePercent, " \%\n");
+		// store start time for new cycle
 	}
-	mPreviousUptime = tempTime;
-
-	if ((mCallCount % kCallFrequency) == 0) {
-		clock_get_uptime (&mLastuptime);
+	if ((mCallCount % kIOProcTimingCountAverage) == 0) {
+		convertNanosToPercent(mTotalProcessingNanos, mTotalIOProcNanos, &mAverageCPUUsagePercent);
+//		IOLog1Float ("Average CPU usage:\t\033[2;31m", &mAverageCPUUsagePercent, " \%\033[0m\n");
 	}
+	clock_get_uptime (&mStartIOProcUptime);
 #endif
 }
 
 inline void AppleDBDMAAudio::endTiming() {
 #ifdef _TIME_CLIP_ROUTINE
-	if ((mCallCount % kCallFrequency) == 0) {
-		AbsoluteTime				uptime;
-		UInt64						nanos;
-		float						percent;
-		clock_get_uptime (&uptime);
-		SUB_ABSOLUTETIME (&uptime, &mLastuptime);
-		absolutetime_to_nanoseconds (uptime, &nanos);
-		//IOLog ("%ld", uptime.lo);
-		convertNanosToPercent(nanos, mTotalNanos, &percent);
-		//IOLog1Float ("\t", &percent, " \%\n");
-	}
+	clock_get_uptime (&mEndProcessingUptime);		
 #endif
 }
 
-
 // --------------------------------------------------------------------------
-//	When running on the external I2S clock, it is possible to kill the
-//	DMA with no indication of an error.  This method detects that the 
-//	DMA has fozen.  Recovery is implemented from within AppleOnboardAudio.
+//	When running on the external I2S clock, it is possible to stall the
+//	DMA with no indication of an error due to a loss of clock.  This method 
+//	detects that the DMA has stalled.  Recovery is implemented from within 
+//	AppleOnboardAudio.
+//
+//	.........................................................................
+//	
+//	Revision 1.0 (31 Jan 1995) DbDMA specification states:
+//
+//	3.2	System-bus errors
+//
+//	An unrecoverable error on a system-memory access includes parity and addressing errors.
+//	A busy-retry error shall be viewed as a recoverable bus error, and shall be retried until 
+//	it completes successfully or the DMA controller's command processing is aborted.
+//
+//	An unrecoverable error sets the 'dead' bit in the 'ChannelStatus' register of the currently
+//	executing DMA channel.  Software must explicitly reset the 'ChannelStatus.run' bit to zero
+//	and later set it back to one in order to return to an operational state.
+//
+//	4.3.1	ChannelStatus.run
+//
+//	Software can clear this bit to zero to abort the operation of the channel.  When channel operation
+//	is aborted data transfers are terminated, status is returned and an interrupt is generated (if 
+//	requested in the 'Command.i' field of the command descriptor).  Data which is stored temporarily
+//	in channel buffers may be lost.
+//
+//	4.3.5 ChannelStatus.dead
+//
+//	'ChannelStatus.dead' is set to one by hardware when the channel halts execution due
+//	to a catastrophic event such as a bus-error or device error.  The current command is terminated,
+//	and hardware attempts to write status back to memory.  Further commands are not executed.  If a 
+//	hardware interrupt signal is implemented, an unconditional interrupt shall be generated.  When
+//	hardware sets 'ChannelStatus.dead', 'channelStatus.active' is simultaneously negated.
+//
+//	Hardware resets 'ChannelStatus.dead' to zero when the 'run' bit is cleared by software.
+//
+//	.........................................................................
+//	
 //	[3305011]	begin {
 bool AppleDBDMAAudio::engineDied ( void ) {
 	bool			result = FALSE;
 	UInt32			tempInterruptCount;
-
-	tempInterruptCount = 0;
-	if ( dmaRunState ) {
-		tempInterruptCount = mDmaInterruptCount;
-		if ( tempInterruptCount == mLastDmaInterruptCount ) {
-			mNumberOfFrozenDmaInterruptCounts++;
-			if ( kMAXIMUM_NUMBER_OF_FROZEN_DMA_IRQ_COUNTS <= mNumberOfFrozenDmaInterruptCounts ) {
-				result = TRUE;
-				mDmaRecoveryInProcess = true;
+	UInt32			dmaHwStatus;
+	
+	if ( mHasInput ) {
+		dmaHwStatus =  OSReadLittleInt32( &ioBaseDMAInput->channelStatus, 0 );		//	[3514709]
+		if ( 0 != ( dmaHwStatus & kdbdmaDead ) ) {
+			mDmaRecoveryInProcess = TRUE;
+			mDmaHwDiedCount++;
+			result = TRUE;
+		}
+	}
+	if ( !mDmaRecoveryInProcess ) {
+		tempInterruptCount = 0;
+		if ( dmaRunState ) {
+			tempInterruptCount = mDmaInterruptCount;
+			if ( tempInterruptCount == mLastDmaInterruptCount ) {
+				mNumberOfFrozenDmaInterruptCounts++;
+				if ( kMAXIMUM_NUMBER_OF_FROZEN_DMA_IRQ_COUNTS <= mNumberOfFrozenDmaInterruptCounts ) {
+					result = TRUE;
+					mDmaRecoveryInProcess = TRUE;
+					mDmaStalledCount++;
+					mNumberOfFrozenDmaInterruptCounts = 0;
+				}
+			} else {
+				mLastDmaInterruptCount = tempInterruptCount;
 				mNumberOfFrozenDmaInterruptCounts = 0;
+				mDmaRecoveryInProcess = FALSE;								//	[3514709]
 			}
 		} else {
 			mLastDmaInterruptCount = tempInterruptCount;
 			mNumberOfFrozenDmaInterruptCounts = 0;
 		}
-	} else {
-		mLastDmaInterruptCount = tempInterruptCount;
-		mNumberOfFrozenDmaInterruptCounts = 0;
 	}
 	return result;
 }

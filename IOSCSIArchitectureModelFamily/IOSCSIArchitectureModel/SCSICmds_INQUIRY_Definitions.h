@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,24 +24,29 @@
 #ifndef _IOKIT_SCSI_CMDS_INQUIRY_H_
 #define _IOKIT_SCSI_CMDS_INQUIRY_H_
 
+
+// This file contains all the definitions for the data returned from
+// the INQUIRY (0x12) command.
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 #if KERNEL
 #include <IOKit/IOTypes.h>
 #else
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-// This file contains all the definitions for the data returned from
-// the INQUIRY (0x12) command.
 
 #if 0
-#pragma mark -
-#pragma mark ¥¥¥ INQUIRY Default Page 0 Definitions ¥¥¥
+#pragma mark ¥ INQUIRY Default Page 0 Definitions
 #pragma mark -
 #endif
 
-//
+
 // Sizes for some of the inquiry data fields
-//
 enum
 {
 	kINQUIRY_VENDOR_IDENTIFICATION_Length	= 8,
@@ -52,7 +57,7 @@ enum
 // This structure defines the format of the required standard data that is 
 // returned for the INQUIRY command.  This is the data that is required to
 // be returned from all devices.
-struct SCSICmd_INQUIRY_StandardData
+typedef struct SCSICmd_INQUIRY_StandardData
 {
 	UInt8		PERIPHERAL_DEVICE_TYPE;				// 7-5 = Qualifier. 4-0 = Device type.
 	UInt8		RMB;								// 7 = removable
@@ -66,15 +71,14 @@ struct SCSICmd_INQUIRY_StandardData
 	char		VENDOR_IDENTIFICATION[kINQUIRY_VENDOR_IDENTIFICATION_Length];
 	char		PRODUCT_IDENTIFICATION[kINQUIRY_PRODUCT_IDENTIFICATION_Length];
 	char		PRODUCT_REVISION_LEVEL[kINQUIRY_PRODUCT_REVISION_LEVEL_Length];
-};
-typedef struct SCSICmd_INQUIRY_StandardData SCSICmd_INQUIRY_StandardData;
-typedef SCSICmd_INQUIRY_StandardData* SCSICmd_INQUIRY_StandardDataPtr;
+} SCSICmd_INQUIRY_StandardData;
+typedef SCSICmd_INQUIRY_StandardData * SCSICmd_INQUIRY_StandardDataPtr;
 
 
 // This structure defines the all of the fields that can be returned in
 // repsonse to the INQUIRy request for the standard data.  There is no
 // requirement as to how much of the additional data must be returned by a device.
-struct SCSICmd_INQUIRY_StandardDataAll
+typedef struct SCSICmd_INQUIRY_StandardDataAll
 {
 	UInt8		PERIPHERAL_DEVICE_TYPE;				// 7-5 = Qualifier. 4-0 = Device type.
 	UInt8		RMB;								// 7 = removable
@@ -96,8 +100,7 @@ struct SCSICmd_INQUIRY_StandardDataAll
 	UInt16		VERSION_DESCRIPTOR[8];
 	UInt8		Reserved2[22];
 	UInt8		VendorSpecific2[160];
-};
-typedef struct SCSICmd_INQUIRY_StandardDataAll SCSICmd_INQUIRY_StandardDataAll;
+} SCSICmd_INQUIRY_StandardDataAll;
 
 
 #if 0
@@ -325,11 +328,11 @@ enum
 	kINQUIRY_Byte56_CLOCKING_ST_AND_DT		= 0x0C
 };
 
-
 // IORegistry property names for information derived from the Inquiry data.
 // The Peripheral Device Type is the only property that the 
 // generic Logical Unit Drivers will use to match.
 #define kIOPropertySCSIPeripheralDeviceType		"Peripheral Device Type"
+
 // The bit size of the property
 #define kIOPropertySCSIPeripheralDeviceTypeSize	8
 
@@ -339,56 +342,77 @@ enum
 #define kIOPropertySCSIProductRevisionLevel		"Product Revision Level"
 
 
+// Interesting page codes for INQUIRY command
+enum
+{
+	kINQUIRY_Page00_PageCode				= 0x00,
+	kINQUIRY_Page80_PageCode				= 0x80,
+	kINQUIRY_Page83_PageCode				= 0x83
+};	
+
+
 #if 0
 #pragma mark -
-#pragma mark ¥¥¥ INQUIRY Supported Vital Products Page 00 Definitions ¥¥¥
+#pragma mark ¥ INQUIRY Supported Vital Products Page 00 Definitions
 #pragma mark -
 #endif
 
 // This section contians all structures and definitions used by the INQUIRY
 // command in response to a request for page 83h - Device Identification Page 
-struct SCSICmd_INQUIRY_Page00_Header
+typedef struct SCSICmd_INQUIRY_Page00_Header
 {
 	UInt8		PERIPHERAL_DEVICE_TYPE;				// 7-5 = Qualifier. 4-0 = Device type.
 	UInt8		PAGE_CODE;							// Must be equal to 00h
 	UInt8		RESERVED;							// reserved field
 	UInt8		PAGE_LENGTH;						// n-3 bytes
-};
-typedef struct SCSICmd_INQUIRY_Page00_Header SCSICmd_INQUIRY_Page00_Header;
+} SCSICmd_INQUIRY_Page00_Header;
 
 
 #if 0
 #pragma mark -
-#pragma mark ¥¥¥ INQUIRY Device ID Page 83 Definitions ¥¥¥
+#pragma mark ¥ INQUIRY Device ID Page 80 Definitions
+#pragma mark -
+#endif
+
+
+typedef struct SCSICmd_INQUIRY_Page80_Header
+{
+	UInt8		PERIPHERAL_DEVICE_TYPE;				// 7-5 = Qualifier. 4-0 = Device type.
+	UInt8		PAGE_CODE;							// Must be equal to 80h
+	UInt8		RESERVED;							// reserved field
+	UInt8		PAGE_LENGTH;						// n-3 bytes
+	UInt8		PRODUCT_SERIAL_NUMBER;				// 4-n
+} SCSICmd_INQUIRY_Page80_Header;
+
+
+#define kIOPropertySCSIINQUIRYUnitSerialNumber		"INQUIRY Unit Serial Number"
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ INQUIRY Device ID Page 83 Definitions
 #pragma mark -
 #endif
 
 // This section contians all structures and definitions used by the INQUIRY
 // command in response to a request for page 83h - Device Identification Page 
 
-enum
-{
-	kINQUIRY_Page83_PageCode				= 0x83
-};	
-
-struct SCSICmd_INQUIRY_Page83_Header
+typedef struct SCSICmd_INQUIRY_Page83_Header
 {
 	UInt8		PERIPHERAL_DEVICE_TYPE;				// 7-5 = Qualifier. 4-0 = Device type.
 	UInt8		PAGE_CODE;							// Must be equal to 83h
 	UInt8		RESERVED;							// reserved field
 	UInt8		PAGE_LENGTH;						// n-3 bytes
-};
-typedef struct SCSICmd_INQUIRY_Page83_Header SCSICmd_INQUIRY_Page83_Header;
+} SCSICmd_INQUIRY_Page83_Header;
 
-struct SCSICmd_INQUIRY_Page83_Identification_Descriptor
+typedef struct SCSICmd_INQUIRY_Page83_Identification_Descriptor
 {
 	UInt8		CODE_SET;							
 	UInt8		IDENTIFIER_TYPE;					
 	UInt8		RESERVED;							
 	UInt8		IDENTIFIER_LENGTH;
 	UInt8		IDENTIFIER;
-};
-typedef struct SCSICmd_INQUIRY_Page83_Identification_Descriptor SCSICmd_INQUIRY_Page83_Identification_Descriptor;
+} SCSICmd_INQUIRY_Page83_Identification_Descriptor;
 
 // Definitions for the Code Set field
 enum
@@ -430,4 +454,5 @@ enum
 #define kIOPropertySCSIINQUIRYDeviceIdAssociation		"Association"
 #define kIOPropertySCSIINQUIRYDeviceIdentifier			"Identifier"
 		
+
 #endif	/* _IOKIT_SCSI_CMDS_INQUIRY_H_ */

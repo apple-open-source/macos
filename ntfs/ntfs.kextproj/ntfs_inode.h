@@ -73,6 +73,8 @@ struct ntnode {
 #define	FN_PRELOADED	0x0001
 #define	FN_VALID	0x0002
 #define	FN_AATTRNAME	0x0004	/* space allocated for f_attrname */
+#define FN_NONRESIDENT	0x0008	/* attribute is non-resident (uses run list) */
+
 struct fnode {
 #ifdef APPLE
 	struct lock__bsd__ f_lock;	/* fnode lock >Keep this first< */
@@ -101,6 +103,8 @@ struct fnode {
 	u_int32_t       f_lastdnum;
 	caddr_t         f_dirblbuf;
 	u_int32_t       f_dirblsz;
+	
+	size_t			f_compsize;		/* Bytes per compression unit; 0 if not compressed */
 };
 
 /* This overlays the fid structure (see <sys/mount.h>) */

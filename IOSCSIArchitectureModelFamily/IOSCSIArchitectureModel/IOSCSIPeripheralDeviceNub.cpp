@@ -133,10 +133,6 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	OSObject *		obj				= NULL;
 	bool			result			= false;
 	
-	// Call our super class' start routine so that all inherited
-	// behavior is initialized.	
-	require ( super::start ( provider ), ErrorExit );
-	
 	// Check if our provider is one of us. If it is, we don't want to
 	// load again.
 	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceNub, provider );
@@ -145,6 +141,10 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	// Make sure our provider is a protocol services driver.
 	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
+	
+	// Call our super class' start routine so that all inherited
+	// behavior is initialized.	
+	require ( super::start ( provider ), ErrorExit );
 	
 	fSCSIPrimaryCommandObject = OSTypeAlloc ( SCSIPrimaryCommands );
 	require_nonzero ( fSCSIPrimaryCommandObject, ErrorExit );
@@ -197,7 +197,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 		
 	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
 	
-	require_quiet ( InterrogateDevice ( ), CloseProvider );
+	require ( InterrogateDevice ( ), CloseProvider );
 	
 	setProperty ( kIOMatchCategoryKey, kSCSITaskUserClientIniterKey );
 	
@@ -324,10 +324,12 @@ IOSCSIPeripheralDeviceNub::message ( UInt32 		type,
 		{
 			
 			STATUS_LOG ( ("%s: kIOMessageServiceIsRequestingClose called\n", getName( ) ) );
-			if ( fProvider )
+			if ( fProvider != NULL )
 			{	
+				
 				STATUS_LOG ( ("%s: closing provider\n", getName( ) ) );
 				fProvider->close ( this );
+				
 			}
 			
 		}
@@ -361,25 +363,6 @@ IOSCSIPeripheralDeviceNub::message ( UInt32 		type,
 #pragma mark ¥ Power Management Utility Methods
 #pragma mark -
 #endif
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ joinPMtree - Relays joinPMtree call to provider.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-void
-IOSCSIPeripheralDeviceNub::joinPMtree ( IOService * driver )
-{
-	
-	STATUS_LOG ( ( "%s%s::%s called%s\n", "\033[33m",
-					getName ( ), __FUNCTION__, "\033[0m" ) );
-	
-	fProvider->joinPMtree ( driver );
-	
-	STATUS_LOG ( ( "%s%s::%s finished%s\n", "\033[33m",
-					getName ( ), __FUNCTION__, "\033[0m" ) );
-	
-}
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -544,7 +527,7 @@ IOSCSIPeripheralDeviceNub::matchPropertyTable (	OSDictionary *	table,
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ sCompareIOProperty - Compares properties.				[STATIC][PROTECTED]
+//	¥ sCompareIOProperty - Compares properties.				  [STATIC][PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
@@ -576,6 +559,34 @@ ErrorExit:
 	
 	return returnValue;
 	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sStripWhitespace - Strips whitespace at the end of strings.
+//															  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIPeripheralDeviceNub::sStripWhitespace ( char * string, UInt32 length )
+{
+	
+	UInt32	index = 0;
+	
+   	for ( index = length - 1; index != 0; index-- )
+   	{
+   		
+   		if ( string[index] != ' ' )
+   		{
+   			
+   			// Found a real character
+   			string[index + 1] = 0;
+   			break;
+   			
+   		}
+   		
+   	}
+   	
 }
 
 
@@ -624,45 +635,71 @@ IOSCSIPeripheralDeviceNub::ExecuteCommand ( SCSITaskIdentifier request )
 }
 
 
-// The Task Management function to allow the SCSI Application Layer client to request
-// that a specific task be aborted.
-SCSIServiceResponse		
-IOSCSIPeripheralDeviceNub::AbortTask( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortTask - Relays command to protocol services driver.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPeripheralDeviceNub::AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag )
 {
 	return 	fProvider->AbortTask ( theLogicalUnit, theTag );
 }
 
-// The Task Management function to allow the SCSI Application Layer client to request
-// that a all tasks curerntly in the task set be aborted.
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortTaskSet - Relays command to protocol services driver.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSIServiceResponse		
-IOSCSIPeripheralDeviceNub::AbortTaskSet( UInt8 theLogicalUnit )
+IOSCSIPeripheralDeviceNub::AbortTaskSet ( UInt8 theLogicalUnit )
 {
 	return 	fProvider->AbortTaskSet ( theLogicalUnit );
 }
 
-SCSIServiceResponse		
-IOSCSIPeripheralDeviceNub::ClearACA( UInt8 theLogicalUnit )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ClearACA - Relays command to protocol services driver.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPeripheralDeviceNub::ClearACA ( UInt8 theLogicalUnit )
 {
 	return 	fProvider->ClearACA ( theLogicalUnit );
 }
 
-SCSIServiceResponse		
-IOSCSIPeripheralDeviceNub::ClearTaskSet( UInt8 theLogicalUnit )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ClearTaskSet - Relays command to protocol services driver.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPeripheralDeviceNub::ClearTaskSet ( UInt8 theLogicalUnit )
 {
 	return 	fProvider->ClearTaskSet ( theLogicalUnit );
 }
     
-SCSIServiceResponse		
-IOSCSIPeripheralDeviceNub::LogicalUnitReset( UInt8 theLogicalUnit )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ LogicalUnitReset - Relays command to protocol services driver.[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPeripheralDeviceNub::LogicalUnitReset ( UInt8 theLogicalUnit )
 {
 	return 	fProvider->LogicalUnitReset ( theLogicalUnit );
 }
 
-SCSIServiceResponse		
-IOSCSIPeripheralDeviceNub::TargetReset( void )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TargetReset - Relays command to protocol services driver.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPeripheralDeviceNub::TargetReset ( void )
 {
 	return 	fProvider->TargetReset ( );
 }
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ AbortCommand - Relays command to protocol services driver.	[PROTECTED]
@@ -705,33 +742,30 @@ IOSCSIPeripheralDeviceNub::HandleProtocolServiceFeature (
 
 #if 0
 #pragma mark -
-#pragma mark ¥ Private method declarations
+#pragma mark ¥ Private Methods
 #pragma mark -
 #endif
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ TaskCallback - Callback method for synchronous commands.		  [PRIVATE]
+//	¥ TaskCallback - Callback method for synchronous commands.
+//															  [STATIC][PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void 
 IOSCSIPeripheralDeviceNub::TaskCallback ( SCSITaskIdentifier completedTask )
 {
 	
-	IOSyncer *				fSyncLock		= NULL;
-	SCSITask *				scsiRequest		= NULL;
-	SCSIServiceResponse 	serviceResponse;
+	SCSITask *						scsiRequest	= NULL;
+	IOSCSIPeripheralDeviceNub *		owner		= NULL;
 	
-	STATUS_LOG ( ( "IOSCSIPeripheralDeviceNub::TaskCallback called\n.") );
-		
 	scsiRequest = OSDynamicCast ( SCSITask, completedTask );
-	require_nonzero_string ( scsiRequest, ErrorExit, "SCSITask is NULL\n" );
+	require_nonzero ( scsiRequest, ErrorExit );
 	
-	fSyncLock = ( IOSyncer * ) scsiRequest->GetApplicationLayerReference ( );
-	require_nonzero_string ( fSyncLock, ErrorExit, "fSyncLock is NULL\n" );
+	owner = ( IOSCSIPeripheralDeviceNub * ) scsiRequest->GetTaskOwner ( );
+	require_nonzero ( owner, ErrorExit );
 	
-	serviceResponse = scsiRequest->GetServiceResponse ( );
-	fSyncLock->signal ( serviceResponse, false );
+	owner->TaskCompletion ( completedTask );
 	
 	
 ErrorExit:
@@ -743,38 +777,77 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SendTask - Method to send synchronous commands.				  [PRIVATE]
+//	¥ TaskCompletion - Callback method for synchronous commands.	  [PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-SCSIServiceResponse
-IOSCSIPeripheralDeviceNub::SendTask ( SCSITask * request )
+void 
+IOSCSIPeripheralDeviceNub::TaskCompletion ( SCSITaskIdentifier completedTask )
 {
 	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOSyncer *				fSyncLock		= NULL;
-	
-	fSyncLock = IOSyncer::create ( false );
-	require_nonzero_string ( fSyncLock, ErrorExit, "IOSyncer is NULL\n" );
-	
-	fSyncLock->signal ( kIOReturnSuccess, false );
-	
-	request->SetTaskCompletionCallback ( &IOSCSIPeripheralDeviceNub::TaskCallback );
-	request->SetApplicationLayerReference ( ( void * ) fSyncLock );
-	fSyncLock->reinit ( );
-	
-	ExecuteCommand ( request );
-	
-	// Wait for the completion routine to get called
-	serviceResponse = ( SCSIServiceResponse ) fSyncLock->wait ( false );
-	fSyncLock->release ( );
-	
-	
-ErrorExit:
-	
-	
-	return serviceResponse;
+	fCommandGate->commandWakeup ( completedTask, true );
 	
 }
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sWaitForTask -	Called to wait for a task until it completes.
+//															  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIPeripheralDeviceNub::sWaitForTask (
+									void * 		object,
+									SCSITask * 	request )
+{
+	
+	IOSCSIPeripheralDeviceNub *	device = NULL;
+	
+	device = OSDynamicCast ( IOSCSIPeripheralDeviceNub, ( OSObject * ) object );
+	
+	return device->GatedWaitForTask ( request );
+	
+}
+
+
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GatedWaitForTask - Called to wait for a task to complete.		  [PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIPeripheralDeviceNub::GatedWaitForTask ( SCSITask * request )
+{
+	
+	IOReturn	result	= kIOReturnBadArgument;
+	
+	if ( request != NULL )
+	{
+		
+		while ( request->GetTaskState ( ) != kSCSITaskState_ENDED )
+		{
+			
+			result = fCommandGate->commandSleep ( request, THREAD_UNINT );
+			
+		}
+		
+	}
+	
+	if ( result == THREAD_AWAKENED )
+		result = kIOReturnSuccess;
+	
+	return result;
+	
+}
+
+
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Protected Methods
+#pragma mark -
+#endif
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -816,6 +889,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		// This device has a default inquiry count, use it.
 		STATUS_LOG ( ( "%s: use fDefaultInquiryCount for Inquiry.\n", getName ( ) ) );
 		inqDataCount = fDefaultInquiryCount;
+		check ( inqDataCount >= sizeof ( SCSICmd_INQUIRY_StandardData ) );
 		
 	}
 	
@@ -831,11 +905,12 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	request = OSTypeAlloc ( SCSITask );	
 	require_nonzero ( request, ReleaseBuffer );
 	request->ResetForNewTask ( );
-	
+	request->SetTimeoutDuration ( 10000 );
 	fSCSIPrimaryCommandObject->TEST_UNIT_READY ( request, 0x00 );
 	
 	// The command was successfully built, now send it
 	serviceResponse = SendTask ( request );
+	
 	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 	{
 		
@@ -849,6 +924,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 			{
 				
 				request->ResetForNewTask ( );
+				request->SetTimeoutDuration ( 10000 );
 				fSCSIPrimaryCommandObject->REQUEST_SENSE ( request,
 														   bufferDesc,
 														   kSenseDefaultSize,
@@ -902,6 +978,18 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		
 	}
 	
+	else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
+			  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotResponding ) )
+	{
+		goto ReleaseTask;
+	}
+
+	else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
+			  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotPresent ) )
+	{
+		goto ReleaseTask;
+	}
+	
  	IOSleep ( 100 );
  	
  	// Check if we got terminated. If so, bail early.
@@ -911,6 +999,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	{
 		
 		request->ResetForNewTask ( );
+		request->SetTimeoutDuration ( 10000 );
 		fSCSIPrimaryCommandObject->INQUIRY (
 									request,
 									bufferDesc,
@@ -919,7 +1008,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 									0,
 									inqDataCount,
 									0 );
-			
+		
 		serviceResponse = SendTask ( request );
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -928,10 +1017,19 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 			break;	
 		}
 		
-		else
+		else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
+				  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotResponding ) )
 		{
-			IOSleep ( 1000 );
+			goto ReleaseTask;
 		}
+		
+		else if ( ( serviceResponse == kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE ) &&
+				  ( request->GetTaskStatus ( ) == kSCSITaskStatus_DeviceNotPresent ) )
+		{
+			goto ReleaseTask;
+		}
+		
+		IOSleep ( 1000 );
 		
 	}
 	
@@ -940,6 +1038,8 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
  	
  	// Check if we got terminated. If so, bail early.
  	require ( isInactive ( ) == false, ReleaseTask );
+	
+	require ( ( request->GetRealizedDataTransferCount ( ) >= sizeof ( SCSICmd_INQUIRY_StandardData ) ), ReleaseTask );
 	
 	{
         
@@ -952,32 +1052,16 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 			goto ReleaseTask;
 		
 	}
-        
+	
    	// Set the Peripheral Device Type property for the device.
    	setProperty ( kIOPropertySCSIPeripheralDeviceType,
    				( UInt64 ) ( inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_TYPE_Mask ),
    				kIOPropertySCSIPeripheralDeviceTypeSize );
 	
    	// Set the Vendor Identification property for the device.
-   	for ( index = 0; index < kINQUIRY_VENDOR_IDENTIFICATION_Length; index++ )
-   	{
-   		tempString[index] = inqData->VENDOR_IDENTIFICATION[index];
-   	}
-	tempString[index] = 0;
-	
-   	for ( index = kINQUIRY_VENDOR_IDENTIFICATION_Length - 1; index != 0; index-- )
-   	{
-   		
-   		if ( tempString[index] != ' ' )
-   		{
-   			
-   			// Found a real character
-   			tempString[index + 1] = '\0';
-   			break;
-   			
-   		}
-   		
-   	}
+	bcopy ( inqData->VENDOR_IDENTIFICATION, tempString, kINQUIRY_VENDOR_IDENTIFICATION_Length );
+	tempString[kINQUIRY_VENDOR_IDENTIFICATION_Length] = 0;
+	sStripWhitespace ( tempString, kINQUIRY_VENDOR_IDENTIFICATION_Length );
    	
 	string = OSString::withCString ( tempString );
 	if ( string != NULL )
@@ -989,25 +1073,9 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	}
 	
    	// Set the Product Indentification property for the device.
-   	for ( index = 0; index < kINQUIRY_PRODUCT_IDENTIFICATION_Length; index++ )
-   	{
-   		tempString[index] = inqData->PRODUCT_IDENTIFICATION[index];
-   	}
-   	tempString[index] = 0;
-	
-   	for ( index = kINQUIRY_PRODUCT_IDENTIFICATION_Length - 1; index != 0; index-- )
-   	{
-   		
-   		if ( tempString[index] != ' ' )
-   		{
-   			
-   			// Found a real character
-   			tempString[index+1] = '\0';
-   			break;
-   			
-   		}
-   		
-   	}
+	bcopy ( inqData->PRODUCT_IDENTIFICATION, tempString, kINQUIRY_PRODUCT_IDENTIFICATION_Length );
+	tempString[kINQUIRY_PRODUCT_IDENTIFICATION_Length] = 0;
+	sStripWhitespace ( tempString, kINQUIRY_PRODUCT_IDENTIFICATION_Length );
 	
 	string = OSString::withCString ( tempString );
 	if ( string != NULL )
@@ -1019,25 +1087,9 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	}
 
    	// Set the Product Revision Level property for the device.
-   	for ( index = 0; index < kINQUIRY_PRODUCT_REVISION_LEVEL_Length; index++ )
-   	{
-   		tempString[index] = inqData->PRODUCT_REVISION_LEVEL[index];
-   	}
-   	tempString[index] = 0;
-	
-   	for ( index = kINQUIRY_PRODUCT_REVISION_LEVEL_Length - 1; index != 0; index-- )
-   	{
-		
-		if ( tempString[index] != ' ' )
-		{
-			
-			// Found a real character
-			tempString[index+1] = '\0';
-			break;
-			
-		}
-		
-	}
+	bcopy ( inqData->PRODUCT_REVISION_LEVEL, tempString, kINQUIRY_PRODUCT_REVISION_LEVEL_Length );
+	tempString[kINQUIRY_PRODUCT_REVISION_LEVEL_Length] = 0;
+	sStripWhitespace ( tempString, kINQUIRY_PRODUCT_REVISION_LEVEL_Length );
 	
 	string = OSString::withCString ( tempString );
 	if ( string != NULL )
@@ -1080,6 +1132,33 @@ ErrorExit:
 	
 	
 	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SendTask - Method to send synchronous commands.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPeripheralDeviceNub::SendTask ( SCSITask * request )
+{
+	
+	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	
+	request->SetTaskCompletionCallback ( &IOSCSIPeripheralDeviceNub::TaskCallback );
+	request->SetTaskOwner ( this );
+	
+	ExecuteCommand ( request );
+	
+	// Wait for the completion routine to get called
+	fCommandGate->runAction ( ( IOCommandGate::Action )
+							  &IOSCSIPeripheralDeviceNub::sWaitForTask,
+							  request );
+	
+	serviceResponse = request->GetServiceResponse ( );
+	
+	return serviceResponse;
 	
 }
 
@@ -1133,13 +1212,13 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	OSObject *		obj				= NULL;
 	bool			result			= false;
 	
-	require ( super::start ( provider ), ErrorExit );
-	
 	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceNub, provider );
 	require_nonzero_quiet ( ( fProvider == NULL ), ErrorExit );
 	
 	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
+	
+	require ( super::start ( provider ), ErrorExit );
 	
 	fSCSIPrimaryCommandObject = OSTypeAlloc ( SCSIPrimaryCommands );
 	require_nonzero ( fSCSIPrimaryCommandObject, ErrorExit );
@@ -1192,7 +1271,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 		
 	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
 	
-	require_quiet ( InterrogateDevice ( ), CloseProvider );
+	require ( InterrogateDevice ( ), CloseProvider );
 	
 	setProperty ( kIOMatchCategoryKey, kSCSITaskUserClientIniterKey );
 	
@@ -1305,6 +1384,18 @@ IOSCSILogicalUnitNub::SetLogicalUnitNumber ( UInt8 newLUN )
 		
 	}
 	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetLogicalUnitNumber - Gets the logical unit number for this device.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
+IOSCSILogicalUnitNub::GetLogicalUnitNumber ( void )
+{
+	return fLogicalUnitNumber;
 }
 
 

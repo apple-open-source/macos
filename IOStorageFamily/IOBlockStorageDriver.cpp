@@ -626,6 +626,8 @@ void IOBlockStorageDriver::prepareRequest(UInt64               byteStart,
     context->original.buffer->retain();
     context->original.completion = completion;
 
+    clock_get_uptime(&context->timeStart);
+
     completion.target    = this;
     completion.action    = prepareRequestCompletion;
     completion.parameter = context;
@@ -651,7 +653,9 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     Context *              context = (Context              *) parameter;
     IOBlockStorageDriver * driver  = (IOBlockStorageDriver *) target;
     bool                   isWrite;
-    
+    AbsoluteTime           time;
+    UInt64                 timeInNanoseconds;
+
     isWrite = (context->original.buffer->getDirection() == kIODirectionOut);
 
     // Update the error state, on a short transfer.
@@ -671,9 +675,13 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
         driver->_mediaDirtied = true;
     }
 
-    // Update the total number of bytes transferred.
+    // Update the total number of bytes transferred and the total transfer time.
 
-    driver->addToBytesTransferred(actualByteCount, 0, 0, isWrite);
+    clock_get_uptime(&time);
+    SUB_ABSOLUTETIME(&time, &context->timeStart);
+    absolutetime_to_nanoseconds(time, &timeInNanoseconds);
+
+    driver->addToBytesTransferred(actualByteCount, timeInNanoseconds, 0, isWrite);
 
     // Update the total error count.
 

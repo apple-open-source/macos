@@ -74,21 +74,25 @@ bool checkReachability(struct sockaddr *destAddr)
 	target = SCNetworkReachabilityCreateWithAddress(NULL, destAddr);
 	if (target == NULL) {
 		// can't determine the reachability
+		DBGLOG( kLogPlugin, "CLDAPNode::checkReachability: Can't determine reachability." );
 		goto done;
 	}
 
 	if (!SCNetworkReachabilityGetFlags(target, &flags)) {
 		// can't get the reachability flags
+		DBGLOG( kLogPlugin, "CLDAPNode::checkReachability: Can't retrieve reachability flags.");
 		goto done;
 	}
 
 	if (!(flags & kSCNetworkFlagsReachable)) {
 		// the destination address is not reachable with the current network config
+		DBGLOG( kLogPlugin, "CLDAPNode::checkReachability: Not reachable [not kSCNetworkFlagsReachable]." );
 		goto done;
 	}
 
 	if (flags & kSCNetworkFlagsConnectionRequired) {
 		// a connection must first be established to reach the destination address
+		DBGLOG( kLogPlugin, "CLDAPNode::checkReachability: Not reachable [kSCNetworkFlagsConnectionRequired]." );
 		goto done;
 	}
 
@@ -1448,6 +1452,8 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct, CLDAPv3Configs *
 						int ldapOptVal = LDAP_OPT_X_TLS_HARD;
 						ldap_set_option(inLDAPHost, LDAP_OPT_X_TLS, &ldapOptVal);
 					}
+					
+					ldap_set_option(inLDAPHost, LDAP_OPT_REFERRALS, (pConfig->bReferrals ? LDAP_OPT_ON : LDAP_OPT_OFF) );
 				}
 				/* LDAPv3 only */
 				version = LDAP_VERSION3;
@@ -2995,6 +3001,8 @@ sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CL
 					int ldapOptVal = LDAP_OPT_X_TLS_HARD;
 					ldap_set_option(outHost, LDAP_OPT_X_TLS, &ldapOptVal);
 				}
+				
+				ldap_set_option(outHost, LDAP_OPT_REFERRALS, (pConfig->bReferrals ? LDAP_OPT_ON : LDAP_OPT_OFF) );
 			}
 			/* LDAPv3 only */
 			version = LDAP_VERSION3;
@@ -3072,6 +3080,8 @@ sInt32 CLDAPNode::RetrieveDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct, CL
 					throw( (sInt32)eDSCannotAccessSession );
 				}
 			}
+			//if we make it here the bind succeeded so lets flag the connection as safe
+			inLDAPNodeStruct->fConnectionStatus = kConnectionSafe;
 			
 			//if we haven't bound above then we don't go looking for the replica info
 			
@@ -3912,7 +3922,9 @@ void CLDAPNode::CheckSASLMethods( sLDAPNodeStruct *inLDAPNodeStruct, CLDAPv3Conf
 					int ldapOptVal = LDAP_OPT_X_TLS_HARD;
 					ldap_set_option( aHost, LDAP_OPT_X_TLS, &ldapOptVal );
 				}
-				
+
+				ldap_set_option(aHost, LDAP_OPT_REFERRALS, (pConfig->bReferrals ? LDAP_OPT_ON : LDAP_OPT_OFF) );
+
 				/* LDAPv3 only */
 				int version = LDAP_VERSION3;
 				ldap_set_option( aHost, LDAP_OPT_PROTOCOL_VERSION, &version );

@@ -51,7 +51,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define DEBUG 0
+
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING "FeatureFlags"
+
+#if DEBUG
 #define DEBUG_ASSERT_MESSAGE(componentNameString,	\
 							 assertionString,		\
 							 exceptionLabelString,	\
@@ -94,6 +97,8 @@ DebugAssert ( const char *	componentNameString,
 	
 }
 
+#endif	/* DEBUG */
+
 #include <AssertMacros.h>
 
 
@@ -102,6 +107,7 @@ DebugAssert ( const char *	componentNameString,
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define kIOCDBlockStorageDeviceClassString		"IOCDBlockStorageDevice"
+#define kAppleLowPowerPollingKey				"Low Power Polling"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -114,7 +120,8 @@ GetDeviceIterator ( const char * deviceClass );
 static void
 GetFeaturesFlagsForDrive ( CFDictionaryRef	dict,
 						   UInt32 *			cdFlags,
-						   UInt32 *			dvdFlags );
+						   UInt32 *			dvdFlags,
+						   Boolean *		lowPowerPoll );
 
 static void
 PrintFeaturesForEachDevice ( io_iterator_t iter );
@@ -130,6 +137,9 @@ PrintCDFeatures ( UInt32 cdFlags );
 
 static void
 PrintDVDFeatures ( UInt32 dvdFlags );
+
+static void
+PrintLowPowerPollingSupport ( Boolean supported );
 
 static __inline__ bool IsBitSet ( UInt32 flags, UInt32 mask );
 
@@ -193,14 +203,17 @@ GetDeviceIterator ( const char * deviceClass )
 static void
 GetFeaturesFlagsForDrive ( CFDictionaryRef	dict,
 						   UInt32 *			cdFlags,
-						   UInt32 *			dvdFlags )
+						   UInt32 *			dvdFlags,
+						   Boolean *		lowPowerPoll )
 {
 	
 	CFDictionaryRef			propertiesDict	= 0;
 	CFNumberRef				flagsNumberRef	= 0;
+	CFBooleanRef			boolRef			= 0;
 	
-	*cdFlags	= 0;
-	*dvdFlags	= 0;
+	*cdFlags		= 0;
+	*dvdFlags		= 0;
+	*lowPowerPoll	= false;
 	
 	propertiesDict = ( CFDictionaryRef ) CFDictionaryGetValue ( dict, CFSTR ( kIOPropertyDeviceCharacteristicsKey ) );
 	require ( ( propertiesDict != 0 ), ErrorExit );
@@ -213,13 +226,21 @@ GetFeaturesFlagsForDrive ( CFDictionaryRef	dict,
 		CFNumberGetValue ( flagsNumberRef, kCFNumberLongType, cdFlags );
 		
 	}
-
+	
 	// Get the DVD features
 	flagsNumberRef = ( CFNumberRef ) CFDictionaryGetValue ( propertiesDict, CFSTR ( kIOPropertySupportedDVDFeatures ) );
 	if ( flagsNumberRef != 0 )
 	{
 		
 		CFNumberGetValue ( flagsNumberRef, kCFNumberLongType, dvdFlags );
+		
+	}
+	
+	boolRef = ( CFBooleanRef ) CFDictionaryGetValue ( propertiesDict, CFSTR ( kAppleLowPowerPollingKey ) );
+	if ( boolRef != 0 )
+	{
+		
+		*lowPowerPoll = CFBooleanGetValue ( boolRef );
 		
 	}
 	
@@ -241,11 +262,12 @@ static void
 PrintFeaturesForEachDevice ( io_iterator_t iter )
 {
 	
-	UInt32				cdFlags		= 0;
-	UInt32				dvdFlags	= 0;
-	io_service_t		service		= MACH_PORT_NULL;
-	CFDictionaryRef		properties	= NULL;
-	CFStringRef			description = NULL;
+	UInt32				cdFlags			= 0;
+	UInt32				dvdFlags		= 0;
+	Boolean				lowPowerPoll	= false;
+	io_service_t		service			= MACH_PORT_NULL;
+	CFDictionaryRef		properties		= NULL;
+	CFStringRef			description 	= NULL;
 	
 	while ( ( service = IOIteratorNext ( iter ) ) != MACH_PORT_NULL )
 	{
@@ -259,7 +281,8 @@ PrintFeaturesForEachDevice ( io_iterator_t iter )
 		CFRelease ( description );
 		printf ( "----------------------------------\n" );
 		
-		GetFeaturesFlagsForDrive ( properties, &cdFlags, &dvdFlags );
+		GetFeaturesFlagsForDrive ( properties, &cdFlags, &dvdFlags, &lowPowerPoll );
+		PrintLowPowerPollingSupport ( lowPowerPoll );		
 		PrintCDFeatures ( cdFlags );
 		PrintDVDFeatures ( dvdFlags );
 		
@@ -333,6 +356,27 @@ Exit:
 	
 	
 	return description;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥	PrintLowPowerPollingSupport - Prints Low Power Polling support.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static void
+PrintLowPowerPollingSupport ( Boolean lowPowerPoll )
+{
+		
+	if ( lowPowerPoll == true )
+	{
+		printf ( "Drive supports low power polling.\n" );
+	}
+	
+	else
+	{
+		printf ( "Drive does NOT support low power polling.\n" );
+	}
 	
 }
 

@@ -102,7 +102,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleI2C;
-				MODULE_VERSION = 3.4.3d1;
+				MODULE_VERSION = 3.4.4d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -128,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleI2C</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleI2C version 3.4.3, Copyright 2003 Apple Computer, Inc.</string>
+	<string>AppleI2C version 3.4.4, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -140,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.4.3</string>
+	<string>3.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.4.3d1</string>
+	<string>3.4.4d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacIOAppleI2C</key>
@@ -230,7 +230,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -260,32 +259,10 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //080
 //081

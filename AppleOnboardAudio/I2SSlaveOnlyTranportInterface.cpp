@@ -104,13 +104,26 @@ IOReturn	I2SSlaveOnlyTransportInterface::performTransportSleep ( void ) {
 IOReturn	I2SSlaveOnlyTransportInterface::performTransportWake ( void ) {
 	IOReturn		result;
 	
+	result = mPlatformObject->setSerialFormatRegister ( mSerialFormat );
+	FailIf ( kIOReturnSuccess != result, Exit );
+
 	result = super::performTransportWake ();
+Exit:
+	return result;
+}
+
+
+//	--------------------------------------------------------------------------------
+IOReturn	I2SSlaveOnlyTransportInterface::performTransportPostWake ( void ) {
+	IOReturn		result;
 	result = super::transportBreakClockSelect ( kTRANSPORT_SLAVE_CLOCK );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
 	result = super::transportMakeClockSelect ( kTRANSPORT_SLAVE_CLOCK );
 	FailIf ( kIOReturnSuccess != result, Exit );
-
+	
+	result = mPlatformObject->setI2SClockEnable ( true );
+	FailIf ( kIOReturnSuccess != result, Exit );
 Exit:
 	return result;
 }
@@ -139,6 +152,5 @@ UInt32		I2SSlaveOnlyTransportInterface::transportGetSampleRate ( void ) {
 	if ( 0 == result ) { result = TransportInterface::transportGetSampleRate (); }
 	return result;
 }
-
 
 

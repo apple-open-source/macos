@@ -140,7 +140,8 @@ struct IOFramebufferPrivate
 
     UInt8			lli2c;
     UInt8			cursorClutDependent;
-    UInt8			pad[2];
+    UInt8			allowSpeedChanges;
+    UInt8			pad[1];
 
     UInt32			reducedSpeed;
     IOService *			temperatureSensor;
@@ -2690,21 +2691,29 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 
 IOReturn IOFramebuffer::setAggressiveness( unsigned long type, unsigned long newLevel )
 {
-    UInt32 reducedSpeed;
+    UInt32 reducedSpeed = newLevel;
 
-    if (gIOFBGate && (type == (unsigned long) kIOFBLowPowerAggressiveness))
+    if (__private
+     && (type == (unsigned long) kIOFBLowPowerAggressiveness))
     {
-	FBLOCK();
-    
-	reducedSpeed = newLevel;
-	if (reducedSpeed != __private->reducedSpeed)
+	if (__private->allowSpeedChanges)
+	{
+	    FBLOCK();
+	
+	    if (reducedSpeed != __private->reducedSpeed)
+	    {
+		__private->reducedSpeed = reducedSpeed;
+		__private->pendingSpeedChange = true;
+		startThread(!gIOFBSystemPower || sleepConnectCheck);
+	    }
+	
+	    FBUNLOCK();
+	}
+	else
 	{
 	    __private->reducedSpeed = reducedSpeed;
 	    __private->pendingSpeedChange = true;
-	    startThread(!gIOFBSystemPower || sleepConnectCheck);
 	}
-    
-	FBUNLOCK();
     }
 
     super::setAggressiveness(type, newLevel);
@@ -3137,6 +3146,13 @@ IOReturn IOFramebuffer::open( void )
 
     if (opened)
 	checkConnectionChange();
+
+    __private->allowSpeedChanges = true;
+    if (__private->pendingSpeedChange)
+    {
+        __private->pendingSpeedChange = false;
+	setAttribute(kIOFBSpeedAttribute, __private->reducedSpeed);
+    }
 
     if (gIOFBGate)
         FBUNLOCK();
@@ -3581,6 +3597,7 @@ IOReturn IOFramebuffer::extGetAttribute(
     IOSelect attribute, UInt32 * value, IOFramebuffer * other )
 {
     IOReturn	err = kIOReturnSuccess;
+    bool	nowOnline;
 
     FBLOCK();
 
@@ -3608,14 +3625,15 @@ IOReturn IOFramebuffer::extGetAttribute(
 		if (__private->paramHandler)
 		    __private->paramHandler->setDisplay(0);
 
+                err = getAttributeForConnection( 0, kConnectionEnable, &connectEnabled );
+                nowOnline = (!dead && ((kIOReturnSuccess != err) || connectEnabled));
+
                 temporaryPowerClampOn();
                 FBUNLOCK();
                 IODisplayWrangler::destroyDisplayConnects( this );
-                FBLOCK();
-
-                err = getAttributeForConnection( 0, kConnectionEnable, &connectEnabled );
-                if (!dead && ((kIOReturnSuccess != err) || connectEnabled))
+		if (nowOnline)
                     IODisplayWrangler::makeDisplayConnects( this );
+                FBLOCK();
 
                 messaged = true;
 

@@ -51,11 +51,6 @@ static CFRunLoopTimerRef    poweron_timer = 0;
 static CFRunLoopTimerRef    sleep_timer = 0;
 static CFRunLoopTimerRef    shutdown_timer = 0;
 
-#define kIOPMUAutoWakeKey   CFSTR("AutoWakePriv")
-#define kIOPMUAutoPowerKey  CFSTR("AutoPowerPriv")
-
-#define PMU_MAGIC_PASSWORD    0x0101BEEF
-
 enum {
     kIOWakeTimer = 0,
     kIOPowerOnTimer = 1,
@@ -66,9 +61,14 @@ enum {
 /* AutoWakeScheduler overview
  * 
  * PURPOSE
- * Set PMU wake and power on registers to automatically power on the machine at a 
+ * Set wake and power on timers to automatically power on the machine at a 
  * user/app requested time. 
  * Requests come via IOKit/pwr_mgt/IOPMLib.h:IOPMSchedulePowerEvent()
+ *
+ * On pre-2004 machines this is the PMU's responsibility.
+ * The SMU has taken over the AutoWake/AutoPower role on some post-2004 machines.
+ * The IOPMrootDomain kernel entity routes all requests to the appropriate
+ * controller.
  *
  * POWER ON
  * Every time we set a power on time in the PMU, start a CFTimer to fire at the same time.
@@ -90,82 +90,25 @@ enum {
  * So to minimize disk access we only purge when we think the disk is "up" anyway.
  */
 
-// Find an io_registry_entry_t for either the PMU or Cuda
-// PMU or Cuda will be responsible for doing the actual wake-from-sleep
-// or restart from power-off
-static io_registry_entry_t 
-getCudaPMURef(void)
-{
-    io_iterator_t               tmp = NULL;
-    io_registry_entry_t         cudaPMU = NULL;
-        
-    // Search for PMU
-    IOServiceGetMatchingServices(0, IOServiceNameMatching("ApplePMU"), &tmp);
-    if(tmp) {
-        cudaPMU = IOIteratorNext(tmp);
-        //if(cudaPMU) magicCookie = kAppleMagicPMUCookie;
-        IOObjectRelease(tmp);
-    }
-
-    // No? Search for Cuda
-    if(!cudaPMU) {
-        IOServiceGetMatchingServices(0, IOServiceNameMatching("AppleCuda"), &tmp);
-        if(tmp) {
-            cudaPMU = IOIteratorNext(tmp);
-            //if(cudaPMU) magicCookie = kAppleMagicCudaCookie;
-            IOObjectRelease(tmp);
-        }
-    }
-    return cudaPMU;
-}
-
-// Boring PMU data massaging
-static kern_return_t
-writeDataProperty(io_object_t handle, CFStringRef name,
-                  unsigned char * bytes, unsigned int size)
-{
-    kern_return_t               kr = kIOReturnNoMemory;
-    CFDataRef                   data;
-    CFMutableDictionaryRef      dict = 0;
-
-    do {
-        // stuff the unsigned int into a CFData
-        data = CFDataCreate( kCFAllocatorDefault, bytes, size );
-        if( !data) continue;
-
-        // Stuff the CFData into a CFDictionary
-        dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        if( !dict) continue;
-        CFDictionarySetValue( dict, name, data );
-
-        // And send it to the PMU via IOConnectSetCFProperties
-        kr = IOConnectSetCFProperties( handle, dict );
-        if (kr != KERN_SUCCESS)
-        {
-            //syslog(LOG_INFO, "IOPMAutoWake: IOConnectSetCFProperties fails\n");
-        }
-    } while( false );
-
-    if( data)
-        CFRelease(data);
-    if( dict)
-        CFRelease(dict);
-
-    return( kr );
-}
-
-static kern_return_t
-writePMUProperty(io_object_t pmuReference, CFStringRef propertyName, void *data, size_t *dataSize)
-{
-    io_connect_t conObj;
-    kern_return_t kr = IOServiceOpen(pmuReference, mach_task_self(), PMU_MAGIC_PASSWORD, &conObj);
-
-    if (kr == kIOReturnSuccess) {
-        kr = writeDataProperty(conObj, propertyName, (unsigned char*)data, *dataSize);
-        IOServiceClose(conObj);
-    }
-
-    return kr;
+static IOReturn setRootDomainProperty(CFStringRef key, CFTypeRef val) {
+    mach_port_t                 masterPort;
+    io_iterator_t               it;
+    io_registry_entry_t         root_domain;
+    IOReturn                    ret;
+    
+    IOMasterPort(bootstrap_port, &masterPort);
+    if(!masterPort) return kIOReturnError;
+    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &it);
+    if(!it) return kIOReturnError;
+    root_domain = (io_registry_entry_t)IOIteratorNext(it);
+    if(!root_domain) return kIOReturnError;
+    
+    ret = IORegistryEntrySetCFProperty(root_domain, key, val);
+    
+    IOObjectRelease(root_domain);
+    IOObjectRelease(it);
+    IOObjectRelease(masterPort);
+    return ret;
 }
 
 // isEntryValidAndFuturistic
@@ -305,42 +248,44 @@ findEarliestUpcomingTime(CFMutableArrayRef arr)
 // Sets the PMU to wakeup or power on at the time given in the dictionary.
 // If the CFDictionaryRef argument is NULL, clears the PMU autowakeup register.
 static bool 
-tellPMUScheduledTime(CFDictionaryRef   dat, CFStringRef command)
+tellSettingsController(CFDictionaryRef   dat, CFStringRef command)
 {
     CFAbsoluteTime          now, wake_time;
     long int                diff_secs;
-    int                     ret;
-    size_t                  dataSize;
-    io_registry_entry_t     pmuReference;
-
-    // Assume a well-formed entry since we've been doing thorough type-checking
-    // in the find & purge functions
-    now = CFAbsoluteTimeGetCurrent();
-    if(dat)
-        wake_time = CFDateGetAbsoluteTime(CFDictionaryGetValue(dat, CFSTR(kIOPMPowerEventTimeKey)));
-    else wake_time = now;
-    diff_secs = lround(wake_time - now);
-    if(diff_secs < 0) return false;
-
-    dataSize = sizeof(unsigned long);
+    IOReturn                ret;
+    bool                    return_val = false;
+    CFNumberRef             seconds_delta = NULL;
     
-    // Find PMU in IORegistry
-    pmuReference = getCudaPMURef();
-    if(!pmuReference) {
-        return false;
+    if(!command) goto exit;
+    if(!dat) {
+        // default on NULL input: clear wakeup timer.
+        diff_secs = 0;
+    } else {
+        // Assume a well-formed entry since we've been doing thorough type-checking
+        // in the find & purge functions
+        now = CFAbsoluteTimeGetCurrent();
+        if(dat)
+            wake_time = CFDateGetAbsoluteTime(CFDictionaryGetValue(dat, CFSTR(kIOPMPowerEventTimeKey)));
+        else wake_time = now;
+        diff_secs = lround(wake_time - now);
+        if(diff_secs < 0) goto exit;
     }
-
-    // Send command to the PMU to set AutoPower or AutoWake timer
-    // The real magic happens in the PMU kext and PMU hardware
-    ret = writePMUProperty(pmuReference, command, (unsigned long *)&diff_secs, &dataSize);
     
-    //if(ret != kIOReturnSuccess)
-    //    syslog(LOG_INFO, "PMconfigd: writePMUProperty error 0x%08x\n", ret);
-
-    // Release reference to PMU
-    IOObjectRelease(pmuReference);
+    // Package diff_secs as a CFNumber
+    seconds_delta = CFNumberCreate(0, kCFNumberLongType, &diff_secs);
+    if(!seconds_delta) goto exit;
     
-    return true;
+    ret = setRootDomainProperty(command, seconds_delta);
+    if(kIOReturnSuccess != ret)
+    {
+        return_val = false;
+        goto exit;
+    }
+        
+    return_val = true;
+exit:
+    if(seconds_delta) CFRelease(seconds_delta);
+    return return_val;
 }
 
 // Finds HID service
@@ -506,7 +451,6 @@ schedulePowerOnTime(void)
     tmr_context.info = (void *)upcoming;
 
     fire_time = CFDateGetAbsoluteTime(CFDictionaryGetValue(upcoming, CFSTR(kIOPMPowerEventTimeKey)));
-    // info == 0 indicates this is the power on timer
     poweron_timer = CFRunLoopTimerCreate(0, fire_time, 0.0, 0, 
                     0, handleTimerPowerOnReset, &tmr_context);
     if(poweron_timer)
@@ -515,10 +459,9 @@ schedulePowerOnTime(void)
         CFRunLoopAddTimer(CFRunLoopGetCurrent(), poweron_timer, kCFRunLoopDefaultMode);
         CFRelease(poweron_timer);
     }
-    CFRelease(upcoming);
-    
-    // Send scheduled power-on to the PMU
-    tellPMUScheduledTime(upcoming, kIOPMUAutoPowerKey);
+    tellSettingsController(upcoming, CFSTR(kIOPMAutoPowerOn));
+
+    CFRelease(upcoming);    
 }
 
 static void
@@ -555,11 +498,9 @@ scheduleWakeTime(void)
     
     tmr_context.info = (void *)upcoming;    
     
-    // Send scheduled power-on to the PMU
-    tellPMUScheduledTime(upcoming, kIOPMUAutoWakeKey);
+    tellSettingsController(upcoming, CFSTR(kIOPMAutoWake));
  
     fire_time = CFDateGetAbsoluteTime(CFDictionaryGetValue(upcoming, CFSTR(kIOPMPowerEventTimeKey)));
-    // info == 1 indicates this is the wake timer
     wakeup_timer = CFRunLoopTimerCreate(0, fire_time, 0.0, 0, 
                     0, handleTimerPowerOnReset, &tmr_context);
     if(wakeup_timer)
@@ -637,7 +578,6 @@ scheduleShutdownTime(void)
     tmr_context.info = (void *)upcoming;    
     
     fire_time = CFDateGetAbsoluteTime(CFDictionaryGetValue(upcoming, CFSTR(kIOPMPowerEventTimeKey)));
-    // info == 0 indicates this is the power on timer
     shutdown_timer = CFRunLoopTimerCreate(0, fire_time, 0.0, 0, 
                     0, handleTimerPowerOnReset, &tmr_context);
     if(shutdown_timer)
@@ -720,9 +660,9 @@ AutoWakePrefsHaveChanged(void)
     copyScheduledPowerChangeArrays();
     
     // set AutoWake=0 in case our scheduled wakeup was just cancelled
-    tellPMUScheduledTime(NULL, kIOPMUAutoWakeKey);    
+    tellSettingsController(NULL, CFSTR(kIOPMAutoWake));    
     // set AutoPower=0 in case our scheduled wakeup was just cancelled
-    tellPMUScheduledTime(NULL, kIOPMUAutoPowerKey);
+    tellSettingsController(NULL, CFSTR(kIOPMAutoPowerOn));
 
     scheduleWakeTime();
     schedulePowerOnTime();

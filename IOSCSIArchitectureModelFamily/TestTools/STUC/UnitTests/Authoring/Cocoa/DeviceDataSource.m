@@ -331,7 +331,8 @@ AppearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 	io_service_t		theService	= MACH_PORT_NULL;
 	DeviceDataSource *	dataSource	= ( DeviceDataSource * ) refCon;
 	
-	while ( theService = IOIteratorNext ( iterator ) )
+	theService = IOIteratorNext ( iterator );
+	while ( theService != MACH_PORT_NULL )
 	{
 		
 		CFMutableDictionaryRef	theDict 	= 0;
@@ -383,6 +384,7 @@ AppearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 					CFRelease ( theDict );
 					theDict = 0;
 					( void ) IOObjectRelease ( theService );
+					theService = IOIteratorNext ( iterator );
 					continue;
 					
 				}
@@ -440,6 +442,7 @@ AppearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 					CFRelease ( theDict );
 					theDict = 0;
 					( void ) IOObjectRelease ( theService );
+					theService = IOIteratorNext ( iterator );
 					continue;
 					
 				}
@@ -459,6 +462,7 @@ AppearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 		
 		// Release the object.
 		( void ) IOObjectRelease ( theService );
+		theService = IOIteratorNext ( iterator );
 		
 	}
 	
@@ -479,7 +483,8 @@ DisappearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 	io_service_t		theService	= MACH_PORT_NULL;
 	DeviceDataSource *	dataSource	= ( DeviceDataSource * ) refCon;
 	
-	while ( theService = IOIteratorNext ( iterator ) )
+	theService = IOIteratorNext ( iterator );
+	while ( theService != MACH_PORT_NULL )
 	{
 		
 		CFMutableDictionaryRef	theDict		= NULL;
@@ -517,6 +522,7 @@ DisappearedNotificationHandler ( void * refCon, io_iterator_t iterator )
 		}
 		
 		( void ) IOObjectRelease ( theService );
+		theService = IOIteratorNext ( iterator );
 		
 	}
 	

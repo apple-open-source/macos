@@ -78,9 +78,9 @@
 			sourceTree = "<group>";
 		};
 		08FB7796FE84155DC02AAC07 = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = SAMStructSizes.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -128,6 +128,7 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_TRIGRAPHS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -141,7 +142,7 @@
 				PRODUCT_NAME = SAMStructSizes;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-W -Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -199,7 +200,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		8DD76FB20486AB0100D96B5E = {
-			expectedFileType = "compiled.mach-o.executable";
+			explicitFileType = "compiled.mach-o.executable";
 			includeInIndex = 0;
 			isa = PBXFileReference;
 			path = SAMStructSizes;

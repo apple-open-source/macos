@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -883,7 +881,7 @@ DS_new(void **c, char *args, dynainfo *d)
 	dsrecord *r;
 	dsattribute *a;
 	dsdata *x;
-	int status, didSetTTL;
+	int status;
 
 	if (c == NULL) return 1;
 
@@ -910,7 +908,6 @@ DS_new(void **c, char *args, dynainfo *d)
 	ap->gTimeToLive = DefaultTimeToLive;
 
 	r = NULL;
-	didSetTTL = 0;
 
 	if (ap->dyna != NULL)
 	{
@@ -929,30 +926,6 @@ DS_new(void **c, char *args, dynainfo *d)
 					{
 						ap->gTimeToLive = atoi(dsdata_to_cstring(x));
 						dsdata_release(x);
-						didSetTTL = 1;
-					}
-					dsattribute_release(a);
-				}
-				dsrecord_release(r);
-			}
-		}
-
-		if ((didSetTTL == 0) && (ap->dyna->dyna_config_global != NULL))
-		{
-			status = (ap->dyna->dyna_config_global)(ap->dyna, -1, &r);
-			if (status == 0)
-			{
-				x = cstring_to_dsdata("TimeToLive");
-				a = dsrecord_attribute(r, x, SELECT_ATTRIBUTE);
-				dsdata_release(x);
-				if (a != NULL)
-				{
-					x = dsattribute_value(a, 0);
-					if (x != NULL)
-					{
-						ap->gTimeToLive = atoi(dsdata_to_cstring(x));
-						dsdata_release(x);
-						didSetTTL = 1;
 					}
 					dsattribute_release(a);
 				}

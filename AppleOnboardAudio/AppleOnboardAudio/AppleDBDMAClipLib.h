@@ -26,3 +26,4 @@ typedef enum {
     e_Mode_CopyLeftToRight,
     e_Mode_CopyRightToLeft
 } DualMonoModeType;
+

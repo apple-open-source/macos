@@ -1301,7 +1301,7 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
             // to clear the stall at the controller and at the device.  We will not requeue the read
             // until after we clear the ENDPOINT_HALT feature.  We need to do a callout thread because
             // we are executing inside the gate here and we cannot issue a synchronous request.
-            USBLog(3, "%s[%p]::InterruptReadHandler OHCI error (0x%x) reading interrupt pipe", getName(), this, status);
+            USBLog(3, "%s[%p]::InterruptReadHandler error (0x%x) reading interrupt pipe", getName(), this, status);
             
 	    // 01-28-02 JRH If we are inactive, then we can ignore this
 	    if (!isInactive())
@@ -1321,13 +1321,17 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
             queueAnother = false;
             break;
 
+        case kIOUSBHighSpeedSplitError:
         default:
-            // We should handle other errors more intelligently, but
-            // for now just return and assume the error is recoverable.
-            //
             USBLog(3,"%s[%p]::InterruptReadHandler error 0x%x reading interrupt pipe", getName(), this, status);
-	    if (isInactive())
-		queueAnother = false;
+            if (isInactive())
+                queueAnother = false;
+            else
+            {
+                // Clear the halted bit in the controller
+                //
+                _interruptPipe->ClearStall();
+            }
             break;
     }
 
@@ -1448,7 +1452,7 @@ AppleUSBHub::ProcessStatusChanged()
                     if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
                     {
                         port = _ports[portIndex-1];
-                        USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port->StatusChanged", getName(), this, portIndex);
+                        USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port(%p)->StatusChanged", getName(), this, portIndex, port);
                         portSuccess = port->StatusChanged();
                         if (! portSuccess )
                         {
@@ -1478,10 +1482,15 @@ AppleUSBHub::RearmInterruptRead()
     IOReturn		err = kIOReturnSuccess;
     IOUSBCompletion	comp;
 
-    if ( (_buffer == NULL) || ( _interruptPipe == NULL ) )
-        return err;
+    USBLog(5,"%s[%p]::RearmInterruptRead (%p, %p)", getName(), this, _buffer, _interruptPipe );
 
     IncrementOutstandingIO();			// retain myself for the callback
+    if ( (_buffer == NULL) || ( _interruptPipe == NULL ) )
+    {
+        DecrementOutstandingIO();
+        return err;
+    }
+
     comp.target = this;
     comp.action = (IOUSBCompletionAction) InterruptReadHandlerEntry;
     comp.parameter = NULL;
@@ -1492,7 +1501,7 @@ AppleUSBHub::RearmInterruptRead()
         USBError(1,"%s[%p]::RearmInterruptRead error %x reading interrupt pipe", getName(), this, err);
         DecrementOutstandingIO();
     }
-    
+
     return err;
 }
 
@@ -1850,29 +1859,38 @@ AppleUSBHub::ClearFeatureEndpointHaltEntry(OSObject *target)
 void 
 AppleUSBHub::ClearFeatureEndpointHalt( )
 {
-    IOReturn			status;
+    IOReturn			status = kIOReturnSuccess;
     IOUSBDevRequest		request;
-    
+    UInt32			retries = 2;
+
     // Clear out the structure for the request
     //
     bzero( &request, sizeof(IOUSBDevRequest));
 
-    // Build the USB command to clear the ENDPOINT_HALT feature for our interrupt endpoint
-    //
-    request.bmRequestType 	= USBmakebmRequestType(kUSBNone, kUSBStandard, kUSBEndpoint);
-    request.bRequest 		= kUSBRqClearFeature;
-    request.wValue		= kUSBFeatureEndpointStall;
-    request.wIndex		= _interruptPipe->GetEndpointNumber() | 0x80 ; // bit 7 sets the direction of the endpoint to IN
-    request.wLength		= 0;
-    request.pData 		= NULL;
-
-    // Send the command over the control endpoint
-    //
-    status = _device->DeviceRequest(&request, 5000, 0);
-
-    if ( status )
+    while ( retries > 0 )
     {
-        USBLog(3, "%s[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x", getName(), this, status);
+        retries--;
+
+        // Build the USB command to clear the ENDPOINT_HALT feature for our interrupt endpoint
+        //
+        request.bmRequestType 	= USBmakebmRequestType(kUSBNone, kUSBStandard, kUSBEndpoint);
+        request.bRequest 		= kUSBRqClearFeature;
+        request.wValue		= kUSBFeatureEndpointStall;
+        request.wIndex		= _interruptPipe->GetEndpointNumber() | 0x80 ; // bit 7 sets the direction of the endpoint to IN
+        request.wLength		= 0;
+        request.pData 		= NULL;
+
+        // Send the command over the control endpoint
+        //
+        status = _device->DeviceRequest(&request, 5000, 0);
+
+        if ( status != kIOReturnSuccess )
+        {
+            USBLog(3, "%s[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x, retries = %d", getName(), this, status, retries);
+            IOSleep(100);
+        }
+        else
+            break;
     }
     
     // Now that we've sent the ENDPOINT_HALT clear feature, we need to requeue the interrupt read.  Note

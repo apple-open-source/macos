@@ -305,8 +305,6 @@ Exit:
 IOReturn KeyLargoPlatform::setI2SEnable (bool enable) {
 	UInt32 regValue;
 
-	debugIOLog (3,  "KeyLargoPlatform::setI2SEnable %s", enable ? "TRUE" : "FALSE");
-
 	regValue = getKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset );						
 
 	switch ( mI2SInterfaceNumber ) {
@@ -336,8 +334,6 @@ bool KeyLargoPlatform::getI2SEnable () {
 	bool enable;
 	UInt32 regValue;
 
-	debugIOLog (3,  "KeyLargoPlatform::getI2SEnable");
-
 	regValue = getKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset );						
 
 	switch ( mI2SInterfaceNumber ) {
@@ -358,8 +354,6 @@ bool KeyLargoPlatform::getI2SEnable () {
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setI2SClockEnable (bool enable) {
 	UInt32 regValue;
-
-	debugIOLog (3,  "+ KeyLargoPlatform::setI2SClockEnable %s", enable ? "TRUE" : "FALSE");
 
 	regValue = getKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset );						
 
@@ -382,7 +376,6 @@ IOReturn KeyLargoPlatform::setI2SClockEnable (bool enable) {
 	}
 
 	setKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset, regValue );
-	debugIOLog (3,  "- KeyLargoPlatform::setI2SClockEnable %s returns", enable ? "TRUE" : "FALSE");
 	return kIOReturnSuccess;
 }
 
@@ -390,8 +383,6 @@ IOReturn KeyLargoPlatform::setI2SClockEnable (bool enable) {
 bool KeyLargoPlatform::getI2SClockEnable () {
 	bool enable;
 	UInt32 regValue;
-
-	debugIOLog (3,  "KeyLargoPlatform::getI2SClockEnable" );
 
 	regValue = getKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset );						
 
@@ -413,8 +404,6 @@ bool KeyLargoPlatform::getI2SClockEnable () {
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setI2SCellEnable (bool enable) {
 	UInt32 regValue;
-
-	debugIOLog (3,  "KeyLargoPlatform::setI2SCellEnable %s", enable ? "TRUE" : "FALSE");
 
 	regValue = getKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset );						
 
@@ -446,8 +435,6 @@ bool KeyLargoPlatform::getI2SCellEnable () {
 	bool enable;
 	UInt32 regValue;
 
-	debugIOLog (3,  "KeyLargoPlatform::getI2SCellEnable" );
-
 	regValue = getKeyLargoRegister( ((UInt8*)mIOConfigurationBaseAddress) + kFCR1Offset );						
 
 	switch ( mI2SInterfaceNumber ) {
@@ -467,8 +454,7 @@ bool KeyLargoPlatform::getI2SCellEnable () {
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setSerialFormatRegister (UInt32 serialFormat) {
-	debugIOLog (3,  "KeyLargoPlatform::setSerialFormatRegister (0x%lX)", serialFormat);
-
+	debugIOLog ( 3, "± KeyLargoPlatform::setSerialFormatRegister ( 0x%0.8X )", serialFormat );
 	OSWriteLittleInt32(mI2SBaseAddress, kI2SSerialFormatOffset, serialFormat);
 	return kIOReturnSuccess;
 }
@@ -476,53 +462,116 @@ IOReturn KeyLargoPlatform::setSerialFormatRegister (UInt32 serialFormat) {
 //	--------------------------------------------------------------------------------
 UInt32 KeyLargoPlatform::getSerialFormatRegister () {
 	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SSerialFormatOffset);
-	debugIOLog (3,  "KeyLargoPlatform::getSerialFormatRegister = 0x%lX", result);
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setDataWordSizes (UInt32 dataWordSizes) {
-	debugIOLog (3,  "KeyLargoPlatform::setDataWordSizes (0x%lX)", dataWordSizes);
-
+	debugIOLog ( 3, "± KeyLargoPlatform::setDataWordSizes ( 0x%0.8X )", dataWordSizes );
 	OSWriteLittleInt32(mI2SBaseAddress, kI2SDataWordSizesOffset, dataWordSizes);
-
 	return kIOReturnSuccess;
 }
 
 //	--------------------------------------------------------------------------------
 UInt32 KeyLargoPlatform::getDataWordSizes () {
 	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SDataWordSizesOffset);
-	debugIOLog (3,  "KeyLargoPlatform::getDataWordSizes = 0x%lX", result);
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setI2SIOMIntControl (UInt32 intCntrl) {
-	debugIOLog (3,  "KeyLargoPlatform::setI2SIOMIntControl (0x%lX)", intCntrl);
-
 	OSWriteLittleInt32(mI2SBaseAddress, kI2SIntCtlOffset, intCntrl);
-
 	return kIOReturnSuccess;
 }
 
 //	--------------------------------------------------------------------------------
 UInt32 KeyLargoPlatform::getI2SIOMIntControl () {
 	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SIntCtlOffset);
-	debugIOLog (3,  "KeyLargoPlatform::getI2SIOMIntControl = 0x%lX", result);
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setI2SIOM_CodecMsgOut(UInt32 value) {
+	OSWriteLittleInt32(mI2SBaseAddress, kI2SCodecMsgOutOffset, value);
+	return kIOReturnSuccess;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getI2SIOM_CodecMsgOut() {
+	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SCodecMsgOutOffset);
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setI2SIOM_CodecMsgIn(UInt32 value) {
+	OSWriteLittleInt32(mI2SBaseAddress, kI2SCodecMsgInOffset, value);
+	return kIOReturnSuccess;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getI2SIOM_CodecMsgIn() {
+	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SCodecMsgInOffset);
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setI2SIOM_FrameMatch(UInt32 value) {
+	OSWriteLittleInt32(mI2SBaseAddress, kI2SFrameMatchOffset, value);
+	return kIOReturnSuccess;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getI2SIOM_FrameMatch() {
+	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SFrameMatchOffset);
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setI2SIOM_PeakLevelSel(UInt32 value) {
+	OSWriteLittleInt32(mI2SBaseAddress, kI2SPeakLevelSelOffset, value);
+	return kIOReturnSuccess;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getI2SIOM_PeakLevelSel() {
+	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SPeakLevelSelOffset);
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setI2SIOM_PeakLevelIn0(UInt32 value) {
+	OSWriteLittleInt32(mI2SBaseAddress, kI2SPeakLevelIn0Offset, value);
+	return kIOReturnSuccess;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getI2SIOM_PeakLevelIn0() {
+	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SPeakLevelIn0Offset);
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setI2SIOM_PeakLevelIn1(UInt32 value) {
+	OSWriteLittleInt32(mI2SBaseAddress, kI2SPeakLevelIn1Offset, value);
+	return kIOReturnSuccess;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getI2SIOM_PeakLevelIn1() {
+	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SPeakLevelIn1Offset);
+	return result;
+}
+
+	
+//	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) {
 	IOReturn		result = kIOReturnSuccess;
 	
-	debugIOLog (3,  "+ KeyLargoPlatform::setPeakLevel ( '%4s', %lX )", (char*)&channelTarget, levelMeterValue );
 	switch ( channelTarget ) {
 		case kStreamFrontLeft:		OSWriteLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn0Offset, levelMeterValue );		break;
 		case kStreamFrontRight:		OSWriteLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn1Offset, levelMeterValue );		break;
 		default:					result = kIOReturnBadArgument;															break;
 	}
-	debugIOLog (3,  "- KeyLargoPlatform::setPeakLevel ( '%4s', %lX ) returns %X", (char*)&channelTarget, levelMeterValue, result );
 	return result;
 }
 
@@ -530,13 +579,11 @@ IOReturn KeyLargoPlatform::setPeakLevel ( UInt32 channelTarget, UInt32 levelMete
 UInt32 KeyLargoPlatform::getPeakLevel ( UInt32 channelTarget ) {
 	UInt32			result;
 	
-	debugIOLog (3,  "+ KeyLargoPlatform::getPeakLevel ( '%4s' )", (char*)&channelTarget );
 	switch ( channelTarget ) {
 		case kStreamFrontLeft:		result = OSReadLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn0Offset );		break;
 		case kStreamFrontRight:		result = OSReadLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn1Offset );		break;
 		default:					result = 0;																	break;
 	}
-	debugIOLog (3,  "- KeyLargoPlatform::getPeakLevel ( '%4s' ) returns %lX", (char*)&channelTarget, result );
 	return result;
 }
 
@@ -907,11 +954,6 @@ IOReturn KeyLargoPlatform::setHeadphoneMuteState ( GpioAttributes muteState ) {
 	IOReturn		result = kIOReturnSuccess;
 	
 	if ( mEnableAmplifierMuteRelease || ( kGPIO_Muted == muteState ) ) {		//	[3514762]
-		if ( kGPIO_Muted == muteState ) {
-			debugIOLog ( 5, "KeyLargoPlatform::setHeadphoneMuteState ( kGPIO_Muted )" );
-		} else {
-			debugIOLog ( 5, "KeyLargoPlatform::setHeadphoneMuteState ( kGPIO_Unmuted )" );
-		}
 		result = setGpioAttributes ( kGPIO_Selector_HeadphoneMute, muteState );
 	}
 	return result;
@@ -952,11 +994,6 @@ IOReturn KeyLargoPlatform::setLineOutMuteState ( GpioAttributes muteState ) {
 	IOReturn		result = kIOReturnSuccess;
 	
 	if ( mEnableAmplifierMuteRelease || ( kGPIO_Muted == muteState ) ) {		//	[3514762]
-		if ( kGPIO_Muted == muteState ) {
-			debugIOLog ( 5, "KeyLargoPlatform::setLineOutMuteState ( kGPIO_Muted )" );
-		} else {
-			debugIOLog ( 5, "KeyLargoPlatform::setLineOutMuteState ( kGPIO_Unmuted )" );
-		}
 		result = setGpioAttributes ( kGPIO_Selector_LineOutMute, muteState );
 	}
 	return result;
@@ -982,11 +1019,6 @@ IOReturn KeyLargoPlatform::setSpeakerMuteState ( GpioAttributes muteState ) {
 	IOReturn		result = kIOReturnSuccess;
 	
 	if ( mEnableAmplifierMuteRelease || ( kGPIO_Muted == muteState ) ) {		//	[3514762]
-		if ( kGPIO_Muted == muteState ) {
-			debugIOLog ( 5, "KeyLargoPlatform::setSpeakerMuteState ( kGPIO_Muted )" );
-		} else {
-			debugIOLog ( 5, "KeyLargoPlatform::setSpeakerMuteState ( kGPIO_Unmuted )" );
-		}
 		result = setGpioAttributes ( kGPIO_Selector_SpeakerMute, muteState );
 	}
 	return result;
@@ -1045,6 +1077,7 @@ IOReturn KeyLargoPlatform::registerInterruptHandler (IOService * theDevice, void
 		case kUnknownInterrupt:
 		default:							debugIOLog (3,  "Attempt to register unknown interrupt source" );				break;
 	}
+
 	return result;
 }
 
@@ -1350,7 +1383,7 @@ IOReturn KeyLargoPlatform::gpioWrite( UInt8* gpioAddress, UInt8 data ) {
 
 //	--------------------------------------------------------------------------------
 void KeyLargoPlatform::setKeyLargoRegister(void *klRegister, UInt32 value) {
-	debugIOLog (3,  "Register %p = %lX", klRegister, value );
+	debugIOLog (3,  "± KeyLargoPlatform::setKeyLargoRegister( %p = 0x%lX )", klRegister, value );
 	OSWriteLittleInt32(klRegister, 0, value);
 }
 
@@ -1362,26 +1395,26 @@ UInt32 KeyLargoPlatform::getKeyLargoRegister(void *klRegister) {
 //	--------------------------------------------------------------------------------
 UInt32 KeyLargoPlatform::getFCR1( void ) {
 	UInt32 result = OSReadLittleInt32 ( mIOConfigurationBaseAddress, kFCR1Offset );		
-	debugIOLog (3,  "getFCR1 = %lX", result );
+	debugIOLog (3,  "± KeyLargoPlatform::getFCR1 = %lX", result );
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 void KeyLargoPlatform::setFCR1(UInt32 value) {
-	debugIOLog (3,  "Register %lX = %lX", (UInt32)(mIOConfigurationBaseAddress) + kFCR1Offset, value );
+	debugIOLog (3,  "± KeyLargoPlatform::setFCR1( %lX )", value );
 	OSWriteLittleInt32( mIOConfigurationBaseAddress, kFCR1Offset, value );
 }
 
 //	--------------------------------------------------------------------------------
 UInt32 KeyLargoPlatform::getFCR3( void ) {
 	UInt32 result = OSReadLittleInt32 ( mIOConfigurationBaseAddress, kFCR3Offset );
-	debugIOLog (3,  "getFCR3 = %lX", result );
+	debugIOLog (3,  "± KeyLargoPlatform::getFCR3 = %lX", result );
 	return result;
 }
 
 //	--------------------------------------------------------------------------------
 void KeyLargoPlatform::setFCR3(UInt32 value) {
-	debugIOLog (3,  "Register %lX = %lX", (UInt32)(mIOConfigurationBaseAddress) + kFCR1Offset, value );
+	debugIOLog (3,  "± KeyLargoPlatform::setFCR3( %lX )", value );
 	OSWriteLittleInt32( mIOConfigurationBaseAddress, kFCR3Offset, value );
 }
 
@@ -1633,22 +1666,21 @@ Exit:
 IOReturn	KeyLargoPlatform::getPlatformState ( PlatformStateStructPtr outState ) {
 	IOReturn			result = kIOReturnBadArgument;
 	
-	debugIOLog (3,  "+ UC KeyLargoPlatform::getPlatformState ( %p )", outState );
 	FailIf ( NULL == outState, Exit );
 	outState->platformType = kPlatformInterfaceType_KeyLargo;
 	
 	outState->i2s.intCtrl = getI2SIOMIntControl ();
 	outState->i2s.serialFmt = getSerialFormatRegister ();
-	outState->i2s.codecMsgOut = 0;
-	outState->i2s.codecMsgIn = 0;
+	outState->i2s.codecMsgOut = getI2SIOM_CodecMsgOut ();
+	outState->i2s.codecMsgIn = getI2SIOM_CodecMsgIn ();
 	outState->i2s.frameCount = getFrameCount ();
-	outState->i2s.frameCountToMatch = 0;
+	outState->i2s.frameCountToMatch = getI2SIOM_FrameMatch ();
 	outState->i2s.dataWordSizes = getDataWordSizes ();
-	outState->i2s.peakLevelSfSel = 0;
+	outState->i2s.peakLevelSfSel = getI2SIOM_PeakLevelSel ();
 	outState->i2s.peakLevelIn0 = getPeakLevel ( kStreamFrontLeft );
 	outState->i2s.peakLevelIn1 = getPeakLevel ( kStreamFrontRight );
-	outState->i2s.newPeakLevelIn0 = 0;			/*	always 0 - triggers update on setPlatformState!		*/
-	outState->i2s.newPeakLevelIn1 = 0;			/*	always 0 - triggers update on setPlatformState!		*/
+	outState->i2s.newPeakLevelIn0 = getI2SIOM_PeakLevelIn0 ();
+	outState->i2s.newPeakLevelIn1 = getI2SIOM_PeakLevelIn1 ();
 	
 	outState->fcr.i2sEnable = getI2SEnable ();
 	outState->fcr.i2sClockEnable = getI2SClockEnable ();
@@ -1691,14 +1723,13 @@ IOReturn	KeyLargoPlatform::getPlatformState ( PlatformStateStructPtr outState ) 
 	outState->gpio.reserved_28 = kGPIO_Unknown;
 	outState->gpio.reserved_29 = kGPIO_Unknown;
 	outState->gpio.reserved_30 = kGPIO_Unknown;
-	outState->gpio.reserved_31 = kGPIO_Unknown;
+	outState->gpio.gpioMessageFlags = mGpioMessageFlag;
 
 	outState->i2c.i2c_pollingMode = (UInt32)false;
 	outState->i2c.i2c_errorStatus = mI2C_lastTransactionResult;
 
 	result = kIOReturnSuccess;
 Exit:
-	debugIOLog (3,  "- UC KeyLargoPlatform::getPlatformState ( %p ) returns %X", outState, result );
 	return result;
 }
 
@@ -1706,8 +1737,6 @@ Exit:
 IOReturn	KeyLargoPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 	IOReturn			result = kIOReturnBadArgument;
 	
-	debugIOLog (3,  "+ UC KeyLargoPlatform::setPlatformState ( %p )", inState );
-	debugIOLog (3,  "+ UC KeyLargoPlatform::setPlatformState ( %p )", inState );
 	FailIf ( NULL == inState, Exit );
 	if ( inState->i2s.intCtrl != getI2SIOMIntControl () ) {
 		debugIOLog (3,  "KeyLargoPlatform::setPlatformState setI2SIOMIntControl ( %lX )", inState->i2s.intCtrl );
@@ -1729,6 +1758,7 @@ IOReturn	KeyLargoPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 		result = setDataWordSizes ( inState->i2s.dataWordSizes );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
+#if 0
 	if ( 0 != inState->i2s.newPeakLevelIn0 ) {
 		debugIOLog (3,  "KeyLargoPlatform::setPeakLevel ( kStreamFrontLeft, %lX )", inState->i2s.peakLevelIn0 );
 		setPeakLevel ( kStreamFrontLeft, inState->i2s.peakLevelIn0 );
@@ -1737,6 +1767,7 @@ IOReturn	KeyLargoPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 		debugIOLog (3,  "KeyLargoPlatform::setPeakLevel ( kStreamFrontRight, %lX )", inState->i2s.peakLevelIn1 );
 		setPeakLevel ( kStreamFrontRight, inState->i2s.peakLevelIn1 );
 	}
+#endif
 	if ( inState->fcr.i2sEnable != getI2SEnable () ) {
 		debugIOLog (3,  "KeyLargoPlatform::setPlatformState setI2SEnable ( %lX )", inState->fcr.i2sEnable );
 		result = setI2SEnable ( inState->fcr.i2sEnable );
@@ -1788,8 +1819,6 @@ IOReturn	KeyLargoPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 Exit:
-	debugIOLog (3,  "- UC KeyLargoPlatform::setPlatformState ( %p ) returns %X", inState, result );
-	debugIOLog (3,  "- UC KeyLargoPlatform::setPlatformState ( %p ) returns %X", inState, result );
 	return result;
 }
 

@@ -28,13 +28,13 @@ protected:
     SInt32					mGainRight;
 	Boolean					mAnalogMuteState;
 	Boolean					mDigitalMuteState;
-	Boolean					mDisableLoadingEQFromFile;
+	Boolean					mInitialized;
 
 public:
 
 	virtual void			initPlugin(PlatformInterface* inPlatformObject) {return;}
 	virtual bool			preDMAEngineInit () {return false;}
-	virtual bool			postDMAEngineInit () {return true;}
+	virtual bool			postDMAEngineInit () { return mInitialized = true;}
 
 	virtual void			setWorkLoop (IOWorkLoop * inWorkLoop) {mWorkLoop = inWorkLoop;}
 	virtual IOWorkLoop *	getWorkLoop () { return mWorkLoop; } 
@@ -46,6 +46,10 @@ public:
 	virtual IOReturn		setActiveOutput (UInt32 outputPort) {return kIOReturnError;}
 	virtual UInt32			getActiveInput (void) {return 0;}
 	virtual IOReturn		setActiveInput (UInt32 input) {return kIOReturnError;}
+	virtual IOReturn		setSPDIFOutEnable (bool inEnable) {return kIOReturnSuccess;}
+
+    virtual IOReturn		beginFormatChange ()  {return kIOReturnSuccess;}							//  [3558796]	aml
+    virtual IOReturn		endFormatChange ()  {return kIOReturnSuccess;}								//  [3558796]	aml
 
 	IOReturn				setMute (bool muteState);														//	[3435307]	rbm
 	IOReturn				setMute (bool muteState, UInt32 streamType);									//	[3435307]	rbm
@@ -67,6 +71,7 @@ public:
 	virtual	UInt32			getMaximumGain (void) {return 0;}
 	virtual	UInt32			getMinimumGain (void) {return 0;}
 	virtual UInt32			getDefaultInputGain ( void ) { return 0; }										//	[3514617]	rbm		3 Feb 2004
+	virtual UInt32			getDefaultOutputVolume ( void ) { return 0; }									//	[3560749]	aml
 
 	bool					setVolume (UInt32 leftVolume, UInt32 rightVolume);
 	virtual bool			setCodecVolume (UInt32 leftVolume, UInt32 rightVolume) {return false;}

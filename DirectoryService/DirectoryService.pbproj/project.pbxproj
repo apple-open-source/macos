@@ -1069,11 +1069,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7</string>
+	<string>1.7.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7</string>
+	<string>1.7.1</string>
 </dict>
 </plist>
 ";
@@ -1222,11 +1222,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7</string>
+	<string>1.7.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7</string>
+	<string>1.7.1</string>
 </dict>
 </plist>
 ";
@@ -3023,7 +3023,7 @@
 			sourceTree = "<group>";
 		};
 		009E459C00AC9B4200DD2B59 = {
-			expectedFileType = archive.ar;
+			expectedFileType = "compiled.mach-o.dylib";
 			fallbackIsa = PBXFileReference;
 			isa = PBXLibraryReference;
 			path = libDSPlugInCommon.a;

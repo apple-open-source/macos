@@ -69,6 +69,8 @@ public:
     RenderListItem* listItem() { return m_listItem; }
     void setListItem(RenderListItem* listItem) { m_listItem = listItem; }
     
+    const QString& text() const { return m_item; }
+
 protected:
     friend class RenderListItem;
     

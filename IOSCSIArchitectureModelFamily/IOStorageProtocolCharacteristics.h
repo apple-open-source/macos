@@ -57,6 +57,34 @@ Example:
 
 
 /*!
+@defined kIOPropertySCSIInitiatorIdentifierKey
+@discussion An identifier that will uniquely identify this SCSI Initiator for the
+SCSI Domain.
+
+Requirement: Mandatory for SCSI Parallel Interface, SAS,
+and Fibre Channel Interface.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>SCSI Parallel Interface</string>
+		<key>Physical Interconnect Location</key>
+		<string>Internal</string>
+		<key>SCSI Initiator Identifier</key>
+		<integer>7</integer>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySCSIInitiatorIdentifierKey		"SCSI Initiator Identifier"
+
+
+/*!
 @defined kIOPropertySCSIDomainIdentifierKey
 @discussion An identifier that will uniquely identify this SCSI Domain for the
 Physical Interconnect type. This identifier is only guaranteed to be unique for
@@ -141,7 +169,7 @@ Example:
 /*!
 @defined kIOPropertyFibreChannelNodeWorldWideNameKey
 @discussion This key is the unique 64-bit World Wide Name for the device server
-node located at this port.
+node located at this port, or for the initiating host port.
 
 Requirement: Mandatory for Fibre Channel Interface.
 
@@ -155,6 +183,19 @@ Example:
 		<string>Fibre Channel Interface</string>
 		<key>Physical Interconnect Location</key>
 		<string>External</string>
+		<key>Node World Wide Name</key>
+		<data>0011223344556677</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+
+Example2:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
 		<key>Node World Wide Name</key>
 		<data>0011223344556677</data>
 	</dict>
@@ -187,6 +228,19 @@ Example:
 </dict>
 @/textblock
 </pre>
+
+Example2:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port World Wide Name</key>
+		<data>0011223344556677</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
 */
 #define kIOPropertyFibreChannelPortWorldWideNameKey		"Port World Wide Name"
 
@@ -196,6 +250,8 @@ Example:
 @discussion This key is the 24-bit Address Identifier (S_ID or D_ID) as
 defined in the FC-FS specification. It contains the address identifier
 of the source or destination Nx_Port.
+
+Note: This value can change. It is not a static value.
 
 Requirement: Optional (only necessary for Fibre Channel Interface).
 
@@ -215,6 +271,19 @@ Example:
 </dict>
 @/textblock
 </pre>
+
+Example2:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Address Identifier</key>
+		<data>001122</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
 */
 #define kIOPropertyFibreChannelAddressIdentifierKey		"Address Identifier"
 
@@ -223,6 +292,8 @@ Example:
 @defined kIOPropertyFibreChannelALPAKey
 @discussion This key is the 8-bit Arbitrated Loop Physical Address
 (AL_PA) value as defined in the FC-AL-2 specification.
+
+Note: This value can change. It is not a static value.
 
 Requirement: Optional (only necessary for Fibre Channel Interface).
 
@@ -236,7 +307,20 @@ Example:
 		<string>Fibre Channel Interface</string>
 		<key>Physical Interconnect Location</key>
 		<string>External</string>
-		<key>ALPA</key>
+		<key>AL_PA</key>
+		<data>04</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+
+Example2:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>AL_PA</key>
 		<data>04</data>
 	</dict>
 </dict>
@@ -244,6 +328,158 @@ Example:
 </pre>
 */
 #define kIOPropertyFibreChannelALPAKey					"AL_PA"
+
+
+/*!
+@defined kIOPropertyPortStatusKey
+@discussion This key is associated with the current port
+status of the physical link. The port status is either
+"Link Established", "No Link Established", or "Link Failed".
+
+Note: This value can change when the port status changes. It
+is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Status</key>
+		<string>Link Established</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortStatusKey						"Port Status"
+
+
+/*!
+@defined kIOPropertyPortSpeedKey
+@discussion This key is associated with the current port
+speed. The port speed can be any valid speed for the interconnect.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>Automatic (1 Gigabit)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeedKey							"Port Speed"
+
+
+/*!
+@defined kIOPropertyPortTopologyKey
+@discussion This key is associated with the current port
+topology. The port topology can be any valid topology for the interconnect.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Topology</key>
+		<string>Automatic (N_Port)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortTopologyKey						"Port Topology"
+
+
+/*!
+@defined kIOPropertyPortDescriptionKey
+@discussion This key is associated with an human
+readable port description. Examples include
+"Channel A", "Port 1", etc.
+
+Requirement: Optional for all interconnects.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Description</key>
+		<string>Channel A</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortDescriptionKey					"Port Description"
+
+
+/*!
+@defined kIOPropertySCSIParallelSignalingTypeKey
+@discussion This key is associated with the signaling type
+used for this SCSI Parallel bus. Valid values include
+"High Voltage Differential", "Low Voltage Differential",
+and "Single Ended".
+
+Requirement: Optional for SCSI Parallel Interface. Not
+defined for any other physical interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>SCSI Parallel Signaling Type</key>
+		<string>High Voltage Differential</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySCSIParallelSignalingTypeKey			"SCSI Parallel Signaling Type"
+
+
+/*!
+@defined kIOPropertyFibreChannelCableDescriptionKey
+@discussion This key is associated with the cabling type
+used for this Fibre Channel port. Valid values include
+"Copper" and "Fiber Optic".
+
+Requirement: Optional for Fibre Channel Interface. Not
+defined for any other physical interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Fibre Channel Cabling Type</key>
+		<string>Copper</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelCableDescriptionKey				"Fibre Channel Cabling Type"
 
 
 /*!
@@ -481,9 +717,9 @@ Example:
 
 /*!
 @defined kIOPropertyPhysicalInterconnectTypeSerialATA
-@discussion This key defines the value of ATA for the key
+@discussion This key defines the value of SATA for the key
 kIOPropertyPhysicalInterconnectTypeKey. If the device is connected
-to an ATA bus, this key should be set.
+to a SATA bus, this key should be set.
 
 Example:
 <pre>
@@ -501,6 +737,30 @@ Example:
 </pre>
 */
 #define kIOPropertyPhysicalInterconnectTypeSerialATA		"SATA"
+
+
+/*!
+@defined kIOPropertyPhysicalInterconnectTypeSerialAttachedSCSI
+@discussion This key defines the value of SAS for the key
+kIOPropertyPhysicalInterconnectTypeKey. If the device is connected
+to a SAS bus, this key should be set.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>SAS</string>
+		<key>Physical Interconnect Location</key>
+		<string>External</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPhysicalInterconnectTypeSerialAttachedSCSI	"SAS"
 
 
 /*!
@@ -647,6 +907,569 @@ Example:
 </pre>
 */
 #define kIOPropertyPhysicalInterconnectTypeVirtual		"Virtual Interface"
+
+
+/*!
+@defined kIOPropertyPortStatusLinkEstablishedKey
+@discussion This key defines the value of Link Established for the key
+kIOPropertyPortStatusKey.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Status</key>
+		<string>Link Established</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortStatusLinkEstablishedKey			"Link Established"
+
+
+/*!
+@defined kIOPropertyPortStatusNoLinkEstablishedKey
+@discussion This key defines the value of No Link Established for the key
+kIOPropertyPortStatusKey.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Status</key>
+		<string>No Link Established</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortStatusNoLinkEstablishedKey		"No Link Established"
+
+
+/*!
+@defined kIOPropertyPortStatusLinkFailedKey
+@discussion This key defines the value of Link Failed for the key
+kIOPropertyPortStatusKey.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Status</key>
+		<string>Link Failed</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortStatusLinkFailedKey				"Link Failed"
+
+
+/*!
+@defined kIOPropertyPortSpeedAutomaticKey
+@discussion This key defines the value of Automatic for the key
+kIOPropertyPortSpeedKey. If the speed of the port is automatically
+adjusted by the host/device and a definitive speed is not known,
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>Automatic</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeedAutomaticKey				"Automatic"
+
+
+/*!
+@defined kIOPropertyPortSpeed1GigabitKey
+@discussion This key defines the value of 1 Gigabit for the key
+kIOPropertyPortSpeedKey. If the speed of the port is 1 Gigabit
+per second and is not automatically determined (i.e. the user
+configured the port to be exactly this speed),
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>1 Gigabit</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeed1GigabitKey					"1 Gigabit"
+
+
+/*!
+@defined kIOPropertyPortSpeed2GigabitKey
+@discussion This key defines the value of 2 Gigabit for the key
+kIOPropertyPortSpeedKey. If the speed of the port is 2 Gigabits
+per second and is not automatically determined (i.e. the user
+configured the port to be exactly this speed),
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>2 Gigabit</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeed2GigabitKey					"2 Gigabit"
+
+
+/*!
+@defined kIOPropertyPortSpeed4GigabitKey
+@discussion This key defines the value of 4 Gigabit for the key
+kIOPropertyPortSpeedKey. If the speed of the port is 4 Gigabits
+per second and is not automatically determined (i.e. the user
+configured the port to be exactly this speed),
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>4 Gigabit</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeed4GigabitKey					"4 Gigabit"
+
+
+/*!
+@defined kIOPropertyPortSpeed10GigabitKey
+@discussion This key defines the value of 10 Gigabit for the key
+kIOPropertyPortSpeedKey. If the speed of the port is 10 Gigabits
+per second and is not automatically determined (i.e. the user
+configured the port to be exactly this speed),
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>10 Gigabit</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeed10GigabitKey				"10 Gigabit"
+
+
+/*!
+@defined kIOPropertyPortSpeedAutomatic1GigabitKey
+@discussion This key defines the value of Automatic (1 Gigabit)
+for the key kIOPropertyPortSpeedKey. If the speed of the port is
+1 Gigabit per second and is automatically determined by host
+software, this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>Automatic (1 Gigabit)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeedAutomatic1GigabitKey		"Automatic (1 Gigabit)"
+
+
+/*!
+@defined kIOPropertyPortSpeedAutomatic2GigabitKey
+@discussion This key defines the value of Automatic (2 Gigabit)
+for the key kIOPropertyPortSpeedKey. If the speed of the port is
+2 Gigabits per second and is automatically determined by host
+software, this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>Automatic (2 Gigabit)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeedAutomatic2GigabitKey		"Automatic (2 Gigabit)"
+
+
+/*!
+@defined kIOPropertyPortSpeedAutomatic4GigabitKey
+@discussion This key defines the value of Automatic (4 Gigabit)
+for the key kIOPropertyPortSpeedKey. If the speed of the port is
+4 Gigabits per second and is automatically determined by host
+software, this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>Automatic (4 Gigabit)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeedAutomatic4GigabitKey		"Automatic (4 Gigabit)"
+
+
+/*!
+@defined kIOPropertyPortSpeedAutomatic10GigabitKey
+@discussion This key defines the value of Automatic (10 Gigabit)
+for the key kIOPropertyPortSpeedKey. If the speed of the port is
+10 Gigabits per second and is automatically determined by host
+software, this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Speed</key>
+		<string>Automatic (10 Gigabit)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortSpeedAutomatic10GigabitKey		"Automatic (10 Gigabit)"
+
+
+/*!
+@defined kIOPropertyPortTopologyAutomaticKey
+@discussion This key defines the value of Automatic for the key
+kIOPropertyPortTopologyKey. If the topology of the port is automatically
+adjusted by the host/device and a definitive topology is not known,
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Topology</key>
+		<string>Automatic</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortTopologyAutomaticKey				"Automatic"
+
+
+/*!
+@defined kIOPropertyPortTopologyNPortKey
+@discussion This key defines the value of N_Port for the key
+kIOPropertyPortTopologyKey. If the topology of the port is an N_Port,
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Topology</key>
+		<string>N_Port</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortTopologyNPortKey					"N_Port"
+
+
+/*!
+@defined kIOPropertyPortTopologyNLPortKey
+@discussion This key defines the value of NL_Port for the key
+kIOPropertyPortTopologyKey. If the topology of the port is an NL_Port,
+this key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Topology</key>
+		<string>NL_Port</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortTopologyNLPortKey				"NL_Port"
+
+
+/*!
+@defined kIOPropertyPortTopologyAutomaticNPortKey
+@discussion This key defines the value of Automatic (N_Port) for the key
+kIOPropertyPortTopologyKey. If the topology of the port is
+N_Port and is automatically determined by host software, this
+key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Topology</key>
+		<string>Automatic (N_Port)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortTopologyAutomaticNPortKey		"Automatic (N_Port)"
+
+
+/*!
+@defined kIOPropertyPortTopologyAutomaticNLPortKey
+@discussion This key defines the value of Automatic (NL_Port) for the key
+kIOPropertyPortTopologyKey. If the topology of the port is
+NL_Port and is automatically determined by host software, this
+key should be used.
+
+Note: This value can change. It is not a static value.
+
+Requirement: Optional for any interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Port Topology</key>
+		<string>Automatic (NL_Port)</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPortTopologyAutomaticNLPortKey		"Automatic (NL_Port)"
+
+
+/*!
+@defined kIOPropertySCSIParallelSignalingTypeHVDKey
+@discussion This key defines the value of High Voltage Differential for the key
+kIOPropertySCSIParallelSignalingTypeKey. If the signaling type of the port is
+High Voltage Differential, this key should be used.
+
+Requirement: Optional for SCSI Parallel Interface interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>SCSI Parallel Signaling Type</key>
+		<string>High Voltage Differential</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySCSIParallelSignalingTypeHVDKey		"High Voltage Differential"
+
+
+/*!
+@defined kIOPropertySCSIParallelSignalingTypeLVDKey
+@discussion This key defines the value of Low Voltage Differential for the key
+kIOPropertySCSIParallelSignalingTypeKey. If the signaling type of the port is
+Low Voltage Differential, this key should be used.
+
+Requirement: Optional for SCSI Parallel Interface interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>SCSI Parallel Signaling Type</key>
+		<string>Low Voltage Differential</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySCSIParallelSignalingTypeLVDKey		"Low Voltage Differential"
+
+
+/*!
+@defined kIOPropertySCSIParallelSignalingTypeSEKey
+@discussion This key defines the value of Single Ended for the key
+kIOPropertySCSIParallelSignalingTypeKey. If the signaling type of the port is
+Single Ended, this key should be used.
+
+Requirement: Optional for SCSI Parallel Interface interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>SCSI Parallel Signaling Type</key>
+		<string>Single Ended</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySCSIParallelSignalingTypeSEKey				"Single Ended"
+
+
+/*!
+@defined kIOPropertyFibreChannelCableDescriptionCopperKey
+@discussion This key defines the value of Copper for the key
+kIOPropertyFibreChannelCableDescriptionKey. If the cabling is
+Copper, this key should be used.
+
+Requirement: Optional for Fibre Channel Interface interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Fibre Channel Cabling Type</key>
+		<string>Copper</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelCableDescriptionCopperKey		"Copper"
+
+
+/*!
+@defined kIOPropertyFibreChannelCableDescriptionFiberOpticKey
+@discussion This key defines the value of Fiber Optic for the key
+kIOPropertyFibreChannelCableDescriptionKey. If the cabling is
+Fiber Optic, this key should be used.
+
+Requirement: Optional for Fibre Channel Interface interconnect.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Fibre Channel Cabling Type</key>
+		<string>Fiber Optic</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyFibreChannelCableDescriptionFiberOpticKey	"Fiber Optic"
 
 
 #endif	/* _IOKIT_IO_STORAGE_PROTOCOL_CHARACTERISTICS_H_ */

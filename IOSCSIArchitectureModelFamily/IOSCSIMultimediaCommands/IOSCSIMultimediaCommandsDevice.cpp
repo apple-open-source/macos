@@ -2398,7 +2398,7 @@ IOSCSIMultimediaCommandsDevice::ClearNotReadyStatus ( void )
 				if ( validSense == false )
 				{
 					
-					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0  ) == true )
+					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0 ) == true )
 					{
 						
 						// The command was successfully built, now send it
@@ -2418,9 +2418,20 @@ IOSCSIMultimediaCommandsDevice::ClearNotReadyStatus ( void )
 				if ( validSense == true )
 				{
 					
-					if ( ( ( senseBuffer.SENSE_KEY  & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY  ) && 
+					if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) && 
 							( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
-							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x01 ) )
+							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+					{
+						
+						STATUS_LOG ( ( "%s::logical unit not ready\n", getName ( ) ) );
+						driveReady = false;
+						IOSleep ( 200 );
+						
+					}
+					
+					else if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) &&
+								( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
+								( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x01 ) )
 					{
 						
 						STATUS_LOG ( ( "%s::drive not ready\n", getName ( ) ) );
@@ -2429,9 +2440,9 @@ IOSCSIMultimediaCommandsDevice::ClearNotReadyStatus ( void )
 						
 					}
 					
-					else if ( ( ( senseBuffer.SENSE_KEY  & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY  ) && 
-							( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
-							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x02 ) ) 
+					else if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_NOT_READY ) && 
+								( senseBuffer.ADDITIONAL_SENSE_CODE == 0x04 ) &&
+								( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x02 ) ) 
 					{
 						
 						// The drive needs to be spun up. Issue a START_STOP_UNIT to it.

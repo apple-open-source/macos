@@ -257,6 +257,7 @@ protected:
 														const char *inArg2Str,
 														char *inOutBuf,
 														unsigned long inBufLen );
+	Boolean				TestConnectedWithMutex		(   sPSContextData *inContext );
 	
 	sInt32				GetServerListFromDSDiscovery(	CFMutableArrayRef inOutServerList );
 	sInt32				PWSErrToDirServiceError		(	PWServerError inError );

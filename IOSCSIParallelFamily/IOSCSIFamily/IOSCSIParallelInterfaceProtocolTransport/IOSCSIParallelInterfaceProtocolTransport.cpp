@@ -255,9 +255,14 @@ IOSCSIParallelInterfaceProtocolTransport::SendSCSICommand (
 	SCSICDBInfo						cdbInfo;
 	UInt8							requestType;
 	
+	cmd = GetSCSICommandObject ( false );
+	if ( cmd == NULL )
+	{
+		return false;
+	}
+	
 	bzero ( &cdbInfo, sizeof ( cdbInfo ) );
 	
-	cmd 				= GetSCSICommandObject ( );
 	clientData			= ( SCSIClientData * ) cmd->getClientData ( );
 	*serviceResponse 	= kSCSIServiceResponse_Request_In_Process;
 	
@@ -847,7 +852,6 @@ IOSCSIParallelInterfaceProtocolTransport::GetSCSICommandObject ( bool blockForCo
 	STATUS_LOG ( ( "IOSCSIParallelInterfaceProtocolTransport::GetSCSICommandObject entering.\n" ) );
 	
 	cmd = ( IOSCSICommand * ) fCommandPool->getCommand ( blockForCommand );
-	assert ( cmd != NULL );
 	
 	return cmd;
 	

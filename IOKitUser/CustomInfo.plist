@@ -9,7 +9,7 @@
 	<key>CFBundleGetInfoString</key>
 	<string>I/O Kit Framework, Apple Computer Inc</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.3.5</string>
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleSignature</key>

@@ -101,13 +101,14 @@ int
 ntfs_uncompunit(
 	struct ntfsmount * ntmp,
 	u_int8_t * uup,		/* Destination: uncompressed data */
-	u_int8_t * cup)		/* Source: compressed data */
+	u_int8_t * cup,		/* Source: compressed data */
+	size_t comp_unit_size)
 {
 	int             i;
 	int             off = 0;
 	int             new;
 
-	for (i = 0; i * NTFS_COMPBLOCK_SIZE < ntfs_cntob(NTFS_COMPUNIT_CL); i++) {
+	for (i = 0; i * NTFS_COMPBLOCK_SIZE < comp_unit_size; i++) {
 		new = ntfs_uncompblock(uup + i * NTFS_COMPBLOCK_SIZE, cup + off);
 		if (new == 0)
 			return (EINVAL);
