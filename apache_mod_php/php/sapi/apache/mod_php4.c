@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.1.1.3 2001/01/25 05:00:37 wsanchez Exp $ */
+/* $Id: mod_php4.c,v 1.1.1.4 2001/07/19 00:20:56 zarzycki Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -59,9 +59,6 @@
 #include "util_script.h"
 
 #include "mod_php4.h"
-#if HAVE_MOD_DAV
-# include "mod_dav.h"
-#endif
 
 #undef shutdown
 
@@ -72,9 +69,9 @@ int sapi_apache_read_post(char *buffer, uint count_bytes SLS_DC);
 char *sapi_apache_read_cookies(SLS_D);
 int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers SLS_DC);
 int sapi_apache_send_headers(sapi_headers_struct *sapi_headers SLS_DC);
-int send_php(request_rec *r, int display_source_mode, char *filename);
-int send_parsed_php(request_rec * r);
-int send_parsed_php_source(request_rec * r);
+static int send_php(request_rec *r, int display_source_mode, char *filename);
+static int send_parsed_php(request_rec * r);
+static int send_parsed_php_source(request_rec * r);
 int php_xbithack_handler(request_rec * r);
 void php_init_handler(server_rec *s, pool *p);
 
@@ -111,8 +108,6 @@ typedef struct _php_per_dir_entry {
 	int type;
 } php_per_dir_entry;
 
-php_apache_info_struct php_apache_info;		/* active config */
-
 /* some systems are missing these from their header files */
 
 void php_save_umask(void)
@@ -124,15 +119,13 @@ void php_save_umask(void)
 
 static int sapi_apache_ub_write(const char *str, uint str_length)
 {
-	int ret;
+	int ret=0;
 	SLS_FETCH();
 		
 	if (SG(server_context)) {
 		ret = rwrite(str, str_length, (request_rec *) SG(server_context));
-	} else {
-		ret = fwrite(str, 1, str_length, stderr);
 	}
-	if(ret != str_length) {
+	if (ret != str_length) {
 		php_handle_aborted_connection();
 	}
 	return ret;
@@ -229,37 +222,46 @@ static void sapi_apache_register_server_variables(zval *track_vars_array ELS_DC 
 	register int i;
 	array_header *arr = table_elts(((request_rec *) SG(server_context))->subprocess_env);
 	table_entry *elts = (table_entry *) arr->elts;
-	char *script_filename=NULL;
+	zval **path_translated;
+	HashTable *symbol_table;
 
 	for (i = 0; i < arr->nelts; i++) {
 		char *val;
 
 		if (elts[i].val) {
 			val = elts[i].val;
-			if (!strcmp(elts[i].key, "SCRIPT_FILENAME")) {
-				script_filename = val;
-			}
 		} else {
 			val = empty_string;
 		}
 		php_register_variable(elts[i].key, val, track_vars_array  ELS_CC PLS_CC);
 	}
 
-	/* insert special variables */
-	if (script_filename) {
-		php_register_variable("PATH_TRANSLATED", script_filename, track_vars_array ELS_CC PLS_CC);
+	/* If PATH_TRANSLATED doesn't exist, copy it from SCRIPT_FILENAME */
+	if (track_vars_array) {
+		symbol_table = track_vars_array->value.ht;
+	} else if (PG(register_globals)) {
+		/* should never happen nowadays */
+		symbol_table = EG(active_symbol_table);
+	} else {
+		symbol_table = NULL;
 	}
+	if (symbol_table
+		&& !zend_hash_exists(symbol_table, "PATH_TRANSLATED", sizeof("PATH_TRANSLATED"))
+		&& zend_hash_find(symbol_table, "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void **) &path_translated)==SUCCESS) {
+		php_register_variable("PATH_TRANSLATED", Z_STRVAL_PP(path_translated), track_vars_array ELS_CC PLS_CC);
+	}
+
 	php_register_variable("PHP_SELF", ((request_rec *) SG(server_context))->uri, track_vars_array ELS_CC PLS_CC);
 }
 
 static int php_apache_startup(sapi_module_struct *sapi_module)
 {
-    if(php_module_startup(sapi_module) == FAILURE
-            || zend_startup_module(&apache_module_entry) == FAILURE) {
-        return FAILURE;
-    } else {
-        return SUCCESS;
-    }
+	if (php_module_startup(sapi_module) == FAILURE
+		|| zend_startup_module(&apache_module_entry) == FAILURE) {
+		return FAILURE;
+	} else {
+		return SUCCESS;
+	}
 }
 
 
@@ -283,7 +285,9 @@ static void php_apache_log_message(char *message)
 static void php_apache_request_shutdown(void *dummy)
 {
 	SLS_FETCH();
+	APLS_FETCH();
 
+	AP(in_request)=0;
 	SG(server_context) = NULL; /* The server context (request) is invalid by the time run_cleanups() is called */
 	php_request_shutdown(dummy);
 }
@@ -291,7 +295,8 @@ static void php_apache_request_shutdown(void *dummy)
 
 static int php_apache_sapi_activate(SLS_D)
 {
-	request_rec *r = ((request_rec *) SG(server_context));
+	request_rec *r = (request_rec *) SG(server_context);
+	APLS_FETCH();
 
 	/*
 	 * For the Apache module version, this bit of code registers a cleanup
@@ -302,7 +307,8 @@ static int php_apache_sapi_activate(SLS_D)
 	 * memory.  
 	 */
 	block_alarms();
-	register_cleanup(((request_rec *) SG(server_context))->pool, NULL, php_apache_request_shutdown, php_request_shutdown_for_exec);
+	register_cleanup(r->pool, NULL, php_apache_request_shutdown, php_request_shutdown_for_exec);
+	AP(in_request)=1;
 	unblock_alarms();
 
 	/* Override the default headers_only value - sometimes "GET" requests should actually only
@@ -325,7 +331,7 @@ static char *php_apache_getenv(char *name, size_t name_len SLS_DC)
 }
 
 
-static sapi_module_struct sapi_module_conf = {
+static sapi_module_struct apache_sapi_module = {
 	"apache",						/* name */
 	"Apache",						/* pretty name */
 									
@@ -351,6 +357,8 @@ static sapi_module_struct sapi_module_conf = {
 
 	sapi_apache_register_server_variables,		/* register server variables */
 	php_apache_log_message,			/* Log message */
+
+	NULL,					/* php.ini path override */
 
 #ifdef PHP_WIN32
 	NULL,
@@ -411,7 +419,7 @@ static void init_request_info(SLS_D)
 
 static int php_apache_alter_ini_entries(php_per_dir_entry *per_dir_entry)
 {
-	zend_alter_ini_entry(per_dir_entry->key, per_dir_entry->key_length+1, per_dir_entry->value, per_dir_entry->value_length+1, per_dir_entry->type, PHP_INI_STAGE_ACTIVATE);
+	zend_alter_ini_entry(per_dir_entry->key, per_dir_entry->key_length+1, per_dir_entry->value, per_dir_entry->value_length, per_dir_entry->type, PHP_INI_STAGE_ACTIVATE);
 	return 0;
 }
 
@@ -432,7 +440,7 @@ static char *php_apache_get_default_mimetype(request_rec *r SLS_DC)
 	return mimetype;
 }
 
-int send_php(request_rec *r, int display_source_mode, char *filename)
+static int send_php(request_rec *r, int display_source_mode, char *filename)
 {
 	int retval;
 	HashTable *per_dir_conf;
@@ -440,6 +448,18 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 	ELS_FETCH();
 	CLS_FETCH();
 	PLS_FETCH();
+	APLS_FETCH();
+
+	if (AP(in_request)) {
+		zend_file_handle fh;
+
+		fh.filename = r->filename;
+		fh.opened_path = NULL;
+		fh.free_filename = 0;
+		fh.type = ZEND_HANDLE_FILENAME;
+		zend_execute_scripts(ZEND_INCLUDE CLS_CC ELS_CC, 1, &fh);
+		return OK;
+	}
 
 	if (setjmp(EG(bailout))!=0) {
 		return OK;
@@ -463,11 +483,11 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 	/* If PHP parser engine has been turned off with an "engine off"
 	 * directive, then decline to handle this request
 	 */
-	if (!php_apache_info.engine) {
+	if (!AP(engine)) {
 		r->content_type = php_apache_get_default_mimetype(r SLS_CC);
 		r->allowed |= (1 << METHODS) - 1;
 		if (setjmp(EG(bailout))==0) {
-			zend_ini_rshutdown();
+			zend_ini_deactivate(ELS_C);
 		}
 		return DECLINED;
 	}
@@ -479,17 +499,17 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 #if MODULE_MAGIC_NUMBER > 19961007
 	if ((retval = setup_client_block(r, REQUEST_CHUNKED_ERROR))) {
 		if (setjmp(EG(bailout))==0) {
-			zend_ini_rshutdown();
+			zend_ini_deactivate(ELS_C);
 		}
 		return retval;
 	}
 #endif
 
-	if (php_apache_info.last_modified) {
+	if (AP(last_modified)) {
 #if MODULE_MAGIC_NUMBER < 19970912
 		if ((retval = set_last_modified(r, r->finfo.st_mtime))) {
 			if (setjmp(EG(bailout))==0) {
-				zend_ini_rshutdown();
+				zend_ini_deactivate(ELS_C);
 			}
 			return retval;
 		}
@@ -522,13 +542,13 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 }
 
 
-int send_parsed_php(request_rec * r)
+static int send_parsed_php(request_rec * r)
 {
 	return send_php(r, 0, NULL);
 }
 
 
-int send_parsed_php_source(request_rec * r)
+static int send_parsed_php_source(request_rec * r)
 {
 	return send_php(r, 1, NULL);
 }
@@ -601,8 +621,8 @@ CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, 
 #ifdef ZTS
 		tsrm_startup(1, 1, 0, NULL);
 #endif
-		sapi_startup(&sapi_module_conf);
-		php_apache_startup(&sapi_module_conf);
+		sapi_startup(&apache_sapi_module);
+		php_apache_startup(&apache_sapi_module);
 	}
 	per_dir_entry.type = mode;
 
@@ -686,7 +706,7 @@ int php_xbithack_handler(request_rec * r)
 static void apache_php_module_shutdown_wrapper(void)
 {
 	apache_php_initialized = 0;
-	sapi_module_conf.shutdown(&sapi_module_conf);
+	apache_sapi_module.shutdown(&apache_sapi_module);
 
 #if MODULE_MAGIC_NUMBER >= 19970728
 	/* This function is only called on server exit if the apache API
@@ -704,7 +724,7 @@ static void apache_php_module_shutdown_wrapper(void)
 static void php_child_exit_handler(server_rec *s, pool *p)
 {
 /*	apache_php_initialized = 0; */
-	sapi_module_conf.shutdown(&sapi_module_conf);
+	apache_sapi_module.shutdown(&apache_sapi_module);
 
 #ifdef ZTS
 	tsrm_shutdown();
@@ -720,8 +740,8 @@ void php_init_handler(server_rec *s, pool *p)
 #ifdef ZTS
 		tsrm_startup(1, 1, 0, NULL);
 #endif
-		sapi_startup(&sapi_module_conf);
-		php_apache_startup(&sapi_module_conf);
+		sapi_startup(&apache_sapi_module);
+		php_apache_startup(&apache_sapi_module);
 	}
 #if MODULE_MAGIC_NUMBER >= 19980527
 	{
@@ -733,46 +753,6 @@ void php_init_handler(server_rec *s, pool *p)
 #endif
 }
 
-
-#if HAVE_MOD_DAV
-
-extern int phpdav_mkcol_test_handler(request_rec *r);
-extern int phpdav_mkcol_create_handler(request_rec *r);
-
-/* conf is being read twice (both here and in send_php()) */
-int send_parsed_php_dav_script(request_rec *r)
-{
-	php_apache_info_struct *conf;
-
-	conf = (php_apache_info_struct *) get_module_config(r->per_dir_config,
-													&php4_module);
-	return send_php(r, 0, 0, conf->dav_script);
-}
-
-static int php_type_checker(request_rec *r)
-{
-	php_apache_info_struct *conf;
-
-	conf = (php_apache_info_struct *)get_module_config(r->per_dir_config,
-												   &php4_module);
-
-    /* If DAV support is enabled, use mod_dav's type checker. */
-    if (conf->dav_script) {
-		dav_api_set_request_handler(r, send_parsed_php_dav_script);
-		dav_api_set_mkcol_handlers(r, phpdav_mkcol_test_handler,
-								   phpdav_mkcol_create_handler);
-		/* leave the rest of the request to mod_dav */
-		return dav_api_type_checker(r);
-	}
-
-    return DECLINED;
-}
-
-#else /* HAVE_MOD_DAV */
-
-# define php_type_checker NULL
-
-#endif /* HAVE_MOD_DAV */
 
 
 handler_rec php_handlers[] =
@@ -809,7 +789,7 @@ module MODULE_VAR_EXPORT php4_module =
 	NULL,						/* check_user_id */
 	NULL,						/* check auth */
 	NULL,						/* check access */
-	php_type_checker,			/* type_checker */
+	NULL,						/* type_checker */
 	NULL,						/* fixups */
 	NULL						/* logger */
 #if MODULE_MAGIC_NUMBER >= 19970103

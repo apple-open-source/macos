@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -36,6 +36,10 @@
    Matthias Wandel,  Dec 1999 - April 2000
   --------------------------------------------------------------------------
   */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 
 #if HAVE_EXIF
@@ -86,6 +90,7 @@ typedef struct {
 	char Software[32];
 	char *Thumbnail;
 	int ThumbnailSize;
+	int ThumbnailOffset;
 	/* Olympus vars */
 	int SpecialMode;
 	int JpegQual;
@@ -471,12 +476,34 @@ static double ConvertAnyFormat(void *ValuePtr, int Format, int MotorolaOrder)
     return Value;
 }
 
+/* Grab the thumbnail - by Matt Bonneau */
+static void ExtractThumbnail(ImageInfoType *ImageInfo, char *OffsetBase, unsigned ExifLength) {
+	/* according to exif2.1, the thumbnail is not supposed to be greater than 64K */
+	if (ImageInfo->ThumbnailSize > 65536) {
+		php_error(E_ERROR,"Illegal thumbnail size");
+	}
+
+	ImageInfo->Thumbnail = emalloc(ImageInfo->ThumbnailSize);
+	if (!ImageInfo->Thumbnail) {
+		php_error(E_ERROR,"Could not allocate memory for thumbnail");
+	} else {
+		/* Check to make sure we are not going to go past the ExifLength */
+		if (ImageInfo->ThumbnailOffset + ImageInfo->ThumbnailSize > ExifLength) {
+			php_error(E_ERROR,"Thumbnail goes beyond exif header boundary");
+		} else {
+			memcpy(ImageInfo->Thumbnail, OffsetBase + ImageInfo->ThumbnailOffset, ImageInfo->ThumbnailSize);
+		}
+	}
+}
+
 /* Process one of the nested EXIF directories. */
 static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *OffsetBase, unsigned ExifLength, char *LastExifRefd)
 {
     int de;
     int a;
     int NumDirEntries;
+    int NextDirOffset;
+    
 
     NumDirEntries = Get16u(DirStart, ImageInfo->MotorolaOrder);
 
@@ -537,27 +564,27 @@ static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *Offse
         switch(Tag) {
 
             case TAG_MAKE:
-                strncpy(ImageInfo->CameraMake, ValuePtr, 31);
+                strlcpy(ImageInfo->CameraMake, ValuePtr, sizeof(ImageInfo->CameraMake));
                 break;
 
             case TAG_MODEL:
-                strncpy(ImageInfo->CameraModel, ValuePtr, 63);
+                strlcpy(ImageInfo->CameraModel, ValuePtr, sizeof(ImageInfo->CameraModel));
                 break;
 
             case TAG_GPSINFO:
-                strncpy(ImageInfo->GPSinfo, ValuePtr, 47);
+                strlcpy(ImageInfo->GPSinfo, ValuePtr, sizeof(ImageInfo->GPSinfo));
                 break;
 
             case TAG_EXIFVERSION:
-                strncpy(ImageInfo->ExifVersion, ValuePtr, 15);
+                strlcpy(ImageInfo->ExifVersion, ValuePtr, sizeof(ImageInfo->ExifVersion));
                 break;
 
             case TAG_COPYRIGHT:
-                strncpy(ImageInfo->Copyright, ValuePtr, 31);
+                strlcpy(ImageInfo->Copyright, ValuePtr, sizeof(ImageInfo->Copyright));
                 break;
 
 			case TAG_SOFTWARE:
-                strncpy(ImageInfo->Software, ValuePtr, 31);
+                strlcpy(ImageInfo->Software, ValuePtr, sizeof(ImageInfo->Software));
                 break;
 
 			case TAG_ORIENTATION:
@@ -569,7 +596,7 @@ static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *Offse
 				break;
 
             case TAG_DATETIME_ORIGINAL:
-                strncpy(ImageInfo->DateTime, ValuePtr, 19);
+                strlcpy(ImageInfo->DateTime, ValuePtr, sizeof(ImageInfo->DateTime));
                 break;
 
             case TAG_USERCOMMENT:
@@ -590,13 +617,13 @@ static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *Offse
                         int c;
                         c = (ValuePtr)[a];
                         if (c != '\0' && c != ' ') {
-                            strncpy(ImageInfo->Comments, a+ValuePtr, 199);
+                            strlcpy(ImageInfo->Comments, a+ValuePtr, sizeof(ImageInfo->Comments));
                             break;
                         }
                     }
                     
                 } else {
-                    strncpy(ImageInfo->Comments, ValuePtr, 199);
+                    strlcpy(ImageInfo->Comments, ValuePtr, sizeof(ImageInfo->Comments));
                 }
                 break;
 
@@ -681,12 +708,24 @@ static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *Offse
                 ImageInfo->SpecialMode = (int)ConvertAnyFormat(ValuePtr, Format,ImageInfo->SpecialMode);
 				break;
 
-			case TAG_JPEGQUAL:
-                ImageInfo->JpegQual = (int)ConvertAnyFormat(ValuePtr, Format,ImageInfo->JpegQual);
+			case TAG_JPEGQUAL: /* I think that this is a pointer to the thumbnail - let's see */
+				ImageInfo->ThumbnailOffset = (int)ConvertAnyFormat(ValuePtr, Format, ImageInfo->ThumbnailOffset);
+				
+				/* see if we know the size */
+				if (ImageInfo->ThumbnailSize) {
+					ExtractThumbnail(ImageInfo, OffsetBase, ExifLength);
+				}
+                /*ImageInfo->JpegQual = (int)ConvertAnyFormat(ValuePtr, Format,ImageInfo->JpegQual);*/
 				break;
 
-			case TAG_MACRO:
-                ImageInfo->Macro = (int)ConvertAnyFormat(ValuePtr, Format,ImageInfo->Macro);
+			case TAG_MACRO: /* I think this is the size of the Thumbnail */
+				ImageInfo->ThumbnailSize = (int)ConvertAnyFormat(ValuePtr, Format, ImageInfo->ThumbnailSize);
+
+				/* see if we have the offset */
+				if (ImageInfo->ThumbnailOffset) {
+					ExtractThumbnail(ImageInfo, OffsetBase, ExifLength);
+				}
+                /*ImageInfo->Macro = (int)ConvertAnyFormat(ValuePtr, Format,ImageInfo->Macro);*/
 				break;
 
 			case TAG_DIGIZOOM:
@@ -694,15 +733,15 @@ static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *Offse
 				break;
 
 			case TAG_SOFTWARERELEASE:
-                strncpy(ImageInfo->SoftwareRelease, ValuePtr, 15);
+                strlcpy(ImageInfo->SoftwareRelease, ValuePtr, sizeof(ImageInfo->SoftwareRelease));
 				break;
 
 			case TAG_PICTINFO:
-                strncpy(ImageInfo->PictInfo, ValuePtr, 63);
+                strlcpy(ImageInfo->PictInfo, ValuePtr, sizeof(ImageInfo->PictInfo));
 				break;
 
 			case TAG_CAMERAID:
-                strncpy(ImageInfo->CameraId, ValuePtr, 63);
+                strlcpy(ImageInfo->CameraId, ValuePtr, sizeof(ImageInfo->CameraId));
 				break;
         }
 
@@ -715,6 +754,17 @@ static void ProcessExifDir(ImageInfoType *ImageInfo, char *DirStart, char *Offse
             ProcessExifDir(ImageInfo, SubdirStart, OffsetBase, ExifLength, LastExifRefd);
             continue;
         }
+    }
+    /*
+     * Hack to make it process IDF1 I hope
+     * There are 2 IDFs, the second one holds the keys (0x0201 and 0x0202) to the thumbnail
+     */
+    NextDirOffset = Get32u(DirStart+2+12*de, ImageInfo->MotorolaOrder);
+    if (NextDirOffset) {
+            if (OffsetBase + NextDirOffset < OffsetBase || OffsetBase + NextDirOffset > OffsetBase+ExifLength) {
+                php_error(E_ERROR,"Illegal directory offset");
+            }
+	    ProcessExifDir(ImageInfo, OffsetBase + NextDirOffset, OffsetBase, ExifLength, LastExifRefd);
     }
 }
 
@@ -730,6 +780,10 @@ static void process_EXIF (ImageInfoType *ImageInfo, char *CharBuf, unsigned int 
     ImageInfo->FocalplaneXRes = 0;
     ImageInfo->FocalplaneUnits = 0;
     ImageInfo->ExifImageWidth = 0;
+
+    /* set the thumbnail stuff to nothing so we can test to see if they get set up */
+    ImageInfo->Thumbnail = NULL;
+    ImageInfo->ThumbnailSize = 0;
 
     {   /* Check the EXIF header component */
         static const uchar ExifHeader[] = {0x45, 0x78, 0x69, 0x66, 0x00, 0x00};
@@ -758,6 +812,9 @@ static void process_EXIF (ImageInfoType *ImageInfo, char *CharBuf, unsigned int 
 
     /* First directory starts 16 bytes in.  Offsets start at 8 bytes in. */
     ProcessExifDir(ImageInfo, CharBuf+16, CharBuf+8, length-6, LastExifRefd);
+
+    /* MB: This is where I will make my attempt to get the tumbnail */
+
 
     /* Compute the CCD width, in milimeters. */
     if (ImageInfo->FocalplaneXRes != 0) {
@@ -920,7 +977,7 @@ int ReadJpegFile(ImageInfoType *ImageInfo, Section_t *Sections,
     int ret;
 	char *tmp;
 
-    infile = V_FOPEN(FileName, "rb"); /* Unix ignores 'b', windows needs it. */
+    infile = VCWD_FOPEN(FileName, "rb"); /* Unix ignores 'b', windows needs it. */
 
     if (infile == NULL) {
         php_error(E_ERROR, "Unable to open '%s'", FileName);
@@ -933,7 +990,7 @@ int ReadJpegFile(ImageInfoType *ImageInfo, Section_t *Sections,
     memset(Sections, 0, sizeof(*Sections));
 
 	tmp = php_basename(FileName,strlen(FileName));
-    strncpy(ImageInfo->FileName, tmp, 119);
+    strlcpy(ImageInfo->FileName, tmp, sizeof(ImageInfo->FileName));
 	efree(tmp);
     ImageInfo->FocalLength = 0;
     ImageInfo->ExposureTime = 0;
@@ -949,7 +1006,7 @@ int ReadJpegFile(ImageInfoType *ImageInfo, Section_t *Sections,
     {
         /* Store file date/time. */
         struct stat st;
-        if (stat(FileName, &st) >= 0) {
+        if (VCWD_STAT(FileName, &st) >= 0) {
             ImageInfo->FileDateTime = st.st_mtime;
             ImageInfo->FileSize = st.st_size;
         } else {
@@ -974,7 +1031,6 @@ int php_read_jpeg_exif(ImageInfoType *ImageInfo, char *FileName, int ReadAll)
 	int SectionsRead;
 	char *LastExifRefd=NULL;
 	int ret;
-	int thumbsize=0;
 	/* int i; */
 
 	ImageInfo->MotorolaOrder = 0;
@@ -1010,14 +1066,17 @@ PHP_FUNCTION(read_exif_data) {
 	ImageInfoType ImageInfo;
 	char tmp[64];
 
-	ImageInfo.Thumbnail = NULL;
+	/*ImageInfo.Thumbnail = NULL;
 	ImageInfo.ThumbnailSize = 0;
+	*/
 
     if (ac != 1 || zend_get_parameters_ex(ac, &p_name) == FAILURE)
 		WRONG_PARAM_COUNT;
 
 	convert_to_string_ex(p_name);
-	ret = php_read_jpeg_exif(&ImageInfo, (*p_name)->value.str.val,1);
+
+	ret = php_read_jpeg_exif(&ImageInfo, Z_STRVAL_PP(p_name),1);
+
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}

@@ -85,12 +85,14 @@ static int dumb_term;
 
 static int tcap_initialized;
 
+#if 0
 #if !defined (__linux__)
 #  if defined (__EMX__) || defined (NEED_EXTERN_PC)
 extern 
 #  endif /* __EMX__ || NEED_EXTERN_PC */
 char PC, *BC, *UP;
 #endif /* __linux__ */
+#endif
 
 /* Some strings to control terminal actions.  These are output by tputs (). */
 char *term_goto, *term_clreol, *term_cr, *term_clrpag, *term_backspace;

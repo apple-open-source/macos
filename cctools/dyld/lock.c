@@ -34,7 +34,11 @@
 volatile enum bool dyld_lock = FALSE;
 volatile mach_port_t thread_that_has_dyld_lock = MACH_PORT_NULL;
 
+volatile mach_port_t cached_thread = MACH_PORT_NULL;
+volatile vm_address_t cached_stack = 0;
+
 static void yeild(unsigned long factor);
+static mach_port_t dyld_mach_thread_self(void);
 
 /*
  * set_lock() is called when a thread enters the dynamic link editor.  Only
@@ -50,7 +54,7 @@ set_lock(void)
 {
     mach_port_t my_thread;
 
-	my_thread = mach_thread_self();
+	my_thread = dyld_mach_thread_self();
 
 	/*
 	 * The debug interface takes care of making sure the dyld_lock is not
@@ -74,17 +78,12 @@ set_lock(void)
 	 */
 	if(thread_that_has_dyld_lock == my_thread)
 	    dead_lock_error();
-	clear_lock(global_lock);
 
 	/*
 	 * Now that we know this thread does not have the dyld_lock, this loop
 	 * gets the dyld_lock for this thread yeilding while it can't get it.
 	 */
 	for(;;){
-	    /* first get the global lock so dyld_lock can be inspected */
-	    while(try_to_get_lock(global_lock) == FALSE){
-		yeild(2);
-	    }
 	    /* now we have the global_lock, see if dyld_lock is FALSE */
 	    if(dyld_lock == FALSE){
 		if(dyld_mem_protect == TRUE){
@@ -99,6 +98,10 @@ set_lock(void)
 	    else{
 		/* dyld_lock is TRUE so release the global lock and yeild */
 		clear_lock(global_lock);
+		yeild(2);
+	    }
+	    /* get the global lock so dyld_lock can be inspected */
+	    while(try_to_get_lock(global_lock) == FALSE){
 		yeild(2);
 	    }
 	}
@@ -117,7 +120,7 @@ void)
 {
     mach_port_t my_thread;
 
-	my_thread = mach_thread_self();
+	my_thread = dyld_mach_thread_self();
 
 	/*
 	 * The debug interface takes care of making sure the dyld_lock is not
@@ -166,7 +169,7 @@ release_lock(void)
 {
     mach_port_t my_thread;
 
-	my_thread = mach_thread_self();
+	my_thread = dyld_mach_thread_self();
 
 	/*
 	 * If we just finished linking a module with the
@@ -240,4 +243,38 @@ unsigned long factor)
 	}
 	thread_switch(MACH_PORT_NULL, SWITCH_OPTION_DEPRESS,
 		      factor * info.min_timeout);
+}
+
+/*
+ * dyld_mach_thread_self() gets the current thread's mach_port_t as cheaply as
+ * possible.  Requires the global_lock NOT to have been taken.
+ */
+static
+mach_port_t
+dyld_mach_thread_self(void)
+{
+    mach_port_t my_thread;
+    vm_address_t stack_addr;
+
+	my_thread = MACH_PORT_NULL;
+	stack_addr = (vm_address_t)trunc_page((vm_address_t)&my_thread);
+
+	while(try_to_get_lock(global_lock) == FALSE){
+	    yeild(1);
+	}
+	if(cached_stack == stack_addr){
+	    my_thread = cached_thread;
+	}
+	else{
+#ifdef __MACH30__
+	    (void)mach_port_deallocate(mach_task_self(), cached_thread);
+#else
+	    (void)port_deallocate(mach_task_self(), cached_thread);
+#endif
+	    my_thread = mach_thread_self();
+	    cached_thread = my_thread;
+	    cached_stack = stack_addr;
+	}
+	clear_lock(global_lock);
+	return(my_thread);
 }

@@ -1,7 +1,7 @@
 #! /bin/sh
 :
 # Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands
-#$Id: autoconf,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+#$Id: autoconf,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $
 
 # All possible entries in autoconf.h:
 
@@ -24,6 +24,7 @@
 #	#define NO_const
 #	#define volatile
 #	#define P(args) ()
+#	#define NO_enum
 #	#define void char
 #	typedef int mode_t;
 #	typedef int pid_t;
@@ -33,7 +34,7 @@
 #	typedef long off_t;
 #	typedef long time_t;
 #	#define NOmemmove
-#	#define NObcopy
+#Ok	#define NObcopy
 #	#define NOstrcspn
 #	#define NOstrpbrk
 #	#define NOopendir
@@ -49,27 +50,38 @@
 #	#define NOmkdir
 #	#define NOfstat
 #	#define NOuname
+#	#define NO_exit
 #	#define NOstrtol
+#	#define NOstrtod
+#	#define NOstrerror
+#Ok	#define NOstrlcat
+#Ok	#define NOstrncasecmp
+#Ok	#define NOsys_errlist
+#Ok	#define NObzero
+#	#define NOmemset
 #	#define NOwaitpid
 #Ok	#define NOftruncate
 #	#define SLOWstrstr
 #Ok	#define CAN_chown
 #	#define strchr(s,c) index(s,c)
 #	#define NOinitgroups
+#	#define NOfsync
 #Ok	#define endpwent()
 #Ok	#define endgrent()
 #Ok	#define endhostent()
 #Ok	#define endservent()
 #Ok	#define endprotoent()
 #	#define h_0addr_list h_addr
+#Ok	#define NOpw_passwd
+#Ok	#define NOpw_class
+#Ok	#define NOpw_gecos
 #Ok	#define NO_COMSAT
 #	#define _GUID_T
 #Ok	#define UDP_protocolno 17
 #Ok	#define BIFF_serviceport "512"
-#Ok	#define IP_localhost {127,0,0,1,}
+#Ok	#define IP_localhost {127,0,0,1}
 #	#define WMACROS_NON_POSIX
 #	#define oBRAIN_DAMAGE
-#Ok	#define LD_ENV_FIX
 #Ok	#define GOT_bin_test
 #Ok	#define MAX_argc 128
 #Ok	#define MAX_envc 128
@@ -82,14 +94,15 @@
 #	#define buggy_SENDMAIL
 #	#define DEFflagsendmail ""
 #Ok	#define CF_no_procmail_yet
+#Ok	#define defSPATH "PATH=/bin:/usr/bin:/usr/local/bin"
 #Ok	#define defPATH "PATH=$HOME/bin:/bin:/usr/bin:/usr/local/bin"
 #Ok	#define INEFFICIENTrealloc
 #Ok	#define PM_VERSION "n.nn"
 
-# A conforming ANSI compiler and POSIX library should not have any defines not
-# marked as "Ok" in the autoconf.h file.
+# A conforming ISO C compiler and POSIX library should not have any defines
+# not marked as "Ok" in the autoconf.h file.
 # Anything else indicates failure of your system to comply with either
-# the ANSI or POSIX standards (but procmail should be installable anyway).
+# the ISO or POSIX standards (but procmail should be installable anyway).
 
 if test -z "$IFS"
 then IFS=" \
@@ -254,14 +267,14 @@ cat >_autotst.c <<HERE
 #include <sys/types.h>
 #include <time.h>
 void*vvoid;
-main(){int i=0;char*p="t";
+int main(){int i=0;char*p="t";
  vvoid=p;
- {time_t vtime_t;i+=vtime_t=1;}
- {off_t voff_t;i+=voff_t=1;}
+ {time_t vtime;i+=vtime=1;}
+ {off_t voff;i+=voff=1;}
  return !vvoid+!i;}
 #include <unistd.h>
-empty()
-{ setsid();
+int empty()
+{ return setsid();
 }
 HERE
 
@@ -294,7 +307,7 @@ cat >_autotst.c <<HERE
 #ifndef SYS_FILE_H_MISSING
 #include <sys/file.h>
 #endif
-main(){
+int main(){
 #ifdef F_SETLKW
  fcntl(0,F_SETLKW,0);
 #endif
@@ -424,7 +437,7 @@ unsigned sfork()
   return pid;
 }
 
-main(argc,argv)char*argv[];
+int main(argc,argv)char*argv[];
 { int goodlock,testlock,i,pip[2],pipw[2];time_t otimet;unsigned dtimet;
   static char filename[]="_locktst.l0";
   close(0);goodlock=0;testlock=FIRST_lock;signal(SIGPIPE,SIG_DFL);
@@ -564,16 +577,17 @@ skip_tests:
   return EXIT_SUCCESS;
 }
 
-killchildren()
+int killchildren()
 { int i;
   i=NR_of_forks;
   do
      if(child[--i]>0)
 	kill(child[i],SIGTERM),child[i]=0;
   while(i);
+  return 0;
 }
 
-sfdlock(fd)
+int sfdlock(fd)
 { int i;unsigned gobble[GOBBLE>>2];
   for(i=GOBBLE>>2;i;gobble[--i]=~(unsigned)0);		 /* SunOS crash test */
   return fdlock(fd);
@@ -587,7 +601,7 @@ static struct flock flck;		/* why can't it be a local variable? */
 static off_t oldlockoffset;
 #endif
 
-fdlock(fd)
+int fdlock(fd)
 { int i;unsigned gobble[GOBBLE>>2];
   for(i=GOBBLE>>2;i;gobble[--i]=~(unsigned)0);		 /* SunOS crash test */
   oldfdlock=fd;fd=0;
@@ -617,7 +631,7 @@ fdlock(fd)
   return fd;
 }
 
-fdunlock()
+int fdunlock()
 { int i;unsigned gobble[GOBBLE];
   for(i=GOBBLE;i;gobble[--i]=~(unsigned)0);  /* some SunOS libs mess this up */
   if(MSK_flock&dolock)
@@ -690,10 +704,11 @@ cat >_autotst.c <<HERE
 int a(b)const int b[];
 { return *++b;				  /* watcom 10.6 on QNX refuses this */
 }
-main()
+int main()
 { char r[]="",*const*p;char*q="";const char*s="";
-  static const char*const nullp,*const*d= &nullp;	/* AIX 3.2.3 failure */
-  static struct{const int a;int b;}c[2];
+  static const char*const nullp=0,*const*d= &nullp;	/* AIX 3.2.3 failure */
+  static struct{const int a;int b;}c[2]={{0,0},{0,0}};/* IRIX 7.3.1 compiler */
+			    /* requires initializers on static const objects */
   --(c+1)->b;				 /* AIX 3.1.5 machines can't do this */
   p= &q;
   ;{ int pip[2];
@@ -731,7 +746,7 @@ fi
 $RM _autotst.$O _autotst
 
 cat >_autotst.c <<HERE
-main(){volatile int i;return (i=0);}
+int main(){volatile int i;return (i=0);}
 HERE
 
 echo 'Testing for volatile'
@@ -740,15 +755,17 @@ then
 :
 else
  echo '#define volatile' >>$ACONF
+ not_ISO=yep
 fi
 $RM _autotst.$O
 
 if $FGREP NO_const $ACONF >$DEVNULL
 then
   echo '#define P(args) ()' >>$ACONF
+  not_ISO=yep
 else
   cat >_autotst.c <<HERE
-main(const argc,const char*const argv[]){return argc;}
+int main(const int argc,const char*const argv[]){return argc;}
 HERE
 
   echo 'Testing for prototypes'
@@ -757,11 +774,43 @@ HERE
   :
   else
      echo '#define P(args) ()' >>$ACONF
+     not_ISO=yep
   fi
   $RM _autotst.$O
 fi
 
-echo 'Checking for POSIX and ANSI system include files'
+cat >_autotst.c <<HERE
+enum foo { A, B, C, D=7, E, F= -3, G };
+int main(){return !(A==0&&B==1&&C==2&&D==7&&E==8&&F==-3&&G==-2);}
+HERE
+
+echo 'Testing for enum'
+if $MAKE _autotst.$O >$DEVNULL 2>&1 && test -f _autotst.$O &&
+   $MAKE _autotst >$DEVNULL 2>&1 && _autotst
+then
+:
+else
+ echo '#define NO_enum' >>$ACONF
+ not_ISO=yep
+fi
+$RM _autotst.$O
+
+if test -n "$not_ISO"
+then
+  cat <<HERE
+
+Your system appears to not (correctly) support at least one of:
+const, volatile, function prototypes, and enum types.  Future
+versions of procmail will probably require support for all of them,
+so you should either upgrade your compiler to one that's compliant
+with the ISO C standard (the standard's over 10 years old, for
+goodness sake), or send email to <bug@procmail.org> explaining why
+you need procmail to continue to support K&R C.
+
+HERE
+fi
+
+echo 'Checking for POSIX and ANSI/ISO system include files'
 
 cat >_autotst.c <<HERE
 #include "includes.h"
@@ -840,7 +889,7 @@ cat >_autotst.c <<HERE
 #ifndef NO_COMSAT
 #include "network.h"
 #endif
-main(){int i=0;
+int main(){int i=0;
  {size_t vsize_t;i+=vsize_t=1;}
  {pid_t vpid_t;i+=vpid_t=1;}
  {mode_t vmode_t;i+=vmode_t=1;}
@@ -901,12 +950,12 @@ cat >_autotst.c <<HERE
 #include <stdlib.h>
 #define INITIAL 60
 #else
-void*realloc();
+void*realloc(),*malloc();
 #endif
 int main()
-{ char*p=0,*q=0;
+{ char*p=malloc(1),*q=0;
   size_t len,last,max=BLKSIZ*64;	      /* 1M on non-SMALLHEAP systems */
-  int count= -1;		     /* take into account the initial malloc */
+  int count=0;
   for(last=len=INITIAL;len<=max+INITIAL;len+=BLKSIZ)
    { if(!(p=realloc(p,len)))
 	break;
@@ -944,7 +993,7 @@ $RM _autotst.$O _autotst _autotst.rrr
 
 cat >_autotst.c <<HERE
 #include "includes.h"
-main(){int i;i=1;
+int main(){int i;i=1;
  i+=WIFEXITED(i);
  i+=WIFSTOPPED(i);
  i+=WEXITSTATUS(i);
@@ -965,16 +1014,33 @@ fi
 $RM _autotst.$O _autotst.rrr
 
 cat >_autotst.c <<HERE
+#include <pwd.h>
+int main()
+{ struct passwd*pw=getpwuid(0);
+  return (pw->pw_passwd==0)+(pw->pw_class==0)+(pw->pw_gecos==0);
+}
+HERE
+
+echo 'Testing for various struct passwd members'
+$MAKE _autotst.$O >_autotst.rrr 2>&1
+grepfor pw_passwd '#define NOpw_passwd'
+grepfor pw_class  '#define NOpw_class'
+grepfor pw_gecos  '#define NOpw_gecos'
+$RM _autotst.$O _autotst.rrr
+
+cat >_autotst.c <<HERE
 #include "includes.h"
 #ifndef NO_COMSAT
 #include "network.h"
 #endif
-main(){char a[2];
+int main(){char a[2];
  endpwent();endgrent();memmove(a,"0",1);bcopy("0",a,1);strcspn(a,"0");
  strtol("0",(char**)0,10);strchr("0",'0');strpbrk(a,"0");rename(a,"0");
  setrgid(0);setegid(0);setregid(0,0);setresgid(0,0,0);opendir("0");
  initgroups("0",0);strstr("0","0");mkdir("0",0);pow(0.,0.);clock();
- waitpid((pid_t)-1,(int*)0,0);ftruncate(0,0);
+ waitpid((pid_t)-1,(int*)0,0);ftruncate(0,0);fsync(0);strtod("0.0",(char**)0);
+ strncasecmp("0","0",3);strerror(ENOENT);strlcat(a,"0",2);
+ bzero(a,2);memset(a,'\0',2);
 #ifdef S_ISLNK
  {struct stat stbuf;fstat(0,&stbuf);}
 #endif
@@ -985,11 +1051,14 @@ main(){char a[2];
  gethostbyname("0");getprotobyname(COMSATprotocol);endhostent();endservent();
  endprotoent();
 #endif
+ _exit(0);
  return 0;}
 HERE
 
 echo 'Testing for memmove, strchr, strpbrk, strcspn, strtol, strstr,'
-echo '	rename, setrgid, setegid, pow, opendir, mkdir & waitpid'
+echo '	rename, setrgid, setegid, pow, opendir, mkdir, waitpid, fsync,'
+echo '	ftruncate, strtod, strncasecmp, strerror, strlcat,'
+echo '	memset, bzero, and _exit'
 if $MAKE _autotst.$O >$DEVNULL 2>&1
 then
 :
@@ -1006,14 +1075,21 @@ fi
 $MAKE _autotst >_autotst.rrr 2>&1
 $RM _autotst _autotst.$O
 
-grepfor strcspn '#define NOstrcspn'
-grepfor strpbrk '#define NOstrpbrk'
+# The simple ones
+for func in strcspn strpbrk rename pow mkdir fstat initgroups \
+ strtol waitpid ftruncate fsync strtod strncasecmp strlcat memset bzero _exit
+do
+  grepfor $func "#define NO$func"
+done
+
+NOstrerror=no
+grepfor strerror "#define NOstrerror" && NOstrerror=yes
+
 grepfor opendir "
 #define NOopendir	/* the readdir library does not seem to be available
 			   this will slightly affect the way a filenumber is
 			   selected in MH-folders by procmail */
 "
-grepfor rename '#define NOrename'
 a=no
 grepfor setrgid '#define NOsetrgid' && a=yes
 if grepfor setegid '#define NOsetegid' || test $a = yes
@@ -1021,14 +1097,10 @@ then
   grepfor setregid '#define NOsetregid' &&
    grepfor setresgid '#define NOsetresgid'
 fi
-grepfor pow '#define NOpow'
-grepfor mkdir '#define NOmkdir'
-grepfor fstat '#define NOfstat'
 grepfor strchr '#define strchr(s,c) index(s,c)'
 grepfor uname "\
 #define NOuname		  \
 /* <sys/utsname.h> defines it, the libraries don't */"
-grepfor initgroups '#define NOinitgroups'
 grepfor endpwent '#define endpwent()'
 grepfor endgrent '#define endgrent()'
 if grepfor gethostbyname '#define NO_COMSAT'
@@ -1040,21 +1112,38 @@ else
   grepfor endservent '#define endservent()'
   grepfor endprotoent '#define endprotoent()'
 fi
-grepfor strtol '#define NOstrtol'
 grepfor strstr '#define SLOWstrstr' ||
  grepfor clock '#define SLOWstrstr'
-grepfor waitpid '#define NOwaitpid'
-grepfor ftruncate '#define NOftruncate'
 grepfor memmove '#define NOmemmove' &&
 if $FGREP -e bcopy _autotst.rrr >$DEVNULL
 then
  echo '#define NObcopy' >>$ACONF
 
+if test $NOstrerror = yes
+then
+  cat >_autotst.c <<HERE
+#include "includes.h"
+int main(){
+ return puts(sys_errlist[sys_nerr-1]);}
+HERE
+
+  echo 'Testing for sys_errlist'
+  if $MAKE _autotst.$O >_autotst.rrr 2>&1
+  then
+    if $MAKE _autotst >_autotst.rrr 2>&1
+    then
+      echo '' >_autotst.rrr
+    fi
+  fi
+  grepfor sys_errlist '#define NOsys_errlist'
+  $RM _autotst _autotst.$O _autotst.rrr
+fi
+
  echo 'Testing for brain damage'
  cat >_autotst.c <<HERE
 #include "includes.h"
 struct tests{int a,b;};
-main(){
+int main(){
  return offsetof(struct tests,b);}
 HERE
  if $MAKE _autotst.$O >$DEVNULL 2>&1
@@ -1072,7 +1161,7 @@ else
 #include "includes.h"
 #define M256	256
 #define F33	33
-main(){int j=0,i=M256-1;static char a[M256];
+int main(){int j=0,i=M256-1;static char a[M256];
   do a[i]=i;while(i--);
   bcopy(a+F33,a,M256-F33);bcopy(a,a+F33,M256-F33);i=F33-1;
   do j|=a[i]!=(char)(i+F33);while(i--);i=M256-1;
@@ -1089,8 +1178,6 @@ HERE
  fi
  $RM _autotst.$O _autotst
 fi
-
-$FGREP -e LD_ /bin/ld >/dev/null 2>&1 && echo "#define LD_ENV_FIX" >>$ACONF
 test -f /bin/test && echo "#define GOT_bin_test" >>$ACONF
 
 cat >_autotst.c <<\HERE
@@ -1113,7 +1200,7 @@ unsigned long dobench(strstr,iter,haystack)char*(*const strstr)();
   return (unsigned long)clock()-to;
 }
 #endif
-main(argc,argv)int argc;const char*argv[];
+int main(argc,argv)int argc;const char*argv[];
 { if(argc==1)
    { char*haystack;
 #ifdef BENCHSIZE
@@ -1173,8 +1260,9 @@ main(argc,argv)int argc;const char*argv[];
 	       { int j=host->h_length;
 		 const unsigned char*ad=(void*)host->h_0addr_list;
 		 printf("#define IP_localhost {");
-		 do printf("%d,",*ad++);
-		 while(--j);
+		 printf("%d",*ad++);
+		 while(--j)
+		    printf(",%d",*ad++);
 		 puts("}");
 	       }
 	    }
@@ -1253,14 +1341,14 @@ openerr:
 #define MAXT(type)	(~(type)0>>1)
      sscanf(argv[1],"%u",&diff);  /* what did our previous incarnation want? */
      if(!diff)			   /* first run?  initialise the environment */
-      { char*envs,**nenviron;
+      { char*envs,**nenviron,**nenv;
 	diff=MAX_ENVMEM/sizeof arg+1;
 	if(!(nenviron=malloc(diff*sizeof*environ+MAX_ENVMEM)))
 	   goto printit;			      /* oops, panic already */
-	envs=(char*)((environ=nenviron)+diff);
+	envs=(char*)((nenv=nenviron)+diff);
 	while(--diff)				       /* put in some colour */
 	   sprintf(*nenviron++=envs,arg,diff),envs+=sizeof arg;
-	*environ="PATH=.";*nenviron=0;diff=argc;	   /* start doubling */
+	*(environ=nenv)="PATH=.";*nenviron=0;diff=argc;	   /* start doubling */
       }
      if(MAX_ARGMEM/sizeof arg<=argc)			 /* we are satisfied */
       { einfo=" /* soft limit */";		  /* no reason to hog memory */
@@ -1385,7 +1473,7 @@ cat /usr/lib/sendmail.cf /etc/sendmail.cf /etc/mail/sendmail.cf 2>$DEVNULL |
  grep '^V' >$DEVNULL ||
  echo '#define buggy_SENDMAIL' >>$ACONF
 
-lpath='PATH=$HOME/bin:/bin'
+lpath='/bin'
 bins="/bin"
 
 for newd in /usr/bin /usr/ucb /usr/5bin $BINDIR /local/bin /usr/local/bin \
@@ -1402,7 +1490,8 @@ do
   fi
 done
 
-echo "#define defPATH \"$lpath\"" >>$ACONF
+echo "#define defPATH \"PATH=\$HOME/bin:$lpath\"" >>$ACONF
+echo "#define defSPATH \"SPATH=$lpath\"" >>$ACONF
 
 sed -n -e 's/^ v\([^ ]*\) .*$/#define PM_VERSION "\1"/p' \
  ../patchlevel.h >>$ACONF

@@ -62,8 +62,8 @@
 #include <mach/mach_types.h>
 #include <mach/message.h>
 #include <mach/mach_syscalls.h>
-#include <mach/clock.h>
 #include <mach/clock_types.h>
+#include <mach/mach_time.h>
 
 #include <libkern/OSTypes.h>
 
@@ -145,15 +145,18 @@ struct ct {
         char name[32];
 } codes_tab[MAX_ENTRIES];
 
+/* If NUMPARMS changes from the kernel, then PATHLENGTH will also reflect the change */
+#define NUMPARMS 23
+#define PATHLENGTH (NUMPARMS*sizeof(long))
 
 struct th_info {
         int  thread;
         int  type;
         int  child_thread;
-        int  vfslookup;
         int  arg1;
         double stime;
-        char pathname[32];
+        long *pathptr;
+        char pathname[PATHLENGTH + 1];
 };
 
 #define MAX_THREADS 512
@@ -201,40 +204,6 @@ static kern_return_t	set_standard_policy(void);
 
 int decrementer_val = 0;     /* Value used to reset decrementer */
 int set_remove_flag = 1;     /* By default, remove trace buffer */
-
-/* raw read of the timebase register */
-void clock_get_uptime( register AbsoluteTime *result)
-{
-#ifdef __ppc__
-
-        register UInt32  hic;
-        do {
-	  asm volatile("  mftbu %0" : "=r" (result->hi));
-	  asm volatile("  mftb  %0" : "=r" (result->lo));
-	  asm volatile("  mftbu %0" : "=r" (hic));
-        } while (hic != result->hi);
-
-#else
-        result->lo = 0;
-        result->hi = 0;
-#endif /* __ppc__ */
-
-}
-
-typedef unsigned long long  abstime_scalar_t;
-
-#define AbsoluteTime_to_scalar(x)   \
-                        (*(abstime_scalar_t *)(x))
-
-/* t1 += t2 */
-#define ADD_ABSOLUTETIME(t1, t2)                \
-	(AbsoluteTime_to_scalar(t1) +=              \
-	 			AbsoluteTime_to_scalar(t2))
-
-/* t1 -= t2 */
-#define SUB_ABSOLUTETIME(t1, t2)                \
-	(AbsoluteTime_to_scalar(t1) -=              \
-	 			AbsoluteTime_to_scalar(t2))
 
 int
 quit(s)
@@ -717,10 +686,10 @@ int  argc;
 char *argv[];
 {
         mach_timespec_t remain;
-	unsigned long long start, stop;
-	AbsoluteTime timestamp1;
-	AbsoluteTime timestamp2;
-	AbsoluteTime adeadline, adelay;
+	uint64_t start, stop;
+	uint64_t timestamp1;
+	uint64_t timestamp2;
+	uint64_t adeadline, adelay;
 	double fdelay;
 	int      elapsed_usecs;
 	double   nanosecs_to_sleep;
@@ -825,7 +794,7 @@ char *argv[];
 
 	nanosecs_to_sleep = (double)(num_of_usecs_to_sleep * 1000);
 	fdelay = nanosecs_to_sleep * (divisor /1000);
-	AbsoluteTime_to_scalar(&adelay) = (abstime_scalar_t)fdelay;
+	adelay = (uint64_t)fdelay;
 
 	init_code_file();
 
@@ -890,17 +859,14 @@ char *argv[];
 			refresh_time = curr_time + 1;
 		}
 
-	        clock_get_uptime(&timestamp1);
-		adeadline = timestamp1;
-		ADD_ABSOLUTETIME(&adeadline, &adelay);
+		timestamp1 = mach_absolute_time();
+		adeadline = timestamp1 + adelay;
 		mk_wait_until(adeadline);
-	        clock_get_uptime(&timestamp2);
+		timestamp2 = mach_absolute_time();
 
-		start = (((unsigned long long)timestamp1.hi) << 32) |
-		          (unsigned long long)((unsigned int)(timestamp1.lo));
+		start = timestamp1;
 
-		stop = (((unsigned long long)timestamp2.hi) << 32) |
-		         (unsigned long long)((unsigned int)(timestamp2.lo));
+		stop = timestamp2;
 
 		elapsed_usecs = (int)(((double)(stop - start)) / divisor);
 
@@ -945,23 +911,17 @@ char *argv[];
 			gotSIGWINCH = 0;
 		}
 	}
-	}
-
+}
 
 
 void getdivisor()
 {
+  mach_timebase_info_data_t info;
 
-    unsigned int delta;
-    unsigned int abs_to_ns_num;
-    unsigned int abs_to_ns_denom;
-    unsigned int proc_to_abs_num;
-    unsigned int proc_to_abs_denom;
+  (void) mach_timebase_info (&info);
 
-    (void)MKGetTimeBaseInfo (&delta, &abs_to_ns_num, &abs_to_ns_denom,
-		       &proc_to_abs_num,  &proc_to_abs_denom);
+  divisor = ( (double)info.denom / (double)info.numer) * 1000;
 
-    divisor = ((double)abs_to_ns_denom / (double)abs_to_ns_num) * 1000;
 }
 
 /* This is the realtime band */
@@ -1097,8 +1057,13 @@ void create_map_entry(int thread, char *command)
 #endif
     map->valid = 1;
     map->thread = thread;
-    (void)strncpy (map->command, command, sizeof(map->command));
-    map->command[sizeof(map->command)-1] = '\0';
+    /*
+      The trace entry that returns the command name will hold
+      at most, MAXCOMLEN chars, and in that case, is not
+      guaranteed to be null terminated.
+    */
+    (void)strncpy (map->command, command, MAXCOMLEN);
+    map->command[MAXCOMLEN] = '\0';
 }
 
 
@@ -1168,10 +1133,10 @@ char *find_code(type)
 }
 
 
-void sample_sc(long long start, long long stop)
+void sample_sc(uint64_t start, uint64_t stop)
 {
 	kd_buf   *kd, *last_mach_sched, *last_decrementer_kd, *start_kd, *end_of_sample;
-	unsigned long long now;
+	uint64_t now;
 	int count;
 	int first_entry = 1;
 	char   command[32];
@@ -1211,7 +1176,7 @@ void sample_sc(long long start, long long stop)
 	        for (i = 0; i < cur_max; i++) {
 			th_state[i].thread = 0;
 			th_state[i].type = -1;
-			th_state[i].vfslookup = 0;
+			th_state[i].pathptr = (long *)0;
 			th_state[i].pathname[0] = 0;
 		}
 		cur_max = 0;
@@ -1237,6 +1202,7 @@ void sample_sc(long long start, long long stop)
 	for (kd = (kd_buf *)my_buffer; kd < end_of_sample; kd++) {
 	        int debugid, thread, cpunum;
 		int type, clen, mode;
+		int len;
 		char *p;
 		long *sargptr;
 		double i_latency;
@@ -1263,8 +1229,8 @@ void sample_sc(long long start, long long stop)
 	        if (type == DECR_TRAP)
 		        i_latency = handle_decrementer(kd);
 
-		now = (((unsigned long long)kd->timestamp.tv_sec) << 32) |
-		        (unsigned long long)((unsigned int)(kd->timestamp.tv_nsec));
+		now = (((uint64_t)kd->timestamp.tv_sec) << 32) |
+		        (uint64_t)((unsigned int)(kd->timestamp.tv_nsec));
 
 		timestamp = ((double)now) / divisor;
 
@@ -1432,32 +1398,48 @@ void sample_sc(long long start, long long stop)
 
 			    ti->thread = thread;
 			    ti->type   = -1;
-			    ti->vfslookup = 0;
+			    ti->pathptr = (long *)0;
 			    ti->child_thread = 0;
 		    }
-		    if (ti->vfslookup == 0) {
-			    ti->vfslookup = 1;
+		    if (!ti->pathptr) {
 			    ti->arg1 = kd->arg1;
-			    memset(&ti->pathname[0], 0, 32);
+			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
 			    sargptr = (long *)&ti->pathname[0];
 				
 			    *sargptr++ = kd->arg2;
 			    *sargptr++ = kd->arg3;
 			    *sargptr++ = kd->arg4;
+			    ti->pathptr = sargptr;
 
-		    } else if (ti->vfslookup == 1) {
-		            ti->vfslookup = 0;
-	  
-			    sargptr = (long *)&ti->pathname[12];
-			    *sargptr++ = kd->arg1;
-			    *sargptr++ = kd->arg2;
-			    *sargptr++ = kd->arg3;
-			    *sargptr++ = kd->arg4;
+		    } else {
+		            sargptr = ti->pathptr;
+
+			    /*
+                               We don't want to overrun our pathname buffer if the
+                               kernel sends us more VFS_LOOKUP entries than we can
+                               handle.
+			    */
+
+                            if ((long *)sargptr < (long *)&ti->pathname[PATHLENGTH])
+			      {
+				*sargptr++ = kd->arg1;
+				*sargptr++ = kd->arg2;
+				*sargptr++ = kd->arg3;
+				*sargptr++ = kd->arg4;
+				ti->pathptr = sargptr;
+
+				/* print the tail end of the pathname */
+				len = strlen(ti->pathname);
+				if (len > 28)
+				  len -= 28;
+				else
+				  len = 0;
 			    
-			    if (log_fp) {
-			      fprintf(log_fp, "%9.1f %8.1f\t\t%-28.28s %-28s    %-8x   %-8x  %d  %s\n",
-				    timestamp - start_bias, delta, "VFS_LOOKUP", 
-				    ti->pathname, ti->arg1, thread, cpunum, command);
+				if (log_fp) {
+				  fprintf(log_fp, "%9.1f %8.1f\t\t%-28.28s %-28s    %-8x   %-8x  %d  %s\n",
+					  timestamp - start_bias, delta, "VFS_LOOKUP", 
+					  &ti->pathname[len], ti->arg1, thread, cpunum, command);
+				}
 			    }
 		    }
 		    last_timestamp = timestamp;
@@ -1554,7 +1536,8 @@ enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double 
        else
 	       ti->type = -1;
        ti->stime  = timestamp;
-       ti->vfslookup = 0;
+       ti->pathptr = (long *)0;
+
 #if 0
        if (print_info && fp)
 	       fprintf(fp, "cur_max = %d,  ti = %x,  type = %x,  thread = %x\n", cur_max, ti, ti->type, ti->thread);
@@ -1607,7 +1590,7 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double t
 
 		       ti->thread = thread;
 		       ti->child_thread = 0;
-		       ti->vfslookup = 0;
+		       ti->pathptr = (long *)0;
 	       }
        }
        ti->type = -1;
@@ -1654,7 +1637,7 @@ check_for_thread_update(int thread, int type, kd_buf *kd)
 
 		    ti->thread = thread;
 		    ti->type   = -1;
-		    ti->vfslookup = 0;
+		    ti->pathptr = (long *)0;
 	    }
 	    ti->child_thread = kd->arg1;
 	    return (1);
@@ -1684,7 +1667,8 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 	double timestamp, last_timestamp, delta, start_bias;
 	int thread, cpunum;
 	int debugid, type, clen;
-	unsigned long long now;
+	int len;
+	uint64_t now;
 	struct th_info *ti;
 	long  *sargptr;
 	char  *p;
@@ -1721,8 +1705,8 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 	if (kd_stop >= end_of_sample)
 	        kd_stop = end_of_sample - 1;
 
-	now = (((unsigned long long)kd_start->timestamp.tv_sec) << 32) |
-	        (unsigned long long)((unsigned int)(kd_start->timestamp.tv_nsec));
+	now = (((uint64_t)kd_start->timestamp.tv_sec) << 32) |
+	        (uint64_t)((unsigned int)(kd_start->timestamp.tv_nsec));
 	timestamp = ((double)now) / divisor;
 
 	for (kd = kd_start; kd <= kd_stop; kd++) {
@@ -1741,8 +1725,8 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 		debugid = kd->debugid;
 		type    = kd->debugid & DBG_FUNC_MASK;
 
-		now = (((unsigned long long)kd->timestamp.tv_sec) << 32) |
-		        (unsigned long long)((unsigned int)(kd->timestamp.tv_nsec));
+		now = (((uint64_t)kd->timestamp.tv_sec) << 32) |
+		        (uint64_t)((unsigned int)(kd->timestamp.tv_nsec));
 
 		timestamp = ((double)now) / divisor;
 
@@ -1838,31 +1822,46 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 
 			    ti->thread = thread;
 			    ti->type   = -1;
-			    ti->vfslookup = 0;
+			    ti->pathptr = (long *)0;
 			    ti->child_thread = 0;
 		    }
-		    if (ti->vfslookup == 0) {
-			    ti->vfslookup = 1;
+		    if (!ti->pathptr) {
 			    ti->arg1 = kd->arg1;
-			    memset(&ti->pathname[0], 0, 32);
+			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
 			    sargptr = (long *)&ti->pathname[0];
 				
 			    *sargptr++ = kd->arg2;
 			    *sargptr++ = kd->arg3;
 			    *sargptr++ = kd->arg4;
+			    ti->pathptr = sargptr;
 
-		    } else if (ti->vfslookup == 1) {
-		            ti->vfslookup = 0;
-	  
-			    sargptr = (long *)&ti->pathname[12];
-			    *sargptr++ = kd->arg1;
-			    *sargptr++ = kd->arg2;
-			    *sargptr++ = kd->arg3;
-			    *sargptr++ = kd->arg4;
+		    } else {
+  		            sargptr = ti->pathptr;
+
+			    /*
+                               We don't want to overrun our pathname buffer if the
+                               kernel sends us more VFS_LOOKUP entries than we can
+                               handle.
+			    */
+
+                            if ((long *)sargptr < (long *)&ti->pathname[PATHLENGTH])
+			      {
+				*sargptr++ = kd->arg1;
+				*sargptr++ = kd->arg2;
+				*sargptr++ = kd->arg3;
+				*sargptr++ = kd->arg4;
+
+				/* print the tail end of the pathname */
+				len = strlen(ti->pathname);
+				if (len > 28)
+				  len -= 28;
+				else
+				  len = 0;
 			    
-			    fprintf(log_fp, "%9.1f %8.1f\t\t%-28.28s %-28s    %-8x   %-8x  %d  %s\n",
-				    timestamp - start_bias, delta, "VFS_LOOKUP", 
-				    ti->pathname, ti->arg1, thread, cpunum, command);
+				fprintf(log_fp, "%9.1f %8.1f\t\t%-28.28s %-28s    %-8x   %-8x  %d  %s\n",
+					timestamp - start_bias, delta, "VFS_LOOKUP", 
+					&ti->pathname[len], ti->arg1, thread, cpunum, command);
+			      }
 		    }
 		    last_timestamp = timestamp;
 		    break;

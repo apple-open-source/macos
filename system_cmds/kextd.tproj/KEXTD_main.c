@@ -9,7 +9,7 @@ static const char * arg0 = NULL;
 
 static void usage(void)
 {
-    printf("usage: %s [-v] [-d] [-x] [-b bootlevel]\n", arg0);
+    printf("usage: %s [-v] [-d] [-x] [-j] [-b bootlevel] [-f dirpath]\n", arg0);
     exit(1);
 }
 
@@ -18,14 +18,15 @@ int main (int argc, const char *argv[])
     KEXTDRef kextd;
     KEXTReturn error;
     KEXTBootlevel bootlevel;
+    CFStringRef str;
     CFURLRef url;
-    CFArrayRef array;
+    CFMutableArrayRef array;
     CFIndex period;
     Boolean safeBoot;
     Boolean beVerbose;
     Boolean enableTimer;
     Boolean debug;
-    const void * vals[1];
+    Boolean cdMKextBoot;
     int c;
 
     arg0 = argv[0];
@@ -34,13 +35,26 @@ int main (int argc, const char *argv[])
     safeBoot = false;
     beVerbose = false;
     enableTimer = false;
+    cdMKextBoot = false;
     bootlevel = kKEXTBootlevelNormal;
 
-    while ( (c = getopt(argc, (char **)argv, "xvdb:")) != -1 ) {
+    url = CFURLCreateWithFileSystemPath(NULL, CFSTR(DEFAULT_SEARCH_PATH), kCFURLPOSIXPathStyle, true);
+    if ( !url ) {
+        printf("Error opening: %s.\n", DEFAULT_SEARCH_PATH);
+        exit(1);
+    }
+    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(array, url);
+    CFRelease(url);
+
+    while ( (c = getopt(argc, (char **)argv, "xvdjb:f:")) != -1 ) {
         switch ( c ) {
 
             case 'x':
                 safeBoot = true;
+                break;
+            case 'v':
+                beVerbose = true;
                 break;
             case 'd':
                 debug = true;
@@ -68,6 +82,27 @@ int main (int argc, const char *argv[])
                 }
                 break;
 
+            case 'j':
+                cdMKextBoot = true;
+                break;
+                
+            case 'f':
+                if ( !optarg ) {
+                    usage();
+                }
+                str = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingNonLossyASCII);
+                if ( str )
+                    url = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, true);
+                else
+                    url = NULL;
+                if ( !url ) {
+                    printf("Error opening: %s.\n", optarg);
+                } else {
+                    CFArrayAppendValue(array, url);
+                    CFRelease(url);
+                }
+                break;
+
             default:
                 usage();
         }
@@ -79,16 +114,6 @@ int main (int argc, const char *argv[])
         usage();
     }
 
-
-
-    url = CFURLCreateWithFileSystemPath(NULL, CFSTR(DEFAULT_SEARCH_PATH), kCFURLPOSIXPathStyle, true);
-    if ( !url ) {
-        printf("Error opening: %s.\n", DEFAULT_SEARCH_PATH);
-        exit(1);
-    }
-    vals[0] = url;
-    array = CFArrayCreate(NULL, vals, 1, &kCFTypeArrayCallBacks);
-    CFRelease(url);
     kextd = KEXTDCreate(array, &error);
     CFRelease(array);
     if ( !kextd ) {
@@ -98,9 +123,9 @@ int main (int argc, const char *argv[])
     
     KEXTDRegisterHelperCallbacks(kextd, NULL);
 #if TIMERSOURCE
-    error = KEXTDStartMain(kextd, beVerbose, safeBoot, debug, enableTimer, period, bootlevel);
+    error = KEXTDStartMain(kextd, beVerbose, safeBoot, debug, enableTimer, period, bootlevel, cdMKextBoot);
 #else
-    error = KEXTDStartMain(kextd, beVerbose, safeBoot, debug, bootlevel);
+    error = KEXTDStartMain(kextd, beVerbose, safeBoot, debug, bootlevel, cdMKextBoot);
 #endif
     if ( error != kKEXTReturnSuccess ) {
         KEXTDFree(kextd);

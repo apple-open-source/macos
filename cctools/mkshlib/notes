@@ -4,6 +4,10 @@ TODO:
 - Added something that allows a non-existant -arch not to fail hard (NRW group
   request for libsys 1.0 and 2.0 compatiblity).
 
+Changes for the 5.9 release (the cctools-359 release):
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes the 5.3 release (the cctools-292 release):
 - Added the int type to max_slotnum_seen in parse_spec.c to remove a warning
   from the egcs compiler.

@@ -6,12 +6,20 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netinfo/ni.h>
 #include <netdb.h>
 #include "nibind_glue.h"
 #include <NetInfo/system.h>
+
+#ifdef _UNIX_BSD_43_
+const char PID_FILE[] = "/etc/nibindd.pid";
+#else
+const char PID_FILE[] = "/var/run/nibindd.pid";
+#endif
 
 /*
  * Translate a string into an IP address. The string
@@ -74,6 +82,8 @@ int main(int argc, char *argv[])
 	nibind_registration *reg;
 	nibind_addrinfo *addrs;
 	unsigned nreg;
+	struct stat sb;
+	int rc;
 
 	myname = argv[0];
 	opt = NB_USAGE;
@@ -171,6 +181,39 @@ int main(int argc, char *argv[])
 		}
 	}
 	else addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	if (host == NULL)
+	{
+		/* check if nibindd is running on the local host */
+		rc = stat(PID_FILE, &sb);
+		if (rc < 0)
+		{
+			if (errno == ENOENT)
+			{
+				switch (opt)
+				{
+					case NB_CREATEMASTER:
+					case NB_CREATECLONE:
+					case NB_ALIAS:
+						fprintf(stderr, "The \"nibindd\" daemon is not running on this desktop system.\n");
+						fprintf(stderr, "To set up a NetInfo server, edit the file \"/etc/hostconfig\",\n");
+						fprintf(stderr, "set \"NETINFOSERVER=-YES-\" and re-start the computer.\n");
+						exit(1);
+					case NB_GET:
+					case NB_LIST:
+						fprintf(stderr, "The \"nibindd\" daemon is not running on this desktop system.\n");
+						fprintf(stderr, "Port information is not available.\n");
+						exit(0);
+					case NB_UNREG:
+					case NB_DESTROY:
+					default:
+						fprintf(stderr, "warning: cannot find %s\n", PID_FILE);
+				}
+			}
+			fprintf(stderr, "%s: cannot check nibindd pid file: %s\n", myname, strerror(errno));
+			exit(1);
+		}
+	}
 
 	nb = nibind_new(&addr);
 	if (nb == NULL)

@@ -1,6 +1,77 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.9 release (the cctools-381 release):
+- Changed check_Mach_O() in ofile.c and ifdef'ed out the check for unknown
+  load commands when OFI is defined.  This is needed so that new load commands
+  do not cause NSCreateObjectFileImageFromFile() and the like API's to fail
+  when a new load command is seen in the image.  The dynamic linker has also
+  been changed to look for the new LC_REQ_DYLD bit and cause dyld to refuse to
+  use an image if it contains something that dyld must understand to execute
+  properly.
+
+Changes for the 5.9 release (the cctools-370 release):
+- Added checks in check_object() checkout.c to check that if there is a hints
+  command there is a dysymtab command and if the nhints is non-zero it matches
+  the nundefsym value.  Also added check in dyld_order() in checkout.c to
+  check the order of the local, external and undefined symbol indexes in
+  the dysymtab command.
+- Fixed bugs in breakout() in breakout.c where if one of the ofile routines
+  set errors to non-zero the breakout code continued on and used
+  ofile.arch_flag.name which could be NULL when it called savestr() and caused
+  a crash.  This happened when an new load command was added and the old code
+  did not know about it, printed a message but later crashed.
+
+Changes for the 5.9 release (the cctools-369 release):
+- Added code in check_object() in checkout.c to deal with the two-level hints
+  command.  Also added code in dyld_order() in checkout.c to deal with the
+  hints table itself.
+- Changed copy_new_symbol_info() in writeout.c to take a the old and new hints
+  command and writeout the hints.
+
+Changes for the 5.9 release (the cctools-367 release):
+- Added code in check_Mach_O() in ofile.c to check an LC_SUB_LIBRARY command.
+  Added code in swap_object_headers() in swap_headers.c to call
+  swap_sub_library_command().  Added swap_sub_library_command() to bytesex.c .
+  Radar bug #2697458.
+- Added code in check_Mach_O() in ofile.c to check an LC_TWOLEVEL_HINTS command.
+  Added code in swap_object_headers() in swap_headers.c to call
+  swap_twolevel_hints_command(). Added swap_twolevel_hints_command() and
+  swap_twolevel_hint() to bytesex.c .  Radar bug #2558069.
+- Fixed a problem with writeout() in writeout.c not deallocating the memory if
+  the write() fails.  This is an issue with the redo_prebinding(3) API so it can
+  effect update_prebinding(1).  Radar bug #2691920.
+
+Changes for the 5.9 release (the cctools-364 release):
+- Changed cpusubtype_combine() in best_arch.c (as well as NXCombineCpuSubtypes()
+  in libmacho) for the ppc to select the highest subtype when there is not
+  an exact match and neither is a 601.
+- Changed cpusubtype_findbestarch() in best_arch.c (as well as
+  NXFindBestFatArch() in libmacho) which had a problem with selecting the ppc
+  cpusubtype when an exact match could not be found.  See Radar bug #2678019
+  against exec(2).
+
+Changes for the 5.9 release (the cctools-360 release):
+- Fixed a bug in writeout() that showed up in strip(1) not correctly excluding
+  N_SECT symbols marked with the attribute NO_TOC from the the table of
+  contents.  Radar bug #2663483. The old libtool/ranlib Radar bug was #2494286.
+- Changed the two calls to malloc() in get_arch_from_host.c to savestr() and
+  changed the one call to malloc() in arch.c to savestr().  These were
+  changed to allocate() because libdyld/ofi.c needs this and overrides
+  savestr() so using allocate() would end up getting multiple definitions of
+  _savestr (one from ofi.o and one from libstuff(allocate.o)).
+- Changed breakout() in breakout.c to allocate and return its ofile struct for
+  the arch it returns.  This will allow the redo_prebinding library API to
+  call ofile_unmap() on this.
+- Changed guess_short_name() to be __private_extern__ in guess_short_name.c .
+
+Changes for the 5.9 release (the cctools-359 release):
+- Fixed two places in ofile.c, three in fatal_arch.c and one in writeout.c that
+  was using size_ar_name() and not using the member_name_size and member_name
+  fields of the ofile struct for printing error messages.
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes for the 5.8 release (the cctools-357 release):
 - Added support for the CPU_SUBTYPE_POWERPC_7450 in arch.c, best_arch.c and
   get_arch_from_host.c. Radar bug #2599869.

@@ -41,23 +41,20 @@ includes
 #include <fcntl.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <net/dlil.h>
-#define	SYSTEMCONFIGURATION_NEW_API
+
+#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
+#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+#include <SystemConfiguration/v1Compatibility.h>
+#include <SystemConfiguration/SCSchemaDefinitions.h>
+#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
-#include "../Family/PPP.kmodproj/ppp.h"
-#include "fsm.h"
-#include "lcp.h"
-#include "ipcp.h"
-#include "chap.h"
-#include "upap.h"
 #include "ppp_client.h"
 #include "ppp_option.h"
 #include "ppp_manager.h"
 #include "ppp_command.h"
-#include "ppp_utils.h"
-#include "link.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -69,46 +66,82 @@ enum {
     do_error
 };
 
+#define ICON 	"NetworkConnect.icns"
+
 /* -----------------------------------------------------------------------------
 forward declarations
 ----------------------------------------------------------------------------- */
 
 
-void initThings();
+void initThings(const char *bundleDir);
 void postInitThings();
 void startListen();
 void socketCallBack(CFSocketRef s, CFSocketCallBackType type,
                      CFDataRef address, const void *data, void *info);
-u_long processRequest (u_short id, struct msg *msg);
+u_long processRequest (struct client *client, struct msg *msg);
+u_long close_cleanup (struct client *client, struct msg *msg);
 
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
 
 struct msg 		gMsg;
-CFSocketRef		gApiListenRef;
-
-extern TAILQ_HEAD(, ppp) 	ppp_head;
-extern CFSocketRef		gEvtListenRef;
-extern CFSocketRef		gPPPProtoRef;
-
+CFSocketRef		gApiListenRef = 0;
+char 			*gPluginsDir = 0;
+CFBundleRef 		gBundleRef = 0;
+CFURLRef 		gBundleURLRef = 0;
+CFStringRef 		gCancelRef = 0;
+CFStringRef 		gInternetConnectRef = 0;
+CFURLRef 		gIconURLRef = 0;
 
 /* -----------------------------------------------------------------------------
 plugin entry point, called by configd
 ----------------------------------------------------------------------------- */
 void start(const char *bundleName, const char *bundleDir)
 {
-    initThings();
+    
+    initThings(bundleDir);
     startListen();
     postInitThings();
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void initThings()
+void initThings(const char *bundleDir)
 {
-    // load the PPP Family
-    loadKext(KEXT_PPP);
+    CFStringRef		dirref;
+    CFURLRef 		pluginurlref;
+    char 		str[MAXPATHLEN];
+    
+    dirref = CFStringCreateWithCString(NULL, bundleDir, kCFStringEncodingUTF8);
+    if (dirref) {
+        gBundleURLRef = CFURLCreateWithFileSystemPath(NULL, dirref, kCFURLPOSIXPathStyle, 1);
+        if (gBundleURLRef) {
+            gBundleRef = CFBundleCreate(NULL, gBundleURLRef);
+            if (gBundleRef) {
+                pluginurlref = CFBundleCopyBuiltInPlugInsURL(gBundleRef);
+                if (pluginurlref) {
+                    getcwd(str, MAXPATHLEN);
+                    gPluginsDir = malloc(strlen(str) + strlen(bundleDir) + CFStringGetLength(CFURLGetString(pluginurlref)) + 1);
+                    if (gPluginsDir) {
+                        strcpy(gPluginsDir, str);
+                        strcat(gPluginsDir, bundleDir + 1);
+                        strcat(gPluginsDir, "/");
+                        CFStringGetCString(CFURLGetString(pluginurlref), gPluginsDir + strlen(gPluginsDir), CFStringGetLength(CFURLGetString(pluginurlref)) + 1, kCFStringEncodingUTF8);
+                    }
+                    CFRelease(pluginurlref);
+                }
+            }
+        }
+        CFRelease(dirref);
+    }
+
+    // create misc notification strings
+    if (gBundleRef) {
+        gCancelRef = CFBundleCopyLocalizedString(gBundleRef, CFSTR("Cancel"), CFSTR("Cancel"), NULL);
+	gInternetConnectRef = CFBundleCopyLocalizedString(gBundleRef, CFSTR("Internet Connect"), CFSTR("Internet Connect"), NULL);
+        gIconURLRef = CFBundleCopyResourceURL(gBundleRef, CFSTR(ICON), NULL, NULL);
+    }
 }
 
 /* -----------------------------------------------------------------------------
@@ -117,10 +150,7 @@ void initThings()
 void postInitThings()
 {
 
- //   CFUserNotificationDisplayNotice(30, kCFUserNotificationCautionAlertLevel, NULL, NULL, NULL, CFSTR("Christpohe Alerte"),
- //       CFSTR("just un petit coucou"), NULL);
     ppp_init_all();
-
 }
 
 /* -----------------------------------------------------------------------------
@@ -131,7 +161,7 @@ void startListen ()
     int			error, s;
     mode_t		mask;
 
-    printf("Running PPPController plugin...\n");
+    SCDLog(LOG_INFO, CFSTR("Running PPPController plugin...\n"));
 
     s = socket(AF_LOCAL, SOCK_STREAM, 0);
 
@@ -143,7 +173,7 @@ void startListen ()
     mask = umask(0);
     error = bind(s, (struct sockaddr *)&serveraddr, SUN_LEN(&serveraddr));
     if (error) {
-        printf("PPPController: Bind error... err = 0x%x\n", errno);
+        SCDLog(LOG_INFO, CFSTR("PPPController: Bind error... err = 0x%x\n"), errno);
         umask(mask);
         return;
     }
@@ -164,10 +194,10 @@ void socketCallback(CFSocketRef s, CFSocketCallBackType type,
 {
     int 		fd = CFSocketGetNative(s);
     struct sockaddr_un	cliaddr;
-    int			i, connfd, clilen, action;//, flags;
+    int			connfd, clilen, action;//, flags;
     ssize_t		n;
-    struct ppp	 	*ppp;
     CFSocketRef		connRef;
+    struct client 	*client;
 
     if (s == gApiListenRef) {
         clilen = sizeof(cliaddr);
@@ -181,17 +211,18 @@ void socketCallback(CFSocketRef s, CFSocketCallBackType type,
 
         connRef = AddSocketNativeToRunLoop(connfd);
 
-        if (client_new(connRef)) {
+        if (!client_new(connRef)) {
+            // no memory to create client...
             DelSocketRef(connRef);
             close(connfd);
-            return;			// "too many clients", Fix Me
+            return;			       
         }
+        
         return;
     }
 
-    for (i = 0; i < MAX_CLIENT; i++) {	// check all clients for data
-        if (!(clients[i] && (s == clients[i]->ref)))
-            continue;
+    client = client_findbysocketref(s);
+    if (client) {
 
         action = do_process;
         if ((n = read(fd, &gMsg, sizeof(struct ppp_msg_hdr))) == 0) {
@@ -213,83 +244,24 @@ void socketCallback(CFSocketRef s, CFSocketCallBackType type,
             case do_close:
                 PRINTF(("Connection closed...\n"));
                 /* connection closed by client */
-                close_cleanup(i, &gMsg);
+                close_cleanup(client, &gMsg);
                 DelSocketRef(s);
-                client_dispose(i);
+                client_dispose(client);
                 break;
             case do_error:
                 PRINTF(("Connection length error...\n"));
                 break;
             case do_process:
                 // process client request
-                processRequest(i, &gMsg);
+                processRequest(client, &gMsg);
                 break;
         }
-        break; // done with this request
    }
-
-    if (i >= MAX_CLIENT) {
-        // do it better...
-        if (s == gEvtListenRef) {
-            link_event();
-        }
-
-        if (s == gPPPProtoRef) {
-
-            action = do_process;
-           if ((n = read(fd, &gMsg.data[0], MAXDATASIZE)) == 0) {
-                action = do_close;
-            }
-
-            switch (action) {
-                case do_close:
-                    PRINTF(("Connection closed...\n"));
-                    /* connection closed by client */
-                    // do linkdown here
-                    break;
-                case do_process:
-                    gMsg.hdr.m_len = n;
-                    ppp_readsockfd_data(&gMsg);
-                    break;
-            }
-        }
-
-        // reloop around tty fd...
-        // Fix this algo ASAP !
-        
-        TAILQ_FOREACH(ppp, &ppp_head, next) {
-
-            if (s == ppp->ttyref) {
-
-                n = findreader(ppp_makeref(ppp));
-                if (n == 0)
-                    break;	// no pending read
-                
-               action = do_process;
-                if ((n = read(fd, &gMsg.data[0], n /*MAXDATASIZE*/)) == 0) {
-                    action = do_close;
-                }
-                switch (action) {
-                    case do_close:
-                        PRINTF(("Connection closed...\n"));
-                        /* connection closed by client */
-                        // do linkdown here
-                        break;
-                    case do_process:
-                        gMsg.hdr.m_len = n;
-                        ppp_readfd_data(ppp_makeref(ppp), &gMsg);
-                        break;
-                }
-            }
-        }
-    }
-
-    return;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long processRequest (u_short id, struct msg *msg)
+u_long processRequest (struct client *client, struct msg *msg)
 {
     struct ppp_status *stat;
 
@@ -297,75 +269,49 @@ u_long processRequest (u_short id, struct msg *msg)
 
     switch (msg->hdr.m_type) {
         case PPP_VERSION:
-            ppp_version(id, msg);
+            ppp_version(client, msg);
             break;
         case PPP_STATUS:
-            ppp_status(id, msg);
+            ppp_status(client, msg);
             break;
         case PPP_GETOPTION:
-            ppp_getoption(id, msg);
+            ppp_getoption(client, msg);
             break;
         case PPP_SETOPTION:
-            ppp_setoption(id, msg);
+            ppp_setoption(client, msg);
             break;
         case PPP_CONNECT:
-            ppp_connect(id, msg);
+            ppp_connect(client, msg);
             break;
         case PPP_DISCONNECT:
-            ppp_disconnect(id, msg);
-            break;
-        case PPP_LISTEN:
-            ppp_listen(id, msg);
+            ppp_disconnect(client, msg);
             break;
         case PPP_ENABLE_EVENT:
-            ppp_enable_event(id, msg);
+            ppp_enable_event(client, msg);
             break;
         case PPP_DISABLE_EVENT:
-            ppp_disable_event(id, msg);
-            break;
-        case PPP_APPLY:
-            ppp_apply(id, msg);
+            ppp_disable_event(client, msg);
             break;
         case PPP_GETNBLINKS:
-            ppp_getnblinks(id, msg);
+            ppp_getnblinks(client, msg);
             break;
         case PPP_GETLINKBYINDEX:
-            ppp_getlinkbyindex(id, msg);
+            ppp_getlinkbyindex(client, msg);
+            break;
+        case PPP_GETLINKBYSERVICEID:
+            ppp_getlinkbyserviceid(client, msg);
             break;
 
-            // ppp extensions calls
-        case PPP_CCLNOTE:
-            ppp_cclnote(id, msg);
+        // private pppd event
+        case PPPD_EVENT:
+            ppp_event(client, msg);
             break;
-        case PPP_CCLSPEED:
-            ppp_cclspeed(id, msg);
-            break;
-        case PPP_CCLRESULT:
-            ppp_cclresult(id, msg);
-            break;
-        case PPP_OPENFD:
-            ppp_openfd(id, msg);
-            break;
-        case PPP_CLOSEFD:
-            ppp_closefd(id, msg);
-            break;
-        case PPP_WRITEFD:
-            ppp_writefd(id, msg);
-            break;
-        case PPP_READFD:
-            ppp_readfd(id, msg);
-            break;
-        case PPP_CCLWRITETEXT:
-            ppp_cclwritetext(id, msg);
-            break;
-        case PPP_CCLMATCHTEXT:
-            ppp_cclmatchtext(id, msg);
-            break;
+
     }
 
     if (msg->hdr.m_len != 0xFFFFFFFF) {
 
-        write(CFSocketGetNative(clients[id]->ref), msg, sizeof(struct ppp_msg_hdr) + msg->hdr.m_len);
+        write(CFSocketGetNative(client->ref), msg, sizeof(struct ppp_msg_hdr) + msg->hdr.m_len);
         //PRINTF(("process_request : write on output, len = %d\n", sizeof(struct ppp_msg_hdr) + msg->hdr.m_len));
         PRINTF(("process_request : m_type = 0x%x, result = 0x%x, cookie = 0x%x, link = 0x%x, len = 0x%x\n",
                 msg->hdr.m_type, msg->hdr.m_result, msg->hdr.m_cookie, msg->hdr.m_link, msg->hdr.m_len));
@@ -390,16 +336,11 @@ u_long processRequest (u_short id, struct msg *msg)
 }
 
 /* -----------------------------------------------------------------------------
-// msg probably invalid...
+perform some cleanup action when client is about to leave
 ----------------------------------------------------------------------------- */
-u_long close_cleanup (u_short id, struct msg *msg)
+u_long close_cleanup (struct client *client, struct msg *msg)
 {
 
-    if (!msg)
-        msg = &gMsg;
-    
-    // close fd, in case it was left behind...
-    ppp_closefd(id, msg);
     return 0;
 }
 
@@ -431,28 +372,6 @@ int DelSocketRef(CFSocketRef ref)
     CFSocketInvalidate(ref);
     CFRelease(ref);
     return fd;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-CFSocketRef CreateSocketRefWithNative(int fd)
-{
-    CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
-
-    return CFSocketCreateWithNative(NULL, fd, kCFSocketReadCallBack,
-                                   socketCallback, &context);
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-CFRunLoopSourceRef AddSocketRefToRunLoop(CFSocketRef ref)
-{
-    CFRunLoopSourceRef	rls;
-
-    rls = CFSocketCreateRunLoopSource(NULL, ref, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-
-    return rls;
 }
 
 /* -----------------------------------------------------------------------------

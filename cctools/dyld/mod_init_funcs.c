@@ -197,7 +197,9 @@ enum bool bind_now)
 		if(GET_MODINIT_STATE(library_image->modules[j]) == 0 &&
 		   library_image->image.lazy_init == FALSE){
 		    SET_MODINIT_STATE(library_image->modules[j]);
+
 		    for(k = 0;
+			library_image->image.init != NULL &&
 			k < (dylib_modules[j].ninit_nterm & 0xffff);
 			k++){
 			addr = init[(dylib_modules[j].iinit_iterm &
@@ -526,6 +528,9 @@ top:
 		    if(GET_MODTERM_STATE(q->images[i].modules[j]) != 0)
 			continue;
 		    SET_MODTERM_STATE(q->images[i].modules[j]);
+
+		    if(q->images[i].image.term == NULL)
+			continue;
 
 		    for(k = 0;
 			k < ((dylib_modules[j].ninit_nterm >> 16) & 0xffff);

@@ -54,7 +54,7 @@ static void   zinsert(zmem * zp, int ndx);
 static void   zdelete(zmem * zp, int ndx);
 static void   zcoalesce(void);
 
-#define ZALLOC_NODES	384
+#define ZALLOC_NODES	1024
 
 static void malloc_error()
 {

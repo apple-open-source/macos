@@ -700,6 +700,17 @@ extern int gdbtk_test (char *);
       {
 	catch_command_errors (source_command, gdbinit, 0, RETURN_MASK_ALL);
       }
+  
+  /* These need to be set this late in the initialization to ensure that
+     they are defined for the current environment.  They define the
+     radix variables needed by a save-breakpoints file to preserve the
+     radix across the breakpoints restoration assuming they are restored
+     using the -x (-command) command line options.  */
+     
+  set_internalvar (lookup_internalvar ("input_radix"),
+		   value_from_longest (builtin_type_int, (LONGEST) input_radix));
+  set_internalvar (lookup_internalvar ("output_radix"),
+		   value_from_longest (builtin_type_int, (LONGEST) output_radix));
 
   for (i = 0; i < ncmd; i++)
     {

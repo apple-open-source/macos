@@ -30,6 +30,7 @@ int echo_commands  = 0;				/* echo command lines to the history	*/
 int wrap_lines 	   = 1;				/* wrap history lines			*/
 int show_so_si_src = 1;				/* show source with so/si commands	*/
 int dx_state	   = 1;				/* breakpoints enabled state		*/
+int sidebar_state  = 1;				/* display reg sidebar in scroll mode	*/
 int tab_value 	   = DEFAULT_TAB_VALUE;		/* history display tab value		*/
 int pc_area_lines  = DEFAULT_PC_LINES;		/* user controlled pc area max lines	*/
 int cmd_area_lines = DEFAULT_CMD_LINES;		/* user controlled cmd area max lines	*/
@@ -53,6 +54,7 @@ static char *echo_args;
 static char *wrap_args;
 static char *sosi_args;
 static char *dx_args;
+static char *sidebar_args;
 static int  new_tab_value      = DEFAULT_TAB_VALUE;
 static int  new_pc_area_lines  = DEFAULT_PC_LINES;
 static int  new_cmd_area_lines = DEFAULT_CMD_LINES;
@@ -70,7 +72,8 @@ static int  new_testing;
  needed to place it where we want it on the macsbug screen in the command line area.
 */
 
-static void check_all_sets(char *theSetting, Gdb_Set_Type type, void *value, int show)
+static void check_all_sets(char *theSetting, Gdb_Set_Type type, void *value, int show,
+			   int confirm)
 {
     char *prompt;
     
@@ -97,14 +100,17 @@ static void check_all_sets(char *theSetting, Gdb_Set_Type type, void *value, int
    arg		      "" | on | off | now | show
    value	      pointer to int switch to be set according to option
    meaning            string to prefix "is [still] {en|dis}abled" messages
+   confirm	      1 if SET/SHOW is entered from terminal and SET confirm on
    additiona_stuff    NULL or function to call to do additional stuff when state changes
+   		      The prototype for this function is:
+   		      	additiona_stuff(int state, int confirm);
     
  As a standard gdb SET command the setting's arguments are handled as a arbitrary string
  to allow us to handle the case when no options are specified.  I'd like to use the enum
  form but that requires a argument.
 */
-static void macsbug_set(char *cmd, char **arg, int *value, char *meaning,
-			void (*additional_stuff)(int state))
+static void macsbug_set(char *cmd, char **arg, int *value, char *meaning, int confirm,
+			void (*additional_stuff)(int state, int confirm))
 {
     int  argc, err = 0;
     char *argv[4], tmpCmdLine[1024];
@@ -117,33 +123,38 @@ static void macsbug_set(char *cmd, char **arg, int *value, char *meaning,
 	if (*value) {
 	    *value = 0;
 	    if (additional_stuff)
-	    	additional_stuff(0);
-	    gdb_printf("%s is disabled\n", meaning);
+	    	additional_stuff(0, confirm);
+	    if (confirm)
+	    	gdb_printf("%s is disabled\n", meaning);
 	} else {
 	    *value = 1;
 	    if (additional_stuff)
-	    	additional_stuff(1);
-	    gdb_printf("%s is enabled\n", meaning);
+	    	additional_stuff(1, confirm);
+	    if (confirm)
+	    	gdb_printf("%s is enabled\n", meaning);
 	}
     } else if (argc == 2) {
 	switch (gdb_keyword(argv[1], options)) {
 	    case 0: /* on   */
-		if (*value)
-		    gdb_printf("%s is still enabled\n", meaning);
-		else {
+		if (*value) {
+		    if (confirm)
+		    	gdb_printf("%s is still enabled\n", meaning);
+		} else {
 		    *value = 1;
 		    if (additional_stuff)
-		    	additional_stuff(1);
-		    gdb_printf("%s is enabled\n", meaning);
+		    	additional_stuff(1, confirm);
+		    if (confirm)
+		    	gdb_printf("%s is enabled\n", meaning);
 		}
 		break;
 	    case 1: /* off  */
 		if (*value) {
 		    *value = 0;
 		    if (additional_stuff)
-		    	additional_stuff(0);
-		    gdb_printf("%s is disabled\n", meaning);
-		} else 
+		    	additional_stuff(0, confirm);
+		    if (confirm)
+		    	gdb_printf("%s is disabled\n", meaning);
+		} else if (confirm)
 		    gdb_printf("%s is still disabled\n", meaning);
 		break;
 	    case 2: /* now  */
@@ -184,7 +195,7 @@ static void macsbug_set(char *cmd, char **arg, int *value, char *meaning,
  We need to tell gdb what's going on too.
 */
 
-static void set_gdb_demangle(int state)
+static void set_gdb_demangle(int state, int confirm)
 {
     if (state) {
 	gdb_execute_command("set print demangle on");
@@ -228,12 +239,12 @@ static void mset(char *arg, int from_tty)
 		if (ditto_args)
 		    gdb_free(ditto_args);
 		ditto_args = strcpy((char *)gdb_malloc(strlen(arg)+1), p);
-		macsbug_set("mset", &ditto_args, &ditto, "Ditto-display in memory dumps", NULL);
+		macsbug_set("mset", &ditto_args, &ditto, "Ditto-display in memory dumps", from_tty, NULL);
 	    } else if (gdb_strcmpl(argv[1], "unmangle")) {
 		if (unmangle_args)
 		    gdb_free(unmangle_args);
 		unmangle_args = strcpy((char *)gdb_malloc(strlen(arg)+1), p);
-		macsbug_set("mset", &unmangle_args, &unmangle, "Unmangling of symbols", set_gdb_demangle);
+		macsbug_set("mset", &unmangle_args, &unmangle, "Unmangling of symbols", from_tty, set_gdb_demangle);
 	    } else
     	    	gdb_error("usage: MSET DITTO | UNMANGLE [ON | OFF | NOW | SHOW] (invalid arguments)");
 	} else
@@ -248,20 +259,20 @@ static void mset(char *arg, int from_tty)
 "On/off options toggle if you don't specify ON or OFF.  NOW or SHOW lets you check\n" 	\
 "the setting without disturbing it.  The options are:\n" 				\
 "\n"	 										\
-"Ê  DITTO:    When on, DM and DMA show ditto marks (''''''') instead of groups\n" 	\
-"Ê            of identical lines.\n" 							\
+"   DITTO:    When on, DM and DMA show ditto marks (''''''') instead of groups\n" 	\
+"             of identical lines.\n" 							\
 "\n" 											\
-"Ê  UNMANGLE: When on, C++ symbols appear as in source code, such as \"TFoo::Bar()\".\n"\
-"Ê            When off, you'll see stuff like \"Bar__4TFooFv\" instead.\n" 		\
+"   UNMANGLE: When on, C++ symbols appear as in source code, such as \"TFoo::Bar()\".\n"\
+"             When off, you'll see stuff like \"Bar__4TFooFv\" instead.\n" 		\
 "\n" 											\
 "SHOW is the same as NOW to display the current setting.  It was added since gdb\n" 	\
 "uses SHOW to show settings.\n" 							\
 "\n" 											\
 "Macsbug features not supported: The is the MacsBug SET command was changed to\n" 	\
-"Ê                               MSET since SET conflicts with the SET gdb command.\n" 	\
+"                                MSET since SET conflicts with the SET gdb command.\n" 	\
 "\n" 											\
-"Ê                               Options AUTOGP, ECHO, MOUSE, MENUBAR, SCROLLPROMPT,\n"	\
-"Ê                               SUSPENDPROMPT, and SIMPLIFIED not supported.\n"	\
+"                                Options AUTOGP, ECHO, MOUSE, MENUBAR, SCROLLPROMPT,\n"	\
+"                                SUSPENDPROMPT, and SIMPLIFIED not supported.\n"	\
 "\n" 											\
 "This command is depricated.  Use SET.  Type \"help set\" to see a list of all gdb\n"	\
 "SET options.  The MacsBug options all begin with \"mb-\" although it is optional\n"	\
@@ -275,7 +286,7 @@ static void mset(char *arg, int from_tty)
  We need to tell gdb what's going on too.
 */
 
-static void control_breakpoints(int state)
+static void control_breakpoints(int state, int confirm)
 {
     if (state)
 	gdb_execute_command("enable breakpoints");
@@ -288,7 +299,7 @@ static void control_breakpoints(int state)
  | dx on | off | now - enable or disable breakpoints |
  *---------------------------------------------------*/
 
-static void dx(char *arg, int from_tty)
+static void dx(char *arg, int confirm)
 {
     if (dx_args)
     	gdb_free(dx_args);
@@ -298,7 +309,7 @@ static void dx(char *arg, int from_tty)
     else
     	dx_args = strcpy((char *)gdb_malloc(1), "");
     
-    macsbug_set("dx", &dx_args, &dx_state, "Breakpoints", control_breakpoints);
+    macsbug_set("dx", &dx_args, &dx_state, "Breakpoints", confirm, control_breakpoints);
     
     gdb_set_int("$__lastcmd__", 39);
 }
@@ -306,7 +317,7 @@ static void dx(char *arg, int from_tty)
 #define DX_HELP \
 "DX [ON | OFF | NOW | SHOW] -- Temporarily enable/disable/toggle breakpoints.\n"	\
 "The setting is toggled when there is no argument.\n"					\
-"Ê\n" 											\
+"\n" 											\
 "SHOW is the same as NOW to display the current setting.  It was added\n" 		\
 "since gdb uses SHOW to show settings."
 
@@ -322,13 +333,15 @@ static void dx(char *arg, int from_tty)
    sw_name		the global switch to be set (an int)
    sw_value		the string value (on | off | now | show)
    help			the SET/SHOW help info
+   confirm	        1 if SET/SHOW is entered from terminal and SET confirm on
    additional_stuff	NULL or a function to be called when the switch state changes
 */
  
 #define SET_ON_OFF_NOW(funct_name, sw_name, sw_value, help, additional_stuff) 		\
-static void funct_name(char *theSetting, Gdb_Set_Type type, void *value, int show)	\
+static void funct_name(char *theSetting, Gdb_Set_Type type, void *value, int show,	\
+		       int confirm)							\
 {											\
-    macsbug_set("set", &sw_value, &sw_name, help, additional_stuff);			\
+    macsbug_set("set", &sw_value, &sw_name, help, confirm, additional_stuff);		\
 }
    
 SET_ON_OFF_NOW(set_ditto,        ditto,          ditto_args, 	"Ditto-display in memory dumps",    NULL);
@@ -337,6 +350,7 @@ SET_ON_OFF_NOW(set_echo,         echo_commands,  echo_args, 	"Echoing command li
 SET_ON_OFF_NOW(set_wrap,         wrap_lines,     wrap_args, 	"Wrapping history lines",           NULL);
 SET_ON_OFF_NOW(set_so_si_source, show_so_si_src, sosi_args, 	"Source with SO/SI",                NULL);
 SET_ON_OFF_NOW(set_dx,           dx_state,     	 dx_args, 	"Breakpoints",           	    control_breakpoints);
+SET_ON_OFF_NOW(set_sidebar,      sidebar_state,  sidebar_args, 	"Displaying register side-bar",     NULL);
 
 #define DITTO_DESCRIPTION 	"Set ditto marks for DM and DMA repeated lines"
 #define UNMANGLE_DESCRIPTION 	"Set C++ symbol unmangling"
@@ -344,13 +358,15 @@ SET_ON_OFF_NOW(set_dx,           dx_state,     	 dx_args, 	"Breakpoints",       
 #define WRAP_DESCRIPTION 	"Set history area line wrapping"
 #define SOSI_DESCRIPTION 	"Set source display with SO/SI"
 #define DX_DESCRIPTION 		"Set stopping on breakpoints"
+#define SIDEBAR_DESCRIPTION 	"Set displaying register side-bar (for ID, IL, IP, SO, SI)"
 
 
 /*------------------------------------------------------------------------*
  | set_tab - SET mb-tab <tab setting to detab source for history display> |
  *------------------------------------------------------------------------*/
 
-static void set_tab(char *theSetting, Gdb_Set_Type type, void *value, int show)
+static void set_tab(char *theSetting, Gdb_Set_Type type, void *value, int show,
+		    int confirm)
 {
     if (new_tab_value < 0 | new_tab_value > 20)
     	gdb_error("invalid tab value (must be 0 to 20).");
@@ -365,7 +381,8 @@ static void set_tab(char *theSetting, Gdb_Set_Type type, void *value, int show)
  | set_pc_area = SET mb-pc-area <nbr of lines in pc area> |
  *--------------------------------------------------------*/
 
-static void set_pc_area(char *theSetting, Gdb_Set_Type type, void *value, int show)
+static void set_pc_area(char *theSetting, Gdb_Set_Type type, void *value, int show,
+			int confirm)
 {
     if (new_pc_area_lines < MIN_PC_LINES || new_pc_area_lines > MAX_PC_LINES)
 	gdb_error("screen pc area must be %d to %d lines long", MIN_PC_LINES, MAX_PC_LINES);
@@ -383,7 +400,8 @@ static void set_pc_area(char *theSetting, Gdb_Set_Type type, void *value, int sh
  | set_cmd_area = SET mb-cmd-area <nbr of lines in command area> |
  *---------------------------------------------------------------*/
 
-static void set_cmd_area(char *theSetting, Gdb_Set_Type type, void *value, int show)
+static void set_cmd_area(char *theSetting, Gdb_Set_Type type, void *value, int show,
+			 int confirm)
 {
     if (new_cmd_area_lines < MIN_PC_LINES || new_cmd_area_lines > MAX_PC_LINES)
 	gdb_error("screen command linearea must be %d to %d lines long", MIN_CMD_LINES, MAX_CMD_LINES);
@@ -401,7 +419,8 @@ static void set_cmd_area(char *theSetting, Gdb_Set_Type type, void *value, int s
  | set_history_size - SET mb-history <line capacity of history> |
  *--------------------------------------------------------------*/
 
-static void set_history_size(char *theSetting, Gdb_Set_Type type, void *value, int show)
+static void set_history_size(char *theSetting, Gdb_Set_Type type, void *value, int show,
+			     int confirm)
 {
     get_screen_size(&max_rows, &max_cols);
 
@@ -421,7 +440,8 @@ static void set_history_size(char *theSetting, Gdb_Set_Type type, void *value, i
  | set_mb_testing - internal switch to control testing |
  *-----------------------------------------------------*/
 
-static void set_mb_testing(char *theSetting, Gdb_Set_Type type, void *value, int show)
+static void set_mb_testing(char *theSetting, Gdb_Set_Type type, void *value, int show,
+			   int confirm)
 {
     switch (new_testing) {
     	case 0:
@@ -445,7 +465,7 @@ void init_macsbug_set(void)
 {
     MACSBUG_COMMAND(dx,   DX_HELP);
     //MACSBUG_COMMAND(mset, MSET_HELP);
-    gdb_define_plugin("mset", mset, Gdb_Support, MSET_HELP);
+    gdb_define_cmd("mset", mset, Gdb_Support, MSET_HELP);
 
     gdb_define_set_generic(check_all_sets);
     
@@ -459,6 +479,7 @@ void init_macsbug_set(void)
     gdb_define_set("mb-wrap",         set_wrap,         Set_String, &wrap_args,          0, WRAP_DESCRIPTION);
     gdb_define_set("mb-so-si-source", set_so_si_source, Set_String, &sosi_args,          0, SOSI_DESCRIPTION);
     gdb_define_set("mb-dx",  	      set_dx,           Set_String, &dx_args,            0, DX_DESCRIPTION);
+    gdb_define_set("mb-sidebar",      set_sidebar,      Set_String, &sidebar_args,       0, SIDEBAR_DESCRIPTION);
    
     gdb_define_set("mb-tab",          set_tab,          Set_Int,    &new_tab_value,      0, TAB_DESCRIPTION);
     gdb_define_set("mb-pc-area",      set_pc_area,      Set_Int,    &new_pc_area_lines,  0, PC_AREA_DESCRIPTION);
@@ -481,4 +502,5 @@ void init_macsbug_set(void)
     INIT_ENABLED_DISABLED(wrap_args, 	 wrap_lines);
     INIT_ENABLED_DISABLED(sosi_args, 	 show_so_si_src);
     INIT_ENABLED_DISABLED(dx_args, 	 dx_state);
+    INIT_ENABLED_DISABLED(sidebar_args,  sidebar_state);
 }

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 34;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -23,6 +23,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -49,6 +50,16 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
 		089C1669FE841209C02AAC07 = {
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
@@ -56,7 +67,7 @@
 			);
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
 			);
@@ -89,8 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.0.0d1;
-				OPTIMIZATION_CFLAGS = "";
+				MODULE_VERSION = 1.1d5;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -99,8 +109,6 @@
 				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -117,6 +125,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyLargo</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleKeyLargo version 1.1, Copyright 2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -128,11 +138,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d6</string>
+	<string>1.1d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -148,7 +158,14 @@
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
-	<dict/>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
 </dict>
@@ -225,11 +242,31 @@
 			settings = {
 			};
 		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
 		0B81C263FFB7832611CA28AA = {
 			isa = PBXBundleReference;
 			path = AppleKeyLargo.kext;
 			refType = 3;
 		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
@@ -238,6 +275,16 @@
 			name = Products;
 			refType = 4;
 		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
 		247142CAFF3F8F9811CA285C = {
 			children = (
 				73D52285FFE5D05111CA2A1B,
@@ -250,6 +297,16 @@
 			path = "";
 			refType = 4;
 		};
+//240
+//241
+//242
+//243
+//244
+//730
+//731
+//732
+//733
+//734
 		73D52285FFE5D05111CA2A1B = {
 			isa = PBXFileReference;
 			path = KeyLargo.cpp;

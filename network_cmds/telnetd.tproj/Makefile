@@ -14,8 +14,8 @@ PROJECT_TYPE = Tool
 
 HFILES = defs.h ext.h pathnames.h telnetd.h
 
-CFILES = authenc.c global.c slc.c state.c sys_term.c telnetd.c\
-         termstat.c utility.c
+CFILES = global.c slc.c state.c sys_term.c telnetd.c\
+         termstat.c utility.c vasprintf.c strlcpy.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble telnetd.8
 

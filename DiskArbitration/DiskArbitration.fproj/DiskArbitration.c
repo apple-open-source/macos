@@ -27,14 +27,16 @@
 #include <stddef.h>
 
 #include <servers/bootstrap.h>
-#include <mach/mach_error.h>
+#include <mach/mach.h>
 #include <unistd.h>
 
+#include <Security/Authorization.h>
+
 #include <DiskArbitration.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "ClientToServer.h"
 #include "ServerToClient_server.h"
-
 
 /*
 -- DWARNING
@@ -60,121 +62,206 @@
 static mach_port_t gDiskArbSndPort = MACH_PORT_NULL;
 static mach_port_t gDiskArbRcvPort = MACH_PORT_NULL;
 
-static DiskArbCallback_DiskAppearedWithMountpoint_t gCallback_DiskAppearedWithMountpoint = NULL;
-static DiskArbCallback_DiskAppearedWithoutMountpoint_t gCallback_DiskAppearedWithoutMountpoint = NULL;
-static DiskArbCallback_DiskAppeared_t gCallback_DiskAppeared = NULL;
-static DiskArbCallback_DiskAppeared2_t gCallback_DiskAppeared2 = NULL;
+CFMutableDictionaryRef gDiskArbitration_CallbackHandlers = NULL;
 
-static DiskArbCallback_UnmountNotification_t gCallback_UnmountNotification = NULL;
+int gDiskArbitration_ClientFlags = kDiskArbNotifyNone;
 
-static DiskArbCallback_UnmountPreNotification_t gCallback_UnmountPreNotification = NULL;
-static DiskArbCallback_UnmountPostNotification_t gCallback_UnmountPostNotification = NULL;
-static DiskArbCallback_EjectPreNotification_t gCallback_EjectPreNotification = NULL;
-static DiskArbCallback_EjectPostNotification_t gCallback_EjectPostNotification = NULL;
+CFArrayRef DiskArbCallbackHandlersForCallback(int callbackType)
+{
+        CFNumberRef numberForType = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &callbackType);
+        CFArrayRef array = nil;
 
-static DiskArbCallback_ClientDisconnectedNotification_t gCallback_ClientDisconnectedNotification = NULL;
+        if (!gDiskArbitration_CallbackHandlers) {
+                CFRelease(numberForType);
+                return array;
+        }
 
-static DiskArbCallback_BlueBoxBootVolumeUpdated_t gCallback_BlueBoxBootVolumeUpdated = NULL;
+        if (CFDictionaryContainsKey(gDiskArbitration_CallbackHandlers, numberForType)) {
+                array = CFDictionaryGetValue(gDiskArbitration_CallbackHandlers, numberForType);
+        }
+        CFRelease(numberForType);
 
-static DiskArbCallback_UnknownFileSystemNotification_t gCallback_UnknownFileSystemNotification = NULL;
+        return array;
+}
 
-static DiskArbCallback_DiskChangedNotification_t gCallback_DiskChangedNotification = NULL;
+/* flags generation */
 
-static DiskArbCallback_NotificationComplete_t gCallback_NotificationComplete = NULL;
+boolean_t updateClientFlags(void)
+{
+        int flags = kDiskArbNotifyNone;
 
-static DiskArbCallback_Printer_FinalRequest_t gCallback_Printer_FinalRequest = NULL;
-static DiskArbCallback_Printer_FinalResponse_t gCallback_Printer_FinalResponse = NULL;
-static DiskArbCallback_Printer_FinalRelease_t gCallback_Printer_FinalRelease = NULL;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED_WITHOUT_MT) != NULL )
+                flags |= kDiskArbNotifyDiskAppearedWithoutMountpoint;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED_WITH_MT) != NULL )
+                flags |= kDiskArbNotifyDiskAppearedWithMountpoint;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED1) != NULL )
+                flags |= kDiskArbNotifyDiskAppeared;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED) != NULL )
+                flags |= kDiskArbNotifyDiskAppeared2;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT) != NULL )
+                flags |= kDiskArbNotifyUnmount;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT_PRE_NOTIFY) != NULL || DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT_POST_NOTIFY) != NULL || DiskArbCallbackHandlersForCallback(kDA_DISK_EJECT_PRE_NOTIFY) != NULL || DiskArbCallbackHandlersForCallback(kDA_DISK_EJECT_POST_NOTIFY) != NULL ) {
+                if ( DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT_PRE_NOTIFY) != NULL && DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT_POST_NOTIFY) != NULL && DiskArbCallbackHandlersForCallback(kDA_DISK_EJECT_PRE_NOTIFY) != NULL && DiskArbCallbackHandlersForCallback(kDA_DISK_EJECT_POST_NOTIFY) != NULL ) {
+                flags |= kDiskArbNotifyAsync;
+            } else {
+                // printf("DiskArbStart: Disk Arbitration: All Async Clients Must Register For All Async messages!\n");
+                return FALSE;
+            }
+        }
+        if ( DiskArbCallbackHandlersForCallback(kDA_BLUE_BOX_UPDATED) != NULL )
+                flags |= kDiskArbNotifyBlueBoxBootVolumeUpdated;
+        if ( DiskArbCallbackHandlersForCallback(kDA_NOTIFICATIONS_COMPLETE) != NULL )
+                flags |= kDiskArbNotifyCompleted;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_CHANGED) != NULL )
+                flags |= kDiskArbNotifyChangedDisks;
+        if ( DiskArbCallbackHandlersForCallback(kDA_DISK_WILL_BE_CHECKED) != NULL )
+                flags |= kDiskArbNotifyDiskWillBeChecked;
+        if ( DiskArbCallbackHandlersForCallback(kDA_CALL_FAILED) != NULL )
+                flags |= kDiskArbNotifyCallFailed;
+        if ( DiskArbCallbackHandlersForCallback(kDA_CLIENT_WILL_HANDLE_UNRECOGNIZED_DISK) != NULL )
+                flags |= kDiskArbArbitrateUnrecognizedVolumes;
+        if ( DiskArbCallbackHandlersForCallback(kDA_UNKNOWN_DISK_APPEARED) != NULL )
+                flags |= kDiskArbNotifyUnrecognizedVolumes;
+
+        if (flags != gDiskArbitration_ClientFlags) {
+                gDiskArbitration_ClientFlags = flags;
+                return TRUE;
+        }
+        return FALSE;
+}
 
 /*
 -- Callback registration
 */
 
 
-void DiskArbRegisterCallback_DiskAppearedWithMountpoint( DiskArbCallback_DiskAppearedWithMountpoint_t callback )
+void DiskArbAddCallbackHandler(int callbackType, void * callback, int overwrite)
 {
-	gCallback_DiskAppearedWithMountpoint = callback;
+        CFNumberRef numberForType = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &callbackType);
+        
+        if (!gDiskArbitration_CallbackHandlers) {
+                gDiskArbitration_CallbackHandlers = CFDictionaryCreateMutable(NULL,0,&kCFTypeDictionaryKeyCallBacks,&kCFTypeDictionaryValueCallBacks); 
+        }
+
+        if (!callback) {
+                CFRelease(numberForType);
+                return;
+        }
+
+        if (CFDictionaryContainsKey(gDiskArbitration_CallbackHandlers, numberForType)) {
+
+                if (overwrite) {
+                        CFMutableArrayRef callbackArray = CFArrayCreateMutable(NULL, 0, NULL);
+                        CFArrayAppendValue(callbackArray, callback);
+                        CFDictionaryReplaceValue(gDiskArbitration_CallbackHandlers, numberForType, callbackArray);
+                } else {
+                        CFMutableArrayRef callbackArray = CFDictionaryGetValue(gDiskArbitration_CallbackHandlers, numberForType);
+                	DiskArbRemoveCallbackHandler(callbackType, callback);  // remove any old callbacks with the exact same signature so we don't end up with duplicates
+                
+                        CFArrayAppendValue(callbackArray, callback);
+                }
+                
+        } else {
+                CFMutableArrayRef callbackArray = CFArrayCreateMutable(NULL, 0, NULL);
+                CFArrayAppendValue(callbackArray, callback);
+                CFDictionaryAddValue(gDiskArbitration_CallbackHandlers, numberForType, callbackArray);
+        }
+
+        if (updateClientFlags()) {
+                /* send an rpc updating the client flags */
+        }
+        CFRelease(numberForType);
+        
+        return;
 }
+
+void DiskArbRemoveCallbackHandler(int callbackType, void * callback)
+{
+        CFNumberRef numberForType = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &callbackType);
+
+        if (!gDiskArbitration_CallbackHandlers) {
+                CFRelease(numberForType);
+                return;
+        }
+
+        if (CFDictionaryContainsKey(gDiskArbitration_CallbackHandlers, numberForType)) {
+                CFMutableArrayRef callbackArray = CFDictionaryGetValue(gDiskArbitration_CallbackHandlers, numberForType);
+                CFIndex index = CFArrayGetFirstIndexOfValue(callbackArray, CFRangeMake(0, CFArrayGetCount(callbackArray)), callback);
+                while (index >= 0) {
+                        CFArrayRemoveValueAtIndex(callbackArray, index);
+                        index = CFArrayGetFirstIndexOfValue(callbackArray, CFRangeMake(0, CFArrayGetCount(callbackArray)), callback);
+                }
+        }
+        CFRelease(numberForType);
+        return;
+}
+
+
+
+void DiskArbRegisterCallback_DiskAppearedWithMountpoint( DiskArbCallback_DiskAppearedWithMountpoint_t callback )
+{ DiskArbAddCallbackHandler(kDA_DISK_APPEARED_WITH_MT, callback, 0); }
 
 void DiskArbRegisterCallback_DiskAppearedWithoutMountpoint( DiskArbCallback_DiskAppearedWithoutMountpoint_t callback )
-{
-	gCallback_DiskAppearedWithoutMountpoint = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_APPEARED_WITHOUT_MT, callback, 0); }
 
 void DiskArbRegisterCallback_DiskAppeared( DiskArbCallback_DiskAppeared_t callback )
-{
-	gCallback_DiskAppeared = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_APPEARED1, callback, 0); }
 
 void DiskArbRegisterCallback_DiskAppeared2( DiskArbCallback_DiskAppeared2_t callback )
-{
-	gCallback_DiskAppeared2 = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_APPEARED, callback, 0); }
 
 void DiskArbRegisterCallback_UnmountNotification( DiskArbCallback_UnmountNotification_t callback )
-{
-	gCallback_UnmountNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_UNMOUNT, callback, 0); }
 
 void DiskArbRegisterCallback_UnmountPreNotification( DiskArbCallback_UnmountPreNotification_t callback )
-{
-	gCallback_UnmountPreNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_UNMOUNT_PRE_NOTIFY, callback, 1); }
 
 void DiskArbRegisterCallback_UnmountPostNotification( DiskArbCallback_UnmountPostNotification_t callback )
-{
-	gCallback_UnmountPostNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_UNMOUNT_POST_NOTIFY, callback, 0); }
 
 void DiskArbRegisterCallback_EjectPreNotification( DiskArbCallback_EjectPreNotification_t callback )
-{
-	gCallback_EjectPreNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_EJECT_PRE_NOTIFY, callback, 1); }
 
 void DiskArbRegisterCallback_EjectPostNotification( DiskArbCallback_EjectPostNotification_t callback )
-{
-	gCallback_EjectPostNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_EJECT_POST_NOTIFY, callback, 0); }
 
 void DiskArbRegisterCallback_ClientDisconnectedNotification( DiskArbCallback_ClientDisconnectedNotification_t callback )
-{
-        gCallback_ClientDisconnectedNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_CLIENT_DISCONNECTED, callback, 0); }
 
 void DiskArbRegisterCallback_BlueBoxBootVolumeUpdated( DiskArbCallback_BlueBoxBootVolumeUpdated_t callback )
-{
-	gCallback_BlueBoxBootVolumeUpdated = callback;
-}
-
-void DiskArbRegisterCallback_UnknownFileSystemNotification( DiskArbCallback_UnknownFileSystemNotification_t callback )
-{
-        gCallback_UnknownFileSystemNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_BLUE_BOX_UPDATED, callback, 0); }
 
 void DiskArbRegisterCallback_DiskChangedNotification( DiskArbCallback_DiskChangedNotification_t callback )
-{
-        gCallback_DiskChangedNotification = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_DISK_CHANGED, callback, 0); }
+
+void DiskArbRegisterCallback_DiskWillBeCheckedNotification( DiskArbCallback_DiskWillBeCheckedNotification_t callback )
+{ DiskArbAddCallbackHandler(kDA_DISK_WILL_BE_CHECKED, callback, 0); }
+
+void DiskArbRegisterCallback_CallFailedNotification( DiskArbCallback_CallFailedNotification_t callback )
+{ DiskArbAddCallbackHandler(kDA_CALL_FAILED, callback, 0); }
+
 
 void DiskArbRegisterCallback_NotificationComplete( DiskArbCallback_NotificationComplete_t callback )
-{
-        gCallback_NotificationComplete = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_NOTIFICATIONS_COMPLETE, callback, 0); }
 
 void DiskArbRegisterCallback_Printer_FinalRequest( DiskArbCallback_Printer_FinalRequest_t callback )
-{
-        gCallback_Printer_FinalRequest = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_PRINTER_FINAL_REQUEST, callback, 0); }
 
 void DiskArbRegisterCallback_Printer_FinalResponse( DiskArbCallback_Printer_FinalResponse_t callback )
-{
-        gCallback_Printer_FinalResponse = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_PRINTER_FINAL_RESPONSE, callback, 0); }
 
 void DiskArbRegisterCallback_Printer_FinalRelease( DiskArbCallback_Printer_FinalRelease_t callback )
-{
-        gCallback_Printer_FinalRelease = callback;
-}
+{ DiskArbAddCallbackHandler(kDA_PRINTER_FINAL_RELEASE, callback, 0); }
+
+void DiskArbRegisterCallback_Will_Client_Release( DiskArbCallback_Will_Client_Release_t callback )
+{ DiskArbAddCallbackHandler(kDA_WILL_CLIENT_RELEASE_DEVICE, callback, 0); }
+
+void DiskArbRegisterCallback_Device_Reservation_Status( DiskArbCallback_Device_Reservation_Status_t callback )
+{ DiskArbAddCallbackHandler(kDA_DEVICE_RESERVATION_STATUS, callback, 0); }
+
+void DiskArbRegisterCallback_UnknownFileSystemNotification( DiskArbCallback_UnknownFileSystemNotification_t callback )
+{ DiskArbAddCallbackHandler(kDA_UNKNOWN_DISK_APPEARED, callback, 0); }
+
 
 
 /*
@@ -257,7 +344,6 @@ kern_return_t DiskArbRegisterWithPID(
 	return DiskArbRegisterWithPID_rpc( server, client, getpid(), flags );
 }
 
-
 /*
 -- Server -> Client
 */
@@ -270,21 +356,21 @@ kern_return_t DiskArbDiskAppearedWithoutMountpoint_rpc (
 	DiskArbDiskIdentifier diskIdentifier,
 	unsigned flags)
 {
-	kern_return_t err = 0;
-	int callbackErrorCode = 0;
-	
-	dwarning(("%s(diskIdentifier='%s')\n", __FUNCTION__, diskIdentifier));
-	
-	if ( NULL == gCallback_DiskAppearedWithoutMountpoint )
-	{
-		goto Return;
-	}
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED_WITHOUT_MT);
 
-	callbackErrorCode = ( * gCallback_DiskAppearedWithoutMountpoint )( diskIdentifier, flags );
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_DiskAppearedWithoutMountpoint_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, flags );
+                }
+        }
 
 Return:
-	//* errorCode = callbackErrorCode;
-	return err;
+        return err;
 
 } // DiskArbDiskAppearedWithoutMountpoint_rpc
 
@@ -297,21 +383,21 @@ kern_return_t DiskArbDiskAppearedWithMountpoint_rpc (
 	unsigned flags,
 	DiskArbMountpoint mountpoint)
 {
-	kern_return_t err = 0;
-	int callbackErrorCode = 0;
-	
-	dwarning(("%s(diskIdentifier='%s', flags=0x%08x, mountpoint='%s')\n", __FUNCTION__, diskIdentifier, flags, mountpoint));
-	
-	if ( NULL == gCallback_DiskAppearedWithMountpoint )
-	{
-		goto Return;
-	}
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED_WITH_MT);
 
-	callbackErrorCode = ( * gCallback_DiskAppearedWithMountpoint )( diskIdentifier, flags, mountpoint );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_DiskAppearedWithMountpoint_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, flags, mountpoint );
+                }
+        }
+
 Return:
-	//* errorCode = callbackErrorCode;
-	return err;
+        return err;
 
 } // DiskArbDiskAppearedWithMountpoint_rpc
 
@@ -324,20 +410,20 @@ kern_return_t DiskArbDiskAppeared_rpc (
 	DiskArbMountpoint mountpoint,
 	DiskArbIOContent ioContent)
 {
-	kern_return_t err = 0;
-	int callbackErrorCode = 0;
-	
-	dwarning(("%s(diskIdentifier='%s', flags=0x%08x, mountpoint='%s', ioContent='%s')\n", __FUNCTION__, diskIdentifier, flags, mountpoint, ioContent));
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED1);
 
-	if ( NULL == gCallback_DiskAppeared )
-	{
-		goto Return;
-	}
-
-	callbackErrorCode = ( * gCallback_DiskAppeared )( diskIdentifier, flags, mountpoint, ioContent );
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_DiskAppeared_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, flags, mountpoint, ioContent );
+                }
+        }
 	
 Return:
-	//* errorCode = callbackErrorCode;
 	return err;
 
 } // DiskArbDiskAppeared_rpc
@@ -354,19 +440,19 @@ kern_return_t DiskArbDiskAppeared2_rpc (
 	unsigned sequenceNumber)
 {
 	kern_return_t err = 0;
-	int callbackErrorCode = 0;
-	
-	dwarning(("%s(diskIdentifier='%s', flags=0x%08x, mountpoint='%s', ioContent='%s', deviceTreePath='%s', sequenceNumber=%d)\n", __FUNCTION__, diskIdentifier, flags, mountpoint, ioContent, deviceTreePath, sequenceNumber));
+	CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_APPEARED);
 
-	if ( NULL == gCallback_DiskAppeared2 )
+        if ( NULL == callbacks)
 	{
 		goto Return;
-	}
-
-	callbackErrorCode = ( * gCallback_DiskAppeared2 )( diskIdentifier, flags, mountpoint, ioContent, deviceTreePath, sequenceNumber );
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_DiskAppeared2_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, flags, mountpoint, ioContent, deviceTreePath, sequenceNumber );
+                }
+        }
 	
 Return:
-	//* errorCode = callbackErrorCode;
 	return err;
 
 } // DiskArbDiskAppeared2_rpc
@@ -379,20 +465,20 @@ kern_return_t DiskArbUnmountNotification_rpc(
 	int pastOrFuture,
 	int willEject)
 {
-	kern_return_t err = 0;
-	int callbackErrorCode = 0;
-	
-	dwarning(("%s(diskIdentifier='%s')\n", __FUNCTION__, diskIdentifier));
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT);
 
-	if ( NULL == gCallback_UnmountNotification )
-	{
-		goto Return;
-	}
-
-	callbackErrorCode = ( * gCallback_UnmountNotification )( diskIdentifier, pastOrFuture, willEject );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_UnmountNotification_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, pastOrFuture, willEject );
+                }
+        }
+        	
 Return:
-	//* errorCode = callbackErrorCode;
 	return err;
 
 } // DiskArbUnmountNotification_rpc
@@ -410,17 +496,18 @@ kern_return_t DiskArbUnmountPreNotify_async_rpc(
 	DiskArbDiskIdentifier diskIdentifier,
 	unsigned flags)
 {
-	kern_return_t err = 0;
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT_PRE_NOTIFY);
 
-	dwarning(("%s(diskIdentifier='%s', flags = 0x%08x)\n", __FUNCTION__, diskIdentifier, flags));
-
-	if ( NULL == gCallback_UnmountPreNotification )
-	{
-		goto Return;
-	}
-
-	( * gCallback_UnmountPreNotification )( diskIdentifier, flags );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_UnmountPreNotification_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, flags );
+                }
+        }	
 Return:
 	return err;
 
@@ -434,17 +521,18 @@ kern_return_t DiskArbUnmountPostNotify_async_rpc(
 	int errorCode,
 	int dissenter)
 {
-	kern_return_t err = 0;
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_UNMOUNT_POST_NOTIFY);
 
-	dwarning(("%s(diskIdentifier='%s', errorCode = 0x%08x, dissenter = %d)\n", __FUNCTION__, diskIdentifier, errorCode, dissenter));
-
-	if ( NULL == gCallback_UnmountPostNotification )
-	{
-		goto Return;
-	}
-
-	( * gCallback_UnmountPostNotification )( diskIdentifier, errorCode, dissenter );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_UnmountPostNotification_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, errorCode, dissenter );
+                }
+        }	
 Return:
 	return err;
 
@@ -457,17 +545,18 @@ kern_return_t DiskArbEjectPreNotify_async_rpc(
 	DiskArbDiskIdentifier diskIdentifier,
 	unsigned flags)
 {
-	kern_return_t err = 0;
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_EJECT_PRE_NOTIFY);
 
-	dwarning(("%s(diskIdentifier='%s', flags = 0x%08x)\n", __FUNCTION__, diskIdentifier, flags));
-
-	if ( NULL == gCallback_EjectPreNotification )
-	{
-		goto Return;
-	}
-
-	( * gCallback_EjectPreNotification )( diskIdentifier, flags );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_EjectPreNotification_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, flags );
+                }
+        }	
 Return:
 	return err;
 
@@ -481,17 +570,18 @@ kern_return_t DiskArbEjectPostNotify_async_rpc(
 	int errorCode,
 	int dissenter)
 {
-	kern_return_t err = 0;
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_EJECT_POST_NOTIFY);
 
-	dwarning(("%s(diskIdentifier='%s', errorCode = 0x%08x, dissenter = %d)\n", __FUNCTION__, diskIdentifier, errorCode, dissenter));
-
-	if ( NULL == gCallback_EjectPostNotification )
-	{
-		goto Return;
-	}
-
-	( * gCallback_EjectPostNotification )( diskIdentifier, errorCode, dissenter );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_EjectPostNotification_t) CFArrayGetValueAtIndex(callbacks,i) )( diskIdentifier, errorCode, dissenter );
+                }
+        }		
 Return:
 	return err;
 
@@ -501,17 +591,18 @@ Return:
 kern_return_t DiskArbClientDisconnected_rpc(
         mach_port_t server)
 {
-    kern_return_t err = 0;
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_CLIENT_DISCONNECTED);
 
-    dwarning(("%s\n", __FUNCTION__));
-
-    if ( NULL == gCallback_ClientDisconnectedNotification )
-    {
-            goto Return;
-    }
-
-    ( * gCallback_ClientDisconnectedNotification )();
-
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_ClientDisconnectedNotification_t) CFArrayGetValueAtIndex(callbacks,i) )();
+                }
+        }		
 Return:
     return err;
 } // DiskArbClientDisconnected_rpc
@@ -524,48 +615,22 @@ kern_return_t DiskArbBlueBoxBootVolumeUpdated_async_rpc(
 	mach_port_t server,
 	int seqno)
 {
-	kern_return_t err = 0;
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_BLUE_BOX_UPDATED);
 
-	dwarning(("%s(seqno = %d)\n", __FUNCTION__, seqno));
-
-	if ( NULL == gCallback_BlueBoxBootVolumeUpdated )
-	{
-		goto Return;
-	}
-
-	( * gCallback_BlueBoxBootVolumeUpdated )( seqno );
-	
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_BlueBoxBootVolumeUpdated_t) CFArrayGetValueAtIndex(callbacks,i) )( seqno );
+                }
+        }			
 Return:
 	return err;
 
 } // DiskArbBlueBoxBootVolumeUpdated_async_rpc
-
-/******************************************* DiskArbUnknownFileSystemInserted_rpc *****************************/
-
-
-kern_return_t DiskArbUnknownFileSystemInserted_rpc(
-                        mach_port_t server,
-                        char *	diskIdentifier,
-                        char * fsType,
-                        char * deviceType,
-                        int isWritable,
-                        int isRemovable,
-                        int isWhole)
-{
-        kern_return_t err = 0;
-
-        dwarning(("%s\n", __FUNCTION__));
-
-        if ( NULL == gCallback_UnknownFileSystemNotification )
-        {
-                goto Return;
-        }
-
-        ( * gCallback_UnknownFileSystemNotification )(diskIdentifier, fsType, deviceType, isWritable, isRemovable, isWhole);
-
-    Return:
-        return err;
-} // DiskArbUnknownFileSystemInserted_rpc
 
 /******************************************* DiskArbDiskChanged_rpc *****************************/
 
@@ -579,20 +644,70 @@ kern_return_t DiskArbDiskChanged_rpc(
                         int success)
 {
         kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_CHANGED);
 
-        dwarning(("%s\n", __FUNCTION__));
-
-        if ( NULL == gCallback_DiskChangedNotification )
+        if ( NULL == callbacks)
         {
                 goto Return;
-        }
-
-        ( * gCallback_DiskChangedNotification )(diskIdentifier, newMountPoint, newVolumeName, flags, success);
-
-    Return:
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_DiskChangedNotification_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, newMountPoint, newVolumeName, flags, success);
+                }
+        }			
+Return:
         return err;
 } // DiskArbDiskChanged_rpc
 
+/******************************************* DiskArbDiskWillBeChecked_rpc *****************************/
+
+
+kern_return_t DiskArbDiskWillBeChecked_rpc(
+                        mach_port_t server,
+                        DiskArbDiskIdentifier	diskIdentifier,
+                        unsigned flags,
+                        DiskArbIOContent content)
+{
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DISK_WILL_BE_CHECKED);
+
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_DiskWillBeCheckedNotification_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, flags, content);
+                }
+        }
+Return:
+        return err;
+} // DiskArbDiskWillBeChecked_rpc
+
+/******************************************* DiskArbPreviousCallFailed_rpc *****************************/
+
+
+kern_return_t DiskArbPreviousCallFailed_rpc(
+                        mach_port_t server,
+                        DiskArbDiskIdentifier	diskIdentifier,
+                                            int  failedCallType,
+                                            int error)
+{
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_CALL_FAILED);
+
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_CallFailedNotification_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, failedCallType, error);
+                }
+        }
+Return:
+        return err;
+} // DiskArbPreviousCallFailed_rpc
 
 /******************************************* DiskArbNotificationComplete_rpc *****************************/
 
@@ -602,17 +717,19 @@ kern_return_t DiskArbNotificationComplete_rpc(
                         int messageType)
 {
         kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_NOTIFICATIONS_COMPLETE);
 
-        dwarning(("%s\n", __FUNCTION__));
-
-        if ( NULL == gCallback_NotificationComplete )
+        if ( NULL == callbacks)
         {
                 goto Return;
-        }
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_NotificationComplete_t) CFArrayGetValueAtIndex(callbacks,i) )(messageType);
+                }
+        }			
 
-        ( * gCallback_NotificationComplete )(messageType);
-
-    Return:
+Return:
         return err;
 } // DiskArbNotificationComplete_rpc
 
@@ -623,6 +740,8 @@ kern_return_t DiskArbRegistrationComplete_rpc(
                         mach_port_t server)
 {
         kern_return_t err = 0;
+#warning NOT CURRENTLY DOING A THING!!!!
+        
         dwarning(("%s\n", __FUNCTION__));
         return err;
 } // DiskArbRegistrationComplete_rpc
@@ -636,17 +755,18 @@ kern_return_t DiskArbPrinter_FinalRequest_rpc (
                         int pid,
                         int locationID)
 {
-	kern_return_t err = 0;
-	
-	dwarning(("%s(pid=%d,locationID=0x%08x)\n", __FUNCTION__, pid, locationID));
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_PRINTER_FINAL_REQUEST);
 
-	if ( NULL == gCallback_Printer_FinalRequest )
-	{
-		goto Return;
-	}
-
-	( * gCallback_Printer_FinalRequest )(pid, locationID);
-
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_Printer_FinalRequest_t) CFArrayGetValueAtIndex(callbacks,i) )(pid, locationID);
+                }
+        }			
 Return:
 	return err;
 }
@@ -656,17 +776,18 @@ kern_return_t DiskArbPrinter_FinalResponse_rpc (
                         int locationID,
                         int answer)
 {
-	kern_return_t err = 0;
-	
-	dwarning(("%s(locationID=0x%08x,answer=0x%08x)\n", __FUNCTION__, locationID, answer));
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_PRINTER_FINAL_RESPONSE);
 
-	if ( NULL == gCallback_Printer_FinalResponse )
-	{
-		goto Return;
-	}
-
-	( * gCallback_Printer_FinalResponse )(locationID, answer);
-
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_Printer_FinalResponse_t) CFArrayGetValueAtIndex(callbacks,i) )(locationID, answer);
+                }
+        }			
 Return:
 	return err;
 }
@@ -675,20 +796,124 @@ kern_return_t DiskArbPrinter_FinalRelease_rpc (
                         mach_port_t server,
                         int locationID)
 {
-	kern_return_t err = 0;
-	
-	dwarning(("%s(locationID=0x%08x)\n", __FUNCTION__, locationID));
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_PRINTER_FINAL_RELEASE);
 
-	if ( NULL == gCallback_Printer_FinalRelease )
-	{
-		goto Return;
-	}
-
-	( * gCallback_Printer_FinalRelease )(locationID);
-
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_Printer_FinalRelease_t) CFArrayGetValueAtIndex(callbacks,i) )(locationID);
+                }
+        }			
 Return:
 	return err;
 }
+
+kern_return_t DiskArbWillClientRelinquish_rpc (
+                        mach_port_t server,
+                        DiskArbDiskIdentifier	diskIdentifier,
+                        int releaseToClientPid)
+{
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_WILL_CLIENT_RELEASE_DEVICE);
+
+        //printf("Will I %d release %s to %d?\n", getpid() , diskIdentifier, releaseToClientPid);
+        
+        if ( NULL == callbacks)
+        {
+                //printf("Nope - I won't give it up\n");
+                DiskArbClientRelinquishesReservation ( diskIdentifier, releaseToClientPid, 0);  // nope - they aren't responding, they still want it.
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_Will_Client_Release_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, releaseToClientPid);
+                }
+        }
+Return:
+        return err;
+}
+
+kern_return_t DiskArbDeviceReservationStatus_rpc (
+                        mach_port_t server,
+                        DiskArbDiskIdentifier	diskIdentifier,
+                                                  int status,
+                                                  int pid)
+{
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_DEVICE_RESERVATION_STATUS);
+        //printf("%d, Status on %s is %d by pid %d\n", getpid(), diskIdentifier, status, pid);
+
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_Device_Reservation_Status_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, status, pid);
+                }
+        }
+Return:
+        return err;
+}
+
+kern_return_t DiskArbWillClientHandleUnrecognizedDisk_rpc (
+                                                           mach_port_t server,
+                                                           DiskArbDiskIdentifier	diskIdentifier,
+                                                           int diskType,
+                                                           char * fsType,
+                                                           char * deviceType,
+                                                           int isWritable,
+                                                           int isRemovable,
+                                                           int isWhole)
+
+{
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_CLIENT_WILL_HANDLE_UNRECOGNIZED_DISK);
+
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_Will_Client_Handle_Unrecognized_Disk_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, diskType, fsType, deviceType, isWritable, isRemovable, isWhole);
+                }
+        }
+Return:
+        return err;
+}
+
+/******************************************* DiskArbUnknownFileSystemInserted_rpc *****************************/
+
+kern_return_t DiskArbUnknownFileSystemInserted_rpc(
+                        mach_port_t server,
+                        char *	diskIdentifier,
+                        char * fsType,
+                        char * deviceType,
+                        int isWritable,
+                        int isRemovable,
+                        int isWhole)
+{
+        kern_return_t err = 0;
+        CFArrayRef callbacks = DiskArbCallbackHandlersForCallback(kDA_UNKNOWN_DISK_APPEARED);
+
+        if ( NULL == callbacks)
+        {
+                goto Return;
+        } else {
+                int i;
+                for (i=0; i < CFArrayGetCount(callbacks);i++) {
+                        ( (DiskArbCallback_UnknownFileSystemNotification_t) CFArrayGetValueAtIndex(callbacks,i) )(diskIdentifier, fsType, deviceType, isWritable, isRemovable, isWhole);
+                }
+        }
+
+    Return:
+        return err;
+} // DiskArbUnknownFileSystemInserted_rpc
 
 
 
@@ -709,8 +934,6 @@ Return:
 kern_return_t DiskArbStart(mach_port_t * portPtr)
 {
 	kern_return_t	result;
-	//int				errorCode;
-	unsigned		flags;
         static mach_port_t	pre_registered_port = 0x0;
 
 	// Obtain a send right for the DiskArbitration server's public port via the bootstrap server		
@@ -740,58 +963,21 @@ kern_return_t DiskArbStart(mach_port_t * portPtr)
 	
 	
 	// Create the flags word based on the registered callbacks.
-	
-	flags = kDiskArbNotifyNone;
+        // it's a global
+        updateClientFlags();
 
-	if ( gCallback_DiskAppearedWithoutMountpoint != NULL )
-		flags |= kDiskArbNotifyDiskAppearedWithoutMountpoint;
-	if ( gCallback_DiskAppearedWithMountpoint != NULL )
-		flags |= kDiskArbNotifyDiskAppearedWithMountpoint;
-	if ( gCallback_DiskAppeared != NULL )
-		flags |= kDiskArbNotifyDiskAppeared;
-	if ( gCallback_DiskAppeared2 != NULL )
-		flags |= kDiskArbNotifyDiskAppeared2;
-	if ( gCallback_UnmountNotification != NULL )
-		flags |= kDiskArbNotifyUnmount;
-        if ( gCallback_UnmountPreNotification != NULL || gCallback_UnmountPostNotification != NULL || gCallback_EjectPreNotification != NULL || gCallback_EjectPostNotification != NULL ) {
-            if ( gCallback_UnmountPreNotification != NULL && gCallback_UnmountPostNotification != NULL && gCallback_EjectPreNotification != NULL && gCallback_EjectPostNotification != NULL ) {
-                flags |= kDiskArbNotifyAsync;
-            } else {
-                result = -1;
-                printf("DiskArbStart: Disk Arbitration: All Async Clients Must Register For All Async messages!\n");
-                goto Return;
-            }
-        }
-	if ( gCallback_BlueBoxBootVolumeUpdated != NULL )
-		flags |= kDiskArbNotifyBlueBoxBootVolumeUpdated;
-        if ( gCallback_NotificationComplete != NULL )
-                flags |= kDiskArbNotifyCompleted;
-        if ( gCallback_DiskChangedNotification != NULL )
-                flags |= kDiskArbNotifyChangedDisks;
-        if ( gCallback_UnknownFileSystemNotification != NULL )
-                flags |= kDiskArbNotifyUnrecognizedVolumes;
-
-
-
-	dwarning(("%s(): flags = %08x\n", __FUNCTION__, flags));
+	dwarning(("%s(): flags = %08x\n", __FUNCTION__, gDiskArbitration_ClientFlags));
 	
 	// Register with the DiskArbitration server
 
         if (!pre_registered_port) {
-            result = DiskArbRegisterWithPID_auto( *portPtr, flags);
+            result = DiskArbRegisterWithPID_auto( *portPtr, gDiskArbitration_ClientFlags);
             DiskArbMsgLoopWithTimeout(5000);
             if ( result )
             {
-                    dwarning(("%s(): {%s:%d} DiskArbRegister(sendPort=$%08x, *portPtr=$%08x, flags=$%08x) failed: $%x\n", __FUNCTION__, __FILE__, __LINE__, gDiskArbSndPort, *portPtr, flags, (int)result));
+                    dwarning(("%s(): {%s:%d} DiskArbRegister(sendPort=$%08x, *portPtr=$%08x, flags=$%08x) failed: $%x\n", __FUNCTION__, __FILE__, __LINE__, gDiskArbSndPort, *portPtr, gDiskArbitration_ClientFlags, (int)result));
                     goto Return;
             }
-        } else {
-            int val = 0;
-            // tell autodiskmount that this client is new?
-
-            val = DiskArbMarkPIDNew_auto(*portPtr, flags);
-            
-            gDiskArbRcvPort = *portPtr;
         }
 
         pre_registered_port = *portPtr;
@@ -860,6 +1046,7 @@ kern_return_t DiskArbDiskAppearedWithMountpointPing_auto(
 				unsigned flags,
 				DiskArbMountpoint mountpoint)
 {
+        SetSecure();
 	return DiskArbDiskAppearedWithMountpointPing_rpc( gDiskArbSndPort, diskIdentifier, flags, mountpoint );
 }
 
@@ -867,18 +1054,21 @@ kern_return_t DiskArbDiskDisappearedPing_auto(
                                 DiskArbDiskIdentifier diskIdentifier,
                                 unsigned flags)
 {
+        SetSecure();
         return DiskArbDiskDisappearedPing_rpc( gDiskArbSndPort, diskIdentifier, flags );
 }
 
 kern_return_t DiskArbRequestMount_auto(
                                 DiskArbDiskIdentifier diskIdentifier)
 {
+        SetSecure();
         return DiskArbRequestMount_rpc( gDiskArbSndPort, diskIdentifier, FALSE );
 }
 
 kern_return_t DiskArbRequestMountAndOwn_auto(
                                 DiskArbDiskIdentifier diskIdentifier)
 {
+        SetSecure();
         return DiskArbRequestMount_rpc( gDiskArbSndPort, diskIdentifier, TRUE );
 }
 
@@ -896,6 +1086,12 @@ kern_return_t DiskArbRegisterWithPID_auto(
 	return DiskArbRegisterWithPID_rpc( gDiskArbSndPort, client, getpid(), flags );
 }
 
+kern_return_t DiskArbUpdateClientWithPID_auto(
+                                unsigned flags)
+{
+        return DiskArbUpdateClientWithPID_rpc( gDiskArbSndPort, getpid(), flags );
+}
+
 kern_return_t DiskArbDeregisterWithPID_auto(
                                 mach_port_t client)
 {
@@ -908,6 +1104,7 @@ kern_return_t DiskArbMarkPIDNew_auto(
                                      unsigned flags)
 {
         gDiskArbRcvPort = client;
+        SetSecure();
           
         return DiskArbMarkPIDNew_rpc( gDiskArbSndPort, client, getpid(), flags);
 }
@@ -917,27 +1114,32 @@ kern_return_t DiskArbRequestDiskChange_auto(
                                  DiskArbGenericString mountPoint,
                                  int flags)
 {
-        return DiskArbRequestDiskChange_rpc( gDiskArbSndPort, diskIdentifier, mountPoint, flags);
+        SetSecure();
+        return DiskArbRequestDiskChange_rpc( gDiskArbSndPort, getpid(), diskIdentifier, mountPoint, flags);
 }
 
 kern_return_t DiskArbSetCurrentUser_auto( int user)
 {
-    return DiskArbSetCurrentUser_rpc(gDiskArbSndPort, user);
+    SetSecure();
+    return DiskArbSetCurrentUser_rpc(gDiskArbSndPort, getpid(), user);
 }
 
 kern_return_t DiskArbVSDBAdoptVolume_auto(DiskArbDiskIdentifier diskIdentifier)
 {
-    return DiskArbVSDBAdoptVolume_rpc(gDiskArbSndPort, diskIdentifier);
+    SetSecure();
+    return DiskArbVSDBAdoptVolume_rpc(gDiskArbSndPort, getpid(), diskIdentifier);
 }
 
 kern_return_t DiskArbVSDBDisownVolume_auto(DiskArbDiskIdentifier diskIdentifier)
 {
-    return DiskArbVSDBDisownVolume_rpc(gDiskArbSndPort, diskIdentifier);
+    SetSecure();
+    return DiskArbVSDBDisownVolume_rpc(gDiskArbSndPort, getpid(), diskIdentifier);
 }
 
 int DiskArbVSDBGetVolumeStatus_auto(DiskArbDiskIdentifier diskIdentifier)
 {
     int status;
+    SetSecure();
 
     DiskArbVSDBGetVolumeStatus_rpc(gDiskArbSndPort, diskIdentifier, &status);
 
@@ -946,13 +1148,15 @@ int DiskArbVSDBGetVolumeStatus_auto(DiskArbDiskIdentifier diskIdentifier)
 
 kern_return_t DiskArbSetVolumeEncoding_auto(DiskArbDiskIdentifier diskIdentifier, int volumeEncoding)
 {
-    return DiskArbSetVolumeEncoding_rpc(gDiskArbSndPort, diskIdentifier, volumeEncoding);
+    SetSecure();
+    return DiskArbSetVolumeEncoding_rpc(gDiskArbSndPort, getpid(), diskIdentifier, volumeEncoding);
 }
 
 int DiskArbGetVolumeEncoding_auto(DiskArbDiskIdentifier diskIdentifier)
 {
     int status;
 
+    SetSecure();
     DiskArbGetVolumeEncoding_rpc(gDiskArbSndPort, diskIdentifier, &status);
 
     return status;
@@ -963,7 +1167,7 @@ int DiskArbGetVolumeEncoding_auto(DiskArbDiskIdentifier diskIdentifier)
 kern_return_t DiskArbClientHandlesUninitializedDisks_auto(
                                 int flag)
 {
-        printf("FOOOO\n");
+        SetSecure();
         return DiskArbClientHandlesUninitializedDisks_rpc( gDiskArbSndPort, getpid(), flag );
 }
 
@@ -977,13 +1181,15 @@ kern_return_t DiskArbUnmountRequest_async_auto(
 				DiskArbDiskIdentifier diskIdentifier,
 				unsigned flags)
 {
-	return DiskArbUnmountRequest_async_rpc( gDiskArbSndPort, diskIdentifier, flags );
+        SetSecure();
+	return DiskArbUnmountRequest_async_rpc( gDiskArbSndPort, getpid(), diskIdentifier, flags );
 }
 
 kern_return_t DiskArbUnmountPreNotifyAck_async_auto(
 				DiskArbDiskIdentifier diskIdentifier,
 				int errorCode)
 {
+        SetSecure();
 	return DiskArbUnmountPreNotifyAck_async_rpc( gDiskArbSndPort, getpid(), diskIdentifier, errorCode );
 }
 
@@ -991,13 +1197,15 @@ kern_return_t DiskArbEjectRequest_async_auto(
 				DiskArbDiskIdentifier diskIdentifier,
 				unsigned flags)
 {
-	return DiskArbEjectRequest_async_rpc( gDiskArbSndPort, diskIdentifier, flags );
+        SetSecure();
+	return DiskArbEjectRequest_async_rpc( gDiskArbSndPort, getpid(), diskIdentifier, flags );
 }
 
 kern_return_t DiskArbEjectPreNotifyAck_async_auto(
 				DiskArbDiskIdentifier diskIdentifier,
 				int errorCode)
 {
+        SetSecure();
 	return DiskArbEjectPreNotifyAck_async_rpc( gDiskArbSndPort, getpid(), diskIdentifier, errorCode );
 }
 
@@ -1005,7 +1213,8 @@ kern_return_t DiskArbUnmountAndEjectRequest_async_auto(
 				DiskArbDiskIdentifier diskIdentifier,
 				unsigned flags)
 {
-	return DiskArbUnmountAndEjectRequest_async_rpc( gDiskArbSndPort, diskIdentifier, flags );
+        SetSecure();
+	return DiskArbUnmountAndEjectRequest_async_rpc( gDiskArbSndPort, getpid(), diskIdentifier, flags );
 }
 
 /* Sets the kDiskArbIAmBlueBox flag on the corresponding client record. */
@@ -1014,6 +1223,7 @@ kern_return_t DiskArbSetBlueBoxBootVolume_async_auto(
 				int pid,
 				int seqno)
 {
+        SetSecure();
 	return DiskArbSetBlueBoxBootVolume_async_rpc( gDiskArbSndPort, pid, seqno );
 }
 
@@ -1142,6 +1352,7 @@ Return:
 kern_return_t DiskArbPrinter_Request_auto (
 					int locationID)
 {
+        SetSecure();
 	return DiskArbPrinter_Request_rpc( gDiskArbSndPort, getpid(), locationID );
 }
 
@@ -1150,11 +1361,124 @@ kern_return_t DiskArbPrinter_Response_auto (
 					int locationID,
 					int answer)
 {
+        SetSecure();
 	return DiskArbPrinter_Response_rpc( gDiskArbSndPort, pid, locationID, answer );
 }
 
 kern_return_t DiskArbPrinter_Release_auto (
 					int locationID)
 {
+        SetSecure();
 	return DiskArbPrinter_Release_rpc( gDiskArbSndPort, locationID );
+}
+
+/* Device Arbitration/Backing Store Arb */
+
+kern_return_t DiskArbIsDeviceReservedForClient(	DiskArbDiskIdentifier diskIdentifier)
+
+{
+        SetSecure();
+        //printf("%d, Askign on status of %s\n", getpid(), diskIdentifier);
+	return DiskArbIsDeviceReservedForClient_rpc(gDiskArbSndPort, diskIdentifier, getpid());
+
+}
+
+kern_return_t DiskArbRetainClientReservationForDevice (	DiskArbDiskIdentifier diskIdentifier)
+
+{
+        SetSecure();
+        //printf("%d, Attempting to retain %s\n", getpid(), diskIdentifier);
+        return DiskArbRetainClientReservationForDevice_rpc(gDiskArbSndPort, diskIdentifier, getpid());
+
+}
+
+kern_return_t DiskArbReleaseClientReservationForDevice ( DiskArbDiskIdentifier diskIdentifier)
+
+{
+        SetSecure();
+        //printf("%d, I am releaseing retain %s\n", getpid(), diskIdentifier);
+        return DiskArbReleaseClientReservationForDevice_rpc(gDiskArbSndPort, diskIdentifier, getpid());
+
+}
+
+kern_return_t DiskArbClientRelinquishesReservation ( DiskArbDiskIdentifier diskIdentifier, int releaseToClientPid, int status)
+
+{
+        SetSecure();
+        //printf("%d, I am relinquishing retain %s\n", getpid(), diskIdentifier);
+        return DiskArbClientRelinquishesReservation_rpc(gDiskArbSndPort, diskIdentifier, getpid(), releaseToClientPid, status);
+
+}
+
+/* register yourself */
+kern_return_t DiskArbClientHandlesUnrecognizedDisks ( int diskTypes, int priority)
+
+{
+        SetSecure();
+        return DiskArbClientHandlesUnrecognizedDisks_rpc(gDiskArbSndPort, getpid(), diskTypes, priority);
+
+}
+
+kern_return_t DiskArbClientWillHandleUnrecognizedDisk ( DiskArbDiskIdentifier diskIdentifier, int yesNo)
+
+{
+        SetSecure();
+        return DiskArbClientWillHandleUnrecognizedDisk_rpc(gDiskArbSndPort, diskIdentifier, getpid(), yesNo );
+
+}
+
+
+
+/* Other stuff */
+
+void DiskArbUpdateClientFlags()
+{
+        DiskArbUpdateClientWithPID_auto(gDiskArbitration_ClientFlags);
+        return;
+}
+
+int DiskArbIsActive()
+{
+        if (gDiskArbSndPort != NULL && gDiskArbRcvPort != NULL) {
+                return 1;
+        }
+        return 0;
+}
+
+/* Security/Authorization */
+
+void SetSecure(void)
+{
+        static int securityTokenPassed = 0;
+
+        if (!securityTokenPassed) {
+                AuthorizationRef ref;
+                int error;
+
+                int flags = kAuthorizationFlagPreAuthorize | kAuthorizationFlagPartialRights | kAuthorizationFlagExtendRights;
+
+                error = AuthorizationCreate(NULL, NULL, flags, &ref);
+
+                // printf("Passing security token err = %d\n", error);
+
+                if (!error) {
+                        AuthorizationExternalForm externalForm;
+                        error = AuthorizationMakeExternalForm(ref, &externalForm);
+
+                        // printf("Making security pass err = %d\n", error);
+
+                        if (!error) {
+                                DiskArbSetSecuritySettingsForClient_rpc(gDiskArbSndPort, getpid(), externalForm.bytes);
+                        }
+                }
+
+                securityTokenPassed++;
+        }
+
+        return;
+}
+
+kern_return_t DiskArb_EjectKeyPressed()
+{
+    return DiskArbEjectKeyPressed_rpc(gDiskArbSndPort);
 }

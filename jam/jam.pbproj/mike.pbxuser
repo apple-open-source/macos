@@ -2,9 +2,26 @@
 {
 	00FE5D8DFEF9EE7911CA2CB3 = {
 		activeExec = 0;
+		targetExecs = {
+			macosx = (
+				03A30262005ABBF9C02AAC07,
+			);
+		};
 	};
 	00FE5D97FEF9EFA211CA2CB3 = {
 		activeExec = 0;
+	};
+	03A30262005ABBF9C02AAC07 = {
+		activeArgIndex = 2147483647;
+		argumentStrings = (
+		);
+		debuggerPlugin = GDBDebugging;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		isa = PBXExecutable;
+		sourceDirectories = (
+		);
 	};
 	1516D42EFFE6C5D1C02AAC07 = {
 		activeArgIndex = 2147483647;
@@ -21,29 +38,30 @@
 	3C561387FEEF59C211CA2CB3 = {
 		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA;
 		activeTarget = 3C5613D6FEEF59C211CA2CB3;
+		addToTargets = (
+		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
 				ContentSize = "{919, 609}";
 				LeftSlideOut = {
 					ActiveTab = 0;
-					Frame = "{{0, 23}, {919, 556}}";
+					Frame = "{{0, 23}, {919, 586}}";
 					Split0 = {
-						ActiveTab = 3;
-						Frame = "{{272, 0}, {647, 556}}";
+						Frame = "{{272, 0}, {647, 586}}";
 						Split0 = {
-							Frame = "{{0, 291}, {647, 265}}";
+							Frame = "{{0, 25}, {647, 561}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
 							Debugger = {
-								Frame = "{{0, 18}, {647, 275}}";
+								Frame = "{{0, 0}, {647, 293}}";
 								Split0 = {
-									Frame = "{{0, 25}, {647, 250}}";
+									Frame = "{{0, 25}, {647, 268}}";
 									Split0 = {
-										Frame = "{{0, 0}, {316, 250}}";
+										Frame = "{{0, 0}, {316, 268}}";
 									};
 									Split1 = {
-										Frame = "{{325, 0}, {322, 250}}";
+										Frame = "{{325, 0}, {322, 268}}";
 									};
 									SplitCount = 2;
 								};
@@ -54,13 +72,13 @@
 								TabCount = 1;
 							};
 							Frame = "{{0, 0}, {647, 293}}";
-							LauncherConfigVersion = 3;
+							LauncherConfigVersion = 4;
 						};
 						Tab1 = {
 							Frame = "{{0, 0}, {647, 111}}";
-							LauncherConfigVersion = 2;
+							LauncherConfigVersion = 3;
 							Runner = {
-								Frame = "{{0, 18}, {647, 93}}";
+								Frame = "{{0, 0}, {647, 111}}";
 							};
 						};
 						Tab2 = {
@@ -75,7 +93,7 @@
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {247, 556}}";
+						Frame = "{{0, 0}, {247, 586}}";
 					};
 					Tab1 = {
 						Frame = "{{0, 0}, {200, 556}}";
@@ -95,7 +113,7 @@
 					};
 					TabCount = 4;
 				};
-				WindowLoc = "{53, 29}";
+				WindowLoc = "{57, 30}";
 			};
 		};
 	};

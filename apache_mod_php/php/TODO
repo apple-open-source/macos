@@ -5,21 +5,28 @@ Zend
 ----
     * allow foreach ($array as $k => &$val) syntax. right now we cannot 
       traverse an array without copying each element.
+    * allow foreach ($array as $k => list($a, $b)) syntax for multi
+      dimensional arrays.
     * look at replacing c-lib call tolower().
     * make hash API functions work with HASH_OF() to save time.
     * native large number support (probably with GNU GMP)
     * Const'ify APIs. Right now, many functions leave parameters untouched,
       but don't declare those as const. This makes interaction with other
       interfaces difficult which pass const parameters to us. 
+    * add try..catch/throw exception handling
 
 global
 ------
+    * when used in standalone (skell-script like) mode don't urldecode
+      arguments passed to php. right now it's not possible to say
+        /usr/local/bin/php somescript.php dog+cat.txt
+      as "dog+cat.txt" will arrive in php as "dog cat.txt". 
     * make everything on the language-level independent of your locale setings.
     * always build the standalone executable as well as the chosen SAPI 
       target.
     * make sure all source files have the "right" copyright.
     * the following modules still use PHP3_TLS_*() macros (and thereby don't 
-      work in ZTS mode): ext/dav/dav.c, ext/db/db.c, ext/gd/gd.c, ext/ldap/ldap.c
+      work in ZTS mode): ext/db/db.c, ext/gd/gd.c
     * make sure that all ZTS globals get destructed. Most ts_allocate_id()
       calls should have a dtor entry.
     * activate all extensions by default that don't rely on external
@@ -48,6 +55,16 @@ documentation
 -------------
     * add remarks in the documentation which functions are not implemented on win32.
     * add remarks in the documentation which functions are not binary-safe.
+    * improve documentation for the sablotron extension
+    * update curl documentation
+    * write documentation for the bzip2 extension
+    * write documentation for the zziplib extension
+
+ext/curl
+--------
+    * Use the cURL write handler to save data for use when returning data or outputting
+      data.
+    * Have a warning scheme for when people use unsupported features.
 
 ext/dav
 --------
@@ -57,32 +74,43 @@ ext/oci8
 --------
     * all OCIFetch*() functions should return 0 for no more data and false on error.
     * have a flag that trims trailing spaces from CHAR fields on retrieval.
-	* make allow_call_time_pass_reference=Off working.
+    * make allow_call_time_pass_reference=Off working.
+    * for additional todo information, see oci8.c, in ext/oci8
 
 ext/pcre
 --------
-    * update the online docs from version 3.1 man page
+    * Allow user to set PCRE_NOTEMPTY, PCRE_ANCHORED at execution time, maybe
+    * add option to preg_grep() to return entries that _don't_ match
+
+ext/sablot
+----------
+    * Re-write the error handling and reporting interface
+    * Cleanup the underlying code a bit
+    * Add proper support for the message handlers
 
 ext/session
 -----------
-    * implement a call to set a session read-only to overcome 
-      the need to serialize frame-loads.
     * maybe implement finer-grained session variables that could be 
       locked individually.
     * write a network-transparent storage back-end with fallover
       facilities
+    * provide a callback facility which is executed upon encountering
+      an unknown classname during deserialization
+
+ext/sockets
+-----------
+    * Make the extension work on windows (Daniel Beulshausen)
+    * Make the extension work with Solaris and the Sun GCC
 
 ext/standard
 ------------
-    * array_mean()
     * add a version number to data serialized via serialize().
     * array_add(). (Andrei)
     * possibly modify parsing of GPC data to automatically create arrays if
       variable name is seen more than once.
     * implement regex-cache for url-functions.
-    * strcase_replace(). (Andrei)
+    * stri_replace(). (Andrei)
     * move socket related functions to fsock.c.
-    * get_defined_funcs(), get_defined_vars().
     * NOT binary safe:
         strtok()
         basename()
@@ -92,6 +120,10 @@ ext/standard
         strip_tags()
     * rewrite win32 SMTP code to be useable for *ix to, maybe as a (default)
       module of its own (Hartmut)
+
+ext/zziplib
+------------
+    * more fully support the zziplib api
 
 ext/wddx
 --------

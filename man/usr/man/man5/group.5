@@ -1,3 +1,4 @@
+.\" Portions Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
 .\"	$NetBSD: group.5,v 1.4 1995/07/28 06:41:39 phil Exp $
 .\"
 .\" Copyright (c) 1980, 1991, 1993
@@ -36,11 +37,16 @@
 .\"
 .Dd July 18, 1995
 .Dt GROUP 5
-.Os
+.Os Darwin
 .Sh NAME
 .Nm group
 .Nd format of the group permissions file
 .Sh DESCRIPTION
+.Nm Note:
+This information may be superseded by the NetInfo system. See 
+.Xr lookupd 8
+for more information.
+.Pp
 The file
 .Aq Pa /etc/group
 consists of newline separated
@@ -128,11 +134,12 @@ file itself, or included via YP, will be used.
 .It Pa /etc/group
 .El
 .Sh SEE ALSO
-.Xr setgroups 2 ,
-.Xr initgroups 3 ,
-.Xr crypt 3 ,
 .Xr passwd 1 ,
+.Xr setgroups 2 ,
+.Xr crypt 3 ,
+.Xr initgroups 3 ,
 .Xr passwd 5 ,
+.Xr lookupd 8 ,
 .Xr yp 8
 .Sh BUGS
 The

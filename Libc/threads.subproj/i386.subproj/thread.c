@@ -48,7 +48,7 @@ _pthread_set_self(p)
 }
 
 void *
-_pthread_self()
+pthread_self()
 {
 	asm("movl	$0, %eax");
 	asm("lcall	$0x3b, $0");

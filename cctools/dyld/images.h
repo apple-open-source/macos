@@ -22,6 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #import <mach-o/loader.h>
+#import <sys/types.h>
+#import <sys/stat.h>
 #ifdef EGREGIOUS_HACK_FOR_SAMPLER
 #import <dyld/bool.h>
 #else
@@ -53,6 +55,10 @@ struct image {
 				/*  image from the staticly link addresses. */
     struct mach_header *mh;	/* The mach header of the image. */
     unsigned long valid;	/* TRUE if this is struct is valid */
+    /*
+     * The above four fields can't change without breaking gdb(1) see the
+     * comments in <mach-o/dyld_gdb.h>.
+     */
     unsigned long vmaddr_size;  /* The size of the vm this image uses */
     unsigned long seg1addr;	/* The address of the first segment */
     unsigned long		/* The address of the first read-write segment*/
@@ -63,6 +69,8 @@ struct image {
     struct segment_command	/* The link edit segment command for the */
 	*linkedit_segment;	/*  image. */
     struct routines_command *rc;/* The routines command for the image */
+    struct twolevel_hints_command/* The twolevel hints command for the image */
+	*hints_cmd;
     struct section *init;	/* The mod init section */
     struct section *term;	/* The mod term section */
 #ifdef __ppc__
@@ -82,7 +90,51 @@ struct image {
       init_called:1,		/* the image init routine has been called */
       lazy_init:1,		/* the image init routine to be called lazy */
       has_coalesced_sections:1, /* the image has coalesced sections */
-      unused:23;
+      sub_images_setup:1,	/* the sub images have been set up */
+      umbrella_images_setup:1,  /* the umbrella_images have been set up */
+      two_level_debug_printed:1,/* printed when TWO_LEVEL_DEBUG is on */
+      undone_prebound_lazy_pointers:1, /* all prebound lazy pointer un done */
+      subtrees_twolevel_prebound_setup:1, /* state of this and deps setup */
+      subtrees_twolevel_prebound:1, /* this and deps twolevel and prebound */
+      image_can_use_hints:1,	/* set when the hints are usable in this image*/
+      subs_can_use_hints:1,	/* set when the hints are usable for images */
+				/*  that have this image as a sub image */
+      unused:16;
+    /*
+     * For two-level namespace images this is the array of pointers to the
+     * dependent images and the count of them.
+     */
+    struct image **dependent_images;
+    unsigned long ndependent_images;
+    /*
+     * If this is a library image which has a framework name or library name
+     * then this is the part that would be the umbrella name or library name
+     * and the size of the name.  This points into the name and since framework
+     * and library names may have suffixes the size is needed to exclude it.
+     * This is only needed for two-level namespace images.  umbrella_name and
+     * or library_name will be NULL and name_size will be 0 if there is no
+     * umbrella name.
+     */
+    char *umbrella_name;
+    char *library_name;
+    unsigned long name_size;
+
+    /* array of pointers to sub-frameworks and sub-umbrellas and count */
+    struct image **sub_images;
+    unsigned long nsub_images;
+    /* array of pointers to back to umbrella frameworks and sub-umbrellas
+     if any which the image is a part of and the count of them. */
+    struct image **umbrella_images;
+    unsigned long numbrella_images;
+
+    /*
+     * This fields is only used to point back to the library image or object
+     * image structure.  This is so that the for two-level namespace lookups
+     * the library_image and object_image can be quickly obtained from the image
+     * structure for a calls to lookup_symbol_in_library_image() and
+     * lookup_symbol_in_object_image().
+     */
+    void *outer_image;
 };
 
 /*
@@ -170,6 +222,10 @@ struct object_images {
     struct object_image images[NOBJECT_IMAGES];
     unsigned long nimages;
     struct object_images *next_images;
+    /*
+     * The above three fields can't change without breaking gdb(1) see the
+     * comments in <mach-o/dyld_gdb.h>.
+     */
 };
 extern struct object_images object_images;
 
@@ -178,6 +234,10 @@ struct library_images {
     struct library_image images[NLIBRARY_IMAGES];
     unsigned long nimages;
     struct library_images *next_images;
+    /*
+     * The above three fields can't change without breaking gdb(1) see the
+     * comments in <mach-o/dyld_gdb.h>.
+     */
 };
 extern struct library_images library_images;
 
@@ -194,7 +254,8 @@ extern enum bool load_dependent_libraries(
 extern enum bool load_library_image(
     struct dylib_command *dl,
     char *dylib_name,
-    enum bool force_searching);
+    enum bool force_searching,
+    struct image **image_pointer);
 
 extern void unload_remove_on_error_libraries(
     void);
@@ -223,6 +284,9 @@ extern enum bool set_images_to_prebound(
 extern void undo_prebound_images(
     void);
 
+extern void find_twolevel_prebound_lib_subtrees(
+    void);
+
 extern void try_to_use_prebound_libraries(
     void);
 
@@ -239,3 +303,14 @@ extern void create_executables_path(
 
 extern struct object_image *find_object_image(
     struct image *image);
+
+extern enum bool is_library_loaded_by_name(
+    char *dylib_name,
+    struct dylib_command *dl,
+    struct image **image_pointer);
+
+extern enum bool is_library_loaded_by_stat(
+    char *dylib_name,
+    struct dylib_command *dl,
+    struct stat *stat_buf,
+    struct image **image_pointer);

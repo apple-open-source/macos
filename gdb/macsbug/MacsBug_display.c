@@ -226,7 +226,9 @@ void get_screen_size(int *max_rows, int *max_cols)
 {
     struct winsize size;
     
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, (char *)&size) < 0)
+    if (!isatty(STDOUT_FILENO))
+    	*max_rows = *max_cols = 0;
+    else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, (char *)&size) < 0)
     	gdb_error("Can't get window size");
     else {
     	*max_rows = size.ws_row;
@@ -666,14 +668,17 @@ static void log(char *arg, int from_tty)
     	gdb_error("Log file already open");
     
     log_filename = gdb_realloc(log_filename, strlen(filename) + 1);
-    f            = fopen(strcpy(log_filename, filename), "a");
+    filename = gdb_tilde_expand(strcpy(log_filename, filename));
+    
+    f = fopen(filename, "a");
+    gdb_free(filename);
     if (!f) 
     	gdb_error("Cannot open log file: %s", strerror(errno));
     
     if (macsbug_screen)
-    	gdb_printf("Logging to %s\n", filename);
+    	gdb_printf("Logging to %s\n", log_filename);
     else
-    	gdb_printf("Will log to %s when MacsBug screen is turned on\n", filename);
+    	gdb_printf("Will log to %s when MacsBug screen is turned on\n", log_filename);
     
     log_stream = f;			/* delayed until aobve message displays		*/
     if (hopt)
@@ -1216,36 +1221,20 @@ static char *get_CurApName(char *curApName)
 
 
 /*------------------------------------------------------*
- | save_all_regs - save current values of all registers |
+ | save_stack - save current top N entries of the stack |
  *------------------------------------------------------*
-
- Called to remember the values of the registers in the previous display.  Also records
- the values of the top N stack entries, where N is determined by how many will fit in
- the sidebar (could be 0) so the when the general registers are shown r31 will always
- end up on the last screen row.
+ 
+ This is called to set the prev_stack[] array with the top N entries of the stack.  N
+ is a function of the max number of screen rows since this array is intended for 
+ coloring the sidebar stack display.
+ 
+ Note, it is called usually by save_all_regs().  But it will also be called when the
+ window size changes since that operation affects the number of screen rows.
 */
 
-static void save_all_regs(void)
+void save_stack(int max_rows)
 {
-    int  i;
-    char r[6];
-    
-    /* Save the registers...								*/
-    
-    prev_pc  = gdb_get_int("$pc");
-    prev_lr  = gdb_get_int("$lr");
-    prev_ctr = gdb_get_int("$ctr");
-    prev_msr = gdb_get_int("$ps");
-    prev_cr  = gdb_get_int("$cr");
-    prev_xer = gdb_get_int("$xer");
-    prev_mq  = gdb_get_int("$mq");
-    
-    for (i = 0; i < 32; ++i) {
-    	sprintf(r, "$r%d", i);
-	prev_gpr[i] = gdb_get_int(r);
-    }
-    
-    /* Save the top N stack entries...							*/
+    int i;
     
     prev_stack_cnt = max_rows - MIN_SIDEBAR;
     i = prev_stack_cnt * sizeof(unsigned long);
@@ -1263,6 +1252,38 @@ static void save_all_regs(void)
     
     if (prev_stack)
     	gdb_read_memory(prev_stack, "$sp", i);
+}
+
+
+/*------------------------------------------------------*
+ | save_all_regs - save current values of all registers |
+ *------------------------------------------------------*
+
+ Called to remember the values of the registers in the previous display.  Also records
+ the values of the top N stack entries, where N is determined by how many will fit in
+ the sidebar (could be 0) so the when the general registers are shown r31 will always
+ end up on the last screen row.
+*/
+
+static void save_all_regs(void)
+{
+    int  i;
+    char r[6];
+    
+    prev_pc  = gdb_get_int("$pc");
+    prev_lr  = gdb_get_int("$lr");
+    prev_ctr = gdb_get_int("$ctr");
+    prev_msr = gdb_get_int("$ps");
+    prev_cr  = gdb_get_int("$cr");
+    prev_xer = gdb_get_int("$xer");
+    prev_mq  = gdb_get_int("$mq");
+    
+    for (i = 0; i < 32; ++i) {
+    	sprintf(r, "$r%d", i);
+	prev_gpr[i] = gdb_get_int(r);
+    }
+    
+    save_stack(max_rows);
 }
 
 
@@ -1333,6 +1354,9 @@ void __display_side_bar(char *arg, int from_tty)
     #define BAR COLOR_OFF "|" 
     #endif
     
+    if (!isatty(STDOUT_FILENO))			/* if we aren't writting to a terminal	*/
+    	return;					/* ...what else can we do?		*/
+    	
     get_screen_size(&max_rows, &max_cols);
     screen_fprintf(stdout, SIDE_BAR, SAVE_CURSOR);/* remember current cursor postion	*/
     
@@ -1515,6 +1539,7 @@ void __display_side_bar(char *arg, int from_tty)
 			COLOR_CHANGE(prev_ctr_color = changed), ctr, bar_right);
     ++row;
     
+    #if 0
     changed = (prev_msr != msr);
     if (first_sidebar || changed || changed != prev_msr_color)
     	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "MSR " "%s" "%.8X" "%s", row, left_col, bar_left,
@@ -1526,6 +1551,7 @@ void __display_side_bar(char *arg, int from_tty)
     	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "MQ  " "%s" "%.8X" "%s", row, left_col, bar_left,
     			COLOR_CHANGE(prev_mq_color = changed), mq , bar_right);
     ++row;
+    #endif
     
     changed = (prev_xer != xer);
     if (first_sidebar || changed || changed != prev_xer_color) {
@@ -1581,7 +1607,7 @@ void __display_side_bar(char *arg, int from_tty)
 "Used to display the machine registers in a side bar vertically on the right\n"		\
 "(\"right\") or left (\"left\") side of the screen. The default is the same as\n"	\
 "specifying \"left\".\n"								\
-"Ê\n"											\
+"\n"											\
 "This command is called as \"__DISPLAY_SIDE_BAR right\" when __DISASM is used\n"	\
 "and the MacsBug screen is off or as \"__DISPLAY_SIDE_BAR\" (implied \"left\")\n"	\
 "when the MacsBug screen is on.  Obviously you shouldn't use \"left\" when the\n"	\
@@ -2149,6 +2175,10 @@ static int end_of_query(int result)
 void macsbug_on(int resume)
 {
     get_screen_size(&max_rows, &max_cols);
+    
+    if (!isatty(STDOUT_FILENO))
+    	gdb_error("MacsBug screen cannot be used in this environment.");
+
     if (max_rows < MIN_SCREEN_ROWS || max_cols < MIN_SCREEN_COLS)
     	gdb_error(COLOR_RED "\nTerminal window too small (must be at least %ld rows and %ld columns)." COLOR_OFF "\n",
 			MIN_SCREEN_ROWS, MIN_SCREEN_COLS);
@@ -2263,7 +2293,7 @@ static void mb(char *arg, int from_tty)
 "Specifying \"on\" turns on the display if not already on.\n" 				\
 "Specifying \"off\" turns off the display if not already off.\n" 			\
 "The default is to toggle the display.\n"						\
-"Ê\n"											\
+"\n"											\
 "Type \"help screen\" command to get a list of all MacsBug screen\n"			\
 "commands."
 
@@ -2286,7 +2316,7 @@ void init_macsbug_display(void)
     MACSBUG_SCREEN_COMMAND(log,     LOG_HELP);
     
     MACSBUG_USEFUL_COMMAND(__display_side_bar, __DISPLAY_SIDE_BAR_HELP);
-    gdb_define_plugin("log?", which_log, macsbug_internal_class, "");
+    gdb_define_cmd("log?", which_log, macsbug_internal_class, "");
     
     COMMAND_ALIAS(page, pg);
     COMMAND_ALIAS(su, scu);

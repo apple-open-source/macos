@@ -16,8 +16,6 @@ HFILES = IOHIDLib.h
 
 CFILES = IOEventStatusAPI.c IOHIDLib.c
 
-SUBPROJECTS = USBHIDParser.subproj
-
 OTHERSRCS = Makefile.preamble Makefile HIDParamTest.c
 
 

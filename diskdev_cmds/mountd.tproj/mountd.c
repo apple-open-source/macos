@@ -875,8 +875,11 @@ get_hostnames(char **hostnamearray)
 		sain = (struct sockaddr_in *)sa;
 		hostinfo = gethostbyaddr((caddr_t)&sain->sin_addr,
 					 sizeof(sain->sin_addr), AF_INET);
-		if (hostinfo)
+		if (hostinfo) {
 			record_hostname(hostinfo->h_name, hostnamearray);
+		} else {
+			record_hostname(inet_ntoa(sain->sin_addr), hostnamearray);
+		};
 	}
 	free(ifinfo);	/* allocated by get_ifinfo */
 }
@@ -1340,6 +1343,26 @@ nextline:
 			free_dir(dirhead);
 			dirhead = (struct dirlist *)NULL;
 		}
+		
+		/*
+		 * Add exported directory path to reghead, the list of paths
+		 * we will register.  Loop is to avoid adding duplicates.
+		 */
+		for (rl = reghead; rl; rl = rl->rl_next)
+			if (!strcmp(dirp, rl->rl_dirp))
+				break;
+		if (rl == (struct reglist *)NULL) {
+			rl = (struct reglist *)malloc(sizeof (struct reglist));
+			if (rl == (struct reglist *)NULL)
+				out_of_mem();
+			rl->rl_dirp = (char *)malloc(1 + strlen(dirp));
+			if (rl->rl_dirp == (char *)NULL)
+				out_of_mem();
+			strcpy(rl->rl_dirp, dirp);
+			rl->rl_next = reghead;
+			reghead = rl;
+		}
+
 	}
 	/*
 	 * Registration is slow due to running slp_reg.  We
@@ -1347,12 +1370,13 @@ nextline:
 	 * minimize the amount of time a legit export vanished from kernel
 	 * so active clients won't receive fatal errors.
 	 */
-	while (reghead) {
+ 	while (reghead) {
 		rl = reghead;
 		reghead = rl->rl_next;
 		(void)register_export(rl->rl_dirp, our_hostnames, ADD_URL);
 		free(rl);
 	}
+
 	if (source == EXPORT_FROM_NETINFO) ni_exports_close();
 	else fclose(exp_file);
 }
@@ -2045,25 +2069,6 @@ do_mount(ep, grp, exflags, anoncrp, dirp, dirplen, fsb)
 			}
 			savedc = *cp;
 			*cp = '\0';
-		}
-
-		/*
-		 * Add exported directory path to reghead, the list of paths
-		 * we will register.  Loop is to avoid adding duplicates.
-		 */
-		for (rl = reghead; rl; rl = rl->rl_next)
-			if (!strcmp(dirp, rl->rl_dirp))
-				break;
-		if (rl == (struct reglist *)NULL) {
-			rl = (struct reglist *)malloc(sizeof (struct reglist));
-			if (rl == (struct reglist *)NULL)
-				out_of_mem();
-			rl->rl_dirp = (char *)malloc(1 + strlen(dirp));
-			if (rl->rl_dirp == (char *)NULL)
-				out_of_mem();
-			strcpy(rl->rl_dirp, dirp);
-			rl->rl_next = reghead;
-			reghead = rl;
 		}
 
 		if (addrp) {

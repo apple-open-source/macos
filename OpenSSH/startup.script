@@ -23,6 +23,6 @@ if [ "${SSHSERVER:=-NO-}" = "-YES-" ]; then
 	ssh-keygen -t dsa -f /etc/ssh_host_dsa_key -N "" -C "$(hostname)"
     fi
 
-    /usr/sbin/sshd &
+    /usr/sbin/sshd 
 
 fi

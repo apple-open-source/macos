@@ -2,11 +2,13 @@
  *	Some routine common to procmail, formail and lockfile		*
  *									*
  *	Copyright (c) 1993-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
+ *						of America		*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: acommon.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: acommon.c,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $";
 #endif
 #include "includes.h"
 #include "acommon.h"
@@ -19,16 +21,18 @@ const char*hostname P((void))
 #ifndef MAXHOSTNAMELEN
 #define MAXHOSTNAMELEN	64
 #endif
-  static char name[MAXHOSTNAMELEN];
-  gethostname(name,MAXHOSTNAMELEN);name[MAXHOSTNAMELEN-1]='\0';
+  static char name[MAXHOSTNAMELEN]="";
+  if(!name[0])
+     gethostname(name,MAXHOSTNAMELEN),name[MAXHOSTNAMELEN-1]='\0';
 #else
-  struct utsname names;static char*name;
-  if(name)
-     free(name);
-  Uname(&names);
-  if(!(name=malloc(strlen(names.nodename)+1)))
-     return "";		      /* can happen when called from within lockfile */
-  strcpy(name,names.nodename);
+  static char*name=0;
+  if(!name)
+   { struct utsname names;
+     Uname(&names);
+     if(!(name=malloc(strlen(names.nodename)+1)))
+	return "";	      /* can happen when called from within lockfile */
+     strcpy(name,names.nodename);
+   }
 #endif
   return name;
 }
@@ -43,4 +47,16 @@ char*ultoan(val,dest)unsigned long val;char*dest;     /* convert to a number */
   while(val>>=6);
   *dest='\0';
   return dest;
+}
+
+void ultstr(minwidth,val,dest)int minwidth;unsigned long val;char*dest;
+{ int i;unsigned long j;
+  j=val;i=0;					   /* a beauty, isn't it :-) */
+  do i++;					   /* determine needed width */
+  while(j/=10);
+  while(--minwidth>=i)				 /* fill up any excess width */
+     *dest++=' ';
+  *(dest+=i)='\0';
+  do *--dest='0'+val%10;			  /* display value backwards */
+  while(val/=10);
 }

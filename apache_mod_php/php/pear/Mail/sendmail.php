@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -79,12 +79,17 @@ class Mail_sendmail extends Mail {
         
         list($from, $text_headers) = $this->prepareHeaders($headers);
         if (!isset($from)) {
-            return new PEAR_Error('No from address given');
+            return new PEAR_Error('No from address given.');
+        } elseif (strstr($from, ' ') ||
+                  strstr($from, ';') ||
+                  strstr($from, '&') ||
+                  strstr($from, '`')) {
+            return new PEAR_Error('From address specified with dangerous characters.');
         }
         
         $result = 0;
         if (@is_executable($this->sendmail_path)) {
-            $from = '"' . escapeShellCmd($from) . '"';
+            $from = escapeShellCmd($from);
             $mail = popen($this->sendmail_path . " -i -f$from -- $recipients", 'w');
             fputs($mail, $text_headers);
             fputs($mail, "\n");  // newline to end the headers section

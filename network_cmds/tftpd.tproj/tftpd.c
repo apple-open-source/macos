@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,13 +32,17 @@
  */
 
 #ifndef lint
-static char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
+#if 0
 static char sccsid[] = "@(#)tftpd.c	8.1 (Berkeley) 6/4/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/tftpd/tftpd.c,v 1.18 2001/02/02 10:52:58 asmodai Exp $";
 #endif /* not lint */
 
 /*
@@ -75,6 +56,7 @@ static char sccsid[] = "@(#)tftpd.c	8.1 (Berkeley) 6/4/93";
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
 #include <netinet/in.h>
 #include <arpa/tftp.h>
@@ -84,6 +66,7 @@ static char sccsid[] = "@(#)tftpd.c	8.1 (Berkeley) 6/4/93";
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <pwd.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
@@ -122,10 +105,11 @@ static struct dirlist {
 } dirs[MAXDIRS+1];
 static int	suppress_naks;
 static int	logging;
+static int	ipchroot;
 
 static char *errtomsg __P((int));
 static void  nak __P((int));
-static char *verifyhost __P((struct sockaddr_in *));
+static char * __P(verifyhost(struct sockaddr_in *));
 
 int
 main(argc, argv)
@@ -136,15 +120,30 @@ main(argc, argv)
 	register int n;
 	int ch, on;
 	struct sockaddr_in sin;
+	char *chroot_dir = NULL;
+	struct passwd *nobody;
+	char *chuser = "nobody";
 
-	openlog("tftpd", LOG_PID, LOG_FTP);
-	while ((ch = getopt(argc, argv, "ln")) != EOF) {
+	openlog("tftpd", LOG_PID | LOG_NDELAY, LOG_FTP);
+	while ((ch = getopt(argc, argv, "cClns:u:")) != -1) {
 		switch (ch) {
+		case 'c':
+			ipchroot = 1;
+			break;
+		case 'C':
+			ipchroot = 2;
+			break;
 		case 'l':
 			logging = 1;
 			break;
 		case 'n':
 			suppress_naks = 1;
+			break;
+		case 's':
+			chroot_dir = optarg;
+			break;
+		case 'u':
+			chuser = optarg;
 			break;
 		default:
 			syslog(LOG_WARNING, "ignoring unknown option -%c", ch);
@@ -163,17 +162,25 @@ main(argc, argv)
 			}
 		}
 	}
+	else if (chroot_dir) {
+		dirs->name = "/";
+		dirs->len = 1;
+	}
+	if (ipchroot && chroot_dir == NULL) {
+		syslog(LOG_ERR, "-c requires -s");
+		exit(1);
+	}
 
 	on = 1;
 	if (ioctl(0, FIONBIO, &on) < 0) {
-		syslog(LOG_ERR, "ioctl(FIONBIO): %m\n");
+		syslog(LOG_ERR, "ioctl(FIONBIO): %m");
 		exit(1);
 	}
 	fromlen = sizeof (from);
 	n = recvfrom(0, buf, sizeof (buf), 0,
 	    (struct sockaddr *)&from, &fromlen);
 	if (n < 0) {
-		syslog(LOG_ERR, "recvfrom: %m\n");
+		syslog(LOG_ERR, "recvfrom: %m");
 		exit(1);
 	}
 	/*
@@ -220,29 +227,62 @@ main(argc, argv)
 		    }
 		}
 		if (pid < 0) {
-			syslog(LOG_ERR, "fork: %m\n");
+			syslog(LOG_ERR, "fork: %m");
 			exit(1);
 		} else if (pid != 0) {
 			exit(0);
 		}
 	}
+
+	/*
+	 * Since we exit here, we should do that only after the above
+	 * recvfrom to keep inetd from constantly forking should there
+	 * be a problem.  See the above comment about system clogging.
+	 */
+	if (chroot_dir) {
+		if (ipchroot) {
+			char tempchroot[MAXPATHLEN];
+			char *tempaddr;
+			struct stat sb;
+			int statret;
+
+			tempaddr = inet_ntoa(from.sin_addr);
+			snprintf(tempchroot, sizeof(tempchroot), "%s/%s", chroot_dir, tempaddr);
+			statret = stat(tempchroot, &sb);
+			if ((sb.st_mode & S_IFDIR) &&
+			    (statret == 0 || (statret == -1 && ipchroot == 1)))
+				chroot_dir = tempchroot;
+		}
+		/* Must get this before chroot because /etc might go away */
+		if ((nobody = getpwnam(chuser)) == NULL) {
+			syslog(LOG_ERR, "%s: no such user", chuser);
+			exit(1);
+		}
+		if (chroot(chroot_dir)) {
+			syslog(LOG_ERR, "chroot: %s: %m", chroot_dir);
+			exit(1);
+		}
+		chdir( "/" );
+		setuid(nobody->pw_uid);
+	}
+
 	from.sin_family = AF_INET;
 	alarm(0);
 	close(0);
 	close(1);
 	peer = socket(AF_INET, SOCK_DGRAM, 0);
 	if (peer < 0) {
-		syslog(LOG_ERR, "socket: %m\n");
+		syslog(LOG_ERR, "socket: %m");
 		exit(1);
 	}
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
 	if (bind(peer, (struct sockaddr *)&sin, sizeof (sin)) < 0) {
-		syslog(LOG_ERR, "bind: %m\n");
+		syslog(LOG_ERR, "bind: %m");
 		exit(1);
 	}
 	if (connect(peer, (struct sockaddr *)&from, sizeof(from)) < 0) {
-		syslog(LOG_ERR, "connect: %m\n");
+		syslog(LOG_ERR, "connect: %m");
 		exit(1);
 	}
 	tp = (struct tftphdr *)buf;
@@ -254,7 +294,7 @@ main(argc, argv)
 
 struct formats;
 int	validate_access __P((char **, int));
-void	tftp_sendfile __P((struct formats *));
+void	xmitfile __P((struct formats *));
 void	recvfile __P((struct formats *));
 
 struct formats {
@@ -264,8 +304,8 @@ struct formats {
 	void	(*f_recv) __P((struct formats *));
 	int	f_convert;
 } formats[] = {
-	{ "netascii",	validate_access,	tftp_sendfile,	recvfile, 1 },
-	{ "octet",	validate_access,	tftp_sendfile,	recvfile, 0 },
+	{ "netascii",	validate_access,	xmitfile,	recvfile, 1 },
+	{ "octet",	validate_access,	xmitfile,	recvfile, 0 },
 #ifdef notdef
 	{ "mail",	validate_user,		sendmail,	recvmail, 1 },
 #endif
@@ -313,8 +353,7 @@ again:
 	}
 	ecode = (*pf->f_validate)(&filename, tp->th_opcode);
 	if (logging) {
-		syslog(LOG_INFO, "%s: %s request for %s: %s",
-			verifyhost(&from),
+		syslog(LOG_INFO, "%s: %s request for %s: %s", verifyhost(&from),
 			tp->th_opcode == WRQ ? "write" : "read",
 			filename, errtomsg(ecode));
 	}
@@ -398,11 +437,11 @@ validate_access(filep, mode)
 
 		/*
 		 * Relative file name: search the approved locations for it.
-		 * Don't allow write requests or ones that avoid directory
+		 * Don't allow write requests that avoid directory
 		 * restrictions.
 		 */
 
-		if (mode != RRQ || !strncmp(filename, "../", 3))
+		if (!strncmp(filename, "../", 3))
 			return (EACCESS);
 
 		/*
@@ -412,7 +451,8 @@ validate_access(filep, mode)
 		 */
 		err = ENOTFOUND;
 		for (dirp = dirs; dirp->name != NULL; dirp++) {
-			sprintf(pathname, "%s/%s", dirp->name, filename);
+			snprintf(pathname, sizeof(pathname), "%s/%s",
+				dirp->name, filename);
 			if (stat(pathname, &stbuf) == 0 &&
 			    (stbuf.st_mode & S_IFMT) == S_IFREG) {
 				if ((stbuf.st_mode & S_IROTH) != 0) {
@@ -425,7 +465,7 @@ validate_access(filep, mode)
 			return (err);
 		*filep = filename = pathname;
 	}
-	fd = open(filename, mode == RRQ ? 0 : 1);
+	fd = open(filename, mode == RRQ ? O_RDONLY : O_WRONLY|O_TRUNC);
 	if (fd < 0)
 		return (errno + 100);
 	file = fdopen(fd, (mode == RRQ)? "r":"w");
@@ -452,13 +492,13 @@ timer()
  * Send the requested file.
  */
 void
-tftp_sendfile(pf)
+xmitfile(pf)
 	struct formats *pf;
 {
 	struct tftphdr *dp, *r_init();
 	register struct tftphdr *ap;    /* ack packet */
 	register int size, n;
-	volatile int block;
+	volatile unsigned short block;
 
 	signal(SIGALRM, timer);
 	dp = r_init();
@@ -477,7 +517,7 @@ tftp_sendfile(pf)
 
 send_data:
 		if (send(peer, dp, size + 4, 0) != size + 4) {
-			syslog(LOG_ERR, "tftpd: write: %m\n");
+			syslog(LOG_ERR, "write: %m");
 			goto abort;
 		}
 		read_ahead(file, pf->f_convert);
@@ -486,7 +526,7 @@ send_data:
 			n = recv(peer, ackbuf, sizeof (ackbuf), 0);
 			alarm(0);
 			if (n < 0) {
-				syslog(LOG_ERR, "tftpd: read: %m\n");
+				syslog(LOG_ERR, "read: %m");
 				goto abort;
 			}
 			ap->th_opcode = ntohs((u_short)ap->th_opcode);
@@ -528,7 +568,7 @@ recvfile(pf)
 	struct tftphdr *dp, *w_init();
 	register struct tftphdr *ap;    /* ack buffer */
 	register int n, size;
-	volatile int block;
+	volatile unsigned short block;
 
 	signal(SIGALRM, timer);
 	dp = w_init();
@@ -542,7 +582,7 @@ recvfile(pf)
 		(void) setjmp(timeoutbuf);
 send_ack:
 		if (send(peer, ackbuf, 4, 0) != 4) {
-			syslog(LOG_ERR, "tftpd: write: %m\n");
+			syslog(LOG_ERR, "write: %m");
 			goto abort;
 		}
 		write_behind(file, pf->f_convert);
@@ -551,7 +591,7 @@ send_ack:
 			n = recv(peer, dp, PKTSIZE, 0);
 			alarm(0);
 			if (n < 0) {            /* really? */
-				syslog(LOG_ERR, "tftpd: read: %m\n");
+				syslog(LOG_ERR, "read: %m");
 				goto abort;
 			}
 			dp->th_opcode = ntohs((u_short)dp->th_opcode);
@@ -622,7 +662,7 @@ errtomsg(error)
 	for (pe = errmsgs; pe->e_code >= 0; pe++)
 		if (pe->e_code == error)
 			return pe->e_msg;
-	sprintf(buf, "error %d", error);
+	snprintf(buf, sizeof(buf), "error %d", error);
 	return buf;
 }
 
@@ -655,7 +695,7 @@ nak(error)
 	tp->th_msg[length] = '\0';
 	length += 5;
 	if (send(peer, buf, length, 0) != length)
-		syslog(LOG_ERR, "nak: %m\n");
+		syslog(LOG_ERR, "nak: %m");
 }
 
 static char *
@@ -664,9 +704,9 @@ verifyhost(fromp)
 {
 	struct hostent *hp;
 
-	hp = gethostbyaddr((char *)&fromp->sin_addr, sizeof (fromp->sin_addr),
-			    fromp->sin_family);
-	if (hp)
+	hp = gethostbyaddr((char *)&fromp->sin_addr, sizeof(fromp->sin_addr),
+		fromp->sin_family);
+	if(hp)
 		return hp->h_name;
 	else
 		return inet_ntoa(fromp->sin_addr);

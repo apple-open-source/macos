@@ -1,0 +1,518 @@
+/*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/* -----------------------------------------------------------------------------
+ *
+ *  Theory of operation :
+ *
+ *  plugin to add a generic socket support to pppd, instead of tty.
+ *
+----------------------------------------------------------------------------- */
+
+
+/* -----------------------------------------------------------------------------
+  Includes
+----------------------------------------------------------------------------- */
+
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <syslog.h>
+#include <netdb.h>
+#include <utmp.h>
+#include <pwd.h>
+#include <setjmp.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <syslog.h>
+#include <sys/ioctl.h>
+#include <net/dlil.h>
+
+#include <net/if.h>
+#include <CoreFoundation/CFBundle.h>
+
+#define APPLE 1
+
+#include "../../../Family/ppp_defs.h"
+#include "../../../Family/if_ppp.h"
+#include "../../../Family/ppp_domain.h"
+#include "../PPPoE-extension/PPPoE.h"
+#include "../../../ppp/pppd/pppd.h"
+#include "../../../ppp/pppd/fsm.h"
+#include "../../../ppp/pppd/lcp.h"
+
+
+/* -----------------------------------------------------------------------------
+ Definitions
+----------------------------------------------------------------------------- */
+
+#define MODE_CONNECT	"connect"
+#define MODE_LISTEN	"listen"
+#define MODE_ANSWER	"answer"
+
+#define PPPOE_NKE	"PPPoE.kext"
+
+/* -----------------------------------------------------------------------------
+ Forward declarations
+----------------------------------------------------------------------------- */
+void pppoe_device_check();
+void pppoe_check_options();
+int pppoe_connect();
+void pppoe_disconnect();
+void pppoe_close_fds();
+void pppoe_cleanup();
+int pppoe_establish_ppp(int);
+void pppoe_wait_input();
+void pppoe_disestablish_ppp(int);
+
+static int pppoe_dial();
+static int pppoe_listen();
+static void closeall();
+static u_long load_kext(char *kext);
+
+/* -----------------------------------------------------------------------------
+ PPP globals
+----------------------------------------------------------------------------- */
+
+
+static int 	sockfd = -1;			/* socket file descriptor */
+static CFBundleRef 	bundle = 0;		/* our bundle ref */
+
+/* option variables */
+static char 	*mode = MODE_CONNECT;		/* connect mode by default */
+static bool 	loopback = 0;			/* loop back mode */
+static bool 	noload = 0;			/* don't load the kernel extension */
+static char	*service = NULL; 		/* service selection to use */
+static char	*access_concentrator = NULL; 	/* access concentrator to connect to */
+static char	*interface = "en0"; 		/* ethernet interface to use */
+static int	retrytimer = 0; 		/* retry timer (default is 3 seconds) */
+static int	connecttimer = 65; 		/* bump the connection timer from 20 to 65 seconds */
+
+extern int kill_link;
+
+/* option descriptors */
+option_t pppoe_options[] = {
+    { "pppoeservicename", o_string, &service,
+      "PPPoE service to choose" },
+    { "pppoeacname", o_string, &access_concentrator,
+      "PPPoE Access Concentrator to connect to" },
+    { "pppoeloopback", o_bool, &loopback,
+      "Configure PPPoE in loopback mode, for single machine testing", 1 },
+    { "nopppoeload", o_bool, &noload,
+      "Don't try to load the PPPoE kernel extension", 1 },
+    { "pppoemode", o_string, &mode,
+      "Configure configuration mode [connect, listen, answer]" },
+    { "pppoeinterface", o_string, &interface,
+      "Ethernet interface to use" },
+    { "pppoeconnecttimer", o_int, &connecttimer,
+      "Connect timer for outgoing call (default 65 seconds)" },
+    { "pppoeretrytimer", o_int, &retrytimer,
+      "Retry timer for outgoing call (default 3 seconds)" },
+    { NULL }
+};
+
+
+/* -----------------------------------------------------------------------------
+plugin entry point, called by pppd
+----------------------------------------------------------------------------- */
+int start(CFBundleRef ref)
+{
+ 
+    bundle = ref;
+    CFRetain(bundle);
+    
+    // add the socket specific options
+    add_options(pppoe_options);
+    
+    // hookup our socket handlers
+    dev_device_check_hook = pppoe_device_check;
+    dev_wait_input_hook = pppoe_wait_input;
+    dev_check_options_hook = pppoe_check_options;
+    dev_connect_hook = pppoe_connect;
+    dev_disconnect_hook = pppoe_disconnect;
+    dev_cleanup_hook = pppoe_cleanup;
+    dev_close_fds_hook = pppoe_close_fds;
+    dev_establish_ppp_hook = pppoe_establish_ppp;
+    dev_disestablish_ppp_hook = pppoe_disestablish_ppp;
+    return 0;
+}
+
+/* ----------------------------------------------------------------------------- 
+work out which device we are using and read its options file
+----------------------------------------------------------------------------- */
+void pppoe_device_check()
+{
+    int 		error = EXIT_OPTION_ERROR;
+    int 		len, s;
+    struct ifreq 	ifr;
+
+    s = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
+    if (s >= 0) {
+        
+        len = strlen(interface);
+        if (len <= sizeof(ifr.ifr_name)) {
+
+            bzero(&ifr, sizeof(ifr));
+            bcopy(interface, ifr.ifr_name, len);
+            if (ioctl(s, SIOCGIFFLAGS, (caddr_t) &ifr) >= 0) {
+                // ensure that the device is UP
+                ifr.ifr_flags |= IFF_UP;
+                if (ioctl(s, SIOCSIFFLAGS, (caddr_t) &ifr) >= 0)
+                    error = 0;
+            }
+        }
+        
+        close(s);
+    }
+        
+    if (error)
+        exit(error);
+}
+
+/* ----------------------------------------------------------------------------- 
+do consistency checks on the options we were given
+----------------------------------------------------------------------------- */
+void pppoe_check_options()
+{
+}
+
+/* ----------------------------------------------------------------------------- 
+called back everytime we go out of select, and data needs to be read
+the hook is called and has a chance to get data out of its file descriptor
+in the case of PPPoE, we are not supposed to get data on the socket
+if our socket gets awaken, that's because is has been closed
+----------------------------------------------------------------------------- */
+void pppoe_wait_input()
+{
+   
+    if (sockfd != -1 && is_ready_fd(sockfd)) {
+        // it's OK to get a hangup during terminate phase
+        if (phase != PHASE_TERMINATE) {
+            notice("PPPoE hangup");
+            status = EXIT_HANGUP;
+        }
+        remove_fd(sockfd);
+        hungup = 1;
+        lcp_lowerdown(0);	/* PPPoE link is no longer available */
+        link_terminated(0);
+    }
+}
+
+/* ----------------------------------------------------------------------------- 
+get the socket ready to start doing PPP.
+That is, open the socket and run the connector
+----------------------------------------------------------------------------- */
+int pppoe_connect()
+{
+    char 	dev[32], name[MAXPATHLEN]; 
+    int 	err = 0;  
+    CFURLRef	url;
+    
+    sprintf(dev, "socket[%d:%d]", PF_PPP, PPPPROTO_PPPOE);
+    strlcpy(ppp_devnam, dev, sizeof(ppp_devnam));
+
+    hungup = 0;
+    kill_link = 0;
+
+    /* open the socket */
+    sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
+    if (sockfd < 0) {
+        if (!noload) {
+            if (url = CFBundleCopyBundleURL(bundle)) {
+                name[0] = 0;
+                CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                CFRelease(url);
+                strcat(name, "/");
+                if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
+                    CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                        MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
+                    CFRelease(url);
+                    strcat(name, "/");
+                    strcat(name, PPPOE_NKE);
+                    if (!load_kext(name))
+                        sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
+                }	
+            }
+        }
+        if (sockfd < 0) {
+            error("Failed to open PPPoE socket: %m");
+            status = EXIT_OPEN_FAILED;
+            return -1;
+       }
+    }
+
+    if (loopback || debug) {
+        u_int32_t 	flags;
+        flags = (loopback ? PPPOE_FLAG_LOOPBACK : 0)
+            + (debug ? PPPOE_FLAG_DEBUG : 0);
+        if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_FLAGS, &flags, 4)) {
+            error("PPPoE can't set PPPoE flags...\n");
+            return errno;
+        }
+        if (loopback) 
+            info("PPPoE loopback activated...\n");
+    }
+
+    if (connecttimer) {
+        u_int16_t 	timer = connecttimer;
+        if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_CONNECT_TIMER, &timer, 2)) {
+            error("PPPoE can't set PPPoE connect timer...\n");
+            return errno;
+        }
+    }
+
+    if (retrytimer) {
+        u_int16_t 	timer = retrytimer;
+        if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_RETRY_TIMER, &timer, 2)) {
+            error("PPPoE can't set PPPoE retry timer...\n");
+            return errno;
+        }
+    }
+
+    if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, interface, strlen(interface))) {
+        error("PPPoE can't specify interface...\n");
+        return errno;
+    }
+
+    if (!strcmp(mode, MODE_ANSWER)) {
+        // nothing to do
+    }
+    else if (!strcmp(mode, MODE_LISTEN)) {
+        err = pppoe_listen();
+    }
+    else if (!strcmp(mode, MODE_CONNECT)) {
+        err = pppoe_dial();
+    }
+    else 
+        fatal("PPPoE incorrect mode : '%s'", mode ? mode : "");
+
+    if (err) {
+        status = EXIT_CONNECT_FAILED;
+        return -1;
+    }
+    
+    return sockfd;
+}
+
+/* ----------------------------------------------------------------------------- 
+run the disconnector connector
+----------------------------------------------------------------------------- */
+void pppoe_disconnect()
+{
+    info("PPPoE disconnecting...\n");
+    
+    if (shutdown(sockfd, SHUT_RDWR) < 0) {
+        error("PPPoE disconnection failed, error = %d.\n", errno);
+        return;
+    }
+
+    info("PPPoE disconnected\n");
+}
+
+/* ----------------------------------------------------------------------------- 
+close the socket descriptors
+----------------------------------------------------------------------------- */
+void pppoe_close_fds()
+{
+	if (sockfd >= 0) {
+		close(sockfd);
+		sockfd = -1;
+	}
+}
+
+/* ----------------------------------------------------------------------------- 
+clean up before quitting
+----------------------------------------------------------------------------- */
+void pppoe_cleanup()
+{
+    pppoe_close_fds();
+}
+
+/* ----------------------------------------------------------------------------- 
+establish the socket as a ppp link
+----------------------------------------------------------------------------- */
+int pppoe_establish_ppp(int fd)
+{
+    int 	x;
+
+    if (ioctl(fd, PPPIOCATTACH, &x) < 0) {
+        error("Couldn't attach socket to the link layer: %m");
+        return -1;
+    }
+
+    add_fd(fd);
+    return 0;
+}
+
+/* ----------------------------------------------------------------------------- 
+establish the socket as a ppp link
+----------------------------------------------------------------------------- */
+void pppoe_disestablish_ppp(int fd)
+{
+    int 	x;
+    
+    remove_fd(fd);
+
+    if (ioctl(fd, PPPIOCDETACH, &x) < 0)
+        error("Couldn't detach socket from link layer: %m");
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int pppoe_dial()
+{
+    struct sockaddr_pppoe 	addr;
+    u_short 			len, i;
+    
+    // if the specific pppoe option are not used, try to see 
+    // if the remote address generic field can be decomposed
+    // in the form of service_name\access_concentrator
+    if (!service && !access_concentrator && remoteaddress) {
+	len = strlen(remoteaddress);
+	for (i = 0; i < len; i++) 
+            if (remoteaddress[i] == '\\')
+                break;
+        if (service = malloc(i + 1)) {
+            strncpy(service, remoteaddress, i);
+            service[i] = 0;
+        }
+        if (i < len) {
+            if (access_concentrator = malloc(len - i))
+                strcpy(access_concentrator, &remoteaddress[i + 1]);
+        }
+    }
+    
+    info("PPPoE connecting to service '%s' [access concentrator '%s']...\n", 
+            service ? service : "", 
+            access_concentrator ? access_concentrator : "");
+
+    bzero(&addr, sizeof(addr));
+    addr.ppp.ppp_len = sizeof(struct sockaddr_pppoe);
+    addr.ppp.ppp_family = AF_PPP;
+    addr.ppp.ppp_proto = PPPPROTO_PPPOE;
+    if (access_concentrator)
+        strncpy(addr.pppoe_ac_name, access_concentrator, sizeof(addr.pppoe_ac_name));
+    if (service)
+        strncpy(addr.pppoe_service, service, sizeof(addr.pppoe_service));
+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
+        error("PPPoE connection failed, %m");
+        return errno;
+    }
+
+    info("PPPoE connection established.");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int pppoe_listen()
+{
+    struct sockaddr_pppoe 	addr;
+    int				len, fd;
+
+    info("PPPoE listening on service '%s' [access concentrator '%s']...\n", 
+            service ? service : "", 
+            access_concentrator ? access_concentrator : "");
+
+    bzero(&addr, sizeof(addr));
+    addr.ppp.ppp_len = sizeof(struct sockaddr_pppoe);
+    addr.ppp.ppp_family = AF_PPP;
+    addr.ppp.ppp_proto = PPPPROTO_PPPOE;
+    if (access_concentrator)
+        strncpy(addr.pppoe_ac_name, access_concentrator, sizeof(addr.pppoe_ac_name));
+    if (service)
+        strncpy(addr.pppoe_service, service, sizeof(addr.pppoe_service));
+    if (bind(sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
+        error("PPPoE bind failed, %m");
+        return errno;
+    }
+
+    if (listen(sockfd, 10) < 0) {
+        printf("PPPoE listen failed, %m");
+        return errno;
+    }
+
+    len = sizeof(addr);
+    fd = accept(sockfd, (struct sockaddr *) &addr, &len);
+    if (fd < 0) {
+        error("PPPoE accept failed, %m");
+        return errno;
+    }
+    
+    close(sockfd);	// close the socket used for listening
+    sockfd = fd;	// use the accepted socket instead of
+    
+    info("PPPoE connection established in incoming call.");
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void closeall()
+{
+    int i;
+
+    for (i = getdtablesize() - 1; i >= 0; i--) close(i);
+    open("/dev/null", O_RDWR, 0);
+    dup(0);
+    dup(0);
+    return;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+u_long load_kext(char *kext)
+{
+    int pid;
+
+    if ((pid = fork()) < 0)
+        return 1;
+
+    if (pid == 0) {
+        closeall();
+        // PPP kernel extension not loaded, try load it...
+        execl("/sbin/kextload", "kextload", kext, (char *)0);
+        exit(1);
+    }
+
+    while (waitpid(pid, 0, 0) < 0) {
+        if (errno == EINTR)
+            continue;
+       return 1;
+    }
+    return 0;
+}
+

@@ -51,7 +51,7 @@ const char * 	arp_strerror(int err);
 int		arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p);
 int		arp_set(int s, struct in_addr * iaddr_p, void * hwaddr_p, 
 			int hwaddr_len, int temp, int public);
-int 		arp_delete(int s, struct in_addr * iaddr_p, int export);
-int		arp_flush(int s);
+int 		arp_delete(int s, struct in_addr iaddr, int export);
+int		arp_flush(int s, int all);
 
 int		arp_get_routing_socket();

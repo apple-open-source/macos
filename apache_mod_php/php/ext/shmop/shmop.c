@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,6 +16,10 @@
    |          Ilia Alshanetsky (iliaa@home.com)                           |
    +----------------------------------------------------------------------+
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -84,7 +88,7 @@ PHP_MSHUTDOWN_FUNCTION(shmop)
 PHP_MINFO_FUNCTION(shmop)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "shmop support", "enabled");
+	php_info_print_table_row(2, "shmop support", "enabled");
 	php_info_print_table_end();
 }
 

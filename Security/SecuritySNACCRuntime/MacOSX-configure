@@ -1,0 +1,6 @@
+:
+export LEXLIB="-ll"
+export CFLAGS="-DMACOS -DYYTEXT_POINTER"
+./configure
+rm -f c++-lib/inc/config.h
+cp config.h c++-lib/inc

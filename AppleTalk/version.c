@@ -38,7 +38,7 @@
  */
 
 #ifndef lint
-static char sccsid[] = 
+static const char sccsid[] = 
 	"@(#)libat.a: 2.0, 1.1; 3/28/89; Copyright 1988-89, Apple Computer, Inc.";
 #endif  /* lint */
 

@@ -1,0 +1,111 @@
+(RCS control information is at the end of this file.)
+
+
+C++ Simple Example README
+-------------------------
+
+This directory should have 6 files in it:
+
+  README      - this file
+
+  genber.C    - C++ source code for a program that creates and encodes
+                a PersonnelRecord value to a file.
+
+  example.C   - C++ source code for a program that decodes a given
+                PersonnelRecord value and re-encodes it to stdout.
+
+  makefile    - compiles the example programs
+
+  good_pr.ber - BER encoding of a Personnel Record (all definite lengths)
+
+
+
+Type "make" to generate the 3 example programs:
+        genber
+        def
+        indef
+
+
+
+snacc is called from the makefile on .../asn1specs/p_rec.asn1 to
+generate the following files:
+
+p_rec.h  - C++ classes for PersonnelRecord types.
+
+p_rec.C  - C++ source code for the PersonnelRecord encode, decode,
+           print, and free methods.
+
+These source files are then compiled with example.C to make the
+programs def and indef.  Each program takes 1 argument, the name of a
+file containing an BER encoded PersonnelRecord value.
+
+
+Try the following:
+
+%1 genber                       # create a file called pr.ber
+%2 indef good_pr.ber > indef_pr.ber
+%3 def indef_pr.ber > def_pr.ber
+%4 diff good_pr.ber def_pr.ber  # should be no differences
+
+(commands 2-4 can be made via the `check' phony target.)
+
+The above commands decode the BER value in "good_pr.ber" and
+indef_pr.ber respectively and then re-encode them to stdout.
+Both programs will decode any valid BER representation of a
+PersonnelRecord value but, the def program will re-encode the
+given data using only the definite length BER format and the
+indef program will re-encode the given data using only the
+indefinite length BER format.
+
+Compare the lengths of the def_pr.ber and indef_pr.ber files,
+indefinite length encodings are usually larger.
+
+
+
+Things to Note
+--------------
+
+Look at genber.C to see how to build a C++ value and then encode it.
+look at the example.C file to see buffer usage.  Look at
+.../c++_lib/inc/asn_config.h and .../c++_lib/inc/asn_buf.h if you
+want to change the buffer managment.
+
+
+Snacc ASN.1 comment commands
+
+Notice the special "--snacc" ASN.1 comment in .../asn1specs/p_rec.asn1.
+
+PersonnelRecord ::= --snacc isPdu:"TRUE" -- [APPLICATION 0] IMPLICIT SET
+ { ... etc. ... }
+
+The "isPdu" flag tells snacc that the PersonnelRecord is a PDU type.
+This flag has no effect on the generated C++ code, since each type gets
+PDU members automatically for C++.
+
+
+
+Length formats
+
+Both the def and indef programs were generated from the same source
+file, example.c.  Indefinite length encoders can be created by giving
+the -DUSE_INDEF_LEN flag to the C++ compiler when compiling.  Currently
+the indefinite/definite length encoder choice is made a compile time.
+To change this to a run-time decision, a simple solution would be to
+modify BerEncodeConsLen and BerEncodeEocIfNec macros in
+.../c++_lib/inc/asn_len.h to check a global flag.
+
+#-------------------------------------------------------------------------------
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-examples/simple/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+# $Log: README,v $
+# Revision 1.1.1.1  2001/05/18 23:14:05  mb
+# Move from private repository to open source repository
+#
+# Revision 1.1.1.1  1999/03/16 18:05:57  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.2  1994/10/08 04:43:46  rj
+# the test csh skript has been integrated into the makefile
+#
+# Revision 1.1  1994/08/31  08:48:05  rj
+# first check-in. for a list of changes to the snacc-1.1 distribution please refer to the ChangeLog.
+#

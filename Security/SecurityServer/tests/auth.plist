@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>debug.</key>
+	<dict>
+		<key>group</key>
+		<string>yes</string>
+		<key>shared</key>
+		<true/>
+		<key>timeout</key>
+		<integer>300</integer>
+	</dict>
+	<key>debug.allow</key>
+	<string>allow</string>
+	<key>debug.deny</key>
+	<string>deny</string>
+</dict>
+</plist>

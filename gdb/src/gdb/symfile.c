@@ -770,7 +770,8 @@ syms_from_objfile (struct objfile *objfile, struct section_addr_info *addrs,
     }
 #endif /* not IBM6000_TARGET */
 
-  (*objfile->sf->sym_read) (objfile, mainline);
+  if (objfile->symflags & ~OBJF_SYM_CONTAINER)
+    (*objfile->sf->sym_read) (objfile, mainline);
 
 #if 0
   if (!have_partial_symbols () && !have_full_symbols ())
@@ -849,7 +850,7 @@ new_symfile_objfile (struct objfile *objfile, int mainline, int verbo)
 struct objfile *
 symbol_file_add (const char *name, int from_tty,
                  struct section_addr_info *addrs,
-		 int mainline, int flags,
+		 int mainline, int flags, int symflags,
                  CORE_ADDR mapaddr, const char *prefix)
 {
   bfd *abfd;
@@ -858,11 +859,11 @@ symbol_file_add (const char *name, int from_tty,
   
   abfd = symfile_bfd_open (name);
   return symbol_file_add_bfd
-    (abfd, from_tty, addrs, mainline, flags, mapaddr, prefix);
+    (abfd, from_tty, addrs, mainline, flags, symflags, mapaddr, prefix);
 }
 
 struct objfile *
-symbol_file_add_bfd (abfd, from_tty, addrs, mainline, flags, mapaddr, prefix)
+symbol_file_add_bfd (abfd, from_tty, addrs, mainline, flags, symflags, mapaddr, prefix)
      bfd *abfd;
      int from_tty;
      struct section_addr_info *addrs;
@@ -883,7 +884,7 @@ symbol_file_add_bfd (abfd, from_tty, addrs, mainline, flags, mapaddr, prefix)
       && !query ("Load new symbol table from \"%s\"? ", abfd->filename))
     error ("Not confirmed.");
 
-  objfile = allocate_objfile (abfd, flags, mapaddr);
+  objfile = allocate_objfile (abfd, flags, symflags, mapaddr);
   objfile->prefix = prefix;
 
   /* If the objfile uses a mapped symbol file, and we have a psymtab for
@@ -992,6 +993,7 @@ symbol_file_command (char *args, int from_tty)
   char *name = NULL;
   struct cleanup *cleanups;
   int flags = OBJF_USERLOADED;
+  int symflags = OBJF_SYM_ALL;
 
   dont_repeat ();
 
@@ -1043,7 +1045,7 @@ symbol_file_command (char *args, int from_tty)
 		  struct section_addr_info section_addrs;
 		  memset (&section_addrs, 0, sizeof (section_addrs));
 		  name = *argv;
-		  symbol_file_add (name, from_tty, &section_addrs, 1, flags, 0, NULL);
+		  symbol_file_add (name, from_tty, &section_addrs, 1, flags, symflags, OBJF_SYM_ALL, NULL);
 		  
 #ifdef HPUXHPPA
 		  RESET_HP_UX_GLOBALS ();
@@ -1070,15 +1072,7 @@ symbol_file_command (char *args, int from_tty)
     }
 
 #ifdef NM_NEXTSTEP
-  if (symfile_objfile != NULL)
-    {
-      assert (symfile_objfile->obfd != NULL);
-      next_init_dyld_symfile (symfile_objfile->obfd);
-    }
-  else
-    {
-      next_init_dyld_symfile (NULL);
-    }
+  next_init_dyld_symfile (symfile_objfile);
 #endif
 }
 
@@ -1542,6 +1536,7 @@ add_symbol_file_command (char *args, int from_tty)
   CORE_ADDR text_addr;
   CORE_ADDR mapaddr = 0;
   int flags = OBJF_USERLOADED;
+  int symflags = OBJF_SYM_ALL;
   char *arg;
   int expecting_option = 0;
   int section_index = 0;
@@ -1698,7 +1693,7 @@ add_symbol_file_command (char *args, int from_tty)
   if (from_tty && (!query ("%s", "")))
     error ("Not confirmed.");
 
-  symbol_file_add (filename, from_tty, &section_addrs, 0, flags, 0, NULL);
+  symbol_file_add (filename, from_tty, &section_addrs, 0, flags, symflags,0, NULL);
 
   /* Getting new symbols may change our opinion about what is
      frameless.  */
@@ -1903,7 +1898,8 @@ reread_symbols (void)
 	      /* The "mainline" parameter is a hideous hack; I think leaving it
 	         zero is OK since dbxread.c also does what it needs to do if
 	         objfile->global_psymbols.size is 0.  */
-	      (*objfile->sf->sym_read) (objfile, 0);
+	      if (objfile->symflags & ~OBJF_SYM_CONTAINER)
+		(*objfile->sf->sym_read) (objfile, 0);
 	      if (!have_partial_symbols () && !have_full_symbols ())
 		{
 		  wrap_here ("");
@@ -2126,6 +2122,7 @@ init_filename_language_table (void)
       add_filename_language (".c186", language_chill);
       add_filename_language (".c286", language_chill);
       add_filename_language (".m", language_objc);
+      add_filename_language (".mm", language_objc);
       add_filename_language (".M", language_objc);
       add_filename_language (".f", language_fortran);
       add_filename_language (".F", language_fortran);
@@ -3397,6 +3394,7 @@ struct symbol_file_info {
   struct section_addr_info *addrs;
   int mainline;
   int flags;
+  int symflags;
   CORE_ADDR mapaddr;
   const char *prefix;
   struct objfile *result;
@@ -3406,13 +3404,13 @@ int symbol_file_add_bfd_helper (char *v)
 {
   struct symbol_file_info *s = (struct symbol_file_info *) v;
   s->result = symbol_file_add_bfd
-    (s->abfd, s->from_tty, s->addrs, s->mainline, s->flags, s->mapaddr, s->prefix);
+    (s->abfd, s->from_tty, s->addrs, s->mainline, s->flags, s->symflags, s->mapaddr, s->prefix);
   return 1;
 }
 
 struct objfile *symbol_file_add_bfd_safe
 (bfd *abfd, int from_tty, struct section_addr_info *addrs,
- int mainline, int flags, CORE_ADDR mapaddr, const char *prefix)
+ int mainline, int flags, int symflags, CORE_ADDR mapaddr, const char *prefix)
 {
   struct symbol_file_info s;
   int ret;
@@ -3422,6 +3420,7 @@ struct objfile *symbol_file_add_bfd_safe
   s.addrs = addrs;
   s.mainline = mainline;
   s.flags = flags;
+  s.symflags = symflags;
   s.mapaddr = mapaddr;
   s.prefix = prefix;
   s.result = NULL;

@@ -25,9 +25,11 @@ Feature summary for procmail:
 	+ Is one of the few mailers to perform reliable mailbox locking across
 	  NFS as well (DON'T use NFS mounted mailboxes WITHOUT installing
 	  procmail; you may lose valuable mail one day)
-	+ Supports four mailfolder standards: single file folders (standard
+	+ Supports five mailfolder standards: single file folders (standard
 	  and nonstandard VNIX format), directory folders that contain one file
-	  per message, or the similar MH directory folders (numbered files)
+	  per message, the similar MH directory folders (numbered files),
+	  and Maildir directory folders (a multi-directory format that requires
+	  no locking)
 	+ Native support for /var/spool/mail/b/a/bar type mailspools
 	+ Variable assignment and substitution is an extremely complete subset
 	  of the standard /bin/sh syntax
@@ -56,8 +58,9 @@ Feature summary for procmail:
 	+ Is clock skew immune (e.g. in the case of NFS mounted mailboxes)
 	+ Can be used as a general mailfilter for whole groups of messages
 	  (e.g. when called from within sendmail.cf rules)
-	+ Works with (among others?) sendmail, ZMailer, smail, MMDF and
-	  mailsurr
+	+ Can act as an LMTP server for reliable multiple recipient delivery
+	+ Works with (among others?) sendmail, ZMailer, smail, MMDF, mailsurr,
+	  qmail, and postfix
 
 Feature summary for formail:
 	+ Can generate auto-reply headers

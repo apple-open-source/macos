@@ -36,7 +36,7 @@
 static char sccsid[] = "@(#)inet.c	8.5 (Berkeley) 5/24/95";
 */
 static const char rcsid[] =
-	"$Id: inet.c,v 1.1.1.2 2000/01/11 01:48:52 wsanchez Exp $";
+	"$Id: inet.c,v 1.2 2001/07/31 05:54:11 wsanchez Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -216,7 +216,7 @@ protopr(proto, name)
 			printf("Some %s sockets may have been created.\n",
 			       name);
 		} else {
-			printf("Some %s sockets may have been created or deleted",
+			printf("Some %s sockets may have been created or deleted\n",
 			       name);
 		}
 	}

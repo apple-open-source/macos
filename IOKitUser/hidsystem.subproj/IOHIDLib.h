@@ -46,10 +46,20 @@ extern kern_return_t
 IOHIDSetCursorEnable( io_connect_t connect,
 	boolean_t enable );
 
+enum {
+    // Options for IOHIDPostEvent()
+    kIOHIDSetGlobalEventFlags = 0x00000001,
+    kIOHIDSetCursorPosition   = 0x00000002
+};
+
 extern kern_return_t
-IOHIDPostEvent( io_connect_t connect,
-        int type, IOGPoint location, NXEventData *data,
-	boolean_t setCursor, int flags, boolean_t setFlags);
+IOHIDPostEvent( io_connect_t        connect,
+                UInt32              eventType,
+                IOGPoint            location,
+                const NXEventData * eventData,
+                UInt32              eventDataVersion,
+                IOOptionBits        eventFlags,
+                IOOptionBits        options );
 
 extern kern_return_t
 IOHIDSetMouseLocation( io_connect_t connect,
@@ -60,10 +70,28 @@ IOHIDGetButtonEventNum( io_connect_t connect,
 	NXMouseButton button, int * eventNum );
 
 extern kern_return_t
+IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds );
+
+extern kern_return_t
 IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration );
 
 extern kern_return_t
 IOHIDSetMouseAcceleration( io_connect_t handle, double acceleration );
+
+extern kern_return_t
+IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration );
+
+extern kern_return_t
+IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key, double acceleration );
+
+extern kern_return_t
+IOHIDGetParameter( io_connect_t handle, CFStringRef key, IOByteCount maxSize, 
+		void * bytes, IOByteCount * actualSize );
+
+extern kern_return_t
+IOHIDSetParameter( io_connect_t handle, CFStringRef key, 
+		const void * bytes, IOByteCount size );
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

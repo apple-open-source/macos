@@ -20,7 +20,22 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 10, 2001		Allan Nathanson <ajn@apple.com>
+ * - updated to use service-based "State:" information
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * January 30, 2001		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/SCValidation.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -33,7 +48,6 @@
 #include <net/if.h>
 
 #include "ppp.h"
-
 
 static int
 inet_atonCF(CFStringRef cfStr, struct in_addr *addr)
@@ -82,405 +96,452 @@ parse_component(CFStringRef key, CFStringRef prefix)
 }
 
 
-/*
- * return a dictionary of configured services.
- */
-static CFDictionaryRef
-getServices(SCDSessionRef session)
+typedef struct {
+	CFMutableDictionaryRef	aDict;		/* active services */
+	CFStringRef		aPrefix;	/* prefix for active services */
+	CFMutableDictionaryRef	cDict;		/* configured services */
+	CFStringRef		cPrefix;	/* prefix for configured services */
+	CFMutableDictionaryRef	iDict;		/* active interfaces */
+	CFStringRef		iPrefix;	/* prefix for active interfaces */
+	CFMutableArrayRef	order;		/* service order */
+} initContext, *initContextRef;
+
+
+static void
+collectInfo(const void *key, const void *value, void *context)
 {
-	CFArrayRef		defined		= NULL;
-	int			i;
-	CFStringRef		key;
-	CFStringRef		prefix;
-	CFMutableDictionaryRef	services;
-	SCDStatus		status;
+	initContextRef		info		= (initContextRef)context;
+	CFStringRef		interface;
+	CFStringRef		interfaceKey;
+	CFStringRef		service;
+	CFStringRef		serviceKey;
 
-	prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"),
-			      kSCCacheDomainSetup,
-			      kSCCompNetwork,
-			      kSCCompService);
-
-	services = CFDictionaryCreateMutable(NULL,
-					     0,
-					     &kCFTypeDictionaryKeyCallBacks,
-					     &kCFTypeDictionaryValueCallBacks);
-
-	key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-					       kSCCompAnyRegex,
-					       kSCEntNetIPv4);
-	status = SCDList(session, key, kSCDRegexKey, &defined);
-	CFRelease(key);
-	if (status != SCD_OK) {
-		goto done;
+	if (!isA_CFString(key) || !isA_CFDictionary(value)) {
+		return;
 	}
 
-	for (i = 0; i < CFArrayGetCount(defined); i++) {
-		CFDictionaryRef		if_dict;
-		SCDHandleRef		if_handle	= NULL;
-		CFDictionaryRef		ip_dict;
-		SCDHandleRef		ip_handle	= NULL;
-		boolean_t		isPPP		= FALSE;
-		CFDictionaryRef		ppp_dict;
-		SCDHandleRef		ppp_handle	= NULL;
-		CFMutableDictionaryRef	sDict		= NULL;
-		CFStringRef		sid		= NULL;
+	service = parse_component((CFStringRef)key, info->cPrefix);
+	if (service) {
+		serviceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+									 kSCDynamicStoreDomainSetup,
+									 service,
+									 kSCEntNetIPv4);
+		if (CFEqual((CFStringRef)key, serviceKey)) {
+			CFMutableDictionaryRef	dict;
 
-		key  = CFArrayGetValueAtIndex(defined, i);
-
-		/* get IPv4 dictionary for service */
-		status = SCDGet(session, key, &ip_handle);
-		if (status != SCD_OK) {
-			/* if service was removed behind our back */
-			goto nextService;
+			dict = CFDictionaryCreateMutableCopy(NULL, 0, (CFDictionaryRef)value);
+			CFDictionaryAddValue(info->cDict, service, dict);
+			CFRelease(dict);
 		}
-		ip_dict = SCDHandleGetData(ip_handle);
+		CFRelease(serviceKey);
 
-		sDict = CFDictionaryCreateMutableCopy(NULL, 0, ip_dict);
-
-		/* add keys from the service's Interface dictionary */
-		sid = parse_component(key, prefix);
-		if (sid == NULL) {
-			goto nextService;
+		if (!CFArrayContainsValue(info->order, CFRangeMake(0, CFArrayGetCount(info->order)), service)) {
+			CFArrayAppendValue(info->order, service);
 		}
 
-		key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-						       sid,
-						       kSCEntNetInterface);
-		status = SCDGet(session, key, &if_handle);
-		CFRelease(key);
-		if (status != SCD_OK) {
-			goto nextService;
-		}
-		if_dict = SCDHandleGetData(if_handle);
-
-		/* check the interface "Type", "SubType", and "DeviceName" */
-		if (CFDictionaryGetValueIfPresent(if_dict,
-						  kSCPropNetInterfaceType,
-						  (void **)&key)) {
-			CFDictionaryAddValue(sDict, kSCPropNetInterfaceType, key);
-			isPPP = CFEqual(key, kSCValNetInterfaceTypePPP);
-		}
-		if (CFDictionaryGetValueIfPresent(if_dict,
-						  kSCPropNetInterfaceSubType,
-						  (void **)&key)) {
-			CFDictionaryAddValue(sDict, kSCPropNetInterfaceSubType, key);
-		}
-
-		if (isPPP) {
-			key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-							       sid,
-							       kSCEntNetPPP);
-			status = SCDGet(session, key, &ppp_handle);
-			CFRelease(key);
-			if (status != SCD_OK) {
-				goto nextService;
-			}
-			ppp_dict = SCDHandleGetData(ppp_handle);
-
-			/* get Dial-on-Traffic flag */
-			if (CFDictionaryGetValueIfPresent(ppp_dict,
-							  kSCPropNetPPPDialOnDemand,
-							  (void **)&key)) {
-				CFDictionaryAddValue(sDict, kSCPropNetPPPDialOnDemand, key);
-			}
-		}
-
-		CFDictionaryAddValue(services, sid, sDict);
-
-	nextService:
-
-		if (sid)	CFRelease(sid);
-		if (if_handle)	SCDHandleRelease(if_handle);
-		if (ip_handle)	SCDHandleRelease(ip_handle);
-		if (ppp_handle)	SCDHandleRelease(ppp_handle);
-		if (sDict)	CFRelease(sDict);
+		CFRelease(service);
+		return;
 	}
 
-    done:
+	service = parse_component((CFStringRef)key, info->aPrefix);
+	if (service) {
+		serviceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+									 kSCDynamicStoreDomainState,
+									 service,
+									 kSCEntNetIPv4);
+		if (CFEqual((CFStringRef)key, serviceKey)) {
+			CFMutableDictionaryRef	dict;
 
-	if (defined)	CFRelease(defined);
-	CFRelease(prefix);
+			dict = CFDictionaryCreateMutableCopy(NULL, 0, (CFDictionaryRef)value);
+			CFDictionaryAddValue(info->aDict, service, dict);
+			CFRelease(dict);
+		}
+		CFRelease(serviceKey);
 
-	return services;
+		if (!CFArrayContainsValue(info->order, CFRangeMake(0, CFArrayGetCount(info->order)), service)) {
+			CFArrayAppendValue(info->order, service);
+		}
+
+		CFRelease(service);
+		return;
+	}
+
+	interface = parse_component((CFStringRef)key, info->iPrefix);
+	if (interface) {
+		interfaceKey = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+									     kSCDynamicStoreDomainState,
+									     interface,
+									     kSCEntNetIPv4);
+		if (CFEqual((CFStringRef)key, interfaceKey)) {
+			CFMutableDictionaryRef	dict;
+
+			dict = CFDictionaryCreateMutableCopy(NULL, 0, (CFDictionaryRef)value);
+			CFDictionaryAddValue(info->iDict, interface, dict);
+			CFRelease(dict);
+		}
+		CFRelease(interfaceKey);
+		CFRelease(interface);
+		return;
+	}
+
+	return;
 }
 
 
-/*
- * return a dictionary of configured interfaces.
- */
-static CFDictionaryRef
-getInterfaces(SCDSessionRef session)
+static void
+collectExtraInfo(const void *key, const void *value, void *context)
 {
-	CFMutableArrayRef	defined		= NULL;
-	int			i;
-	CFStringRef		key;
-	CFMutableDictionaryRef	interfaces;
-	CFStringRef		prefix;
-	SCDStatus		status;
+	CFStringRef		interfaceKey;
+	initContextRef		info	= (initContextRef)context;
+	CFMutableDictionaryRef	dict;
+	Boolean			match;
+	CFStringRef		pppKey;
+	CFStringRef		service;
 
-	prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"),
-			      kSCCacheDomainState,
-			      kSCCompNetwork,
-			      kSCCompInterface);
+	if (!isA_CFString(key) || !isA_CFDictionary(value)) {
+		return;
+	}
 
-	interfaces = CFDictionaryCreateMutable(NULL,
-					       0,
-					       &kCFTypeDictionaryKeyCallBacks,
-					       &kCFTypeDictionaryValueCallBacks);
+	service = parse_component((CFStringRef)key, info->cPrefix);
+	if (!service) {
+		/* this key/value pair contains supplemental information */
+		return;
+	}
 
-	key = SCDKeyCreateNetworkInterfaceEntity(kSCCacheDomainState,
-						 kSCCompAnyRegex,
-						 kSCEntNetIPv4);
-	status = SCDList(session, key, kSCDRegexKey, &defined);
-	CFRelease(key);
-	if (status != SCD_OK) {
+	dict = (CFMutableDictionaryRef)CFDictionaryGetValue(info->cDict, service);
+	if (!dict) {
+		/*  we don't have any IPv4 information for this service */
 		goto done;
 	}
 
-	for (i=0; i<CFArrayGetCount(defined); i++) {
-		CFStringRef		iid		= NULL;
-		CFDictionaryRef		ip_dict;
-		SCDHandleRef		ip_handle	= NULL;
+	interfaceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								   kSCDynamicStoreDomainSetup,
+								   service,
+								   kSCEntNetInterface);
+	match = CFEqual((CFStringRef)key, interfaceKey);
+	CFRelease(interfaceKey);
+	if (match) {
+		CFStringRef	interface;
 
-		key  = CFArrayGetValueAtIndex(defined, i);
-
-		/* get IPv4 dictionary for service */
-		status = SCDGet(session, key, &ip_handle);
-		if (status != SCD_OK) {
-			/* if interface was removed behind our back */
-			goto nextIF;
+		interface = CFDictionaryGetValue((CFDictionaryRef)value,
+						 kSCPropNetInterfaceType);
+		if (isA_CFString(interface)) {
+			/* if "InterfaceType" available */
+			CFDictionaryAddValue(dict, kSCPropNetInterfaceType, interface);
+			CFDictionarySetValue(info->cDict, service, dict);
 		}
-		ip_dict = SCDHandleGetData(ip_handle);
-
-		iid = parse_component(key, prefix);
-		if (iid == NULL) {
-			goto nextIF;
-		}
-
-		CFDictionaryAddValue(interfaces, iid, ip_dict);
-
-	    nextIF :
-
-		if (iid)	CFRelease(iid);
-		if (ip_handle)	SCDHandleRelease(ip_handle);
+		goto done;
 	}
 
-    done:
+	pppKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							     kSCDynamicStoreDomainSetup,
+							     service,
+							     kSCEntNetPPP);
+	match = CFEqual((CFStringRef)key, pppKey);
+	CFRelease(pppKey);
+	if (match) {
+		CFNumberRef	dialOnDemand;
 
-	if (defined)	CFRelease(defined);
-	CFRelease(prefix);
-	return interfaces;
+		dialOnDemand = CFDictionaryGetValue((CFDictionaryRef)value,
+						    kSCPropNetPPPDialOnDemand);
+		if (isA_CFNumber(dialOnDemand)) {
+			/* if "DialOnDemand" information not available */
+			CFDictionaryAddValue(dict, kSCPropNetPPPDialOnDemand, dialOnDemand);
+			CFDictionarySetValue(info->cDict, service, dict);
+		}
+		goto done;
+	}
+
+    done :
+
+	CFRelease(service);
+	return;
 }
 
 
-/*
- * return an array of interface names based on a specified service order.
- */
-static CFArrayRef
-getInterfaceOrder(CFDictionaryRef	interfaces,
-		  CFArrayRef		serviceOrder,
-		  CFNumberRef		pppOverridePrimary)
+static void
+removeKnownAddresses(const void *key, const void *value, void *context)
 {
+	CFMutableDictionaryRef	ifDict;
+	CFStringRef		ifName;
+	CFMutableDictionaryRef	interfaces	= (CFMutableDictionaryRef)context;
+	CFMutableDictionaryRef	serviceDict	= (CFMutableDictionaryRef)value;
+	Boolean			updated		= FALSE;
+
 	CFIndex			i;
-	CFIndex			iCnt;
-	CFMutableArrayRef	iKeys;
-	void			**keys;
-	CFMutableArrayRef	order	= NULL;
-	CFArrayRef		tKeys;
+	CFArrayRef		iAddrs;
+	CFArrayRef		iDests;
+	CFArrayRef		iMasks;
+	CFIndex			n;
+	CFMutableArrayRef	nAddrs		= NULL;
+	CFMutableArrayRef	nDests		= NULL;
+	CFMutableArrayRef	nMasks		= NULL;
+	CFIndex			s;
+	CFArrayRef		sAddrs;
+	CFArrayRef		sDests;
+	CFArrayRef		sMasks;
 
-	order = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	ifName = CFDictionaryGetValue(serviceDict, kSCPropInterfaceName);
+	if (!ifName) {
+		/* if no "InterfaceName" for this service */
+		return;
+	}
 
-	iCnt = CFDictionaryGetCount(interfaces);
-	keys = CFAllocatorAllocate(NULL, iCnt * sizeof(CFStringRef), 0);
-	CFDictionaryGetKeysAndValues(interfaces, keys, NULL);
-	tKeys = CFArrayCreate(NULL, keys, iCnt, &kCFTypeArrayCallBacks);
-	CFAllocatorDeallocate(NULL, keys);
-	iKeys = CFArrayCreateMutableCopy(NULL, 0, tKeys);
-	CFRelease(tKeys);
+	ifDict = (CFMutableDictionaryRef)CFDictionaryGetValue(interfaces, ifName);
+	if (!ifDict) {
+		/* if the indicated interface is not active */
+		return;
+	}
 
-	for (i = 0; serviceOrder && i < CFArrayGetCount(serviceOrder); i++) {
-		CFIndex		j;
-		CFStringRef	oSID;
+	sAddrs = isA_CFArray(CFDictionaryGetValue(serviceDict,
+						  kSCPropNetIPv4Addresses));
+	sDests = isA_CFArray(CFDictionaryGetValue(serviceDict,
+						  kSCPropNetIPv4DestAddresses));
+	sMasks = isA_CFArray(CFDictionaryGetValue(serviceDict,
+						  kSCPropNetIPv4SubnetMasks));
 
-		oSID = CFArrayGetValueAtIndex(serviceOrder, i);
-		for (j=0; j<CFArrayGetCount(iKeys); j++) {
-			CFDictionaryRef	iDict;
-			CFStringRef	iKey;
-			CFStringRef	iSID;
-			CFArrayRef	iSIDs;
-			CFIndex		k;
-			boolean_t	match	= FALSE;
+	if (!sAddrs || ((n = CFArrayGetCount(sAddrs)) == 0)) {
+		/* if no addresses */
+		return;
+	}
 
-			iKey  = CFArrayGetValueAtIndex(iKeys, j);
-			iDict = CFDictionaryGetValue(interfaces, iKey);
+	if (((sMasks == NULL) && (sDests == NULL)) ||
+	    ((sMasks != NULL) && (sDests != NULL))) {
+		/*
+		 * sorry, we expect to have "SubnetMasks" or
+		 * "DestAddresses" (not both).
+		 */
+		return;
+	}
 
-			iSIDs = CFDictionaryGetValue(iDict, kSCCachePropNetServiceIDs);
-			for (k = 0; iSIDs && k < CFArrayGetCount(iSIDs); k++) {
-				iSID = CFArrayGetValueAtIndex(iSIDs, k);
-				if (CFEqual(oSID, iSID)) {
-					match = TRUE;
-					break;
-				}
-			}
+	if (sMasks && (n != CFArrayGetCount(sMasks))) {
+		/* if we don't like the "SubnetMasks" */
+		return;
+	}
 
-			if (match) {
-				/* if order ServiceID is associated with this interface */
-				CFArrayAppendValue(order, iKey);
-				CFArrayRemoveValueAtIndex(iKeys, j);
-				break;
+	if (sDests &&  (n != CFArrayGetCount(sDests))) {
+		/* if we don't like the "DestAddresses" */
+		return;
+	}
+
+	iAddrs = isA_CFArray(CFDictionaryGetValue(ifDict,
+						  kSCPropNetIPv4Addresses));
+	iDests = isA_CFArray(CFDictionaryGetValue(ifDict,
+						  kSCPropNetIPv4DestAddresses));
+	iMasks = isA_CFArray(CFDictionaryGetValue(ifDict,
+						  kSCPropNetIPv4SubnetMasks));
+
+	if (((iMasks == NULL) && (iDests == NULL)) ||
+	    ((iMasks != NULL) && (iDests != NULL))) {
+		/*
+		 * sorry, we expect to have "SubnetMasks" or
+		 * "DestAddresses" (not both).
+		 */
+		return;
+	}
+
+	if (!iAddrs || ((i = CFArrayGetCount(iAddrs)) == 0)) {
+		/* if no addresses */
+		return;
+	}
+
+	if (iMasks && (i != CFArrayGetCount(iMasks))) {
+		/* if we don't like the "SubnetMasks" */
+		return;
+	}
+
+	if (iDests && (i != CFArrayGetCount(iDests))) {
+		/* if we don't like the "DestAddresses" */
+		return;
+	}
+
+	if (((sMasks == NULL) && (iMasks != NULL)) ||
+	    ((sDests == NULL) && (iDests != NULL))) {
+		/* if our addressing schemes are in conflict */
+		return;
+	}
+
+	nAddrs = CFArrayCreateMutableCopy(NULL, 0, iAddrs);
+	if (iMasks) nMasks = CFArrayCreateMutableCopy(NULL, 0, iMasks);
+	if (iDests) nDests = CFArrayCreateMutableCopy(NULL, 0, iDests);
+	for (s=0; s<n; s++) {
+		i = CFArrayGetCount(nAddrs);
+		while (--i >= 0) {
+			if (sMasks &&
+			    CFEqual(CFArrayGetValueAtIndex(sAddrs, s),
+				    CFArrayGetValueAtIndex(nAddrs, i)) &&
+			    CFEqual(CFArrayGetValueAtIndex(sMasks, s),
+				    CFArrayGetValueAtIndex(nMasks, i))
+			    ) {
+				/* we have a match */
+				CFArrayRemoveValueAtIndex(nAddrs, i);
+				CFArrayRemoveValueAtIndex(nMasks, i);
+				updated = TRUE;
+			} else if (sDests &&
+				   CFEqual(CFArrayGetValueAtIndex(sAddrs, s),
+					   CFArrayGetValueAtIndex(nAddrs, i)) &&
+				   CFEqual(CFArrayGetValueAtIndex(sDests, s),
+					   CFArrayGetValueAtIndex(nDests, i))
+				   ) {
+				/* we have a match */
+				CFArrayRemoveValueAtIndex(nAddrs, i);
+				CFArrayRemoveValueAtIndex(nDests, i);
+				updated = TRUE;
 			}
 		}
 	}
 
-	for (i = 0; i < CFArrayGetCount(iKeys); i++) {
-		CFStringRef	iKey;
-
-		iKey = CFArrayGetValueAtIndex(iKeys, i);
-		CFArrayAppendValue(order, iKey);
+	if (updated) {
+		if (nAddrs) {
+			CFDictionarySetValue(ifDict,
+					     kSCPropNetIPv4Addresses,
+					     nAddrs);
+		}
+		if (nMasks) {
+			CFDictionarySetValue(ifDict,
+					     kSCPropNetIPv4SubnetMasks,
+					     nMasks);
+		} else {
+			CFDictionarySetValue(ifDict,
+					     kSCPropNetIPv4DestAddresses,
+					     nDests);
+		}
+		CFDictionarySetValue(interfaces, ifName, ifDict);
 	}
+	CFRelease(nAddrs);
+	if (nMasks) CFRelease(nMasks);
+	if (nDests) CFRelease(nDests);
 
-	CFRelease(iKeys);
-	return order;
+	return;
 }
 
 
-static boolean_t
+static void
+addUnknownService(const void *key, const void *value, void *context)
+{
+	CFArrayRef		addrs;
+	CFMutableDictionaryRef	ifDict		= (CFMutableDictionaryRef)value;
+	initContextRef		info		= (initContextRef)context;
+	CFStringRef		service;
+	CFUUIDRef		uuid;
+
+	addrs = CFDictionaryGetValue(ifDict, kSCPropNetIPv4Addresses);
+	if (!addrs || (CFArrayGetCount(addrs) == 0)) {
+		/* if no addresses */
+		return;
+	}
+
+	/* add the "InterfaceName" to the (new/fake) service dictionary */
+	CFDictionaryAddValue(ifDict, kSCPropInterfaceName, (CFStringRef)key);
+
+	/* create a (new/fake) service to hold any remaining addresses */
+	uuid    = CFUUIDCreate(NULL);
+	service = CFUUIDCreateString(NULL, uuid);
+	CFDictionaryAddValue(info->aDict, service, ifDict);
+	CFArrayAppendValue(info->order, service);
+	CFRelease(service);
+	CFRelease(uuid);
+
+	return;
+}
+
+
+static Boolean
 getAddresses(CFDictionaryRef	iDict,
 	     CFIndex		*nAddrs,
 	     CFArrayRef		*addrs,
 	     CFArrayRef		*masks,
 	     CFArrayRef		*dests)
 {
-	*addrs = CFDictionaryGetValue(iDict, kSCPropNetIPv4Addresses);
-	*masks = CFDictionaryGetValue(iDict, kSCPropNetIPv4SubnetMasks);
-	*dests = CFDictionaryGetValue(iDict, kSCPropNetIPv4DestAddresses);
+	*addrs = isA_CFArray(CFDictionaryGetValue(iDict,
+						  kSCPropNetIPv4Addresses));
+	*masks = isA_CFArray(CFDictionaryGetValue(iDict,
+						  kSCPropNetIPv4SubnetMasks));
+	*dests = isA_CFArray(CFDictionaryGetValue(iDict,
+						  kSCPropNetIPv4DestAddresses));
 
 	if ((*addrs == NULL) ||
 	    ((*nAddrs = CFArrayGetCount(*addrs)) == 0)) {
 		/* sorry, no addresses */
+		_SCErrorSet(kSCStatusReachabilityUnknown);
 		return FALSE;
 	}
 
-	if ((*masks && *dests) ||
-	    (*masks == NULL) && (*dests == NULL)) {
+	if (((*masks == NULL) && (*dests == NULL)) ||
+	    ((*masks != NULL) && (*dests != NULL))) {
 		/*
 		 * sorry, we expect to have "SubnetMasks" or
-		 * "DestAddresses" (not both) and if the count
+		 * "DestAddresses" (not both) and the count
 		 * must match the number of "Addresses".
 		 */
+		_SCErrorSet(kSCStatusReachabilityUnknown);
 		return FALSE;
 	}
 
 	if (*masks && (*nAddrs != CFArrayGetCount(*masks))) {
 		/* if we don't like the netmasks */
+		_SCErrorSet(kSCStatusReachabilityUnknown);
 		return FALSE;
 	}
 
 	if (*dests &&  (*nAddrs != CFArrayGetCount(*dests))) {
 		/* if we don't like the destaddresses */
+		_SCErrorSet(kSCStatusReachabilityUnknown);
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-static SCNStatus
-checkAddress(SCDSessionRef		session,
+static Boolean
+checkAddress(SCDynamicStoreRef		store,
 	     const struct sockaddr	*address,
 	     const int			addrlen,
-	     CFDictionaryRef		services,
-	     CFDictionaryRef		interfaces,
-	     CFArrayRef			interfaceOrder,
+	     CFDictionaryRef		config,
+	     CFDictionaryRef		active,
+	     CFArrayRef			serviceOrder,
 	     struct in_addr		*defaultRoute,
-	     int			*flags,
-	     const char			**errorMessage)
+	     SCNetworkConnectionFlags	*flags)
 {
+	CFIndex			aCnt;
+	CFStringRef		aType		= NULL;
+	CFDictionaryRef		cDict		= NULL;
 	CFIndex			i;
-	struct ifreq		ifr;
-	CFIndex			iCnt;
-	CFStringRef		iKey		= NULL;
-	CFStringRef		iType		= NULL;
-	void			**keys;
+	CFStringRef		key		= NULL;
 	int			pppRef          = -1;
-	SCNStatus		scn_status	= SCN_REACHABLE_UNKNOWN;
-	CFIndex			sCnt;
-	CFMutableArrayRef	sKeys		= NULL;
-	CFStringRef		sID		= NULL;
-	CFArrayRef		sIDs		= NULL;
-	CFArrayRef		sList		= NULL;
-	int			sock		= -1;
-	CFStringRef		sKey		= NULL;
-	CFDictionaryRef		sDict		= NULL;
-	CFArrayRef		tKeys;
+	int			sc_status	= kSCStatusReachabilityUnknown;
+	char			*statusMessage	= NULL;
 
-	if (flags != NULL) {
-		*flags = 0;
+	if (!address || !flags) {
+		sc_status = kSCStatusInvalidArgument;
+		goto done;
 	}
 
-	if (address == NULL) {
-		return SCN_REACHABLE_NO;
-	}
-
-	sCnt = CFDictionaryGetCount(services);
-	keys = CFAllocatorAllocate(NULL, sCnt * sizeof(CFStringRef), 0);
-	CFDictionaryGetKeysAndValues(services, keys, NULL);
-	tKeys = CFArrayCreate(NULL, keys, sCnt, &kCFTypeArrayCallBacks);
-	CFAllocatorDeallocate(NULL, keys);
-	sKeys = CFArrayCreateMutableCopy(NULL, 0, tKeys);
-	CFRelease(tKeys);
+	*flags = 0;
 
 	if (address->sa_family == AF_INET) {
 		struct sockaddr_in	*sin = (struct sockaddr_in *)address;
 
-#ifdef	DEBUG
-		if (SCDOptionGet(session, kSCDOptionDebug))
-			SCDLog(LOG_INFO, CFSTR("checkAddress(%s)"), inet_ntoa(sin->sin_addr));
-#endif	/* DEBUG */
-		/*
-		 * Check for loopback address
-		 */
-		if (ntohl(sin->sin_addr.s_addr) == ntohl(INADDR_LOOPBACK)) {
-			/* if asking about the loopback address */
-#ifdef	DEBUG
-			if (SCDOptionGet(session, kSCDOptionDebug))
-				SCDLog(LOG_INFO, CFSTR("  isReachable via loopback"));
-#endif	/* DEBUG */
-			scn_status = SCN_REACHABLE_YES;
-			goto done;
-		}
+		SCLog(_sc_debug, LOG_INFO, CFSTR("checkAddress(%s)"), inet_ntoa(sin->sin_addr));
 
 		/*
 		 * Check if the address is on one of the subnets
 		 * associated with our active IPv4 interfaces
 		 */
-		iCnt = CFArrayGetCount(interfaceOrder);
-		for (i=0; i<iCnt; i++) {
+		aCnt = CFArrayGetCount(serviceOrder);
+		for (i=0; i<aCnt; i++) {
+			CFDictionaryRef		aDict;
 			CFArrayRef		addrs;
 			CFArrayRef		dests;
-			CFDictionaryRef		iDict;
 			CFIndex			j;
 			CFArrayRef		masks;
 			CFIndex			nAddrs	= 0;
 
-			iKey  = CFArrayGetValueAtIndex(interfaceOrder, i);
-			iDict = CFDictionaryGetValue(interfaces, iKey);
+			key   = CFArrayGetValueAtIndex(serviceOrder, i);
+			aDict = CFDictionaryGetValue(active, key);
 
-			/* remove active services */
-			sIDs = CFDictionaryGetValue(iDict, kSCCachePropNetServiceIDs);
-			for (j = 0; sIDs && j < CFArrayGetCount(sIDs); j++) {
-				CFIndex		k;
-				CFStringRef	sID;
-
-				sID = CFArrayGetValueAtIndex(sIDs, j);
-				k   = CFArrayGetFirstIndexOfValue(sKeys,
-								  CFRangeMake(0, CFArrayGetCount(sKeys)),
-								  sID);
-				if (k != -1) {
-					CFArrayRemoveValueAtIndex(sKeys, k);
-				}
-			}
-
-			if (!getAddresses(iDict, &nAddrs, &addrs, &masks, &dests)) {
+			if (!aDict ||
+			    !getAddresses(aDict, &nAddrs, &addrs, &masks, &dests)) {
 				/* if no addresses to check */
 				continue;
 			}
@@ -506,11 +567,8 @@ checkAddress(SCDSessionRef		session,
 					if ((ntohl(ifAddr.s_addr)        & ntohl(ifMask.s_addr)) ==
 					    (ntohl(sin->sin_addr.s_addr) & ntohl(ifMask.s_addr))) {
 						/* the requested address is on this subnet */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  isReachable (my subnet)"));
-#endif	/* DEBUG */
-						scn_status = SCN_REACHABLE_YES;
+						statusMessage = "isReachable (my subnet)";
+						*flags |= kSCNetworkFlagsReachable;
 						goto checkInterface;
 					}
 				} else {
@@ -526,21 +584,15 @@ checkAddress(SCDSessionRef		session,
 					/* check local address */
 					if (ntohl(sin->sin_addr.s_addr) == ntohl(ifAddr.s_addr)) {
 						/* the address is our side of the link */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  isReachable (my local address)"));
-#endif	/* DEBUG */
-						scn_status = SCN_REACHABLE_YES;
+						statusMessage = "isReachable (my local address)";
+						*flags |= kSCNetworkFlagsReachable;
 						goto checkInterface;
 					}
 
 					if (ntohl(sin->sin_addr.s_addr) == ntohl(destAddr.s_addr)) {
 						/* the address is the other side of the link */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  isReachable (my remote address)"));
-#endif	/* DEBUG */
-						scn_status = SCN_REACHABLE_YES;
+						statusMessage = "isReachable (my remote address)";
+						*flags |= kSCNetworkFlagsReachable;
 						goto checkInterface;
 					}
 				}
@@ -550,18 +602,21 @@ checkAddress(SCDSessionRef		session,
 		/*
 		 * Check if the address is accessible via the "default" route.
 		 */
-		for (i=0; i<iCnt; i++) {
+		for (i=0; i<aCnt; i++) {
+			CFDictionaryRef		aDict;
 			CFArrayRef		addrs;
 			CFArrayRef		dests;
-			CFDictionaryRef		iDict;
 			CFIndex			j;
 			CFArrayRef		masks;
 			CFIndex			nAddrs	= 0;
 
-			iKey  = CFArrayGetValueAtIndex(interfaceOrder, i);
-			iDict = CFDictionaryGetValue(interfaces, iKey);
+			key   = CFArrayGetValueAtIndex(serviceOrder, i);
+			aDict = CFDictionaryGetValue(active, key);
 
-			if (!getAddresses(iDict, &nAddrs, &addrs, &masks, &dests)) {
+			if (!sin->sin_addr.s_addr ||
+			    !defaultRoute ||
+			    !aDict ||
+			    !getAddresses(aDict, &nAddrs, &addrs, &masks, &dests)) {
 				/* if no addresses to check */
 				continue;
 			}
@@ -586,11 +641,8 @@ checkAddress(SCDSessionRef		session,
 					if ((ntohl(ifAddr.s_addr)        & ntohl(ifMask.s_addr)) ==
 					    (ntohl(defaultRoute->s_addr) & ntohl(ifMask.s_addr))) {
 						/* the requested address is on this subnet */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  isReachable via default route (my subnet)"));
-#endif	/* DEBUG */
-						scn_status = SCN_REACHABLE_YES;
+						statusMessage = "isReachable via default route (my subnet)";
+						*flags |= kSCNetworkFlagsReachable;
 						goto checkInterface;
 					}
 				} else {
@@ -605,11 +657,8 @@ checkAddress(SCDSessionRef		session,
 
 					if (ntohl(destAddr.s_addr) == ntohl(defaultRoute->s_addr)) {
 						/* the address is the other side of the link */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  isReachable via default route (my remote address)"));
-#endif	/* DEBUG */
-						scn_status = SCN_REACHABLE_YES;
+						statusMessage = "isReachable via default route (my remote address)";
+						*flags |= kSCNetworkFlagsReachable;
 						goto checkInterface;
 					}
 				}
@@ -619,115 +668,58 @@ checkAddress(SCDSessionRef		session,
 		/*
 		 * Check the not active (but configured) IPv4 services
 		 */
-		sCnt = CFArrayGetCount(sKeys);
-		for (i=0; i<sCnt; i++) {
-			CFArrayRef		addrs;
-			CFStringRef		configMethod	= NULL;
-			CFArrayRef		dests;
-			CFIndex			j;
-			CFArrayRef		masks;
-			CFIndex			nAddrs		= 0;
+		for (i=0; i<aCnt; i++) {
+			key = CFArrayGetValueAtIndex(serviceOrder, i);
 
-			sKey  = CFArrayGetValueAtIndex(sKeys, i);
-			sDict = CFDictionaryGetValue(services, sKey);
+			if (CFDictionaryContainsKey(active, key)) {
+				/* if this service is active */
+				continue;
+			}
 
-			/*
-			 * check configured network addresses
-			 */
-			for (j=0; j<nAddrs; j++) {
-				struct in_addr	ifAddr;
-
-				if (inet_atonCF(CFArrayGetValueAtIndex(addrs, j),
-						&ifAddr) == 0) {
-					/* if Addresses string is invalid */
-					break;
-				}
-
-				if (masks) {
-					struct in_addr	ifMask;
-
-					/* check address/netmask */
-					if (inet_atonCF(CFArrayGetValueAtIndex(masks, j),
-							&ifMask) == 0) {
-						/* if SubnetMasks string is invalid */
-						break;
-					}
-
-					if ((ntohl(ifAddr.s_addr)        & ntohl(ifMask.s_addr)) !=
-					    (ntohl(sin->sin_addr.s_addr) & ntohl(ifMask.s_addr))) {
-						/* the requested address is on this subnet */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  is configured w/static info (my subnet)"));
-#endif	/* DEBUG */
-						goto checkService;
-					}
-				} else {
-					struct in_addr	destAddr;
-
-					/* check remote address */
-					if (inet_atonCF(CFArrayGetValueAtIndex(dests, j),
-							&destAddr) == 0) {
-						/* if DestAddresses string is invalid */
-						break;
-					}
-
-					/* check local address */
-					if (ntohl(sin->sin_addr.s_addr) == ntohl(ifAddr.s_addr)) {
-						/* the address is our side of the link */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  is configured w/static info (my local address)"));
-#endif	/* DEBUG */
-						goto checkService;
-					}
-
-					if (ntohl(sin->sin_addr.s_addr) == ntohl(destAddr.s_addr)) {
-						/* the address is the other side of the link */
-#ifdef	DEBUG
-						if (SCDOptionGet(session, kSCDOptionDebug))
-							SCDLog(LOG_INFO, CFSTR("  is configured w/static info (my remote address)"));
-#endif	/* DEBUG */
-						goto checkService;
-					}
-				}
+			cDict = CFDictionaryGetValue(config, key);
+			if (!cDict) {
+				/* if no configuration for this service */
+				continue;
 			}
 
 			/*
-			 * check for dynamic (i.e. not manual) configuration
-			 * method.
+			 * We have a service which "claims" to be a potential path
+			 * off of the system.  Check to make sure that this is a
+			 * type of PPP link before claiming it's viable.
 			 */
-			if (CFDictionaryGetValueIfPresent(sDict,
-							  kSCPropNetIPv4ConfigMethod,
-							  (void **)&configMethod) &&
-			    !CFEqual(configMethod, kSCValNetIPv4ConfigMethodManual)) {
-				/* if only we were "connected" */
-#ifdef	DEBUG
-				if (SCDOptionGet(session, kSCDOptionDebug))
-					SCDLog(LOG_INFO, CFSTR("  is configured w/dynamic addressing"));
-#endif	/* DEBUG */
-				goto checkService;
+			aType = CFDictionaryGetValue(cDict, kSCPropNetInterfaceType);
+			if (!aType || !CFEqual(aType, kSCValNetInterfaceTypePPP)) {
+				/* if we can't get a connection on this service */
+				sc_status = kSCStatusOK;
+				goto done;
 			}
+
+			statusMessage = "is configured w/dynamic addressing";
+			*flags |= kSCNetworkFlagsTransientConnection;
+			*flags |= kSCNetworkFlagsReachable;
+			*flags |= kSCNetworkFlagsConnectionRequired;
+
+			if (_sc_debug) {
+				SCLog(TRUE, LOG_INFO, CFSTR("  status     = %s"), statusMessage);
+				SCLog(TRUE, LOG_INFO, CFSTR("  service id = %@"), key);
+			}
+
+			sc_status = kSCStatusOK;
+			goto done;
 		}
 
-#ifdef	DEBUG
-		if (SCDOptionGet(session, kSCDOptionDebug))
-			SCDLog(LOG_INFO, CFSTR("  cannot be reached"));
-#endif	/* DEBUG */
-		scn_status = SCN_REACHABLE_NO;
+		SCLog(_sc_debug, LOG_INFO, CFSTR("  cannot be reached"));
+		sc_status = kSCStatusOK;
 		goto done;
 
 	} else {
 		/*
 		 * if no code for this address family (yet)
 		 */
-		SCDSessionLog(session,
-			      LOG_ERR,
-			      CFSTR("checkAddress(): unexpected address family %d"),
-			      address->sa_family);
-		if (errorMessage != NULL) {
-			*errorMessage = "unexpected address family";
-		}
+		SCLog(_sc_verbose, LOG_ERR,
+		      CFSTR("checkAddress(): unexpected address family %d"),
+		      address->sa_family);
+		sc_status = kSCStatusInvalidArgument;
 		goto done;
 	}
 
@@ -735,52 +727,61 @@ checkAddress(SCDSessionRef		session,
 
     checkInterface :
 
+	if (_sc_debug) {
+		CFDictionaryRef	aDict;
+		CFStringRef	interface	= NULL;
+
+		/* attempt to get the interface type from the config info */
+		aDict = CFDictionaryGetValue(active, key);
+		if (aDict) {
+			interface = CFDictionaryGetValue(aDict, kSCPropInterfaceName);
+		}
+
+		SCLog(TRUE, LOG_INFO, CFSTR("  status     = %s"), statusMessage);
+		SCLog(TRUE, LOG_INFO, CFSTR("  service id = %@"), key);
+		SCLog(TRUE, LOG_INFO, CFSTR("  device     = %@"), interface ? interface : CFSTR("?"));
+	}
+
+	sc_status = kSCStatusOK;
+
 	/*
 	 * We have an interface which "claims" to be a valid path
 	 * off of the system.  Check to make sure that this isn't
 	 * a dial-on-demand PPP link that isn't connected yet.
 	 */
-	if (sIDs) {
+	{
 		CFNumberRef	num;
-		CFDictionaryRef	sDict;
+		CFDictionaryRef	cDict;
 
-		/* attempt to get the interface type from the first service */
-		sID   = CFArrayGetValueAtIndex(sIDs, 0);
-		sDict = CFDictionaryGetValue(services, sID);
-		if (sDict) {
-			iType = CFDictionaryGetValue(sDict, kSCPropNetInterfaceType);
+		/* attempt to get the interface type from the config info */
+		cDict = CFDictionaryGetValue(config, key);
+		if (cDict) {
+			aType = CFDictionaryGetValue(cDict, kSCPropNetInterfaceType);
 		}
 
-		if (!iType) {
-			/* if we don't know the interface type */
+		if (!aType || !CFEqual(aType, kSCValNetInterfaceTypePPP)) {
+			/*
+			 * if we don't know the interface type or if
+			 * it is not a ppp interface
+			 */
 			goto done;
 		}
 
-		if (!CFEqual(iType, kSCValNetInterfaceTypePPP)) {
-			/* if not a ppp interface */
-			goto done;
-		}
-
-		num = CFDictionaryGetValue(sDict, kSCPropNetPPPDialOnDemand);
+		num = CFDictionaryGetValue(cDict, kSCPropNetPPPDialOnDemand);
 		if (num) {
 			int	dialOnDemand;
 
-			CFNumberGetValue(num, kCFNumberIntType, &dialOnDemand);	
-			if (flags && (dialOnDemand != 0)) {
-				*flags |= kSCNFlagsConnectionAutomatic;
+			CFNumberGetValue(num, kCFNumberIntType, &dialOnDemand);
+			if (dialOnDemand != 0) {
+				*flags |= kSCNetworkFlagsConnectionAutomatic;
 			}
-			
+
 		}
-	} else if (!CFStringHasPrefix(iKey, CFSTR("ppp"))) {
-		/* if not a ppp interface */
-		goto done;
 	}
 
-	if (flags != NULL) {
-		*flags |= kSCNFlagsTransientConnection;
-	}
+	*flags |= kSCNetworkFlagsTransientConnection;
 
-	if (sID) {
+	{
 		u_int32_t		pppLink;
 		struct ppp_status       *pppLinkStatus;
 		int			pppStatus;
@@ -791,45 +792,26 @@ checkAddress(SCDSessionRef		session,
 		 */
 		pppStatus = PPPInit(&pppRef);
 		if (pppStatus != 0) {
-#ifdef	DEBUG
-			if (SCDOptionGet(session, kSCDOptionDebug))
-				SCDLog(LOG_DEBUG, CFSTR("  PPPInit() failed: status=%d"), pppStatus);
-#endif	/* DEBUG */
-			scn_status = SCN_REACHABLE_UNKNOWN;
-			if (errorMessage != NULL) {
-				*errorMessage = "PPPInit() failed";
-			}
+			SCLog(_sc_debug, LOG_DEBUG, CFSTR("  PPPInit() failed: status=%d"), pppStatus);
+			sc_status = kSCStatusReachabilityUnknown;
 			goto done;
 		}
 
-		pppStatus = PPPGetLinkByServiceID(pppRef, sID, &pppLink);
+		pppStatus = PPPGetLinkByServiceID(pppRef, key, &pppLink);
 		if (pppStatus != 0) {
-#ifdef	DEBUG
-			if (SCDOptionGet(session, kSCDOptionDebug))
-				SCDLog(LOG_DEBUG, CFSTR("  PPPGetLinkByServiceID() failed: status=%d"), pppStatus);
-#endif	/* DEBUG */
-			scn_status = SCN_REACHABLE_UNKNOWN;
-			if (errorMessage != NULL) {
-				*errorMessage = "PPPGetLinkByServiceID() failed";
-			}
+			SCLog(_sc_debug, LOG_DEBUG, CFSTR("  PPPGetLinkByServiceID() failed: status=%d"), pppStatus);
+			sc_status = kSCStatusReachabilityUnknown;
 			goto done;
 		}
 
 		pppStatus = PPPStatus(pppRef, pppLink, &pppLinkStatus);
 		if (pppStatus != 0) {
-#ifdef	DEBUG
-			if (SCDOptionGet(session, kSCDOptionDebug))
-				SCDLog(LOG_DEBUG, CFSTR("  PPPStatus() failed: status=%d"), pppStatus);
-#endif	/* DEBUG */
-			scn_status = SCN_REACHABLE_UNKNOWN;
-			if (errorMessage != NULL) {
-				*errorMessage = "PPPStatus() failed";
-			}
+			SCLog(_sc_debug, LOG_DEBUG, CFSTR("  PPPStatus() failed: status=%d"), pppStatus);
+			sc_status = kSCStatusReachabilityUnknown;
 			goto done;
 		}
 #ifdef	DEBUG
-		if (SCDOptionGet(session, kSCDOptionDebug))
-			SCDLog(LOG_DEBUG, CFSTR("  PPP link status = %d"), pppLinkStatus->status);
+		SCLog(_sc_debug, LOG_DEBUG, CFSTR("  PPP link status = %d"), pppLinkStatus->status);
 #endif	/* DEBUG */
 		switch (pppLinkStatus->status) {
 			case PPP_RUNNING :
@@ -837,354 +819,410 @@ checkAddress(SCDSessionRef		session,
 				break;
 			case PPP_IDLE :
 				/* if we're not connected at all */
-#ifdef	DEBUG
-				if (SCDOptionGet(session, kSCDOptionDebug))
-					SCDLog(LOG_INFO, CFSTR("  PPP link idle, dial-on-traffic to connect"));
-#endif	/* DEBUG */
-				scn_status = SCN_REACHABLE_CONNECTION_REQUIRED;
+				SCLog(_sc_debug, LOG_INFO, CFSTR("  PPP link idle, dial-on-traffic to connect"));
+				*flags |= kSCNetworkFlagsReachable;
+				*flags |= kSCNetworkFlagsConnectionRequired;
+				sc_status = kSCStatusOK;
 				break;
 			default :
 				/* if we're in the process of [dis]connecting */
-#ifdef	DEBUG
-				if (SCDOptionGet(session, kSCDOptionDebug))
-					SCDLog(LOG_INFO, CFSTR("  PPP link, connection in progress"));
-#endif	/* DEBUG */
-				scn_status = SCN_REACHABLE_CONNECTION_REQUIRED;
+				SCLog(_sc_debug, LOG_INFO, CFSTR("  PPP link, connection in progress"));
+				*flags |= kSCNetworkFlagsReachable;
+				*flags |= kSCNetworkFlagsConnectionRequired;
+				sc_status = kSCStatusOK;
 				break;
 		}
 		CFAllocatorDeallocate(NULL, pppLinkStatus);
-	} else {
-		/*
-		 * The service ID is not available, check the interfaces
-		 * UP and RUNNING flags.
-		 */
-		bzero(&ifr, sizeof(ifr));
-		if (!CFStringGetCString(iKey,
-					(char *)&ifr.ifr_name,
-					sizeof(ifr.ifr_name),
-					kCFStringEncodingMacRoman)) {
-			scn_status = SCN_REACHABLE_UNKNOWN;
-			if (errorMessage != NULL) {
-				*errorMessage = "could not convert interface name to C string";
-			}
-			goto done;
-		}
-
-		sock = socket(AF_INET, SOCK_DGRAM, 0);
-		if (sock == -1) {
-			scn_status = SCN_REACHABLE_UNKNOWN;
-			if (errorMessage != NULL) {
-				*errorMessage = strerror(errno);
-			}
-			goto done;
-		}
-
-		if (ioctl(sock, SIOCGIFFLAGS, (caddr_t)&ifr) < 0) {
-			scn_status = SCN_REACHABLE_UNKNOWN;
-			if (errorMessage != NULL) {
-				*errorMessage = strerror(errno);
-			}
-			goto done;
-		}
-
-#ifdef	DEBUG
-		if (SCDOptionGet(session, kSCDOptionDebug))
-			SCDLog(LOG_INFO, CFSTR("  flags for %s == 0x%hx"), ifr.ifr_name, ifr.ifr_flags);
-#endif	/* DEBUG */
-		if ((ifr.ifr_flags & (IFF_UP|IFF_RUNNING)) != (IFF_UP|IFF_RUNNING)) {
-			if ((ifr.ifr_flags & IFF_UP) == IFF_UP) {
-				/* if we're "up" but not "running" */
-#ifdef	DEBUG
-				if (SCDOptionGet(session, kSCDOptionDebug))
-					SCDLog(LOG_INFO, CFSTR("  up & not running, dial-on-traffic to connect"));
-#endif	/* DEBUG */
-				scn_status = SCN_REACHABLE_CONNECTION_REQUIRED;
-				if (flags != NULL) {
-					*flags |= kSCNFlagsConnectionAutomatic;
-				}
-			} else {
-				/* if we're not "up" and "running" */
-#ifdef	DEBUG
-				if (SCDOptionGet(session, kSCDOptionDebug))
-					SCDLog(LOG_INFO, CFSTR("  not up & running, connection required"));
-#endif	/* DEBUG */
-				scn_status = SCN_REACHABLE_CONNECTION_REQUIRED;
-			}
-			goto done;
-		}
 	}
 
 	goto done;
 
-    checkService :
-
-	/*
-	 * We have a service which "claims" to be a potential path
-	 * off of the system.  Check to make sure that this is a
-	 * type of PPP link before claiming it's viable.
-	 */
-	if (sDict &&
-	    CFDictionaryGetValueIfPresent(sDict,
-					  kSCPropNetInterfaceType,
-					  (void **)&iType) &&
-	    !CFEqual(iType, kSCValNetInterfaceTypePPP)) {
-		/* no path if this not a ppp interface */
-#ifdef	DEBUG
-		if (SCDOptionGet(session, kSCDOptionDebug))
-			SCDLog(LOG_INFO, CFSTR("  cannot be reached"));
-#endif	/* DEBUG */
-		scn_status = SCN_REACHABLE_NO;
-		goto done;
-	}
-
-	scn_status = SCN_REACHABLE_CONNECTION_REQUIRED;
-	if (flags != NULL) {
-		*flags |= kSCNFlagsTransientConnection;
-	}
-
     done :
 
-	if (sKeys)		CFRelease(sKeys);
-	if (sList)		CFRelease(sList);
 	if (pppRef != -1)	(void) PPPDispose(pppRef);
-	if (sock != -1)		(void)close(sock);
 
-	return scn_status;
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 
 static void
-_IsReachableInit(SCDSessionRef	session,
-	CFDictionaryRef	*services,
-	CFDictionaryRef	*interfaces,
-	CFArrayRef	*interfaceOrder,
-	struct in_addr	**defaultRoute)
+_CheckReachabilityInit(SCDynamicStoreRef	store,
+		       CFDictionaryRef		*config,
+		       CFDictionaryRef		*active,
+		       CFArrayRef		*serviceOrder,
+		       struct in_addr		**defaultRoute)
 {
-	CFStringRef	addr;
-	CFDictionaryRef	dict;
-	CFStringRef	key;
-	SCDHandleRef	handle;
-	CFNumberRef	pppOverridePrimary	= NULL;
-	CFArrayRef	serviceOrder		= NULL;
-	struct in_addr	*route			= NULL;
-	SCDStatus	status;
+	CFMutableDictionaryRef	activeDict;
+	CFMutableDictionaryRef	configDict;
+	initContext		context;
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	interfaces;
+	CFMutableArrayRef	keys;
+	CFMutableArrayRef	orderArray;
+	CFDictionaryRef		orderDict;
+	CFStringRef		orderKey;
+	CFStringRef		pattern;
+	CFMutableArrayRef	patterns;
+	CFStringRef		routeKey;
+	CFDictionaryRef		routeDict;
+
+	configDict = CFDictionaryCreateMutable(NULL,
+					       0,
+					       &kCFTypeDictionaryKeyCallBacks,
+					       &kCFTypeDictionaryValueCallBacks);
+	*config = configDict;
+
+	activeDict = CFDictionaryCreateMutable(NULL,
+					       0,
+					       &kCFTypeDictionaryKeyCallBacks,
+					       &kCFTypeDictionaryValueCallBacks);
+	*active = activeDict;
+
+	orderArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	*serviceOrder = orderArray;
+
+	*defaultRoute = NULL;
+
+	interfaces = CFDictionaryCreateMutable(NULL,
+					       0,
+					       &kCFTypeDictionaryKeyCallBacks,
+					       &kCFTypeDictionaryValueCallBacks);
 
 	/*
-	 * get the ServiceOrder and PPPOverridePrimary keys
-	 * from the global settings.
+	 * collect information on the configured services and their
+	 * associated interface type.
 	 */
-	key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
-	status = SCDGet(session, key, &handle);
-	CFRelease(key);
-	switch (status) {
-		case SCD_OK :
-			/* if global settings are available */
-			dict = SCDHandleGetData(handle);
+	keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-			/* get service order */
-			if ((CFDictionaryGetValueIfPresent(dict,
-							   kSCPropNetServiceOrder,
-							   (void **)&serviceOrder) == TRUE)) {
-				CFRetain(serviceOrder);
-			}
+	/*
+	 * Setup:/Network/Global/IPv4 (for the ServiceOrder)
+	 */
+	orderKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							      kSCDynamicStoreDomainSetup,
+							      kSCEntNetIPv4);
+	CFArrayAppendValue(keys, orderKey);
 
-			/* get PPP overrides primary flag */
-			if ((CFDictionaryGetValueIfPresent(dict,
-							   kSCPropNetPPPOverridePrimary,
-							   (void **)&pppOverridePrimary) == TRUE)) {
-				CFRetain(pppOverridePrimary);
-			}
+	/*
+	 * State:/Network/Global/IPv4 (for the DefaultRoute)
+	 */
+	routeKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      kSCEntNetIPv4);
+	CFArrayAppendValue(keys, routeKey);
 
-			SCDHandleRelease(handle);
-			break;
-		case SCD_NOKEY :
-			/* if no global settings */
-			break;
-		default :
-			SCDLog(LOG_ERR, CFSTR("SCDGet() failed: %s"), SCDError(status));
-			/* XXX need to do something more with this FATAL error XXXX */
-			goto error;
+	/* Setup: per-service IPv4 info */
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainSetup,
+							      kSCCompAnyRegex,
+							      kSCEntNetIPv4);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	/* Setup: per-service Interface info */
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainSetup,
+							      kSCCompAnyRegex,
+							      kSCEntNetInterface);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	/* Setup: per-service PPP info */
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainSetup,
+							      kSCCompAnyRegex,
+							      kSCEntNetPPP);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	/* State: per-service IPv4 info */
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      kSCCompAnyRegex,
+							      kSCEntNetIPv4);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	/* State: per-interface IPv4 info */
+	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+								kSCDynamicStoreDomainState,
+								kSCCompAnyRegex,
+								kSCEntNetIPv4);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	/* fetch the configuration information */
+	dict = SCDynamicStoreCopyMultiple(store, keys, patterns);
+	CFRelease(keys);
+	CFRelease(patterns);
+	if (!dict) {
+		goto done;
 	}
 
 	/*
-	 * Get default route
+	 * get the ServiceOrder key from the global settings.
 	 */
-	key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainState,
-					      kSCEntNetIPv4);
-	status = SCDGet(session, key, &handle);
-	CFRelease(key);
-	switch (status) {
-		case SCD_OK :
-			dict = SCDHandleGetData(handle);
-			addr = CFDictionaryGetValue(dict, kSCPropNetIPv4Router);
-			if (addr == NULL) {
-				/* if no default route */
-				break;
-			}
+	orderDict = CFDictionaryGetValue(dict, orderKey);
+	if (isA_CFDictionary(orderDict)) {
+		CFArrayRef	array;
+
+		/* global settings are available */
+		array = (CFMutableArrayRef)CFDictionaryGetValue(orderDict, kSCPropNetServiceOrder);
+		if (isA_CFArray(array)) {
+			CFArrayAppendArray(orderArray,
+					   array,
+					   CFRangeMake(0, CFArrayGetCount(array)));
+		}
+	}
+
+	/*
+	 * get the DefaultRoute
+	 */
+	routeDict = CFDictionaryGetValue(dict, routeKey);
+	if (isA_CFDictionary(routeDict)) {
+		CFStringRef	addr;
+
+		/* global state is available, get default route */
+		addr = CFDictionaryGetValue(routeDict, kSCPropNetIPv4Router);
+		if (isA_CFString(addr)) {
+			struct in_addr	*route;
 
 			route = CFAllocatorAllocate(NULL, sizeof(struct in_addr), 0);
 			if (inet_atonCF(addr, route) == 0) {
 				/* if address string is invalid */
 				CFAllocatorDeallocate(NULL, route);
 				route = NULL;
-				break;
+			} else {
+				*defaultRoute = route;
 			}
-			*defaultRoute = route;
-
-			break;
-		case SCD_NOKEY :
-			/* if no default route */
-			break;
-		default :
-			SCDSessionLog(session,
-				      LOG_ERR,
-				      CFSTR("SCDGet() failed: %s"),
-				      SCDError(status));
-			goto error;
-	}
-	if (handle) {
-		SCDHandleRelease(handle);
-		handle = NULL;
+		}
 	}
 
 	/*
-	 * get the configured services and interfaces
+	 * collect the configured services, the active services, and
+	 * the active interfaces.
 	 */
-	*services       = getServices  (session);
-	*interfaces     = getInterfaces(session);
-	*interfaceOrder = getInterfaceOrder(*interfaces,
-					    serviceOrder,
-					    pppOverridePrimary);
+	context.cDict   = configDict;
+	context.cPrefix = SCDynamicStoreKeyCreate(NULL,
+						  CFSTR("%@/%@/%@/"),
+						  kSCDynamicStoreDomainSetup,
+						  kSCCompNetwork,
+						  kSCCompService);
+	context.aDict   = activeDict;
+	context.aPrefix = SCDynamicStoreKeyCreate(NULL,
+						  CFSTR("%@/%@/%@/"),
+						  kSCDynamicStoreDomainState,
+						  kSCCompNetwork,
+						  kSCCompService);
+	context.iDict   = interfaces;
+	context.iPrefix = SCDynamicStoreKeyCreate(NULL,
+						  CFSTR("%@/%@/%@/"),
+						  kSCDynamicStoreDomainState,
+						  kSCCompNetwork,
+						  kSCCompInterface);
+	context.order = orderArray;
 
-    error :
+	CFDictionaryApplyFunction(dict, collectInfo, &context);
 
-	if (serviceOrder)	CFRelease(serviceOrder);
-	if (pppOverridePrimary)	CFRelease(pppOverridePrimary);
+	/*
+	 * add additional information for the configured services
+	 */
+	CFDictionaryApplyFunction(dict, collectExtraInfo, &context);
+
+	/*
+	 * remove any addresses associated with known services
+	 */
+	CFDictionaryApplyFunction(activeDict, removeKnownAddresses, interfaces);
+
+	/*
+	 * create new services for any remaining addresses
+	 */
+	CFDictionaryApplyFunction(interfaces, addUnknownService, &context);
+
+	CFRelease(context.cPrefix);
+	CFRelease(context.aPrefix);
+	CFRelease(context.iPrefix);
+	CFRelease(dict);
+
+    done :
+
+	CFRelease(interfaces);
+	CFRelease(orderKey);
+	CFRelease(routeKey);
 
 #ifdef	DEBUG
-	if (SCDOptionGet(session, kSCDOptionDebug)) {
-		SCDLog(LOG_NOTICE, CFSTR("interfaces     = %@"), *interfaces);
-		SCDLog(LOG_NOTICE, CFSTR("services       = %@"), *services);
-		SCDLog(LOG_NOTICE, CFSTR("interfaceOrder = %@"), *interfaceOrder);
-		SCDLog(LOG_NOTICE, CFSTR("defaultRoute   = %s"), *defaultRoute?inet_ntoa(**defaultRoute):"None");
-	}
+	SCLog(_sc_debug, LOG_NOTICE, CFSTR("config = %@"), *config);
+	SCLog(_sc_debug, LOG_NOTICE, CFSTR("active = %@"), *active);
+	SCLog(_sc_debug, LOG_NOTICE, CFSTR("serviceOrder = %@"), *serviceOrder);
+	SCLog(_sc_debug, LOG_NOTICE, CFSTR("defaultRoute = %s"), *defaultRoute?inet_ntoa(**defaultRoute):"None");
 #endif	/* DEBUG */
 	return;
-
 }
 
 
 static void
-_IsReachableFree(CFDictionaryRef	services,
-		 CFDictionaryRef	interfaces,
-		 CFArrayRef		interfaceOrder,
-		 struct in_addr		*defaultRoute)
+_CheckReachabilityFree(CFDictionaryRef	config,
+		       CFDictionaryRef	active,
+		       CFArrayRef	serviceOrder,
+		       struct in_addr	*defaultRoute)
 {
-	if (services)		CFRelease(services);
-	if (interfaces)		CFRelease(interfaces);
-	if (interfaceOrder)	CFRelease(interfaceOrder);
+	if (config)		CFRelease(config);
+	if (active)		CFRelease(active);
+	if (serviceOrder)	CFRelease(serviceOrder);
 	if (defaultRoute)	CFAllocatorDeallocate(NULL, defaultRoute);
 	return;
 }
 
 
-SCNStatus
-SCNIsReachableByAddress(const struct sockaddr	*address,
-			const int		addrlen,
-			int			*flags,
-			const char		**errorMessage)
+Boolean
+SCNetworkCheckReachabilityByAddress(const struct sockaddr	*address,
+				    const int			addrlen,
+				    SCNetworkConnectionFlags	*flags)
 {
-	struct in_addr	*defaultRoute	= NULL;
-	CFDictionaryRef	interfaces	= NULL;
-	CFArrayRef	interfaceOrder	= NULL;
-	CFDictionaryRef	services	= NULL;
-	SCDSessionRef	session		= NULL;
-	SCDStatus	scd_status;
-	SCNStatus	scn_status;
+	CFDictionaryRef		active		= NULL;
+	CFDictionaryRef		config		= NULL;
+	struct in_addr		*defaultRoute	= NULL;
+	Boolean			ok;
+	CFArrayRef		serviceOrder	= NULL;
+	SCDynamicStoreRef	store		= NULL;
 
-	scd_status = SCDOpen(&session, CFSTR("SCNIsReachableByAddress"));
-	if (scd_status != SCD_OK) {
-		if (errorMessage != NULL) {
-			*errorMessage = SCDError(scd_status);
+	*flags = 0;
+
+	/*
+	 * Check if 0.0.0.0
+	 */
+	if (address->sa_family == AF_INET) {
+		struct sockaddr_in      *sin = (struct sockaddr_in *)address;
+
+		if (sin->sin_addr.s_addr == 0) {
+			SCLog(_sc_debug, LOG_INFO, CFSTR("checkAddress(0.0.0.0)"));
+			SCLog(_sc_debug, LOG_INFO, CFSTR("  status     = isReachable (this host)"));
+			*flags |= kSCNetworkFlagsReachable;
+			return TRUE;
 		}
-		return SCN_REACHABLE_UNKNOWN;
 	}
 
-	_IsReachableInit(session, &services, &interfaces, &interfaceOrder, &defaultRoute);
-	scn_status = checkAddress(session,
-				  address,
-				  addrlen,
-				  services,
-				  interfaces,
-				  interfaceOrder,
-				  defaultRoute,
-				  flags,
-				  errorMessage);
-	_IsReachableFree(services, interfaces, interfaceOrder, defaultRoute);
+	store = SCDynamicStoreCreate(NULL,
+				     CFSTR("SCNetworkCheckReachabilityByAddress"),
+				     NULL,
+				     NULL);
+	if (!store) {
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+		return FALSE;
+	}
 
-	(void) SCDClose(&session);
-	return scn_status;
+	_CheckReachabilityInit(store, &config, &active, &serviceOrder, &defaultRoute);
+	ok = checkAddress(store,
+			  address,
+			  addrlen,
+			  config,
+			  active,
+			  serviceOrder,
+			  defaultRoute,
+			  flags);
+	_CheckReachabilityFree(config, active, serviceOrder, defaultRoute);
+
+	CFRelease(store);
+	return ok;
 }
 
 
-SCNStatus
-SCNIsReachableByName(const char		*nodename,
-		     int		*flags,
-		     const char		**errorMessage)
+/*
+ * rankReachability()
+ *   Not reachable       == 0
+ *   Connection Required == 1
+ *   Reachable           == 2
+ */
+static int
+rankReachability(int flags)
 {
-	struct in_addr	*defaultRoute	= NULL;
-	struct hostent	*h;
-	int		i;
-	CFDictionaryRef	interfaces	= NULL;
-	CFArrayRef	interfaceOrder	= NULL;
-	SCDStatus	scd_status	= SCD_OK;
-	SCNStatus	ns_status	= SCN_REACHABLE_YES;
-	struct addrinfo	*res		= NULL;
-	struct addrinfo *resP;
-	CFDictionaryRef	services	= NULL;
-	SCDSessionRef	session		= NULL;
-	SCNStatus	scn_status	= SCN_REACHABLE_YES;
+	int	rank = 0;
 
-	scd_status = SCDOpen(&session, CFSTR("SCNIsReachableByName"));
-	if (scd_status != SCD_OK) {
-		scn_status = SCN_REACHABLE_UNKNOWN;
-		if (errorMessage != NULL) {
-			*errorMessage = SCDError(scd_status);
-		}
-		goto done;
+	if (flags & kSCNetworkFlagsReachable)		rank = 2;
+	if (flags & kSCNetworkFlagsConnectionRequired)	rank = 1;
+	return rank;
+}
+
+
+Boolean
+SCNetworkCheckReachabilityByName(const char			*nodename,
+				 SCNetworkConnectionFlags	*flags)
+{
+	CFDictionaryRef		active		= NULL;
+	CFDictionaryRef		config		= NULL;
+	struct in_addr		*defaultRoute	= NULL;
+	struct hostent		*h;
+	Boolean			haveDNS		= FALSE;
+	int			i;
+	Boolean			ok		= TRUE;
+	struct addrinfo		*res		= NULL;
+	struct addrinfo 	*resP;
+	CFArrayRef		serviceOrder	= NULL;
+	SCDynamicStoreRef	store		= NULL;
+
+	store = SCDynamicStoreCreate(NULL,
+				     CFSTR("SCNetworkCheckReachabilityByName"),
+				     NULL,
+				     NULL);
+	if (!store) {
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+		return FALSE;
 	}
 
-	_IsReachableInit(session, &services, &interfaces, &interfaceOrder, &defaultRoute);
+	_CheckReachabilityInit(store, &config, &active, &serviceOrder, &defaultRoute);
 
 	/*
-	 * since we don't know which name server will be consulted
-	 * to resolve the specified nodename we need to check the
-	 * availability of ALL name servers.
+	 * We first assume that all of the configured DNS servers
+	 * are available.  Since we don't know which name server will
+	 * be consulted to resolve the specified nodename we need to
+	 * check the availability of ALL name servers.  We can only
+	 * proceed if we know that our query can be answered.
 	 */
+
+	*flags = kSCNetworkFlagsReachable;
+
 	res_init();
 	for (i=0; i<_res.nscount; i++) {
-		ns_status = checkAddress(session,
-					 (struct sockaddr *)&_res.nsaddr_list[i],
-					 _res.nsaddr_list[i].sin_len,
-					 services,
-					 interfaces,
-					 interfaceOrder,
-					 defaultRoute,
-					 flags,
-					 errorMessage);
-		if (ns_status < scn_status) {
+		SCNetworkConnectionFlags	ns_flags	= 0;
+
+		if (_res.nsaddr_list[i].sin_addr.s_addr == 0) {
+			continue;
+		}
+
+		haveDNS = TRUE;
+
+		if (_res.nsaddr_list[i].sin_len == 0) {
+			_res.nsaddr_list[i].sin_len = sizeof(_res.nsaddr_list[i]);
+		}
+
+		ok = checkAddress(store,
+				  (struct sockaddr *)&_res.nsaddr_list[i],
+				  _res.nsaddr_list[i].sin_len,
+				  config,
+				  active,
+				  serviceOrder,
+				  defaultRoute,
+				  &ns_flags);
+		if (!ok) {
+			/* not today */
+			break;
+		}
+		if (rankReachability(ns_flags) < rankReachability(*flags)) {
 			/* return the worst case result */
-			scn_status = ns_status;
-			if (ns_status == SCN_REACHABLE_UNKNOWN) {
-				/* not today */
-				break;
-			}
+			*flags = ns_flags;
 		}
 	}
 
-	if (ns_status < SCN_REACHABLE_YES) {
+	if (!ok || (rankReachability(*flags) < 2)) {
 		goto done;
 	}
+
+	SCLog(_sc_debug, LOG_INFO, CFSTR("check DNS for \"%s\""), nodename);
 
 	/*
 	 * OK, all of the DNS name servers are available.  Let's
@@ -1192,34 +1230,49 @@ SCNIsReachableByName(const char		*nodename,
 	 * resolve the nodename, and check its address for
 	 * accessibility. We return the best status available.
 	 */
-	scn_status = SCN_REACHABLE_UNKNOWN;
+	*flags = 0;
 
 	/*
 	 * resolve the nodename into an address
 	 */
 	i = getaddrinfo(nodename, NULL, NULL, &res);
 	if (i != 0) {
-		SCDSessionLog(session,
-			      LOG_ERR,
-			      CFSTR("getaddrinfo() failed: %s"),
-			      gai_strerror(i));
+		SCLog(_sc_verbose, LOG_ERR,
+		      CFSTR("getaddrinfo() failed: %s"),
+		      gai_strerror(i));
 		goto done;
 	}
 
 	for (resP=res; resP!=NULL; resP=resP->ai_next) {
-		ns_status = checkAddress(session,
-					 resP->ai_addr,
-					 resP->ai_addrlen,
-					 services,
-					 interfaces,
-					 interfaceOrder,
-					 defaultRoute,
-					 flags,
-					 errorMessage);
-		if (ns_status > scn_status) {
+		SCNetworkConnectionFlags	ns_flags	= 0;
+
+		if (resP->ai_addr->sa_family == AF_INET) {
+			struct sockaddr_in      *sin = (struct sockaddr_in *)resP->ai_addr;
+
+			if (sin->sin_addr.s_addr == 0) {
+				SCLog(_sc_debug, LOG_INFO, CFSTR("checkAddress(0.0.0.0)"));
+				SCLog(_sc_debug, LOG_INFO, CFSTR("  status     = isReachable (this host)"));
+				*flags |= kSCNetworkFlagsReachable;
+				break;
+			}
+		}
+
+		ok = checkAddress(store,
+				  resP->ai_addr,
+				  resP->ai_addrlen,
+				  config,
+				  active,
+				  serviceOrder,
+				  defaultRoute,
+				  &ns_flags);
+		if (!ok) {
+			/* not today */
+			break;
+		}
+		if (rankReachability(ns_flags) > rankReachability(*flags)) {
 			/* return the best case result */
-			scn_status = ns_status;
-			if (ns_status == SCN_REACHABLE_YES) {
+			*flags = ns_flags;
+			if (rankReachability(*flags) == 2) {
 				/* we're in luck */
 				break;
 			}
@@ -1240,35 +1293,47 @@ SCNIsReachableByName(const char		*nodename,
 	 */
 
 #ifdef	DEBUG
-	if (SCDOptionGet(session, kSCDOptionDebug))
-		SCDLog(LOG_INFO, CFSTR("getaddrinfo() returned no addresses, try gethostbyname()"));
+	SCLog(_sc_debug,
+	      LOG_INFO,
+	      CFSTR("getaddrinfo() returned no addresses, try gethostbyname()"));
 #endif	/* DEBUG */
 
 	h = gethostbyname(nodename);
 	if (h && h->h_length) {
 		struct in_addr **s	= (struct in_addr **)h->h_addr_list;
 
-		while (*s) {   
-			struct sockaddr_in	sa;
+		while (*s) {
+			SCNetworkConnectionFlags	ns_flags	= 0;
+			struct sockaddr_in		sa;
 
 			bzero(&sa, sizeof(sa));
 			sa.sin_len    = sizeof(sa);
 			sa.sin_family = AF_INET;
 			sa.sin_addr   = **s;
 
-			ns_status = checkAddress(session,
-						 (struct sockaddr *)&sa,
-						 sizeof(sa),
-						 services,
-						 interfaces,
-						 interfaceOrder,
-						 defaultRoute,
-						 flags,
-						 errorMessage);
-			if (ns_status > scn_status) {
+			if (sa.sin_addr.s_addr == 0) {
+				SCLog(_sc_debug, LOG_INFO, CFSTR("checkAddress(0.0.0.0)"));
+				SCLog(_sc_debug, LOG_INFO, CFSTR("  status     = isReachable (this host)"));
+				*flags |= kSCNetworkFlagsReachable;
+				break;
+			}
+
+			ok = checkAddress(store,
+					  (struct sockaddr *)&sa,
+					  sizeof(sa),
+					  config,
+					  active,
+					  serviceOrder,
+					  defaultRoute,
+					  &ns_flags);
+			if (!ok) {
+				/* not today */
+				break;
+			}
+			if (rankReachability(ns_flags) > rankReachability(*flags)) {
 				/* return the best case result */
-				scn_status = ns_status;
-				if (ns_status == SCN_REACHABLE_YES) {
+				*flags = ns_flags;
+				if (rankReachability(*flags) == 2) {
 					/* we're in luck */
 					break;
 				}
@@ -1276,13 +1341,69 @@ SCNIsReachableByName(const char		*nodename,
 
 			s++;
 		}
+	} else {
+		char	*msg;
+
+		switch(h_errno) {
+			case NETDB_INTERNAL :
+				msg = strerror(errno);
+				break;
+			case HOST_NOT_FOUND :
+				msg = "Host not found.";
+				if (!haveDNS) {
+					/*
+					 * No DNS servers are defined. Set flags based on
+					 * the availability of configured (but not active)
+					 * services.
+					 */
+					struct sockaddr_in	sa;
+
+					bzero(&sa, sizeof(sa));
+					sa.sin_len         = sizeof(sa);
+					sa.sin_family      = AF_INET;
+					sa.sin_addr.s_addr = 0;
+					ok = checkAddress(store,
+							  (struct sockaddr *)&sa,
+							  sizeof(sa),
+							  config,
+							  active,
+							  serviceOrder,
+							  defaultRoute,
+							  flags);
+					if (ok &&
+					    (*flags & kSCNetworkFlagsReachable) &&
+					    (*flags & kSCNetworkFlagsConnectionRequired)) {
+						/*
+						 * We might pick up a set of DNS servers
+						 * from this connection, don't reply with
+						 * "Host not found." just yet.
+						 */
+						goto done;
+					}
+					*flags = 0;
+				}
+				break;
+			case TRY_AGAIN :
+				msg = "Try again.";
+				break;
+			case NO_RECOVERY :
+				msg = "No recovery.";
+				break;
+			case NO_DATA :
+				msg = "No data available.";
+				break;
+			default :
+				msg = "Unknown";
+				break;
+		}
+		SCLog(_sc_debug, LOG_INFO, CFSTR("gethostbyname() failed: %s"), msg);
 	}
 
     done :
 
-	_IsReachableFree(services, interfaces, interfaceOrder, defaultRoute);
-	if (session)	(void)SCDClose(&session);
+	_CheckReachabilityFree(config, active, serviceOrder, defaultRoute);
+	if (store)	CFRelease(store);
 	if (res)	freeaddrinfo(res);
 
-	return scn_status;
+	return ok;
 }

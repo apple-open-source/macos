@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/gethost.c,v 1.1.1.1 1999/04/23 01:59:53 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/gethost.c,v 1.1.1.2 2001/06/28 23:10:48 bbraun Exp $ */
 /*
  * gethost.c: Create version file from prototype
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: gethost.c,v 1.1.1.1 1999/04/23 01:59:53 wsanchez Exp $")
+RCSID("$Id: gethost.c,v 1.1.1.2 2001/06/28 23:10:48 bbraun Exp $")
 
 #ifdef SCO
 # define perror __perror

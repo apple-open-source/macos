@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -43,7 +43,7 @@ PHPAPI int php_register_info_logo(char *logo_string, char *mimetype, unsigned ch
 	return zend_hash_add(&phpinfo_logo_hash, logo_string, strlen(logo_string), &info_logo, sizeof(php_info_logo), NULL);
 }
 
-PHPAPI int php_unregister_info_logos(char *logo_string)
+PHPAPI int php_unregister_info_logo(char *logo_string)
 {
 	return zend_hash_del(&phpinfo_logo_hash, logo_string, strlen(logo_string));
 }

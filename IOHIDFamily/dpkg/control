@@ -1,0 +1,6 @@
+Package: iohidfamily
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 8
+Build-Depends: files, file-cmds, text-cmds, shell-cmds, system-cmds, grep, zsh, cctools, libsystem, gcc, xnu, jam, corefoundation, carbonheaders, iokituser, iohidsystem, libc-hdrs, architecture, csu
+Description: IOHIFamily

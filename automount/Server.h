@@ -35,7 +35,7 @@
 	unsigned int pings;
 	unsigned long address;
 	BOOL isLocalHost;
-	BOOL isDead[4];
+	BOOL isDead[4][2];
 	unsigned short port[4];
 	void *mountClient[4];
 	unsigned int lastTime[4];

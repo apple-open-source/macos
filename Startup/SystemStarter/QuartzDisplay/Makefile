@@ -12,7 +12,7 @@ NAME = QuartzDisplay
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Loadable Bundle
 
-GLOBAL_RESOURCES = BootPanel.pdf
+GLOBAL_RESOURCES = BootPanel.pdf ServerBootPanel.pdf
 
 HFILES = QuartzProgressBar.h QuartzProgressBarData.c
 

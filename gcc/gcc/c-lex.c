@@ -86,6 +86,10 @@ tree lastiddecl;
 
 int doing_objc_thang;
 
+/* Nonzero forces lexer to return IDENTIFIER even if CLASSNAME is available.  */
+
+int objc_need_raw_identifier;
+
 extern int yydebug;
 
 /* File used for outputting assembler code.  */
@@ -1465,7 +1469,8 @@ yylex ()
 
 		      *pb++ = nextchar;
 		      c = GETC ();
-		      while (ISALPHA (c) && pb < &peekahead_id_buf [sizeof (peekahead_id_buf) - 1])
+		      while (ISALPHA (c)
+			&& pb < &peekahead_id_buf[sizeof (peekahead_id_buf)-1])
 			{
 			  *pb++ = c;
 			  c = GETC ();
@@ -1473,7 +1478,10 @@ yylex ()
 		      *pb = 0;
 		      UNGETC (c);
 		      nextchar = -1;
-		      pb = peekahead_id_buf;			    
+		      pb = peekahead_id_buf;
+
+		      /* Check if identifier is too big to be one of
+			 our "vector" follow-up words.  */
 
 		      /* Check if identifier is too big to be one of our words.  */
 		      if (ISALNUM (c) || c == '_' || c == '$')
@@ -1496,8 +1504,9 @@ yylex ()
 	      	value = IDENTIFIER;
               }
             else
-            if (flag_altivec && ptr->rid == RID_PIXEL
-		&& token_buffer[0] != '_')
+            if (flag_altivec
+		&& (ptr->rid == RID_BOOL
+			|| (ptr->rid == RID_PIXEL && token_buffer[0] != '_')))
               {
                 if (last_vector_token_number != this_token_number - 1)
                     value = IDENTIFIER;
@@ -1546,13 +1555,18 @@ yylex ()
           else if (doing_objc_thang)
             {
 	      tree objc_interface_decl = is_class_name (yylval.ttype);
-
-	      if (objc_interface_decl)
+	      /* ObjC class names are in the same namespace as variables
+		 and typedefs, and hence are shadowed by local declarations.  */
+	      if (objc_interface_decl 
+	          && (global_bindings_p () 
+		      || (!objc_need_raw_identifier 
+		          && !lastiddecl)))
 		{
 		  value = CLASSNAME;
 		  yylval.ttype = objc_interface_decl;
 		}
 	    }
+	  objc_need_raw_identifier = 0;
 	}
 
       break;
@@ -2533,6 +2547,10 @@ yylex ()
       value = c;
       break;
 
+    case ';': case ')': case ',':
+      objc_need_raw_identifier = 0;
+      /* Fall through.  */
+      
     default:
       value = c;
     }

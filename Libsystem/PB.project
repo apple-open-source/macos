@@ -8,7 +8,7 @@
         LIBRARYSEARCH = ("$(NEXT_ROOT)/usr/local/lib/system"); 
         OTHER_LIBS = (c, curses, dyld, edit, info, kvm, m, macho, streams, unc, keymgr); 
         OTHER_LINKED = (SystemMath.s); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, System.order); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, System.order, Info.plist); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

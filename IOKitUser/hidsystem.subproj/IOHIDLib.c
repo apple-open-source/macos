@@ -72,29 +72,72 @@ IOHIDSetCursorEnable( mach_port_t connect,
     return( err);
 }
 
+/* DEPRECATED form of IOHIDPostEvent().
 kern_return_t
 IOHIDPostEvent( mach_port_t connect,
-        int type, IOGPoint location, NXEventData *data,
-	boolean_t setCursor, int flags, boolean_t setFlags)
-{
-    kern_return_t	err;
-    unsigned int	len;
-    struct evioLLEvent  event;
+                int type, IOGPoint location, NXEventData *data,
+                boolean_t setCursor, int flags, boolean_t setFlags)
+*/
 
-    event.setCursor = setCursor;
-    event.type = type;
-    event.location = location;
-    event.data = *data;
-    event.setFlags = setFlags;
-    event.flags = flags;
+kern_return_t
+IOHIDPostEvent( io_connect_t        connect,
+                UInt32              eventType,
+                IOGPoint            location,
+                const NXEventData * eventData,
+                UInt32              eventDataVersion,
+                IOOptionBits        eventFlags,
+                IOOptionBits        options )
+{
+    kern_return_t       err;
+    unsigned int        len;
+    struct evioLLEvent  event;
+    UInt32              eventDataSize = sizeof(NXEventData);
+
+    event.type      = eventType;
+    event.location  = location;
+    event.flags     = eventFlags;
+    event.setFlags  = options & kIOHIDSetGlobalEventFlags;
+    event.setCursor = options & kIOHIDSetCursorPosition;
+
+    if ( eventDataVersion < 2 )
+    {
+        // Support calls from legacy IOHIDPostEvent clients.
+        // 1. NXEventData was 32 bytes long.
+        // 2. eventDataVersion was (boolean_t) setCursor
+        eventDataSize   = 32;
+        event.setCursor = eventDataVersion; // 0 or 1
+    }
+
+    if ( eventDataSize < sizeof(event.data) )
+    {
+        bcopy( eventData, &event.data, eventDataSize );
+        bzero( ((UInt8 *)(&event.data)) + eventDataSize,
+               sizeof(event.data) - eventDataSize );
+    }
+    else
+        bcopy( eventData, &event.data, sizeof(event.data) );
 
     len = 0;
-    err = io_connect_method_structureI_structureO( connect, 3, /*index*/
-                    (void *)&event, sizeof( event), NULL, &len);
+    err = io_connect_method_structureI_structureO(
+             connect,
+             3,                /* index       */
+             (void *) &event,  /* input       */
+             sizeof(event),    /* inputCount  */
+             NULL,             /* output      */
+             &len);            /* outputCount */
 
-    return( err);
+    return (err);
 }
 
+extern kern_return_t
+IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds )
+{
+    IOByteCount	len = 0;
+
+    return( IOConnectMethodStructureIStructureO( connect, 6, /*index*/
+                    sizeof( *bounds), &len,
+                    bounds, NULL ));
+}
 
 kern_return_t
 IOHIDSetMouseLocation( mach_port_t connect,
@@ -114,7 +157,6 @@ IOHIDSetMouseLocation( mach_port_t connect,
     return( err);
 }
 
-
 kern_return_t
 IOHIDGetButtonEventNum( mach_port_t connect,
 	NXMouseButton button, int * eventNum )
@@ -128,5 +170,3 @@ IOHIDGetButtonEventNum( mach_port_t connect,
 
     return( err);
 }
-
-

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/01/25 05:00:23 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:20:34 zarzycki Exp $
 dnl config.m4 for extension zziplib
 
 PHP_ARG_WITH(zziplib,whether to include zziplib support, 
@@ -31,9 +31,9 @@ if test "$PHP_ZZIPLIB" != "no"; then
   ])
 
   PHP_SUBST(ZZIPLIB_SHARED_LIBADD)
-  AC_ADD_LIBRARY_WITH_PATH(zzip, $ZZIPLIB_LIBDIR, ZZIPLIB_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(zzip, $ZZIPLIB_LIBDIR, ZZIPLIB_SHARED_LIBADD)
   
-  AC_ADD_INCLUDE($ZZIPLIB_INCDIR)
+  PHP_ADD_INCLUDE($ZZIPLIB_INCDIR)
 
   PHP_FOPENCOOKIE
 fi

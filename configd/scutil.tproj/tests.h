@@ -20,6 +20,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * July 9, 2001			Allan Nathanson <ajn@apple.com>
+ * - added "-r" option for checking network reachability
+ * - added "-w" option to check/wait for the presence of a
+ *   dynamic store key.
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _TESTS_H
 #define _TESTS_H
 
@@ -27,12 +39,9 @@
 
 __BEGIN_DECLS
 
-void	do_snapshot		__P((int argc, char **argv));
-
-#ifdef	DEBUG
-void	test_setServer		__P((int argc, char **argv));
-void	test_openCloseLeak	__P((int argc, char **argv));
-#endif	/* DEBUG */
+void	do_checkReachability	(char *node);
+void	do_snapshot		(int argc, char **argv);
+void	do_wait			(char *waitKey, int timeout);
 
 __END_DECLS
 

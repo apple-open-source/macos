@@ -16,14 +16,14 @@
   </H1>
   <P>
   Hvis du kan se denne side, s&aring; har dem som ejer dette dom&aelig;ne lige
-  installeret <A HREF="http://www.apache.org/httpd">Apache Webserveren</A>.
+  installeret <A href="http://www.apache.org/foundation/preFAQ.html">Apache Webserveren</a>.
   Du m&aring; nu placere web sider i dette directory og fjerne denne side, eller
   konfigurere serveren til at anvende et andet directory.
   </P>
   <HR>
   <BLOCKQUOTE>
-   Hvis du ser denne side istedet for en anden forventet side, <STRONG>kontakt
-   venligst administratoren for den server du pr&oslash;ver at kontakte.</STRONG>
+   Hvis du ser denne side istedet for en anden forventet side, <strong>kontakt
+   venligst administratoren for den server du pr&oslash;ver at kontakte.</strong>
    (Pr&oslash;v at sende mail til <SAMP>&lt;Webmaster@<EM>domain</EM>&gt;</SAMP>.)
    Apachegruppen har ikke noget at g&oslash;re med denne site, s&aring; det vil ikke
    hj&aelig;lpe at sende mail to Apache udviklerne ang&aring;ende denne site.  
@@ -32,7 +32,7 @@
   <P>
   Apache-
   <A
-   HREF="manual/index.html"
+   HREF="manual/"
   >documentationen</A>
   er inkluderet med denne distribution.
   </P>

@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,6 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)ext.h	8.2 (Berkeley) 12/15/93
+ * $FreeBSD: src/libexec/telnetd/ext.h,v 1.9 2001/07/20 15:14:03 ru Exp $
  */
 
 /*
@@ -98,7 +76,7 @@ extern char	ptyobuf[BUFSIZ+NETSLOP], *pfrontp, *pbackp;
 
 extern char	netibuf[BUFSIZ], *netip;
 
-extern char	netobuf[BUFSIZ+NETSLOP], *nfrontp, *nbackp;
+extern char	netobuf[BUFSIZ], *nfrontp, *nbackp;
 extern char	*neturg;		/* one past last bye of urgent data */
 
 extern int	pcc, ncc;
@@ -109,11 +87,7 @@ extern char *unptyip;  /* pointer to remaining characters in buffer */
 #endif
 
 extern int	pty, net;
-#ifdef __APPLE__
 extern char	line[16];
-#else
-extern char	*line;
-#endif /* !NeXT */
 extern int	SYNCHing;		/* we are in TELNET SYNCH mode */
 
 #ifndef	P
@@ -215,14 +189,11 @@ extern void
 	tty_setsofttab P((int)),
 	tty_tspeed P((int)),
 	willoption P((int)),
-	wontoption P((int)),
-	writenet P((unsigned char *, int));
+	wontoption P((int));
 
-#ifdef	ENCRYPTION
-extern void	(*encrypt_output) P((unsigned char *, int));
-extern int	(*decrypt_input) P((int));
-extern char	*nclearto;
-#endif	/* ENCRYPTION */
+int	output_data __P((const char *, ...));
+void	output_datalen __P((const char *, int));
+
 
 
 /*
@@ -260,7 +231,7 @@ extern int	needtermstat;
 #   ifdef ultrix
 #    define DEFAULT_IM	"\r\n\r\nULTRIX (%h) (%t)\r\n\r\r\n\r"
 #   else
-#    define DEFAULT_IM	"\r\n\r\n4.4 BSD (%h) (%t)\r\n\r\r\n\r"
+#    define DEFAULT_IM	"\r\n\r\nFreeBSD (%h) (%t)\r\n\r\r\n\r"
 #   endif
 #  endif
 # endif

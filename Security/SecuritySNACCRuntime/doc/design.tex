@@ -1,0 +1,761 @@
+% file: .../doc/design.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/design.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: design.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:52  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:31  rj
+% first check-in
+%
+
+\chapter{\label{comp-des-chapter}Compiler Design}
+
+\section{\label{comp-overview-section}Overview}
+The Snacc compiler is implemented with {\ufn yacc}, {\ufn lex}
+(actually GNU's equivalents, {\ufn bison} and {\ufn flex}) and
+\verb$C$.  Despite the shortcomings of {\ufn lex} and {\ufn yacc},
+they provide reasonable performance without too much programming
+effort.  Since {\ufn yacc} parsers are extremely difficult to modify
+during runtime, any macro that you want the compiler to handle must
+be hand coded into the ASN.1 {\ufn yacc} grammar
+({\ufn \dots/compiler/core/parse-asn1.y}) followed by recompilation of snacc.
+Macro definitions do not need special consideration since they are
+skipped by the compiler.  Macro definitions and complex value notation
+are kept as text in the data structure resulting from a parse if you
+want to try to parse and process them.
+
+To handle the anti-compiler nature of ASN.1's syntax, snacc makes
+several passes on parse tree data structure when compiling.  None of
+these passes creates temporary files; this allows snacc to process
+large ASN.1 specifications quite quickly.  Each compiler pass is
+explained in the next sections.  The main passes of the compiler are
+executed in the following order:
+
+\begin{enumerate}
+\item parse useful types ASN.1 module
+\item parse all user specified ASN.1 modules
+\item link local and imported type references in all modules
+\item parse values in all modules
+\item link local and imported value references in all modules
+\item process any macro types
+\item normalize types
+\item mark recursive types and signal any recursion related errors
+\item check for semantic errors in all modules
+\item generate C/C++ type information for each ASN.1 type
+\item Sort the types from least dependent to most dependent
+\item generate the C, C++, IDL or type table
+\end{enumerate}
+
+The source code for the compiler resides in {\ufn \dots/compiler/} and the
+back ends are in {\ufn \dots/compiler/back-ends/c-gen/}, {\ufn \dots/compiler/back-ends/c++-gen/} and {\ufn \dots/compiler/back-ends/idl-gen/}.
+
+\section{\label{comp-pass1-section}Pass 1: Parsing the Useful Types Module}
+The ASN.1 useful types are not hardwired into snacc.  Instead they
+have been placed in a separate ASN.1 module.  This allows the user to
+define his own useful types or re-define the existing ones without
+modifying snacc.  This also has the benefit that names of useful types
+are not keywords in the lexical analyzer.  This step is not really a
+compiler pass on the module data, however it is described as one for
+simplicity.
+
+The useful types module should be passed to snacc with the {\ufn -u}
+flag in front of it.  The {\ufn -u} flag tells snacc to treat the
+module in a special way.  Instead of parsing the module and generating
+code for it, snacc parses the module and makes the types in it
+accessible to all of the other modules being parsed.  Note that the
+other modules do not need to explicitly import from the useful types
+module.  See Section~\ref{comp-pass3-section} for more information on how
+useful types affect linking.
+
+The encode, decode, and other routines for the useful types are in the
+runtime library.  Currently, the useful types library routines are the
+same as the ones the compiler would normally generate given the useful
+types module.  However, since they are in the library, you can modify
+them to check character sets (string types), or convert local time
+formats into their BER equivalent (UTCTime, GeneralizedTime).
+
+The following types are in the useful types module:
+\begin{small}
+\begin{verbatim}
+ASN-USEFUL DEFINITIONS ::=
+BEGIN
+ObjectDescriptor ::= [UNIVERSAL 7]  IMPLICIT OCTET STRING
+NumericString    ::= [UNIVERSAL 18] IMPLICIT OCTET STRING
+PrintableString  ::= [UNIVERSAL 19] IMPLICIT OCTET STRING
+TeletexString    ::= [UNIVERSAL 20] IMPLICIT OCTET STRING
+T61String        ::= [UNIVERSAL 20] IMPLICIT OCTET STRING
+VideotexString   ::= [UNIVERSAL 21] IMPLICIT OCTET STRING
+IA5String        ::= [UNIVERSAL 22] IMPLICIT OCTET STRING
+GraphicString    ::= [UNIVERSAL 25] IMPLICIT OCTET STRING
+VisibleString    ::= [UNIVERSAL 26] IMPLICIT OCTET STRING
+ISO646String     ::= [UNIVERSAL 26] IMPLICIT OCTET STRING
+GeneralString    ::= [UNIVERSAL 27] IMPLICIT OCTET STRING
+UTCTime          ::= [UNIVERSAL 23] IMPLICIT OCTET STRING
+GeneralizedTime  ::= [UNIVERSAL 24] IMPLICIT OCTET STRING
+
+EXTERNAL         ::= [UNIVERSAL 8] IMPLICIT SEQUENCE
+{
+  direct-reference      OBJECT IDENTIFIER OPTIONAL,
+  indirect-reference    INTEGER OPTIONAL,
+  data-value-descriptor ObjectDescriptor OPTIONAL,
+  encoding CHOICE
+  {
+    single-ASN1-type [0] OCTET STRING,  -- should be ANY
+    octet-aligned    [1] IMPLICIT OCTET STRING,
+    arbitrary        [2] IMPLICIT BIT STRING
+  }
+}
+END
+\end{verbatim}
+\end{small}
+
+If you use the EXTERNAL type, you must provide the mechanism to encode
+and decode the value in the embedded CHOICE, \verb$encoding$.  The
+type and transfer syntax of the value in an EXTERNAL type is not known
+when the ASN.1 code is compiled by snacc.  Snacc cannot generate
+encoders and decoders without complete type information and only
+supports a single set of encoding rules, BER\@.
+
+\section{\label{comp-pass2-section}Pass 2: Parsing ASN.1 Modules}
+During this pass, all of the specified modules are parsed into the {\em
+Module} data structure.  The ASN.1 source files are not consulted
+again, after they are parsed.  {\ufn Yacc} and {\ufn lex} are doing the work in
+this step. (see files {\ufn snacc.c}, {\ufn lex-asn1.l}, {\ufn parse-asn1.y}
+and {\ufn asn1module.h}).
+
+A lexical tie-in is where the yacc parser puts the lexical analyzer
+into a different mode (and is usually considered a hack).  The
+different modes tokenize symbols differently, which is useful for
+skipping well delimited sections that cannot be parsed easily by a
+{\ufn yacc} parser on the first pass.  Lexical tie-ins are used in two
+places to simplify the ASN.1 grammar sufficiently for {\ufn yacc} and
+{\ufn lex}.  There are two special modes in the lexical analyzer, one
+for ASN.1 macro definitions and the other for ASN.1 values enclosed in
+\{\}'s.
+
+The lexical tie-in for eating macro definition bodies works with macro
+definitions of the following form:
+
+\begin{verbatim}
+<upper case identifier> MACRO ::= BEGIN ... END
+\end{verbatim}
+
+Everything between the {\ASN BEGIN} and {\ASN END} is stuffed into a
+string by {\ufn lex} and passed back as single token to the
+{\ufn yacc} parser.
+
+Values within \{\}'s are grabbed in a similar way.  Value parsing
+cannot really be done at this stage since complete type information is
+needed and the types are not fully parsed or linked yet.
+
+Most syntax errors are reported during this pass.  If syntax errors
+are encountered, snacc will report as many as it can from the
+offending module before the parser is hopelessly lost and then exit.
+If the types and values are separated with semi-colons, the parser can
+recover after a syntax error and attempt to find more errors in that
+module before exiting.
+
+
+\section{\label{comp-pass3-section}Pass 3: Linking Types}
+The third pass links all type references.  Snacc attempts to resolve
+any currently visible (i.\ e.\  not in macro definitions or constructed
+values) type reference.  This includes type references in simple value
+definitions and subtyping information.  The useful types module (if
+given) is linked first.
+
+Snacc will exit after this pass if any type references could not be
+resolved.  Error messages with file and line number information will
+be printed to {\C stderr}.
+
+This pass also counts and stores the number of times a type definition is
+referenced locally and from other modules.  This information is used
+during the type sorting pass.
+
+First, each module identifier is checked for conflicts with the
+others.  If the module identifier includes an OBJECT IDENTIFIER, snacc
+only checks for conflicts with the other module identifier OBJECT
+IDENTIFIERs.  When only a module name is provided, snacc checks for
+conflicts with the the other module names, even if the other module
+identifiers include OBJECT IDENTIFIERs.  If the OBJECT IDENTIFIER of
+a module identifier contains any value references, it will be ignored
+for module look-up purposes.  Note that value references within the
+module identifier OBJECT IDENTIFIERs are not allowed in the 1992
+version of ASN.1 due to the difficulty in module name resolution they
+present.
+
+Two modules with the same name but different OBJECT IDENTIFIERs are
+not considered an error within ASN.1.  However, because the generated
+files use the module name as part of their name, the code generation
+pass will gripe about and fail for modules with the same name.
+
+Next, each module's import {\em lists} are resolved by finding the
+named module and then verifying that the named module contains all of
+the imported types.
+
+Then for each module, each type reference (except those of the form
+{\em modulename.typename}) is assumed to be a local type reference and
+the linker attempts to find a local type definition of the same name
+to resolve it with.  If a matching local definition is found, the type
+reference is resolved and the linker continues with the next type
+reference.
+
+For each type reference of the form {\em modulename.typename}, the
+linker looks in the module with name {\em modulename} for the type
+{\em typename}.  If the type is found the reference is resolved,
+otherwise a linking error is reported.  Note that this form of type
+reference provides a special scope that does not conflict with other
+local or imported types in that module.
+
+For type references that failed to resolve locally and are not of the
+form {\em modulename.typename}, the linker looks in the import lists
+of the current type reference's module for a type to resolve with.  If
+the type is found in the import lists, the reference is resolved.
+
+For the remaining unresolved type references (failed local and legal
+import resolution and are not of the form {\em modulename.typename}),
+the linker looks in the useful types module, if one was specified with
+the {\ufn -u} option.  If the type is found in the useful types module
+then the reference is resolved, otherwise a linking error is reported.
+
+Note that when a useful types module is specified, it is globally
+available to all modules, but it has the lowest linking priority.
+That is, if a type reference can be resolved legally without the
+useful types module, it will be.
+
+Some type checking must be done in this pass to link certain types
+properly.  These include:
+\begin{itemize}
+\item {a SELECTION type must reference a field of a CHOICE type.}
+\item {a COMPONENTS OF type in a SET must reference a SET.}
+\item {a COMPONENTS OF type in a SEQUENCE must reference a SEQUENCE.}
+\end{itemize}
+
+
+
+\section{\label{comp-pass4-section}Pass 4: Parsing Values}
+The fourth pass attempts to parse any value that is enclosed in \{\}'s in
+the given modules.  INTEGERS, REALs and BOOLEANS that are not enclosed in
+braces are parsed in the first pass.
+
+The value parser is implemented without {\ufn yacc} and {\ufn lex} and
+uses each value's type information to help parse the value.  Values
+within \{\}'s hidden within types such as default values and parts of
+subtypes are not parsed.  Since subtypes and default values do not
+affect the generated code, upgrading the value parser in this respect
+is not very useful.
+
+The only type of value in \{\}'s that is parsed is the OBJECT
+IDENTIFIER\@.  All of the OBJECT IDENTIFIER value forms are supported
+but snacc loosens the restrictions on using arc names defined in the
+OBJECT IDENTIFIER tree.
+
+ASN.1 allows OBJECT IDENTIFIER values to reference special built-in
+arc names from the OBJECT IDENTIFIER tree defined in Annexes B, C and
+D of X.208.  For example the first arc in an OBJECT IDENTIFIER value
+can be either {\ASN ccitt} {\ASN iso} or {\ASN joint-iso-ccitt}.  The
+acceptable arc names are context dependent; for example the second arc
+can be one of {\ASN standard}, {\ASN registration-authority},
+{\ASN member-body} or {\ASN identified-organization} only if the first
+arc was {\ASN iso} or 1.
+
+Snacc uses a simplified algorithm to handle references to the arc
+names defined in the OBJECT IDENTIFIER tree.  Any arc value that is
+represented by a single identifier is checked to see if it is one of
+the arc names defined in the OBJECT IDENTIFIER tree; context is
+ignored.  If the identifier matches one of the arc names then its
+value is set accordingly.  The lack of context sensitivity in snacc's
+algorithm may cause the arc name to link with an arc name from the
+OBJECT IDENTIFIER tree when a local or imported INTEGER was desired.
+The following is the list special arc names that snacc understands and
+their values (see {\ufn \dots/compiler/core/oid.c}):
+
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\setlength{\parsep}{0pt}
+\nspace{0}
+\item {ccitt = 0}
+\item {iso = 1}
+\item {joint-iso-ccitt = 2}
+\item {standard = 0}
+\item {registration-authority = 1}
+\item {member-body = 2}
+\item {identified-organization = 3}
+\item {recommendation = 0}
+\item {question = 1}
+\item {administration = 2}
+\item {network-operator = 3}
+\end{itemize}
+
+\section{\label{comp-pass5-section}Pass 5: Linking Values}
+The fifth pass links value references. The value linker looks for
+value references to resolve in value definitions and type definitions,
+including default values and subtyping information.  The value linking
+algorithm is virtually identical to the type linking pass (see Section
+\ref{comp-pass3-section}).
+
+Currently the value parsing is limited to OBJECT IDENTIFIER values.
+Simple values that are not between \{\}'s are parsed in the first
+pass.  Here is an example that illustrates the OBJECT IDENTIFIER
+parsing and linking.  The following values:
+
+\begin{small}
+\begin{verbatim}
+foo OBJECT IDENTIFIER ::= { joint-iso-ccitt 2 88 28 }
+bar OBJECT IDENTIFIER ::= { foo 1 }
+bell INTEGER ::= 2
+gumby OBJECT IDENTIFIER ::= { foo bell }
+pokie OBJECT IDENTIFIER ::= { foo stimpy(3) }
+\end{verbatim}
+\end{small}
+
+\noindent
+are equivalent to this:
+
+\begin{small}
+\begin{verbatim}
+foo OBJECT IDENTIFIER ::= { 2 2 88 28 }
+bar OBJECT IDENTIFIER ::= { 2 2 88 28  1 }
+bell INTEGER ::= 2
+gumby OBJECT IDENTIFIER ::= { 2 2 88 28 2 }
+pokie OBJECT IDENTIFIER ::= { 2 2 88 28 3 }
+\end{verbatim}
+\end{small}
+
+Note that in version 1.0, named arcs (e.g. {\ASN stimpy(3)}) were
+promoted to full integer values.  This was wrong---many standards
+re-used them (e.g. X.500 and {\ASN ds(5)}) leading to multiply defined
+integer values.  If you want to improve the value parsing, look in
+{\ufn \dots/compiler/core/val-parser.c}
+
+\section{\label{comp-pass6-section}Pass 6: Processing Macros}
+
+The fifth pass processes macros.  For all macros currently handled,
+snacc converts type definitions inside the macro to type references
+and puts the type definition in the normal scope.  This way, the code
+generator does not have to know about macros to generate code for the
+types defined within them.
+
+The only macro that receives any special processing is the SNMP
+OBJECT-TYPE macro.  This macro's information defines an OBJECT
+IDENTIFIER or INTEGER to type mapping for use with any ANY DEFINED BY
+type.  Note that the OBJECT-TYPE macro has been extended beyond its
+SNMP definition to allow integer values for INTEGER to type mappings.
+
+ASN.1 allows you to define new macros within an ASN.1 module;  this
+can change the grammar of the ASN.1 language.  Since snacc is
+implemented with {\ufn yacc} and yacc grammars cannot be modified
+easily during runtime, snacc cannot change its parser in response to
+macro definitions it parses.
+
+Any macro that snacc can parse has been explicitly added to the yacc
+grammar before compiling snacc.  When a macro that snacc can parse is
+parsed, a data structure that holds the relevant information from the
+macro is added to the parse tree.  The type and value linking passes
+as well as the macro processing and possibly the normalization pass
+need to be modified to handle any new macros that you add.
+
+The following macros are parsed:
+
+\begin{itemize}
+%\begin{linespacing}{0.5}
+\setlength{\itemsep}{0pt}
+\setlength{\parsep}{0pt}
+\nspace{0}
+\item{ OPERATION (ROS) }
+\item{ ERROR (ROS) }
+\item{ BIND (ROS) }
+\item{ UNBIND (ROS) }
+\item{ APPLICATION-SERVICE-ELEMENT (ROS) }
+\item{ APPLICATION-CONTEXT }
+\item{ EXTENSION (MTSAS)}
+\item{ EXTENSIONS (MTSAS) }
+\item{ EXTENSION-ATTRIBUTE (MTSAS) }
+\item{ TOKEN (MTSAS) }
+\item{ TOKEN-DATA (MTSAS)}
+\item{ SECURITY-CATEGORY (MTSAS) }
+\item{ OBJECT (X.407) }
+\item{ PORT   (X.407) }
+\item{ REFINE (X.407)}
+\item{ ABSTRACT-BIND (X.407) }
+\item{ ABSTRACT-UNBIND (X.407) }
+\item{ ABSTRACT-OPERATION (X.407) }
+\item{ ABSTRACT-ERROR (X.407) }
+\item{ ALGORITHM (X.509)}
+\item{ ENCRYPTED (X.509)}
+\item{ PROTECTED (X.509)}
+\item{ SIGNATURE (X.509)}
+\item{ SIGNED    (X.509)}
+\item{ OBJECT-TYPE (SNMP) }
+%\end{linespacing}
+\end{itemize}
+
+However, no code is generated for these macros.  As stated above, only
+the OBJECT-TYPE macro affects the encoders and decoders.
+
+\section{\label{comp-pass7-section}Pass 7: Normalizing Types}
+The sixth pass normalizes the types to make code generation simpler.
+The following is done during normalization:
+\begin{itemize}
+
+\item[1.] { COMPONENTS OF types are replaced with the contents of the SET
+or SEQUENCE components that they reference.}
+
+\item[2.] { SELECTION types are replaced with the type they reference.}
+
+\item[3.] { SEQUENCE, SET, CHOICE, SET OF and SEQUENCE OF {\em definitions}
+embedded in other types are made into separate type definitions. }
+
+\item[4.] { For modules in which ``IMPLICIT TAGS'' is specified, tagged
+type references such as {\ASN [APPLICATION 2] Foo} are marked IMPLICIT
+if the referenced type ({\ASN FOO} in this case) is not an untagged
+CHOICE or untagged ANY type.}
+
+\item[5.] { INTEGERs with named numbers, BIT STRINGs with named bits and
+ENUMERATED types embedded in other types are made into separate type
+definitions.}
+\end{itemize}
+
+The COMPONENTS OF and SELECTION type simplifications are obvious but
+the motivation for the others may not be so obvious.  The third type of
+simplification makes type definitions only one level deep.  This
+simplifies the decoding routines since snacc uses local variables for
+expected lengths, running length totals and tags instead of stacks.
+
+The implicit references caused by ``IMPLICIT TAGS'' are marked
+directly on type references that need it.  This saves the code
+generators from worrying about whether implicit tagging is in effect
+and which types can be referenced implicitly.
+
+The types with named numbers or bits are made into a separate type to
+allow the C++ back end to simply make a class that inherits from the
+INTEGER or BIT STRING class and defines the named numbers or bits
+inside an enum in the new class.  This is described further in the C++
+code generation chapter.
+
+\section{\label{comp-pass8-section}Pass 8: Marking Recursive Types}
+
+
+This pass marks recursive types and checks for recursion related
+errors.  To determine whether a type definition is recursive, each
+type definition is traced to its leaves, checking for references to
+itself.  Both local and imported type references within a type are
+followed to reach the leaves of the type.  A leaf type is a simple
+(non-aggregate) built-in type such as an INTEGER or BOOLEAN\@. At the
+moment, recursion information is only used during the type dependency
+sorting pass.
+
+{\em Snacc} attempts to detect two types of recursion related errors.  The
+first type of error results from a recursive type that is composed
+solely of type references.  Types of this form contain no real type
+information and would result in zero-sized values.  For example the
+following recursive types will generate this type of warning:
+\begin{small}
+\begin{verbatim}
+A ::= B
+B ::= C
+C ::= A
+\end{verbatim}
+\end{small}
+
+The other recursion related error results from a type whose value will
+always be infinite in size.  This is caused by recursion with no
+optional component that can terminate the recursion.  If the recursion
+includes an OPTIONAL member of a SET or SEQUENCE, a CHOICE member, or
+a SET OF or SEQUENCE OF, the recursion can terminate.
+
+Both of the recursion errors generate warnings from snacc but will
+not stop code generation.
+
+
+\section{\label{comp-pass9-section}Pass 9: Semantic Error Checking}
+The ninth pass checks for semantic errors in the ASN.1 specification
+that have not been checked already. Both the type linking pass and the
+recursive type marking pass do some error checking as well. Snacc attempts
+to detect the following errors in this pass:
+
+\begin{itemize}
+\item { elements of CHOICE and SET types must have distinct tags.}
+
+\item { CHOICE, ANY, and ANY DEFINED BY types cannot be implicitly tagged. }
+
+\item { type and value names within the same scope must be unique. }
+
+\item { field names in a SET, SEQUENCE or CHOICE must be distinct.  If
+a CHOICE is a member of a SET, SEQUENCE or CHOICE and has no field name,
+then the embedded CHOICE's field names must be distinct from its
+parents to avoid ambiguity in value notation.}
+
+\item { an APPLICATION tag code can only be used once per module. }
+
+\item { each value in a named bit list (BIT STRINGs) or named number
+list (INTEGERs and ENUMERATED) must be unique within its list.}
+
+\item { each identifier in a named bit list or named number list must
+be unique within its list.}
+
+\item { the tags on a series of one or more consecutive OPTIONAL or DEFAULT
+SEQUENCE elements and the following element must be distinct. }
+
+\item { gives a warning if an ANY DEFINED BY type appears in a
+SEQUENCE before its identifier or in a SET\@.  These would allow encodings
+where the ANY DEFINED BY value was prior to its identifier in the
+encoded value; ANY DEFINED BY values are difficult to decode without
+knowing their identifier.}
+
+\end{itemize}
+
+Snacc does not attempt to detect the following errors due the
+limitations of the value parser.
+\begin{itemize}
+\item { SET and SEQUENCE values can be empty (\{\}) only if the SET or
+SEQUENCE type was defined as empty or all of its elements are marked
+as OPTIONAL or DEFAULT.}
+
+\item { each identifier in a BIT STRING value must from that BIT
+STRING's named bit list (this could be done in an improved value
+linker instead of this pass).}
+\end{itemize}
+
+
+\section{\label{comp-pass10-section}Pass 10: Generating C/C++ Type Information}
+
+This pass fills in the target language type information.  The process
+is different for the C and C++ back ends since the C++ ASN.1 model is
+different and it was developed later (more design flaws had been
+corrected for the C++ backend).
+
+For C and C++ there is an array that contains the type {\em definition}
+information for each built-in type.  For each built-in ASN.1 type, the
+C array holds:
+
+\begin{description}
+\item[typename] {the C {\C typedef} name for this type definition.}
+
+\item[isPdu]    {TRUE if this type definition is a PDU\@. This is set
+for types used in ANY and ANY DEFINED BY types and those indicated by
+the user via compiler directives.  Additional interfaces to the encode
+and decode routines are generated for PDU types.  The SNMP OBJECT-TYPE
+macro is the current means of indicating whether a type is used within
+an ANY or ANY DEFINED BY type.}
+
+\item[isPtrForTypeDef] { TRUE if other types defined solely by this type
+definition are defined as a pointer to this type.}
+
+\item[isPtrForTypeRef] { TRUE if type references to this type
+definition from a SET or SEQUENCE are by pointer.}
+
+\item[isPtrForOpt] { TRUE if OPTIONAL type references to this type
+definition from a SET or SEQUENCE are by pointer.}
+
+\item[isPtrInChoice] { TRUE if type references to this type
+definition from a CHOICE are by pointer.}
+
+\item[optTestRoutineName] { name of the routine to test whether an
+OPTIONAL element of this type in a SET or SEQUENCE is present.
+Usually just the name of a C macro that tests for NULL.}
+
+\item[printRoutineName] { name of this type definition's printing routine.}
+\item[encodeRoutineName]{ name of this type definition's encoding routine.}
+\item[decodeRoutineName]{ name of this type definition's decoding routine.}
+\item[freeRoutineName]  { name of this type definition's freeing routine.}
+\end{description}
+
+The C++ type definition array is similar to C's. It contains:
+
+\begin{description}
+\item[classname] { holds the C++ {\C class} name for this type definition.}
+\item[isPdu] { same as C isPdu except that is does not affect the code
+generation since the C++ back end includes the extra PDU encode and
+decode routines by default.}
+\item[isPtrForTypeDef] { same as C isPtrForTypeDef. }
+\item[isPtrForOpt] { same as C isPtrForOpt.}
+\item[isPtrInChoice] { same as C isPtrInChoice}
+\item[isPtrInSetAndSeq] { whether type references to this class
+from a SET or SEQUENCE are by pointer.}
+\item[isPtrInList] {whether type references to this class
+from a SET OF or SEQUENCE OF are by pointer.}
+\item[optTestRoutineName] { name of the routine to test whether an
+OPTIONAL element of this type in a SET or SEQUENCE is present.
+Usually is just name of a C macro that tests for NULL.}
+\end{description}
+
+The first step of this pass uses the type arrays to fill in the C or
+C++ type {\em definition} information for each module's ASN.1 type
+definitions.  This is done for the useful types module as well.
+
+The next step goes through each constructed type and fills in the type
+{\em reference} information for each reference to a built-in, user defined
+or useful type.  Much of the type reference information is taken from
+the referenced type's definition information.  The type reference
+information contains the following (for both C and C++):
+
+\begin{description}
+\item[fieldName] { field name for this type if it is referenced from
+a CHOICE, SET or SEQUENCE.}
+\item[typeName] { type name of the referenced type.}
+\item[isPtr] { whether this reference is by pointer.}
+\item[namedElmts] { named elements for INTEGER, ENUMERATED or BIT
+STRING types with their C names and values.}
+\item[choiceIdValue] { if this type reference is in a CHOICE, this
+holds the value of the CHOICE's choiceId that indicates the presence
+of this field.}
+\item[choiceIdSymbol] { if this type reference is in a CHOICE, this
+holds the C enum value symbol that has the choiceIdValue value.}
+\item[optTestRoutineName] { name of the routine or macro to test for
+the presence of this element if it is an OPTIONAL element of a SET or SEQUENCE.}
+\end{description}
+
+\section{\label{comp-pass11-section}Pass 11: Sorting Types}
+
+This pass sorts the type definitions within each module in order of
+dependence.  ASN.1 does not require the types to be defined before
+they are referenced but both C and C++ do.  Without this pass, the
+generated types/classes would probably not compile due to type
+dependency problems.  There is no attempt to order the modules;
+command line order is used for the module dependence.  If you have
+problems with mutually dependent modules, the simplest approach is to
+combine the dependent modules into a single ASN.1 module.
+
+Some compilers such as CASN1 \cite{CASN1} require the user to order
+the types within the ASN.1 modules.  This can be tedious and since
+snacc may generate new type definitions from nested aggregate type
+definitions in the normalization pass, the user does not have complete
+control over the order of every type definition.  (The user could use
+the {\ufn -P} option to get the normalized ASN.1 and then order it but
+that is painful as well.)
+
+Snacc attempts to sort the types from least dependent to most
+dependent using the following convoluted algorithm:
+
+First, separate the type definitions within a module into the groups:
+\begin{itemize}
+\item[1.] { type definitions that are defined directly from simple built-in
+types such as INTEGER.}
+
+\item[2.] { types such as SET, SEQUENCE, SET OF, SEQUENCE OF and CHOICE
+that contain no references to types defined in this module.  That, is
+they are defined from only simple built-in types, imported types or
+useful types.}
+
+\item[3.] { type definitions that reference locally defined types.}
+
+\item[4.] { type definitions that are not referenced by any local types.}
+\end{itemize}
+
+Only the 3rd group of type definitions needs more sorting.  After it
+has been sorted, the groups are merged in the order 1, 2, 3, 4 to
+yield a sorted type definition list.
+
+Now we describe how the 3rd group of type definitions is sorted.
+\begin{itemize}
+
+\item[1.] {for each type definition in the third group, a list of its local type
+references is built and attached to it.  This type reference list only
+goes one level deep; it does not follow type references to find more
+type references.}
+
+\item[2.] { all of the linearly-dependent types are removed and sorted.
+This is done by repeatedly removing type definitions that do not
+directly depend on any other type definitions that remain in the 3rd
+group.  The process of removing the type definitions sorts them.}
+
+\item[3.] { the type definitions that were not removed in step 2 are
+divided into two groups: recursive and non-recursive.  The
+non-recursive types depend on the recursive ones since they are still
+in the list after step 2.}
+
+\item[4.] { the non-recursive types from step 3 are sorted as in step
+2.  All of them should sort linearly since none are recursive. }
+
+\item[5.] { if the target language is C, any SET OF or SEQUENCE OF
+types are separated from the recursive type definitions built in step 3.
+This is done because the C representation of a list type is generic
+(uses a {\C void~*} to reference the list element) and therefore does
+not really depend on the list's element type.}
+
+\item[6] { the list of local type references for the recursive types
+from step 3 is re-generated as in step 1 using a relaxation:  types
+referenced as pointers are not added to a type's reference list.}
+
+\item[7] { the recursive types from step two are re-sorted as in step
+2 using their new local type reference lists. Two lists are formed,
+those that sorted linearly and those that did not. Hopefully the
+latter list will be empty.}
+\end{itemize}
+
+To form a sorted third group, the lists are merged in the following order:
+\begin{itemize}
+\item {linearly sorted types from step 2}
+\item {separated list types (C only) from step 5}
+\item {sorted recursive types from step 7}
+\item {unsorted recursive types from step 7 (hopefully empty)}
+\item {sorted non-recursive types from step 4}
+\end{itemize}
+
+
+In C, the code generator defines both {\C typedef} names and
+{\C struct} tags (names).  For example,
+\begin{verbatim}
+Foo ::= SET { a INTEGER, b BOOLEAN }
+
+Bar ::= SEQUENCE { a OBJECT IDENTIFIER, b Foo }
+\end{verbatim}
+translates to the following C data types:
+\begin{verbatim}
+typedef struct Foo /* SET */
+{
+    AsnInt a; /* INTEGER */
+    AsnBool b; /* BOOLEAN */
+} Foo;
+
+typedef struct Bar /* SEQUENCE */
+{
+    AsnOid a; /* OBJECT IDENTIFIER */
+    struct Foo *b; /* Foo */
+} Bar;
+\end{verbatim}
+
+Note that both the {\C struct} and the {\C typedef} have the name
+{\C Foo}.  Also note that the Bar type references the {\C Foo} via
+{\C struct Foo~*}.
+
+For types such as {\C Bar} that contain the {\C Foo} type,
+{\C Foo} is referenced as {\C struct Foo~*} instead of just
+{\C Foo~*} because C allows you to use the type {\C struct Foo~*}
+(incomplete type) in defining types even prior to the actual
+declaration of the the {\C struct Foo}. The {\C Foo~*} type can
+{\em only} be used after the {\C Foo typedef} declaration.  The use
+of incomplete types can often overcome recursion related type ordering
+problems (not relevant in this example since they are not recursive).
+
+\section{\label{comp-pass12-section}Pass 12: Generating Code}
+
+This pass creates and fills the source files with C or C++ code or
+produces a type table containing the type descriptions from all of the
+parsed modules, including the useful types module (if given).  The
+purpose of the normalization, sorting and error detection passes is to
+simplify this pass.
+
+The normalization pass simplified the ASN.1 types in various ways to
+make C/C++ type and code generation simpler.
+
+The type sorting pass hopefully eliminates type dependency problems in the
+generated code.  The C/C++ type generator simply proceeds through the
+ordered type list writing the C/C++ type definitions to a header file.
+
+The error detection and linking passes will make snacc exit if errors
+are found, so the code generation pass can assume the ASN.1 types are
+virtually error free.  This usually allows snacc to exit gracefully
+instead of crashing due to an undetected error.
+
+The type table data structure is similar to snacc's parse tree for the
+ASN.1 modules but it is much simpler.  This is because all of the type
+linking and error checking has been done.  The type definitions in the
+type tables are in defined by the type sorting pass (dependency).
+
+The next chapters describe the code that is generated by snacc and the
+libraries the generated code uses.

@@ -51,13 +51,13 @@
   #undef __SCN_64_LENGTH_MODIFIER__
 
   #if defined(__STDC_LIBRARY_SUPPORTED__)
-    #define __PRI_8_LENGTH_MODIFIER__ "%hh"
-    #define __PRI_64_LENGTH_MODIFIER__ "%ll"
-    #define __SCN_8_LENGTH_MODIFIER__ "%hh"
-    #define __SCN_64_LENGTH_MODIFIER__ "%ll"
+    #define __PRI_8_LENGTH_MODIFIER__ "hh"
+    #define __PRI_64_LENGTH_MODIFIER__ "ll"
+    #define __SCN_8_LENGTH_MODIFIER__ "hh"
+    #define __SCN_64_LENGTH_MODIFIER__ "ll"
   #else
-    #define __PRI_8_LENGTH_MODIFIER__ "%"  /* none */
-    #define __PRI_64_LENGTH_MODIFIER__ "%q"
+    #define __PRI_8_LENGTH_MODIFIER__ ""  /* none */
+    #define __PRI_64_LENGTH_MODIFIER__ "q"
   #endif
 
   #define PRId8         __PRI_8_LENGTH_MODIFIER__ "d"
@@ -67,19 +67,19 @@
   #define PRIx8         __PRI_8_LENGTH_MODIFIER__ "x"
   #define PRIX8         __PRI_8_LENGTH_MODIFIER__ "X"
 
-  #define PRId16        "%hd"
-  #define PRIi16        "%hi"
-  #define PRIo16        "%ho"
-  #define PRIu16        "%hu"
-  #define PRIx16        "%hx"
-  #define PRIX16        "%hX"
+  #define PRId16        "hd"
+  #define PRIi16        "hi"
+  #define PRIo16        "ho"
+  #define PRIu16        "hu"
+  #define PRIx16        "hx"
+  #define PRIX16        "hX"
 
-  #define PRId32        "%ld"
-  #define PRIi32        "%li"
-  #define PRIo32        "%lo"
-  #define PRIu32        "%lu"
-  #define PRIx32        "%lx"
-  #define PRIX32        "%lX"
+  #define PRId32        "ld"
+  #define PRIi32        "li"
+  #define PRIo32        "lo"
+  #define PRIu32        "lu"
+  #define PRIx32        "lx"
+  #define PRIX32        "lX"
 
   #define PRId64        __PRI_64_LENGTH_MODIFIER__ "d"
   #define PRIi64        __PRI_64_LENGTH_MODIFIER__ "i"
@@ -166,17 +166,17 @@
     #define SCNx8       __SCN_8_LENGTH_MODIFIER__ "x"
   #endif
 
-  #define SCNd16        "%hd"
-  #define SCNi16        "%hi"
-  #define SCNo16        "%ho"
-  #define SCNu16        "%hu"
-  #define SCNx16        "%hx"
+  #define SCNd16        "hd"
+  #define SCNi16        "hi"
+  #define SCNo16        "ho"
+  #define SCNu16        "hu"
+  #define SCNx16        "hx"
 
-  #define SCNd32        "%ld"
-  #define SCNi32        "%li"
-  #define SCNo32        "%lo"
-  #define SCNu32        "%lu"
-  #define SCNx32        "%lx"
+  #define SCNd32        "ld"
+  #define SCNi32        "li"
+  #define SCNo32        "lo"
+  #define SCNu32        "lu"
+  #define SCNx32        "lx"
 
   #if defined(__SCN_64_LENGTH_MODIFIER__)
     #define SCNd64      __SCN_64_LENGTH_MODIFIER__ "d"

@@ -439,6 +439,8 @@ end ifobjc
 		      resume_momentary ($2); 
 		      if (flag_dump_symbols)
 		        printf ("-fm %u\n", lineno);
+		      if (flag_gen_index)
+		        dump_symbol_info ("-fm ", NULL, lineno);
 ifobjc
 #ifdef MODERN_OBJC_SYNTAX
                     }
@@ -457,7 +459,9 @@ end ifobjc
 		  if (flag_dump_symbols)
                     printf ("+fm %s %u\n",
 			    IDENTIFIER_POINTER (TREE_OPERAND ($3,0)), lineno);
-		  
+		  if (flag_gen_index)
+                    dump_symbol_info ("+fm ", IDENTIFIER_POINTER (TREE_OPERAND ($3,0)), 
+                            lineno);
 		  reinit_parse_for_function (); }
 	  old_style_parm_decls
 		{ store_parm_decls (); }
@@ -465,6 +469,8 @@ end ifobjc
 		{ 
 		  if (flag_dump_symbols)
 		    printf ("-fm %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("-fm ", NULL, lineno);
 		  finish_function (0); 
 		  current_declspecs = TREE_VALUE (declspec_stack);
 		  prefix_attributes = TREE_PURPOSE (declspec_stack);
@@ -482,6 +488,9 @@ end ifobjc
 		  if (flag_dump_symbols)
                     printf ("+fm %s %u\n",
 			    IDENTIFIER_POINTER (TREE_OPERAND ($2,0)), lineno);
+		  if (flag_gen_index)
+                    dump_symbol_info ("+fm ", IDENTIFIER_POINTER (TREE_OPERAND ($2,0)), 
+                            lineno);
 		  reinit_parse_for_function (); }
 	  old_style_parm_decls
 		{ store_parm_decls (); }
@@ -489,6 +498,8 @@ end ifobjc
 		{ 
 		  if (flag_dump_symbols)
 		    printf ("-fm %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("-fm ", NULL, lineno);
 		  finish_function (0); 
 		  current_declspecs = TREE_VALUE (declspec_stack);
 		  prefix_attributes = TREE_PURPOSE (declspec_stack);
@@ -1293,6 +1304,8 @@ reserved_typespecquals:  /* empty */
    if a typedef name appears then it is being redeclared.  */
 
 typespec: TYPESPEC
+		{ /* Handle the likes of 'int NSObject;'.  */
+		  objc_need_raw_identifier = 1; }
 	| structsp
 	| TYPENAME
 		{ /* For a typedef name, record the meaning, not the name.
@@ -1544,6 +1557,9 @@ nested_function:
    		  if (flag_dump_symbols)
                     printf ("+fm %s %u\n",
 			    IDENTIFIER_POINTER (TREE_OPERAND ($1,0)), lineno);
+   		  if (flag_gen_index)
+                    dump_symbol_info ("+fm ", IDENTIFIER_POINTER (TREE_OPERAND ($1,0)), 
+                            lineno);
 		  reinit_parse_for_function (); }
 	   old_style_parm_decls
 		{ store_parm_decls (); }
@@ -1557,6 +1573,8 @@ nested_function:
 		{ 
 		  if (flag_dump_symbols)
 		    printf ("-fm %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("-fm ", NULL, lineno);
 		  finish_function (1);
 		  pop_c_function_context (); }
 	;
@@ -1573,6 +1591,9 @@ notype_nested_function:
 		  if (flag_dump_symbols)
                     printf ("+fm %s %u\n",
 			    IDENTIFIER_POINTER (TREE_OPERAND ($1,0)), lineno);
+		  if (flag_gen_index)
+                    dump_symbol_info ("+fm ", IDENTIFIER_POINTER (TREE_OPERAND ($1,0)), 
+                            lineno);
 		  reinit_parse_for_function (); }
 	  old_style_parm_decls
 		{ store_parm_decls (); }
@@ -1586,6 +1607,8 @@ notype_nested_function:
 		{ 
 		  if (flag_dump_symbols)
 		    printf ("-fm %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("-fm ", NULL, lineno);
                   finish_function (1);
 		  pop_c_function_context (); }
 	;
@@ -2830,6 +2853,8 @@ protocoldef:
 		  // remember_protocol_qualifiers ();
 		  if (flag_dump_symbols)
 		    printf ("+Pm %s %u\n", $3->identifier.pointer, $2);
+		  if (flag_gen_index)
+		    dump_symbol_info ("+Pm ", $3->identifier.pointer, $2);
 		  objc_interface_context
 		    = start_protocol(PROTOCOL_INTERFACE_TYPE, $3, $4);
 		}
@@ -2838,6 +2863,8 @@ protocoldef:
 		  // forget_protocol_qualifiers();
 		  if (flag_dump_symbols)
 		    printf ("-Pm %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("-Pm ", NULL, lineno);
 		  finish_protocol(objc_interface_context);
 		  objc_interface_context = NULL_TREE;
 		}
@@ -2951,6 +2978,8 @@ methoddef:
 		{
 		  if (flag_dump_symbols)
 		    printf ("++m");
+		  if (flag_gen_index)
+		    dump_symbol_info ("++m ", NULL, -1);
 		  remember_protocol_qualifiers ();
 		  if (objc_implementation_context)
 		    objc_inherit_code = CLASS_METHOD_DECL;
@@ -2974,12 +3003,16 @@ methoddef:
 		  objc_method_context = NULL_TREE;
 		  if (flag_dump_symbols)
 		    printf ("-+m %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("-+m ", NULL, lineno);
 		}
 
 	| '-'
 		{
 		  if (flag_dump_symbols)
 		    printf ("+-m");
+		  if (flag_gen_index)
+		    dump_symbol_info ("+-m ", NULL, -1);
 		  remember_protocol_qualifiers ();
 		  if (objc_implementation_context)
 		    objc_inherit_code = INSTANCE_METHOD_DECL;
@@ -3003,6 +3036,8 @@ methoddef:
 		  objc_method_context = NULL_TREE;
 		  if (flag_dump_symbols)
 		    printf ("--m %u\n", lineno);
+		  if (flag_gen_index)
+		    dump_symbol_info ("--m ", NULL, lineno);
 		}
 	;
 
@@ -3032,6 +3067,8 @@ methodproto:
 		{
 		  if (flag_dump_symbols)
 		    printf ("++h");
+		  if (flag_gen_index)
+		    dump_symbol_info ("++h ", NULL, -1);
 		  remember_protocol_qualifiers ();
 		  objc_inherit_code = CLASS_METHOD_DECL;
 		}
@@ -3046,6 +3083,8 @@ methodproto:
 		{
 		  if (flag_dump_symbols)
 		    printf ("+-h");
+		  if (flag_gen_index)
+		    dump_symbol_info ("+-h ", NULL, -1);
 		  remember_protocol_qualifiers ();
 		  objc_inherit_code = INSTANCE_METHOD_DECL;
 		}
@@ -3197,6 +3236,7 @@ keywordselector:
 selector:
 	  IDENTIFIER
         | TYPENAME
+	| CLASSNAME
   	| OBJECTNAME
 	| reservedwords
 	;

@@ -1,6 +1,8 @@
 #!/bin/sh
 
 ##
+# Copyright 1997-2001 Apple Computer, Inc.
+#
 # This script sets up the machine enough to run single-user
 ##
 

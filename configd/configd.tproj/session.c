@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
@@ -35,7 +45,7 @@ getSession(mach_port_t server)
 	int	i;
 
 	if (server == MACH_PORT_NULL) {
-		SCDLog(LOG_NOTICE, CFSTR("Excuse me, why is getSession() being called with an invalid port?"));
+		SCLog(_configd_verbose, LOG_NOTICE, CFSTR("Excuse me, why is getSession() being called with an invalid port?"));
 		return NULL;
 	}
 
@@ -48,9 +58,9 @@ getSession(mach_port_t server)
 				continue;
 			} else if (thisSession->key == server) {
 				return thisSession;	/* we've seen this server before */
-			} else if ((thisSession->session != NULL) &&
-				   (((SCDSessionPrivateRef)thisSession->session)->notifySignalTask == server)) {
-					return thisSession;
+			} else if (thisSession->store &&
+				   (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
+				return thisSession;
 			}
 		}
 	}
@@ -86,12 +96,12 @@ addSession(CFMachPortRef server)
 		}
 	}
 
-	SCDLog(LOG_DEBUG, CFSTR("Allocating new session for port %d"), CFMachPortGetPort(server));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Allocating new session for port %d"), CFMachPortGetPort(server));
 	sessions[n] = malloc(sizeof(serverSession));
 	sessions[n]->key                 = CFMachPortGetPort(server);
 	sessions[n]->serverPort          = server;
 	sessions[n]->serverRunLoopSource = NULL;
-	sessions[n]->session             = NULL;
+	sessions[n]->store		 = NULL;
 	sessions[n]->callerEUID          = 1;		/* not "root" */
 	sessions[n]->callerEGID          = 1;		/* not "wheel" */
 
@@ -152,21 +162,21 @@ cleanupSession(mach_port_t server)
 			 * Ensure that any changes made while we held the "lock"
 			 * are discarded.
 			 */
-			if (SCDOptionGet(NULL, kSCDOptionIsLocked) &&
-			    SCDOptionGet(thisSession->session, kSCDOptionIsLocked)) {
+			if ((storeLocked > 0) &&
+			    ((SCDynamicStorePrivateRef)thisSession->store)->locked) {
 				/*
-				 * swap cache and associated data which, after
+				 * swap store and associated data which, after
 				 * being closed, will result in the restoration
 				 * of the original pre-"locked" data.
 				 */
-				_swapLockedCacheData();
+				_swapLockedStoreData();
 			}
 
 			/*
 			 * Close any open connections including cancelling any outstanding
 			 * notification requests and releasing any locks.
 			 */
-			(void) _SCDClose(&thisSession->session);
+			(void) __SCDynamicStoreClose(&thisSession->store);
 
 			/*
 			 * Lastly, remove the session entry.
@@ -195,8 +205,8 @@ listSessions()
 
 		fprintf(stderr, " %d", thisSession->key);
 
-		if (thisSession->session != NULL) {
-			task_t	task = ((SCDSessionPrivateRef)thisSession->session)->notifySignalTask;
+		if (thisSession->store) {
+			task_t	task = ((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask;
 
 			if (task != TASK_NULL) {
 			       fprintf(stderr, "/%d", task);

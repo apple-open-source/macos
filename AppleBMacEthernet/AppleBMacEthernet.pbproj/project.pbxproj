@@ -1,0 +1,381 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 33;
+	objects = {
+		01833DA1FFD2F31611CA2B4D = {
+			fileRef = 020A3990FFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01EE1BD3FFC9F1AA11CA2B4D = {
+			isa = PBXBundleReference;
+			path = AppleBMacEthernet.kext;
+			refType = 3;
+		};
+		01FC073DFFB0F85611CA2B4D = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		01FC073EFFB0F85611CA2B4D = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//020
+//021
+//022
+//023
+//024
+		020A398BFFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnetPrivate.h;
+			refType = 4;
+		};
+		020A398CFFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnetPrivate.cpp;
+			refType = 4;
+		};
+		020A398DFFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnetMII.h;
+			refType = 4;
+		};
+		020A398EFFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnetMII.cpp;
+			refType = 4;
+		};
+		020A398FFFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnetHW.cpp;
+			refType = 4;
+		};
+		020A3990FFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnet.h;
+			refType = 4;
+		};
+		020A3991FFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnet.cpp;
+			refType = 4;
+		};
+		020A3992FFB0FA9711CA2B4D = {
+			isa = PBXFileReference;
+			path = BMacEnetRegisters.h;
+			refType = 4;
+		};
+		020A3993FFB0FA9711CA2B4D = {
+			fileRef = 020A3992FFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		020A3994FFB0FA9711CA2B4D = {
+			fileRef = 020A398BFFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		020A3995FFB0FA9711CA2B4D = {
+			fileRef = 020A398DFFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		020A3997FFB0FA9711CA2B4D = {
+			fileRef = 020A398CFFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		020A3998FFB0FA9711CA2B4D = {
+			fileRef = 020A398EFFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		020A3999FFB0FA9711CA2B4D = {
+			fileRef = 020A398FFFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		020A399AFFB0FA9711CA2B4D = {
+			fileRef = 020A3991FFB0FA9711CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//020
+//021
+//022
+//023
+//024
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				01FC073DFFB0F85611CA2B4D,
+				01FC073EFFB0F85611CA2B4D,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleBMacEthernet;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+			);
+			buildSettings = {
+				BUILD_SETTING = "";
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleBMacEthernet;
+				MODULE_VERSION = 1.1;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleBMacEthernet;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-fpermissive -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleBMacEthernet;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleBMacEthernet;
+			productReference = 01EE1BD3FFC9F1AA11CA2B4D;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleBMacEthernet</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleBMacEthernet</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Name Matching</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleBMacEthernet</string>
+			<key>IOClass</key>
+			<string>BMacEnet</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>bmac</string>
+				<string>bmac+</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Network-Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				020A3993FFB0FA9711CA2B4D,
+				020A3994FFB0FA9711CA2B4D,
+				020A3995FFB0FA9711CA2B4D,
+				01833DA1FFD2F31611CA2B4D,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				020A3997FFB0FA9711CA2B4D,
+				020A3998FFB0FA9711CA2B4D,
+				020A3999FFB0FA9711CA2B4D,
+				020A399AFFB0FA9711CA2B4D,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				01EE1BD3FFC9F1AA11CA2B4D,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				020A3992FFB0FA9711CA2B4D,
+				020A398BFFB0FA9711CA2B4D,
+				020A398CFFB0FA9711CA2B4D,
+				020A398DFFB0FA9711CA2B4D,
+				020A398EFFB0FA9711CA2B4D,
+				020A398FFFB0FA9711CA2B4D,
+				020A3990FFB0FA9711CA2B4D,
+				020A3991FFB0FA9711CA2B4D,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

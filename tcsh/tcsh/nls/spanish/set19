@@ -1,4 +1,4 @@
-$ $Id: set19,v 1.1.1.1 1999/04/23 02:00:10 wsanchez Exp $
+$ $Id: set19,v 1.1.1.2 2001/06/28 23:11:22 bbraun Exp $
 $ tc.alloc.c
 $set 19 
 1 nbytes=%d: Se ha agotado la memoria\n

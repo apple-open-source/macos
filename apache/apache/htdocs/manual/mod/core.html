@@ -43,6 +43,9 @@ always available.
 <LI><A HREF="#directory">&lt;Directory&gt;</A>
 <LI><A HREF="#directorymatch">&lt;DirectoryMatch&gt;</A>
 <LI><A HREF="#documentroot">DocumentRoot</A>
+<LI><A HREF="#ebcdicconvert">EBCDICConvert</A>
+<LI><A HREF="#ebcdicconvertbytype">EBCDICConvertByType</A>
+<LI><A HREF="#ebcdickludge">EBCDICKludge</A>
 <LI><A HREF="#errordocument">ErrorDocument</A>
 <LI><A HREF="#errorlog">ErrorLog</A>
 <LI><A HREF="#files">&lt;Files&gt;</A>
@@ -145,7 +148,8 @@ as configuration files.
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> AccessFileName <EM>filename filename ...</EM><BR>
+><STRONG>Syntax:</STRONG></A> AccessFileName <EM>filename</EM>
+[<EM>filename</EM>] ...<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -176,11 +180,16 @@ for directives, unless they have been disabled with
 <BLOCKQUOTE><CODE>
 &lt;Directory /&gt;<BR>
 AllowOverride None<BR>
-&lt;/Directory&gt;</CODE></BLOCKQUOTE><P><HR>
+&lt;/Directory&gt;</CODE>
+</BLOCKQUOTE><P>
+
+<P><STRONG>See Also:</STRONG>
+<A HREF="#allowoverride">AllowOverride</a></P>
+<HR>
 
 <H2><A NAME="adddefaultcharset">AddDefaultCharset directive</A></H2>
 <A HREF="directive-dict.html#Syntax" REL="Help"><STRONG>Syntax:</STRONG></A> 
-AddDefaultCharset <EM>Off / On / charset</EM><BR>
+AddDefaultCharset On|Off|<EM>charset</EM><BR>
 <A HREF="directive-dict.html#Context" REL="Help" ><STRONG>Context:</STRONG></A> 
 all<BR>
 <A HREF="directive-dict.html#Status" REL="Help" ><STRONG>Status:</STRONG></A> 
@@ -197,7 +206,7 @@ in the body of the document via a <CODE>META</CODE> tag. A setting
 of <CODE>AddDefaultCharset Off</CODE> disables this functionality.
 <CODE>AddDefaultCharset On</CODE> enables Apache's internal
 default charset of <code>iso-8859-1</code> as required by the
-directive. You can also specify an alternate charset to be used;
+directive. You can also specify an alternate <EM>charset</EM> to be used;
 e.g. <code>AddDefaultCharset utf-8</code>.
 <P><HR>
 
@@ -206,7 +215,7 @@ e.g. <code>AddDefaultCharset utf-8</code>.
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> AddModule <EM>module module ...</EM><BR>
+><STRONG>Syntax:</STRONG></A> AddModule <EM>module</EM> [<EM>module</EM>] ...<BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -232,7 +241,8 @@ directive.<P><HR>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> AllowOverride <EM>override override ...</EM><BR>
+><STRONG>Syntax:</STRONG></A> AllowOverride All|None|<EM>directive-type</EM>
+[<EM>directive-type</EM>] ...<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -246,13 +256,21 @@ directive.<P><HR>
  REL="Help"
 ><STRONG>Status:</STRONG></A> core<P>
 
-When the server finds an .htaccess file (as specified by
+<p>When the server finds an .htaccess file (as specified by
 <A HREF="#accessfilename">AccessFileName</A>) it needs to know which
-directives declared in that file can override earlier access information.<P>
+directives declared in that file can override earlier access information.</p>
 
-<EM>Override</EM> can be set to <CODE>None</CODE>, in which case the server
-will not read the file, <CODE>All</CODE> in which case the server will
-allow all the directives, or one or more of the following:
+<p>When this directive is set to <code>None</code>, then
+.htaccess files are completely ignored.  In this case, the server
+will not even attempt to read .htaccess files in the filesystem.</p>
+
+<p>When this directive is set to <code>All</code>, then any directive
+which has the .htaccess <a
+href="directive-dict.html#Context">Context</a> is allowed in .htaccess
+files.</p>
+
+<p>The <EM>directive-type</EM> can be one of the following groupings
+of directives.</p>
 <DL>
 <DT>AuthConfig
 <DD>
@@ -299,7 +317,11 @@ Allow use of the directives controlling host access (Allow, Deny and Order).
 Allow use of the directives controlling specific directory features
 (<A HREF="#options">Options</A> and
 <A HREF="mod_include.html#xbithack">XBitHack</A>).
-</DL><P><HR>
+</DL><P>
+
+<P><STRONG>See Also:</STRONG>
+<A HREF="#accessfilename">AccessFileName</A></P>
+<HR>
 
 <H2><A NAME="authname">AuthName directive</A></H2>
 <!--%plaintext &lt;?INDEX {\tt AuthName} directive&gt; -->
@@ -334,7 +356,7 @@ It must be accompanied by <A HREF="#authtype">AuthType</A> and
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> AuthType <EM>type</EM><BR>
+><STRONG>Syntax:</STRONG></A> AuthType Basic|Digest<BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -361,7 +383,8 @@ It must be accompanied by <A HREF="#authname">AuthName</A> and
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> BindAddress <EM>saddr</EM><BR>
+><STRONG>Syntax:</STRONG></A> BindAddress 
+*|<EM>IP-address</EM>|<EM>domain-name</EM><BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -375,28 +398,22 @@ It must be accompanied by <A HREF="#authname">AuthName</A> and
  REL="Help"
 ><STRONG>Status:</STRONG></A> core<P>
 
-A Unix&#174; http server can either listen for connections to every
+<p>A Unix&#174; http server can either listen for connections to every
 IP address of the server machine, or just one IP address of the server
-machine. <EM>Saddr</EM> can be
+machine.  If the argument to this directive is *, then the 
+server will listen for connections on every IP address.  Otherwise,
+the server can listen to only a specific <EM>IP-address</EM>
+or a fully-qualified Internet <EM>domain-name</EM>.</p>
 
-<MENU>
-<LI>*
-<LI>An IP address
-<LI>A fully-qualified Internet domain name
-</MENU>
-If the value is *, then the server will listen for connections on
-every IP address, otherwise it will only listen on the IP address
-specified. <P>
-
-Only one <CODE>BindAddress</CODE> directive can be used. For more
+<p>Only one <CODE>BindAddress</CODE> directive can be used. For more
 control over which address and ports Apache listens to, use the
 <CODE><A HREF="#listen">Listen</A></CODE> directive instead of
-<CODE>BindAddress</CODE>.<P>
+<CODE>BindAddress</CODE>.</P>
 
-<CODE>BindAddress</CODE> can be used as an alternative method for
-supporting <A HREF="../vhosts/index.html">virtual hosts</A> using
+<p><CODE>BindAddress</CODE> can be used as an alternative method for
+supporting <A HREF="../vhosts/">virtual hosts</A> using
 multiple independent servers, instead of using <CODE><A
-HREF="#virtualhost">&lt;VirtualHost&gt;</A></CODE> sections.
+HREF="#virtualhost">&lt;VirtualHost&gt;</A></CODE> sections.</p>
 
 <P><STRONG>See Also:</STRONG>
 <A HREF="../dns-caveats.html">DNS Issues</A><BR>
@@ -473,7 +490,7 @@ re-populated using the <A HREF="#addmodule">AddModule</A> directive.<P><HR>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ContentDigest <EM>on|off</EM><BR>
+><STRONG>Syntax:</STRONG></A> ContentDigest on|off<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -785,6 +802,223 @@ please avoid that.
 
 <P><HR>
 
+<H2><A NAME="ebcdicconvert">EBCDICConvert</A></H2>
+<!--%plaintext &lt;?INDEX {\tt EBCDICConvert} directive&gt; -->
+<A
+ HREF="directive-dict.html#Syntax"
+ REL="Help"
+><STRONG>Syntax:</STRONG></A> EBCDICConvert On|Off[=<em>direction</em>]
+<em>extension</em> [<em>extension</em>] ...<br>
+<A
+ HREF="directive-dict.html#Context"
+ REL="Help"
+><STRONG>Context:</STRONG></A> server config, virtual host, directory,
+.htaccess<BR>
+<A
+ HREF="directive-dict.html#Status"
+ REL="Help"
+><STRONG>Status:</STRONG></A> core<BR>
+<A
+ HREF="directive-dict.html#Override"
+ REL="Help"
+><STRONG>Override:</STRONG></A> FileInfo<BR>
+<A
+ HREF="directive-dict.html#Compatibility"
+ REL="Help"
+><STRONG>Compatibility:</STRONG></A> The configurable EBCDIC conversion
+is only available in Apache 1.3.19 and later, and on EBCDIC based
+platforms.<P>
+
+<P>
+ The EBCDICConvert directive maps the given filename extensions to
+ the specified conversion setting (<SAMP>On</SAMP> or
+ <SAMP>Off</SAMP>). File extensions may be specified with or without
+ a leading dot.
+</P>
+<P>
+ If the optional format <SAMP>On=<i>direction</i></SAMP> (or
+ <SAMP>Off=<i>direction</i></SAMP>) is used, where <i>direction</i>
+ is one of <SAMP>In</SAMP>, <SAMP>Out</SAMP> or <SAMP>InOut</SAMP>,
+ then the directive only applies to the specified transfer direction
+ (<SAMP>In</SAMP>: uploaded content in a PUT or POST request,
+ <SAMP>Out</SAMP>: returned content in a GET or POST request, and
+ <SAMP>InOut</SAMP>: conversion in both directions).<BR>
+ Otherwise, <SAMP>InOut</SAMP> (conversion in both directions) is
+ implied.
+</P>
+
+<P>
+ Conversion configuration based on file extension is tested prior to
+ configuration based on MIME type, to allow for generic MIME based
+ rules to be overridden by a more specific file extension (several
+ file extensions may exist for the same MIME type).
+</P>
+
+<P>
+ <STRONG>Example</STRONG>:<BR>
+ With a configuration like the following, the normal
+ <SAMP>*.html</SAMP> files contain HTML text in EBCDIC encoding,
+ while <SAMP>*.ahtml</SAMP> files contain HTML text in ASCII
+ encoding:
+ <pre>
+    # *.html and *.ahtml contain HTML text:
+    AddType  text/html  .html .ahtml
+
+    # *.ahtml is not converted (contains ASCII text already):
+    EBCDICConvert       Off .ahtml
+
+    # All other text/html files presumably contain EBCDIC text:
+    EBCDICConvertByType On  text/html
+ </pre>
+</P>
+<P>
+ <STRONG>See also</STRONG>: <A HREF="#ebcdicconvertbytype">EBCDICConvertByType</A>
+ and <A HREF="../ebcdic.html#ebcdic">Overview of the EBCDIC Conversion Functions</A>
+</P>
+
+<hr>
+
+<H2><A NAME="ebcdicconvertbytype">EBCDICConvertByType</A></H2>
+<!--%plaintext &lt;?INDEX {\tt EBCDICConvertByType} directive&gt; -->
+<A
+ HREF="directive-dict.html#Syntax"
+ REL="Help"
+><STRONG>Syntax:</STRONG></A> EBCDICConvertByType On|Off[=<em>direction</em>]
+<em>mimetype</em> [<em>mimetype</em>] ...<br>
+<A
+ HREF="directive-dict.html#Context"
+ REL="Help"
+><STRONG>Context:</STRONG></A> server config, virtual host, directory,
+.htaccess<BR>
+<A
+ HREF="directive-dict.html#Status"
+ REL="Help"
+><STRONG>Status:</STRONG></A> core<BR>
+<A
+ HREF="directive-dict.html#Override"
+ REL="Help"
+><STRONG>Override:</STRONG></A> FileInfo<BR>
+<A
+ HREF="directive-dict.html#Compatibility"
+ REL="Help"
+><STRONG>Compatibility:</STRONG></A> The configurable EBCDIC conversion
+is only available in Apache 1.3.19 and later, and on EBCDIC based
+platforms.<P>
+
+<P>
+The EBCDICConvertByType directive maps the given MIME type
+(optionally containing wildcards) to the specified conversion setting
+(<SAMP>On</SAMP> or <SAMP>Off</SAMP>).
+</P>
+<P>
+ If the optional format <SAMP>On=<i>direction</i></SAMP> (or
+ <SAMP>Off=<i>direction</i></SAMP>) is used, where <i>direction</i>
+ is one of <SAMP>In</SAMP>, <SAMP>Out</SAMP> or <SAMP>InOut</SAMP>,
+ then the directive only applies to the specified transfer direction
+ (<SAMP>In</SAMP>: uploaded content in a PUT or POST request,
+ <SAMP>Out</SAMP>: returned content in a GET or POST request, and
+ <SAMP>InOut</SAMP>: conversion in both directions).<BR>
+ Otherwise, <SAMP>InOut</SAMP> (conversion in both directions) is
+ implied.
+</P>
+<P>
+<STRONG>Example</STRONG>:<BR>
+A useful standard configuration should at least contain the following
+defaults:
+<pre>
+    # All text documents are stored as EBCDIC files:
+    EBCDICConvertByType On  text/* message/* multipart/*
+    EBCDICConvertByType On  application/x-www-form-urlencoded \
+			    model/vrml application/postscript
+    # All other files are assumed to be binary:
+    EBCDICConvertByType Off */*
+</pre>
+If you serve ASCII documents only, for example from an NFS mounted
+unix server, use:
+<pre>
+    # All documents are ASCII already:
+    EBCDICConvertByType Off */*
+</pre>
+<P>
+ <STRONG>See also</STRONG>: <A HREF="#ebcdicconvert">EBCDICConvert</A>
+ and <A HREF="../ebcdic.html#ebcdic">Overview of the EBCDIC Conversion Functions</A>
+</P>
+
+<P><HR>
+
+<H2><A NAME="ebcdickludge">EBCDICKludge</A></H2>
+<!--%plaintext &lt;?INDEX {\tt EBCDICKludge} directive&gt; -->
+<A
+ HREF="directive-dict.html#Syntax"
+ REL="Help"
+><STRONG>Syntax:</STRONG></A> EBCDICKludge On|Off<BR>
+<A
+ HREF="directive-dict.html#Default"
+ REL="Help"
+><STRONG>Default:</STRONG></A> <CODE>EBCDICKludge Off</CODE><BR>
+<A
+ HREF="directive-dict.html#Context"
+ REL="Help"
+><STRONG>Context:</STRONG></A> server config, virtual host, directory,
+.htaccess<BR>
+<A
+ HREF="directive-dict.html#Status"
+ REL="Help"
+><STRONG>Status:</STRONG></A> core<BR>
+<A
+ HREF="directive-dict.html#Override"
+ REL="Help"
+><STRONG>Override:</STRONG></A> FileInfo<BR>
+<A
+ HREF="directive-dict.html#Compatibility"
+ REL="Help"
+><STRONG>Compatibility:</STRONG></A> EBCDICKludge is only available
+in Apache 1.3.19 and later, and on EBCDIC based platforms.
+It is deprecated and will be withdrawn in a future version.<BR>
+
+<P>
+ The EBCDICKludge is provided for the backward compatible behavior
+ with apache versions 1.3.0 through 1.3.18. In these versions, all
+ files with MIME types starting with "text/", "message/" or
+ "multipart/" or with type "application/x-www-form-urlencoded" would
+ be converted by default, all other documents were returned
+ unconverted. Only if a MIME type
+ "<SAMP>text/<B>x-ascii-</B><I>subtype</I></SAMP>" was configured
+ for a certain document, the document was assumed to be in ASCII
+ format already, and was not converted again. Instead, the
+ "<SAMP><B>x-ascii-</B></SAMP>" was removed from the type, resulting
+ in the MIME type "<SAMP>text/<I>subtype</I></SAMP>" being returned
+ for the document.
+</P>
+<P>
+ If the EBCDICKludge directive is set to <SAMP>On</SAMP>, and if
+ none of the file extensions configured with the
+ <A HREF="#ebcdicconvert">EBCDICConvert</A> directive matches in the
+ current context, then the server tests for a MIME type of the
+ format <SAMP><I>type/</I><B>x-ascii-</B><I>subtype</I></SAMP>. If
+ the document has such a type, then the
+ "<SAMP><B>x-ascii-</B></SAMP>" substring is removed and the
+ conversion set to <SAMP>Off</SAMP>. This allows for overriding the
+ implicit assumption that all text files are stored in EBCDIC
+ format, for example when serving documents from an NFS mounted
+ directory with ASCII documents.<BR>
+ By using the EBCDICKludge, there is no way to force one of the
+ other MIME types (<EM>e.g.</EM>, model/vrml) to be treated as an EBCDIC text
+ file. Use of the
+ <A HREF="#ebcdicconvertbytype">EBCDICConvertByType</A> directive
+ mentioned above is the preferred way to configure such a
+ conversion. (Before Apache version 1.3.19, there was no way at all
+ to force these binary documents to be treated as EBCDIC text
+ files.)
+</P>
+<P>
+ <STRONG>See also</STRONG>: <A HREF="#ebcdicconvert">EBCDICConvert</A>,
+ <A HREF="#ebcdicconvertbytype">EBCDICConvertByType</A>
+ and <A HREF="../ebcdic.html#ebcdic">Overview of the EBCDIC Conversion Functions</A>
+</P>
+
+<HR>
+
 <H2><A NAME="errordocument">ErrorDocument directive</A></H2>
 <!--%plaintext &lt;?INDEX {\tt ErrorDocument} directive&gt; -->
 <A
@@ -824,8 +1058,8 @@ one of four things,
 using the <CODE>ErrorDocument</CODE> directive, which is followed by
 the HTTP response code and a message or URL.
 
-<P><EM>Messages</EM> in this context begin with a single quote
-(<CODE>"</CODE>), which does not form part of the message itself.
+<P><EM>Messages</EM> in this context begin with a single double-quote
+character (<CODE>"</CODE>), which does not form part of the message itself.
 Apache will sometimes offer additional information regarding the
 problem/error.
 
@@ -860,7 +1094,7 @@ responses.</A><P><HR>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ErrorLog <EM>filename</EM>|<CODE>syslog[:facility]</CODE>
+><STRONG>Syntax:</STRONG></A> ErrorLog <EM>filename</EM>|syslog[:<EM>facility</EM>]
 <BR>
 <A
  HREF="directive-dict.html#Default"
@@ -1055,7 +1289,7 @@ considerations.<P><HR>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> HostNameLookups <EM>on | off | double</EM><BR>
+><STRONG>Syntax:</STRONG></A> HostNameLookups on|off|double<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -1103,18 +1337,19 @@ versions of Apache prior to 1.3.  It was changed to <CODE>off</CODE>
 in order to save the network traffic for those sites that don't truly
 need the reverse lookups done.  It is also better for the end users
 because they don't have to suffer the extra latency that a lookup
-entails.
-Heavily loaded sites should leave this directive <CODE>off</CODE>, since DNS
-lookups can take considerable amounts of time. The utility <EM>logresolve</EM>,
-provided in the <EM>/support</EM> directory, can be used to look up host names
-from logged IP addresses offline.<P><HR>
+entails.  Heavily loaded sites should leave this directive
+<CODE>off</CODE>, since DNS lookups can take considerable amounts of
+time. The utility <a
+href="../programs/logresolve.html">logresolve</a>, provided in the
+<EM>/support</EM> directory, can be used to look up host names from
+logged IP addresses offline.<P><HR>
 
 <H2><A NAME="identitycheck">IdentityCheck directive</A></H2>
 <!--%plaintext &lt;?INDEX {\tt IdentityCheck} directive&gt; -->
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> IdentityCheck <EM>boolean</EM><BR>
+><STRONG>Syntax:</STRONG></A> IdentityCheck on|off<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -1285,12 +1520,17 @@ and later.
 This directive allows inclusion of other configuration files from within the
 server configuration files.
 
+<P>New in Apache 1.3.13 is the feature that if <CODE>Include</CODE>
+points to a directory, rather than a file, Apache will read all
+files in that directory, and any subdirectory, and parse those
+as configuration files.
+
 <P> <HR>
 
 <H2><A NAME="keepalive">KeepAlive directive</A></H2>
 <STRONG>Syntax: (Apache 1.1)</STRONG> KeepAlive <EM>max-requests</EM><BR>
 <STRONG>Default: (Apache 1.1)</STRONG> <CODE>KeepAlive 5</CODE><BR>
-<STRONG>Syntax: (Apache 1.2)</STRONG> KeepAlive <EM>on/off</EM><BR>
+<STRONG>Syntax: (Apache 1.2)</STRONG> KeepAlive on|off<BR>
 <STRONG>Default: (Apache 1.2)</STRONG> <CODE>KeepAlive On</CODE><BR>
 <A
  HREF="directive-dict.html#Context"
@@ -1306,18 +1546,36 @@ server configuration files.
 ><STRONG>Compatibility:</STRONG></A> KeepAlive is only available in Apache
 1.1 and later.<P>
 
-This directive enables
-<A HREF="../keepalive.html">Keep-Alive</A>
-support.
+<p>The Keep-Alive extension to HTTP/1.0 and the persistent connection
+feature of HTTP/1.1 provide long-lived HTTP sessions which allow
+multiple requests to be sent over the same TCP connection.  In some
+cases this has been shown to result in an almost 50% speedup in
+latency times for HTML documents with many images.  To enable
+Keep-Alive connections in Apache 1.2 and later, set <code>KeepAlive
+On</code>.</p>
 
-<P><STRONG>Apache 1.1</STRONG>: Set <EM>max-requests</EM>
+<p>For HTTP/1.0 clients, Keep-Alive connections will only be used if
+they are specifically requested by a client.  In addition, a
+Keep-Alive connection with an HTTP/1.0 client can only be used when
+the length of the content is known in advance.  This implies that
+dynamic content such as CGI output, SSI pages, and server-generated
+directory listings will generally not use Keep-Alive connections to
+HTTP/1.0 clients.  For HTTP/1.1 clients, persistent connections are
+the default unless otherwise specified.  If the client requests it,
+chunked encoding will be used in order to send content of unknown
+length over persistent connections.</p>
+
+<P><STRONG>Apache 1.1 only</STRONG>: Set <EM>max-requests</EM>
 to the maximum number of requests you want Apache to entertain per
-request. A limit is imposed to prevent a client from hogging your
-server resources. Set this to <CODE>0</CODE> to disable support.
+connection. A limit is imposed to prevent a client from hogging your
+server resources. Set this to <CODE>0</CODE> to disable support. In
+Apache 1.2 and 1.3, this is controlled through the
+MaxKeepAliveRequests directive instead.</p>
 
-<P><STRONG>Apache 1.2 and later</STRONG>: Set to "On" to enable
-persistent connections, "Off" to disable. See also the <A
-HREF="#maxkeepaliverequests">MaxKeepAliveRequests</A> directive.</P><HR>
+<p>See also  <A
+HREF="#maxkeepaliverequests">MaxKeepAliveRequests</A>.</P>
+
+<HR>
 
 <H2><A NAME="keepalivetimeout">KeepAliveTimeout directive</A></H2>
 <A
@@ -1342,11 +1600,17 @@ HREF="#maxkeepaliverequests">MaxKeepAliveRequests</A> directive.</P><HR>
 ><STRONG>Compatibility:</STRONG></A> KeepAliveTimeout is only available in
 Apache 1.1 and later.<P>
 
-The number of seconds Apache will wait for a subsequent request before
-closing the connection. Once a request has been received, the timeout
-value specified by the <A
-HREF="#timeout"><CODE>Timeout</CODE></A> directive
-applies.
+<p>The number of seconds Apache will wait for a subsequent request
+before closing the connection. Once a request has been received, the
+timeout value specified by the <A
+HREF="#timeout"><CODE>Timeout</CODE></A> directive applies.</p>
+
+<p>Setting <code>KeepAliveTimeout</code> to a high value may
+cause performance problems in heavily loaded servers.  The
+higher the timeout, the more server processes will be kept
+occupied waiting on connections with idle clients.</p>
+
+
 <HR>
 
 <H2><A NAME="limit">&lt;Limit&gt; directive</A></H2>
@@ -1355,7 +1619,7 @@ applies.
  HREF="directive-dict.html#Syntax"
  REL="Help"
 ><STRONG>Syntax:</STRONG></A>
- &lt;Limit <EM>method method</EM> ... &gt; ... &lt;/Limit&gt;<BR>
+ &lt;Limit <EM>method</EM> [<EM>method</EM>] ... &gt; ... &lt;/Limit&gt;<BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -1396,7 +1660,7 @@ requests.
  HREF="directive-dict.html#Syntax"
  REL="Help"
 ><STRONG>Syntax:</STRONG></A>
- &lt;LimitExcept <EM>method method</EM> ... &gt; ... &lt;/LimitExcept&gt;<BR>
+ &lt;LimitExcept <EM>method</EM> [<EM>method</EM>] ... &gt; ... &lt;/LimitExcept&gt;<BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -1412,7 +1676,7 @@ requests.
 
 &lt;LimitExcept&gt; and &lt;/LimitExcept&gt; are used to enclose a group of
 access control directives which will then apply to any HTTP access method
-<STRONG>not</STRONG> listed in the arguments; i.e., it is the opposite of a
+<STRONG>not</STRONG> listed in the arguments; <EM>i.e.</EM>, it is the opposite of a
 <A HREF="#limit">&lt;Limit&gt;</A> section and can be used to control both
 standard and nonstandard/unrecognized methods. See the documentation for 
 <A HREF="#limit">&lt;Limit&gt;</A> for more details.
@@ -1424,7 +1688,7 @@ standard and nonstandard/unrecognized methods. See the documentation for
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> LimitRequestBody <EM>number</EM><BR>
+><STRONG>Syntax:</STRONG></A> LimitRequestBody <EM>bytes</EM><BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -1445,8 +1709,9 @@ standard and nonstandard/unrecognized methods. See the documentation for
 Apache 1.3.2 and later.
 <P>
 
-<EM>Number</EM> is a long integer from 0 (meaning unlimited) to 2147483647
-(2GB).  The default value is defined by the compile-time constant
+<p>This directive specifies the number of <EM>bytes</EM> from 0
+(meaning unlimited) to 2147483647 (2GB) that are allowed in a request
+body.  The default value is defined by the compile-time constant
 <CODE>DEFAULT_LIMIT_REQUEST_BODY</CODE> (0 as distributed).
 <P>
 
@@ -1495,7 +1760,7 @@ of denial-of-service attacks.
 Apache 1.3.2 and later.
 <P>
 
-<EM>Number</EM> is an integer from 0 (meaning unlimited) to 32767.
+<p><EM>Number</EM> is an integer from 0 (meaning unlimited) to 32767.
 The default value is defined by the compile-time constant
 <CODE>DEFAULT_LIMIT_REQUEST_FIELDS</CODE> (100 as distributed).
 <P>
@@ -1523,7 +1788,7 @@ fields were sent in the request.<P>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> LimitRequestFieldsize <EM>number</EM><BR>
+><STRONG>Syntax:</STRONG></A> LimitRequestFieldsize <EM>bytes</EM><BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -1543,9 +1808,10 @@ fields were sent in the request.<P>
 Apache 1.3.2 and later.
 <P>
 
-<EM>Number</EM> is an integer size in bytes from 0 to the value of the
-compile-time constant <CODE>DEFAULT_LIMIT_REQUEST_FIELDSIZE</CODE>
-(8190 as distributed).
+This directive specifies the number of <EM>bytes</EM> from 0 to the
+value of the compile-time constant
+<CODE>DEFAULT_LIMIT_REQUEST_FIELDSIZE</CODE> (8190 as distributed)
+that will be allowed in an HTTP request header.
 <P>
 
 The LimitRequestFieldsize directive allows the server administrator to reduce
@@ -1570,7 +1836,7 @@ not be changed from the default.<P>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> LimitRequestLine <EM>number</EM><BR>
+><STRONG>Syntax:</STRONG></A> LimitRequestLine <EM>bytes</EM><BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -1590,9 +1856,9 @@ not be changed from the default.<P>
 Apache 1.3.2 and later.
 <P>
 
-<EM>Number</EM> is an integer size in bytes from 0 to the value of the
-compile-time constant <CODE>DEFAULT_LIMIT_REQUEST_LINE</CODE>
-(8190 as distributed).
+This directive sets the number of <EM>bytes</EM> from 0 to the value
+of the compile-time constant <CODE>DEFAULT_LIMIT_REQUEST_LINE</CODE>
+(8190 as distributed) that will be allowed on the HTTP request-line.
 <P>
 
 The LimitRequestLine directive allows the server administrator to reduce
@@ -1617,7 +1883,7 @@ not be changed from the default.<P>
  HREF="directive-dict.html#Syntax"
  REL="Help"
 ><STRONG>Syntax:</STRONG></A>
-Listen [<EM>IP address</EM>:]<EM>port number</EM><BR>
+Listen [<EM>IP-address</EM>:]<EM>port</EM><BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -2010,7 +2276,9 @@ end of a different request, the connection will then be serviced.
 allowed per connection when <A HREF="#keepalive">KeepAlive</A> is
 on. If it is set to "<CODE>0</CODE>", unlimited requests will be
 allowed. We recommend that this setting be kept to a high value for
-maximum server performance.</P><HR>
+maximum server performance. In Apache 1.1, this is controlled through an option to the KeepAlive directive.</P>
+
+<HR>
 
 <H2><A NAME="maxrequestsperchild">MaxRequestsPerChild directive</A></H2>
 <!--%plaintext &lt;?INDEX {\tt MaxRequestsPerChild} directive&gt; -->
@@ -2147,10 +2415,10 @@ See also <A HREF="#maxspareservers">MaxSpareServers</A> and
 Apache 1.3 and later<P>
 
 The NameVirtualHost directive is a required directive if you want to configure
-<A HREF="../vhosts/index.html">name-based virtual hosts</A>.<P>
+<A HREF="../vhosts/">name-based virtual hosts</A>.<P>
 
 Although <EM>addr</EM> can be hostname it is recommended that you always use
-an IP address, <EM>e.g.</EM>
+an IP address or wildcard, <EM>e.g.</EM>
 
 <BLOCKQUOTE><CODE>NameVirtualHost 111.22.33.44</CODE></BLOCKQUOTE>
 
@@ -2183,14 +2451,14 @@ if you want only name-based virtual hosts and you don't want to
 hard-code the server's IP address into the configuration file.<P>
 
 <STRONG>See also:</STRONG>
-<A HREF="../vhosts/index.html">Apache Virtual Host documentation</A>
+<A HREF="../vhosts/">Apache Virtual Host documentation</A>
 <HR>
 <H2><A NAME="options">Options directive</A></H2>
 <!--%plaintext &lt;?INDEX {\tt Options} directive&gt; -->
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> Options <EM>[+|-]option [+|-]option ...</EM><BR>
+><STRONG>Syntax:</STRONG></A> Options [+|-]<EM>option</EM> [[+|-]<EM>option</EM>] ...</EM><BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -2368,7 +2636,7 @@ Apache).<P>
 In the absence of any <A HREF="#listen">Listen</A> or
 <A HREF="#bindaddress">BindAddress</A> directives specifying a port number,
 a Port directive given in the "main server"
-(<EM>i.e.</EM>, outside any <A HREF="#virtualhost">&lt;VirtualHost&gt</A> section)
+(<EM>i.e.</EM>, outside any <A HREF="#virtualhost">&lt;VirtualHost&gt;</A> section)
 sets the network port on which the server listens.
 If there are any Listen or BindAddress directives specifying
 <CODE>:number</CODE> then Port has no effect on what address the server
@@ -2413,7 +2681,7 @@ attack.<P><HR>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> Require <EM>entity-name entity entity...</EM><BR>
+><STRONG>Syntax:</STRONG></A> Require <EM>entity-name</EM> [<EM>entity-name</EM>] ...</EM><BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -2430,9 +2698,9 @@ attack.<P><HR>
 This directive selects which authenticated users can access a directory.
 The allowed syntaxes are:
 <UL>
-<LI>Require user <EM>userid userid ...</EM><P>
+<LI>Require user <EM>userid</EM> [<EM>userid</EM>] ...<P>
 Only the named users can access the directory.<P>
-<LI>Require group <EM>group-name group-name ...</EM><P>
+<LI>Require group <EM>group-name</EM> [<EM>group-name</EM>] ...<P>
 Only users in the named groups can access the directory.<P>
 <LI>Require valid-user<P>
 All valid users can access the directory.
@@ -2503,8 +2771,8 @@ as configuration files.
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> RLimitCPU <EM># or 'max'</EM>
- <EM>[# or 'max']</EM>
+><STRONG>Syntax:</STRONG></A> RLimitCPU <EM>number</EM>|max
+ [<EM>number</EM>|max]
 <BR>
 <A
  HREF="directive-dict.html#Default"
@@ -2527,7 +2795,7 @@ and later<P>
 
 Takes 1 or 2 parameters. The first parameter sets the soft resource limit
 for all processes and the second parameter sets the maximum resource limit.
-Either parameter can be a number, or <EM>max</EM> to indicate to the server
+Either parameter can be a number, or <code>max</code> to indicate to the server
 that the limit should be set to the maximum allowed by the operating system
 configuration. Raising the maximum resource limit requires that the server
 is running as root, or in the initial startup phase.<P>
@@ -2547,8 +2815,8 @@ See also <A HREF="#rlimitmem">RLimitMEM</A> or
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> RLimitMEM <EM># or 'max'</EM>
- <EM>[# or 'max']</EM><BR>
+><STRONG>Syntax:</STRONG></A> RLimitMEM <EM>number</EM>|max
+ [<EM>number</EM>|max]<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -2568,12 +2836,13 @@ See also <A HREF="#rlimitmem">RLimitMEM</A> or
 ><STRONG>Compatibility:</STRONG></A> RLimitMEM is only available in Apache 1.2
 and later<P>
 
-Takes 1 or 2 parameters. The first parameter sets the soft resource limit for
-all processes and the second parameter sets the maximum resource limit. Either
-parameter can be a number, or <EM>max</EM> to indicate to the server that the
-limit should be set to the maximum allowed by the operating system
-configuration. Raising the maximum resource limit requires that the
-server is running as root, or in the initial startup phase.<P>
+Takes 1 or 2 parameters. The first parameter sets the soft resource
+limit for all processes and the second parameter sets the maximum
+resource limit. Either parameter can be a number, or <code>max</code>
+to indicate to the server that the limit should be set to the maximum
+allowed by the operating system configuration. Raising the maximum
+resource limit requires that the server is running as root, or in the
+initial startup phase.<P>
 
 This applies to processes forked off from Apache children servicing requests,
 not the Apache children themselves. This includes CGI scripts and SSI
@@ -2590,8 +2859,8 @@ See also <A HREF="#rlimitcpu">RLimitCPU</A> or
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> RLimitNPROC <EM># or 'max'</EM>
- <EM>[# or 'max']</EM><BR>
+><STRONG>Syntax:</STRONG></A> RLimitNPROC <EM>number</EM>|max
+ [<EM>number</EM>|max]<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -2611,12 +2880,13 @@ See also <A HREF="#rlimitcpu">RLimitCPU</A> or
 ><STRONG>Compatibility:</STRONG></A> RLimitNPROC is only available in Apache
 1.2 and later<P>
 
-Takes 1 or 2 parameters. The first parameter sets the soft resource limit
-for all processes and the second parameter sets the maximum resource limit.
-Either parameter can be a number, or <EM>max</EM> to indicate to the server
-that the limit should be set to the maximum allowed by the operating system
-configuration. Raising the maximum resource limit requires that the server
-is running as root, or in the initial startup phase.<P>
+Takes 1 or 2 parameters. The first parameter sets the soft resource
+limit for all processes and the second parameter sets the maximum
+resource limit.  Either parameter can be a number, or <code>max</code>
+to indicate to the server that the limit should be set to the maximum
+allowed by the operating system configuration. Raising the maximum
+resource limit requires that the server is running as root, or in the
+initial startup phase.<P>
 
 This applies to processes forked off from Apache children servicing requests,
 not the Apache children themselves. This includes CGI scripts and SSI
@@ -2641,7 +2911,7 @@ See also <A HREF="#rlimitmem">RLimitMEM</A> or
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> Satisfy <EM>'any' or 'all'</EM><BR>
+><STRONG>Syntax:</STRONG></A> Satisfy any|all<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -2673,7 +2943,7 @@ password. This can be used to password restrict an area, but to let
 clients from particular addresses in without prompting for a password.
 <P>
 See also <A HREF="#require">Require</A> and 
-<A HREF="mod_access.html">mod_access</A>.
+<A HREF="mod_access.html#allow">Allow</A>.
 
 <P><HR>
 
@@ -2734,7 +3004,7 @@ release. (Prior to 1.3b4, <CODE>HAVE_SHMGET</CODE> would have sufficed.)<P>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ScriptInterpreterSource <EM>'registry' or 'script'</EM><BR>
+><STRONG>Syntax:</STRONG></A> ScriptInterpreterSource registry|script<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -2803,7 +3073,7 @@ as users do not always mention that they are talking about the server!<P><HR>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ServerAlias <EM>host1 host2 ...</EM><BR>
+><STRONG>Syntax:</STRONG></A> ServerAlias <EM>hostname</EM> [<EM>hostname</EM>] ...<BR>
 <A
  HREF="directive-dict.html#Context"
  REL="Help"
@@ -2823,7 +3093,7 @@ with
 <A HREF="../vhosts/name-based.html">name-based virtual hosts</A>.
 
 <P><STRONG>See also:</STRONG>
-<A HREF="../vhosts/index.html">Apache Virtual Host documentation</A>
+<A HREF="../vhosts/">Apache Virtual Host documentation</A>
 
 <HR>
 
@@ -2832,7 +3102,7 @@ with
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ServerName <EM>fully-qualified domain name</EM>
+><STRONG>Syntax:</STRONG></A> ServerName <EM>fully-qualified-domain-name</EM>
 <BR>
 <A
  HREF="directive-dict.html#Context"
@@ -2859,7 +3129,7 @@ section specifies what hostname must appear in the request's
 
 <P><STRONG>See Also</STRONG>:<BR>
 <A HREF="../dns-caveats.html">DNS Issues</A><BR>
-<A HREF="../vhosts/index.html">Apache virtual host documentation</A><BR>
+<A HREF="../vhosts/">Apache virtual host documentation</A><BR>
 <A HREF="#usecanonicalname">UseCanonicalName</A><BR>
 <A HREF="#namevirtualhost">NameVirtualHost</A><BR>
 <A HREF="#serveralias">ServerAlias</A><BR>
@@ -2887,10 +3157,10 @@ section specifies what hostname must appear in the request's
 1.1 and later.<P>
 
 The ServerPath directive sets the legacy URL pathname for a host, for
-use with <A HREF="../vhosts/index.html">name-based virtual hosts</A>.
+use with <A HREF="../vhosts/">name-based virtual hosts</A>.
 
 <P><STRONG>See also:</STRONG>
-<A HREF="../vhosts/index.html">Apache Virtual Host documentation</A>
+<A HREF="../vhosts/">Apache Virtual Host documentation</A>
 
 <HR>
 
@@ -2929,7 +3199,7 @@ for information on how to properly set permissions on the ServerRoot.<P>
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ServerSignature <EM>Off | On | EMail</EM><BR>
+><STRONG>Syntax:</STRONG></A> ServerSignature On|Off|EMail<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -2972,7 +3242,7 @@ referenced document.
 <A
  HREF="directive-dict.html#Syntax"
  REL="Help"
-><STRONG>Syntax:</STRONG></A> ServerTokens <EM>Minimal|ProductOnly|OS|Full</EM><BR>
+><STRONG>Syntax:</STRONG></A> ServerTokens Minimal|ProductOnly|OS|Full<BR>
 <A
  HREF="directive-dict.html#Default"
  REL="Help"
@@ -3208,7 +3478,7 @@ a packet is sent.
 <H2><A NAME="usecanonicalname">UseCanonicalName directive</A></H2>
 <!--%plaintext &lt;?INDEX {\tt UseCanonicalName} directive&gt; -->
 <A HREF="directive-dict.html#Syntax" REL="Help">
-<STRONG>Syntax:</STRONG></A> UseCanonicalName <EM>on|off|dns</EM><BR>
+<STRONG>Syntax:</STRONG></A> UseCanonicalName on|off|dns<BR>
 <A HREF="directive-dict.html#Default" REL="Help">
 <STRONG>Default:</STRONG></A> <CODE>UseCanonicalName on</CODE><BR>
 <A HREF="directive-dict.html#Context" REL="Help">
@@ -3325,7 +3595,7 @@ dangers are.<P><HR>
  HREF="directive-dict.html#Syntax"
  REL="Help"
 ><STRONG>Syntax:</STRONG></A> &lt;VirtualHost <EM>addr</EM>[:<EM>port</EM>]
- ...&gt; ...
+[<EM>addr</EM>[:<EM>port</EM>]] ...&gt; ...
 &lt;/VirtualHost&gt; <BR>
 <A
  HREF="directive-dict.html#Context"
@@ -3416,7 +3686,7 @@ either <A HREF="#bindaddress">BindAddress</A> or <A
 HREF="#listen">Listen</A>.
 
 <P><STRONG>See also:</STRONG>
-<A HREF="../vhosts/index.html">Apache Virtual Host documentation</A><BR>
+<A HREF="../vhosts/">Apache Virtual Host documentation</A><BR>
 <STRONG>See also:</STRONG>
 <A HREF="../dns-caveats.html">Warnings about DNS and Apache</A><BR>
 <STRONG>See also:</STRONG>

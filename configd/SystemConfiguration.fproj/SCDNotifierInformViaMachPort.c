@@ -20,50 +20,71 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 31, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDNotifierInformViaMachPort(SCDSessionRef session, mach_msg_id_t identifier, mach_port_t *port)
+Boolean
+SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, mach_port_t *port)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	mach_port_t		oldNotify;
-	SCDStatus		scd_status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	mach_port_t			oldNotify;
+	int				sc_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaMachPort:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	if (sessionPrivate->notifyStatus != NotifierNotRegistered) {
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
+	}
+
+	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
-		return SCD_NOTIFIERACTIVE;
+		_SCErrorSet(kSCStatusNotifierActive);
+		return FALSE;
 	}
 
-	SCDLog(LOG_DEBUG, CFSTR("Allocating port (for server response)"));
+	/* Allocating port (for server response) */
 	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, port);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_allocate(): %s"), mach_error_string(status));
-		return SCD_FAILED;
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_allocate(): %s"), mach_error_string(status));
+		_SCErrorSet(status);
+		return FALSE;
 	}
-	SCDLog(LOG_DEBUG, CFSTR("  port = %d"), *port);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  port = %d"), *port);
 
 	status = mach_port_insert_right(mach_task_self(),
 					*port,
 					*port,
 					MACH_MSG_TYPE_MAKE_SEND);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_insert_right(): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_insert_right(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), *port);
 		*port = MACH_PORT_NULL;
-		return SCD_FAILED;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
 	/* Request a notification when/if the server dies */
@@ -75,35 +96,35 @@ SCDNotifierInformViaMachPort(SCDSessionRef session, mach_msg_id_t identifier, ma
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), *port);
 		*port = MACH_PORT_NULL;
-		return SCD_FAILED;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaMachPort(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort(): why is oldNotify != MACH_PORT_NULL?"));
 	}
-#endif	/* DEBUG */
 
-	status = notifyviaport(sessionPrivate->server,
+	status = notifyviaport(storePrivate->server,
 			       *port,
 			       identifier,
-			       (int *)&scd_status);
+			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), *port);
 		*port = MACH_PORT_NULL;
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
 	/* set notifier active */
-	sessionPrivate->notifyStatus = Using_NotifierInformViaMachPort;
+	storePrivate->notifyStatus = Using_NotifierInformViaMachPort;
 
-	return scd_status;
+	return TRUE;
 }

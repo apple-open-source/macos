@@ -11,7 +11,8 @@
             FstabMap.m, 
             NIMap.m, 
             RRObject.m, 
-            Server.m
+            Server.m,
+            StaticMap.m
         ); 
         C_FILES = (); 
         FRAMEWORKS = (AppleShareClientCore.framework, System.framework); 
@@ -30,6 +31,7 @@
             NIMap.h, 
             RRObject.h, 
             Server.h, 
+            StaticMap.h, 
             automount.h, 
             config.h, 
             log.h, 

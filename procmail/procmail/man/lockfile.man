@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: lockfile.man,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+.Id $Id: lockfile.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
 .TH LOCKFILE 1 \*(Dt BuGless
 .na
 .SH NAME
@@ -39,7 +39,7 @@ succeed.  You can specify the number of
 to do until failure is returned.
 If the number of
 .I retries
-is \-1 (default, i.e.
+is \-1 (default, i.e.,
 .BR \-r\-1 )
 lockfile will retry forever.
 .PP
@@ -48,9 +48,12 @@ If the number of
 expires before all files have been created, lockfile returns failure and
 removes all the files it created up till that point.
 .PP
-The return value of lockfile can be easily inverted by specifying
+Using lockfile as the condition of a loop in a shell script can be done
+easily by using the
 .B \-!
-as an argument (comes in handy in shell scripts).
+flag to invert the exit status.  To prevent infinite loops, failures
+for any reason other than the lockfile already existing are not
+inverted to success but rather are still returned as failures.
 .PP
 All flags can be specified anywhere on the command line, they will be
 processed when encountered.  The command line is simply parsed from
@@ -85,7 +88,7 @@ and
 respectively.
 .SH EXAMPLES
 Suppose you want to make sure that access to the file "important" is
-serialised, i.e. no more than one program or shell script should be allowed
+serialised, i.e., no more than one program or shell script should be allowed
 to access it.  For simplicity's sake, let's suppose that it is a shell
 script.  In this case you could solve it like this:
 .RS
@@ -158,6 +161,17 @@ Try praying, .\|.\|.
 Missing subdirectories or insufficient privileges.
 .SH BUGS
 Definitely less than one.
+.SH WARNINGS
+The behavior of the
+.B \-!
+flag, while useful, is not necessarily intuitive or consistent.  When
+testing lockfile's return value, shell script writers should consider
+carefully whether they want to use the
+.B \-!
+flag, simply reverse the test, or do a switch on the exact exitcode.
+In general, the
+.B \-!
+flag should only be used when lockfile is the conditional of a loop.
 .SH MISCELLANEOUS
 Lockfile is NFS-resistant and eight-bit clean.
 .SH NOTES
@@ -174,7 +188,7 @@ with a '-' has to be preceded by './'.
 .PP
 The number of
 .I retries
-will not be reset when any following file is being created (i.e. they are
+will not be reset when any following file is being created (i.e., they are
 simply used up).  It can, however, be reset by specifying
 .RI \-r newretries
 after every file on the command line.

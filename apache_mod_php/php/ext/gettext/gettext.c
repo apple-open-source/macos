@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,9 +16,13 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gettext.c,v 1.1.1.3 2001/01/25 04:59:20 wsanchez Exp $ */
+/* $Id: gettext.c,v 1.1.1.4 2001/07/19 00:19:12 zarzycki Exp $ */
 
 #include <stdio.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_gettext.h"
 
@@ -28,12 +32,12 @@
 #include "ext/standard/info.h"
 
 function_entry php_gettext_functions[] = {
-    PHP_FE(textdomain,								NULL)
-    PHP_FE(gettext,									NULL)
-    PHP_FALIAS(_,				gettext,			NULL)
-	PHP_FE(dgettext,								NULL)
-	PHP_FE(dcgettext,								NULL)
-	PHP_FE(bindtextdomain,							NULL)
+	PHP_FE(textdomain,			NULL)
+	PHP_FE(gettext,				NULL)
+	PHP_FALIAS(_,	gettext,	NULL)
+	PHP_FE(dgettext,			NULL)
+	PHP_FE(dcgettext,			NULL)
+	PHP_FE(bindtextdomain,		NULL)
     {NULL, NULL, NULL}
 };
 
@@ -56,14 +60,14 @@ PHP_MINFO_FUNCTION(gettext)
    Set the textdomain to "domain". Returns the current domain */
 PHP_FUNCTION(textdomain)
 {
-    pval **domain;
-    char *domain_name, *retval;
+	pval **domain;
+	char *domain_name, *retval;
 	char *val;
 
-    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &domain) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &domain) == FAILURE) {
 		WRONG_PARAM_COUNT;
-    }
-    convert_to_string_ex(domain);
+	}
+	convert_to_string_ex(domain);
 
 	val = (*domain)->value.str.val;
 	if (strcmp(val, "") && strcmp(val, "0")) {
@@ -74,7 +78,7 @@ PHP_FUNCTION(textdomain)
 
 	retval = textdomain(domain_name);
 
-    RETURN_STRING(retval, 1);
+	RETURN_STRING(retval, 1);
 }
 /* }}} */
 
@@ -82,17 +86,17 @@ PHP_FUNCTION(textdomain)
    Return the translation of msgid for the current domain, or msgid unaltered if a translation does not exist */
 PHP_FUNCTION(gettext)
 {
-    pval **msgid;
-    char *msgstr;
+	pval **msgid;
+	char *msgstr;
 
-    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &msgid) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &msgid) == FAILURE) {
 		WRONG_PARAM_COUNT;
-    }
-    convert_to_string_ex(msgid);
+	}
+	convert_to_string_ex(msgid);
 
-    msgstr = gettext((*msgid)->value.str.val);
+	msgstr = gettext((*msgid)->value.str.val);
 
-    RETURN_STRING(msgstr, 1);
+	RETURN_STRING(msgstr, 1);
 }
 /* }}} */
 
@@ -103,9 +107,7 @@ PHP_FUNCTION(dgettext)
 	pval **domain_name, **msgid;
 	char *msgstr;
 
-	if (ZEND_NUM_ARGS() != 2
-		|| zend_get_parameters_ex(2, &domain_name, &msgid) == FAILURE)
-	{
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &domain_name, &msgid) == FAILURE)	{
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(domain_name);
@@ -124,18 +126,16 @@ PHP_FUNCTION(dcgettext)
 	pval **domain_name, **msgid, **category;
 	char *msgstr;
 
-	if (ZEND_NUM_ARGS() != 3
-		|| zend_get_parameters_ex(3, &domain_name, &msgid, &category) == FAILURE)
-	{
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &domain_name, &msgid, &category) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(domain_name);
 	convert_to_string_ex(msgid);
 	convert_to_long_ex(category);
 
-	msgstr = dcgettext((*domain_name)->value.str.val,
-					   (*msgid)->value.str.val,
-					   (*category)->value.lval);
+	msgstr = dcgettext(	(*domain_name)->value.str.val,
+						(*msgid)->value.str.val,
+						(*category)->value.lval);
 
 	RETURN_STRING(msgstr, 1);
 }
@@ -148,18 +148,16 @@ PHP_FUNCTION(bindtextdomain)
 	pval **domain_name, **dir;
 	char *retval, dir_name[MAXPATHLEN];
 
-	if (ZEND_NUM_ARGS() != 2
-		|| zend_get_parameters_ex(2, &domain_name, &dir) == FAILURE)
-	{
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &domain_name, &dir) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(domain_name);
 	convert_to_string_ex(dir);
 
 	if (strcmp((*dir)->value.str.val, "") && strcmp((*dir)->value.str.val, "0")) {
-		V_REALPATH((*dir)->value.str.val, dir_name);
+		VCWD_REALPATH((*dir)->value.str.val, dir_name);
 	} else {
-		V_GETCWD(dir_name, MAXPATHLEN);
+		VCWD_GETCWD(dir_name, MAXPATHLEN);
 	}
 
 	retval = bindtextdomain((*domain_name)->value.str.val, dir_name);

@@ -584,8 +584,10 @@ char **envp)
 		}
 		else if(strcmp(argv[i], "-segalign") == 0 ||
 		        strcmp(argv[i], "-undefined") == 0 ||
+		        strcmp(argv[i], "-multiply_defined") == 0 ||
 		        strcmp(argv[i], "-umbrella") == 0 ||
 			strcmp(argv[i], "-sub_umbrella") == 0 ||
+			strcmp(argv[i], "-sub_library") == 0 ||
 			strcmp(argv[i], "-allowable_client") == 0 ||
 		        strcmp(argv[i], "-read_only_relocs") == 0 ||
 		        strcmp(argv[i], "-init") == 0 ||
@@ -619,7 +621,9 @@ char **envp)
 			strcmp(argv[i], "-arch_errors_fatal") == 0 ||
 			strcmp(argv[i], "-run_init_lazily") == 0 ||
 			strcmp(argv[i], "-twolevel_namespace") == 0 ||
-			strcmp(argv[i], "-flat_namespace") == 0){
+			strcmp(argv[i], "-twolevel_namespace_hints") == 0 ||
+			strcmp(argv[i], "-flat_namespace") == 0 ||
+			strcmp(argv[i], "-nomultidefs") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -2001,6 +2005,8 @@ char *output)
     unsigned long i, j;
     char *p, *filelist;
     struct stat stat_buf;
+    enum bool use_force_cpusubtype_ALL;
+    const struct arch_flag *family_arch_flag;
 
 	/*
 	 * If there is more than one architecture setup a signal handler to
@@ -2008,6 +2014,22 @@ char *output)
 	 */
 	if(narchs > 1)
 	    signal(SIGINT, create_dynamic_shared_library_cleanup);
+
+	/*
+	 * If -arch_only is specified with a specific cpusubtype other than the
+	 * family cpusubtype do not use -force_cpusubtype_ALL as the user wants
+	 * the output to be tagged with that cpusubtype.
+	 */
+	use_force_cpusubtype_ALL = TRUE;
+	if(cmd_flags.arch_only_flag.name != NULL){
+	    family_arch_flag = get_arch_family_from_cputype(
+				    cmd_flags.arch_only_flag.cputype);
+	    if(family_arch_flag != NULL){
+		if(family_arch_flag->cpusubtype !=
+		   cmd_flags.arch_only_flag.cpusubtype)
+		    use_force_cpusubtype_ALL = FALSE;
+	    }
+	}
 
 	/*
 	 * For each architecture run ld(1) -dylib to create the dynamic shared
@@ -2020,14 +2042,18 @@ char *output)
 		add_execute_list("-arch_multiple");
 	    if(archs != NULL){
 		add_execute_list("-arch");
-		add_execute_list(archs[i].arch_flag.name);
+		if(use_force_cpusubtype_ALL == TRUE)
+		    add_execute_list(archs[i].arch_flag.name);
+		else
+		    add_execute_list(cmd_flags.arch_only_flag.name);
 	    }
 	    add_execute_list("-dylib");
 	    add_execute_list("-dynamic");
 	    if(cmd_flags.all_load_flag_specified == FALSE ||
 	       cmd_flags.all_load == TRUE)
 		add_execute_list("-all_load");
-	    add_execute_list("-force_cpusubtype_ALL");
+	    if(use_force_cpusubtype_ALL == TRUE)
+		add_execute_list("-force_cpusubtype_ALL");
 	    add_execute_list("-no_arch_warnings");
 	    if(cmd_flags.seg1addr != NULL){
 		add_execute_list("-seg1addr");

@@ -20,35 +20,50 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
 
-SCDStatus
-_SCDNotifierInformViaSignal(SCDSessionRef session, pid_t pid, int sig)
+int
+__SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	CFStringRef		sessionKey;
-	CFDictionaryRef		info;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	CFStringRef			sessionKey;
+	CFDictionaryRef			info;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDNotifierInformViaSignal:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreNotifySignal:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
-	if (sessionPrivate->notifyStatus != NotifierNotRegistered) {
+	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
-		return SCD_NOTIFIERACTIVE;
+		return kSCStatusNotifierActive;
+	}
+
+	if (pid == getpid()) {
+		/* sorry, you can't request that configd be signalled */
+		return kSCStatusFailed;
 	}
 
 	if ((sig <= 0) || (sig > NSIG)) {
 		/* sorry, you must specify a valid signal */
-		return SCD_INVALIDARGUMENT;
+		return kSCStatusInvalidArgument;
 	}
 
 	/* push out a notification if any changes are pending */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), sessionPrivate->server);
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 	info = CFDictionaryGetValue(sessionData, sessionKey);
 	CFRelease(sessionKey);
 	if (info && CFDictionaryContainsKey(info, kSCDChangedKeys)) {
@@ -59,12 +74,12 @@ _SCDNotifierInformViaSignal(SCDSessionRef session, pid_t pid, int sig)
 							       0,
 							       &kCFTypeSetCallBacks);
 
-		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &sessionPrivate->server);
+		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		CFSetAddValue(needsNotification, sessionNum);
 		CFRelease(sessionNum);
 	}
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
@@ -72,24 +87,30 @@ kern_return_t
 _notifyviasignal(mach_port_t	server,
 		 task_t		task,
 		 int		sig,
-		 int		*scd_status)
+		 int		*sc_status)
 {
-	serverSessionRef	mySession  = getSession(server);
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)mySession->session;
-#if	defined(DEBUG) || defined(NOTYET)
-	kern_return_t		status;
-#endif
+	serverSessionRef		mySession  = getSession(server);
+	pid_t				pid;
+	kern_return_t			status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 #ifdef	NOTYET
-	mach_port_t		oldNotify;
+	mach_port_t			oldNotify;
 #endif	/* NOTYET */
 
-	SCDLog(LOG_DEBUG, CFSTR("Send signal when a notification key changes."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
-	SCDLog(LOG_DEBUG, CFSTR("  task   = %d"), task);
-	SCDLog(LOG_DEBUG, CFSTR("  signal = %d"), sig);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Send signal when a notification key changes."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  task   = %d"), task);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  signal = %d"), sig);
 
-	*scd_status = _SCDNotifierInformViaSignal(mySession->session, 0, sig);	/* pid is N/A for server */
-	if (*scd_status != SCD_OK) {
+	status = pid_for_task(task, &pid);
+	if (status != KERN_SUCCESS) {
+		/* could not determine pid for task */
+		*sc_status = kSCStatusFailed;
+		return KERN_SUCCESS;
+	}
+
+	*sc_status = __SCDynamicStoreNotifySignal(mySession->store, pid, sig);
+	if (*sc_status != kSCStatusOK) {
 		if (task != TASK_NULL) {
 			(void) mach_port_destroy(mach_task_self(), task);
 		}
@@ -115,7 +136,7 @@ _notifyviasignal(mach_port_t	server,
 				*rp++ = 'D';
 			*rp = '\0';
 
-			SCDLog(LOG_DEBUG, CFSTR("Task %d, port rights = %s"), task, rights);
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Task %d, port rights = %s"), task, rights);
 		}
 	}
 #endif	/* DEBUG */
@@ -130,29 +151,27 @@ _notifyviasignal(mach_port_t	server,
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
-		*scd_status = SCD_FAILED;
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
-#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCDLog(LOG_DEBUG, CFSTR("_notifyviasignal(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(_configd_verbose, LOG_ERR, CFSTR("_notifyviasignal(): why is oldNotify != MACH_PORT_NULL?"));
 	}
-#endif	/* DEBUG */
 
-	SCDLog(LOG_DEBUG, CFSTR("Adding task notification port %d to the server's port set"), task);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Adding task notification port %d to the server's port set"), task);
 	status = mach_port_move_member(mach_task_self(), task, server_ports);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_move_member(): %s"), mach_error_string(status));
-		*scd_status = SCD_FAILED;
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("mach_port_move_member(): %s"), mach_error_string(status));
+		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 #endif	/* NOTYET */
 
-	sessionPrivate->notifyStatus     = Using_NotifierInformViaSignal;
-	sessionPrivate->notifySignal     = sig;
-	sessionPrivate->notifySignalTask = task;
+	storePrivate->notifyStatus     = Using_NotifierInformViaSignal;
+	storePrivate->notifySignal     = sig;
+	storePrivate->notifySignalTask = task;
 
 	return KERN_SUCCESS;
 }

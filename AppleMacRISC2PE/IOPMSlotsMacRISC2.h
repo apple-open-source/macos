@@ -25,18 +25,80 @@
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 
+class IOPMrootDomain;
+class IOPCIDevice;
+
+enum
+{
+	// PCI constants
+	
+	kPCIStatusConfigOffset						= 0x6,
+        kPCIStatusPowerCapabilitiesSupportBitMask 			= ( 1L << 4 ),
+	kPCIHeaderTypeConfigOffset					= 0xE,
+        kPCIHeaderTypeBitMask						= 0x7F,
+        kPCIStandardHeaderType						= 0,
+        kPCItoPCIBridgeHeaderType					= 1,
+        kPCICardBusBridgeHeaderType					= 2,
+	
+	kPCIPowerCapabilitiesPtrStandardConfigOffset			= 0x34,
+	kPCIPowerCapabilitiesPtrPCItoPCIBridgeConfigOffset		= 0x34,
+	kPCIPowerCapabilitiesPtrCardBusBridgeConfigOffset		= 0x14,
+	
+	kPCIPowerCapabilityID						= 0x01,
+	kPCIPowerCapabilitiesMinOffset					= 0x40,
+	kPCIPowerCapabilitiesMaxOffset					= 0xF8,		// ( 256 - 8 )
+        
+	kPCIPowerCapabilitiesPMCRegisterOffset				= 2,
+	kPCIPowerCapabilitiesDataRegisterOffset				= 7,
+
+	kMaxPowerCapabilitiesListLoopCount				= 64,
+	kMinPCIPowerCapabilitiesVersion					= 2,
+        
+	kPCIPowerCapabilitiesPMCVersionBitMask				= 0x7,
+	kPCIPowerCapabilitiesPMCAuxCurrentOffset			= 6,
+	
+	kPCIStandardSleepCurrentNeeded					= 20,			// 20 milliamps (mA)
+
+	kMaxAuxPowerScalingFactorBitMask				= 0x3,
+	kSawtoothPowerSupplyMillivolts					= 5000,			// 5 volts
+	kMillivoltsPerVolt						= 1000, 
+
+	kPCIPowerCapabilitiesPMCSROffset				= 4,
+	kPCIPowerCapabilitiesDataSelectBitShift				= 9,
+	kPCIPowerCapabilitiesDataSelectBitMask				= 0x1E00,
+	kPCIPowerCapabilitiesDataSelectMaxCombinations			= 16,
+	kPCIPowerCapabilitiesDataSelectD3PowerConsumed			= 3,
+
+	kPCIPowerCapabilitiesDataScaleBitShift				= 13,
+	kPCIPowerCapabilitiesDataScaleBitMask				= 0x6000,
+	kPCIPowerCapabilitiesDataScale10Divisor				= 1,
+	kPCIPowerCapabilitiesDataScale100Divisor			= 2,
+
+    kPCIPowerCapabilitiesPMESupportD3ColdBitMask        = 0x8000,  // PMC bit 15
+    kPCIPowerCapabilitiesPMEEnableBitMask               = 0x0100,  // PMCSR bit 8
+};
+
+
 class IOPMSlotsMacRISC2: public IOService
 {
     OSDeclareDefaultStructors(IOPMSlotsMacRISC2)
 
 public:
 
+    IOPMrootDomain *	rootDomain;			// points to Root Power Domain
+    unsigned long	auxCapacity;			// capacity of the aux power supply in milliwatts
+    unsigned long	powerSupplyMillivolts;
+    bool            checkAuxCapacity;
+      
     virtual  bool start( IOService * provider );
 
 
 private:
 
-    virtual  IOReturn setPowerState ( long, IOService* );
+    virtual  IOReturn setPowerState ( unsigned long, IOService* );
+    virtual void probePCIhardware ( IOPCIDevice *, bool *, unsigned long * );
+    virtual bool dataRegisterPresent ( IOPCIDevice *, UInt8 );
+    virtual UInt32 getD3power ( IOPCIDevice *, UInt8 );
     
 };
 

@@ -1,5 +1,6 @@
-/*$Id: pipes.h,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: pipes.h,v 1.1.1.2 2001/07/20 19:38:18 bbraun Exp $*/
 
+struct memblk;					       /* predeclare the tag */
 void
  inittmout P((const char*const progname)),
  ftimeout P((void)),
@@ -8,19 +9,11 @@ void
 int
  pipthrough P((char*line,char*source,const long len));
 long
- pipin P((char*const line,char*source,long len));
-char*
- readdyn P((char*bf,long*const filled)),
+ pipin P((char*const line,char*source,long len,int asgnlastf));
+char
+ *readdyn P((struct memblk*const mb,long*const filled,long oldfilled)),
  *fromprog Q((char*name,char*const dest,size_t max));
 
-#define PRDO	poutfd[0]
-#define PWRO	poutfd[1]
-#define PRDI	pinfd[0]
-#define PWRI	pinfd[1]
-#define PRDB	pbackfd[0]
-#define PWRB	pbackfd[1]
-
-extern const char exitcode[];
 extern int setxit;
 extern pid_t pidchild;
 extern volatile time_t alrmtime;

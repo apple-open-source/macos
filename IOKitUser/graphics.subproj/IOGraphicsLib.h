@@ -300,6 +300,47 @@ IOFBSetStartupDisplayModeAndDepth( io_connect_t connect,
 	IODisplayModeID		displayMode,
 	IOIndex 		depth );
 
+kern_return_t
+IOFBGetDefaultDisplayMode( io_connect_t connect,
+	IODisplayModeID	* displayMode, IOIndex * displayDepth );
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+struct IOFBMessageCallbacks {
+    IOReturn (*WillPowerOff)    (void * callbackRef, void * notificationID);
+    IOReturn (*DidPowerOn)   	(void * callbackRef, void * notificationID);
+    IOReturn (*ConnectionChange)(void * callbackRef, void * notificationID);
+};
+typedef struct IOFBMessageCallbacks IOFBMessageCallbacks;
+
+enum {
+    IOFBMessageCallbacksVersion = 1
+};
+
+mach_port_t
+IOFBGetNotificationMachPort( io_connect_t connect );
+
+kern_return_t
+IOFBDispatchMessageNotification( io_connect_t connect, mach_msg_header_t * message,
+                                 UInt32 version, const IOFBMessageCallbacks * callbacks, void * callbackRef);
+
+kern_return_t
+IOFBAcknowledgeNotification( void * notificationID );
+
+enum {
+    kIOFBConnectStateOnline	= 0x00000001
+};
+
+kern_return_t
+IOFBGetConnectState( io_connect_t connect, IOOptionBits * state );
+
+kern_return_t
+IOFBGetAttributeForFramebuffer( io_connect_t connect, io_connect_t otherConnect,
+                                IOSelect attribute, UInt32 * value );
+kern_return_t
+IOFBSetAttributeForFramebuffer( io_connect_t connect, io_connect_t otherConnect,
+                                IOSelect attribute, UInt32 value );
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*! @function IOFBCreateDisplayModeDictionary
@@ -516,6 +557,11 @@ IOFBBlitVRAMCopy( void * blitterRef,
 kern_return_t
 IOFBBlitSurfaceCopy( void * blitterRef, IOOptionBits options, void * surfaceID,
                      IOAccelDeviceRegion * region, UInt32 surfaceX, UInt32 surfaceY );
+
+kern_return_t
+IOFBBlitSurfaceSurfaceCopy( void * blitterRef, IOOptionBits options,
+                            void * sourceSurfaceID, void * destSurfaceID,
+                            IOAccelDeviceRegion * region, UInt32 surfaceX, UInt32 surfaceY );
 
 kern_return_t
 IOFBSynchronize( void * blitterRef,

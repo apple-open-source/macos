@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_dir.h,v 1.1.1.3 2001/01/25 05:00:10 wsanchez Exp $ */
+/* $Id: php_dir.h,v 1.1.1.4 2001/07/19 00:20:18 zarzycki Exp $ */
 
 #ifndef PHP_DIR_H
 #define PHP_DIR_H
@@ -28,6 +28,9 @@ PHP_RINIT_FUNCTION(dir);
 PHP_FUNCTION(opendir);
 PHP_FUNCTION(closedir);
 PHP_FUNCTION(chdir);
+#if defined(HAVE_CHROOT) && !defined(ZTS)
+PHP_FUNCTION(chroot);
+#endif
 PHP_FUNCTION(getcwd);
 PHP_FUNCTION(rewinddir);
 PHP_NAMED_FUNCTION(php_if_readdir);

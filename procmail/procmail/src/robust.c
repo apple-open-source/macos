@@ -2,11 +2,13 @@
  *	The fault-tolerant system-interface				*
  *									*
  *	Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
+ *						of America		*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: robust.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: robust.c,v 1.1.1.2 2001/07/20 19:38:19 bbraun Exp $";
 #endif
 #include "procmail.h"
 #include "robust.h"
@@ -20,12 +22,12 @@ mode_t cumask;
 #define nomemretry	noresretry
 #define noforkretry	noresretry
 		       /* set nextexit to prevent elog() from using malloc() */
-static void nomemerr(len)const size_t len;
+void nomemerr(len)const size_t len;
 { static const char outofmem[]="Out of memory";
   nextexit=2;nlog(outofmem);elog("\n");
   syslog(LOG_NOTICE,"%s as I tried to allocate %ld bytes\n",outofmem,
    (long)len);
-  if(buf2)
+  if(!privileged&&buf&&buf2)
    { buf[linebuf-1]=buf2[linebuf-1]='\0';elog("buffer 0:");logqnl(buf);
      elog("buffer 1:");logqnl(buf2);
    }
@@ -73,6 +75,18 @@ ret:  { lcking&=~(lck_MEMORY|lck_ALLOCLIB);
   nomemerr(len);
 }
 
+void*fmalloc(len)const size_t len;			 /* 'fragile' malloc */
+{ void*p;
+  lcking|=lck_ALLOCLIB;p=malloc(len);lcking&=~lck_ALLOCLIB;
+  return p;
+}
+
+void*frealloc(old,len)void*const old;const size_t len;	/* 'fragile' realloc */
+{ void*p;
+  lcking|=lck_ALLOCLIB;p=realloc(old,len);lcking&=~lck_ALLOCLIB;
+  return p;
+}
+
 void tfree(p)void*const p;
 { lcking|=lck_ALLOCLIB;free(p);lcking&=~lck_ALLOCLIB;
 }
@@ -81,7 +95,7 @@ void tfree(p)void*const p;
 
 pid_t sfork P((void))			/* this fork can survive a temporary */
 { pid_t i;int r;			   /* "process table full" condition */
-  zombiecollect();elog("");r=noforkretry;	  /* flush log, just in case */
+  zombiecollect();elog(empty);r=noforkretry;	  /* flush log, just in case */
   while((i=fork())==-1)
    { lcking|=lck_FORK;
      if(!(r<0||r--))
@@ -95,7 +109,7 @@ pid_t sfork P((void))			/* this fork can survive a temporary */
 
 void opnlog(file)const char*file;
 { int i;
-  elog("");						     /* flush stderr */
+  elog(empty);						     /* flush stderr */
   if(!*file)						   /* empty LOGFILE? */
      file=devnull;				 /* substitute the bitbucket */
   if(0>(i=opena(file)))			     /* error?	keep the old LOGFILE */
@@ -105,7 +119,7 @@ void opnlog(file)const char*file;
 }
 
 int opena(a)const char*const a;
-{ setlastfolder(a);yell("Opening",a);
+{ yell("Opening",a);
 #ifdef O_CREAT
   return ropen(a,O_WRONLY|O_APPEND|O_CREAT,NORMperm);
 #else

@@ -26,14 +26,13 @@ export FRAMEWORK_VERSION default = "A" ;
 STRIP_INSTALLED_PRODUCT default = YES ;
 REMOVE_CVS_FROM_RESOURCES default = YES ;
 COPY_PHASE_STRIP default = YES ;
+CLONE_HEADERS default = YES ;
+PREBINDING default = YES ;
 
 # Set initial optimization level, debug, and profile settings
 export OPTIMIZATION_LEVEL default = 0 ;
 export DEBUGGING_SYMBOLS default = YES ;
 export PROFILING_CODE default = NO ;
-
-# Carbon framework reference locations
-CARBONINTDIR = /System/Library/Frameworks/Carbon.framework/Libraries ;
 
 # Default settings for Java builds
 JAVA_ARCHIVE_CLASSES default = YES ;
@@ -44,7 +43,7 @@ JAVA_SOURCE_SUBDIR default = . ;
 JAVA_FRAMEWORK_RESOURCES_DIRS default = Resources ;
 export JAVA_FRAMEWORK_JARS default = ;
 JAVA_USE_DEPENDENCIES default = YES ;
-JAVA_ZIP_FLAGS default = -ug ;
+JAVA_ZIP_FLAGS default = -urg ;
 
 # BeginProduct <product>
 #
@@ -63,6 +62,7 @@ JAVA_ZIP_FLAGS default = -ug ;
 # PUBLIC_HEADER_DIR		Location for public headers
 #
 # Variables set:
+# HEADER_SUBDIRECTORY		Base product name
 # BUILD_DIR			Target-specific directory for builds
 # TEMP_DIR			For target-specific intermediates
 # PROJECT_HEADER_DIR		Project header file directory in $(TEMP_DIR)
@@ -80,6 +80,10 @@ JAVA_ZIP_FLAGS default = -ug ;
 #
 rule BeginProduct
 {
+    # define the header subdirectory early since we'll use it to
+    # compute the project header directory
+    HEADER_SUBDIRECTORY = $(1:B) ;
+
     # default mapping of build actions to build variants
     switch $(ACTION) {
         case build : BUILD_COMPONENTS default = headers build ;
@@ -88,10 +92,7 @@ rule BeginProduct
         case installsrc : BUILD_COMPONENTS default = source ;
     }
     # Set reasonable optimization flags for installs if not already set
-    DEPLOYMENT_OPTIMIZATION_CFLAGS default = -O ;
-    if $(ACTION) = install {
-       OPTIMIZATION_CFLAGS = $(DEPLOYMENT_OPTIMIZATION_CFLAGS) ;
-    }
+    OPTIMIZATION_CFLAGS default = -O ;
     # C++ options match C options by default
     OTHER_CPLUSPLUSFLAGS default = $(OTHER_CFLAGS) ;
     WARNING_CPLUSPLUSFLAGS default = $(WARNING_CFLAGS) ;
@@ -121,33 +122,19 @@ rule BeginProduct
         BUILD_DIR default = $(BUILD_ROOT) ;
     }
     TEMP_DIR default = $(TEMP_ROOT)$(/)$(TARGET_NAME).build ;
-    BASE_PROJECT_HEADER_DIR default = $(BUILD_DIR)$(/)ProjectHeaders ;
-#!!!:cmolick:20001214 maybe add an option to use temporary directory instead?
-#    BASE_PROJECT_HEADER_DIR default = $(TEMP_DIR)$(/)ProjectHeaders ;
-    # Header subdirectory has "include" prefix to handle
-    # header references that don't name a subdirectory.
-    # !!!:cmolick:20000926 commented out ... seemed wrong
-    # PUBLIC_HEADER_DIR default = include$(/)$(HEADER_SUBDIRECTORY) ;
-    if $(HEADER_SUBDIRECTORY) {
-        PROJECT_HEADER_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(HEADER_SUBDIRECTORY) ;
-    }
-    else {
-        PROJECT_HEADER_DIR default = $(BASE_PROJECT_HEADER_DIR) ;
+    if $(CLONE_HEADERS) = YES {
+        BASE_PROJECT_HEADER_DIR default = $(BUILD_DIR)$(/)ProjectHeaders ;
+        if $(HEADER_SUBDIRECTORY) {
+            PROJECT_HEADER_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(HEADER_SUBDIRECTORY) ;
+        }
+        else {
+            PROJECT_HEADER_DIR default = $(BASE_PROJECT_HEADER_DIR) ;
+        }
     }
     OBJECT_FILE_DIR default = $(TEMP_DIR)$(/)Objects ;
-    # any unarchived java class files should go in wrapper
-    if $(JAVA_ARCHIVE_CLASSES) != YES {
-	# need to set CLASS_FILE_DIR if we're not a wrapped product (in which case it'll be set below)
-	if ( $(PRODUCT_TYPE) != Application ) && ( $(PRODUCT_TYPE) != Framework ) && ( $(PRODUCT_TYPE) != Bundle ) {
-	    export CLASS_FILE_DIR default = $(BUILD_DIR)$(/)$(1:G=) ;
-	}
-    }
-    else {
-	export CLASS_FILE_DIR default = $(TEMP_DIR)$(/)JavaClasses ;
-	# DJE!!! - needing a RESOURCE_DIR is probably obsolete for Java Tools/Libraries
-	if $(PURE_JAVA) = YES {
-	    RESOURCE_DIR default = $(BUILD_DIR) ;
-	}
+    export CLASS_FILE_DIR default = $(TEMP_DIR)$(/)JavaClasses ;
+    if $(JAVA_ARCHIVE_CLASSES) != YES && ( $(PRODUCT_TYPE) != Tool || $(PRODUCT_TYPE) != Library ) {
+        export PRODUCT_CLASS_FILE_DIR default = $(BUILD_DIR)$(/)$(PRODUCT_NAME) ;
     }
     FILE_LIST default = $(OBJECT_FILE_DIR)$(/)LinkFileList ;
     DERIVED_FILE_DIR default = $(TEMP_DIR)$(/)DerivedSources ;
@@ -158,9 +145,15 @@ rule BeginProduct
         INSTALL_DIR default = $(INSTALL_ROOT) ;
     }
     # Initialize the search paths
-    HEADER_SEARCH_PATHS = $(PROJECT_HEADER_DIR) $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
+    if $(CLONE_HEADERS) = YES {
+        HEADER_SEARCH_PATHS = $(PROJECT_HEADER_DIR) $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
+        FRAMEWORK_SEARCH_PATHS = $(BASE_PROJECT_HEADER_DIR) $(BUILD_ROOT) $(FRAMEWORK_SEARCH_PATHS) ;
+    }
+    else {
+        HEADER_SEARCH_PATHS = $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
+        FRAMEWORK_SEARCH_PATHS = $(BUILD_ROOT) $(FRAMEWORK_SEARCH_PATHS) ;
+    }
     LIBRARY_SEARCH_PATHS = $(BUILD_ROOT) $(LIBRARY_SEARCH_PATHS) ;
-    FRAMEWORK_SEARCH_PATHS = $(BASE_PROJECT_HEADER_DIR) $(BUILD_ROOT) $(FRAMEWORK_SEARCH_PATHS) ;
     # Initialize the file lists
     DERIVED_FILES = ;
     OBJECT_FILES = ;
@@ -243,7 +236,6 @@ rule EndProduct
 # The WRAPPER variable is set locally within this rule for convenience.
 #
 # Variables set:
-# HEADER_SUBDIRECTORY		Base product name
 # WRAPPER_SUFFIX		Text to append to product wrapper based on WRAPPER_EXTENSION
 # RESOURCE_DIR			Directory for resource files
 # APPLESCRIPTS_DIR		Directory for Compiled AppleScript files
@@ -255,9 +247,6 @@ rule EndProduct
 # 
 rule BeginWrappedProduct
 {
-    # define the header subdirectory before BeginProduct uses it to
-    # compute the project header directory
-    HEADER_SUBDIRECTORY = $(1:B) ;
     # set up the basic product variables
     BeginProduct $(1) ;
     # set up new variables for the wrapper and derive suffix
@@ -279,18 +268,21 @@ rule BeginWrappedProduct
         }
         RESOURCE_LINK = "" ;
         APPLESCRIPTS_DIR default = $(RESOURCE_DIR)$(/)Scripts ;
-        PUBLIC_HEADER_DIR default = $(INSTALL_PATH)$(/)Headers ;
-        PUBLIC_HEADER_LINK = "" ;
-        PRIVATE_HEADER_DIR default = $(INSTALL_PATH)$(/)PrivateHeaders ;
-        PRIVATE_HEADER_LINK = "" ;
-        CURRENT_VERSION_DIR = "" ;
-        CURRENT_VERSION_LINK = "" ;
-        PUBLIC_HEADER_CLONE_DIR = ;
-        PUBLIC_HEADER_CLONE_LINK = ;
-        PRIVATE_HEADER_CLONE_DIR = ;
-        PRIVATE_HEADER_CLONE_LINK = ;
-        CURRENT_VERSION_CLONE_DIR = ;
-        CURRENT_VERSION_CLONE_LINK = ;
+        PUBLIC_HEADER_DIR default = $(WRAPPER)$(/)"Contents"$(/)Headers ;
+        PUBLIC_HEADER_LINK default = "" ;
+        PRIVATE_HEADER_DIR default = $(WRAPPER)$(/)"Contents"$(/)PrivateHeaders ;
+        PRIVATE_HEADER_LINK default = "" ;
+        CURRENT_VERSION_DIR default = "" ;
+        CURRENT_VERSION_LINK default = "" ;
+        if $(CLONE_HEADERS) = YES {
+            WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
+            PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)"Contents"$(/)Headers ;
+            PUBLIC_HEADER_CLONE_LINK default = "" ;
+            PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)"Contents"$(/)PrivateHeaders ;
+            PRIVATE_HEADER_CLONE_LINK default = "" ;
+            CURRENT_VERSION_CLONE_DIR default = "" ;
+            CURRENT_VERSION_CLONE_LINK default = "" ;
+        }
     } # application wrappers
     else if $(PRODUCT_TYPE) = Framework {
         # Framework wrappers
@@ -309,15 +301,18 @@ rule BeginWrappedProduct
         CURRENT_VERSION_LINK default = $(WRAPPER:G=)$(/)Versions$(/)Current ;
         CURRENT_VERSION_LINK_PATH default = Versions$(/)Current ;
 
-        PUBLIC_HEADER_CLONE_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)Headers ;
-        PUBLIC_HEADER_CLONE_LINK default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)Headers ;
-        PUBLIC_HEADER_CLONE_LINK_PATH default = Versions$(/)Current$(/)Headers ;
-        PRIVATE_HEADER_CLONE_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)PrivateHeaders ;
-        PRIVATE_HEADER_CLONE_LINK default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)PrivateHeaders ;
-        PRIVATE_HEADER_CLONE_LINK_PATH default = Versions$(/)Current$(/)PrivateHeaders ;
-        CURRENT_VERSION_CLONE_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)Versions$(/)$(FRAMEWORK_VERSION) ;
-        CURRENT_VERSION_CLONE_LINK default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)Versions$(/)Current ;
-        CURRENT_VERSION_CLONE_LINK_PATH default = Versions$(/)Current ;
+        if $(CLONE_HEADERS) = YES {
+            WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
+            PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)Headers ;
+            PUBLIC_HEADER_CLONE_LINK default = $(WRAPPER_CLONE_DIR)$(/)Headers ;
+            PUBLIC_HEADER_CLONE_LINK_PATH default = Versions$(/)Current$(/)Headers ;
+            PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)PrivateHeaders ;
+            PRIVATE_HEADER_CLONE_LINK default = $(WRAPPER_CLONE_DIR)$(/)PrivateHeaders ;
+            PRIVATE_HEADER_CLONE_LINK_PATH default = Versions$(/)Current$(/)PrivateHeaders ;
+            CURRENT_VERSION_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)$(FRAMEWORK_VERSION) ;
+            CURRENT_VERSION_CLONE_LINK default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)Current ;
+            CURRENT_VERSION_CLONE_LINK_PATH default = Versions$(/)Current ;
+        }
         # Create current version directory and link now because
         # they are implicit and needed by almost everything else:
         # Current version dir
@@ -327,16 +322,17 @@ rule BeginWrappedProduct
         SymLink $(CURRENT_VERSION_LINK) : $(FRAMEWORK_VERSION) ;
         PRODUCT_FILES += $(CURRENT_VERSION_LINK) ;
         NOUPDATE $(CURRENT_VERSION_LINK) ;
-
-        PRODUCT_FILES += $(CURRENT_VERSION_CLONE_DIR) ;
-        NOUPDATE $(CURRENT_VERSION_CLONE_DIR) ;
-        # Current version link
-        SymLink $(CURRENT_VERSION_CLONE_LINK) : $(FRAMEWORK_VERSION) ;
-        PRODUCT_FILES += $(CURRENT_VERSION_CLONE_LINK) ;
-        NOUPDATE $(CURRENT_VERSION_CLONE_LINK) ;
-        # Make sure someone depends on the clone current symlink so it will get created.
-        DEPENDS $(PUBLIC_HEADER_CLONE_LINK) : $(CURRENT_VERSION_CLONE_LINK) ;
-        DEPENDS $(PRIVATE_HEADER_CLONE_LINK) : $(CURRENT_VERSION_CLONE_LINK) ;
+        if $(CLONE_HEADERS) = YES {
+            PRODUCT_FILES += $(CURRENT_VERSION_CLONE_DIR) ;
+            NOUPDATE $(CURRENT_VERSION_CLONE_DIR) ;
+            # Current version link
+            SymLink $(CURRENT_VERSION_CLONE_LINK) : $(FRAMEWORK_VERSION) ;
+            PRODUCT_FILES += $(CURRENT_VERSION_CLONE_LINK) ;
+            NOUPDATE $(CURRENT_VERSION_CLONE_LINK) ;
+            # Make sure someone depends on the clone current symlink so it will get created.
+            DEPENDS $(PUBLIC_HEADER_CLONE_LINK) : $(CURRENT_VERSION_CLONE_LINK) ;
+            DEPENDS $(PRIVATE_HEADER_CLONE_LINK) : $(CURRENT_VERSION_CLONE_LINK) ;
+        }
     } # framework wrappers
     else {
         # Default bundle wrappers
@@ -350,23 +346,26 @@ rule BeginWrappedProduct
         CURRENT_VERSION_DIR default = "" ;
         CURRENT_VERSION_LINK default = "" ;
 
-        PUBLIC_HEADER_CLONE_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)"Contents"$(/)Headers ;
-        PUBLIC_HEADER_CLONE_LINK default = "" ;
-        PRIVATE_HEADER_CLONE_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER)$(/)"Contents"$(/)PrivateHeaders ;
-        PRIVATE_HEADER_CLONE_LINK default = "" ;
-        CURRENT_VERSION_CLONE_DIR default = "" ;
-        CURRENT_VERSION_CLONE_LINK default = "" ;
+        if $(CLONE_HEADERS) = YES {
+            WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
+            PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)"Contents"$(/)Headers ;
+            PUBLIC_HEADER_CLONE_LINK default = "" ;
+            PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)"Contents"$(/)PrivateHeaders ;
+            PRIVATE_HEADER_CLONE_LINK default = "" ;
+           CURRENT_VERSION_CLONE_DIR default = "" ;
+           CURRENT_VERSION_CLONE_LINK default = "" ;
+        }
     } # all bundle layouts
+    # define location for optional header documentation generation
+    if $(GENERATE_HEADERDOC) = YES && $(RESOURCE_DIR) {
+        HEADERDOC_DIR default = $(BUILD_DIR)$(/)$(RESOURCE_DIR)$(/)Documentation ;
+        Mkdir $(HEADERDOC_DIR) ;
+    }
 
-    # if we're building both a jar and a class hierarchy, we can't put the classes at the same level
-    # they need to go one level deeper.
-    if $(JAVA_ARCHIVE_CLASSES) = BOTH {
-	export CLASS_FILE_DIR default = $(BUILD_DIR)$(/)$(RESOURCE_DIR)$(/)Java$(/)$(1:B:G=) ;
-    }   
-    else if $(JAVA_ARCHIVE_CLASSES) = NO {    
-	export CLASS_FILE_DIR default = $(BUILD_DIR)$(/)$(RESOURCE_DIR)$(/)Java ;
-    }   
-
+    # wrapped products may define a location for unarchived classes
+    if $(JAVA_ARCHIVE_CLASSES) != YES {
+        export PRODUCT_CLASS_FILE_DIR default = $(BUILD_DIR)$(/)$(RESOURCE_DIR)$(/)Java ;
+    }
 }
 
 rule EndWrappedProduct

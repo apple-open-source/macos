@@ -187,20 +187,20 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 	struct file_handle *ifh;
 	Vnode *n;
 	unsigned int status;
-        struct authunix_parms *aup;
-        int uid;
+	struct authunix_parms *aup;
+	int uid;
 
-        uid = -2;
-        if (req->rq_cred.oa_flavor == AUTH_UNIX)
-        {
-                aup = (struct authunix_parms *)req->rq_clntcred;
-                uid = aup->aup_uid;
-                sys_msg(debug_proc, LOG_DEBUG, "\t uid %d requested a new link check", uid);
-        }
-        else
-        {
-                sys_msg(debug_proc, LOG_DEBUG, "\t uid unknown requested a new link check");
-        }
+	uid = -2;
+	if (req->rq_cred.oa_flavor == AUTH_UNIX)
+	{
+		aup = (struct authunix_parms *)req->rq_clntcred;
+		uid = aup->aup_uid;
+		sys_msg(debug_proc, LOG_DEBUG, "\t uid %d requested a new link check", uid);
+	}
+	else
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "\t uid unknown requested a new link check");
+	}
 
 	ifh = (struct file_handle *)fh;
 
@@ -227,13 +227,15 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 
 	status = 0;
 #warning test here for a bad afp mount ... (i.e. disconnected)
-        if ([n type] == NFLNK) {
-            sys_msg(debug_proc, LOG_DEBUG, "	NFLNK");
-        }
+	if ([n type] == NFLNK)
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "	NFLNK");
+	}
+
 	if (([n type] == NFLNK) && (![n mounted]))
 	{
-            sys_msg(debug_proc, LOG_DEBUG, "	not mounted");
-                status = [[n map] mount:n withUid:uid];
+		sys_msg(debug_proc, LOG_DEBUG, "	not mounted");
+		status = [[n map] mount:n withUid:uid];
 
 		if (status != 0)
 		{

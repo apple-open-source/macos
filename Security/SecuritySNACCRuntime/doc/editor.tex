@@ -1,0 +1,462 @@
+% file: .../doc/editor.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/editor.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: editor.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:52  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:41  rj
+% first check-in
+%
+
+\chapter{\label{snacced-chapter}SnaccEd, the Snacc Editor}
+
+SnaccEd is a simple graphical editor for BER encoded files.
+A set of ASN.1 files describes one or more hierarchical datastructures that can be displayed as an n-ary non-circular graph, in other words: a tree.
+
+\begin{figure}[ht!]
+\begin{center}
+\includegraphics[scale=0.7]{example}
+\caption[SnaccEd: an example screen shot]{An example screen shot}
+\label{snacced-example}
+\end{center}
+\end{figure}
+
+SnaccEd is combined from
+\begin{itemize}
+  \item the usual Snacc BER encode and decode functions
+  \item the metacode (described in chapter~\ref{meta-chapter} starting on page~\pageref{meta-chapter})
+  \item the Tcl library
+  \item the Snacc Tcl interface (described in chapter~\ref{tcl-if-chapter} starting on page~\pageref{tcl-if-chapter})
+  \item the Tk widget set
+  \item a freeware tree widget (another Tcl extension, implemented in C++)
+  \item a Tcl script that glues all those parts together
+\end{itemize}
+
+All items except for the Tcl script are compiled into an executable, the \emph{snaccwish}.
+The Tk interpreter has the name {\ufn wish}, for ``windowing shell'', and consequently, I name the program that results from linking Snacc with Tk {\ufn snaccwish}.
+For every individual set of ASN.1 files, a different snaccwish has to be made, because every snaccwish contains the specialized encode and decode routines for the ASN.1 files' types.
+
+This {\ufn snaccwish} is a Tcl interpreter that has the additional commands of the Tk widget set, the tree widget and the Snacc interface built in.
+This interpreter reads the {\ufn snacced} script that implements the graphical Snacc editor.
+I will henceforth refer to the script as {\ufn snacced} and to the interpreter as {\ufn snaccwish}.
+You may name your script and the shell binary differently, just make sure that the script calls the correct binary!.
+
+Snacced can be called with various arguments, see the manual page for details.
+
+The {\ufn snacced} script is only the most visible entry point, other scripts will be read using Tcl's autoloading mechanism.
+
+The Tcl script is (or can be) always the same.
+It uses the {\Tcl snacc} command to learn about the ASN.1 modules, types and PDUs.
+
+Since the BER format has not got any magic number or similar concept, the Snacc routines in general cannot identify the ASN.1 type contained in a BER encoded string of octets.
+As a consequence, one has to choose not only the file name but the ASN.1 type as well when one opens or creates a file (see figure~\ref{selbox-pic} \sthisnextafter{selbox-pic} for an example).
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.7]{selbox}
+\caption{The file and content type selection box}
+\label{selbox-pic}
+\end{center}
+\end{figure}
+
+One can then examine and manipulate the file's structure and contents.
+
+\section{Manipulating the Display}
+
+This section describes the pointer\footnote{
+  My pointer device is a mouse, but yours may be a trackball, a tablet, a joystick or something else.
+} operations that change the amount of information to be shown.
+(To change the file's contents, the node's content window has got be opened.)
+
+The file is displayed by means of a tree widget.
+Only a part of the full hierarchy is shown.
+The subtree's root is at the left side.
+The function of the pointer buttons\footnote{
+  I will refer to the buttons but their number, not their position.
+  I could refer to button~1 as the right button, but this might confuse you as your button~1 may in fact be on the left hand side.
+} when clicking on \emph{node names} is as follows:
+\begin{description}
+  \item[button~1]
+    adds or deletes the node's subnodes to or from the display, respectively.
+    (Except for SET OF and SEQUENCE OF types, where with button 2 you have got to open the node content editor, a list widget, and have to toggle the display of individual elements by clicking on their index numbers. This is explained at the end of section~\ref{cont-ed-list-sect} \sthisnextafter{cont-ed-list-sect}.)
+    \begin{itemize}
+      \item For nodes that have subnodes being shown, the subtree gets hidden.
+      \item Otherwise, the node's immediate descendents are added to the display.
+    \end{itemize}
+  \item[button~2]
+    opens or closes the node, where ``closed'' means that only the nodes name is being shown, and ``open'' means that an additional window showing the node's contents it put under the node's name.
+    This content window is explained in the next section.
+  \item[button~3]
+    adds or deletes the node's parent to or from the display, respectively.
+    \begin{itemize}
+      \item For nodes where the parent is displayed, all parents and all siblings with their subtrees will get hidden.
+      \item Otherwise, the parent is added to the display.
+    \end{itemize}
+\end{description}
+
+Pressing and holding button 2 on a free space, the display can be dragged by moving the pointer.
+
+\section{The Content Window}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.65]{simple}
+\caption{Content editors for ASN.1 simple types}
+\label{simple-content}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.7]{struct}
+\caption{Content editors for ASN.1 structured types}
+\label{struct-content}
+\end{center}
+\end{figure}
+
+\def\exref{ (based on the example displayed as figure~\ref{snacced-example} on page~\pageref{snacced-example})}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.7]{str-popup}
+\caption[Popup for import/export of OCTET STRING contents]{Popup for import/export of OCTET STRING contents\exref}
+\label{str-popup}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=0.7]{list-popup}
+\caption[Popup for action selection for SET OF and SEQUENCE OF types]{Popup for action selection for SET OF and SEQUENCE OF types\exref}
+\label{list-popup}
+\end{center}
+\end{figure}
+
+The content window that may be opened beneath the node's name looks and behaves different for every content type.
+An example for every ASN.1 simple type is shown in figure~\ref{simple-content} \sthisnextafter{simple-content}.
+The ASN.1 input for the example can be found in appendix~\ref{edex0.asn1} on page~\pageref{edex0.asn1}.
+\begin{itemize}
+  \item
+    The NULL type has only one value that cannot be changed.
+  \item
+    Values of BOOLEAN type are displayed as a toggle button.
+  \item
+    For the ENUMERATED type, SnaccEd displays a list of radio buttons listing the values' names.
+    (The numerical values are not shown.)
+  \item
+    INTEGER values are displayed using an entry widget where the numeric value can be seen and changed.
+    The entry widget's binding have been changed to allow the input of ``--'' and decimal digits only in addition to the usual control functions (procedure {\Tcl int\_entry\_bindings}).
+    Similar to the ENUMERATED type, values can be given a name; the list is displayed as above.
+  \item
+    Individial names in a BIT STRING may be named.
+    SnaccEd displays a list of buttons identifying those bits along with their name.
+    Clicking on one of those buttons toggles the bit's value.
+    \newline
+    The bit string is displayed and can be edited in its binary representation in an entry widget below the names.
+    The entry widget's binding have been changed to allow the input of ``0'' and ``1'' only in addition to the usual control functions (procedure {\Tcl bit\_string\_entry\_bindings}).
+  \item
+    OCTET STRINGs and derived types are displayed in a text widget.
+    Since Tcl cannot handle strings containing NUL bytes, NUL bytes are displayed as the two character combination ``\char`\\0'' and backslashes are duplicated, ``\char`\\\char`\\''.
+    Button 3 pops up a small menu that allows you to load or save the octet string from or to an external file, respectively (figure~\ref{str-popup} \sthisnextafter{str-popup}).
+    The X text selection to copy text between the text widget and e.g. an xterm can be used as well.
+  \item
+    CHOICE types allow exactly one of their subtypes to be valid and therefore are displayed as a list of radio buttons.
+    Clicking on a button deletes the old choice and allocates the new one.
+    See the ``{\C color}'' in figure~\ref{struct-content} on page~\ref{struct-content}.
+  \item
+    The SET and SEQUENCE types' elements are displayed in a list of buttons, and optional elements may be added and deleted by clicking on their buttons.
+    Mandatory members do not respond to button clicks and are greyed out.
+    Examples: the list element \#1 right in the middle of figure~\ref{snacced-example} on page~\pageref{snacced-example} or the ``{\C rgb}'' in figure~\ref{struct-content} on page~\pageref{struct-content}.
+  \item \label{cont-ed-list-sect}
+    SnaccEd visualizes the types SET OF and SEQUENCE OF in a list widget.
+    The widget shows the elements' ordinal numbers, the elements themselves are shown in individual widgets to the right.
+    Button~3 in the list widget brings up a small menu where you can choose the action to perform when (with button 1) you click on a list element (figure~\ref{list-popup} \sthisnextafter{list-popup}):
+    \begin{itemize}
+      \item toggle the display of an element
+      \item insert a new element
+      \item append a new element
+      \item delete an element
+    \end{itemize}
+    The cursor shape changes and reminds you of your chosen action.
+    An example of a list widget is ``{\C files}'' in figure~\ref{snacced-example} on page~\pageref{snacced-example}.
+\end{itemize}
+Some content editors can be resized: move the pointer to the content editor's frame.
+Where the cursor shape changes to a ``bottom\_right\_corner'', press button~1 and drag the frame.
+
+\section{\label{editor-building}Building Your Own Editor}
+
+There isn't much to be done to get an editor that understands your BER encoded files.
+This chapter's example can be found in {\ufn \dots/tcl-example/}.
+
+\begin{itemize}
+  \item
+    Make sure your Snacc compiler has be configured to support the Tcl code.
+    This can be verified by calling {\ufn `snacc -h | grep tcl`}; if the output is empty, the configuration script was unable to find Tcl/Tk.
+  \item
+    The Tcl/Tk libraries must have been compiled with with gcc in order to use its {\C main()} function.
+    Otherwise, the constructors and destructors of static variables may not be called.
+    I have added some code at the end of {\ufn \dots/.../c++-lib/src/tcl-if.C} that checks for this condition.
+    \newline
+    Tcl's default is not to use gcc but cc where present, but you can compile Tcl/Tk by calling {\ufn env CC='gcc -traditional' ./configure} instead of {\ufn ./configure}.
+  \item
+    Install the tree widget.
+    SnaccEd works with tree-3.6.
+    (tree-3.6.2 requires another Tcl extension, itcl, but to avoid complicating matters any further, SnaccEd sticks to the simpler version.)
+    When {\ufn \dots/configure} found the tree widget libraries, the macro definition for {\Make TREELIBS} in {\ufn \dots/makehead} will have been set to {\ufn -ltktree -lOS}.
+  \item
+    In your makefile, extend {\ufn snacc}'s list of arguments with the {\ufn -tcl} option followed by the list of PDUs (that is an additional \emph{two} arguments).
+  \item
+    Put {\ufn modules.C} into the list of files to be compiled.
+  \item
+    Compile with {\ufn -DTCL}.
+  \item
+    To link, replace {\ufn -lasn1c++} against {\ufn -lasn1tcl} and add {\ufn \$(TREELIBS)} to the list of libraries.
+    (You may have to add a {\ufn -L} option as well.)
+  \item
+    Call {\ufn \$(TCL\_LIB)/make-snacced \$(SNACCED) \$(WISH) \$(TCL\_LIB)}, where {\ufn \$(TCL\_LIB)} is either {\ufn \$\{prefix\}/lib/snacc/tcl/} (the place where the Tcl library files got installed by {\ufn make install}) or {\ufn \dots/tcl-lib/} (in case you haven't called {\ufn make install} yet), and {\ufn \$(WISH)} is the name of the wish executable you just compiled.
+    The {\ufn make-snacced} script generates a small Tcl script, {\ufn \$(SNACCED)}, that executes your wish executable, extends the Tcl variable {\Tcl auto\_path} to include your {\ufn \$(TCL\_LIB)} und through the auto loading mechanism calls the Tcl library routine {\Tcl snacced} to start the Snacc editor.
+\end{itemize}
+
+Make sure you get the {\ufn \dots/tcl-example/} working before you despair of your own set of files.
+Take {\ufn \dots/tcl-example/makefile} as a guide.
+
+Your can use the {\ufn .h} and {\ufn .C} file resulting from calling {\ufn snacc -tcl \dots} for both the editor and your other uses.
+Just remember: if you compile with {\ufn -DTCL}, link against {\ufn libasn1tcl.a}; if you want to disable the metacode and tcl interface, compile with {\ufn -DMETA=0} and link against {\ufn libasn1c++.a}.
+
+Make sure that you don't link with your old {\C main()}\footnote{Or make sure your {\C main()} behaves similar to the Tk libraries'}.
+The generated file {\ufn modules.C} contains the line\\
+{\C static int (*dummy)(Tcl\_Interp~*) = Tcl\_AppInit;}\\
+that forces {\ufn libasn1tcl.a(tkAppInit.o)} to be linked.
+{\ufn \dots/c++-lib/src/tkAppInit.c} in turn contains the lines\\
+{\C extern int main();\\
+int *tclDummyMainPtr = (int *)main;}\\
+that force the {\C main} function in the Tk library to be linked.
+
+{\C Tcl\_AppInit()} calls {\C Snacc\_Init()} that is defined in {\ufn \dots/c++-lib/src/tcl-if.C}.
+{\C Snacc\_Init()} installs the {\Tcl snacc} command.
+
+\section{\label{snacced-impl}Implementation}
+
+The Tcl scripts that implement the editor can be found in {\ufn \dots/tcl-lib/} and, after installation, in {\ufn \$\{prefix\}/lib/snacc/tcl/}.
+
+You are free to change the Tcl script(s), for example to display some data types in a more appropiate manner.
+Octet strings may be user readable but often are not, pictures and audio data come to mind.
+
+If add procedures or {\ufn .tcl} files, you have got to rebuild Tcl's autoloading index.
+This best done by adding the files to the {\Make TCLFILES.dist} list in {\ufn \dots/tcl-lib/makefile} and running {\ufn make} again.
+
+%!!! nicht in doc/:
+The first SnaccEd was able to handle only one file at a time.
+To enable the editor to handle several files simultaneously required the following steps:
+\begin{itemize}
+  \item instead of using the default toplevel widget {\Tcl .} (dot), open a toplevel widget for every file.
+    The toplevel widgets get names {\Tcl .file0}, {\Tcl .file1}, \dots
+    The same name without the leading dot is used as a global array variable to hold miscellaneous pieces of information about the file.
+    You can see how the names are generated in the code example on page~\pageref{tcl-name-space-example-code}.
+    The name of this variable is given to many procedures in the {\Tcl fileref} parameter.
+  \item identify global variables. Those were
+    \begin{itemize}
+      \item the name of the file handle
+      \item the names of some widgets, namely the toplevel, the menubar, the canvas and the tree widget.
+    \end{itemize}
+    Other global variables can be left untouched: the help text, the list of PDU types.
+    This information is the same for all the files a snaccwish can handle.
+\end{itemize}
+
+Since the file and type selection box, the help text and the dialog boxes are modal, only one instance is needed and they can have the same names for every file opened by the editor.
+
+The editor displays only a portion of the ASN.1 file.
+The Snacc editor keeps the displayed portions of the ASN.1 file in two similar data structures.
+
+The contents of an ASN.1 file is accessed by calling the {\Tcl snacc} command with a {\Tcl \emph{path}} that identifies the requested data portion.
+
+Every ASN.1 file is displayed using one toplevel widget.
+This toplevel widget is a frame for a number of subwidgets:
+\begin{itemize}
+  \item a menubar
+  \item a canvas
+  \item two scrollbars, one vertical, one horizontal, to select the visible part of a canvas that has grown too large for the frame.
+\end{itemize}
+
+The menubar contains two buttons, one for the usual file related commands, and a help button.
+
+The canvas is the main arena.
+Its subwidgets are the tree widget and all the canvas items that make up the nodes and edges.
+The tree widget computes the positions of the canvas items and moves them in place.
+
+The contents of an ASN.1 file can be seen as a tree (the data structure may by recursive using CHOICE types or OPTIONAL components, and a PDU may contain instances of a type that contain other instances of the same type (see figure~\ref{recursion} on page~\pageref{recursion} for an example), but as ASN.1 has no pointers, cycles are impossible).
+To display this tree, it is mirrored in a number of Tcl data structures:
+\begin{itemize}
+  \item
+    The \emph{snaccpath} is the 1:1 representation of the PDU's structure.
+    This is what in chapter~\ref{tcl-if-chapter} is always referred to as ``\emph{path}'' argument to most {\Tcl snacc} subcommands.
+    The snaccpath is a proper Tcl list.
+  \item
+    The \emph{treepath} is very similar to the snaccpath.
+    Its structure is the same as the snaccpath's, but its syntax and a few elements are different:
+    \begin{itemize}
+      \item
+	The components in a snaccpath are separated by ``~'' (space), in a treepath they are separated by ``/'' (slash).
+	This difference is not strictly necessary, but it helps to detect errors in argument passing as the {\Tcl snacc} commands will never accept any treepath for their path arguments.
+      \item
+	In a snaccpath, the elements of SET OF and SEQUENCE OF types are identified by their index.
+	In a treepath, another numeric id is used instead.
+	The reason for this becomes clear when we have a look at where the treepath is used and what would have to be done if the elements' list indices were used in the treepaths.
+
+	The treepath is used in a number of places, for widget and variable names and for canvas item tags, all detailed in the below bulleted items.
+
+	When an element of a SET OF or SEQUENCE OF type is deleted, the snaccpath's indices for the deleted element's successors have to be decremented to point to the same item; when an element is inserted, those indices need to be incremented.
+	As a consequence, the widget and variable names and the canvas item tags of all elements that follow the one element that has been deleted or inserted would have to be adjusted and all the names and tags of their descendants.
+	Even if these names and tags could easily be changed (they cannot), it would still be an enormous amount of work and the slow Tcl interpreter could need some seconds to complete this task.
+	This enormous labour can be avoided by introducing a table lookup:
+
+	Every node of a SET OF or SEQUENCE OF type gets an idlist (identifier list).
+	This idlist is a Tcl list, its length is the same as there are elements in the ASN.1 data object.
+	Every idlist element corresponds to an element of the data object.
+	Whenever an element is deleted from the data object, the corresponding id from the idlist is removed as well; insertions are likewise performed in both the data object and the idlist.
+	The idlist contains numbers, zero for data objects that are not visually displayed on the canvas and locally unique non-zero numbers otherwise.
+
+	When a data object is identified through its treepath, the id is extracted and the id's position is sought in the idlist.
+	The id's position in the idlist is the element's index for the snaccpath.
+    \end{itemize}
+
+    The treepath is used to build the names of widgets that display a PDU's structure and content portions.
+  \item
+    The node labels and lines for the edges are canvas items, no full fledged widgets.
+    Canvas items can be given tags for identification purposes; the tags of an item are an ordered Tcl list.
+    Canvas items have a locally unique id, but as different items can have the same tag, item groups can be identified.
+
+    Since all tags form an ordered Tcl list, individual items can be addressed:\\
+    {\Tcl [lindex [\$canvas gettags \$id] \$index]}\\
+    SnaccEd uses this mechanism to translate button clicks into paths: when a canvas item is clicked at, the canvas makes this item ``current'' and\\
+    {\Tcl [\$canvas find withtag current]}\\
+    returns the item's id.
+    The id is then used as described above to retrieve the tag list.
+
+    The canvas line items that are used as edges get no tags.
+
+    The canvas text items that make up the node labels and the canvas window items that contain the content editors get three tags.
+    The three tags are ordered from most general to most specific:
+    \begin{enumerate}\setcounter{enumi}{-1}%
+      \item
+	For node labels this tag has the form \emph{validity}-label.
+	The validity is either ``valid'' or ``void''.
+	Absent OPTIONAL components are ``void''.
+	Active node labels get the tag ``valid-label''.
+	In the procedure {\Tcl new\_file} this tag is used to bind the three pointer button events to the callback procedures {\Tcl prune\_or\_add\_children}, {\Tcl toggle\_editor} and {\Tcl set\_or\_add\_root}, respectively.
+
+	For content editors this tag is simply ``edit'', because content editors can only be opened for valid nodes and therefore the validity would be redundant.
+      \item
+	This tag is the treepath.
+	It is the same for all canvas items for this node: the label and possibly the content editor.
+	This is the tag that is given to the tree widget.
+	The tree widget handles all canvas items with the same tag as a group: it uses their bounding box to calculate the tree layout and it keeps the relative distances of the group's items so that their internal layout persists any change in the tree's layout.
+      \item
+	This tag is a combination of the other two tags: it is the treepath, a colon and either ``label'' or ``edit''.
+	This tag is the most specific and it is used to address the individual canvas item, for example to check for a content editors existence.
+	No two items have the same value of this tag.
+    \end{enumerate}
+  \item
+    Content editors are not simple canvas items.
+    They are build from one or more widgets and this widget tree is put into a canvas window item.
+    The widgets have names of the form {\Tcl \$canvas.edit\$treepath}.
+    The leading \$canvas is the name of the canvas widget.
+    Widget names starting with that name are descendants of the canvas, here they are children.
+    The trailing \$treepath does not contain any dots and therefore Tk understands edit\$treepath as a single node in the widget tree.
+  \item
+    Most of the content editors modify a global variable, for example the entry widgets for INTEGER types or the radiobuttons for ENUMERATED types.
+    The variable's name is the simple composition {\Tcl var:\$treepath} that guarantees its uniqueness.
+
+    SET and SEQUENCE types need a variable for each of their components: the component's name gets tacked to the end which yields {\Tcl var:\$treepath:\$name}.
+
+    Named bits of BIT STRING types get similar variables, the bit value is put after the second colon.
+    The bits' toggle buttons operate on these variables.
+\end{itemize}
+
+\begin{figure}
+\begin{center}
+\includegraphics[scale=.6]{recur}
+\caption{`Recursive' data structures}
+\label{recursion}
+\end{center}
+\end{figure}
+
+When button~2 is clicked on a node label, the procedure {\Tcl toggle\_editor} gets called:
+\begin{itemize}
+  \item
+    checks whether the editor for the current node already exists.
+
+    If it does, the editor is deleted.
+
+    Otherwise, the editor is opened by creating a frame widget that is filled with an appropiate set of subwidgets.
+    The editor is supplied with the corresponding content portion from the ASN.1 file and a number of event bindings is installed that let the user modify the contents.
+    The frame is placed at the right place below the node name and the tree widget is called to adjust the layout.
+    Most of the changes to nodes containing simple ASN.1 types are detected using Tcl's trace mechanism.
+    For example, the entry widget for an INTEGER modifies a global variable.
+    The trace procedure that gets called upon every modification computes the snaccpath from the variable's name and modifies the ASN.1 file accordingly.
+    The only ASN.1 simple type that makes an exception to the rule is OCTET STRING.
+    Text widgets do not modify global variables and even if they did, copying the string back to the Snacc object for every key stroke is a waste of CPU time.
+    The text widget's contents is written back to the octet string when the widget receives a leave window event or, since Tk uses explicit focus (click-to-focus instead of focus-follows-pointer) and thus the widget's contents may be changed even after the pointer has left the window, it receives a focus out event.
+
+    The structured ASN.1 types are modified explicitly, i.e. through button clicks.
+    The components are modified using their natural GUI counterparts.
+    \begin{itemize}
+      \item OPTIONAL members of SET and SEQUENCE types are allocated and deallcated by clicking on a checkbutton.
+      \item CHOICE members are selected by clicking on a radiobutton.
+      \item SET OF and SEQUENCE OF types are implemented as list and SnaccEd displays them using a list widget.
+	(This is not actually true.
+	Since the listbox widget allows only single selection or selection of multiple but contiguous entries, I replaced it with a text widget and with some event bindings and a tag for the selected items made it behave like a listbox widget with multiple selection.
+	A patch to the Tk~3.6 code that implements non-contiguous selections exists, but I didn't want to enforce the trouble of getting, patching and installing the Tk library again on anyone.)
+    \end{itemize}
+\end{itemize}
+
+set\_or\_add\_root:
+
+When button~3 has been clicked on a node label, the callback procedure {\Tcl set\_or\_add\_root} will be called.
+
+\begin{itemize}
+  \item
+    The procedure checks whether the node that has been clicked at is the file's toplevel node.
+    In this case nothing can be done because there is no parent that could be shown or hidden.
+  \item
+    Otherwise, the routine checks whether the clicked node is currently displayed as the subtree's root.
+    In this case both the node's parent and grand parent are calculated.
+    The grand parent is not displayed, it merely corresponds to the tree widgets invisible root.
+    The parent is displayed by adding the node to the invisible grand parent.
+    The old root node and its siblings are aded by calling the {\Tcl ed\_expand} procedure.
+    {\Tcl ed\_expand} in turn calls {\Tcl ed\_addnode} for all the parent's children.
+    {\Tcl ed\_addnode} checks whether the node is already present on the canvas.
+    For the old root node this check yields true and the routine simply moves the node and all its descendants to below the new root node.
+    All other nodes are created as usually done when clicking on button~1.
+  \item
+    Otherwise, the node that has been clicked is to be shown as root.
+    This is simple: just tell the tree widget to display the node as root.
+    The tree widget removes everything else that does not belong to the subtree and calls the remove callback procedures for all these items.
+    The remove callback procedure is installed when a content editor is opened and is used to destroy the content editor frame widget and its subwidgets.
+\end{itemize}
+
+selbox:
+
+The file-and-content-type-selection-box (short: selbox) serves different purposes.
+The selbox contains three parts: a file name selection, a content type selection and a button row.
+One of the two selection parts can be disabled (it will not even been shown).
+In figure~\ref{selbox-pic} on page~\pageref{selbox-pic} both parts are visible.
+
+Both selections are necessary if a user wants to open a file.
+The user is the only one to know which of the PDU types is contained in the file.
+
+Only the file selection is necessary to implement the usual ``Save As\dots'' functionality where the content type is already known.
+
+Only the content type selection is needed when the program wants the user to create a new file without giving it an external file name.
+SnaccEd currently has no such function.
+Instead, if a user upon opening a file does not select a file name, an internal file without an external file name gets created.
+
+The selection box is implemented in the file {\ufn \dots/tcl-lib/selbox.tcl}.
+In this file, every procedure name starts with the prefix {\Tcl selbox\_} (except for the main entry point, {\Tcl selbox}).
+
+If the selbox was made non-modal, it would not break, because each individual selbox widget gets its own widget tree and all its status variables are put into a uniquely named array variable.
+The code that generates the names is similar to the example on page~\pageref{tcl-name-space-example-code}.

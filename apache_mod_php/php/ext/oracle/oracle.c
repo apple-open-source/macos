@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -24,6 +24,10 @@
    call. */
  
 #define HAS_OLOG 1
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -1691,20 +1695,18 @@ int ora_set_param_values(oraCursor *cursor, int isout)
 	}
 
 	for(i = 0; i < cursor->nparams; i++, zend_hash_move_forward(cursor->params)){
-		if(zend_hash_get_current_key(cursor->params, &paramname, NULL) != HASH_KEY_IS_STRING){
+		if(zend_hash_get_current_key(cursor->params, &paramname, NULL, 0) != HASH_KEY_IS_STRING){
 			php_error(E_WARNING, "Can't get parameter name");
 			return 0;
 		}
 
 		if(zend_hash_get_current_data(cursor->params, (void **)&param) == FAILURE){
 			php_error(E_WARNING, "Can't get parameter data");
-			efree(paramname);
 			return 0;
 		}
 
 		if(isout){
 			SET_VAR_STRINGL(paramname, estrdup(param->progv), strlen(param->progv));
-			efree(paramname);
 			continue;
 		}
 		
@@ -1712,7 +1714,6 @@ int ora_set_param_values(oraCursor *cursor, int isout)
 
 		if (zend_hash_find(&EG(symbol_table), paramname, strlen(paramname) + 1, (void **)&pdata) == FAILURE){
 			php_error(E_WARNING, "Can't find variable for parameter");
-			efree(paramname);
 			return 0;
 		}
 
@@ -1727,8 +1728,6 @@ int ora_set_param_values(oraCursor *cursor, int isout)
 
 		strncpy(param->progv, (*pdata)->value.str.val, len);
 		param->progv[len] = '\0';
-
-		efree(paramname);
 	}
 
 	return 1;

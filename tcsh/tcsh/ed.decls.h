@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.decls.h,v 1.1.1.1 1999/04/23 01:59:52 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.decls.h,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
 /*
  * ed.decls.h: Editor external definitions
  */
@@ -238,6 +238,8 @@ extern  CCRETVAL	e_copy_to_clipboard	__P((int));
 extern  CCRETVAL	e_paste_from_clipboard	__P((int));
 extern  CCRETVAL	e_dosify_next		__P((int));
 extern  CCRETVAL	e_dosify_prev		__P((int));
+extern  CCRETVAL	e_page_up			__P((int));
+extern  CCRETVAL	e_page_down			__P((int));
 
 /*
  * ed.inputl.c

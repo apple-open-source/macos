@@ -14,6 +14,7 @@
 
 #include "config.h"
 #include "fetchmail.h"
+#include "i18n.h"
 
 #define HEADER_END(p)	((p)[0] == '\n' && ((p)[1] != ' ' && (p)[1] != '\t'))
 
@@ -22,27 +23,27 @@ static int verbose;
 char *program_name = "rfc822";
 #endif /* TESTMAIN */
 
-char *reply_hack(buf, host)
+unsigned char *reply_hack(buf, host)
 /* hack message headers so replies will work properly */
-char *buf;		/* header to be hacked */
-const char *host;	/* server hostname */
+unsigned char *buf;		/* header to be hacked */
+const unsigned char *host;	/* server hostname */
 {
-    char *from, *cp, last_nws = '\0', *parens_from = NULL;
+    unsigned char *from, *cp, last_nws = '\0', *parens_from = NULL;
     int parendepth, state, has_bare_name_part, has_host_part;
 #ifndef TESTMAIN
     int addresscount = 1;
 #endif /* TESTMAIN */
 
-    if (strncasecmp("From: ", buf, 6)
-	&& strncasecmp("To: ", buf, 4)
-	&& strncasecmp("Reply-To: ", buf, 10)
-	&& strncasecmp("Return-Path: ", buf, 13)
-	&& strncasecmp("Cc: ", buf, 4)
-	&& strncasecmp("Bcc: ", buf, 5)
-	&& strncasecmp("Resent-From: ", buf, 13)
-	&& strncasecmp("Resent-To: ", buf, 11)
-	&& strncasecmp("Resent-Cc: ", buf, 11)
-	&& strncasecmp("Resent-Bcc: ", buf, 12)
+    if (strncasecmp("From:", buf, 5)
+	&& strncasecmp("To:", buf, 3)
+	&& strncasecmp("Reply-To:", buf, 9)
+	&& strncasecmp("Return-Path:", buf, 12)
+	&& strncasecmp("Cc:", buf, 3)
+	&& strncasecmp("Bcc:", buf, 4)
+	&& strncasecmp("Resent-From:", buf, 12)
+	&& strncasecmp("Resent-To:", buf, 10)
+	&& strncasecmp("Resent-Cc:", buf, 10)
+	&& strncasecmp("Resent-Bcc:", buf, 11)
 	&& strncasecmp("Apparently-From:", buf, 16)
 	&& strncasecmp("Apparently-To:", buf, 14)
 	&& strncasecmp("Sender:", buf, 7)
@@ -53,13 +54,13 @@ const char *host;	/* server hostname */
 
 #ifndef TESTMAIN
     if (outlevel >= O_DEBUG)
-	report_build(stdout, "About to rewrite %s", buf);
+	report_build(stdout, _("About to rewrite %s"), buf);
 
     /* make room to hack the address; buf must be malloced */
     for (cp = buf; *cp; cp++)
 	if (*cp == ',' || isspace(*cp))
 	    addresscount++;
-    buf = (char *)xrealloc(buf, strlen(buf) + addresscount * strlen(host) + 1);
+    buf = (unsigned char *)xrealloc(buf, strlen(buf) + addresscount * strlen(host) + 1);
 #endif /* TESTMAIN */
 
     /*
@@ -80,10 +81,12 @@ const char *host;	/* server hostname */
 	}
 #endif /* TESTMAIN */
 	if (state != 2)
+	{
 	    if (*from == '(')
 		++parendepth;
 	    else if (*from == ')')
 		--parendepth;
+	}
 
 	if (!parendepth && !has_host_part)
 	    switch (state)
@@ -98,7 +101,7 @@ const char *host;	/* server hostname */
 		    last_nws = *from;
 		if (*from == '<')
 		    state = 3;
-		else if (*from == '@')
+		else if (*from == '@' || *from == '!')
 		    has_host_part = TRUE;
 		else if (*from == '"')
 		    state = 2;
@@ -113,7 +116,7 @@ const char *host;	/* server hostname */
 			 && last_nws != ';')
 		{
 		    int hostlen;
-		    char *p;
+		    unsigned char *p;
 
 		    p = from;
 		    if (parens_from)
@@ -142,11 +145,20 @@ const char *host;	/* server hostname */
 
 	    case 2:	/* we're in a string */
 		if (*from == '"')
-		    state = 1;
+		{
+		    char	*bp;
+		    int		bscount;
+
+		    bscount = 0;
+		    for (bp = from - 1; *bp == '\\'; bp--)
+			bscount++;
+		    if (!(bscount % 2))
+			state = 1;
+		}
 		break;
 
 	    case 3:	/* we're in a <>-enclosed address */
-		if (*from == '@')
+		if (*from == '@' || *from == '!')
 		    has_host_part = TRUE;
 		else if (*from == '>' && from[-1] != '<')
 		{
@@ -178,20 +190,21 @@ const char *host;	/* server hostname */
 
 #ifndef TESTMAIN
     if (outlevel >= O_DEBUG)
-	report_complete(stdout, "Rewritten version is %s\n", buf);
+	report_complete(stdout, _("Rewritten version is %s\n"), buf);
 #endif /* TESTMAIN */
     return(buf);
 }
 
-char *nxtaddr(hdr)
+unsigned char *nxtaddr(hdr)
 /* parse addresses in succession out of a specified RFC822 header */
-const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
+const unsigned char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 {
-    static char *tp, address[POPBUFSIZE+1];
-    static const char *hp;
+    static unsigned char address[POPBUFSIZE+1];
+    static int tp;
+    static const unsigned char *hp;
     static int	state, oldstate;
 #ifdef TESTMAIN
-    static const char *orighdr;
+    static const unsigned char *orighdr;
 #endif /* TESTMAIN */
     int parendepth = 0;
 
@@ -203,6 +216,8 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 #define INSIDE_BRACKETS	5	/* inside bracketed address */
 #define ENDIT_ALL	6	/* after last address */
 
+#define NEXTTP()	((tp < sizeof(address)-1) ? tp++ : tp)
+
     if (hdr)
     {
 	hp = hdr;
@@ -210,7 +225,7 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 #ifdef TESTMAIN
 	orighdr = hdr;
 #endif /* TESTMAIN */
-	tp = address;
+	tp = 0;
     }
 
     for (; *hp; hp++)
@@ -228,20 +243,22 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 	else if (HEADER_END(hp))
 	{
 	    state = ENDIT_ALL;
-	    if (tp > address)
+	    if (tp)
 	    {
-		while (isspace(*--tp))
+		while (isspace(address[--tp]))
 		    continue;
-		*++tp = '\0';
+		address[++tp] = '\0';
+		tp = 0;
+		return (address);
 	    }
-	    return(tp > address ? (tp = address) : (char *)NULL);
+	    return((unsigned char *)NULL);
 	}
 	else if (*hp == '\\')		/* handle RFC822 escaping */
 	{
 	    if (state != INSIDE_PARENS)
 	    {
-		*tp++ = *hp++;			/* take the escape */
-		*tp++ = *hp;			/* take following char */
+		address[NEXTTP()] = *hp++;	/* take the escape */
+		address[NEXTTP()] = *hp;	/* take following unsigned char */
 	    }
 	}
 	else switch (state)
@@ -256,7 +273,7 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 	    {
 		oldstate = SKIP_JUNK;
 	        state = INSIDE_DQUOTE;
-		*tp++ = *hp;
+		address[NEXTTP()] = *hp;
 	    }
 	    else if (*hp == '(')	/* address comment -- ignore */
 	    {
@@ -267,7 +284,7 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 	    else if (*hp == '<')	/* begin <address> */
 	    {
 		state = INSIDE_BRACKETS;
-		tp = address;
+		tp = 0;
 	    }
 	    else if (*hp != ',' && !isspace(*hp))
 	    {
@@ -279,11 +296,12 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 	case BARE_ADDRESS:   	/* collecting address without delimiters */
 	    if (*hp == ',')  	/* end of address */
 	    {
-		if (tp > address)
+		if (tp)
 		{
-		    *tp++ = '\0';
+		    address[NEXTTP()] = '\0';
 		    state = SKIP_JUNK;
-		    return(tp = address);
+		    tp = 0;
+		    return(address);
 		}
 	    }
 	    else if (*hp == '(')  	/* beginning of comment */
@@ -295,18 +313,18 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 	    else if (*hp == '<')  	/* beginning of real address */
 	    {
 		state = INSIDE_BRACKETS;
-		tp = address;
+		tp = 0;
 	    }
 	    else if (!isspace(*hp)) 	/* just take it, ignoring whitespace */
-		*tp++ = *hp;
+		address[NEXTTP()] = *hp;
 	    break;
 
 	case INSIDE_DQUOTE:	/* we're in a quoted string, copy verbatim */
 	    if (*hp != '"')
-	        *tp++ = *hp;
+	        address[NEXTTP()] = *hp;
 	    else
 	    {
-	        *tp++ = *hp;
+	        address[NEXTTP()] = *hp;
 		state = oldstate;
 	    }
 	    break;
@@ -323,21 +341,22 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 	case INSIDE_BRACKETS:	/* possible <>-enclosed address */
 	    if (*hp == '>')	/* end of address */
 	    {
-		*tp++ = '\0';
+		address[NEXTTP()] = '\0';
 		state = SKIP_JUNK;
 		++hp;
-		return(tp = address);
+		tp = 0;
+		return(address);
 	    }
 	    else if (*hp == '<')	/* nested <> */
-	        tp = address;
+	        tp = 0;
 	    else if (*hp == '"')	/* quoted address */
 	    {
-	        *tp++ = *hp;
+	        address[NEXTTP()] = *hp;
 		oldstate = INSIDE_BRACKETS;
 		state = INSIDE_DQUOTE;
 	    }
 	    else			/* just copy address */
-		*tp++ = *hp;
+		address[NEXTTP()] = *hp;
 	    break;
 	}
     }
@@ -346,9 +365,9 @@ const char *hdr;	/* header to be parsed, NUL to continue previous hdr */
 }
 
 #ifdef TESTMAIN
-static void parsebuf(char *longbuf, int reply)
+static void parsebuf(unsigned char *longbuf, int reply)
 {
-    char	*cp;
+    unsigned char	*cp;
 
     if (reply)
     {
@@ -356,19 +375,19 @@ static void parsebuf(char *longbuf, int reply)
 	printf("Rewritten buffer: %s", longbuf);
     }
     else
-	if ((cp = nxtaddr(longbuf)) != (char *)NULL)
+	if ((cp = nxtaddr(longbuf)) != (unsigned char *)NULL)
 	    do {
 		printf("\t-> \"%s\"\n", cp);
 	    } while
-		((cp = nxtaddr((char *)NULL)) != (char *)NULL);
+		((cp = nxtaddr((unsigned char *)NULL)) != (unsigned char *)NULL);
 }
 
 
 
 main(int argc, char *argv[])
 {
-    char	buf[MSGBUFSIZE], longbuf[BUFSIZ];
-    int		ch, reply;
+    unsigned char	buf[MSGBUFSIZE], longbuf[BUFSIZ];
+    int			ch, reply;
     
     verbose = reply = FALSE;
     while ((ch = getopt(argc, argv, "rv")) != EOF)

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.1.1.3 2001/01/25 05:00:25 wsanchez Exp $ */
+/* $Id: php_main.h,v 1.1.1.4 2001/07/19 00:20:38 zarzycki Exp $ */
 
 
 #ifndef PHP_MAIN_H
@@ -52,5 +52,9 @@ extern void php_call_shutdown_functions(void);
 /* environment module */
 extern int php_init_environ(void);
 extern int php_shutdown_environ(void);
+
+#if defined(MBSTR_ENC_TRANS)
+#define php_treat_data mbstr_treat_data
+#endif
 
 #endif

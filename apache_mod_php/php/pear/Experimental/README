@@ -1,0 +1,21 @@
+WARNING
+
+  This code is experimental! No docs, no support but discussion 
+  on the pear list!
+  
+What's this?  
+
+  If you're working on new PEAR contributions and your code is 
+  finished for _90%_ or you plan to finish it _within a month_
+  you may check it in to this directory. This allows you to continue 
+  your work using the PEAR infrastructure: CVS, mailinglist (discussion).
+  As soon as the code is on production level remove it from this
+  directory.
+  
+  Always remember: Your code ships with every PHP 4 distribution so
+  don't put it here for ages.
+  
+Directory structure
+
+  Please use a directory structure like in the main PEAR directory. 
+  If you have a new menu class, put it in Experimental/Html/.    

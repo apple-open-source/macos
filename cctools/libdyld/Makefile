@@ -1,5 +1,13 @@
 PROFILING = -DDYLD_PROFILING
 OFLAG = -O
+ifeq "macos" "$(RC_OS)"
+  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
+			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
+			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
+			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
+	     echo -Wno-long-double ; \
+	     fi; )
+endif
 MIG = $(NEXT_ROOT)/usr/bin/mig
 ifneq "mwcc" "$(notdir $(CC))"
   MIG_FLAGS = $(PROFILING)
@@ -9,7 +17,7 @@ ifeq "mwcc" "$(notdir $(CC))"
   CFLAGS = $(PROFILING) $(OFLAG) -g \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -I$(SRCROOT)/../dyld
 else
-  CFLAGS = $(PROFILING) $(OFLAG) -g -Wall -Wno-precomp \
+  CFLAGS = $(PROFILING) $(OFLAG) -g -Wall -Wno-precomp  $(X_CFLAGS) \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -I$(SRCROOT)/../dyld
 endif
 

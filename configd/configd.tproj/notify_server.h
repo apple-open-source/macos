@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _S_NOTIFY_SERVER_H
 #define _S_NOTIFY_SERVER_H
 
@@ -28,7 +38,7 @@
 
 __BEGIN_DECLS
 
-boolean_t	notify_server	__P((mach_msg_header_t *request, mach_msg_header_t *reply));
+boolean_t	notify_server	(mach_msg_header_t *request, mach_msg_header_t *reply);
 
 __END_DECLS
 

@@ -16,10 +16,10 @@ char * stat_msg[] =
 	"Rebuilding Catalog B-tree.",
 	"Rebuilding Extended Attributes B-tree.",
 	"Repairing volume.",
-	"The volume “%s” needs to be repaired.",
-	"The volume “%s” appears to be OK.",
-	"The volume “%s” was repaired successfully.",
-	"The volume “%s” could not be repaired."
+	"The volume %s needs to be repaired.",
+	"The volume %s appears to be OK.",
+	"The volume %s was repaired successfully.",
+	"The volume %s could not be repaired."
 };
 
 
@@ -27,8 +27,8 @@ char * stat_msg[] =
 char * err_msg[] =
 {
 	/* 500 - 509 */
-	"Incorrect block count for file “%s”",
-	"Incorrect size for file “%s”",
+	"Incorrect block count for file %s",
+	"Incorrect size for file %s",
 	"Invalid directory item count",
 	"Invalid file name",
 	"Invalid node height",

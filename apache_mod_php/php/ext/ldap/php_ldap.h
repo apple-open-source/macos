@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ldap.h,v 1.1.1.3 2001/01/25 04:59:27 wsanchez Exp $ */
+/* $Id: php_ldap.h,v 1.1.1.4 2001/07/19 00:19:21 zarzycki Exp $ */
 
 #ifndef PHP_LDAP_H
 #define PHP_LDAP_H
@@ -84,6 +84,11 @@ PHP_FUNCTION(ldap_compare);
 #if ( LDAP_API_VERSION > 2000 ) || HAVE_NSLDAP
 PHP_FUNCTION(ldap_get_option);
 PHP_FUNCTION(ldap_set_option);
+PHP_FUNCTION(ldap_parse_result);
+PHP_FUNCTION(ldap_first_reference);
+PHP_FUNCTION(ldap_next_reference);
+PHP_FUNCTION(ldap_parse_reference);
+PHP_FUNCTION(ldap_rename);
 #endif
 
 #ifdef STR_TRANSLATION

@@ -3,7 +3,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.1.1.1 2001/01/25 05:01:00 wsanchez Exp $ */
+/* $Id: zend_ini_parser.y,v 1.1.1.2 2001/07/19 00:21:27 zarzycki Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.dol.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.dol.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
 /*
  * sh.dol.c: Variable substitutions
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.dol.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $")
+RCSID("$Id: sh.dol.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $")
 
 /*
  * C shell
@@ -110,6 +110,11 @@ Dfix(t)
     /* Note that t_dcom isn't trimmed thus !...:q's aren't lost */
     for (pp = t->t_dcom; (p = *pp++) != NULL;) {
 	for (; *p; p++) {
+#ifdef DSPMBYTE
+	    if (Ismbyte1(*p) && *(p + 1))
+		p ++;
+	    else
+#endif DSPMBYTE
 	    if (cmap(*p, _DOL | QUOTES)) {	/* $, \, ', ", ` */
 		Dfix2(t->t_dcom);	/* found one */
 		blkfree(t->t_dcom);
@@ -170,10 +175,29 @@ Dpack(wbuf, wp)
     Char   *wbuf, *wp;
 {
     register int c;
-    register int i = MAXWLEN - (wp - wbuf);
+    register int i = MAXWLEN - (int) (wp - wbuf);
+#if defined(DSPMBYTE)
+    int mbytepos = 1;
+#endif /* DSPMBYTE */
 
     for (;;) {
 	c = DgetC(DODOL);
+#if defined(DSPMBYTE)
+	if (mbytepos == 1 && Ismbyte1(c)) {
+	    /* An MB1 byte that may be followed by a MB2 byte */
+	    mbytepos = 2;
+	}
+	else {
+	    /* check if MB1 byte followed by an MB2 byte */
+	    if (mbytepos == 2 && Ismbyte2(c)) {
+		/* MB1 + MB2 make the character */
+		mbytepos = 1; /* reset */
+		goto mbyteskip;
+	    }
+	    mbytepos = 1; /* reset */
+	    /* wasn't followed, so the two bytes make two characters */
+	}
+#endif /* DSPMBYTE */
 	if (c == '\\') {
 	    c = DgetC(0);
 	    if (c == DEOF) {
@@ -201,6 +225,9 @@ Dpack(wbuf, wp)
 	    Gcat(STRNULL, wbuf);
 	    return (NULL);
 	}
+#if defined(DSPMBYTE)
+mbyteskip:
+#endif /* DSPMBYTE */
 	if (--i <= 0)
 	    stderror(ERR_WTOOLONG);
 	*wp++ = (Char) c;
@@ -308,9 +335,9 @@ Dword()
      * rewritten. Therefore, we can't just ignore it, DAS DEC-90.
      */
 		i = MAXWLEN;
-		i -= (wp - wbuf);
+		i -= (int) (wp - wbuf);
 #else /* !masscomp */
-		i = MAXWLEN - (wp - wbuf);
+		i = MAXWLEN - (int) (wp - wbuf);
 #endif /* masscomp */
 		done = 0;
 	    }
@@ -342,9 +369,9 @@ Dword()
      * rewritten. Therefore, we can't just ignore it, DAS DEC-90.
      */
 		i = MAXWLEN;
-		i -= (wp - wbuf);
+		i -= (int) (wp - wbuf);
 #else /* !masscomp */
-		i = MAXWLEN - (wp - wbuf);
+		i = MAXWLEN - (int) (wp - wbuf);
 #endif /* masscomp */
 		done = 0;
 	    }
@@ -990,7 +1017,7 @@ void
 heredoc(term)
     Char   *term;
 {
-    register int c;
+    int c;
     Char   *Dv[2];
     Char    obuf[BUFSIZE], lbuf[BUFSIZE], mbuf[BUFSIZE];
     int     ocnt, lcnt, mcnt;
@@ -998,7 +1025,11 @@ heredoc(term)
     Char  **vp;
     bool    quoted;
     char   *tmp;
+#ifndef WINNT_NATIVE
+    struct timeval tv;
 
+again:
+#endif /* WINNT_NATIVE */
     tmp = short2str(shtemp);
 #ifndef O_CREAT
 # define O_CREAT 0
@@ -1009,12 +1040,24 @@ heredoc(term)
 #ifndef O_TEMPORARY
 # define O_TEMPORARY 0
 #endif
-    if (open(tmp, O_RDWR|O_CREAT|O_TEMPORARY) < 0) {
-	int     oerrno = errno;
-
+#ifndef O_EXCL
+# define O_EXCL 0
+#endif
+    if (open(tmp, O_RDWR|O_CREAT|O_EXCL|O_TEMPORARY) == -1) {
+	int oerrno = errno;
+#ifndef WINNT_NATIVE
+	if (errno == EEXIST) {
+	    if (unlink(tmp) == -1) {
+		(void) gettimeofday(&tv, NULL);
+		shtemp = Strspl(STRtmpsh, putn((((int)tv.tv_sec) ^ 
+		    ((int)tv.tv_usec) ^ ((int)getpid())) & 0x00ffffff));
+	    }
+	    goto again;
+	}
+#endif /* WINNT_NATIVE */
 	(void) unlink(tmp);
 	errno = oerrno;
-	stderror(ERR_SYSTEM, tmp, strerror(errno));
+ 	stderror(ERR_SYSTEM, tmp, strerror(errno));
     }
     (void) unlink(tmp);		/* 0 0 inode! */
     Dv[0] = term;
@@ -1026,9 +1069,9 @@ heredoc(term)
     ocnt = BUFSIZE;
     obp = obuf;
     inheredoc = 1;
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     __dup_stdin = 1;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     for (;;) {
 	/*
 	 * Read up a line
@@ -1054,7 +1097,7 @@ heredoc(term)
 	 */
 	if (c < 0 || eq(lbuf, term)) {
 	    (void) write(0, short2str(obuf), (size_t) (BUFSIZE - ocnt));
-	    (void) lseek(0, 0l, L_SET);
+	    (void) lseek(0, (off_t) 0, L_SET);
 	    inheredoc = 0;
 	    return;
 	}

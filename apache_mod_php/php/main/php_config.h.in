@@ -131,6 +131,9 @@
 /* Define if you have the bzero function.  */
 #undef HAVE_BZERO
 
+/* Define if you have the chroot function.  */
+#undef HAVE_CHROOT
+
 /* Define if you have the chsize function.  */
 #undef HAVE_CHSIZE
 
@@ -167,6 +170,9 @@
 /* Define if you have the flock function.  */
 #undef HAVE_FLOCK
 
+/* Define if you have the fpclass function.  */
+#undef HAVE_FPCLASS
+
 /* Define if you have the fpresetsticky function.  */
 #undef HAVE_FPRESETSTICKY
 
@@ -175,6 +181,9 @@
 
 /* Define if you have the ftruncate function.  */
 #undef HAVE_FTRUNCATE
+
+/* Define if you have the gai_strerror function.  */
+#undef HAVE_GAI_STRERROR
 
 /* Define if you have the gcvt function.  */
 #undef HAVE_GCVT
@@ -206,6 +215,12 @@
 /* Define if you have the getpid function.  */
 #undef HAVE_GETPID
 
+/* Define if you have the getprotobyname function.  */
+#undef HAVE_GETPROTOBYNAME
+
+/* Define if you have the getprotobynumber function.  */
+#undef HAVE_GETPROTOBYNUMBER
+
 /* Define if you have the getpwnam function.  */
 #undef HAVE_GETPWNAM
 
@@ -218,6 +233,12 @@
 /* Define if you have the getrusage function.  */
 #undef HAVE_GETRUSAGE
 
+/* Define if you have the getservbyname function.  */
+#undef HAVE_GETSERVBYNAME
+
+/* Define if you have the getservbyport function.  */
+#undef HAVE_GETSERVBYPORT
+
 /* Define if you have the getsid function.  */
 #undef HAVE_GETSID
 
@@ -229,6 +250,9 @@
 
 /* Define if you have the gmtime_r function.  */
 #undef HAVE_GMTIME_R
+
+/* Define if you have the hstrerror function.  */
+#undef HAVE_HSTRERROR
 
 /* Define if you have the index function.  */
 #undef HAVE_INDEX
@@ -253,6 +277,9 @@
 
 /* Define if you have the link function.  */
 #undef HAVE_LINK
+
+/* Define if you have the localeconv function.  */
+#undef HAVE_LOCALECONV
 
 /* Define if you have the localtime_r function.  */
 #undef HAVE_LOCALTIME_R
@@ -341,6 +368,9 @@
 /* Define if you have the rename function.  */
 #undef HAVE_RENAME
 
+/* Define if you have the res_search function.  */
+#undef HAVE_RES_SEARCH
+
 /* Define if you have the rint function.  */
 #undef HAVE_RINT
 
@@ -412,6 +442,9 @@
 
 /* Define if you have the strcasecmp function.  */
 #undef HAVE_STRCASECMP
+
+/* Define if you have the strcoll function.  */
+#undef HAVE_STRCOLL
 
 /* Define if you have the strdup function.  */
 #undef HAVE_STRDUP
@@ -488,6 +521,9 @@
 /* Define if you have the <arpa/inet.h> header file.  */
 #undef HAVE_ARPA_INET_H
 
+/* Define if you have the <arpa/nameser.h> header file.  */
+#undef HAVE_ARPA_NAMESER_H
+
 /* Define if you have the <crypt.h> header file.  */
 #undef HAVE_CRYPT_H
 
@@ -545,6 +581,9 @@
 /* Define if you have the <pwd.h> header file.  */
 #undef HAVE_PWD_H
 
+/* Define if you have the <resolv.h> header file.  */
+#undef HAVE_RESOLV_H
+
 /* Define if you have the <sched.h> header file.  */
 #undef HAVE_SCHED_H
 
@@ -590,6 +629,9 @@
 /* Define if you have the <sys/mman.h> header file.  */
 #undef HAVE_SYS_MMAN_H
 
+/* Define if you have the <sys/mount.h> header file.  */
+#undef HAVE_SYS_MOUNT_H
+
 /* Define if you have the <sys/ndir.h> header file.  */
 #undef HAVE_SYS_NDIR_H
 
@@ -607,6 +649,9 @@
 
 /* Define if you have the <sys/statvfs.h> header file.  */
 #undef HAVE_SYS_STATVFS_H
+
+/* Define if you have the <sys/sysexits.h> header file.  */
+#undef HAVE_SYS_SYSEXITS_H
 
 /* Define if you have the <sys/time.h> header file.  */
 #undef HAVE_SYS_TIME_H
@@ -631,6 +676,9 @@
 
 /* Define if you have the <sys/wait.h> header file.  */
 #undef HAVE_SYS_WAIT_H
+
+/* Define if you have the <sysexits.h> header file.  */
+#undef HAVE_SYSEXITS_H
 
 /* Define if you have the <syslog.h> header file.  */
 #undef HAVE_SYSLOG_H
@@ -671,11 +719,8 @@
 /* Define if you have the m library (-lm).  */
 #undef HAVE_LIBM
 
-/* Define if you have the mcrypt library (-lmcrypt).  */
-#undef HAVE_LIBMCRYPT
-
-/* Define if you have the png library (-lpng).  */
-#undef HAVE_LIBPNG
+/* Define if you have the pam library (-lpam).  */
+#undef HAVE_LIBPAM
 
 /* Define if you have the resolv library (-lresolv).  */
 #undef HAVE_LIBRESOLV
@@ -688,9 +733,6 @@
 
 /* Define if you have the tiff library (-ltiff).  */
 #undef HAVE_LIBTIFF
-
-/* Define if you have the z library (-lz).  */
-#undef HAVE_LIBZ
 
 /* Whether you have AOLserver */
 #undef HAVE_AOLSERVER
@@ -807,12 +849,6 @@
 #undef HAVE_LIBNSL
 
 /*   */
-#undef HAVE_LIBCRYPT
-
-/* Whether you have bind */
-#undef HAVE_LIBBIND
-
-/*   */
 #undef HAVE_LIBSOCKET
 
 /*   */
@@ -861,18 +897,6 @@
 #undef in_addr_t
 
 /*   */
-#undef CONFIGURATION_FILE_PATH
-
-/*   */
-#undef USE_CONFIG_FILE
-
-/*   */
-#undef CONFIGURATION_FILE_PATH
-
-/*   */
-#undef USE_CONFIG_FILE
-
-/*   */
 #undef PHP_SAFE_MODE
 
 /*   */
@@ -911,6 +935,27 @@
 /* Whether you have dmalloc */
 #undef HAVE_DMALLOC
 
+/* Whether to use php streams */
+#undef HAVE_PHP_STREAM
+
+/*   */
+#undef HAVE_LIBCRYPT
+
+/*   */
+#undef HAVE_CRYPT
+
+/* Whether to build zlib as dynamic module */
+#undef COMPILE_DL_ZLIB
+
+/*   */
+#undef HAVE_ZLIB
+
+/*   */
+#undef HAVE_FOPENCOOKIE
+
+/*   */
+#undef COOKIE_IO_FUNCTIONS_T
+
 /* Whether you have aspell */
 #undef HAVE_ASPELL
 
@@ -927,7 +972,7 @@
 #undef HAVE_BZ2
 
 /* Whether to build bz2 as dynamic module */
-#undef COMPILE_DL_BZ
+#undef COMPILE_DL_BZ2
 
 /*   */
 #undef HAVE_CALENDAR
@@ -950,6 +995,12 @@
 /* Whether you have cpdflib */
 #undef HAVE_CPDFLIB
 
+/* Whether to build crack as dynamic module */
+#undef COMPILE_DL_CRACK
+
+/*   */
+#undef HAVE_CRACK
+
 /*   */
 #undef HAVE_CTYPE
 
@@ -968,28 +1019,22 @@
 /*   */
 #undef HAVE_MCK
 
-/* Whether you have mod_dav */
-#undef HAVE_MOD_DAV
+/*   */
+#undef HAVE_CYBERMUT
 
-/* Whether to build dav as dynamic module */
-#undef COMPILE_DL_DAV
-
-/* Whether you have mod_dav */
-#undef HAVE_MOD_DAV
-
-/* Whether you have mod_dav */
-#undef HAVE_MOD_DAV
+/* Whether to build cybermut as dynamic module */
+#undef COMPILE_DL_CYBERMUT
 
 /* Whether you have GDBM */
 #undef GDBM
 
+/*   */
+#undef NDBM
+
+/*   */
+#undef NDBM
+
 /* Whether you have NDBM */
-#undef NDBM
-
-/*   */
-#undef NDBM
-
-/*   */
 #undef NDBM
 
 /* Whether to build db as dynamic module */
@@ -1037,6 +1082,9 @@
 /* Whether to build dbase as dynamic module */
 #undef COMPILE_DL_DBASE
 
+/* Whether to build dbx as dynamic module */
+#undef COMPILE_DL_DBX
+
 /*   */
 #undef HAVE_DOMXML
 
@@ -1048,6 +1096,12 @@
 
 /* Whether to build exif as dynamic module */
 #undef COMPILE_DL_EXIF
+
+/* Whether you have FrontBase */
+#undef HAVE_FBSQL
+
+/* Whether to build fbsql as dynamic module */
+#undef COMPILE_DL_FBSQL
 
 /*   */
 #undef HAVE_FDFLIB
@@ -1073,68 +1127,17 @@
 /* Whether to build ftp as dynamic module */
 #undef COMPILE_DL_FTP
 
+/* Whether to build gd as dynamic module */
+#undef COMPILE_DL_GD
+
 /*   */
 #undef USE_GD_IMGSTRTTF
 
 /*   */
-#undef HAVE_LIBGD
+#undef USE_GD_IMGSTRTTF
 
 /*   */
-#undef HAVE_LIBGD13
-
-/*   */
-#undef HAVE_LIBGD15
-
-/*   */
-#undef HAVE_COLORCLOSESTHWB
-
-/*   */
-#undef HAVE_GDIMAGECOLORRESOLVE
-
-/*   */
-#undef HAVE_GD_PNG
-
-/*   */
-#undef HAVE_GD_GIF
-
-/*   */
-#undef HAVE_GD_WBMP
-
-/*   */
-#undef HAVE_GD_JPG
-
-/*   */
-#undef HAVE_GD_XPM
-
-/*   */
-#undef HAVE_LIBGD
-
-/*   */
-#undef HAVE_LIBGD13
-
-/*   */
-#undef HAVE_LIBGD15
-
-/*   */
-#undef HAVE_COLORCLOSESTHWB
-
-/*   */
-#undef HAVE_GDIMAGECOLORRESOLVE
-
-/*   */
-#undef HAVE_GD_PNG
-
-/*   */
-#undef HAVE_GD_GIF
-
-/*   */
-#undef HAVE_GD_WBMP
-
-/*   */
-#undef HAVE_GD_JPG
-
-/*   */
-#undef HAVE_GD_XPM
+#undef HAVE_LIBFREETYPE
 
 /*   */
 #undef HAVE_LIBTTF
@@ -1142,8 +1145,95 @@
 /*   */
 #undef HAVE_LIBT1
 
-/* Whether to build gd as dynamic module */
-#undef COMPILE_DL_GD
+/*   */
+#undef HAVE_LIBGD13
+
+/*   */
+#undef HAVE_LIBGD15
+
+/*   */
+#undef HAVE_GD_PNG
+
+/*   */
+#undef HAVE_GD_GIF
+
+/*   */
+#undef HAVE_GD_WBMP
+
+/*   */
+#undef HAVE_GD_JPG
+
+/*   */
+#undef HAVE_GD_XPM
+
+/*   */
+#undef HAVE_LIBGD20
+
+/*   */
+#undef HAVE_GD_IMAGESETTILE
+
+/*   */
+#undef HAVE_GD_IMAGESETBRUSH
+
+/*   */
+#undef HAVE_GD_STRINGFTEX
+
+/*   */
+#undef HAVE_COLORCLOSESTHWB
+
+/*   */
+#undef HAVE_GDIMAGECOLORRESOLVE
+
+/*   */
+#undef HAVE_GD_GIF_CTX
+
+/*   */
+#undef HAVE_LIBGD
+
+/*   */
+#undef HAVE_LIBGD
+
+/*   */
+#undef HAVE_LIBGD13
+
+/*   */
+#undef HAVE_LIBGD15
+
+/*   */
+#undef HAVE_GD_PNG
+
+/*   */
+#undef HAVE_GD_GIF
+
+/*   */
+#undef HAVE_GD_WBMP
+
+/*   */
+#undef HAVE_GD_JPG
+
+/*   */
+#undef HAVE_GD_XPM
+
+/*   */
+#undef HAVE_LIBGD20
+
+/*   */
+#undef HAVE_GD_IMAGESETTILE
+
+/*   */
+#undef HAVE_GD_IMAGESETBRUSH
+
+/*   */
+#undef HAVE_GD_STRINGFTEX
+
+/*   */
+#undef HAVE_COLORCLOSESTHWB
+
+/*   */
+#undef HAVE_GDIMAGECOLORRESOLVE
+
+/*   */
+#undef HAVE_GD_GIF_CTX
 
 /*   */
 #undef HAVE_LIBINTL
@@ -1175,6 +1265,15 @@
 /* Whether to build icap as dynamic module */
 #undef COMPILE_DL_ICAP
 
+/*   */
+#undef HAVE_ICONV
+
+/*   */
+#undef HAVE_ICONV
+
+/* Whether to build iconv as dynamic module */
+#undef COMPILE_DL_ICONV
+
 /* Whether to build imap as dynamic module */
 #undef COMPILE_DL_IMAP
 
@@ -1182,16 +1281,40 @@
 #undef HAVE_IMAP
 
 /*   */
-#undef HAVE_IFX
+#undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP_KRB
+
+/*   */
+#undef HAVE_IMAP_SSL
+
+/* Whether to build informix as dynamic module */
+#undef COMPILE_DL_INFORMIX
+
+/*   */
+#undef IFX_VERSION
 
 /*   */
 #undef HAVE_IFX_IUS
 
 /*   */
-#undef IFX_VERSION
-
-/* Whether to build informix as dynamic module */
-#undef COMPILE_DL_INFORMIX
+#undef HAVE_IFX
 
 /* Whether you have Ingres II */
 #undef HAVE_II
@@ -1205,7 +1328,10 @@
 /* Whether to build interbase as dynamic module */
 #undef COMPILE_DL_INTERBASE
 
-/*   */
+/* Whether thttpd is available */
+#undef IRCG_WITH_THTTPD
+
+/* Whether you want IRCG support */
 #undef HAVE_IRCG
 
 /* Whether to build ircg as dynamic module */
@@ -1230,16 +1356,19 @@
 #undef HAVE_NSLDAP
 
 /*   */
-#undef HAVE_NSLDAP
-
-/*   */
-#undef HAVE_NSLDAP
-
-/*   */
 #undef HAVE_ORALDAP
 
 /*   */
 #undef HAVE_LDAP
+
+/*   */
+#undef HAVE_MBSTRING
+
+/* Whether to build mbstring as dynamic module */
+#undef COMPILE_DL_MBSTRING
+
+/*   */
+#undef MBSTR_ENC_TRANS
 
 /*   */
 #undef HAVE_MCAL
@@ -1248,10 +1377,10 @@
 #undef COMPILE_DL_MCAL
 
 /*   */
-#undef HAVE_LIBMCRYPT22
+#undef HAVE_LIBMCRYPT24
 
 /*   */
-#undef HAVE_LIBMCRYPT24
+#undef HAVE_LIBMCRYPT22
 
 /*   */
 #undef HAVE_LIBMCRYPT
@@ -1266,6 +1395,18 @@
 #undef COMPILE_DL_MHASH
 
 /*   */
+#undef HAVE_MING
+
+/* Whether to build ming as dynamic module */
+#undef COMPILE_DL_MING
+
+/*   */
+#undef HAVE_MNOGOSEARCH
+
+/* Whether to build mnogosearch as dynamic module */
+#undef COMPILE_DL_MNOGOSEARCH
+
+/*   */
 #undef HAVE_MSQL
 
 /* Whether to build msql as dynamic module */
@@ -1276,6 +1417,15 @@
 
 /*   */
 #undef MSQL1
+
+/* Whether to build muscat as dynamic module */
+#undef COMPILE_DL_MUSCAT
+
+/*   */
+#undef HAVE_MUSCAT
+
+/*   */
+#undef PHP_MUSCAT_DIR
 
 /* Whether you have MySQL */
 #undef HAVE_MYSQL
@@ -1299,6 +1449,9 @@
 #undef HAVE_UINT
 
 /*   */
+#undef HAVE_INT_8_16_32
+
+/*   */
 #undef SOCKET_SIZE_TYPE
 
 /*   */
@@ -1308,7 +1461,10 @@
 #undef QSORT_TYPE_IS_VOID
 
 /*   */
-#undef HAVE_GLIBC2_STYLE_GETHOSTBYNAME_R
+#undef HAVE_GETHOSTBYNAME_R_GLIBC2_STYLE
+
+/*   */
+#undef HAVE_GETHOSTBYNAME_R_RETURN_INT
 
 /*   */
 #undef HAVE_NONPOSIX_PTHREAD_GETSPECIFIC
@@ -1324,6 +1480,12 @@
 
 /*   */
 #undef HAVE_NONPOSIX_SIGWAIT
+
+/*   */
+#undef MYSQL_UNIX_ADDR
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
 
 /* Whether to build oci8 as dynamic module */
 #undef COMPILE_DL_OCI8
@@ -1360,6 +1522,9 @@
 
 /*   */
 #undef HAVE_IBMDB2
+
+/*   */
+#undef HAVE_EMPRESS
 
 /*   */
 #undef HAVE_EMPRESS
@@ -1427,11 +1592,11 @@
 /*   */
 #undef HAVE_PDFLIB
 
-/* Whether to build pdf as dynamic module */
-#undef COMPILE_DL_PDF
-
 /*   */
 #undef HAVE_PDFLIB
+
+/* Version of SDK */
+#undef PFPRO_VERSION
 
 /*   */
 #undef HAVE_PFPRO
@@ -1475,8 +1640,20 @@
 /* Whether to build qtdom as dynamic module */
 #undef COMPILE_DL_QTDOM
 
+/* Wheter you have qtdom */
+#undef HAVE_QTDOM
+
+/* Whether to build qtdom as dynamic module */
+#undef COMPILE_DL_QTDOM
+
 /*   */
 #undef HAVE_LIBREADLINE
+
+/* Whether to build readline as dynamic module */
+#undef COMPILE_DL_READLINE
+
+/*   */
+#undef HAVE_LIBEDIT
 
 /* Whether to build readline as dynamic module */
 #undef COMPILE_DL_READLINE
@@ -1487,11 +1664,17 @@
 /* Whether to build recode as dynamic module */
 #undef COMPILE_DL_RECODE
 
-/*   */
-#undef HAVE_SABLOT
-
 /* Whether to build sablot as dynamic module */
 #undef COMPILE_DL_SABLOT
+
+/*   */
+#undef HAVE_LIBEXPAT2
+
+/*   */
+#undef HAVE_SABLOT_SET_ENCODING
+
+/*   */
+#undef HAVE_SABLOT
 
 /* CORBA support enabled via Satellite */
 #undef HAVE_SATELLITE
@@ -1547,6 +1730,9 @@
 /* Whether the system supports BlowFish salt */
 #undef PHP_BLOWFISH_CRYPT
 
+/* Define if flush should be called explicitly after a buffered io. */
+#undef HAVE_FLUSHIO
+
 /* Whether to build standard as dynamic module */
 #undef COMPILE_DL_STANDARD
 
@@ -1564,6 +1750,15 @@
 
 /*   */
 #undef HAVE_SYBASE
+
+/*   */
+#undef PHP_SYBASE_DBOPEN
+
+/*   */
+#undef DBMFIX
+
+/*   */
+#undef PHP_SYBASE_DBOPEN
 
 /* Whether to build sybase_ct as dynamic module */
 #undef COMPILE_DL_SYBASE_CT
@@ -1589,17 +1784,50 @@
 /* Whether to build sysvshm as dynamic module */
 #undef COMPILE_DL_SYSVSHM
 
+/* Whether you have vpopmail */
+#undef HAVE_VPOPMAIL
+
+/* vpopmail bin path */
+#undef VPOPMAIL_BIN_DIR
+
+/* Whether to build vpopmail as dynamic module */
+#undef COMPILE_DL_VPOPMAIL
+
 /*   */
 #undef HAVE_WDDX
 
 /* Whether to build wddx as dynamic module */
 #undef COMPILE_DL_WDDX
 
+/* Whether to build xml as dynamic module */
+#undef COMPILE_DL_XML
+
 /*   */
 #undef HAVE_LIBEXPAT
 
 /* Whether to build xml as dynamic module */
 #undef COMPILE_DL_XML
+
+/*   */
+#undef HAVE_LIBEXPAT
+
+/* Whether external expat libs are used */
+#undef HAVE_LIBEXPAT2
+
+/* Whether to build xslt as dynamic module */
+#undef COMPILE_DL_XSLT
+
+/*   */
+#undef HAVE_LIBEXPAT2
+
+/*   */
+#undef HAVE_SABLOT_BACKEND
+
+/*   */
+#undef HAVE_SABLOT_SET_ENCODING
+
+/*   */
+#undef HAVE_XSLT
 
 /* Whether you have YAZ */
 #undef HAVE_YAZ
@@ -1615,18 +1843,6 @@
 
 /*   */
 #undef SOLARIS_YP
-
-/* Whether to build zlib as dynamic module */
-#undef COMPILE_DL_ZLIB
-
-/*   */
-#undef HAVE_ZLIB
-
-/*   */
-#undef HAVE_FOPENCOOKIE
-
-/*   */
-#undef COOKIE_IO_FUNCTIONS_T
 
 /* Whether to build zziplib as dynamic module */
 #undef COMPILE_DL_ZZIPLIB
@@ -1706,6 +1922,10 @@
 # include <sys/types.h>
 #endif
 
+#ifdef HAVE_IEEEFP_H
+# include <ieeefp.h>
+#endif
+
 #ifdef HAVE_STRING_H
 # include <string.h>
 #else
@@ -1724,6 +1944,8 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #define zend_isnan(a) isnan(a)
 #elif defined(NAN)
 #define zend_isnan(a) (((a)==NAN)?1:0)
+#elif defined(HAVE_FPCLASS)
+#define zend_isnan(a) ((fpclass(a) == FP_SNAN) || (fpclass(a) == FP_QNAN))
 #else
 #define zend_isnan(a) 0
 #endif
@@ -1733,6 +1955,8 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #elif defined(INFINITY)
 /* Might not work, but is required by ISO C99 */
 #define zend_isinf(a) (((a)==INFINITY)?1:0)
+#elif defined(HAVE_FPCLASS)
+#define zend_isinf(a) ((fpclass(a) == FP_PINF) || (fpclass(a) == FP_NINF))
 #else
 #define zend_isinf(a) 0
 #endif

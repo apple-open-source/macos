@@ -1,0 +1,105 @@
+% file: .../doc/coding.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/coding.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: coding.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:52  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:48  rj
+% first check-in
+%
+
+\chapter{\label{coding-tricks}Coding Tricks For Readability}
+
+\index{ANSI C}
+\index{K&R C}
+\index{PROTO}
+\index{PARAM}
+\index{COMMA}
+
+One of our project partners needed some additional function arguments and so they duplicated the function declarator and put a preprocessor switch around it.
+The metacode and the Tcl interface added some additional compilation conditions.
+Since the Tcl interface is only useful on top of the metacode, there are six different combinations instead of eight.
+Even these six combinations would have made the code very ugly.
+Please decide for yourself, here is an example with an example function with only up to four arguments, {\C PrintCxxCode()} has up to 17 arguments.
+
+\begin{Ccode}
+static void\\
+\#if A\\
+FunctionName PARAMS ((a, b),\\
+  \>TypeA a \_AND\_\\
+  \>TypeB b)\\
+\#if B\\
+FunctionName PARAMS ((a, b, c),\\
+  \>TypeA a \_AND\_\\
+  \>TypeB b \_AND\_\\
+  \>TypeC c)\\
+\#if C\\
+FunctionName PARAMS ((a, b, c, d),\\
+  \>TypeA a \_AND\_\\
+  \>TypeB b \_AND\_\\
+  \>TypeC c \_AND\_\\
+  \>TypeD d)\\
+\#endif\\
+\#endif\\
+\#else\\
+FunctionName PARAMS ((b),\\
+  \>TypeB b)\\
+\#if B\\
+FunctionName PARAMS ((b, c),\\
+  \>TypeB b \_AND\_\\
+  \>TypeC c)\\
+\#if C\\
+FunctionName PARAMS ((b, c, d),\\
+  \>TypeB b \_AND\_\\
+  \>TypeC c \_AND\_\\
+  \>TypeD d)\\
+\#endif\\
+\#endif\\
+\#endif
+\end{Ccode}
+
+Here is the code after introduction of my shorthand:
+
+\begin{Ccode}
+static void\\
+FunctionName PARAMS ((if\_A (a COMMA) b if\_C (COMMA c) if\_D (COMMA d)),\\
+  \>if\_A (TypeA a \_AND\_)\\
+  \>TypeB b\\
+  \>if\_C (\_AND\_ TypeC c)\\
+  \>if\_D (\_AND\_ TypeD d))
+\end{Ccode}
+
+The tricks are very simple.
+One is the {\C if\_\dots} macro
+
+\begin{Ccode}
+\#if A\\
+\#define if\_A( code)			\>\>\>code\\
+\#else\\
+\#define if\_A( code)
+\#endif
+\end{Ccode}
+
+that lets us get rid of at least four lines of code for every invocation, and the other trick is the {\C COMMA} macro
+
+\begin{Ccode}
+\#define COMMA \>\>\>,
+\end{Ccode}
+
+that makes the arguments to the {\C if\_\dots{}} macros look like a single argument.
+Without this trick, 
+
+The other trick, of course is the {\C if\_\dots{}} macro itself.
+The {\C if\_\dots{}} macros have to expand into code without brackets, for example {\C if\_A (a COMMA b)} exands into {\C a, b}.
+The {\C COMMA} is not my invention, snacc's {\C \_AND\_} macro is exactly the same.
+Both {\C \_AND\_} and {\C COMMA} serve the purpose of being a comma (``,'') as the final result (well, only for ANSI C, for K\&R C, the {\C \_AND\_} becomes a semicolon), but without being an argument separator to the C preprocessor.
+The {\C PROTO} macro that was already present in snacc 1.1 gets a single argument as well, but by means of additional parenthesis, inside which commas can savely be used.
+It expands into code with brackets around it: {\C PROTO ((int a, char~*b))} expands into {\C (int a, char~*b)}.
+The first argument to the {\C PARAM} macro is bracketed list as well, and for the arguments purpose, to be a function argument list, this is fine.
+
+To have both an ANSI C and a K\&R C version, without {\C PROTO}, {\C PARAMS} and supporting macros, twelve conditional code compilations would have to be written out instead of one!
+And what a tedious job to maintain all twelve versions!

@@ -4134,6 +4134,21 @@ throw_helper (eh, pc, my_udata, offset_p)
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	    if (i != udata->retaddr_column && udata->saved[i])
 	      {
+
+#ifdef TARGET_EH_REG_SET_P
+		/* Altivec VRsave register needs special treatment as just
+		   copying it up to the caller's frame won't do (for example,
+		   the caller may not have a stack slot for it.)  */
+
+		if (TARGET_EH_REG_SET_P (i))
+		  {
+		    /* Just immediately set it.  */
+
+		    DO_TARGET_EH_REG_SET (i, get_reg_addr (i, udata, 0));
+
+		    continue;
+		  }
+#endif
 		/* If you modify the saved value of the return address
 		   register on the SPARC, you modify the return address for
 		   your caller's frame.  Don't do that here, as it will

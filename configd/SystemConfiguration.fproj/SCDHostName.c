@@ -20,58 +20,74 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * January 8, 2001		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 CFStringRef
-SCDKeyCreateHostName()
+SCDynamicStoreKeyCreateComputerName(CFAllocatorRef allocator)
 {
-	return SCDKeyCreate(CFSTR("%@/%@"),
-			    kSCCacheDomainSetup,
-			    kSCCompSystem);
+	return SCDynamicStoreKeyCreate(allocator,
+				       CFSTR("%@/%@"),
+				       kSCDynamicStoreDomainSetup,
+				       kSCCompSystem);
 }
 
 
-SCDStatus
-SCDHostNameGet(CFStringRef *name, CFStringEncoding *nameEncoding)
+CFStringRef
+SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
+			       CFStringEncoding		*nameEncoding)
 {
-	CFDictionaryRef	dict;
-	SCDHandleRef	handle	= NULL;
-	CFStringRef	key;
-	SCDSessionRef	session	= NULL;
-	SCDStatus	status;
+	CFDictionaryRef		dict		= NULL;
+	CFStringRef		key;
+	CFStringRef		name		= NULL;
+	SCDynamicStoreRef	mySession	= store;
 
-	if (name == NULL) {
-		return SCD_FAILED;
+	if (!store) {
+		mySession = SCDynamicStoreCreate(NULL,
+						 CFSTR("SCDynamicStoreCopyComputerName"),
+						 NULL,
+						 NULL);
+		if (!mySession) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+			return NULL;
+		}
 	}
 
-	/* get current user */
-	status = SCDOpen(&session, CFSTR("SCDHostNameGet"));
-	if (status != SCD_OK) {
-		goto done;
-	}
-
-	key = SCDKeyCreateHostName();
-	status = SCDGet(session, key, &handle);
+	key  = SCDynamicStoreKeyCreateComputerName(NULL);
+	dict = SCDynamicStoreCopyValue(mySession, key);
 	CFRelease(key);
-	if (status != SCD_OK) {
+	if (!dict) {
+		goto done;
+	}
+	if (!isA_CFDictionary(dict)) {
+		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
 
-	dict = SCDHandleGetData(handle);
-
-	*name = CFDictionaryGetValue(dict, kSCPropSystemComputerName);
-	if (*name == NULL) {
+	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropSystemComputerName));
+	if (!name) {
+		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
-	CFRetain(*name);
+	CFRetain(name);
 
 	if (nameEncoding) {
 		CFNumberRef	num;
 
 		num = CFDictionaryGetValue(dict,
 					   kSCPropSystemComputerNameEncoding);
-		if (num) {
+		if (isA_CFNumber(num)) {
 			CFNumberGetValue(num, kCFNumberIntType, nameEncoding);
 		} else {
 			*nameEncoding = CFStringGetSystemEncoding();
@@ -80,7 +96,57 @@ SCDHostNameGet(CFStringRef *name, CFStringEncoding *nameEncoding)
 
     done :
 
-	if (handle)	SCDHandleRelease(handle);
-	if (session)	(void) SCDClose(&session);
-	return status;
+	if (!store && mySession)	CFRelease(mySession);
+	if (dict)			CFRelease(dict);
+	return name;
+}
+
+
+Boolean
+SCPreferencesSetComputerName(SCPreferencesRef	session,
+			     CFStringRef	name,
+			     CFStringEncoding	encoding)
+{
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict	= NULL;
+	CFNumberRef		num;
+	Boolean			ok	= FALSE;
+	CFStringRef		path	= NULL;
+
+	if (CFGetTypeID(name) != CFStringGetTypeID()) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	path = CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("/%@/%@"),
+					kSCPrefSystem,
+					kSCCompSystem);
+
+	dict = SCPreferencesPathGetValue(session, path);
+	if (dict) {
+		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+	} else {
+		newDict = CFDictionaryCreateMutable(NULL,
+						    0,
+						    &kCFTypeDictionaryKeyCallBacks,
+						    &kCFTypeDictionaryValueCallBacks);
+	}
+
+	CFDictionarySetValue(newDict, kSCPropSystemComputerName, name);
+
+	num = CFNumberCreate(NULL, kCFNumberIntType, &encoding);
+	CFDictionarySetValue(newDict, kSCPropSystemComputerNameEncoding, num);
+	CFRelease(num);
+
+	ok = SCPreferencesPathSetValue(session, path, newDict);
+	if (!ok) {
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesPathSetValue() failed"));
+	}
+
+	if (path)	CFRelease(path);
+	if (newDict)	CFRelease(newDict);
+
+	return ok;
 }

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,12 +18,12 @@
  */
 
 
-/* $Id: internal_functions_win32.c,v 1.1.1.2 2001/01/25 05:00:24 wsanchez Exp $ */
+/* $Id: internal_functions_win32.c,v 1.1.1.3 2001/07/19 00:20:36 zarzycki Exp $ */
 
 
 #include "php.h"
 #include "php_main.h"
-#include "modules.h"
+#include "zend_modules.h"
 #include "internal_functions_registry.h"
 #include "zend_compile.h"
 #include <stdarg.h>
@@ -51,6 +51,7 @@
 #include "ext/standard/php_assert.h"
 #include "ext/calendar/php_calendar.h"
 #include "ext/com/php_COM.h"
+#include "ext/com/php_VARIANT.h"
 #include "ext/ftp/php_ftp.h"
 #include "ext/standard/reg.h"
 #include "ext/pcre/php_pcre.h"
@@ -60,9 +61,6 @@
 #include "ext/wddx/php_wddx.h"
 #include "ext/mysql/php_mysql.h"
 
-/* SNMP has to be moved to ext */
-/* #include "dl/snmp/php_snmp.h" */
-
 zend_module_entry *php_builtin_extensions[] = {
 	phpext_standard_ptr,
 #if WITH_BCMATH
@@ -70,6 +68,7 @@ zend_module_entry *php_builtin_extensions[] = {
 #endif
 	phpext_calendar_ptr,
 	COM_module_ptr,
+	VARIANT_module_ptr,
 	phpext_ftp_ptr,
 	phpext_mysql_ptr,
 	phpext_odbc_ptr,

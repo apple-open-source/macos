@@ -33,6 +33,7 @@
 #include "demangle.h"
 #include "complaints.h"
 #include "gdbcmd.h"
+#include "varobj.h"
 #include "wrapper.h"
 
 /* These variables point to the objects

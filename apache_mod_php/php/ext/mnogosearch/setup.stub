@@ -1,0 +1,10 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/setup.stub,v $
+# $Id: setup.stub,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $
+
+define_option with-mnogosearch 'mnoGoSearch support?' yesnodir \
+    'no /usr/local/udmsearch mnoGoSearch install' \
+'    Whether to build PHP with mnoGoSearch support. 
+     More info about mnoGoSearch can be found at http://search.mnogo.ru/.'
+
+
+	

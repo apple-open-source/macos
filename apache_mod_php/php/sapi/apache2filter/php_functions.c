@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -46,7 +46,7 @@ static request_rec *php_apache_lookup_uri(INTERNAL_FUNCTION_PARAMETERS)
 	convert_to_string_ex(p1);
 
 	ctx = SG(server_context);
-	return ap_sub_req_lookup_uri(Z_STRVAL_PP(p1), ctx->f->r);
+	return ap_sub_req_lookup_uri(Z_STRVAL_PP(p1), ctx->f->r, NULL);
 }
 
 PHP_FUNCTION(apache_sub_req)

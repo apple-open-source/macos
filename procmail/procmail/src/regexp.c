@@ -8,15 +8,15 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: regexp.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: regexp.c,v 1.1.1.2 2001/07/20 19:38:19 bbraun Exp $";
 #endif
 #include "procmail.h"
 #include "sublib.h"
 #include "robust.h"
 #include "shell.h"
 #include "misc.h"
+#include "variables.h"
 #include "regexp.h"
-#include "goodies.h"
 
 #define R_BEG_GROUP	'('
 #define R_OR		'|'

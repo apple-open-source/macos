@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.1.1.1 2001/01/25 05:00:06 wsanchez Exp $ */
+/* $Id: http_fopen_wrapper.c,v 1.1.1.2 2001/07/19 00:20:15 zarzycki Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -51,7 +51,9 @@
 #else
 #include <netinet/in.h>
 #include <netdb.h>
+#if HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif
 #endif
 
 #ifdef PHP_WIN32
@@ -263,26 +265,40 @@ FILE *php_fopen_url_wrap_http(char *path, char *mode, int options, int *issock, 
 			}
 		}
 	}
-	{
-		ELS_FETCH();
 
-		zend_hash_update(EG(active_symbol_table), "http_response_header", sizeof("http_response_header"), (void **) &response_header, sizeof(zval *), NULL);
-	}
 	if (!reqok) {
 		SOCK_FCLOSE(*socketd);
 		*socketd = 0;
 		free_url(resource);
-#if 0
 		if (location[0] != '\0') {
-			return php_fopen_url_wrapper(location, mode, options, issock, socketd, opened_path);
+			zval **response_header_new, *entry, **entryp;
+			ELS_FETCH();
+
+			fp = php_fopen_url_wrap_http(location, mode, options, issock, socketd, opened_path);
+			if (zend_hash_find(EG(active_symbol_table), "http_response_header", sizeof("http_response_header"), (void **) &response_header_new) == SUCCESS) {
+				entryp = &entry;
+				MAKE_STD_ZVAL(entry);
+				ZVAL_EMPTY_STRING(entry);
+				zend_hash_next_index_insert(Z_ARRVAL_P(response_header), entryp, sizeof(zval *), NULL);
+				zend_hash_internal_pointer_reset(Z_ARRVAL_PP(response_header_new));
+				while (zend_hash_get_current_data(Z_ARRVAL_PP(response_header_new), (void **)&entryp) == SUCCESS) {
+					zval_add_ref(entryp);
+					zend_hash_next_index_insert(Z_ARRVAL_P(response_header), entryp, sizeof(zval *), NULL);
+					zend_hash_move_forward(Z_ARRVAL_PP(response_header_new));
+				}
+			}
+			goto out;
 		} else {
-			return NULL;
+			fp = NULL;
+			goto out;
 		}
-#else
-		return NULL;
-#endif
 	}
 	free_url(resource);
 	*issock = 1;
+ out:
+	{
+		ELS_FETCH();
+		ZEND_SET_SYMBOL(EG(active_symbol_table), "http_response_header", response_header);
+	}	
 	return (fp);
 }

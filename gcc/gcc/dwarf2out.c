@@ -57,17 +57,33 @@ Boston, MA 02111-1307, USA.  */
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 
+static int frame_was_required = 0;
+static int this_function_needs_dwarf2_info ()
+{
+  if (get_insns() != NULL && ! leaf_function_p ())
+    return frame_was_required = 1;
+  return 0;
+}
 int
 dwarf2out_do_frame ()
 {
-  return (write_symbols == DWARF2_DEBUG
+  int f = (write_symbols == DWARF2_DEBUG
 #ifdef DWARF2_FRAME_INFO
           || DWARF2_FRAME_INFO
 #endif
 #ifdef DWARF2_UNWIND_INFO
+#ifdef NEXT_SEMANTICS
+	  /* Don't bother if this is a leaf function.
+	     If GET_INSNS is NULL, though, return 1.  */
+	  || (flag_exceptions && ! exceptions_via_longjmp
+	      && (get_insns () == NULL
+		  || this_function_needs_dwarf2_info ()))
+#else
 	  || (flag_exceptions && ! exceptions_via_longjmp)
 #endif
+#endif
 	  );
+  return f;
 }
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
@@ -2128,7 +2144,7 @@ dwarf2out_frame_finish ()
     output_call_frame_info (1);
 #else
   if (write_symbols == DWARF2_DEBUG
-      || (flag_exceptions && ! exceptions_via_longjmp))
+      || (flag_exceptions && ! exceptions_via_longjmp && frame_was_required))
     output_call_frame_info (1);  
 #endif
 }  
@@ -9020,7 +9036,8 @@ gen_compile_unit_die (main_input_filename)
 
   add_AT_string (comp_unit_die, DW_AT_producer, producer);
 
-  if (strcmp (language_string, "GNU C++") == 0)
+  if (strcmp (language_string, "GNU C++") == 0 
+      || strcmp (language_string, "GNU Obj-C++") == 0)
     add_AT_unsigned (comp_unit_die, DW_AT_language, DW_LANG_C_plus_plus);
 
   else if (strcmp (language_string, "GNU Ada") == 0)

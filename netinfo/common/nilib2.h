@@ -103,3 +103,7 @@ ni_status ni2_copydir(void *srcdomain, ni_id *srcdir, void*dstdomain, ni_id *dst
 ni_status ni2_copydirtoparentdir(void *srcdomain, ni_id *srcdir, void*dstdomain, ni_id *dstdir, bool recursive);
 ni_status ni2_lookupprop(void *domain, char *pathname, const ni_name key, ni_namelist *values);
 ni_index ni_namelist_insert_sorted(ni_namelist *values, const ni_name newvalue);
+
+void *niHandleForTag(char *tag, struct sockaddr_in *addr);
+void *niHandleForPath(char *path, struct sockaddr_in *addr);
+void *niHandleForName(char *name);

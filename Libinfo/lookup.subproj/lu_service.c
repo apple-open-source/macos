@@ -60,13 +60,18 @@ freeold(void)
 
 	if (global_free == 1) return;
 
-	free(global_s.s_name);
+	if (global_s.s_name != NULL) free(global_s.s_name);
+	global_s.s_name = NULL;
+
+	if (global_s.s_proto != NULL) free(global_s.s_proto);
+	global_s.s_proto = NULL;
 
 	aliases = global_s.s_aliases;
 	if (aliases != NULL)
 	{
 		while (*aliases != NULL) free(*aliases++);
 		free(global_s.s_aliases);
+		global_s.s_aliases = NULL;
 	}
 
 	global_free = 1;
@@ -91,7 +96,7 @@ convert_s(_lu_servent *lu_s)
 
 	global_s.s_aliases[len] = NULL;
 
-	global_s.s_proto = lu_s->s_proto;
+	if (lu_s->s_proto != NULL) global_s.s_proto = strdup(lu_s->s_proto);
 	global_s.s_port = lu_s->s_port;
 
 	global_free = 0;

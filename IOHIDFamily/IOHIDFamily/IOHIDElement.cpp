@@ -342,7 +342,7 @@ bool IOHIDElement::serialize( OSSerialize * s ) const
                             (UInt32) _elementValueLocation, 32 );
         entry->setProperty( kIOHIDElementHasNullStateKey,
                             _flags & kHIDDataNullState );
-        entry->setProperty( kIOHIDElementHasPreferedStateKey,
+        entry->setProperty( kIOHIDElementHasPreferredStateKey,
                             !(_flags & kHIDDataNoPreferred) );
         entry->setProperty( kIOHIDElementIsNonLinearKey,
                             _flags & kHIDDataNonlinear );
@@ -399,6 +399,7 @@ static void getReportBits( const UInt8 * src,
                            UInt32 *      dst,
                            UInt32        srcStartBit,
                            UInt32        bitsToCopy,
+						   bool			 shouldSignExtend,
                            bool *        valueChanged )
 {
     UInt32 srcOffset;
@@ -409,6 +410,7 @@ static void getReportBits( const UInt8 * src,
     UInt32 lastDstOffset = 0;
     UInt32 word          = 0;
     UInt8  bitsProcessed;
+	UInt32 totalBitsProcessed = 0;
 
     while ( bitsToCopy )
     {
@@ -426,12 +428,31 @@ static void getReportBits( const UInt8 * src,
         dstStartBit += bitsProcessed;
         srcStartBit += bitsProcessed;
         bitsToCopy  -= bitsProcessed;
+		totalBitsProcessed += bitsProcessed;
 
         UpdateWordOffsetAndShift( dstStartBit, dstOffset, dstShift );
 
         if ( ( dstOffset != lastDstOffset ) || ( bitsToCopy == 0 ) )
         {
-            if ( dst[lastDstOffset] != word )
+            // sign extend negative values
+			// if this is the leftmost word of the result
+			if ((lastDstOffset == 0) &&
+				// and the logical min or max is less than zero
+				// so we should sign extend
+				(shouldSignExtend))
+			{
+				SInt32 temp = word;
+				
+				// is this less than a full word
+				if ((totalBitsProcessed < 32) && 
+					// and the value negative (high bit set)
+					(word & (1 << (totalBitsProcessed - 1))))
+					// or in all 1s above the significant bit
+					word |= ~(BIT_MASK(totalBitsProcessed));
+			}
+
+			
+			if ( dst[lastDstOffset] != word )
             {
                 dst[lastDstOffset] = word;
                 *valueChanged = true;
@@ -513,6 +534,8 @@ bool IOHIDElement::processReport( UInt8                reportID,
                        _elementValue->value,   /* destination buffer */
                        _reportStartBit,        /* source start bit   */
                        _reportBits,            /* bits to copy       */
+					   (((SInt32)_logicalMin < 0) || ((SInt32)_logicalMax < 0)),
+											   /* should sign extend */
                        &changed );             /* did value change?  */
 
         // Set a timestamp to indicate the last modification time.

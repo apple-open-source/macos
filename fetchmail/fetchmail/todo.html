@@ -1,0 +1,75 @@
+<!DOCTYPE HTML public "-//W3O//DTD W3 HTML 4.0//EN">
+<HTML>
+<HEAD>
+<link rev=made href="mailto:esr@snark.thyrsus.com">
+<meta name="description" content="Known bugs and to-do items in fetchmail">
+<meta name="keywords" content="fetchmail, POP3, IMAP, bugs"> 
+<TITLE>Fetchmail Bugs and To-Do Items</TITLE>
+</HEAD>
+<BODY>
+<table width="100%" cellpadding=0><tr>
+<td width="30%">Back to <a href="/~esr">Eric's Home Page</a>
+<td width="30%" align=center>Up to <a href="/~esr/sitemap.html">Site Map</a>
+<td width="30%" align=right>$Date: 2001/08/10 16:07:02 $
+</table>
+<HR>
+<H1 ALIGN=CENTER>Fetchmail Bugs and To-Do Items</H1>
+
+<p>I try to respond to urgent bug reports in a timely way.  But fetchmail
+is now pretty mature and I have many other projects, so I don't
+personally chase obscure or marginal problems.  Help with any of these
+will be cheerfully accepted.
+
+<p>Using LMTP alias with a local name that is not a full name fails horribly
+(the LMTP port never gets stripped off the name).
+
+<p>The UIDL code seems rather broken.  It's a nasty swamp.  Somebody who
+actually uses it should fix it -- every time I try I seem to make
+things worse....
+
+<p>POP3 can't presently distinguish a wedged or down server from an
+authentication failure.  Possible fix: after issuing a PASS
+command. wait 300 (xx) seconds for a "-ERR" or a "+OK" . If nothing
+comes back, retry at the next poll event and generate no errors. If we
+get an -ERR then log an authentication failure.
+
+<p>SMTP authentication a la RFC 2554 ought to be supported.  The Exim
+reference has a 
+<a href="http://www.exim.org/exim-html-3.10/doc/html/spec_33.html#SEC705">
+whole chapter on this topic</a>.
+
+<p>It has been reported that multidrop name matching fails when the name
+to be matched contains a Latin-1 umlaut.  Dollars to doughnuts this is
+some kind of character sign-extension problem.  Trouble is, it's very
+likely in the BIND libraries.  Someone should go in with a debugger 
+and check this.
+
+<p>In the SSL support, add authentication of Certifying Authority (Is this
+a Certifying Authority we recognize?).
+
+<p>Laszlo Vecsey writes: "I believe qmail uses a technique of writing
+temporary files to nfs, and then moving them into place to ensure that
+they're written. Actually a hardlink is made to the temporary file and
+the destination name in a new directory, then the first one is
+unlinked.. maybe a combination of this will help with the fetchmail
+lock file."
+
+<p>Move everything to using service strings rather that port numbers, so we
+can get rid of ENABLE_INET6 everywhere but in SockOpen (this will get
+rid of the kluge in rcfile_y.y).
+
+<p>The <a
+href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=fetchmail&archive=no">Debian
+bug-tracking page for fetchmail</a> lists other bug reports.
+
+<HR>
+<table width="100%" cellpadding=0><tr>
+<td width="30%">Back to <a href="/~esr">Eric's Home Page</a>
+<td width="30%" align=center>Up to <a href="/~esr/sitemap.html">Site Map</a>
+<td width="30%" align=right>$Date: 2001/08/10 16:07:02 $
+</table>
+
+<P><ADDRESS>Eric S. Raymond <A HREF="mailto:esr@thyrsus.com">&lt;esr@thyrsus.com&gt;</A></ADDRESS>
+</BODY>
+</HTML>
+

@@ -20,189 +20,123 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 31, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
+#include "v1Compatibility.h"
 
 static void
 informCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	SCDSessionRef		session        = (SCDSessionRef)info;
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	mach_msg_empty_rcv_t	*buf           = msg;
-	mach_msg_id_t		msgid          = buf->header.msgh_id;
-	SCDCallbackRoutine_t	cbFunc         = sessionPrivate->callbackFunction;
-	void			*cbArg         = sessionPrivate->callbackArgument;
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	mach_msg_empty_rcv_t		*buf		= msg;
+	mach_msg_id_t			msgid		= buf->header.msgh_id;
+	SCDynamicStoreCallBack_v1	cbFunc		= storePrivate->callbackFunction;
+	void				*cbArg		= storePrivate->callbackArgument;
 
 	if (msgid == MACH_NOTIFY_NO_SENDERS) {
 		/* the server died, disable additional callbacks */
-		SCDLog(LOG_DEBUG, CFSTR("  notifier port closed, disabling notifier"));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  notifier port closed, disabling notifier"));
 	} else if (cbFunc == NULL) {
 		/* there is no (longer) a callback function, disable additional callbacks */
-		SCDLog(LOG_DEBUG, CFSTR("  no callback function, disabling notifier"));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  no callback function, disabling notifier"));
 	} else {
-		SCDLog(LOG_DEBUG, CFSTR("  executing notifiction function"));
-		if ((*cbFunc)(session, cbArg)) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  executing notifiction function"));
+		if ((*cbFunc)(store, cbArg)) {
 			/*
 			 * callback function returned success.
 			 */
 			return;
 		} else {
-			SCDLog(LOG_DEBUG, CFSTR("  callback returned error, disabling notifier"));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  callback returned error, disabling notifier"));
 		}
 	}
 
 #ifdef	DEBUG
-	if (port != sessionPrivate->callbackPort) {
-		SCDLog(LOG_DEBUG, CFSTR("informCallback, why is port != callbackPort?"));
+	if (port != storePrivate->callbackPort) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("informCallback, why is port != callbackPort?"));
 	}
 #endif	/* DEBUG */
 
-	/* we have encountered some type of error, disable additional callbacks */
-
-	/* XXX invalidating the port is not sufficient, remove the run loop source */
+	/* remove the run loop source */
 	CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-			      sessionPrivate->callbackRunLoopSource,
+			      storePrivate->callbackRunLoopSource,
 			      kCFRunLoopDefaultMode);
-	CFRelease(sessionPrivate->callbackRunLoopSource);
+	CFRelease(storePrivate->callbackRunLoopSource);
 
 	/* invalidate port */
-	CFMachPortInvalidate(port);
-	CFRelease(port);
+	CFMachPortInvalidate(storePrivate->callbackPort);
+	CFRelease(storePrivate->callbackPort);
 
-	sessionPrivate->notifyStatus     	= NotifierNotRegistered;
-	sessionPrivate->callbackFunction 	= NULL;
-	sessionPrivate->callbackArgument 	= NULL;
-	sessionPrivate->callbackPort     	= NULL;
-	sessionPrivate->callbackRunLoopSource	= NULL;	/* XXX */
-
-	return;
-}
-
-
-static void
-cleanupMachPort(void *ptr)
-{
-	mach_port_t	*port = (mach_port_t *)ptr;
-
-	SCDLog(LOG_DEBUG, CFSTR("  cleaning up notification port %d"), *port);
-	if (*port != MACH_PORT_NULL) {
-		(void) mach_port_destroy(mach_task_self(), *port);
-		free(port);
-	}
+	/* disable notifier */
+	storePrivate->notifyStatus     		= NotifierNotRegistered;
+	storePrivate->callbackArgument 		= NULL;
+	storePrivate->callbackFunction 		= NULL;
+	storePrivate->callbackPort     		= NULL;
+	storePrivate->callbackRunLoop		= NULL;
+	storePrivate->callbackRunLoopSource	= NULL;
 
 	return;
 }
 
 
-static void *
-watcherThread(void *arg)
+Boolean
+SCDynamicStoreNotifyCallback(SCDynamicStoreRef		store,
+			     CFRunLoopRef		runLoop,
+			     SCDynamicStoreCallBack_v1	func,
+			     void			*arg)
 {
-	SCDSessionRef		session        = (SCDSessionRef)arg;
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	SCDCallbackRoutine_t	cbFunc         = sessionPrivate->callbackFunction;
-	void			*cbArg         = sessionPrivate->callbackArgument;
-	mach_port_t		*port          = malloc(sizeof(mach_port_t));
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	mach_port_t			port;
+	mach_port_t			oldNotify;
+	int				sc_status;
+	CFMachPortContext		context = { 0, (void *)store, NULL, NULL, NULL };
 
-	*port = CFMachPortGetPort(sessionPrivate->callbackPort);
-	pthread_cleanup_push(cleanupMachPort, (void *)port);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyCallback:"));
 
-	while (TRUE) {
-		mach_msg_id_t	msgid;
-
-		SCDLog(LOG_DEBUG, CFSTR("Callback thread waiting, port=%d, tid=0x%08x"),
-		       *port, pthread_self());
-
-		msgid = _waitForMachMessage(*port);
-
-		if (msgid == MACH_NOTIFY_NO_SENDERS) {
-			/* the server closed the notifier port, disable additional callbacks */
-			SCDLog(LOG_DEBUG, CFSTR("  notifier port closed, disabling notifier"));
-			break;
-		}
-
-		if (msgid == -1) {
-			mach_port_type_t	pt;
-
-			/* an error was detected, disable additional callbacks */
-			SCDLog(LOG_DEBUG, CFSTR("  server failure, disabling notifier"));
-
-			/* check if the server connection is not valid, close if necessary */
-			if ((mach_port_type(mach_task_self(), sessionPrivate->server, &pt) == KERN_SUCCESS) &&
-			    (pt & MACH_PORT_TYPE_DEAD_NAME)) {
-				SCDLog(LOG_DEBUG, CFSTR("  server process died, destroying (dead) port"));
-				(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-				sessionPrivate->server = MACH_PORT_NULL;
-			}
-			break;
-		}
-
-		if (cbFunc == NULL) {
-			/* there is no (longer) a callback function, disable additional callbacks */
-			SCDLog(LOG_DEBUG, CFSTR("  no callback function, disabling notifier"));
-			break;
-		}
-
-		SCDLog(LOG_DEBUG, CFSTR("  executing notifiction function"));
-
-		if (!(*cbFunc)(session, cbArg)) {
-			/*
-			 * callback function returned an error, exit the thread
-			 */
-			break;
-		}
-
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	/*
-	 * pop the cleanup routine for the "port" mach port. We end up calling
-	 * mach_port_destroy() in the process.
-	 */
-	pthread_cleanup_pop(1);
-
-	pthread_exit (NULL);
-	return NULL;
-}
-
-
-SCDStatus
-SCDNotifierInformViaCallback(SCDSessionRef session, SCDCallbackRoutine_t func, void *arg)
-{
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	mach_port_t		port;
-	mach_port_t		oldNotify;
-	SCDStatus		scd_status;
-	CFMachPortContext	context = { 0, (void *)session, NULL, NULL, NULL };
-
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaCallback:"));
-
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
 	}
 
-	if (sessionPrivate->notifyStatus != NotifierNotRegistered) {
+	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
-		return SCD_NOTIFIERACTIVE;
-	}
-
-	if (func == NULL) {
-		/* sorry, you must specify a callback function */
-		return SCD_INVALIDARGUMENT;
+		_SCErrorSet(kSCStatusNotifierActive);
+		return FALSE;
 	}
 
 	/* Allocating port (for server response) */
-	sessionPrivate->callbackPort = CFMachPortCreate(NULL,
-							informCallback,
-							&context,
-							NULL);
+	storePrivate->callbackPort = CFMachPortCreate(NULL,
+						      informCallback,
+						      &context,
+						      NULL);
 
 	/* Request a notification when/if the server dies */
-	port = CFMachPortGetPort(sessionPrivate->callbackPort);
+	port = CFMachPortGetPort(storePrivate->callbackPort);
 	status = mach_port_request_notification(mach_task_self(),
 						port,
 						MACH_NOTIFY_NO_SENDERS,
@@ -211,65 +145,281 @@ SCDNotifierInformViaCallback(SCDSessionRef session, SCDCallbackRoutine_t func, v
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
-		CFMachPortInvalidate(sessionPrivate->callbackPort);
-		CFRelease(sessionPrivate->callbackPort);
-		return SCD_FAILED;
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		CFMachPortInvalidate(storePrivate->callbackPort);
+		CFRelease(storePrivate->callbackPort);
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaCallback(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCDynamicStoreNotifyCallback(): why is oldNotify != MACH_PORT_NULL?"));
 	}
-#endif	/* DEBUG */
 
 	/* Requesting notification via mach port */
-	status = notifyviaport(sessionPrivate->server,
+	status = notifyviaport(storePrivate->server,
 			       port,
 			       0,
-			       (int *)&scd_status);
+			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
-		CFMachPortInvalidate(sessionPrivate->callbackPort);
-		CFRelease(sessionPrivate->callbackPort);
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
+		CFMachPortInvalidate(storePrivate->callbackPort);
+		CFRelease(storePrivate->callbackPort);
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-	if (scd_status != SCD_OK) {
-		return scd_status;
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
 	}
 
 	/* set notifier active */
-	sessionPrivate->notifyStatus     = Using_NotifierInformViaCallback;
-	sessionPrivate->callbackFunction = func;
-	sessionPrivate->callbackArgument = arg;
+	storePrivate->notifyStatus		= Using_NotifierInformViaCallback;
 
-	if (SCDOptionGet(session, kSCDOptionUseCFRunLoop)) {
-		/* Creating/adding a run loop source for the port */
-		sessionPrivate->callbackRunLoopSource =
-			CFMachPortCreateRunLoopSource(NULL, sessionPrivate->callbackPort, 0);
-		CFRunLoopAddSource(CFRunLoopGetCurrent(),
-				   sessionPrivate->callbackRunLoopSource,
-				   kCFRunLoopDefaultMode);
-	} else {
-		pthread_attr_t		tattr;
+	/* Creating/adding a run loop source for the port */
+	storePrivate->callbackArgument		= arg;
+	storePrivate->callbackFunction		= func;
+	storePrivate->callbackRunLoop		= runLoop;
+	storePrivate->callbackRunLoopSource =
+		CFMachPortCreateRunLoopSource(NULL, storePrivate->callbackPort, 0);
 
-		SCDLog(LOG_DEBUG, CFSTR("Starting background thread to watch for notifications..."));
-		pthread_attr_init(&tattr);
-		pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
-		pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
-		pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
-		pthread_create(&sessionPrivate->callbackHelper,
-			       &tattr,
-			       watcherThread,
-			       (void *)session);
-		pthread_attr_destroy(&tattr);
-		SCDLog(LOG_DEBUG, CFSTR("  thread id=0x%08x"), sessionPrivate->callbackHelper);
+	CFRunLoopAddSource(storePrivate->callbackRunLoop,
+			   storePrivate->callbackRunLoopSource,
+			   kCFRunLoopDefaultMode);
+
+	return TRUE;
+}
+
+
+static void
+rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+	mach_msg_empty_rcv_t		*buf		= msg;
+	mach_msg_id_t			msgid		= buf->header.msgh_id;
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	if (msgid == MACH_NOTIFY_NO_SENDERS) {
+		/* the server died, disable additional callbacks */
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("  rlsCallback(), notifier port closed"));
+
+#ifdef	DEBUG
+		if (port != storePrivate->callbackPort) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("rlsCallback(), why is port != callbackPort?"));
+		}
+#endif	/* DEBUG */
+
+		/* remove the run loop source(s) */
+		CFRunLoopSourceInvalidate(storePrivate->callbackRunLoopSource);
+		CFRelease(storePrivate->callbackRunLoopSource);
+
+		/* invalidate port */
+		CFMachPortInvalidate(storePrivate->callbackPort);
+		CFRelease(storePrivate->callbackPort);
+
+		return;
 	}
 
-	return SCD_OK;
+	/* signal the real runloop source */
+	CFRunLoopSourceSignal(storePrivate->rls);
+	return;
 }
+
+
+static void
+rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
+{
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("schedule notifications for mode %@"), mode);
+
+	if (storePrivate->rlsRefs++ == 0) {
+		CFMachPortContext	context = { 0, (void *)store, NULL, NULL, NULL };
+		mach_port_t		oldNotify;
+		mach_port_t		port;
+		int			sc_status;
+		kern_return_t		status;
+
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  activate callback runloop source"));
+
+		/* Allocating port (for server response) */
+		status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+		if (status != KERN_SUCCESS) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_allocate(): %s"), mach_error_string(status));
+			return;
+		}
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  port = %d"), port);
+
+		status = mach_port_insert_right(mach_task_self(),
+						port,
+						port,
+						MACH_MSG_TYPE_MAKE_SEND);
+		if (status != KERN_SUCCESS) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_insert_right(): %s"), mach_error_string(status));
+			(void) mach_port_destroy(mach_task_self(), port);
+			return;
+		}
+
+		/* Request a notification when/if the server dies */
+		status = mach_port_request_notification(mach_task_self(),
+							port,
+							MACH_NOTIFY_NO_SENDERS,
+							1,
+							port,
+							MACH_MSG_TYPE_MAKE_SEND_ONCE,
+							&oldNotify);
+		if (status != KERN_SUCCESS) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+			(void) mach_port_destroy(mach_task_self(), port);
+			return;
+		}
+
+		if (oldNotify != MACH_PORT_NULL) {
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("rlsSchedule(): why is oldNotify != MACH_PORT_NULL?"));
+		}
+
+		status = notifyviaport(storePrivate->server, port, 0, (int *)&sc_status);
+		if (status != KERN_SUCCESS) {
+			if (status != MACH_SEND_INVALID_DEST)
+				SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
+			(void) mach_port_destroy(mach_task_self(), port);
+			port = MACH_PORT_NULL;
+			(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+			storePrivate->server = MACH_PORT_NULL;
+			return;
+		}
+
+		storePrivate->callbackPort = CFMachPortCreateWithPort(NULL, port, rlsCallback, &context, NULL);
+		storePrivate->callbackRunLoopSource = CFMachPortCreateRunLoopSource(NULL, storePrivate->callbackPort, 0);
+	}
+
+	CFRunLoopAddSource(rl, storePrivate->callbackRunLoopSource, mode);
+	return;
+}
+
+
+static void
+rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
+{
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("cancel notifications for mode %@"), mode);
+
+	CFRunLoopRemoveSource(rl, storePrivate->callbackRunLoopSource, mode);
+	if (--storePrivate->rlsRefs == 0) {
+		int		sc_status;
+		kern_return_t	status;
+
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  cancel callback runloop source"));
+
+		/* remove the run loop source */
+		CFRelease(storePrivate->callbackRunLoopSource);
+
+		/* invalidate port */
+		CFMachPortInvalidate(storePrivate->callbackPort);
+		CFRelease(storePrivate->callbackPort);
+
+		status = notifycancel(storePrivate->server, (int *)&sc_status);
+		if (status != KERN_SUCCESS) {
+			if (status != MACH_SEND_INVALID_DEST)
+				SCLog(_sc_verbose, LOG_INFO, CFSTR("notifycancel(): %s"), mach_error_string(status));
+			(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+			storePrivate->server = MACH_PORT_NULL;
+			return;
+		}
+	}
+	return;
+}
+
+static void
+rlsPerform(void *info)
+{
+	CFArrayRef			changedKeys;
+	void				*context_info;
+	void				(*context_release)(const void *);
+	SCDynamicStoreCallBack		rlsFunction;
+	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  executing notifiction function"));
+
+	changedKeys = SCDynamicStoreCopyNotifiedKeys(store);
+	rlsFunction = storePrivate->rlsFunction;
+
+	if (NULL != storePrivate->rlsContext.retain) {
+		context_info	= (void *)storePrivate->rlsContext.retain(storePrivate->rlsContext.info);
+		context_release	= storePrivate->rlsContext.release;
+	} else {
+		context_info	= storePrivate->rlsContext.info;
+		context_release	= NULL;
+	}
+	(*rlsFunction)(store, changedKeys, storePrivate->rlsContext.info);
+	if (context_release) {
+		context_release(context_info);
+	}
+
+	CFRelease(changedKeys);
+	return;
+}
+
+
+CFRunLoopSourceRef
+SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
+				  SCDynamicStoreRef	store,
+				  CFIndex		order)
+{
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCreateRunLoopSource:"));
+
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return NULL;
+	}
+
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return NULL;
+	}
+
+	switch (storePrivate->notifyStatus) {
+		case NotifierNotRegistered :
+		case Using_NotifierInformViaRunLoop :
+			/* set notifier active */
+			storePrivate->notifyStatus = Using_NotifierInformViaRunLoop;
+			break;
+		default :
+			/* sorry, you can only have one notification registered at once */
+			_SCErrorSet(kSCStatusNotifierActive);
+			return NULL;
+	}
+
+	if (!storePrivate->rls) {
+		CFRunLoopSourceContext context;
+
+		context.version         = 0;
+		context.info            = (void *)store;
+		context.retain          = (const void *(*)(const void *))CFRetain;
+		context.release         = (void (*)(const void *))CFRelease;
+		context.copyDescription = (CFStringRef (*)(const void *))CFCopyDescription;
+		context.equal           = (Boolean (*)(const void *, const void *))CFEqual;
+		context.hash            = (CFHashCode (*)(const void *))CFHash;
+		context.schedule        = rlsSchedule;
+		context.cancel          = rlsCancel;
+		context.perform         = rlsPerform;
+
+		storePrivate->rls = CFRunLoopSourceCreate(allocator, order, &context);
+	}
+
+	return (CFRunLoopSourceRef)CFRetain(storePrivate->rls);
+}
+

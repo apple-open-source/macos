@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -14,17 +14,14 @@
    +----------------------------------------------------------------------+
    | Pi3Web version 2.0                                                   |
    +----------------------------------------------------------------------+
-   | This file is commited by the Pi3 development group. (www.pi3.org)    |
+   | This file is committed by the Pi3 development group.                 |
+   | (pi3web.sourceforge.net)                                             |
    |                                                                      |
-   | Author: Holger Zimmermann (zimpel@t-online.de, zimpel@pi3.org)       |
+   | Author: Holger Zimmermann (zimpel@users.sourceforge.net)             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pi3web_sapi.c,v 1.1.1.3 2001/01/25 05:00:41 wsanchez Exp $ */
-
-#if WIN32|WINNT
-#  include <windows.h>
-#endif
+/* $Id: pi3web_sapi.c,v 1.1.1.4 2001/07/19 00:21:01 zarzycki Exp $ */
 
 #include "pi3web_sapi.h"
 #include "php.h"
@@ -77,10 +74,10 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 
 	lpCB = (LPCONTROL_BLOCK) SG(server_context);
 
-	PUTS("<table border=5 width=600>\n");
+	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">Pi3Web Server Information</th></tr>\n");
 	php_info_print_table_header(2, "Information Field", "Value");
-	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.1.1.3 2001/01/25 05:00:41 wsanchez Exp $");
+	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.1.1.4 2001/07/19 00:21:01 zarzycki Exp $");
 	php_info_print_table_row(2, "Server Name Stamp", HTTPCore_getServerStamp());
 	snprintf(variable_buf, 511, "%d", HTTPCore_debugEnabled());
 	php_info_print_table_row(2, "Debug Enabled", variable_buf);
@@ -96,7 +93,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 
 	PUTS("</table><BR>");	
 
-	PUTS("<table border=5 width=\"600\">\n");
+	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">HTTP Request Information</th></tr>\n");
 	php_info_print_table_row(2, "HTTP Request Line", lpCB->lpszReq);
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">HTTP Headers</th></tr>\n");
@@ -106,7 +103,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 		if (lpCB->GetServerVariable(lpCB->ConnID, *p, variable_buf, &variable_len)
 			&& variable_buf[0]) {
 			php_info_print_table_row(2, *p, variable_buf);
-		} else if (PIPlatform_getLastError() == ERROR_INSUFFICIENT_BUFFER) {
+		} else if (PIPlatform_getLastError() == PIAPI_EINVAL) {
 			char *tmp_variable_buf;
 
 			tmp_variable_buf = (char *) emalloc(variable_len);
@@ -266,7 +263,7 @@ static char *sapi_pi3web_read_cookies(SLS_D)
 
 	if (lpCB->GetServerVariable(lpCB->ConnID, "HTTP_COOKIE", variable_buf, &variable_len)) {
 		return estrndup(variable_buf, variable_len);
-	} else if (PIPlatform_getLastError()==ERROR_INSUFFICIENT_BUFFER) {
+	} else if (PIPlatform_getLastError()==PIAPI_EINVAL) {
 		char *tmp_variable_buf = (char *) emalloc(variable_len+1);
 
 		if (lpCB->GetServerVariable(lpCB->ConnID, "HTTP_COOKIE", tmp_variable_buf, &variable_len)) {
@@ -280,7 +277,7 @@ static char *sapi_pi3web_read_cookies(SLS_D)
 }
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct pi3web_sapi_module = {
 	"pi3web",				/* name */
 	"PI3WEB",				/* pretty name */
 
@@ -338,7 +335,7 @@ static void hash_pi3web_variables(ELS_D SLS_DC)
 	if (lpCB->GetServerVariable(lpCB->ConnID, "ALL_HTTP", static_variable_buf, &variable_len)) {
 		variable_buf = static_variable_buf;
 	} else {
-		if (PIPlatform_getLastError()==ERROR_INSUFFICIENT_BUFFER) {
+		if (PIPlatform_getLastError()==PIAPI_EINVAL) {
 			variable_buf = (char *) emalloc(variable_len);
 			if (!lpCB->GetServerVariable(lpCB->ConnID, "ALL_HTTP", variable_buf, &variable_len)) {
 				efree(variable_buf);
@@ -376,7 +373,7 @@ static void hash_pi3web_variables(ELS_D SLS_DC)
 }
 
 
-DWORD fnWrapperProc(LPCONTROL_BLOCK lpCB)
+DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB)
 {
 	zend_file_handle file_handle;
 	SLS_FETCH();
@@ -428,17 +425,17 @@ DWORD fnWrapperProc(LPCONTROL_BLOCK lpCB)
 
 BOOL PHP4_startup() {
 	tsrm_startup(1, 1, 0, NULL);
-	sapi_startup(&sapi_module);
-	if (sapi_module.startup) {
-		sapi_module.startup(&sapi_module);
+	sapi_startup(&pi3web_sapi_module);
+	if (pi3web_sapi_module.startup) {
+		pi3web_sapi_module.startup(&pi3web_sapi_module);
 	};
 	IWasLoaded = 1;
 	return IWasLoaded;
 };
 
 BOOL PHP4_shutdown() {
-	if (sapi_module.shutdown) {
-		sapi_module.shutdown(&sapi_module);
+	if (pi3web_sapi_module.shutdown) {
+		pi3web_sapi_module.shutdown(&pi3web_sapi_module);
 	};
 	sapi_shutdown();
 	tsrm_shutdown();

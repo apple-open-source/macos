@@ -135,6 +135,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "fbsql"=..\ext\fbsql\fbsql.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "fdf"=..\ext\fdf\fdf.dsp - Package Owner=<4>
 
 Package=<5>
@@ -172,6 +184,30 @@ Package=<4>
 ###############################################################################
 
 Project: "gettext"=..\ext\gettext\gettext.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "hyperwave"=..\ext\hyperwave\hyperwave.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "iconv"=..\ext\iconv\iconv.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -291,6 +327,30 @@ Package=<4>
 
 ###############################################################################
 
+Project: "ming"=..\ext\ming\ming.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "msql"=..\ext\msql\msql.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "mssql"=..\ext\mssql\mssql.dsp - Package Owner=<4>
 
 Package=<5>
@@ -388,18 +448,6 @@ Package=<4>
 ###############################################################################
 
 Project: "snmp"=..\ext\snmp\snmp.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-}}}
-
-Package=<4>
-{{{
-}}}
-
-###############################################################################
-
-Project: "swf"=..\ext\swf\swf.dsp - Package Owner=<4>
 
 Package=<5>
 {{{

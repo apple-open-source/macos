@@ -201,12 +201,14 @@
     the mailbox, or I get "Couldn't unlock" errors from procmail now and then,
     or sometimes it simply seems to hang just when new mail arrives.
 
-	This is a known bug in the OpenLook mailtool.  It holds on to the
-	kernel lock on the mail-spoolfile most of the time, and releases
-	this lock when it shouldn't.  Either ask for a bugfix from your
-	vendor (I'm not sure if a bugfix exists), or make sure that during
-	the compilation of procmail both the fcntl() and lockf() locking
-	methods are disabled (see config.h).
+	This is a known bug in the OpenLook mailtool.  It holds on to
+	the kernel lock on the mail-spoolfile most of the time as a
+	signal to other mailtool processes.  With newer versions of
+	mailtool, enabling the "Use network aware mail file locking"
+	configuration option may solve the problem, though this option
+	isn't always available.	 If that doesn't work then recompile
+	procmail with both the fcntl() and lockf() locking method
+	disabled (see config.h).
 
 17. I sometimes get these `Lock failure on "/usr/mail/$LOGNAME.lock"' errors
     from procmail.  What do I do about it?
@@ -260,10 +262,12 @@
 
 18. Is procmail Y2K safe/compliant?
 
-	Both procmail and formail are Y2K compliant if your system's
-	libraries are Y2K compliant.  In particular, they use the
-	time_t type to hold the current time when it is needed and
-	print out the time using the ctime() library routine.
+	Both procmail and formail are believed to be Y2K compliant if
+	your system's libraries are Y2K compliant.  In particular, they
+	use the time_t type to hold the current time when it is needed
+	and print out the time using the ctime() library routine.
+	However, no actual compliancy tests have been run, so you if
+	you need that you'll need to run them yourself.
 
 	For those who have examined the code themselves, the casting of
 	a time_t value to unsigned long in formail.c is guaranteed to
@@ -287,9 +291,11 @@
 
 20. None of the above topics cover my problem.	Should I panic?
 
-	Let me ask you a question :-), have you examined the CAVEATS, WARNINGS,
-	BUGS and NOTES sections of the manual pages *closely* ?
-	If you have, well, then panic.	Or, alternatively, you could submit
-	your question to the procmail mailinglist (see the man page for the
-	exact addresses, or try "procmail -v", or look in the patchlevel.h
-	file).
+	Let me ask you a question :-), have you examined the CAVEATS,
+	WARNINGS, BUGS and NOTES sections of the manual pages *closely* ?
+	Have you checked any of the FAQs referenced from the procmail
+	website, http://www.procmail.org, to see if the answer it?  If
+	you have, well, then panic.  Or, alternatively, you could
+	submit your question to the procmail mailinglist (see the man
+	page for the exact addresses, or try "procmail -v", or look in
+	the patchlevel.h file).

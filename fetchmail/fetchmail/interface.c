@@ -16,7 +16,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#if (defined(linux) && !defined(INET6)) || defined(__FreeBSD__)
+#if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
 
 #include "config.h"
 #include <stdio.h>
@@ -33,15 +33,22 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #if defined(__FreeBSD__)
-#if __FreeBSD_version >= 300001
-#include <net/if_var.h>
+#if defined __FreeBSD_USE_KVM
+    #if __FreeBSD_version >= 300001
+	#include <net/if_var.h>
+    #endif
+    #include <kvm.h>
+    #include <nlist.h>
+    #include <sys/fcntl.h>
+#else
+    #include <sys/sysctl.h>
+    #include <net/route.h>
+    #include <net/if_dl.h>
 #endif
-#include <kvm.h>
-#include <nlist.h>
-#include <sys/fcntl.h>
 #endif
 #include "config.h"
 #include "fetchmail.h"
+#include "socket.h"
 #include "i18n.h"
 #include "tunable.h"
 
@@ -81,12 +88,11 @@ void interface_init(void)
     {
 	int major, minor;
 
-	if (fscanf(fp, "%d.%d.%*d", &major, &minor) != 2)
-	    return;
-
-	if (major >= 2 && minor >= 2)
+	if (fscanf(fp, "%d.%d.%*d", &major, &minor) >= 2
+					&& major >= 2 && minor >= 2)
 	    /* Linux 2.2 -- transmit packet count in 10th field */
 	    netdevfmt = "%d %d %*d %*d %*d %d %*d %*d %*d %d %*d %*d %d";
+	pclose(fp);
     }
 }
 
@@ -132,13 +138,14 @@ static int _get_ifinfo_(int socket_fd, FILE *stats_file, const char *ifname,
 	if (!(request.ifr_flags & IFF_RUNNING))
 		return(FALSE);
 
-	/* get the IP address */
+	/* get the (local) IP address */
 	strcpy(request.ifr_name, ifname);
 	if (ioctl(socket_fd, SIOCGIFADDR, &request) < 0)
 		return(FALSE);
 	ifinfo->addr = ((struct sockaddr_in *) (&request.ifr_addr))->sin_addr;
 
-	/* get the PPP destination IP address */
+	/* get the PPP destination (remote) IP address */
+	ifinfo->dstaddr.s_addr = 0;
 	strcpy(request.ifr_name, ifname);
 	if (ioctl(socket_fd, SIOCGIFDSTADDR, &request) >= 0)
 		ifinfo->dstaddr = ((struct sockaddr_in *)
@@ -174,13 +181,15 @@ static int get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 		*sp = '/';
 	}
 	if (socket_fd >= 0)
-		close(socket_fd);
+	    SockClose(socket_fd);
 	if (stats_file)
-		fclose(stats_file);
+	    fclose(stats_file);	/* not checking should be safe, mode was "r" */
 	return(result);
 }
 
 #elif defined __FreeBSD__
+
+#if defined __FreeBSD_USE_KVM
 
 static kvm_t *kvmfd;
 static struct nlist symbols[] = 
@@ -261,7 +270,12 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	{
 		kvm_read(kvmfd, ifnet_addr, &ifnet, sizeof(ifnet));
 		kvm_read(kvmfd, (unsigned long) ifnet.if_name, tname, sizeof tname);
-		snprintf(tname, sizeof tname - 1, "%s%d", tname, ifnet.if_unit);
+#ifdef HAVE_SNPRINTF
+		snprintf(tname, sizeof tname - 1,
+#else
+        	sprintf(tname,
+#endif
+			"%s%d", tname, ifnet.if_unit);
 
 		if (!strcmp(tname, iname))
 		{
@@ -326,6 +340,215 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	
 	return 0;
 }
+
+#else /* Do not use KVM on FreeBSD */
+
+/*
+ * Expand the compacted form of addresses as returned via the
+ * configuration read via sysctl().
+ */
+
+static void
+rt_xaddrs(caddr_t cp, caddr_t cplim, struct rt_addrinfo *rtinfo)
+{
+    struct sockaddr *sa;
+    int i;
+
+#define ROUNDUP(a) \
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+#define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
+
+    memset(rtinfo->rti_info, 0, sizeof(rtinfo->rti_info));
+    for (i = 0; (i < RTAX_MAX) && (cp < cplim); i++) {
+	if ((rtinfo->rti_addrs & (1 << i)) == 0)
+	    continue;
+	rtinfo->rti_info[i] = sa = (struct sockaddr *)cp;
+	ADVANCE(cp, sa);
+    }
+
+#undef ROUNDUP
+#undef ADVANCE
+}
+
+static int
+get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
+{
+    uint		i;
+    int			rc = 0;
+    int			ifindex = -1;
+    size_t		needed;
+    char		*buf = NULL;
+    char		*lim = NULL;
+    char		*next = NULL;
+    struct if_msghdr 	*ifm;
+    struct ifa_msghdr 	*ifam;
+    struct sockaddr_in 	*sin;
+    struct sockaddr_dl 	*sdl;
+    struct rt_addrinfo 	info;
+    char		iname[16];
+    int			mib[6];
+
+    memset(ifinfo, 0, sizeof(ifinfo));
+
+    /* trim interface name */
+
+    for (i = 0; i < sizeof(iname) && ifname[i] && ifname[i] != '/'; i++)
+	iname[i] = ifname[i];
+	
+    if (i == 0 || i == sizeof(iname))
+    {
+	report(stderr, _("Unable to parse interface name from %s"), ifname);
+	return 0;
+    }
+
+    iname[i] = 0;
+
+
+    /* get list of existing interfaces */
+
+    mib[0] = CTL_NET;
+    mib[1] = PF_ROUTE;
+    mib[2] = 0;
+    mib[3] = AF_INET;		/* Only IP addresses please. */
+    mib[4] = NET_RT_IFLIST;
+    mib[5] = 0;			/* List all interfaces. */
+
+
+    /* Get interface data. */
+
+    if (sysctl(mib, 6, NULL, &needed, NULL, 0) == -1)
+    {
+ 	report(stderr, 
+	    _("get_ifinfo: sysctl (iflist estimate) failed"));
+	exit(1);
+    }
+    if ((buf = malloc(needed)) == NULL)
+    {
+ 	report(stderr, 
+	    _("get_ifinfo: malloc failed"));
+	exit(1);
+    }
+    if (sysctl(mib, 6, buf, &needed, NULL, 0) == -1)
+    {
+ 	report(stderr, 
+	    _("get_ifinfo: sysctl (iflist) failed"));
+	exit(1);
+    }
+
+    lim = buf+needed;
+
+
+    /* first look for the interface information */
+
+    next = buf;
+    while (next < lim)
+    {
+	ifm = (struct if_msghdr *)next;
+	next += ifm->ifm_msglen;
+
+	if (ifm->ifm_version != RTM_VERSION) 
+	{
+ 	    report(stderr, 
+		_("Routing message version %d not understood."),
+		ifm->ifm_version);
+	    exit(1);
+	}
+
+	if (ifm->ifm_type == RTM_IFINFO)
+	{
+	    sdl = (struct sockaddr_dl *)(ifm + 1);
+
+	    if (!(strlen(iname) == sdl->sdl_nlen 
+		&& strncmp(iname, sdl->sdl_data, sdl->sdl_nlen) == 0))
+	    {
+		continue;
+	    }
+
+	    if ( !(ifm->ifm_flags & IFF_UP) )
+	    {
+		/* the interface is down */
+		goto get_ifinfo_end;
+	    }
+
+	    ifindex = ifm->ifm_index;
+	    ifinfo->rx_packets = ifm->ifm_data.ifi_ipackets;
+	    ifinfo->tx_packets = ifm->ifm_data.ifi_opackets;
+
+	    break;
+	}
+    }
+
+    if (ifindex < 0)
+    {
+	/* we did not find an interface with a matching name */
+	report(stderr, _("No interface found with name %s"), iname);
+	goto get_ifinfo_end;
+    }
+
+    /* now look for the interface's IP address */
+
+    next = buf;
+    while (next < lim)
+    {
+	ifam = (struct ifa_msghdr *)next;
+	next += ifam->ifam_msglen;
+
+	if (ifindex > 0
+	    && ifam->ifam_type == RTM_NEWADDR
+	    && ifam->ifam_index == ifindex)
+	{
+	    /* Expand the compacted addresses */
+	    info.rti_addrs = ifam->ifam_addrs;
+	    rt_xaddrs((char *)(ifam + 1), 
+			ifam->ifam_msglen + (char *)ifam,
+	  		&info);
+
+	    /* Check for IPv4 address information only */
+	    if (info.rti_info[RTAX_IFA]->sa_family != AF_INET)
+	    {
+		continue;
+	    }
+
+	    rc = 1;
+
+	    sin = (struct sockaddr_in *)info.rti_info[RTAX_IFA];
+	    if (sin)
+	    {
+		ifinfo->addr = sin->sin_addr;
+	    }
+
+	    sin = (struct sockaddr_in *)info.rti_info[RTAX_NETMASK];
+	    if (!sin)
+	    {
+		ifinfo->netmask = sin->sin_addr;
+	    }
+
+	    /* note: RTAX_BRD contains the address at the other
+	     * end of a point-to-point link or the broadcast address
+	     * of non point-to-point link
+	     */
+	    sin = (struct sockaddr_in *)info.rti_info[RTAX_BRD];
+	    if (!sin)
+	    {
+		ifinfo->dstaddr = sin->sin_addr;
+	    }
+
+	    break;
+	}
+    }
+
+    if (rc == 0)
+    {
+	report(stderr, _("No IP address found for %s"), iname);
+    }
+
+get_ifinfo_end:
+    free(buf);
+    return rc;
+}
+
+#endif /* __FREEBSD_USE_SYSCTL_GET_IFFINFO */
+
 #endif /* defined __FreeBSD__ */
 
 
@@ -434,7 +657,7 @@ void interface_note_activity(struct hostdata *hp)
 #endif
 }
 
-int interface_approve(struct hostdata *hp)
+int interface_approve(struct hostdata *hp, flag domonitor)
 /* return TRUE if OK to poll, FALSE otherwise */
 {
 	ifinfo_t ifinfo;
@@ -448,10 +671,20 @@ int interface_approve(struct hostdata *hp)
 				      hp->pollname, hp->interface);
 			return(FALSE);
 		}
-		/* check the IP address (range) */
-		if ((ifinfo.addr.s_addr &
-				hp->interface_pair->interface_mask.s_addr) !=
-				hp->interface_pair->interface_address.s_addr) {
+		/* check the IP addresses (range) */
+		if	(!(
+				/* check remote IP address */
+				((ifinfo.dstaddr.s_addr != 0) &&
+				(ifinfo.dstaddr.s_addr &
+				hp->interface_pair->interface_mask.s_addr) ==
+				hp->interface_pair->interface_address.s_addr)
+				||
+				/* check local IP address */
+				((ifinfo.addr.s_addr &
+				hp->interface_pair->interface_mask.s_addr) ==
+				hp->interface_pair->interface_address.s_addr)
+			) )
+		{
 			(void) report(stdout,
 				_("skipping poll of %s, %s IP address excluded\n"),
 				hp->pollname, hp->interface);
@@ -460,7 +693,7 @@ int interface_approve(struct hostdata *hp)
 	}
 
 	/* if not monitoring link, all done */
-	if (!hp->monitor)
+	if (!domonitor || !hp->monitor)
 		return(TRUE);
 
 #ifdef	ACTIVITY_DEBUG
@@ -505,4 +738,4 @@ int interface_approve(struct hostdata *hp)
 
 	return(TRUE);
 }
-#endif /* (defined(linux) && !defined(INET6)) || defined(__FreeBSD__) */
+#endif /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */

@@ -84,14 +84,15 @@ HFILES				=	gdb.h			\
 
 HEADERS				=	$(HFILES:%=$(SRCROOT)/%)
 
-XPRIVATE_FRAMEWORKS_DIR		=	/System/Library/PrivateFrameworks
+PRIVATE_FRAMEWORKS_DIR_		=	/System/Library/PrivateFrameworks
 
-INCLUDES 			= 	-I$(XPRIVATE_FRAMEWORKS_DIR)/gdb.framework/Headers 	 \
-					-I$(XPRIVATE_FRAMEWORKS_DIR)/gdb.framework/Headers/config \
-					-I$(XPRIVATE_FRAMEWORKS_DIR)/bfd.framework/Headers 	 \
-					-I$(XPRIVATE_FRAMEWORKS_DIR)/mmalloc.framework/Headers 	 \
-					-I$(XPRIVATE_FRAMEWORKS_DIR)/liberty.framework/Headers	 \
-					-I$(XPRIVATE_FRAMEWORKS_DIR)/binutils.framework/Headers	 \
+INCLUDES 			= 	-I$(PRIVATE_FRAMEWORKS_DIR_)/gdb.framework/Headers 	 \
+					-I$(PRIVATE_FRAMEWORKS_DIR_)/gdb.framework/Headers/config \
+					-I$(PRIVATE_FRAMEWORKS_DIR_)/gdb.framework/Headers/machine \
+					-I$(PRIVATE_FRAMEWORKS_DIR_)/bfd.framework/Headers 	 \
+					-I$(PRIVATE_FRAMEWORKS_DIR_)/mmalloc.framework/Headers 	 \
+					-I$(PRIVATE_FRAMEWORKS_DIR_)/liberty.framework/Headers	 \
+					-I$(PRIVATE_FRAMEWORKS_DIR_)/binutils.framework/Headers	 \
 					-I.
 
 CFLAGS 				= 	-g 			\
@@ -129,7 +130,7 @@ installsrc			:
 	chmod 755 $(SRCROOT)
 	gnutar cf - $(INSTALLSRC_FILES) | (cd $(SRCROOT); gnutar xf -)
 	chmod 444 $(SRCROOT)/*
-	
+
 clean				:
 	rm -rf $(OFILE_DIR) $(SYMROOT)/gdb_plugin_support.o
 

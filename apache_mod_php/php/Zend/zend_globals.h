@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -190,6 +190,8 @@ struct _zend_executor_globals {
 	int timeout_seconds;
 
 	int lambda_count;
+
+	HashTable ini_directives;
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 #if SUPPORT_INTERACTIVE

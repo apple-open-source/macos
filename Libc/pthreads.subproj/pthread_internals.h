@@ -198,24 +198,33 @@ extern boolean_t swtch_pri(int);
 
 /* Number of times to spin when the lock is unavailable and we are on a
    multiprocessor.  On a uniprocessor we yield the processor immediately.  */
-#define SPIN_TRIES 10
+#define	MP_SPIN_TRIES	1000
 extern int _spin_tries;
 extern int __is_threaded;
 extern int _cpu_has_altivec;
 
 /* Internal mutex locks for data structures */
-#define TRY_LOCK(v) (!__is_threaded || _spin_lock_try((pthread_lock_t *)&v))
-#if 0
-#define LOCK(v) if (__is_threaded) _spin_lock((pthread_lock_t)&v)
-#else
-#define LOCK(v) \
-        if (__is_threaded) { \
-		while (!_spin_lock_try((pthread_lock_t *)&v)) {	\
-		    syscall_thread_switch(THREAD_NULL, SWITCH_OPTION_WAIT, 1); \
-		} \
-	}
-#endif
-#define UNLOCK(v) if (__is_threaded) _spin_unlock((pthread_lock_t *)&v)
+#define TRY_LOCK(v) (!__is_threaded || _spin_lock_try((pthread_lock_t *)&(v)))
+#define LOCK(v)																\
+do {																		\
+	if (__is_threaded) {													\
+		int		tries = _spin_tries;										\
+																			\
+		while (!_spin_lock_try((pthread_lock_t *)&(v))) {					\
+			if (tries-- > 0)												\
+				continue;													\
+																			\
+			syscall_thread_switch(THREAD_NULL, SWITCH_OPTION_DEPRESS, 1);	\
+			tries = _spin_tries;											\
+		}																	\
+	}																		\
+} while (0)
+#define UNLOCK(v)								\
+do {											\
+	if (__is_threaded)							\
+		_spin_unlock((pthread_lock_t *)&(v));	\
+} while (0)
+
 #ifndef ESUCCESS
 #define ESUCCESS 0
 #endif

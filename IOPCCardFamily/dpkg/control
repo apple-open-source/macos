@@ -1,0 +1,6 @@
+Package: iopccardfamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 14
+Build-Depends: build-base, iokituser, jam, xnu
+Description: IOKit PCCard Family Framework

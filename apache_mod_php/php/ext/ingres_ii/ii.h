@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ii.h,v 1.1.1.2 2001/01/25 04:59:24 wsanchez Exp $ */
+/* $Id: ii.h,v 1.1.1.3 2001/07/19 00:19:17 zarzycki Exp $ */
 
 #ifndef II_H
 #define II_H
@@ -46,7 +46,6 @@ static int _close_statement(II_LINK *link);
 static int _rollback_transaction(II_LINK *link);
 static void _close_ii_link(II_LINK *link);
 static void _close_ii_plink(zend_rsrc_list_entry *link);
-static void _clean_ii_plink(zend_rsrc_list_entry *link);
 static int php_ii_get_default_link(INTERNAL_FUNCTION_PARAMETERS IILS_DC);
 static void php_ii_set_default_link(int id);
 static void php_ii_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent);

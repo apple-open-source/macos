@@ -29,7 +29,8 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-FRAMEWORKS = -framework IOKit
+NEXTSTEP_PB_LDFLAGS = -twolevel_namespace
+FRAMEWORKS = -framework CoreFoundation -framework IOKit
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

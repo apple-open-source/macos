@@ -21,8 +21,8 @@
  */
         .text
         .align 2
-        .globl __pthread_self
-__pthread_self:
+        .globl _pthread_self
+_pthread_self:
         li r0, 0x7FF2
         sc
         blr

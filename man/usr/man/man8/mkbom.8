@@ -1,0 +1,36 @@
+.\" Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.Dd August 4, 2001
+.Dt MKBOM 8
+.Os Mac OS X
+.Sh NAME
+.Nm mkbom
+.Nd create a bill-of-materials file
+.Sh SYNOPSIS
+.Nm
+.Op Fl s 
+directory bom
+.Sh DESCRIPTION
+The
+.Nm
+command creates a bill-of-materials, 
+.Xr bom 5 . 
+You must specify the source as a directory. 
+.Nm 
+will generate bill-of-materials information for that directory. Any existing bomfile will be overwritten by the new bomfile.
+.Pp
+Options:
+.Bl -tag -width -indent
+.It Fl s
+create a simplified bom containing only file paths
+.El
+.Pp
+.Sh SEE ALSO 
+.Xr bom 5 , 
+.Xr ditto 8 , 
+.Xr mkbom 8 
+.Sh HISTORY 
+The
+.Nm 
+command appeared in NeXTSTEP as a tool to create
+.Nm bom
+files used during installation.

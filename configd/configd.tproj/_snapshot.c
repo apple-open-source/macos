@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * April 14, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <fcntl.h>
 #include <paths.h>
 #include <unistd.h>
@@ -29,27 +39,36 @@
 #include "session.h"
 
 
-#define	SNAPSHOT_PATH_CACHE	_PATH_VARTMP "configd-cache.xml"
+#define	SNAPSHOT_PATH_STORE	_PATH_VARTMP "configd-store.xml"
 #define	SNAPSHOT_PATH_SESSION	_PATH_VARTMP "configd-session.xml"
 
 
-SCDStatus
-_SCDSnapshot(SCDSessionRef session)
+int
+__SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 {
-	int			fd;
-	CFDataRef		xmlData;
+	int				fd;
+	serverSessionRef		mySession;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	CFDataRef			xmlData;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDSnapshot:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreSnapshot:"));
 
-	/* Save a snapshot of the "cache" data */
+	/* check credentials */
 
-	(void) unlink(SNAPSHOT_PATH_CACHE);
-	fd = open(SNAPSHOT_PATH_CACHE, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-	if (fd < 0) {
-		return SCD_FAILED;
+	mySession = getSession(storePrivate->server);
+	if (mySession->callerEUID != 0) {
+		return kSCStatusAccessError;
 	}
 
-	xmlData = CFPropertyListCreateXMLData(NULL, cacheData);
+	/* Save a snapshot of the "store" data */
+
+	(void) unlink(SNAPSHOT_PATH_STORE);
+	fd = open(SNAPSHOT_PATH_STORE, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+	if (fd < 0) {
+		return kSCStatusFailed;
+	}
+
+	xmlData = CFPropertyListCreateXMLData(NULL, storeData);
 	(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
 	(void) close(fd);
 	CFRelease(xmlData);
@@ -59,7 +78,7 @@ _SCDSnapshot(SCDSessionRef session)
 	(void) unlink(SNAPSHOT_PATH_SESSION);
 	fd = open(SNAPSHOT_PATH_SESSION, O_WRONLY|O_CREAT|O_TRUNC, 0644);
 	if (fd < 0) {
-		return SCD_FAILED;
+		return kSCStatusFailed;
 	}
 
 	/* Save a snapshot of the "session" data */
@@ -69,20 +88,20 @@ _SCDSnapshot(SCDSessionRef session)
 	(void) close(fd);
 	CFRelease(xmlData);
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
 kern_return_t
-_snapshot(mach_port_t server, int *scd_status)
+_snapshot(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCDLog(LOG_DEBUG, CFSTR("Snapshot configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Snapshot configuration database."));
 
-	*scd_status = _SCDSnapshot(mySession->session);
-	if (*scd_status != SCD_OK) {
-		SCDLog(LOG_DEBUG, CFSTR("  SCDUnlock(): %s"), SCDError(*scd_status));
+	*sc_status = __SCDynamicStoreSnapshot(mySession->store);
+	if (*sc_status != kSCStatusOK) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreSnapshot(): %s"), SCErrorString(*sc_status));
 	}
 
 	return KERN_SUCCESS;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -34,8 +34,22 @@ PHP_FUNCTION(ircg_join);
 PHP_FUNCTION(ircg_set_current);
 PHP_FUNCTION(ircg_part);
 PHP_FUNCTION(ircg_register_current_conn);
+PHP_FUNCTION(ircg_whois);
 PHP_FUNCTION(ircg_msg);
+PHP_FUNCTION(ircg_notice);
+PHP_FUNCTION(ircg_nick);
+PHP_FUNCTION(ircg_html_encode);
+PHP_FUNCTION(ircg_ignore_add);
+PHP_FUNCTION(ircg_ignore_del);
+PHP_FUNCTION(ircg_kick);
+PHP_FUNCTION(ircg_topic);
+PHP_FUNCTION(ircg_channel_mode);
 PHP_FUNCTION(ircg_disconnect);
+PHP_FUNCTION(ircg_is_conn_alive);
+PHP_FUNCTION(ircg_lookup_format_messages);
+PHP_FUNCTION(ircg_register_format_messages);
+PHP_FUNCTION(ircg_nickname_escape);
+PHP_FUNCTION(ircg_nickname_unescape);
 
 PHP_MINIT_FUNCTION(ircg);
 PHP_MSHUTDOWN_FUNCTION(ircg);

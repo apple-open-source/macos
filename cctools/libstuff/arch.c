@@ -27,6 +27,7 @@
 #include <mach/mach.h>
 #include "stuff/openstep_mach.h"
 #include "stuff/arch.h"
+#include "stuff/allocate.h"
 
 /*
  * The array of all currently know architecture flags (terminated with an entry
@@ -129,7 +130,7 @@ cpu_subtype_t cpusubtype)
 	       arch_flags[i].cpusubtype == cpusubtype)
 		return(arch_flags[i].name);
 	}
-	p = malloc(sizeof("cputype  cpusubtype ") + 10 + 10);
+	p = savestr("cputype 1234567890 cpusubtype 1234567890");
 	if(p != NULL)
 	    sprintf(p, "cputype %u cpusubtype %u", cputype, cpusubtype);
 	return(p);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: java.c,v 1.1.1.3 2001/01/25 04:59:26 wsanchez Exp $ */
+/* $Id: java.c,v 1.1.1.4 2001/07/19 00:19:20 zarzycki Exp $ */
 
 /*
  * This module implements Zend OO syntax overloading support for Java
@@ -349,13 +349,12 @@ static jobject _java_makeObject(pval* arg JG_DC) {
       while(zend_hash_get_current_data(arg->value.ht, (void**)&value) == SUCCESS) {
         jval = _java_makeObject(*value JG_CC);
 
-        switch (zend_hash_get_current_key(arg->value.ht, &string_key, &num_key)) {
+        switch (zend_hash_get_current_key(arg->value.ht, &string_key, &num_key, 0)) {
           case HASH_KEY_IS_STRING:
             key.type = IS_STRING;
             key.value.str.val = string_key;
             key.value.str.len = strlen(string_key);
             jkey = _java_makeObject(&key JG_CC);
-            efree(string_key);
             break;
           case HASH_KEY_IS_LONG:
             key.type = IS_LONG;

@@ -34,4 +34,6 @@ int log_name_to_facility(char *name);
 void system_log_open(char *title, int options, int facility, FILE *fp);
 void system_log_close();
 void system_log_set_logfile(FILE *fp);
+void system_log_set_max_priority(int p);
+int system_log_max_priority(void);
 void system_log(int priority, char *fmt, ...);

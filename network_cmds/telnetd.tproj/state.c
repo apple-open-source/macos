@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,9 +32,14 @@
  */
 
 #ifndef lint
-static char sccsid[] = "@(#)state.c	8.5 (Berkeley) 5/30/95";
+#if 0
+static const char sccsid[] = "@(#)state.c	8.2 (Berkeley) 12/15/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/telnetd/state.c,v 1.13 2001/07/20 15:14:03 ru Exp $";
 #endif /* not lint */
 
+#include <stdarg.h>
 #include "telnetd.h"
 #if	defined(AUTHENTICATION)
 #include <libtelnet/auth.h>
@@ -117,10 +99,6 @@ telrcv()
 		if ((&ptyobuf[BUFSIZ] - pfrontp) < 2)
 			break;
 		c = *netip++ & 0377, ncc--;
-#ifdef	ENCRYPTION
-		if (decrypt_input)
-			c = (*decrypt_input)(c);
-#endif	/* ENCRYPTION */
 		switch (state) {
 
 		case TS_CR:
@@ -149,10 +127,6 @@ telrcv()
 			 */
 			if ((c == '\r') && his_state_is_wont(TELOPT_BINARY)) {
 				int nc = *netip;
-#ifdef	ENCRYPTION
-				if (decrypt_input)
-					nc = (*decrypt_input)(nc & 0xff);
-#endif	/* ENCRYPTION */
 #ifdef	LINEMODE
 				/*
 				 * If we are operating in linemode,
@@ -165,10 +139,6 @@ telrcv()
 				} else
 #endif
 				{
-#ifdef	ENCRYPTION
-					if (decrypt_input)
-						(void)(*decrypt_input)(-1);
-#endif	/* ENCRYPTION */
 					state = TS_CR;
 				}
 			}
@@ -221,8 +191,7 @@ gotiac:			switch (c) {
 				}
 
 				netclear();	/* clear buffer back */
-				*nfrontp++ = IAC;
-				*nfrontp++ = DM;
+				output_data("%c%c", IAC, DM);
 				neturg = nfrontp-1; /* off by one XXX */
 				DIAG(TD_OPTIONS,
 					printoption("td: send IAC", DM));
@@ -378,7 +347,7 @@ gotiac:			switch (c) {
 			continue;
 
 		default:
-			syslog(LOG_ERR, "telnetd: panic state=%d\n", state);
+			syslog(LOG_ERR, "panic state=%d", state);
 			printf("telnetd: panic state=%d\n", state);
 			exit(1);
 		}
@@ -475,8 +444,7 @@ send_do(option, init)
 			set_his_want_state_will(option);
 		do_dont_resp[option]++;
 	}
-	(void) sprintf(nfrontp, (char *)doopt, option);
-	nfrontp += sizeof (dont) - 2;
+	output_data((const char *)doopt, option);
 
 	DIAG(TD_OPTIONS, printoption("td: send do", option));
 }
@@ -487,9 +455,6 @@ extern void auth_request();
 #ifdef	LINEMODE
 extern void doclientstat();
 #endif
-#ifdef	ENCRYPTION
-extern void encrypt_send_support();
-#endif	/* ENCRYPTION */
 
 	void
 willoption(option)
@@ -603,12 +568,6 @@ willoption(option)
 			break;
 #endif
 
-#ifdef	ENCRYPTION
-		case TELOPT_ENCRYPT:
-			func = encrypt_send_support;
-			changeok++;
-			break;
-#endif	/* ENCRYPTION */
 
 		default:
 			break;
@@ -668,11 +627,6 @@ willoption(option)
 			break;
 #endif
 
-#ifdef	ENCRYPTION
-		case TELOPT_ENCRYPT:
-			func = encrypt_send_support;
-			break;
-#endif	/* ENCRYPTION */
 		case TELOPT_LFLOW:
 			func = flowstat;
 			break;
@@ -695,8 +649,7 @@ send_dont(option, init)
 		set_his_want_state_wont(option);
 		do_dont_resp[option]++;
 	}
-	(void) sprintf(nfrontp, (char *)dont, option);
-	nfrontp += sizeof (doopt) - 2;
+	output_data((const char *)dont, option);
 
 	DIAG(TD_OPTIONS, printoption("td: send dont", option));
 }
@@ -739,6 +692,7 @@ wontoption(option)
 			 */
 			if (lmodetype != REAL_LINEMODE)
 				break;
+			lmodetype = KLUDGE_LINEMODE;
 # endif	/* KLUDGELINEMODE */
 			clientstat(TELOPT_LINEMODE, WONT, 0);
 			break;
@@ -844,8 +798,7 @@ send_will(option, init)
 		set_my_want_state_will(option);
 		will_wont_resp[option]++;
 	}
-	(void) sprintf(nfrontp, (char *)will, option);
-	nfrontp += sizeof (doopt) - 2;
+	output_data((const char *)will, option);
 
 	DIAG(TD_OPTIONS, printoption("td: send will", option));
 }
@@ -962,11 +915,6 @@ dooption(option)
 			/* NOT REACHED */
 			break;
 
-#ifdef	ENCRYPTION
-		case TELOPT_ENCRYPT:
-			changeok++;
-			break;
-#endif	/* ENCRYPTION */
 		case TELOPT_LINEMODE:
 		case TELOPT_TTYPE:
 		case TELOPT_NAWS:
@@ -1003,8 +951,7 @@ send_wont(option, init)
 		set_my_want_state_wont(option);
 		will_wont_resp[option]++;
 	}
-	(void) sprintf(nfrontp, (char *)wont, option);
-	nfrontp += sizeof (wont) - 2;
+	output_data((const char *)wont, option);
 
 	DIAG(TD_OPTIONS, printoption("td: send wont", option));
 }
@@ -1216,7 +1163,7 @@ suboption()
 	if (SB_EOF())
 	    break;		/* another garbage check */
 
-	if (request == LM_SLC) {  /* SLC is not preceeded by WILL or WONT */
+	if (request == LM_SLC) {  /* SLC is not preceded by WILL or WONT */
 		/*
 		 * Process suboption buffer of slc's
 		 */
@@ -1400,9 +1347,8 @@ suboption()
 	    env_ovar_wrong:
 			env_ovar = OLD_ENV_VALUE;
 			env_ovalue = OLD_ENV_VAR;
-			DIAG(TD_OPTIONS, {sprintf(nfrontp,
-				"ENVIRON VALUE and VAR are reversed!\r\n");
-				nfrontp += strlen(nfrontp);});
+			DIAG(TD_OPTIONS,
+			    output_data("ENVIRON VALUE and VAR are reversed!\r\n"));
 
 		}
 	    }
@@ -1486,49 +1432,6 @@ suboption()
 	}
 	break;
 #endif
-#ifdef	ENCRYPTION
-    case TELOPT_ENCRYPT:
-	if (SB_EOF())
-		break;
-	switch(SB_GET()) {
-	case ENCRYPT_SUPPORT:
-		encrypt_support(subpointer, SB_LEN());
-		break;
-	case ENCRYPT_IS:
-		encrypt_is(subpointer, SB_LEN());
-		break;
-	case ENCRYPT_REPLY:
-		encrypt_reply(subpointer, SB_LEN());
-		break;
-	case ENCRYPT_START:
-		encrypt_start(subpointer, SB_LEN());
-		break;
-	case ENCRYPT_END:
-		encrypt_end();
-		break;
-	case ENCRYPT_REQSTART:
-		encrypt_request_start(subpointer, SB_LEN());
-		break;
-	case ENCRYPT_REQEND:
-		/*
-		 * We can always send an REQEND so that we cannot
-		 * get stuck encrypting.  We should only get this
-		 * if we have been able to get in the correct mode
-		 * anyhow.
-		 */
-		encrypt_request_end();
-		break;
-	case ENCRYPT_ENC_KEYID:
-		encrypt_enc_keyid(subpointer, SB_LEN());
-		break;
-	case ENCRYPT_DEC_KEYID:
-		encrypt_dec_keyid(subpointer, SB_LEN());
-		break;
-	default:
-		break;
-	}
-	break;
-#endif	/* ENCRYPTION */
 
     default:
 	break;
@@ -1543,7 +1446,7 @@ doclientstat()
 }
 
 #define	ADD(c)	 *ncp++ = c
-#define	ADD_DATA(c) { *ncp++ = c; if (c == SE || c == IAC) *ncp++ = c; }
+#define	ADD_DATA(c) { *ncp++ = c; if (c == SE) *ncp++ = c; }
 	void
 send_status()
 {
@@ -1572,10 +1475,14 @@ send_status()
 		if (my_want_state_is_will(i)) {
 			ADD(WILL);
 			ADD_DATA(i);
+			if (i == IAC)
+				ADD(IAC);
 		}
 		if (his_want_state_is_will(i)) {
 			ADD(DO);
 			ADD_DATA(i);
+			if (i == IAC)
+				ADD(IAC);
 		}
 	}
 
@@ -1598,6 +1505,7 @@ send_status()
 				ADD(LFLOW_RESTART_XON);
 			}
 			ADD(SE);
+			ADD(SB);
 		}
 	}
 
@@ -1610,6 +1518,8 @@ send_status()
 		ADD(TELOPT_LINEMODE);
 		ADD(LM_MODE);
 		ADD_DATA(editmode);
+		if (editmode == IAC)
+			ADD(IAC);
 		ADD(SE);
 
 		ADD(SB);
@@ -1627,9 +1537,55 @@ send_status()
 	ADD(IAC);
 	ADD(SE);
 
-	writenet(statusbuf, ncp - statusbuf);
+	output_datalen(statusbuf, ncp - statusbuf);
 	netflush();	/* Send it on its way */
 
 	DIAG(TD_OPTIONS,
 		{printsub('>', statusbuf, ncp - statusbuf); netflush();});
+}
+
+/*
+ * This function appends data to nfrontp and advances nfrontp.
+ * Returns the number of characters written altogether (the
+ * buffer may have been flushed in the process).
+ */
+
+int
+output_data(const char *format, ...)
+{
+	va_list args;
+	int len;
+	char *buf;
+
+	va_start(args, format);
+	if ((len = vasprintf(&buf, format, args)) == -1)
+		return -1;
+	output_datalen(buf, len);
+        va_end(args);
+	free(buf);
+	return (len);
+}
+
+void
+output_datalen(const char *buf, int len)
+{
+	int remaining, copied;
+
+	remaining = BUFSIZ - (nfrontp - netobuf);
+	while (len > 0) {
+		/* Free up enough space if the room is too low*/
+		if ((len > BUFSIZ ? BUFSIZ : len) > remaining) {
+			netflush();
+			remaining = BUFSIZ - (nfrontp - netobuf);
+		}
+
+		/* Copy out as much as will fit */
+		copied = remaining > len ? len : remaining;
+		memmove(nfrontp, buf, copied);
+		nfrontp += copied;
+		len -= copied;
+		remaining -= copied;
+		buf += copied;
+	}
+	return;
 }

@@ -1302,7 +1302,7 @@ blockframe.o: blockframe.c $(defs_h) $(gdbcore_h) $(inferior_h) \
 
 breakpoint.o: breakpoint.c $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
 	$(inferior_h) language.h target.h gdbthread.h gdb_string.h \
-	gdb-events.h
+	gdb-events.h top.h
 
 buildsym.o: buildsym.c $(bfd_h) buildsym.h complaints.h $(defs_h) \
 	objfiles.h symfile.h $(symtab_h) gdb_string.h
@@ -2251,3 +2251,47 @@ tuiWin.o: $(srcdir)/tui/tuiWin.c \
 #	md -o Makefile.deps $^ || touch $@
 
 ### end of the gdb Makefile.in.
+
+NSLIBTOOL = libtool
+
+SYSTEM_FRAMEWORK = -framework System -lcc_dynamic
+
+FRAMEWORK = gdb
+FRAMEWORK_PREFIX = 
+FRAMEWORK_SUFFIX = 
+FRAMEWORK_VERSION_SUFFIX = 
+FRAMEWORK_VERSION = A
+FRAMEWORK_OFILES = $(LIBGDB_OBS)
+FRAMEWORK_LIB = -F../bfd -framework bfd -F../opcodes -framework opcodes -F../libiberty -framework liberty -F../mmalloc -framework mmalloc -F../electric-fence -framework electric-fence $(SYSTEM_FRAMEWORK)
+
+stamp-framework-headers:
+	$(RM) -f stamp-framework stamp-framework-headers
+	$(RM) -rf $(FRAMEWORK).framework
+	mkdir -p $(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/Headers
+	mkdir -p $(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/PrivateHeaders
+	ln -s Versions/Current/Headers $(FRAMEWORK).framework/Headers
+	ln -s Versions/Current/PrivateHeaders $(FRAMEWORK).framework/PrivateHeaders
+	ln -s A $(FRAMEWORK).framework/Versions/Current
+	cp -p $(srcdir)/*.h $(FRAMEWORK).framework/Versions/Current/Headers/
+	cp -p *.h $(FRAMEWORK).framework/Versions/Current/Headers/
+	touch stamp-framework-headers
+
+stamp-framework:
+	$(MAKE) $(FRAMEWORK_OFILES)
+	$(RM) -f stamp-framework-headers
+	$(MAKE) stamp-framework-headers
+	mkdir -p $(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/Resources
+	ln -s Versions/Current/Resources $(FRAMEWORK).framework/Resources
+	mkdir -p $(FRAMEWORK).framework/Versions/Current/Resources/English.lproj
+
+	set -e; if [ "$(FRAMEWORK_SUFFIX)" != "" ]; then \
+		$(NSLIBTOOL) -arch_only $(HOST_ARCHITECTURE) -dynamic -seg1addr $(FRAMEWORK_ADDRESS) -compatibility_version 1 -current_version 1 -install_name /System/Library/PrivateFrameworks/$(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) -o $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK_OFILES) $(FRAMEWORK_LIB); \
+		ln -s $(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX); \
+		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_VERSION_SUFFIX); \
+		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX); \
+		ln -s $(FRAMEWORK_PREFIX)$(FRAMEWORK)$(FRAMEWORK_SUFFIX) $(FRAMEWORK).framework/$(FRAMEWORK); \
+	else \
+		$(NSLIBTOOL) -arch_only $(HOST_ARCHITECTURE) -dynamic -compatibility_version 1 -current_version 1 -install_name /System/Library/PrivateFrameworks/$(FRAMEWORK).framework/Versions/$(FRAMEWORK_VERSION)/$(FRAMEWORK_PREFIX)$(FRAMEWORK) -o $(FRAMEWORK).framework/Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK) $(FRAMEWORK_OFILES) $(FRAMEWORK_LIB); \
+		ln -s Versions/Current/$(FRAMEWORK_PREFIX)$(FRAMEWORK) $(FRAMEWORK).framework/$(FRAMEWORK_PREFIX)$(FRAMEWORK); \
+	fi
+	touch stamp-framework

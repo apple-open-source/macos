@@ -389,64 +389,77 @@ unsigned long nfat_archs)
 	case CPU_TYPE_POWERPC:
 	    /*
 	     * An exact match as not found.  So for all the PowerPC subtypes
-	     * pick the subtype from the following order:
+	     * pick the subtype from the following order starting from a subtype
+	     * that will work (contains altivec if needed):
 	     *	7450, 7400, 750, 604e, 604, 603ev, 603e, 603, ALL
 	     * Note the 601 is NOT in the list above.  It is only picked via
-	     * an exact match.
+	     * an exact match.  For an unknown subtype pick obly the ALL type if
+	     * it exists.
 	     */
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_7450)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_7400)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_750)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_604e)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_604)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603ev)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603e)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603)
-		    return(fat_archs + i);
-	    }
-	    for(i = 0; i < nfat_archs; i++){
-		if(fat_archs[i].cputype != cputype)
-		    continue;
-		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_ALL)
-		    return(fat_archs + i);
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_7450:
+	    case CPU_SUBTYPE_POWERPC_7400:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_7450)
+			return(fat_archs + i);
+		}
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_7400)
+			return(fat_archs + i);
+		}
+	    case CPU_SUBTYPE_POWERPC_750:
+	    case CPU_SUBTYPE_POWERPC_604e:
+	    case CPU_SUBTYPE_POWERPC_604:
+	    case CPU_SUBTYPE_POWERPC_603ev:
+	    case CPU_SUBTYPE_POWERPC_603e:
+	    case CPU_SUBTYPE_POWERPC_603:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_750)
+			return(fat_archs + i);
+		}
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_604e)
+			return(fat_archs + i);
+		}
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_604)
+			return(fat_archs + i);
+		}
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603ev)
+			return(fat_archs + i);
+		}
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603e)
+			return(fat_archs + i);
+		}
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603)
+			return(fat_archs + i);
+		}
+	    default:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_ALL)
+			return(fat_archs + i);
+		}
 	    }
 	    break;
 	case CPU_TYPE_MC88000:
@@ -587,7 +600,7 @@ cpu_subtype_t cpusubtype2)
 	    /*
 	     * Combining with the ALL type becomes the other type. Combining
 	     * anything with the 601 becomes 601.  All other non exact matches
-	     * combine to the ALL type.
+	     * combine to the higher value subtype.
 	     */
 	    if(cpusubtype1 == CPU_SUBTYPE_POWERPC_ALL)
 		return(cpusubtype2);
@@ -598,7 +611,10 @@ cpu_subtype_t cpusubtype2)
 	       cpusubtype2 == CPU_SUBTYPE_POWERPC_601)
 		return(CPU_SUBTYPE_POWERPC_601);
 
-	    return(CPU_SUBTYPE_POWERPC_ALL);
+	    if(cpusubtype1 > cpusubtype2)
+		return(cpusubtype1);
+	    else
+		return(cpusubtype2);
 	    break; /* logically can't get here */
 
 	case CPU_TYPE_MC88000:

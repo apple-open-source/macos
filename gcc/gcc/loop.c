@@ -7702,6 +7702,7 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
   for (bl = loop_iv_list; bl; bl = bl->next)
     {
       if (bl->biv_count == 1
+	  && ! bl->biv->maybe_multiple		/* 295.3  */
 	  && bl->biv->dest_reg == XEXP (comparison, 0)
 	  && ! reg_used_between_p (regno_reg_rtx[bl->regno], bl->biv->insn,
 				   first_compare))
@@ -7767,7 +7768,8 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 	    }
 	}
     }
-  else if (INTVAL (bl->biv->add_val) > 0)
+  else if (GET_CODE (bl->biv->add_val) == CONST_INT
+	   && INTVAL (bl->biv->add_val) > 0)
     {
       /* Try to change inc to dec, so can apply above optimization.  */
       /* Can do this if:

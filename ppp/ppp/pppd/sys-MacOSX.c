@@ -20,14 +20,11 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: sys-MacOSX.c,v 1.12 2001/01/26 23:50:45 callie Exp $"
+#define RCSID	"$Id: sys-MacOSX.c,v 1.22 2001/09/07 00:26:02 callie Exp $"
 
-/*	$NetBSD: sys-bsd.c,v 1.1.1.3 1997/09/26 18:53:04 christos Exp $	*/
-
-/*
- * TODO:
- */
-
+/* -----------------------------------------------------------------------------
+  Includes
+----------------------------------------------------------------------------- */
 
 #include <stdio.h>
 #include <string.h>
@@ -43,27 +40,39 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/param.h>
-#ifdef NetBSD1_2
-#include <util.h>
-#endif
 #ifdef PPP_FILTER
 #include <net/bpf.h>
 #endif
 
 #include <net/if.h>
-//#include <net/ppp_defs.h>
-//#include <net/if_ppp.h>
+
+#include <mach-o/dyld.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <NSSystemDirectories.h>
+
+#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
+#include <SystemConfiguration/SystemConfiguration.h>
+#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+#include <SystemConfiguration/v1Compatibility.h>
+#include <SystemConfiguration/SCSchemaDefinitions.h>
+#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+
+#include <CoreFoundation/CFBundle.h>
+#include <net/ppp_defs.h>
+#include <net/ppp_domain.h>
+#include <net/ppp_msg.h>
+#include <net/ppp_privmsg.h>
+#include <net/if_ppp.h>
 #include <net/route.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
-
 #include <sys/param.h>
 #include <netinet/if_ether.h>
-#include <sys/ttycom.h>
 
-#include "../../Family/PPP.kmodproj/ppp.h"
-#include "../../Family/PPP.kmodproj/ppp_domain.h"
-#include "../../Drivers/PPPSerial/PPPSerial.kmodproj/pppserial.h"
 #include "pppd.h"
 #include "fsm.h"
 #include "ipcp.h"
@@ -72,81 +81,106 @@
 #include <syslog.h>
 #include <sys/un.h>
 #include <pthread.h>
-//#include <../ppplib/ppp_msg.h>
-//#include <../pppconfd/pppconfd.h>
-#define	SYSTEMCONFIGURATION_NEW_API
-#include <SystemConfiguration/SystemConfiguration.h>
-#if 0
-#include <NetworkConfiguration/NetworkConfig.h>
-#include <SystemConfiguration/SCD.h>
-#include <SystemConfiguration/SCDKeys.h>
-#endif
+
+
+/* -----------------------------------------------------------------------------
+ Definitions
+----------------------------------------------------------------------------- */
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip)	((u_char *)(ip))
 #define IP_LIST(ip)	IP_CH(ip)[0],IP_CH(ip)[1],IP_CH(ip)[2],IP_CH(ip)[3]
 
-static const char rcsid[] = RCSID;
+#define PPP_NKE_PATH 	"/System/Library/Extensions/PPP.kext"
 
-static int initdisc = -1;	/* Initial TTY discipline for ppp_fd */
-static int initfdflags = -1;	/* Initial file descriptor flags for ppp_fd */
-static int ppp_fd = -1;		/* fd which is set to PPP discipline */
-static int rtm_seq;
+/* We can get an EIO error on an ioctl if the modem has hung up */
+#define ok_error(num) ((num)==EIO)
 
-static int restore_term;	/* 1 => we've munged the terminal */
-static struct termios inittermios; /* Initial TTY termios */
-static struct winsize wsinfo;	/* Initial window size info */
+#ifndef N_SYNC_PPP
+#define N_SYNC_PPP 14
+#endif
 
-static int loop_slave = -1;
-static int loop_master;
-static char loop_name[20];
-
-static unsigned char inbuf[512]; /* buffer for chars read from loopback */
-
-static int sockfd;		/* socket for doing interface ioctls */
-static int sockppp;		/* socket to control the ppp interface */
-
-static fd_set in_fds;		/* set of fds that wait_input waits for */
-static int max_in_fd;		/* highest fd set in in_fds */
-
-static int if_is_up;		/* the interface is currently up */
-static u_int32_t ifaddrs[2];	/* local and remote addresses we set */
-static u_int32_t default_route_gateway;	/* gateway addr for default route */
-static u_int32_t proxy_arp_addr;	/* remote addr for proxy arp */
-
-/* Prototypes for procedures local to this file. */
-static int dodefaultroute __P((u_int32_t, int));
-static int get_ether_addr __P((u_int32_t, struct sockaddr_dl *));
-
-SCDSessionRef		configd_session = NULL;
-int			configd_session_inited = 0;
-
-static u_char 	ppp_buf[PPP_MRU+PPP_HDRLEN+4];
-
-// #define LOADPPPK 1
-#ifdef LOADPPPK
 /* -----------------------------------------------------------------------------
+ Forward declarations
 ----------------------------------------------------------------------------- */
-u_long isPPPKLoaded()
-{
-    struct ifpppstatsreq      rq;
-    int                       s;
 
-    s = socket(AF_INET, SOCK_DGRAM, 0);
-    if (s < 0) {
-        return 0;
-    }
+static int get_flags (int fd);
+static void set_flags (int fd, int flags);
+static int translate_speed (int bps);
+static int baud_rate_of (int speed);
+static void close_route_table (void);
+static int open_route_table (void);
+static int read_route_table (struct rtentry *rt);
+static int defaultroute_exists (struct rtentry *rt);
+//static int get_ether_addr (u_int32_t ipaddr, struct sockaddr *hwaddr,
+//			   char *name, int namelen);
+static void decode_version (char *buf, int *version, int *mod, int *patch);
+static int set_kdebugflag(int level);
+static int ppp_registered(void);
+static int make_ppp_unit(void);
+/* Prototypes for procedures local to this file. */
+static int get_ether_addr __P((u_int32_t, struct sockaddr_dl *));
+static int connect_pfppp();
+static void sys_pidchange(void *arg, int pid);
+static void sys_phasechange(void *arg, int phase);
+int sys_getconsoleuser(uid_t *uid);
+static void sys_exitnotify(void *arg, int exitcode);
+static int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value);
+static int publish_numentry(CFStringRef entry, int val);
+static int publish_strentry(CFStringRef entry, char *str, int encoding);
+static int unpublish_keyentry(CFStringRef key, CFStringRef entry);
+static int unpublish_entity(CFStringRef entity);
+static int unpublish_entry(CFStringRef entry);
+static void sys_eventnotify(void *param, int code);
 
-    memset (&rq, 0, sizeof (rq));
-    strncpy(rq.ifr_name, "ppp0", sizeof(rq.ifr_name));
-    if (ioctl(s, SIOCGPPPSTATS, &rq) < 0) {
-        close(s);
-        return 0;
-    }
+/* -----------------------------------------------------------------------------
+ Globals
+----------------------------------------------------------------------------- */
+static const char 	rcsid[] = RCSID;
 
-    close(s);
-    return 1;
-}
+static int 		ttydisc = TTYDISC;	/* The default tty discipline */
+static int 		pppdisc = PPPDISC;	/* The PPP sync or async discipline */
+
+static int 		initfdflags = -1;	/* Initial file descriptor flags for ppp_fd */
+static int 		ppp_fd = -1;		/* fd which is set to PPP discipline */
+static int		rtm_seq;
+
+static int 		restore_term;		/* 1 => we've munged the terminal */
+static struct termios 	inittermios; 		/* Initial TTY termios */
+static struct winsize 	wsinfo;			/* Initial window size info */
+
+static int 		ip_sockfd;		/* socket for doing interface ioctls */
+static int 		csockfd = -1;		/* socket for doing configd ioctls */
+
+static fd_set 		in_fds;			/* set of fds that wait_input waits for */
+static fd_set 		ready_fds;		/* set of fds currently ready (out of select) */
+static int 		max_in_fd;		/* highest fd set in in_fds */
+
+static int 		if_is_up;		/* the interface is currently up */
+static u_int32_t 	ifaddrs[2];		/* local and remote addresses we set */
+static u_int32_t 	default_route_gateway;	/* gateway addr for default route */
+static u_int32_t 	proxy_arp_addr;		/* remote addr for proxy arp */
+static SCDSessionRef	cfgCache = 0;		/* configd session */
+static CFStringRef	serviceidRef = 0;	/* service id ref */
+
+extern u_char		inpacket_buf[];		/* borrowed from main.c */
+
+static int		looped;			/* 1 if using loop */
+static int 		ppp_sockfd = -1;	/* fd for PF_PPP socket */
+static char 		*serviceid = NULL; 	/* configuration service ID to publish */
+static bool		tempserviceid = 0;	/* use a temporary created serviceid ? */
+static bool 		noload = 0;		/* don't load the kernel extension */
+static bool 		forcedetach = 0;	/* force detach from terminal, regardless of nodetach/updetach settings */
+
+option_t sys_options[] = {
+    { "serviceid", o_string, &serviceid,
+      "Service ID to publish"},
+    { "nopppload", o_bool, &noload,
+      "Don't try to load PPP NKE", 1},
+    { "forcedetach", o_bool, &forcedetach,
+      "Force detach from terminal", 1},
+    { NULL }
+};
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -163,88 +197,155 @@ void closeall()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long loadPPPK()
+u_long load_kext(char *kext)
 {
     int pid;
 
-    if (!isPPPKLoaded()) {
+    if ((pid = fork()) < 0)
+        return 1;
 
-        if ((pid = fork()) < 0)
-            return 1;
+    if (pid == 0) {
+        closeall();
+        // PPP kernel extension not loaded, try load it...
+        execl("/sbin/kextload", "kextload", kext, (char *)0);
+        exit(1);
+    }
 
-        if (pid == 0) {
-            closeall();
-            // PPP kernel extension not loaded, try load it...
-            execl("/sbin/kextload", "kextload", "/System/Library/Extensions/PPPSerial.kext", (char *)0);
-            exit(1);
-        }
-
-        if (waitpid(pid, 0, 0) < 0) {
-            // fail
-            return 1;
-        }
+    while (waitpid(pid, 0, 0) < 0) {
+        if (errno == EINTR)
+            continue;
+       return 1;
     }
     return 0;
 }
+
+/* -----------------------------------------------------------------------------
+preinitialize options, called before sysinit
+----------------------------------------------------------------------------- */
+void sys_install_options()
+{
+    add_options(sys_options);
+}
+
+/* -----------------------------------------------------------------------------
+System-dependent initialization
+----------------------------------------------------------------------------- */
+void sys_init()
+{
+    int 		err, flags;
+    struct sockaddr_un	adr;
+    struct sockaddr_ppp 	pppaddr;
+    SCDStatus		status;
+    char 		str[16];
+
+    openlog("pppd", LOG_PID | LOG_NDELAY, LOG_PPP);
+    setlogmask(LOG_UPTO(LOG_INFO));
+    if (debug)
+	setlogmask(LOG_UPTO(LOG_DEBUG));
+
+    // open a socket to the PF_PPP protocol
+    ppp_sockfd = connect_pfppp();
+    if (ppp_sockfd < 0)
+        fatal("Couldn't open PF_PPP: %m");
+                
+    flags = fcntl(ppp_sockfd, F_GETFL);
+    if (flags == -1
+        || fcntl(ppp_sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
+        warn("Couldn't set PF_PPP to nonblock: %m");
+
+    // Get an internet socket for doing socket ioctls
+    ip_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (ip_sockfd < 0)
+	fatal("Couldn't create IP socket: %m(%d)", errno);
+        
+#if 1
+    csockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (csockfd < 0)
+        fatal("Couldn't create PPPController local socket: %m");
+
+    bzero(&adr, sizeof(adr));
+    adr.sun_family = AF_LOCAL;
+    strcpy(adr.sun_path, PPP_PATH);
+
+    if (err = connect(csockfd,  (struct sockaddr *)&adr, sizeof(adr)) < 0) {
+        warn("Couldn't connect to PPPController \n");
+        csockfd = -1;
+    }
 #endif
 
-/*
- * sys_init - System-dependent initialization.
- */
-void
-sys_init()
-{
-    int 		err;
-    u_long		lval;
-    struct sockaddr_pppctl 	pppaddr;
-     int 			flags;
-       
-    /* Get an internet socket for doing socket ioctl's on. */
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-        fatal("Couldn't create IP socket: %m");
-        
-    if ((sockppp = socket(PF_PPP, SOCK_DGRAM, 0)) < 0)
-        fatal("can't create PF_PPP socket: %m");
+    // serviceid is required if we want pppd to publish information into the cache
+#if 1
+    if (!serviceid) {
+        sprintf(str, "ppp-%d", getpid());
+        if (serviceid = malloc(strlen(str) + 1))
+            strcpy(serviceid, str);
+        else 
+            fatal("Couldn't allocate memory to create temporary service id: %m(%d)", errno);
+        tempserviceid = 1;
+    }        
+#endif
+    serviceidRef = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), serviceid);
+    if (!serviceidRef) 
+        fatal("Couldn't allocate memory to create service id reference: %m(%d)", errno);
 
-    /* need to connect to it */
-    pppaddr.ppp_len = sizeof(struct sockaddr_pppctl);
-    pppaddr.ppp_family = AF_PPPCTL;
-    pppaddr.ppp_reserved = 0;
-    if (connect(sockppp, (struct sockaddr *)&pppaddr, sizeof(struct sockaddr_pppctl)) < 0) {
-        fatal("Couldn't connect to PF_PPP socket: %m");
+
+    // if force detach is specified, remove nodetach option.
+    // we don't want to block configd with bad config files
+    if (forcedetach)
+        nodetach = updetach = 0;
+        
+    //sys_pidchange(0, getpid());
+    sys_reinit();
+    //publish_entry(CFSTR("Status"), CFSTR("Initializing"));
+    publish_numentry(CFSTR("Status"), phase);
+    //unpublish_entry(CFSTR("LastCause"));
+    //add_notifier(&pidchange, sys_pidchange, 0);
+    add_notifier(&phasechange, sys_phasechange, 0);
+    add_notifier(&exitnotify, sys_exitnotify, 0);
+    
+    // only send event if started siwth serviceid option
+    // PPPController knows only about serviceid based connections
+    if (!tempserviceid) {
+        add_notifier(&ip_up_notify, sys_eventnotify, (void*)PPP_EVT_IPCP_UP);
+        add_notifier(&ip_down_notify, sys_eventnotify, (void*)PPP_EVT_IPCP_DOWN);
+        add_notifier(&lcp_up_notify, sys_eventnotify, (void*)PPP_EVT_LCP_UP);
+        add_notifier(&lcp_down_notify, sys_eventnotify, (void*)PPP_EVT_LCP_DOWN);
+        add_notifier(&lcp_lowerup_notify, sys_eventnotify, (void*)PPP_EVT_LOWERLAYER_UP);
+        add_notifier(&lcp_lowerdown_notify, sys_eventnotify, (void*)PPP_EVT_LOWERLAYER_DOWN);
+        add_notifier(&auth_start_notify, sys_eventnotify, (void*)PPP_EVT_AUTH_STARTED);
+        add_notifier(&auth_withpeer_fail_notify, sys_eventnotify, (void*)PPP_EVT_AUTH_FAILED);
+        add_notifier(&auth_withpeer_success_notify, sys_eventnotify, (void*)PPP_EVT_AUTH_SUCCEDED);
+        add_notifier(&connectscript_started_notify, sys_eventnotify, (void*)PPP_EVT_CONNSCRIPT_STARTED);
+        add_notifier(&connectscript_finished_notify, sys_eventnotify, (void*)PPP_EVT_CONNSCRIPT_FINISHED);
+        add_notifier(&terminalscript_started_notify, sys_eventnotify, (void*)PPP_EVT_TERMSCRIPT_STARTED);
+        add_notifier(&terminalscript_finished_notify, sys_eventnotify, (void*)PPP_EVT_TERMSCRIPT_FINISHED);
+        add_notifier(&connect_started_notify, sys_eventnotify, (void*)PPP_EVT_CONN_STARTED);
+        add_notifier(&connect_success_notify, sys_eventnotify, (void*)PPP_EVT_CONN_SUCCEDED);
+        add_notifier(&connect_fail_notify, sys_eventnotify, (void*)PPP_EVT_CONN_FAILED);
+        add_notifier(&disconnect_started_notify, sys_eventnotify, (void*)PPP_EVT_DISC_STARTED);
+        add_notifier(&disconnect_done_notify, sys_eventnotify, (void*)PPP_EVT_DISC_FINISHED);
     }
 
-    /* set socket for non-blocking reads. */
-    if ((flags = fcntl(sockppp, F_GETFL)) == -1
-        || fcntl(sockppp, F_SETFL, flags | O_NONBLOCK) == -1) 
-        fatal("Couldn't set ppp_sockfd to non-blocking mode: %m");
-
-    
     FD_ZERO(&in_fds);
+    FD_ZERO(&ready_fds);
     max_in_fd = 0;
 }
 
-/*
- * sys_cleanup - restore any system state we modified before exiting:
- * mark the interface down, delete default route and/or proxy arp entry.
- * This should call die() because it's called from die().
- */
-void
-sys_cleanup()
+/* ----------------------------------------------------------------------------- 
+ sys_cleanup - restore any system state we modified before exiting:
+ mark the interface down, delete default route and/or proxy arp entry.
+ This should call die() because it's called from die()
+----------------------------------------------------------------------------- */
+void sys_cleanup()
 {
     struct ifreq ifr;
 
-    if (configd_session_inited) {
-        SCDClose(&configd_session);
-        configd_session_inited = 0;
-    }
-    
     if (if_is_up) {
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-	if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) >= 0
+	if (ioctl(ip_sockfd, SIOCGIFFLAGS, &ifr) >= 0
 	    && ((ifr.ifr_flags & IFF_UP) != 0)) {
 	    ifr.ifr_flags &= ~IFF_UP;
-	    ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+	    ioctl(ip_sockfd, SIOCSIFFLAGS, &ifr);
 	}
     }
     if (ifaddrs[0] != 0)
@@ -255,39 +356,82 @@ sys_cleanup()
 	cifproxyarp(0, proxy_arp_addr);
 }
 
-/*
- * sys_close - Clean up in a child process before execing.
- */
-void
-sys_close()
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+void sys_close()
 {
-    close(sockfd);
-    if (loop_slave >= 0) {
-	close(loop_slave);
-	close(loop_master);
+    close(ip_sockfd);
+}
+
+/* ----------------------------------------------------------------------------- 
+ Functions to read and set the flags value in the device driver
+----------------------------------------------------------------------------- */
+static int get_flags (int fd)
+{    
+    int flags;
+
+    if (ioctl(fd, PPPIOCGFLAGS, (caddr_t) &flags) < 0) {
+	if ( ok_error (errno) )
+	    flags = 0;
+	else
+	    fatal("ioctl(PPPIOCGFLAGS): %m");
+    }
+
+    SYSDEBUG ((LOG_DEBUG, "get flags = %x\n", flags));
+    return flags;
+}
+
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+static void set_flags (int fd, int flags)
+{    
+    SYSDEBUG ((LOG_DEBUG, "set flags = %x\n", flags));
+
+    if (ioctl(fd, PPPIOCSFLAGS, (caddr_t) &flags) < 0) {
+	if (! ok_error (errno) )
+	    fatal("ioctl(PPPIOCSFLAGS, %x): %m", flags, errno);
     }
 }
 
-
-void sys_change_pid()
+/* ----------------------------------------------------------------------------- 
+we installed the notifier with the event as the parameter
+----------------------------------------------------------------------------- */
+void sys_eventnotify(void *param, int code)
 {
-    pid_t		pid = getpid();
-    SCDStatus		status;
-
-    status = SCDOpen(&configd_session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
+    struct ppp_msg_hdr	*msg;
+    int 		servlen = strlen(serviceid);
+    int 		totlen = sizeof(struct ppp_msg_hdr) + servlen + 8;
+    u_char 		*p;
+    
+    if (csockfd == -1)
+        return;
+        
+    p = malloc(totlen);
+    if (!p) {
+	warn("no memory to send event to PPPController");
+        return;
     }
-    else configd_session_inited = 1;
-
+        
+    bzero(p, totlen);
+    msg = (struct ppp_msg_hdr *)p;
+    msg->m_type = PPPD_EVENT;
+    msg->m_len = servlen + 8;
+    
+    bcopy((u_char*)&param, p + sizeof(struct ppp_msg_hdr), 4);
+    bcopy((u_char*)&code, p + sizeof(struct ppp_msg_hdr) + 4, 4);
+    bcopy(serviceid, p + sizeof(struct ppp_msg_hdr) + 8, servlen);
+    
+    if (write(csockfd, p, totlen) != totlen) {
+	warn("can't talk to PPPController : %m");
+    }
+    free(p);
 }
 
 
-/*
- * sys_check_options - check the options that the user specified
- */
-int
-sys_check_options()
+/* ----------------------------------------------------------------------------- 
+check the options that the user specified
+----------------------------------------------------------------------------- */
+int sys_check_options()
 {
 #ifndef CDTRCTS
     if (crtscts == 2) {
@@ -298,224 +442,301 @@ sys_check_options()
     return 1;
 }
 
-/*
- * ppp_available - check whether the system has any ppp interfaces
- * (in fact we check whether we can do an ioctl on ppp0).
- */
-int
-ppp_available()
+/* ----------------------------------------------------------------------------- 
+check if the kernel supports PPP
+----------------------------------------------------------------------------- */
+int ppp_available()
 {
-    int s, ok;
-    struct ifreq ifr;
+    int 	s;
     extern char *no_ppp_msg;
-
-#ifdef LOADPPPK
-    loadPPPK();
-#endif
     
-    if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-	return 1;		/* can't tell */
+    no_ppp_msg = "\
+Mac OS X lacks kernel support for PPP.  \n\
+To include PPP support in the kernel, please follow \n\
+the steps detailed in the README.MacOSX file.\n";
 
-    strlcpy(ifr.ifr_name, "ppp0", sizeof (ifr.ifr_name));
-    ok = ioctl(s, SIOCGIFFLAGS, (caddr_t) &ifr) >= 0;
+    // open to socket to the PF_PPP family
+    // if that works, the kernel extension is loaded.
+    if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
+    
+        if (!noload && !load_kext(PPP_NKE_PATH))
+            s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL);
+            
+        if (s < 0)
+            return 0;
+    }
+    
+    // could be smarter and get the version of the ppp family, 
+    // using get option or ioctl
+
     close(s);
 
-    no_ppp_msg = "\
-This system lacks kernel support for PPP.  To include PPP support\n\
-in the kernel, please follow the steps detailed in the README.MacOSX\n\
-file in the ppp-2.3 distribution.\n";
-    return ok;
+    return 1;
 }
 
-/*
- * establish_ppp - Turn the serial port into a ppp interface.
- */
-int
-establish_ppp(fd)
-    int fd;
+/* ----------------------------------------------------------------------------- 
+new_fd is the fd of a tty
+----------------------------------------------------------------------------- */
+static void set_ppp_fd (int new_fd)
 {
-    int pppdisc = PPPDISC;
+    SYSDEBUG ((LOG_DEBUG, "setting ppp_fd to %d\n", new_fd));
+    ppp_fd = new_fd;
+}
+
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+static int still_ppp(void)
+{
+
+    return !hungup && ppp_fd >= 0;
+}
+
+/* ----------------------------------------------------------------------------- 
+Define the debugging level for the kernel
+----------------------------------------------------------------------------- */
+static int set_kdebugflag (int requested_level)
+{
+   if (ifunit < 0)
+	return 1;
+    if (ioctl(ppp_sockfd, PPPIOCSDEBUG, &requested_level) < 0) {
+	if ( ! ok_error (errno) )
+	    error("ioctl(PPPIOCSDEBUG): %m");
+	return (0);
+    }
+    SYSDEBUG ((LOG_INFO, "set kernel debugging level to %d",
+		requested_level));
+    return (1);
+}
+
+/* ----------------------------------------------------------------------------- 
+make a new ppp unit for ppp_sockfd
+----------------------------------------------------------------------------- */
+static int make_ppp_unit()
+{
+    struct sockaddr_ppp 	pppaddr;
     int x;
-    struct ifpppreq    	req;
-    u_long	lval;
 
-    if (demand) {
-	/*
-	 * Demand mode - prime the old ppp device to relinquish the unit.
-	 */
-#if 0
-	if (ioctl(ppp_fd, PPPIOCXFERUNIT, 0) < 0)
-	    fatal("ioctl(transfer ppp unit): %m");
-#endif
+    ifunit = req_unit;
+    x = ioctl(ppp_sockfd, PPPIOCNEWUNIT, &ifunit);
+    if (x < 0 && req_unit >= 0 && errno == EEXIST) {
+        warn("Couldn't allocate PPP unit %d as it is already in use");
+        ifunit = -1;
+        x = ioctl(ppp_sockfd, PPPIOCNEWUNIT, &ifunit);
+    }
+    if (x < 0)
+        error("Couldn't create new ppp unit: %m");
+
+    return x;
+}
+
+/* ----------------------------------------------------------------------------- 
+coen a socket to the PF_PPP protocol
+----------------------------------------------------------------------------- */
+int connect_pfppp()
+{
+    int 			fd = -1;
+    struct sockaddr_ppp 	pppaddr;
+    
+    // open a PF_PPP socket
+    fd = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL);
+    if (fd < 0) {
+        error("Couldn't open PF_PPP: %m");
+        return -1;
+    }
+    // need to connect to the PPP protocol
+    pppaddr.ppp_len = sizeof(struct sockaddr_ppp);
+    pppaddr.ppp_family = AF_PPP;
+    pppaddr.ppp_proto = PPPPROTO_CTL;
+    pppaddr.ppp_cookie = 0;
+    if (connect(fd, (struct sockaddr *)&pppaddr, sizeof(struct sockaddr_ppp)) < 0) {
+        error("Couldn't connect to PF_PPP: %m");
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+
+/* ----------------------------------------------------------------------------- 
+Turn the serial port into a ppp interface
+----------------------------------------------------------------------------- */
+int establish_ppp_tty (int tty_fd)
+{
+    /* Ensure that the tty device is in exclusive mode.  */
+    if (ioctl(tty_fd, TIOCEXCL, 0) < 0) {
+        if ( ! ok_error ( errno ))
+            warn("Couldn't make tty exclusive: %m");
+    }
+    
+    // Set the current tty to the PPP discpline
+    pppdisc = sync_serial ? N_SYNC_PPP: PPPDISC;
+    if (ioctl(tty_fd, TIOCSETD, &pppdisc) < 0) {
+        if ( ! ok_error (errno) ) {
+            error("Couldn't set tty to PPP discipline: %m");
+            return -1;
+        }
     }
 
-    if (!demand) {
-	/*
-	 * create a new unit first.
-	 */
-            bzero(&req, sizeof(struct ifpppreq));
-            sprintf(req.ifr_name, "ppp0", sizeof (req.ifr_name));
-            req.ifr_code = IFPPP_NEWIF;
-            if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &req) < 0)
-                fatal("ioctl(IFPPP_NEWIF): %m");
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+Restore the serial port to normal operation.
+This shouldn't call die() because it's called from die()
+----------------------------------------------------------------------------- */
+void disestablish_ppp_tty(int tty_fd)
+{
+    int 	x;
+        
+        // Flush the tty output buffer so that the TIOCSETD doesn't hang.
+	//if (tcflush(tty_fd, TCIOFLUSH) < 0)
+	//    warn("tcflush failed: %m");
     
-            ifunit = req.ifr_newif & 0xFFFF;
+        // Restore the previous line discipline
+    if (ioctl(tty_fd, TIOCSETD, &ttydisc) < 0) {
+        if ( ! ok_error (errno))
+            error("ioctl(TIOCSETD, TTYDISC): %m");
     }
     
-    /*
-     * Save the old line discipline of fd, and set it to PPP.
-     */
+    if (ioctl(tty_fd, TIOCNXCL, 0) < 0) {
+        if ( ! ok_error (errno))
+            warn("ioctl(TIOCNXCL): %m(%d)", errno);
+    }
+}
 
-    if (ioctl(fd, TIOCGETD, &initdisc) < 0)
-	fatal("ioctl(TIOCGETD): %m");
-    if (ioctl(fd, TIOCSETD, &pppdisc) < 0) 
-	fatal("ioctl(TIOCSETD): %m");
+/* ----------------------------------------------------------------------------- 
+perform
+----------------------------------------------------------------------------- */
+int establish_ppp (int fd)
+{
+    int 		x, flags, s = -1, link = 0, ret;
+    struct sockaddr_ppp pppaddr;
 
-    if (!demand) {
-	/*
-	 * Find out which interface we were given.
-	 */
-    /*        bzero(&req, sizeof(struct ifpppreq));
-            sprintf(req.ifr_name, "ppp0", sizeof (req.ifr_name));
-            req.ifr_code = IFPPP_NEWIF;
-            if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &req) < 0)
-                fatal("ioctl(IFPPP_NEWIF): %m");
+    // use the hook to establish the ppp connection. establishment mechanism depends on the device	
+    if (dev_establish_ppp_hook)
+        if (ret = (*dev_establish_ppp_hook)(fd))
+            return ret;
+        
+    // when the device is setup as a ppp link, then do the generic link work
     
-            ifunit = req.ifr_newif & 0xFFFF;
-*/
-        lval = ifunit;
-        ioctl(sockppp, IOC_PPP_ATTACHMUX, &lval);
-
-    } else {
-	/*
-	 * Check that we got the same unit again.
-	 */
-	if (ioctl(fd, PPPIOCGUNIT, &x) < 0)
-	    fatal("ioctl(PPPIOCGUNIT): %m");
-	if (x != ifunit)
-	    fatal("transfer_ppp failed: wanted unit %d, got %d", ifunit, x);
-
-        x = TTYDISC;
-        if (ioctl(loop_slave, TIOCSETD, &x) < 0)
-            error("ioctl(TIOCSETD): %m");
+    // Open another instance of the ppp socket and connect the link to it
+    if (ioctl(fd, PPPIOCGCHAN, &link) == -1) {
+        error("Couldn't get link number: %m");
+        goto err;
     }
 
-    ppp_fd = fd;
+    dbglog("using link %d", link);
+        
+    // open a socket to the PPP protocol
+    s = connect_pfppp();
+    if (s < 0) {
+        error("Couldn't reopen PF_PPP: %m");
+        goto err;
+    }
+    
+    if (ioctl(s, PPPIOCATTCHAN, &link) < 0) {
+        error("Couldn't attach to the ppp link %d: %m", link);
+        goto err_close;
+    }
 
-#if 0
-    /*
-     * Enable debug in the driver if requested.
-     */
-    if (kdebugflag) {
-	if (ioctl(fd, PPPIOCGFLAGS, (caddr_t) &x) < 0) {
-	    warn("ioctl (PPPIOCGFLAGS): %m");
-	} else {
-	    x |= (kdebugflag & 0xFF) * SC_DEBUG;
-	    if (ioctl(fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
-		warn("ioctl(PPPIOCSFLAGS): %m");
+    flags = fcntl(s, F_GETFL);
+    if (flags == -1 || fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1)
+        warn("Couldn't set ppp socket link to nonblock: %m");
+    set_ppp_fd(s);
+
+    if (!looped)
+        ifunit = -1;
+    if (!looped && !multilink) {
+        // Create a new PPP unit.
+        if (make_ppp_unit() < 0)
+            goto err_close;
+    }
+
+    if (looped) {
+        set_flags(ppp_sockfd, get_flags(ppp_sockfd) & ~SC_LOOP_TRAFFIC);
+        looped = 0;
+    }
+
+    if (!multilink) {
+        add_fd(ppp_sockfd);
+        if (ioctl(s, PPPIOCCONNECT, &ifunit) < 0) {
+            error("Couldn't attach to PPP unit %d: %m", ifunit);
+            goto err_close;
+        }
+    }
+
+    // Enable debug in the driver if requested.
+    set_kdebugflag (kdebugflag);
+
+    set_flags(ppp_fd, get_flags(ppp_fd) & ~(SC_RCV_B7_0 | SC_RCV_B7_1 | SC_RCV_EVNP | SC_RCV_ODDP));
+
+    return ppp_fd;
+
+ err_close:
+    close(s);
+    
+ err:
+    // use the hook to disestablish the ppp connection	
+    if (dev_disestablish_ppp_hook)
+        (*dev_disestablish_ppp_hook)(fd);
+
+    return -1;
+}
+
+/* -----------------------------------------------------------------------------
+Restore the serial port to normal operation.
+This shouldn't call die() because it's called from die()
+----------------------------------------------------------------------------- */
+void disestablish_ppp(int fd)
+{
+    int 	x;
+    
+    if (!hungup) {
+        
+        // use the hook to disestablish the ppp connection	
+        if (dev_disestablish_ppp_hook)
+            (*dev_disestablish_ppp_hook)(fd);
+
+	/* Reset non-blocking mode on fd. */
+	if (initfdflags != -1 && fcntl(fd, F_SETFL, initfdflags) < 0) {
+	    if ( ! ok_error (errno))
+		warn("Couldn't restore device fd flags: %m");
 	}
     }
-#endif
 
-    /*
-     * Set device for non-blocking reads.
-     */
-    if ((initfdflags = fcntl(fd, F_GETFL)) == -1
-	|| fcntl(fd, F_SETFL, initfdflags | O_NONBLOCK) == -1) {
-	warn("Couldn't set device to non-blocking mode: %m");
-    }
-
-   // return fd;
-    return sockppp;
-}
-
-/*
- * restore_loop - reattach the ppp unit to the loopback.
- */
-void
-restore_loop()
-{
-    int x;
-
-    /* Transfer the ppp interface back to the loopback. */
-    if (ioctl(ppp_fd, PPPIOCXFERUNIT, 0) < 0)
-	fatal("ioctl(transfer ppp unit): %m");
-
-    /* Flush the tty output buffer so that the TIOCSETD doesn't hang.*/
-    if (tcflush(loop_slave, TCIOFLUSH) < 0)
-        warn("tcflush failed: %m");
-
-    x = PPPDISC;
-    if (ioctl(loop_slave, TIOCSETD, &x) < 0)
-        fatal("ioctl(TIOCSETD): %m");
-
-    /* Check that we got the same unit again. */
-    if (ioctl(loop_slave, PPPIOCGUNIT, &x) < 0)
-        fatal("ioctl(PPPIOCGUNIT): %m");
-   if (x != ifunit)
-	fatal("transfer_ppp failed: wanted unit %d, got %d", ifunit, x);
-    ppp_fd = loop_slave;
-}
-
-
-/*
- * disestablish_ppp - Restore the serial port to normal operation.
- * This shouldn't call die() because it's called from die().
- */
-void
-disestablish_ppp(fd)
-    int fd;
-{
-    struct ifpppreq    	req;
-    u_long	lval;
-    
-    lval = ifunit;
-    ioctl(sockppp, IOC_PPP_DETACHMUX, &lval);
-
-    /* Reset non-blocking mode on fd. */
-    if (initfdflags != -1 && fcntl(fd, F_SETFL, initfdflags) < 0)
-	warn("Couldn't restore device fd flags: %m");
     initfdflags = -1;
-
-    /* Restore old line discipline. */
-    if (initdisc >= 0 && ioctl(fd, TIOCSETD, &initdisc) < 0)
-        error("ioctl(TIOCSETD): %m");
-    
-    initdisc = -1;
-
-//syslog(LOG_INFO, "disestablish_ppp, unit %d\n", ifunit, ifname);
-    bzero(&req, sizeof(struct ifpppreq));
-    sprintf(req.ifr_name, ifname, sizeof (req.ifr_name));
-    req.ifr_code = IFPPP_DISPOSEIF;
-    req.ifr_disposeif = ifunit;
-    ioctl(sockfd, SIOCSIFPPP, (caddr_t) &req);
-
-    if (fd == ppp_fd)
-	ppp_fd = -1;
+    close(ppp_fd);
+    ppp_fd = -1;
+    if (!looped && ifunit >= 0 && ioctl(ppp_sockfd, PPPIOCDETACH, &x) < 0)
+        error("Couldn't release PPP unit ppp_sockfd %d: %m", ppp_sockfd);
+    if (!multilink)
+        remove_fd(ppp_sockfd);
 }
 
-/*
- * Check whether the link seems not to be 8-bit clean.
- */
-void
-clean_check()
+/* -----------------------------------------------------------------------------
+Check whether the link seems not to be 8-bit clean
+----------------------------------------------------------------------------- */
+void clean_check()
 {
     int x;
     char *s;
 
+    if (!still_ppp())
+        return;
+
     if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) == 0) {
 	s = NULL;
-	switch (~x & (LK_RCV_B7_0|LK_RCV_B7_1|LK_RCV_EVNP|LK_RCV_ODDP)) {
-	case LK_RCV_B7_0:
+	switch (~x & (SC_RCV_B7_0|SC_RCV_B7_1|SC_RCV_EVNP|SC_RCV_ODDP)) {
+	case SC_RCV_B7_0:
 	    s = "bit 7 set to 1";
 	    break;
-	case LK_RCV_B7_1:
+	case SC_RCV_B7_1:
 	    s = "bit 7 set to 0";
 	    break;
-	case LK_RCV_EVNP:
+	case SC_RCV_EVNP:
 	    s = "odd parity";
 	    break;
-	case LK_RCV_ODDP:
+	case SC_RCV_ODDP:
 	    s = "even parity";
 	    break;
 	}
@@ -526,16 +747,14 @@ clean_check()
     }
 }
 
-/*
- * set_up_tty: Set up the serial port on `fd' for 8 bits, no parity,
+/* -----------------------------------------------------------------------------
+Set up the serial port on `fd' for 8 bits, no parity,
  * at the requested speed, etc.  If `local' is true, set CLOCAL
  * regardless of whether the modem option was specified.
  *
- * For *BSD, we assume that speed_t values numerically equal bits/second.
- */
-void
-set_up_tty(fd, local)
-    int fd, local;
+ * For *BSD, we assume that speed_t values numerically equal bits/second
+----------------------------------------------------------------------------- */
+void set_up_tty(int fd, int local)
 {
     struct termios tios;
 
@@ -597,12 +816,32 @@ set_up_tty(fd, local)
     restore_term = 1;
 }
 
-/*
- * restore_tty - restore the terminal to the saved settings.
- */
-void
-restore_tty(fd)
-    int fd;
+
+/* -----------------------------------------------------------------------------
+Set up the serial port
+ * If `local' is true, set CLOCAL
+ * regardless of whether the modem option was specified.
+ * other parameter may have been changed by the CCL
+----------------------------------------------------------------------------- */
+void set_up_tty_local(int fd, int local)
+{
+    struct termios tios;
+
+    if (tcgetattr(fd, &tios) < 0)
+	fatal("tcgetattr: %m");
+
+    tios.c_cflag &= ~CLOCAL;
+    if (local || !modem)
+	tios.c_cflag |= CLOCAL;
+
+    if (tcsetattr(fd, TCSAFLUSH, &tios) < 0)
+	fatal("tcsetattr: %m");
+}
+
+/* -----------------------------------------------------------------------------
+restore the terminal to the saved settings 
+----------------------------------------------------------------------------- */
+void restore_tty(int fd)
 {
     if (restore_term) {
 	if (!default_device) {
@@ -622,29 +861,22 @@ restore_tty(fd)
     }
 }
 
-/*
- * setdtr - control the DTR line on the serial port.
- * This is called from die(), so it shouldn't call die().
- */
-void
-setdtr(fd, on)
-int fd, on;
+/* -----------------------------------------------------------------------------
+control the DTR line on the serial port.
+ * This is called from die(), so it shouldn't call die()
+----------------------------------------------------------------------------- */
+void setdtr(int fd, int on)
 {
     int modembits = TIOCM_DTR;
 
     ioctl(fd, (on? TIOCMBIS: TIOCMBIC), &modembits);
 }
 
-/*
- * get_pty - get a pty master/slave pair and chown the slave side
- * to the uid given.  Assumes slave_name points to >= 12 bytes of space.
- */
-int
-get_pty(master_fdp, slave_fdp, slave_name, uid)
-    int *master_fdp;
-    int *slave_fdp;
-    char *slave_name;
-    int uid;
+/* -----------------------------------------------------------------------------
+get a pty master/slave pair and chown the slave side
+ * to the uid given.  Assumes slave_name points to >= 12 bytes of space
+----------------------------------------------------------------------------- */
+int get_pty(int *master_fdp, int *slave_fdp, char *slave_name, int uid)
 {
     struct termios tios;
 
@@ -667,346 +899,268 @@ get_pty(master_fdp, slave_fdp, slave_name, uid)
     return 1;
 }
 
-
-/*
- * open_ppp_loopback - open the device we use for getting
- * packets in demand mode, and connect it to a ppp interface.
- * Here we use a pty.
- */
-int
-open_ppp_loopback()
+/* -----------------------------------------------------------------------------
+create the ppp interface and configure it in loopback mode.
+----------------------------------------------------------------------------- */
+int open_ppp_loopback()
 {
-#if 0
-    int flags, x;
-    struct termios tios;
-    int pppdisc = PPPDISC;
+    looped = 1;
+    /* allocate ourselves a ppp unit */
+    if (make_ppp_unit() < 0)
+        die(1);
+    set_flags(ppp_sockfd, SC_LOOP_TRAFFIC);
+    set_kdebugflag(kdebugflag);
+    ppp_fd = -1;
+    return ppp_sockfd;
+}
 
-    if (openpty(&loop_master, &loop_slave, loop_name, NULL, NULL) < 0)
-	fatal("No free pty for loopback");
-    SYSDEBUG(("using %s for loopback", loop_name));
-
-    if (tcgetattr(loop_slave, &tios) == 0) {
-	tios.c_cflag &= ~(CSIZE | CSTOPB | PARENB);
-	tios.c_cflag |= CS8 | CREAD;
-	tios.c_iflag = IGNPAR;
-	tios.c_oflag = 0;
-	tios.c_lflag = 0;
-	if (tcsetattr(loop_slave, TCSAFLUSH, &tios) < 0)
-	    warn("couldn't set attributes on loopback: %m");
-    }
-
-    if ((flags = fcntl(loop_master, F_GETFL)) != -1) 
-	if (fcntl(loop_master, F_SETFL, flags | O_NONBLOCK) == -1)
-	    warn("couldn't set loopback to nonblock: %m");
-
-    ppp_fd = loop_slave;
-
-    if (ioctl(ppp_fd, TIOCSETD, &pppdisc) < 0)
-        fatal("ioctl(TIOCSETD): %m");
-
-    /*
-     * Find out which interface we were given.
-     */
-    if (ioctl(ppp_fd, PPPIOCGUNIT, &ifunit) < 0)
-	fatal("ioctl(PPPIOCGUNIT): %m");
-
-    /*
-     * Enable debug in the driver if requested.
-     */
-    if (kdebugflag) {
-	if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &flags) < 0) {
-	    warn("ioctl (PPPIOCGFLAGS): %m");
-	} else {
-	    flags |= (kdebugflag & 0xFF) * SC_DEBUG;
-	    if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &flags) < 0)
-		warn("ioctl(PPPIOCSFLAGS): %m");
-	}
-    }
-    return loop_master;
-#endif
-return 0;
+/* -----------------------------------------------------------------------------
+reconfigure the interface in loopback mode again
+----------------------------------------------------------------------------- */
+void restore_loop()
+{
+    looped = 1;
+    set_flags(ppp_sockfd, get_flags(ppp_sockfd) | SC_LOOP_TRAFFIC);
 }
 
 
-/*
- * output - Output PPP packet.
- */
-void
-output(unit, p, len)
-    int unit;
-    u_char *p;
-    int len;
+/* -----------------------------------------------------------------------------
+Output PPP packet
+----------------------------------------------------------------------------- */
+void output(int unit, u_char *p, int len)
 {
     if (debug) {
         // don't log lcp-echo/reply packets
-        if ((*(u_short*)(p + 2) != PPP_LCP)
-            || ((*(p + 3) == ECHOREQ) && (*(p + 3) == ECHOREP))) {
+        //if ((*(u_short*)(p + 2) != PPP_LCP)
+        //    || ((*(p + 3) == ECHOREQ) && (*(p + 3) == ECHOREP))) {
             dbglog("sent %P", p, len);
-        }
+            //info("sent %P", p, len);
+        //}
     }
     
-    bcopy(p, &ppp_buf[4], len);
-    *(u_long *)(&ppp_buf[0]) = ifunit;
-    if (write(sockppp, &ppp_buf[0], len + 4) < 0) {
+    // don't write FF03
+    len -= 2;
+    p += 2;
 
-        if (errno != EIO)
-            error("write: %m");
+    if (write(ppp_fd, p, len) < 0) {
+	if (errno != EIO)
+	    error("write: %m");
     }
 }
 
-
-/*
- * wait_input - wait until there is data available,
- * for the length of time specified by *timo (indefinite
- * if timo is NULL).
- */
-void
-wait_input(timo)
-    struct timeval *timo;
+/* -----------------------------------------------------------------------------
+wait until there is data available, for the length of time specified by *timo
+(indefinite if timo is NULL)
+----------------------------------------------------------------------------- */
+void wait_input(struct timeval *timo)
 {
-    fd_set ready;
     int n;
 
-    ready = in_fds;
-    n = select(max_in_fd + 1, &ready, NULL, &ready, timo);
-    if (n < 0 && errno != EINTR)
+    ready_fds = in_fds;
+    n = select(max_in_fd + 1, &ready_fds, NULL, NULL, timo);
+   if (n < 0 && errno != EINTR)
 	fatal("select: %m");
+
+}
+
+/* -----------------------------------------------------------------------------
+wait on fd until there is data available, for the delay in milliseconds
+return 0 if timeout expires, < 0 if error, otherwise > 0
+----------------------------------------------------------------------------- */
+int wait_input_fd(int fd, int delay)
+{
+    fd_set 		ready;
+    int 		n;
+    struct timeval 	t;
+    char 		c;
+
+    t.tv_sec = delay / 1000;
+    t.tv_usec = delay % 1000;
+
+    FD_ZERO(&ready);
+    FD_SET(fd, &ready);
+
+    do {
+        n = select(fd + 1, &ready, NULL, &ready, &t);
+    } while (n < 0 && errno == EINTR);
+    
+    // Fix me : we swallow the first byte, which is bad...
+    if (n > 0)
+        n = read(fd, &c, 1);
+
+    return n;
 }
 
 
-/*
- * add_fd - add an fd to the set that wait_input waits for.
- */
-void add_fd(fd)
-    int fd;
+/* -----------------------------------------------------------------------------
+add an fd to the set that wait_input waits for
+----------------------------------------------------------------------------- */
+void add_fd(int fd)
 {
     FD_SET(fd, &in_fds);
     if (fd > max_in_fd)
 	max_in_fd = fd;
 }
 
-/*
- * remove_fd - remove an fd from the set that wait_input waits for.
- */
-void remove_fd(fd)
-    int fd;
+/* -----------------------------------------------------------------------------
+remove an fd from the set that wait_input waits for
+----------------------------------------------------------------------------- */
+void remove_fd(int fd)
 {
     FD_CLR(fd, &in_fds);
 }
 
-#if 0
-/*
- * wait_loop_output - wait until there is data available on the
- * loopback, for the length of time specified by *timo (indefinite
- * if timo is NULL).
- */
-void
-wait_loop_output(timo)
-    struct timeval *timo;
+/* -----------------------------------------------------------------------------
+return 1 is fd is set (i.e. select returned with this file descriptor set)
+----------------------------------------------------------------------------- */
+bool is_ready_fd(int fd)
 {
-    fd_set ready;
-    int n;
 
-    FD_ZERO(&ready);
-    FD_SET(loop_master, &ready);
-    n = select(loop_master + 1, &ready, NULL, &ready, timo);
-    if (n < 0 && errno != EINTR)
-	fatal("select: %m");
+    return FD_ISSET(fd, &ready_fds);
 }
 
-
-/*
- * wait_time - wait for a given length of time or until a
- * signal is received.
- */
-void
-wait_time(timo)
-    struct timeval *timo;
+/* -----------------------------------------------------------------------------
+get a PPP packet from the serial device
+----------------------------------------------------------------------------- */
+int read_packet(u_char *buf)
 {
-    int n;
+    int len = -1;
+    
+    // FF03 are not read
+    *buf++ = PPP_ALLSTATIONS;
+    *buf++ = PPP_UI;
 
-    n = select(0, NULL, NULL, NULL, timo);
-    if (n < 0 && errno != EINTR)
-	fatal("select: %m");
-}
-#endif
-
-
-/*
- * read_packet - get a PPP packet from the serial device.
- */
-int
-read_packet(buf)
-    u_char *buf;
-{
-    int len;
-        
-    if ((len = read(sockppp, ppp_buf, PPP_MTU + PPP_HDRLEN + 4)) < 0) {
-	if (errno == EWOULDBLOCK || errno == EINTR)
-	    return -1;
-	fatal("read: %m");
+    // read first the socket attached to the link
+    if (ppp_fd >= 0) {
+        if ((len = read(ppp_fd, buf, PPP_MRU + PPP_HDRLEN - 2)) < 0) {
+            if (errno != EWOULDBLOCK && errno != EINTR)
+                error("read from socket link: %m");
+        }
     }
     
-    bcopy(ppp_buf + 4, buf, len - 4);
-    return len - 4;
+    // then, if nothing, link the socket attached to the bundle
+    if (len < 0 && ifunit >= 0) {
+        if ((len = read(ppp_sockfd, buf, PPP_MRU + PPP_HDRLEN - 2)) < 0) {
+            if (errno != EWOULDBLOCK && errno != EINTR)
+                error("read from socket bundle: %m");
+        }
+    }
+    return (len <= 0 ? len : len + 2);
 }
 
-
-/*
- * get_loop_output - read characters from the loopback, form them
+/* -----------------------------------------------------------------------------
+ read characters from the loopback, form them
  * into frames, and detect when we want to bring the real link up.
- * Return value is 1 if we need to bring up the link, 0 otherwise.
- */
-int
-get_loop_output()
+ * Return value is 1 if we need to bring up the link, 0 otherwise
+----------------------------------------------------------------------------- */
+int get_loop_output()
 {
     int rv = 0;
     int n;
 
-    while ((n = read(loop_master, inbuf, sizeof(inbuf))) >= 0) {
-	if (loop_chars(inbuf, n))
-	    rv = 1;
-    }
-
-    if (n == 0)
-	fatal("eof on loopback");
-    if (errno != EWOULDBLOCK)
-	fatal("read from loopback: %m");
-
+    while ((n = read_packet(inpacket_buf)) > 0)
+        if (loop_frame(inpacket_buf, n))
+            rv = 1;
     return rv;
 }
 
-
-/*
- * ppp_send_config - configure the transmit characteristics of
- * the ppp interface.
- */
-void
-ppp_send_config(unit, mtu, asyncmap, pcomp, accomp)
-    int unit, mtu;
-    u_int32_t asyncmap;
-    int pcomp, accomp;
+/* -----------------------------------------------------------------------------
+configure the transmit characteristics of the ppp interface
+ ----------------------------------------------------------------------------- */
+void ppp_send_config(int unit,int  mtu, u_int32_t asyncmap, int pcomp, int accomp)
 {
     u_int x;
     struct ifreq ifr;
-    struct ifpppreq 	ifpppr;
 
     strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
     ifr.ifr_mtu = mtu;
-    if (ioctl(sockfd, SIOCSIFMTU, (caddr_t) &ifr) < 0)
+    if (ioctl(ip_sockfd, SIOCSIFMTU, (caddr_t) &ifr) < 0)
 	fatal("ioctl(SIOCSIFMTU): %m");
 
-    sprintf(ifpppr.ifr_name, ifname, sizeof (ifr.ifr_name));
-    ifpppr.ifr_code = IFPPP_ASYNCMAP;
-    ifpppr.ifr_map = asyncmap;
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0)
-        fatal("ioctl(IFPPP_ASYNCMAP): %m");
+    if (!still_ppp())
+	return;
 
-    ifpppr.ifr_code = IFPPP_EFLAGS;
-    if (ioctl(sockfd, SIOCGIFPPP, (caddr_t) &ifpppr))
-        fatal("ioctl (SIOCGIFPPP IFPPP_EFLAGS): %m");
+    if (ioctl(ppp_fd, PPPIOCSASYNCMAP, (caddr_t) &asyncmap) < 0)
+	fatal("ioctl(PPPIOCSASYNCMAP): %m");
 
-    x = ifpppr.ifr_eflags;
-    x = accomp ? x | IFF_PPP_DOES_ACCOMP: x & ~IFF_PPP_DOES_ACCOMP;
-    x = pcomp ? x | IFF_PPP_DOES_PCOMP: x & ~IFF_PPP_DOES_PCOMP;
-    ifpppr.ifr_eflags = x;
-//    x = sync_serial ? x | SC_SYNC : x & ~SC_SYNC;
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0)
-        fatal("ioctl(SIOCSIFPPP IFPPP_EFLAGS): %m");
-
+    if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl (PPPIOCGFLAGS): %m");
+    x = pcomp? x | SC_COMP_PROT: x &~ SC_COMP_PROT;
+    x = accomp? x | SC_COMP_AC: x &~ SC_COMP_AC;
+    x = sync_serial ? x | SC_SYNC : x & ~SC_SYNC;
+    if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl(PPPIOCSFLAGS): %m");
+        
+    publish_numentry(kSCPropNetPPPLCPCompressionPField, pcomp);
+    publish_numentry(kSCPropNetPPPLCPCompressionACField, accomp);
+    publish_numentry(kSCPropNetPPPLCPMTU, mtu);
+    publish_numentry(kSCPropNetPPPLCPTransmitACCM, asyncmap);
 }
 
 
-/*
- * ppp_set_xaccm - set the extended transmit ACCM for the interface.
- */
-void
-ppp_set_xaccm(unit, accm)
-    int unit;
-    ext_accm accm;
+/* -----------------------------------------------------------------------------
+set the extended transmit ACCM for the interface
+----------------------------------------------------------------------------- */
+void ppp_set_xaccm(int unit, ext_accm accm)
 {
-    struct ifpppreq ifpppr;
-
-    sprintf(ifpppr.ifr_name, ifname, sizeof (ifpppr.ifr_name));
-    ifpppr.ifr_code = IFPPP_XASYNCMAP;
-    bcopy(&accm[0], &ifpppr.ifr_xmap[0], sizeof(ext_accm));
-
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0)
+    if (!still_ppp())
+	return;
+    if (ioctl(ppp_fd, PPPIOCSXASYNCMAP, accm) < 0 && errno != ENOTTY)
 	warn("ioctl(set extended ACCM): %m");
 }
 
 
-/*
- * ppp_recv_config - configure the receive-side characteristics of
- * the ppp interface.
- */
-void
-ppp_recv_config(unit, mru, asyncmap, pcomp, accomp)
-    int unit, mru;
-    u_int32_t asyncmap;
-    int pcomp, accomp;
+/* -----------------------------------------------------------------------------
+configure the receive-side characteristics of the ppp interface.
+----------------------------------------------------------------------------- */
+void ppp_recv_config(int unit, int mru, u_int32_t asyncmap, int pcomp, int accomp)
 {
     int x;
-    struct ifpppreq 	ifpppr;
 
-    sprintf(ifpppr.ifr_name, ifname, sizeof (ifpppr.ifr_name));
-    ifpppr.ifr_code = IFPPP_MRU;
-    ifpppr.ifr_mru = mru;
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0)
-        fatal("ioctl(SIOCSIFPPP IFPPP_MRU): %m");
+    if (!still_ppp())
+	return;
 
-    ifpppr.ifr_code = IFPPP_RASYNCMAP;
-    ifpppr.ifr_map = asyncmap;
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0)
-        fatal("ioctl(SIOCSIFPPP IFPPP_RASYNCMAP): %m");
-
-    ifpppr.ifr_code = IFPPP_EFLAGS;
-    if (ioctl(sockfd, SIOCGIFPPP, (caddr_t) &ifpppr))
-        fatal("ioctl (SIOCGIFPPP IFPPP_EFLAGS): %m");
-
-    x = ifpppr.ifr_eflags;
-    x = accomp ? x | IFF_PPP_ACPT_ACCOMP: x & ~IFF_PPP_ACPT_ACCOMP;
-    x = pcomp ? x | IFF_PPP_ACPT_PCOMP: x & ~IFF_PPP_ACPT_PCOMP;
-    ifpppr.ifr_eflags = x;
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0)
-        fatal("ioctl(SIOCSIFPPP IFPPP_EFLAGS): %m");
-
+    if (ioctl(ppp_fd, PPPIOCSMRU, (caddr_t) &mru) < 0)
+	fatal("ioctl(PPPIOCSMRU): %m");
+    if (ioctl(ppp_fd, PPPIOCSRASYNCMAP, (caddr_t) &asyncmap) < 0)
+	fatal("ioctl(PPPIOCSRASYNCMAP): %m");
+    if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl (PPPIOCGFLAGS): %m");
+    x = !accomp? x | SC_REJ_COMP_AC: x &~ SC_REJ_COMP_AC;
+    if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl(PPPIOCSFLAGS): %m");
+    publish_numentry(kSCPropNetPPPLCPMRU, mru);
+    publish_numentry(kSCPropNetPPPLCPReceiveACCM, asyncmap);
 }
 
-/*
- * ccp_test - ask kernel whether a given compression method
+/* -----------------------------------------------------------------------------
+ask kernel whether a given compression method
  * is acceptable for use.  Returns 1 if the method and parameters
  * are OK, 0 if the method is known but the parameters are not OK
- * (e.g. code size should be reduced), or -1 if the method is unknown.
- */
-int
-ccp_test(unit, opt_ptr, opt_len, for_transmit)
-    int unit, opt_len, for_transmit;
-    u_char *opt_ptr;
+ * (e.g. code size should be reduced), or -1 if the method is unknown
+ ----------------------------------------------------------------------------- */
+int ccp_test(int unit, u_char * opt_ptr, int opt_len, int for_transmit)
 {
-#if 0
     struct ppp_option_data data;
 
     data.ptr = opt_ptr;
     data.length = opt_len;
     data.transmit = for_transmit;
-    if (ioctl(ttyfd, PPPIOCSCOMPRESS, (caddr_t) &data) >= 0)
+    if (ioctl(ppp_fd/*ttyfd*/, PPPIOCSCOMPRESS, (caddr_t) &data) >= 0)
 	return 1;
     return (errno == ENOBUFS)? 0: -1;
-#endif 
-return 0;
 }
 
-/*
- * ccp_flags_set - inform kernel about the current state of CCP.
- */
-void
-ccp_flags_set(unit, isopen, isup)
-    int unit, isopen, isup;
+/* -----------------------------------------------------------------------------
+inform kernel about the current state of CCP
+----------------------------------------------------------------------------- */
+void ccp_flags_set(int unit, int isopen, int isup)
 {
     int x;
 
-#if 0
+    if (!still_ppp())
+	return;
+
     if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0) {
 	error("ioctl (PPPIOCGFLAGS): %m");
 	return;
@@ -1015,73 +1169,56 @@ ccp_flags_set(unit, isopen, isup)
     x = isup? x | SC_CCP_UP: x &~ SC_CCP_UP;
     if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
 	error("ioctl(PPPIOCSFLAGS): %m");
-#endif
 }
 
-/*
- * ccp_fatal_error - returns 1 if decompression was disabled as a
+/* -----------------------------------------------------------------------------
+returns 1 if decompression was disabled as a
  * result of an error detected after decompression of a packet,
- * 0 otherwise.  This is necessary because of patent nonsense.
- */
-int
-ccp_fatal_error(unit)
-    int unit;
+ * 0 otherwise.  This is necessary because of patent nonsense
+ ----------------------------------------------------------------------------- */
+int ccp_fatal_error(int unit)
 {
     int x;
 
-#if 0
     if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0) {
 	error("ioctl(PPPIOCGFLAGS): %m");
 	return 0;
     }
     return x & SC_DC_FERROR;
-#endif 
-return 0;
 }
 
-/*
- * get_idle_time - return how long the link has been idle.
- */
-int
-get_idle_time(u, ip)
-    int u;
-    struct ppp_idle *ip;
+/* -----------------------------------------------------------------------------
+return how long the link has been idle
+----------------------------------------------------------------------------- */
+int get_idle_time(int u, struct ppp_idle *ip)
 {
-    return ioctl(ppp_fd, PPPIOCGIDLE, ip) >= 0;
+    return ioctl(ppp_sockfd, PPPIOCGIDLE, ip) >= 0;
 }
 
-/*
- * get_ppp_stats - return statistics for the link.
- */
-int
-get_ppp_stats(u, stats)
-    int u;
-    struct pppd_stats *stats;
+/* -----------------------------------------------------------------------------
+return statistics for the link
+----------------------------------------------------------------------------- */
+int get_ppp_stats(int u, struct pppd_stats *stats)
 {
-    struct ifpppreq 		ifpppr;
-    
-    bzero (&ifpppr, sizeof (ifpppr));
+    struct ifpppstatsreq req;
 
-    sprintf(ifpppr.ifr_name, ifname, sizeof (ifpppr.ifr_name));
-    ifpppr.ifr_code = IFPPP_STATS;
-    if (ioctl(sockfd, SIOCGIFPPP, (caddr_t) &ifpppr) < 0) {
+    memset (&req, 0, sizeof (req));
+    strlcpy(req.ifr_name, ifname, sizeof(req.ifr_name));
+    if (ioctl(ip_sockfd, SIOCGPPPSTATS, &req) < 0) {
 	error("Couldn't get PPP statistics: %m");
 	return 0;
     }
-
-    stats->bytes_in = ifpppr.ifr_stats.ibytes;
-    stats->bytes_out = ifpppr.ifr_stats.obytes;
+    stats->bytes_in = req.stats.p.ppp_ibytes;
+    stats->bytes_out = req.stats.p.ppp_obytes;
     return 1;
 }
 
 
 #ifdef PPP_FILTER
-/*
- * set_filters - transfer the pass and active filters to the kernel.
- */
-int
-set_filters(pass, active)
-    struct bpf_program *pass, *active;
+/* -----------------------------------------------------------------------------
+transfer the pass and active filters to the kernel
+----------------------------------------------------------------------------- */
+int set_filters(struct bpf_program *pass, struct bpf_program *active)
 {
     int ret = 1;
 
@@ -1101,65 +1238,45 @@ set_filters(pass, active)
 }
 #endif
 
-/*
- * sifvjcomp - config tcp header compression
- */
-int
-sifvjcomp(u, vjcomp, cidcomp, maxcid)
-    int u, vjcomp, cidcomp, maxcid;
+/* -----------------------------------------------------------------------------
+config tcp header compression
+----------------------------------------------------------------------------- */
+int sifvjcomp(int u, int vjcomp, int cidcomp, int maxcid)
 {
     u_int x;
-    struct ifpppreq 	ifpppr;
-    int err;
-    
-    bzero(&ifpppr, sizeof(struct ifpppreq));
-    sprintf(ifpppr.ifr_name, "%s", ifname);
-    ifpppr.ifr_code = IFPPP_IP_VJ;
-    ifpppr.ifr_ip_vj.vj = vjcomp ? 1 : 0;
-    ifpppr.ifr_ip_vj.cid = cidcomp ? 1 : 0;
-    ifpppr.ifr_ip_vj.max_cid = maxcid;
 
-    err = ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr);
-    if (err < 0) {
-        printf("ioctl(SIOCSIFPPP) VJComp :  %m");
-	return 0;
-    }
-
-#if 0
-    if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0) {
+    if (ioctl(ppp_sockfd, PPPIOCGFLAGS, (caddr_t) &x) < 0) {
 	error("ioctl (PPPIOCGFLAGS): %m");
 	return 0;
     }
     x = vjcomp ? x | SC_COMP_TCP: x &~ SC_COMP_TCP;
     x = cidcomp? x & ~SC_NO_TCP_CCID: x | SC_NO_TCP_CCID;
-    if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0) {
+    if (ioctl(ppp_sockfd, PPPIOCSFLAGS, (caddr_t) &x) < 0) {
 	error("ioctl(PPPIOCSFLAGS): %m");
 	return 0;
     }
-    if (vjcomp && ioctl(ppp_fd, PPPIOCSMAXCID, (caddr_t) &maxcid) < 0) {
-	error("ioctl(PPPIOCSFLAGS): %m");
+    if (vjcomp && ioctl(ppp_sockfd, PPPIOCSMAXCID, (caddr_t) &maxcid) < 0) {
+	error("ioctl(PPPIOCSMAXCID): %m");
 	return 0;
     }
-#endif
+    publish_numentry(kSCPropNetPPPIPCPCompressionVJ, vjcomp);
     return 1;
 }
 
-/*
- * sifup - Config the interface up and enable IP packets to pass.
- */
-int
-sifup(u)
-    int u;
+/* -----------------------------------------------------------------------------
+Config the interface up and enable IP packets to pass
+----------------------------------------------------------------------------- */
+int sifup(int u)
 {
     struct ifreq ifr;
 
     strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
-    if (ioctl(sockfd, SIOCGIFFLAGS, (caddr_t) &ifr) < 0) {
+    if (ioctl(ip_sockfd, SIOCGIFFLAGS, (caddr_t) &ifr) < 0) {
 	error("ioctl (SIOCGIFFLAGS): %m");
 	return 0;
     }
     ifr.ifr_flags |= IFF_UP;
-    if (ioctl(sockfd, SIOCSIFFLAGS, (caddr_t) &ifr) < 0) {
+    if (ioctl(ip_sockfd, SIOCSIFFLAGS, (caddr_t) &ifr) < 0) {
 	error("ioctl(SIOCSIFFLAGS): %m");
 	return 0;
     }
@@ -1167,90 +1284,67 @@ sifup(u)
     return 1;
 }
 
-/*
- * sifnpmode - Set the mode for handling packets for a given NP.
- */
-int
-sifnpmode(u, proto, mode)
-    int u;
-    int proto;
-    enum NPmode mode;
+/* -----------------------------------------------------------------------------
+Set the mode for handling packets for a given NP
+----------------------------------------------------------------------------- */
+int sifnpmode(int u, int proto, enum NPmode mode)
 {
-    struct ifpppreq 	ifpppr;
-    
-    if (proto != PPP_IP)
-        return 0;
+    struct npioctl npi;
 
-    if (mode == NPMODE_DROP)
-        return 0;
-
-    sprintf(ifpppr.ifr_name, "%s", ifname);
-    ifpppr.ifr_code = (mode == NPMODE_PASS ? IFPPP_ATTACH_IP : IFPPP_DETACH_IP);
-    if (ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr) < 0) {
+    npi.protocol = proto;
+    npi.mode = mode;
+    if (ioctl(ppp_sockfd, PPPIOCSNPMODE, &npi) < 0) {
 	error("ioctl(set NP %d mode to %d): %m", proto, mode);
 	return 0;
     }
-    
     return 1;
 }
 
-/*
- * sifdown - Config the interface down and disable IP.
- */
-int
-sifdown(u)
-    int u;
+/* -----------------------------------------------------------------------------
+Config the interface down and disable IP
+----------------------------------------------------------------------------- */
+int sifdown(int u)
 {
-    struct ifpppreq 	ifpppr;
     struct ifreq ifr;
     int rv;
+    struct npioctl npi;
 
     rv = 1;
-    
-    sprintf(ifpppr.ifr_name, "%s", ifname);
-    ifpppr.ifr_code = IFPPP_DETACH_IP;
-    ioctl(sockfd, SIOCSIFPPP, (caddr_t) &ifpppr);
+    npi.protocol = PPP_IP;
+    npi.mode = NPMODE_ERROR;
+    ioctl(ppp_sockfd, PPPIOCSNPMODE, (caddr_t) &npi);
     /* ignore errors, because ppp_fd might have been closed by now. */
 
     strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
-    if (ioctl(sockfd, SIOCGIFFLAGS, (caddr_t) &ifr) < 0) {
+    if (ioctl(ip_sockfd, SIOCGIFFLAGS, (caddr_t) &ifr) < 0) {
 	error("ioctl (SIOCGIFFLAGS): %m");
 	rv = 0;
     } else {
 	ifr.ifr_flags &= ~IFF_UP;
-	if (ioctl(sockfd, SIOCSIFFLAGS, (caddr_t) &ifr) < 0) {
+	if (ioctl(ip_sockfd, SIOCSIFFLAGS, (caddr_t) &ifr) < 0) {
 	    error("ioctl(SIOCSIFFLAGS): %m");
 	    rv = 0;
 	} else
 	    if_is_up = 0;
     }
-    if_is_up = 0;
     return rv;
 }
 
-/*
- * SET_SA_FAMILY - set the sa_family field of a struct sockaddr,
- * if it exists.
- */
+/* -----------------------------------------------------------------------------
+set the sa_family field of a struct sockaddr, if it exists.
+----------------------------------------------------------------------------- */
 #define SET_SA_FAMILY(addr, family)		\
     BZERO((char *) &(addr), sizeof(addr));	\
     addr.sa_family = (family); 			\
     addr.sa_len = sizeof(addr);
 
-/*
- * sifaddr - Config the interface IP addresses and netmask.
- */
-int
-sifaddr(u, o, h, m)
-    int u;
-    u_int32_t o, h, m;
+/* -----------------------------------------------------------------------------
+Config the interface IP addresses and netmask
+----------------------------------------------------------------------------- */
+int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
 {
     struct ifaliasreq ifra;
     struct ifreq ifr;
-
-    // we need to attach IP before....
-    sifnpmode(0, PPP_IP, NPMODE_PASS);
-
 
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
@@ -1264,11 +1358,11 @@ sifaddr(u, o, h, m)
 	BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
     BZERO(&ifr, sizeof(ifr));
     strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-    if (ioctl(sockfd, SIOCDIFADDR, (caddr_t) &ifr) < 0) {
+    if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifr) < 0) {
 	if (errno != EADDRNOTAVAIL)
 	    warn("Couldn't remove interface address: %m");
     }
-    if (ioctl(sockfd, SIOCAIFADDR, (caddr_t) &ifra) < 0) {
+    if (ioctl(ip_sockfd, SIOCAIFADDR, (caddr_t) &ifra) < 0) {
 	if (errno != EEXIST) {
 	    error("Couldn't set interface address: %m");
 	    return 0;
@@ -1277,19 +1371,20 @@ sifaddr(u, o, h, m)
     }
     ifaddrs[0] = o;
     ifaddrs[1] = h;
+    
+    publish_stateaddr(o, h, m);
     return 1;
 }
 
-/*
- * cifaddr - Clear the interface IP addresses, and delete routes
- * through the interface if possible.
- */
-int
-cifaddr(u, o, h)
-    int u;
-    u_int32_t o, h;
+/* -----------------------------------------------------------------------------
+Clear the interface IP addresses, and delete routes
+ * through the interface if possible
+ ----------------------------------------------------------------------------- */
+int cifaddr(int u, u_int32_t o, u_int32_t h)
 {
     struct ifaliasreq ifra;
+
+    unpublish_entity(kSCEntNetIPv4);
 
     ifaddrs[0] = 0;
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
@@ -1298,7 +1393,7 @@ cifaddr(u, o, h)
     SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
     ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
     BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
-    if (ioctl(sockfd, SIOCDIFADDR, (caddr_t) &ifra) < 0) {
+    if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifra) < 0) {
 	if (errno != EADDRNOTAVAIL)
 	    warn("Couldn't delete interface address: %m");
 	return 0;
@@ -1306,515 +1401,222 @@ cifaddr(u, o, h)
     return 1;
 }
 
-#if 0
-static int remove_default_route();
-static int add_default_route(u_int32_t loc, u_int32_t dst);
-static int remove_dns();
-static int add_dns(u_int32_t dns1, u_int32_t dns2, char * dname);
-#endif 0
-
-static int remove_route_and_dns();
-static int add_route_and_dns(u_int32_t loc, u_int32_t dst,
-                             u_int32_t dns1, u_int32_t dns2, char * dname);
-
-/*
- * sifdefaultroute - assign a default route through the address given.
- */
-int
-sifdefaultroute(u, l, g)
-    int u;
-    u_int32_t l, g;
+/* -----------------------------------------------------------------------------
+assign a default route through the address given 
+----------------------------------------------------------------------------- */
+int sifdefaultroute(int u, u_int32_t l, u_int32_t g)
 {
-#if 0
-    add_default_route(l, g);
-    add_dns(ipcp_dns1, ipcp_dns2, ipcp_dname);
-#endif 0
-#if 0
-    return (add_route_and_dns(l, g, ipcp_dns1, ipcp_dns2, ipcp_dname));
-#endif
-return 0;
-//    return dodefaultroute(g, 's');
+    CFNumberRef		num;
+    CFStringRef		key;
+    int			ret = ENOMEM, val = 1;
+    
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
+        return 0;
+    
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetIPv4);
+    if (key) {
+        num = CFNumberCreate(NULL, kCFNumberIntType, &val);
+        if (num) {
+            ret = publish_keyentry(key, CFSTR("OverridePrimary"), num);
+            CFRelease(num);
+            ret = 0;
+        }
+        CFRelease(key);
+    }
+    return ret;
 }
 
-/*
- * cifdefaultroute - delete a default route through the address given.
- */
-int
-cifdefaultroute(u, l, g)
-    int u;
-    u_int32_t l, g;
+/* -----------------------------------------------------------------------------
+delete a default route through the address given
+----------------------------------------------------------------------------- */
+int cifdefaultroute(int u, u_int32_t l, u_int32_t g)
 {
-#if 0
-    remove_dns();
-    remove_default_route();
-#endif 0
-    return (remove_route_and_dns());
+    CFStringRef		key;
+    int			ret = ENOMEM;
 
-//    return dodefaultroute(g, 'c');
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetIPv4);
+    if (key) {
+        ret = unpublish_keyentry(key, CFSTR("OverridePrimary"));
+        CFRelease(key);
+        ret = 0;
+    }
+    return ret;
 }
 
-/*
- * add the default route and DNS, using configd cache mechanism.
- */
-static int
-add_route_and_dns(u_int32_t loc, u_int32_t dst,
-                  u_int32_t dns1, u_int32_t dns2, char * dname)
+/* -----------------------------------------------------------------------------
+publish ip addresses using configd cache mechanism
+use new state information model
+----------------------------------------------------------------------------- */
+int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 {
-#if 0
-    char			pkey[FOUR_CHAR_ID_STRLEN];
     struct in_addr		addr;
-    CFMutableArrayRef		array = 0;
+    CFMutableArrayRef		array;
+    CFStringRef			ifnam = 0;
     CFMutableDictionaryRef	ipv4_dict = 0;
     SCDHandleRef 		ipv4_data = 0;
     CFStringRef			ipv4_key = 0;
-//    SCDSessionRef		session = 0;
-    SCDStatus			status, ipv4_status;
+    SCDStatus			status;
     CFStringRef			str;
 
-    struct in_addr		dnsaddr[2];
-    CFMutableDictionaryRef	dns_dict = 0;
-    SCDHandleRef 		dns_data = 0;
-    CFStringRef			dns_key = 0;
-    SCDStatus 			dns_status = SCD_OK;
-    int				i;
-
-    if (dns1 == 0 && dns2 == 0) {
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
         return 0;
-    }
+            
+    // then publish configd cache information
+    ifnam = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname);       
 
-    dnsaddr[0].s_addr = dns1;
-    dnsaddr[1].s_addr = dns2;
-
-    if (!configd_session_inited)
-        return 0;
-
-    /*    status = SCDOpen(&configd_session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
-        return 0;
-    }
-*/
     /* create the IP cache key and dict */
-    FourCharIDToString(kNetCfgClassIPv4, pkey);
-    ipv4_key = CFStringCreateWithFormat(0, 0,
-                                        CFSTR(kSCDCachePrefixState
-                                              kSCDCacheFormatNetworkInterfaceProtocol),
-                                        ifname, pkey);
+    ipv4_key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetIPv4);
     ipv4_dict = CFDictionaryCreateMutable(0, 0,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks);
-    /* create the DNS cache key and dict */
-    FourCharIDToString(kNetCfgClassDNS, pkey);
-    dns_key = CFStringCreateWithFormat(NULL, NULL,
-                                       CFSTR(kSCDCachePrefixState
-                                             kSCDCacheFormatNetworkInterfaceProtocol),
-                                       ifname, pkey);
-    dns_dict = CFDictionaryCreateMutable(0, 0,
-                                         &kCFTypeDictionaryKeyCallBacks,
-                                         &kCFTypeDictionaryValueCallBacks);
 
     /* set the ip address array */
-    addr.s_addr = loc;
+    addr.s_addr = o;
     array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks);
-    str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT),
-                                   IP_LIST(&addr));
+    str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr));
     CFArrayAppendValue(array, str);
     CFRelease(str);
-    CFDictionarySetValue(ipv4_dict, CFSTR(kNetCfgKeyIPv4Addresses), array);
+    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array);
     CFRelease(array);
 
     /* set the ip dest array */
-    addr.s_addr = dst;
+    addr.s_addr = h;
     array = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-                                   IP_LIST(&addr));
+    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), 
+				   IP_LIST(&addr));
     CFArrayAppendValue(array, str);
     CFRelease(str);
-    CFDictionarySetValue(ipv4_dict, CFSTR(kNetCfgKeyIPv4DestAddresses), array);
+    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4DestAddresses, array);
     CFRelease(array);
 
     /* set the router */
-    addr.s_addr = dst;
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-                                   IP_LIST(&addr));
-    CFDictionarySetValue(ipv4_dict, CFSTR(kNetCfgKeyIPv4Router), str);
+    addr.s_addr = h;
+    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr));
+    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
     CFRelease(str);
 
-    /* set the DNS servers */
-    array = CFArrayCreateMutable(NULL, 2,
-                                 &kCFTypeArrayCallBacks);
-    for (i = 0; i < 2; i++) {
-        if (dnsaddr[i].s_addr) {
-            str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-                                           IP_LIST(&dnsaddr[i]));
-            CFArrayAppendValue(array, str);
-            CFRelease(str);
-        }
-    }
-    CFDictionarySetValue(dns_dict, CFSTR(kNetCfgKeyDNSServerAddresses),
-                         array);
-    CFRelease(array);
-
-    /* set the DNS domain name */
-    if (dname) {
-        str = CFStringCreateWithBytes(NULL, dname, strlen(dname),
-                                      CFStringGetSystemEncoding(), FALSE);
-        CFDictionarySetValue(dns_dict, CFSTR(kNetCfgKeyDNSDomainName), str);
-        CFRelease(str);
-    }
+    /* add the interface name */
+    CFDictionarySetValue(ipv4_dict, CFSTR("InterfaceName"), ifnam);
 
     /* get system configuration cache handles */
     ipv4_data = SCDHandleInit();
     SCDHandleSetData(ipv4_data, ipv4_dict);
     CFRelease(ipv4_dict);
 
-    dns_data = SCDHandleInit();
-    SCDHandleSetData(dns_data, dns_dict);
-    CFRelease(dns_dict);
-
     /* update atomically to avoid needless notifications */
-    SCDLock(configd_session);
-    SCDRemove(configd_session, ipv4_key);
-    ipv4_status = SCDAdd(configd_session, ipv4_key, ipv4_data);
-    (void)SCDRemove(configd_session, dns_key);
-    dns_status = SCDAdd(configd_session, dns_key, dns_data);
-    SCDUnlock(configd_session);
-    if (ipv4_status != SCD_OK) {
-        warn("SCDAdd IP %s failed: %s\n", ifname, SCDError(ipv4_status));
-    }
-    if (dns_status != SCD_OK) {
-        warn("SCDAdd DNS %s returned: %s\n", ifname, SCDError(dns_status));
-    }
+    SCDLock(cfgCache);
+    SCDRemove(cfgCache, ipv4_key);
+
+    status = SCDAdd(cfgCache, ipv4_key, ipv4_data);
+    if (status != SCD_OK)
+        warn("SCDAdd IP %s failed: %s\n", ifname, SCDError(status));
+
+    SCDUnlock(cfgCache);
     SCDHandleRelease(ipv4_data);
     CFRelease(ipv4_key);
-    SCDHandleRelease(dns_data);
-    CFRelease(dns_key);
-
-    //SCDClose(&configd_session);
-#endif
+    CFRelease(ifnam);
     return 1;
 }
 
-/*
- * remove the default route and DNS, using configd cache mechanism.
- */
-static int
-remove_route_and_dns()
+/* -----------------------------------------------------------------------------
+ add the default route and DNS, using configd cache mechanism.
+----------------------------------------------------------------------------- */
+int publish_dns(u_int32_t dns1, u_int32_t dns2)
 {
-#if 0
-    CFStringRef			dns_key = 0;
-    char			pkey[FOUR_CHAR_ID_STRLEN];
-//    SCDSessionRef		session = NULL;
-    SCDStatus			status;
-    CFStringRef			ipv4_key = 0;
-
-    if (!configd_session_inited)
-        return 0;
-/*    status = SCDOpen(&configd_session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
-        return 0;
-    }
-*/
-    /* create IP cache key */
-    FourCharIDToString(kNetCfgClassIPv4, pkey);
-    ipv4_key = CFStringCreateWithFormat(0, 0,
-                                        CFSTR(kSCDCachePrefixState
-                                              kSCDCacheFormatNetworkInterfaceProtocol),
-                                        ifname, pkey);
-    /* create DNS cache key */
-    FourCharIDToString(kNetCfgClassDNS, pkey);
-    dns_key = CFStringCreateWithFormat(NULL, NULL,
-                                       CFSTR(kSCDCachePrefixState
-                                             kSCDCacheFormatNetworkInterfaceProtocol),
-                                       ifname, pkey);
-    /* update atomically to avoid needless notifications */
-    SCDLock(configd_session);
-    (void)SCDRemove(configd_session, ipv4_key);
-    (void)SCDRemove(configd_session, dns_key);
-    SCDUnlock(configd_session);
-
-    CFRelease(dns_key);
-    CFRelease(ipv4_key);
-
-    //SCDClose(&configd_session);
-#endif
-    return 1;
-}
-
-
-#if 0
-int
-remove_dns()
-{
-    CFStringRef			dns_key = 0;
-    SCDStatus 			dns_status = SCD_OK;
-    char			pkey[FOUR_CHAR_ID_STRLEN];
-    SCDSessionRef		session = NULL;
-    SCDStatus			status;
-
-    status = SCDOpen(&session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
-        return 0;
-    }
-
-    FourCharIDToString(kNetCfgClassDNS, pkey);
-    dns_key = CFStringCreateWithFormat(NULL, NULL,
-                                       CFSTR(kSCDCachePrefixState
-                                             kSCDCacheFormatNetworkInterfaceProtocol),
-                                       ifname, pkey);
-    dns_status = SCDRemove(session, dns_key);
-    if (dns_status != SCD_OK) {
-        warn("SCDRemove DNS %s returned: %s\n", ifname, SCDError(dns_status));
-    }
-    CFRelease(dns_key);
-
-    SCDClose(&session);
-    return 1;
-}
-int
-add_dns(u_int32_t dns1, u_int32_t dns2, char * dname)
-{
-    struct in_addr		addr[2];
-    CFMutableArrayRef		array = 0;
+    int				i;
+    struct in_addr		addr, dnsaddr[2];
+    CFMutableArrayRef		array;
     CFMutableDictionaryRef	dns_dict = 0;
     SCDHandleRef 		dns_data = 0;
     CFStringRef			dns_key = 0;
-    SCDStatus 			dns_status = SCD_OK;
-    int				i;
-    char			pkey[FOUR_CHAR_ID_STRLEN];
-    SCDSessionRef		session = NULL;
     SCDStatus			status;
     CFStringRef			str;
 
-    if (dns1 == 0 && dns2 == 0) {
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
         return 0;
-    }
-    addr[0].s_addr = dns1;
-    addr[1].s_addr = dns2;
 
-    status = SCDOpen(&session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
-        return 0;
-    }
+    dnsaddr[0].s_addr = dns1;
+    dnsaddr[1].s_addr = dns2;
 
-    FourCharIDToString(kNetCfgClassDNS, pkey);
-    dns_key = CFStringCreateWithFormat(NULL, NULL,
-                                       CFSTR(kSCDCachePrefixState
-                                             kSCDCacheFormatNetworkInterfaceProtocol),
-                                       ifname, pkey);
+    dns_key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetDNS);
+
     dns_dict = CFDictionaryCreateMutable(0, 0,
-                                         &kCFTypeDictionaryKeyCallBacks,
-                                         &kCFTypeDictionaryValueCallBacks);
-
-    array = CFArrayCreateMutable(NULL, 2,
-                                 &kCFTypeArrayCallBacks);
+                                            &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks);
+    
+    /* set the DNS servers */
+    array = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
     for (i = 0; i < 2; i++) {
-        if (addr[i].s_addr) {
-            str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-                                           IP_LIST(&addr[i]));
+        if (dnsaddr[i].s_addr) {
+            str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), 
+                                            IP_LIST(&dnsaddr[i]));
             CFArrayAppendValue(array, str);
             CFRelease(str);
         }
     }
-    CFDictionarySetValue(dns_dict, CFSTR(kNetCfgKeyDNSServerAddresses),
-                         array);
+    CFDictionarySetValue(dns_dict, kSCPropNetDNSServerAddresses, array);
     CFRelease(array);
 
-    if (dname) {
-        str = CFStringCreateWithBytes(NULL, dname, strlen(dname),
-                                      CFStringGetSystemEncoding(), FALSE);
-        CFDictionarySetValue(dns_dict, CFSTR(kNetCfgKeyDNSDomainName), str);
-        CFRelease(str);
-    }
     dns_data = SCDHandleInit();
     SCDHandleSetData(dns_data, dns_dict);
     CFRelease(dns_dict);
 
-    SCDLock(session);
-    (void)SCDRemove(session, dns_key);
-    dns_status = SCDAdd(session, dns_key, dns_data);
-    SCDUnlock(session);
-    if (dns_status != SCD_OK) {
-        warn("SCDAdd DNS %s returned: %s\n", ifname, SCDError(dns_status));
-    }
+    /* update atomically to avoid needless notifications */
+    SCDLock(cfgCache);
+    SCDRemove(cfgCache, dns_key);
+    status = SCDAdd(cfgCache, dns_key, dns_data);
+    if (status != SCD_OK)
+        warn("SCDAdd DNS %s returned: %s\n", ifname, SCDError(status));
+    SCDUnlock(cfgCache);
+    
     SCDHandleRelease(dns_data);
     CFRelease(dns_key);
-
-    SCDClose(&session);
     return 1;
 }
 
-/*
- * remove the default route, using configd cache mechanism.
- */
-static int
-remove_default_route()
+/* -----------------------------------------------------------------------------
+ remove the DNS, using configd cache mechanism.
+----------------------------------------------------------------------------- */
+int unpublish_dns()
 {
-    char			pkey[FOUR_CHAR_ID_STRLEN];
-    CFStringRef			ipv4_key = 0;
-    SCDSessionRef		session = 0;
-    SCDStatus			status;
+    CFStringRef		dns_key;
 
-    status = SCDOpen(&session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
         return 0;
-    }
-    /* create the cache key */
-    FourCharIDToString(kNetCfgClassIPv4, pkey);
-    ipv4_key = CFStringCreateWithFormat(0, 0,
-                                        CFSTR(kSCDCachePrefixState
-                                              kSCDCacheFormatNetworkInterfaceProtocol),
-                                        ifname, pkey);
-    status = SCDRemove(session, ipv4_key);
-    if (status != SCD_OK) {
-        warn("SCDRemove %s failed: %s\n", ifname, SCDError(status));
-    }
-    
-    CFRelease(ipv4_key);
-    SCDClose(&session);
-    return 1;
-}
 
-/*
- * add the default route, using configd cache mechanism.
- */
-static int
-add_default_route(u_int32_t loc, u_int32_t dst)
-{
-    char			pkey[FOUR_CHAR_ID_STRLEN];
-    struct in_addr		addr;
-    CFMutableArrayRef		array = 0;
-    CFMutableDictionaryRef	ipv4_dict = 0;
-    SCDHandleRef 		ipv4_data = 0;
-    CFStringRef			ipv4_key = 0;
-    SCDSessionRef		session = 0;
-    SCDStatus			status;
-    CFStringRef			str;
-
-    status = SCDOpen(&session, CFSTR("pppd"));
-    if (status != SCD_OK) {
-        warn("SCDOpen failed: %s\n", SCDError(status));
-        return 0;
-    }
-
-    /* create the cache key */
-    FourCharIDToString(kNetCfgClassIPv4, pkey);
-    ipv4_key = CFStringCreateWithFormat(0, 0,
-                                        CFSTR(kSCDCachePrefixState
-                                              kSCDCacheFormatNetworkInterfaceProtocol),
-                                        ifname, pkey);
-    ipv4_dict = CFDictionaryCreateMutable(0, 0,
-                                          &kCFTypeDictionaryKeyCallBacks,
-                                          &kCFTypeDictionaryValueCallBacks);
-    /* set the ip address array */
-    addr.s_addr = loc;
-    array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks);
-    str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT),
-                                   IP_LIST(&addr));
-    CFArrayAppendValue(array, str);
-    CFRelease(str);
-    CFDictionarySetValue(ipv4_dict, CFSTR(kNetCfgKeyIPv4Addresses), array);
-    CFRelease(array);
-
-    /* set the ip dest array */
-    addr.s_addr = dst;
-    array = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-                                   IP_LIST(&addr));
-    CFArrayAppendValue(array, str);
-    CFRelease(str);
-    CFDictionarySetValue(ipv4_dict, CFSTR(kNetCfgKeyIPv4DestAddresses), array);
-    CFRelease(array);
-
-    /* set the router */
-    addr.s_addr = dst;
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-                                   IP_LIST(&addr));
-    CFDictionarySetValue(ipv4_dict, CFSTR(kNetCfgKeyIPv4Router), str);
-    CFRelease(str);
-
-    /* update the system configuration cache */
-    ipv4_data = SCDHandleInit();
-    SCDHandleSetData(ipv4_data, ipv4_dict);
-    CFRelease(ipv4_dict);
+    /* create DNS cache key */
+    dns_key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetDNS);
 
     /* update atomically to avoid needless notifications */
-    SCDLock(session);
-    SCDRemove(session, ipv4_key);
-    status = SCDAdd(session, ipv4_key, ipv4_data);
-    SCDUnlock(session);
+    SCDLock(cfgCache);
+    SCDRemove(cfgCache, dns_key);
+    SCDUnlock(cfgCache);
 
-    if (status != SCD_OK) {
-        SCDLog(LOG_INFO,
-               CFSTR("SCDAdd IPV4 %s returned: %s"),
-               ifname, SCDError(status));
-        warn("SCDAdd failed: %s\n", SCDError(status));
-        return 0;
-    }
-    SCDHandleRelease(ipv4_data);
-    CFRelease(ipv4_key);
-    SCDClose(&session);
+    CFRelease(dns_key);
     return 1;
 }
-#endif
-/*
- * dodefaultroute - talk to a routing socket to add/delete a default route.
- */
-static int
-dodefaultroute(g, cmd)
-    u_int32_t g;
-    int cmd;
+
+/* -----------------------------------------------------------------------------
+set dns information
+----------------------------------------------------------------------------- */
+int sifdns(u_int32_t dns1, u_int32_t dns2)
 {
-    int routes;
-    struct {
-	struct rt_msghdr	hdr;
-	struct sockaddr_in	dst;
-	struct sockaddr_in	gway;
-	struct sockaddr_in	mask;
-    } rtmsg;
-
-    if ((routes = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
-	error("Couldn't %s default route: socket: %m",
-	       cmd=='s'? "add": "delete");
-	return 0;
-    }
-
-    memset(&rtmsg, 0, sizeof(rtmsg));
-    rtmsg.hdr.rtm_type = cmd == 's'? RTM_ADD: RTM_DELETE;
-    rtmsg.hdr.rtm_flags = RTF_UP | RTF_GATEWAY | RTF_STATIC;
-    rtmsg.hdr.rtm_version = RTM_VERSION;
-    rtmsg.hdr.rtm_seq = ++rtm_seq;
-    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
-    rtmsg.dst.sin_len = sizeof(rtmsg.dst);
-    rtmsg.dst.sin_family = AF_INET;
-    rtmsg.gway.sin_len = sizeof(rtmsg.gway);
-    rtmsg.gway.sin_family = AF_INET;
-    rtmsg.gway.sin_addr.s_addr = g;
-    rtmsg.mask.sin_len = sizeof(rtmsg.dst);
-    rtmsg.mask.sin_family = AF_INET;
-
-    rtmsg.hdr.rtm_msglen = sizeof(rtmsg);
-    if (write(routes, &rtmsg, sizeof(rtmsg)) < 0) {
-	error("Couldn't %s default route: %m",
-	       cmd=='s'? "add": "delete");
-	close(routes);
-	return 0;
-    }
-
-    close(routes);
-    default_route_gateway = (cmd == 's')? g: 0;
-    return 1;
+    return publish_dns(dns1, dns2);
 }
 
-#if RTM_VERSION >= 3
+/* -----------------------------------------------------------------------------
+clear dns information
+----------------------------------------------------------------------------- */
+int cifdns(u_int32_t dns1, u_int32_t dns2)
+{
+    return unpublish_entity(kSCEntNetDNS);
+}
 
-/*
- * sifproxyarp - Make a proxy ARP entry for the peer.
- */
+
 static struct {
     struct rt_msghdr		hdr;
     struct sockaddr_inarp	dst;
@@ -1824,10 +1626,10 @@ static struct {
 
 static int arpmsg_valid;
 
-int
-sifproxyarp(unit, hisaddr)
-    int unit;
-    u_int32_t hisaddr;
+/* -----------------------------------------------------------------------------
+Make a proxy ARP entry for the peer
+----------------------------------------------------------------------------- */
+int sifproxyarp(int unit, u_int32_t hisaddr)
 {
     int routes;
 
@@ -1871,13 +1673,10 @@ sifproxyarp(unit, hisaddr)
     return 1;
 }
 
-/*
- * cifproxyarp - Delete the proxy ARP entry for the peer.
- */
-int
-cifproxyarp(unit, hisaddr)
-    int unit;
-    u_int32_t hisaddr;
+/* -----------------------------------------------------------------------------
+Delete the proxy ARP entry for the peer
+----------------------------------------------------------------------------- */
+int cifproxyarp(int unit, u_int32_t hisaddr)
 {
     int routes;
 
@@ -1904,81 +1703,13 @@ cifproxyarp(unit, hisaddr)
     return 1;
 }
 
-#else	/* RTM_VERSION */
-
-/*
- * sifproxyarp - Make a proxy ARP entry for the peer.
- */
-int
-sifproxyarp(unit, hisaddr)
-    int unit;
-    u_int32_t hisaddr;
-{
-    struct arpreq arpreq;
-    struct {
-	struct sockaddr_dl	sdl;
-	char			space[128];
-    } dls;
-
-    BZERO(&arpreq, sizeof(arpreq));
-
-    /*
-     * Get the hardware address of an interface on the same subnet
-     * as our local address.
-     */
-    if (!get_ether_addr(hisaddr, &dls.sdl)) {
-	error("Cannot determine ethernet address for proxy ARP");
-	return 0;
-    }
-
-    arpreq.arp_ha.sa_len = sizeof(struct sockaddr);
-    arpreq.arp_ha.sa_family = AF_UNSPEC;
-    BCOPY(LLADDR(&dls.sdl), arpreq.arp_ha.sa_data, dls.sdl.sdl_alen);
-    SET_SA_FAMILY(arpreq.arp_pa, AF_INET);
-    ((struct sockaddr_in *) &arpreq.arp_pa)->sin_addr.s_addr = hisaddr;
-    arpreq.arp_flags = ATF_PERM | ATF_PUBL;
-    if (ioctl(sockfd, SIOCSARP, (caddr_t)&arpreq) < 0) {
-	error("Couldn't add proxy arp entry: %m");
-	return 0;
-    }
-
-    proxy_arp_addr = hisaddr;
-    return 1;
-}
-
-/*
- * cifproxyarp - Delete the proxy ARP entry for the peer.
- */
-int
-cifproxyarp(unit, hisaddr)
-    int unit;
-    u_int32_t hisaddr;
-{
-    struct arpreq arpreq;
-
-    BZERO(&arpreq, sizeof(arpreq));
-    SET_SA_FAMILY(arpreq.arp_pa, AF_INET);
-    ((struct sockaddr_in *) &arpreq.arp_pa)->sin_addr.s_addr = hisaddr;
-    if (ioctl(sockfd, SIOCDARP, (caddr_t)&arpreq) < 0) {
-	warn("Couldn't delete proxy arp entry: %m");
-	return 0;
-    }
-    proxy_arp_addr = 0;
-    return 1;
-}
-#endif	/* RTM_VERSION */
-
-
-/*
- * get_ether_addr - get the hardware address of an interface on the
- * the same subnet as ipaddr.
- */
 #define MAX_IFS		32
 
-static int
-get_ether_addr(ipaddr, hwaddr)
-    u_int32_t ipaddr;
-    struct sockaddr_dl *hwaddr;
+/* -----------------------------------------------------------------------------
+get the hardware address of an interface on the
+ * the same subnet as ipaddr.
+----------------------------------------------------------------------------- */
+static int get_ether_addr(u_int32_t ipaddr, struct sockaddr_dl *hwaddr)
 {
     struct ifreq *ifr, *ifend, *ifp;
     u_int32_t ina, mask;
@@ -1989,7 +1720,7 @@ get_ether_addr(ipaddr, hwaddr)
 
     ifc.ifc_len = sizeof(ifs);
     ifc.ifc_req = ifs;
-    if (ioctl(sockfd, SIOCGIFCONF, &ifc) < 0) {
+    if (ioctl(ip_sockfd, SIOCGIFCONF, &ifc) < 0) {
 	error("ioctl(SIOCGIFCONF): %m");
 	return 0;
     }
@@ -2008,7 +1739,7 @@ get_ether_addr(ipaddr, hwaddr)
 	     * Check that the interface is up, and not point-to-point
 	     * or loopback.
 	     */
-	    if (ioctl(sockfd, SIOCGIFFLAGS, &ifreq) < 0)
+	    if (ioctl(ip_sockfd, SIOCGIFFLAGS, &ifreq) < 0)
 		continue;
 	    if ((ifreq.ifr_flags &
 		 (IFF_UP|IFF_BROADCAST|IFF_POINTOPOINT|IFF_LOOPBACK|IFF_NOARP))
@@ -2017,7 +1748,7 @@ get_ether_addr(ipaddr, hwaddr)
 	    /*
 	     * Get its netmask and check that it's on the right subnet.
 	     */
-	    if (ioctl(sockfd, SIOCGIFNETMASK, &ifreq) < 0)
+	    if (ioctl(ip_sockfd, SIOCGIFNETMASK, &ifreq) < 0)
 		continue;
 	    mask = ((struct sockaddr_in *) &ifreq.ifr_addr)->sin_addr.s_addr;
 	    if ((ipaddr & mask) != (ina & mask))
@@ -2052,17 +1783,15 @@ get_ether_addr(ipaddr, hwaddr)
     return 0;
 }
 
-/*
+/* -----------------------------------------------------------------------------
  * Return user specified netmask, modified by any mask we might determine
  * for address `addr' (in network byte order).
  * Here we scan through the system's list of interfaces, looking for
  * any non-point-to-point interfaces which might appear to be on the same
  * network as `addr'.  If we find any, we OR in their netmask to the
  * user-specified netmask.
- */
-u_int32_t
-GetMask(addr)
-    u_int32_t addr;
+----------------------------------------------------------------------------- */
+u_int32_t GetMask(u_int32_t addr)
 {
     u_int32_t mask, nmask, ina;
     struct ifreq *ifr, *ifend, ifreq;
@@ -2084,7 +1813,7 @@ GetMask(addr)
      */
     ifc.ifc_len = sizeof(ifs);
     ifc.ifc_req = ifs;
-    if (ioctl(sockfd, SIOCGIFCONF, &ifc) < 0) {
+    if (ioctl(ip_sockfd, SIOCGIFCONF, &ifc) < 0) {
 	warn("ioctl(SIOCGIFCONF): %m");
 	return mask;
     }
@@ -2103,7 +1832,7 @@ GetMask(addr)
 	 * Check that the interface is up, and not point-to-point or loopback.
 	 */
 	strlcpy(ifreq.ifr_name, ifr->ifr_name, sizeof(ifreq.ifr_name));
-	if (ioctl(sockfd, SIOCGIFFLAGS, &ifreq) < 0)
+	if (ioctl(ip_sockfd, SIOCGIFFLAGS, &ifreq) < 0)
 	    continue;
 	if ((ifreq.ifr_flags & (IFF_UP|IFF_POINTOPOINT|IFF_LOOPBACK))
 	    != IFF_UP)
@@ -2111,7 +1840,7 @@ GetMask(addr)
 	/*
 	 * Get its netmask and OR it into our mask.
 	 */
-	if (ioctl(sockfd, SIOCGIFNETMASK, &ifreq) < 0)
+	if (ioctl(ip_sockfd, SIOCGIFNETMASK, &ifreq) < 0)
 	    continue;
 	mask |= ((struct sockaddr_in *)&ifreq.ifr_addr)->sin_addr.s_addr;
     }
@@ -2119,38 +1848,36 @@ GetMask(addr)
     return mask;
 }
 
-/*
- * have_route_to - determine if the system has any route to
+/* -----------------------------------------------------------------------------
+determine if the system has any route to
  * a given IP address.
  * For demand mode to work properly, we have to ignore routes
  * through our own interface.
- */
+ ----------------------------------------------------------------------------- */
 int have_route_to(u_int32_t addr)
 {
     return -1;
 }
 
-/*
- * Use the hostid as part of the random number seed.
- */
-int
-get_host_seed()
+/* -----------------------------------------------------------------------------
+Use the hostid as part of the random number seed
+----------------------------------------------------------------------------- */
+int get_host_seed()
 {
     return gethostid();
 }
 
 
 #if 0
-/*
- * lock - create a lock file for the named lock device
- */
+
 #define	LOCK_PREFIX	"/var/spool/lock/LCK.."
 
 static char *lock_file;		/* name of lock file created */
 
-int
-lock(dev)
-    char *dev;
+/* -----------------------------------------------------------------------------
+create a lock file for the named lock device
+----------------------------------------------------------------------------- */
+int lock(char *dev)
 {
     char hdb_lock_buffer[12];
     int fd, pid, n;
@@ -2205,11 +1932,10 @@ lock(dev)
     return 0;
 }
 
-/*
- * unlock - remove our lockfile
- */
-void
-unlock()
+/* -----------------------------------------------------------------------------
+remove our lockfile
+----------------------------------------------------------------------------- */
+void unlock()
 {
     if (lock_file) {
 	unlink(lock_file);
@@ -2219,4 +1945,352 @@ unlock()
 }
 #endif
 
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int sys_loadplugin(char *arg)
+{
+    char		path[MAXPATHLEN];
+    int 		ret = -1;
+    CFBundleRef		bundle;
+    CFURLRef		url;
+    int 		(*start)(CFBundleRef);
 
+
+    if (arg[0] == '/') {
+        strcpy(path, arg);
+    }
+    else {
+        strcpy(path, "/System/Library/Extensions/");
+        strcat(path, arg);
+    } 
+
+    url = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE);
+    if (url) {        
+        bundle =  CFBundleCreate(NULL, url);
+        if (bundle) {
+
+            if (CFBundleLoadExecutable(bundle)
+                && (start = CFBundleGetFunctionPointerForName(bundle, CFSTR("start")))) {
+            
+                ret = (*start)(bundle);
+            }
+                        
+            CFRelease(bundle);
+        }
+        CFRelease(url);
+    }
+    return ret;
+}
+
+#if 0
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+CFTypeRef getEntity()
+{
+    CFTypeRef		data = NULL;
+    CFStringRef		key;
+    SCDHandleRef	handle = NULL;
+
+    key = SCDKeyCreate(CFSTR("%@/%@/%s/%s"), kSCCacheDomainState, kSCCompNetwork, "PPP", serviceid);
+    if (key) {
+        if (SCDGet(cfgCache, key, &handle) == SCD_OK) {
+            data  = SCDHandleGetData(handle);
+            if (data) {
+                if (CFGetTypeID(data) == CFDictionaryGetTypeID())	
+                    data = (CFTypeRef)CFDictionaryCreateMutableCopy(NULL, 0, data);
+                else if (CFGetTypeID(data) == CFStringGetTypeID())
+                    data = (CFTypeRef)CFStringCreateCopy(NULL, data);
+            }
+            SCDHandleRelease(handle);
+        }
+        CFRelease(key);
+    }
+    return data;
+}
+#endif
+
+/* -----------------------------------------------------------------------------
+publish a dictionnary entry in the cache
+----------------------------------------------------------------------------- */
+int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value)
+{
+    CFDictionaryRef		dict;
+    CFMutableDictionaryRef	newDict = 0;
+    SCDHandleRef 		handle = 0;
+    SCDStatus			status;
+
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
+        return 0;
+            
+    status = SCDGet(cfgCache, key, &handle);
+    if (status == SCD_OK) {
+        if (dict = SCDHandleGetData(handle)) 
+            newDict = CFDictionaryCreateMutableCopy(0, 0, dict);
+    }
+    else {
+        if (handle = SCDHandleInit())
+            newDict = CFDictionaryCreateMutable(0, 0,
+                                          &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks);
+    }
+    
+    if (newDict == NULL)
+        goto done;
+
+    CFDictionarySetValue(newDict,  entry, value);
+    SCDHandleSetData(handle, newDict);
+    status = SCDSet(cfgCache, key, handle);
+    if (status != SCD_OK) {
+        warn("publish_entry SCDSet() failed: %s\n", SCDError(status));
+    }
+
+done:
+    if (handle) SCDHandleRelease(handle);
+    if (newDict) CFRelease(newDict);
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+publish a dictionnary entry in the cache
+----------------------------------------------------------------------------- */
+int publish_numentry(CFStringRef entry, int val)
+{
+    int			ret = ENOMEM;
+    CFNumberRef		num;
+    CFStringRef		key;
+
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
+        return 0;
+    
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetPPP);
+    if (key) {
+        num = CFNumberCreate(NULL, kCFNumberIntType, &val);
+        if (num) {
+            ret = publish_keyentry(key, entry, num);
+            CFRelease(num);
+            ret = 0;
+        }
+        CFRelease(key);
+    }
+    return ret;
+}
+
+/* -----------------------------------------------------------------------------
+publish a dictionnary entry in the cache
+----------------------------------------------------------------------------- */
+int publish_strentry(CFStringRef entry, char *str, int encoding)
+{
+    int			ret = ENOMEM;
+    CFStringRef 	ref;
+    CFStringRef		key;
+    
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
+        return 0;
+
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetPPP);
+    if (key) {
+        ref = CFStringCreateWithCString(NULL, str, encoding);
+        if (ref) {
+            ret = publish_keyentry(key, entry, ref);
+            CFRelease(ref);
+            ret = 0;
+        }
+        CFRelease(key);
+    }
+    return ret;
+}
+
+/* -----------------------------------------------------------------------------
+unpublish a disctionnary entry from the cache
+----------------------------------------------------------------------------- */
+int unpublish_keyentry(CFStringRef key, CFStringRef entry)
+{
+    CFDictionaryRef		dict;
+    CFMutableDictionaryRef	newDict;
+    SCDHandleRef 		handle = 0;
+    SCDStatus			status;
+    CFStringRef			str;
+
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
+        return 0;
+        
+    status = SCDGet(cfgCache, key, &handle);
+    if (status != SCD_OK) {
+        //warn("unpublish_keyentry SCDGet() failed: %s\n", SCDError(status));
+        return 0;
+    }
+    
+    dict = SCDHandleGetData(handle);
+    newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+
+    CFDictionaryRemoveValue(newDict, entry);
+
+    /* update status */
+    SCDHandleSetData(handle, newDict);
+    status = SCDSet(cfgCache, key, handle);
+    if (status != SCD_OK) {
+        warn("unpublish_keyentry SCDSet() failed: %s\n", SCDError(status));
+    }
+
+    SCDHandleRelease(handle);
+    CFRelease(newDict);
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+unpublish a complete dictionnary from the cache
+----------------------------------------------------------------------------- */
+int unpublish_entity(CFStringRef entity)
+{
+    int			ret = ENOMEM;
+    SCDStatus		status;
+    CFStringRef		key;
+
+    if (cfgCache == NULL)
+        return 0;
+            
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, entity);
+    if (key) {
+        status = SCDRemove(cfgCache, key);
+        if (status != SCD_OK) {
+            //warn("unpublish_entity SCDRemove() failed: %s\n", SCDError(status));
+            ret = 1;
+        }
+        else 
+            ret = 0;
+        CFRelease(key);
+    }
+    return ret;
+}
+
+/* -----------------------------------------------------------------------------
+publish a dictionnary entry in the cache
+----------------------------------------------------------------------------- */
+int unpublish_entry(CFStringRef entry)
+{
+    int			ret = ENOMEM;
+    CFStringRef		key;
+    
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, serviceidRef, kSCEntNetPPP);
+    if (key) {
+        ret = unpublish_keyentry(key, entry);
+        CFRelease(key);
+        ret = 0;
+    }
+    return ret;
+}
+
+/* -----------------------------------------------------------------------------
+get the current logged in user
+----------------------------------------------------------------------------- */
+int sys_getconsoleuser(uid_t *uid)
+{
+    char 	str[32];
+    gid_t	gid;
+
+    status = SCDConsoleUserGet(str, sizeof(str), uid, &gid);
+    if (status == SCD_OK)
+        return 0;
+        
+    return -1;
+}
+
+/* -----------------------------------------------------------------------------
+our new phase hook
+----------------------------------------------------------------------------- */
+void sys_phasechange(void *arg, int p)
+{
+    struct timeval 	t;
+
+    // publish DEAD status when we exit only, to avoid race conditions
+    if (p != PHASE_DEAD)
+        publish_numentry(CFSTR("Status"), p);
+        
+    if (p == PHASE_ESTABLISH) {
+        gettimeofday(&t, NULL);    
+        publish_numentry(CFSTR("ConnectTime"), t.tv_sec);
+    }
+
+    if (p == PHASE_RUNNING || p == PHASE_DORMANT) {
+        publish_strentry(CFSTR("InterfaceName"), ifname, kCFStringEncodingMacRoman);
+        //publish_numentry(CFSTR("LastCause"), status);
+        if (p == PHASE_DORMANT)
+            sys_eventnotify((void*)PPP_EVT_DISCONNECTED, status);
+    }
+
+    if (p == PHASE_TERMINATE) {
+        unpublish_entry(CFSTR("InterfaceName"));
+        unpublish_entry(CFSTR("ConnectTime"));
+    }
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void sys_publish_status(u_long status)
+{
+  publish_numentry(CFSTR("LastCause"), status);
+}
+
+/* -----------------------------------------------------------------------------
+our pid has changed, reinit things
+----------------------------------------------------------------------------- */
+void sys_reinit()
+{
+    SCDStatus		status;
+    
+    // reopen opens now our session to the cache
+    // serviceid paramater is required for publishing information into the cache.
+    // a user could be willin to publish everything itself, without pppd help
+    if (serviceid == NULL)
+        return;
+        
+    cfgCache = 0;
+    status = SCDOpen(&cfgCache, CFSTR("pppd"));
+    if (status != SCD_OK)
+        fatal("SCDOpen failed: %s", SCDError(status));
+    
+    publish_numentry(CFSTR("pid"), getpid());
+}
+
+/* ----------------------------------------------------------------------------- 
+we are exiting
+----------------------------------------------------------------------------- */
+void sys_exitnotify(void *arg, int exitcode)
+{
+    
+    // unpublish the various info about the connection
+    unpublish_entry(kSCPropNetPPPLCPCompressionPField);
+    unpublish_entry(kSCPropNetPPPLCPCompressionACField);
+    unpublish_entry(kSCPropNetPPPLCPMTU);
+    unpublish_entry(kSCPropNetPPPLCPMRU);
+    unpublish_entry(kSCPropNetPPPLCPReceiveACCM);
+    unpublish_entry(kSCPropNetPPPLCPTransmitACCM);
+    unpublish_entry(kSCPropNetPPPIPCPCompressionVJ);
+    unpublish_entry(CFSTR("pid"));
+    unpublish_entry(CFSTR("ConnectTime"));
+    unpublish_entity(kSCEntNetDNS);
+    unpublish_entry(CFSTR("InterfaceName"));
+
+    /* publish status at the end to avoid race conditions with the controller */
+    publish_numentry(CFSTR("LastCause"), exitcode);
+    publish_numentry(CFSTR("Status"), PHASE_DEAD);
+    sys_eventnotify((void*)PPP_EVT_DISCONNECTED, exitcode);
+
+    if (tempserviceid) {
+    	unpublish_entity(kSCEntNetPPP);
+    }
+    
+    if (cfgCache) {
+        SCDClose(&cfgCache);
+        cfgCache = 0;
+    }
+
+    if (csockfd != -1) {
+        close(csockfd);
+        csockfd = -1;
+    }
+}

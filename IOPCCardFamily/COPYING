@@ -1,0 +1,23 @@
+Copyright (C) 1998, 1999, 2000 David A. Hinds
+
+Unless otherwise indicated, this code is distributed under version 1.1
+of the Mozilla Public License ("MPL"), included in the LICENSE file.
+
+Alternatively, these files may be used under the terms of the GNU
+Public License version 2 (the "GPL"), in which case the provisions of
+the GPL are applicable instead of the above.  If you wish to allow the
+use of your version of these files only under the terms of the GPL and
+not to allow others to use your version of these files under the MPL,
+indicate your decision by deleting the provisions above and replace
+them with the notice and other provisions required by the GPL.  If you
+do not delete the provisions above, a recipient may use your version
+of these files under either the MPL or the GPL.
+
+Some of the client drivers (nmclan_cs.c, 3c589_cs.c, 3c574_cs.c,
+3c575_cb.c, ibmtr_cs.c, pcnet_cs.c, smc91c92_cs.c, fmvj18x_cs.c,
+wavelan_cs.c, wvlan_cs.c, netwave_cs.c, xirc2ps_cs.c, serial_cb.c)
+contain code written by others, subject to more restrictive (GPL)
+licensing requirements.
+
+	-- David Hinds
+	   dahinds@users.sourceforge.net

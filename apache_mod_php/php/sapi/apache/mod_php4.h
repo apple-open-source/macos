@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.h,v 1.1.1.2 2000/09/07 00:06:32 wsanchez Exp $ */
+/* $Id: mod_php4.h,v 1.1.1.3 2001/07/19 00:20:56 zarzycki Exp $ */
 
 #ifndef MOD_PHP4_H
 #define MOD_PHP4_H
@@ -29,12 +29,25 @@
 typedef struct {
     long engine;
     long last_modified;
-	char *dav_script;
 	long xbithack;
+	long terminate_child;
+	zend_bool in_request;
 } php_apache_info_struct;
 
 extern zend_module_entry apache_module_entry;
+
+#ifdef ZTS
+extern int php_apache_info_id;
+#define APLS_D php_apache_info_struct *apache_globals
+#define AP(v) (apache_globals->v)
+#define APLS_FETCH() APLS_D = ts_resource(php_apache_info_id)
+#else
 extern php_apache_info_struct php_apache_info;
+#define APLS_D
+#define AP(v) (php_apache_info.v)
+#define APLS_FETCH()
+#endif
+
 
 #ifdef WIN32
 #define S_IXUSR _S_IEXEC

@@ -52,8 +52,7 @@
     } else if (sender == planeBrowser) {
         id planesDict = [[self propertiesForRegEntry:registryDict] objectForKey:@"IORegistryPlanes"];
 
-        [cell setStringValue:[[planesDict allKeys] objectAtIndex:row]];
-        //[cell setStringValue:@"1"];
+        [cell setStringValue:[[[planesDict allKeys] sortedArrayUsingSelector:@selector(compare:)] objectAtIndex:row]];
         [cell setLeaf:YES];
     }
     return;

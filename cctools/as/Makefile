@@ -1,7 +1,15 @@
 export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
+ifeq "macos" "$(RC_OS)"
+  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
+			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
+			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
+			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
+	     echo -Wno-long-double ; \
+	     fi; )
+endif
 ifneq "mwcc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall -Wno-precomp
+  GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
 endif
 
 # This won't happen for a while 

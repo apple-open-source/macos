@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -163,7 +163,7 @@ php_phttpd_sapi_read_post(char *buf, uint count_bytes SLS_DC)
 	return 0;
 }
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct phttpd_sapi_module = {
     "phttpd",
     "PHTTPD",
  
@@ -203,7 +203,7 @@ php_phttpd_request_ctor(PHLS_D SLS_DC)
 
     SG(request_info).query_string = PHG(cip)->hip->request;
     SG(request_info).request_method = PHG(cip)->hip->method;
-	SG(request_info).path_translated = malloc(MAXPATHLEN+1);
+	SG(request_info).path_translated = malloc(MAXPATHLEN);
     SG(sapi_headers).http_response_code = 200;
 	if (url_expand(PHG(cip)->hip->url, SG(request_info).path_translated, MAXPATHLEN, &PHG(sb), NULL, NULL) == NULL) {
 		/* handle error */
@@ -284,8 +284,8 @@ int php_doit(PHLS_D SLS_DC)
 int pm_init(const char **argv)
 {
 	tsrm_startup(1, 1, 0, NULL);
-	sapi_startup(&sapi_module);
-    sapi_module.startup(&sapi_module);
+	sapi_startup(&phttpd_sapi_module);
+    phttpd_sapi_module.startup(&phttpd_sapi_module);
 
 	ph_globals_id = ts_allocate_id(sizeof(phttpd_globals_struct), NULL, NULL);
 

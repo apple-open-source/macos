@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,6 +16,10 @@
    |          Derick Rethans <d.rethans@jdimedia.nl>                      |
    +----------------------------------------------------------------------+
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -294,6 +298,7 @@ static PHP_MINIT_FUNCTION(mcrypt)
 	MCRYPT_ENTRY2_2_4(ARCFOUR_IV, "arcfour-iv");
 	MCRYPT_ENTRY2_2_4(ARCFOUR, "arcfour");
 	MCRYPT_ENTRY2_2_4(BLOWFISH, "blowfish");
+	MCRYPT_ENTRY2_2_4(BLOWFISH_COMPAT, "blowfish-compat");
 	MCRYPT_ENTRY2_2_4(CAST_128, "cast-128");
 	MCRYPT_ENTRY2_2_4(CAST_256, "cast-256");
 	MCRYPT_ENTRY2_2_4(CRYPT, "crypt");
@@ -338,36 +343,37 @@ static PHP_MSHUTDOWN_FUNCTION(mcrypt)
 	return SUCCESS;
 }
 
+#include "ext/standard/php_smart_str.h"
+
 PHP_MINFO_FUNCTION(mcrypt)
 {
 #if HAVE_LIBMCRYPT24
 	char **modules;
 	int i, count;
-	char *tmp, *tmp2;
+	smart_str tmp1 = {0};
+	smart_str tmp2 = {0};
 	MCLS_FETCH();
 
-	tmp = emalloc (2048);
-	memset (tmp, 0, sizeof(tmp));
 	modules = mcrypt_list_algorithms (MCG(algorithms_dir), &count);
 	if (count == 0) {
-		strcpy (tmp, "none");
+		smart_str_appends (&tmp1, "none");
 	}
 	for (i = 0; i < count; i++) {
-		strcat (tmp, modules[i]);
-		strcat (tmp, " ");
+		smart_str_appends (&tmp1, modules[i]);
+		smart_str_appendc (&tmp1, ' ');
 	}
+	smart_str_0 (&tmp1);
 	mcrypt_free_p (modules, count);
 
-	tmp2 = emalloc (2048);
-	memset (tmp2, 0, sizeof(tmp2));
 	modules = mcrypt_list_modes (MCG(modes_dir), &count);
 	if (count == 0) {
-		strcpy (tmp2, "none");
+		smart_str_appends (&tmp2, "none");
 	}
 	for (i = 0; i < count; i++) {
-		strcat (tmp2, modules[i]);
-		strcat (tmp2, " ");
+		smart_str_appends (&tmp2, modules[i]);
+		smart_str_appendc (&tmp2, ' ');
 	}
+	smart_str_0 (&tmp2);
 	mcrypt_free_p (modules, count);
 #endif
 
@@ -378,10 +384,10 @@ PHP_MINFO_FUNCTION(mcrypt)
 #endif
 #if HAVE_LIBMCRYPT24
 	php_info_print_table_row(2, "version", "2.4.x");
-	php_info_print_table_row(2, "Supported ciphers", tmp);
-	php_info_print_table_row(2, "Supported modes", tmp2);
-	efree (tmp2);
-	efree (tmp);
+	php_info_print_table_row(2, "Supported ciphers", tmp1.c);
+	php_info_print_table_row(2, "Supported modes", tmp2.c);
+	smart_str_free (&tmp1);
+	smart_str_free (&tmp2);
 #endif
 	php_info_print_table_end();
 	
@@ -435,9 +441,9 @@ PHP_FUNCTION(mcrypt_generic_init)
 {
 	zval **key, **iv;
 	zval **mcryptind;
-	char *key_s, *iv_s;
+	unsigned char *key_s, *iv_s;
 	char dummy[256];
-	int key_size, iv_size;
+	int max_key_size, key_size, iv_size;
 	MCRYPT td;
 	int argc;
     MCLS_FETCH();
@@ -450,27 +456,31 @@ PHP_FUNCTION(mcrypt_generic_init)
 	convert_to_string_ex (key);
 	convert_to_string_ex (iv);
 
-	key_size = mcrypt_enc_get_key_size (td);
-	key_s = emalloc (key_size + 1);
-	memset (key_s, 0, key_size + 1);
-
+	max_key_size = mcrypt_enc_get_key_size (td);
 	iv_size = mcrypt_enc_get_iv_size (td);
+
+	key_s = emalloc (Z_STRLEN_PP(key));
+	memset (key_s, 0, Z_STRLEN_PP(key));
+
 	iv_s = emalloc (iv_size + 1);
 	memset (iv_s, 0, iv_size + 1);
 
-	if (Z_STRLEN_PP(key) != key_size) {
-		sprintf (dummy, "key size incorrect; supplied length: %d, needed: %d", 
-			Z_STRLEN_PP(key), key_size);
-		php_error (E_NOTICE, dummy);
+	if (Z_STRLEN_PP(key) > max_key_size) {
+		sprintf (dummy, "key size too large; supplied length: %d, max: %d", 
+			Z_STRLEN_PP(key), max_key_size);
+		php_error (E_WARNING, dummy);
+		key_size = max_key_size;
+	} else {
+		key_size = Z_STRLEN_PP(key);
 	}
-	strncpy (key_s, Z_STRVAL_PP(key), key_size);
+	memcpy (key_s, Z_STRVAL_PP(key), Z_STRLEN_PP(key));
 
 	if (Z_STRLEN_PP(iv) != iv_size) {
 		sprintf (dummy, "iv size incorrect; supplied length: %d, needed: %d", 
 			Z_STRLEN_PP(iv), iv_size);
 		php_error (E_WARNING, dummy);
 	}
-	strncpy (iv_s, Z_STRVAL_PP(iv), iv_size);
+	memcpy (iv_s, Z_STRVAL_PP(iv), iv_size);
 
 	RETVAL_LONG (mcrypt_generic_init (td, key_s, key_size, iv_s));
 	efree (iv_s);
@@ -486,7 +496,7 @@ PHP_FUNCTION(mcrypt_generic)
 	zval **data, **mcryptind;
 	MCRYPT td;
 	int argc;
-	char* data_s;
+	unsigned char* data_s;
 	int block_size, data_size;
     MCLS_FETCH();
 	
@@ -498,7 +508,7 @@ PHP_FUNCTION(mcrypt_generic)
 	convert_to_string_ex (data);
 
 	/* Check blocksize */
-	if (mcrypt_enc_is_block_algorithm (td) == 1) { /* It's a block algorithm */
+	if (mcrypt_enc_is_block_mode (td) == 1) { /* It's a block algorithm */
 		block_size = mcrypt_enc_get_block_size (td);
 		data_size = (((Z_STRLEN_PP(data) - 1) / block_size) + 1) * block_size;
 		data_s = emalloc (data_size);
@@ -539,7 +549,7 @@ PHP_FUNCTION(mdecrypt_generic)
 	convert_to_string_ex (data);
 
 	/* Check blocksize */
-	if (mcrypt_enc_is_block_algorithm (td) == 1) { /* It's a block algorithm */
+	if (mcrypt_enc_is_block_mode (td) == 1) { /* It's a block algorithm */
 		block_size = mcrypt_enc_get_block_size (td);
 		data_size = (((Z_STRLEN_PP(data) - 1) / block_size) + 1) * block_size;
 		data_s = emalloc (data_size);
@@ -1210,7 +1220,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 	int block_size, max_key_length, use_key_length, i, count, iv_size;
 	unsigned long int data_size;
 	int *key_length_sizes;
-	char *key_s, *iv_s;
+	char *key_s = NULL, *iv_s;
 	char *data_s;
 	MCRYPT td;
     MCLS_FETCH();
@@ -1233,13 +1243,15 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 	}
 	key_length_sizes = mcrypt_enc_get_supported_key_sizes (td, &count);
 	if (count == 0 && key_length_sizes == NULL) { /* all lengths 1 - k_l_s = OK */
-		key_s = estrdup (Z_STRVAL_PP(key));
 		use_key_length = Z_STRLEN_PP(key);
+		key_s = emalloc (use_key_length);
+		memset (key_s, 0, use_key_length);
+		memcpy (key_s, Z_STRVAL_PP(key), use_key_length);
 	}
 	else if (count == 1) {  /* only m_k_l = OK */
 		key_s = emalloc (key_length_sizes[0]);
 		memset (key_s, 0, key_length_sizes[0]);
-		strcpy (key_s, Z_STRVAL_PP(key));
+		memcpy (key_s, Z_STRVAL_PP(key), Z_STRLEN_PP(key));
 		use_key_length = key_length_sizes[0];
 	}
 	else { /* derterminating smallest supported key > length of requested key */
@@ -1253,7 +1265,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 		}
 		key_s = emalloc (use_key_length);
 		memset (key_s, 0, use_key_length);
-		strcpy (key_s, Z_STRVAL_PP(key));
+		memcpy (key_s, Z_STRVAL_PP(key), Z_STRLEN_PP(key));
 	}
 	mcrypt_free (key_length_sizes);
 	
@@ -1280,7 +1292,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 	}
 
 	/* Check blocksize */
-	if (mcrypt_enc_is_block_algorithm (td) == 1) { /* It's a block algorithm */
+	if (mcrypt_enc_is_block_mode (td) == 1) { /* It's a block algorithm */
 		block_size = mcrypt_enc_get_block_size (td);
 		data_size = (((Z_STRLEN_PP(data) - 1) / block_size) + 1) * block_size;
 		data_s = emalloc (data_size);
@@ -1293,7 +1305,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 		memset (data_s, 0, data_size);
 		memcpy (data_s, Z_STRVAL_PP(data), Z_STRLEN_PP(data));
 	}
-	
+
 	if (mcrypt_generic_init (td, key_s, use_key_length, iv_s) < 0) {
 		php_error (E_ERROR, "generic_init failed");
 	}
@@ -1306,10 +1318,11 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 
 /* freeing vars */
 	mcrypt_generic_end (td);
+	if (key_s != NULL)
+		efree (key_s);
 	if (iv_s != NULL)
 		efree (iv_s);
 	efree (data_s);
-	mcrypt_module_close (td);
 }
 
 /* {{{ proto string mcrypt_encrypt(string cipher, string key, string data, string mode, string iv)

@@ -1,0 +1,13 @@
+:
+export LEXLIB="-ll"
+export CFLAGS="-DMACOS -DYYTEXT_POINTER"
+export srcdir=`pwd`
+echo === running configure....
+./configure
+rm -f c++-lib/inc/config.h
+cp -p config.h c++-lib/inc
+echo === running make depend for $srcdir....
+make depend srcdir=$srcdir
+echo === running make all....
+#make all srcdir=$srcdir
+make compiler srcdir=$srcdir

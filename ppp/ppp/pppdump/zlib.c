@@ -11,7 +11,7 @@
  * - added Z_PACKET_FLUSH (see zlib.h for details)
  * - added inflateIncomp
  *
- * $Id: zlib.c,v 1.3 2001/01/20 03:35:54 callie Exp $
+ * $Id: zlib.c,v 1.4 2001/05/09 17:52:38 callie Exp $
  */
 
 

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.inputl.c,v 1.1.1.1 1999/04/23 01:59:52 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.inputl.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
 /*
  * ed.inputl.c: Input line handling.
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: ed.inputl.c,v 1.1.1.1 1999/04/23 01:59:52 wsanchez Exp $")
+RCSID("$Id: ed.inputl.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $")
 
 #include "ed.h"
 #include "ed.defns.h"		/* for the function names */
@@ -76,7 +76,7 @@ Repair()
     Argument = 1;
     DoingArg = 0;
     curchoice = -1;
-    return LastChar - InputBuf;
+    return (int) (LastChar - InputBuf);
 }
 
 /* CCRETVAL */
@@ -205,12 +205,12 @@ Inputl()
 	case CC_ARGHACK:	/* Suggested by Rich Salz */
 	    /* <rsalz@pineapple.bbn.com> */
 	    curchoice = -1;
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 	    break;		/* keep going... */
 
 	case CC_EOF:		/* end of file typed */
 	    curchoice = -1;
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 	    num = 0;
 	    break;
 
@@ -222,7 +222,7 @@ Inputl()
 	    *LastChar++ = '\n';	/* for the benifit of CSH */
 	    HistWhich = Hist_num;
 	    Hist_num = 0;	/* for the history commands */
-	    num = LastChar - InputBuf;	/* number characters read */
+	    num = (int) (LastChar - InputBuf);	/* number characters read */
 	    break;
 
 	case CC_NEWLINE:	/* normal end of line */
@@ -293,7 +293,7 @@ Inputl()
                 match_unique_match = 1;  /* match unique matches */
 		matchval = CompleteLine();
                 match_unique_match = 0;
-        	curlen = LastChar - InputBuf;
+        	curlen = (int) (LastChar - InputBuf);
 		if (matchval != 1) {
                     PastBottom();
 		}
@@ -315,7 +315,7 @@ Inputl()
                     *LastChar++ = '\n';
                     *LastChar = '\0';
 		}
-        	curlen = LastChar - InputBuf;
+        	curlen = (int) (LastChar - InputBuf);
             }
 	    else
 		PastBottom();
@@ -324,7 +324,7 @@ Inputl()
 	        tellwhat = 0;	/* just in case */
 	        Hist_num = 0;	/* for the history commands */
 		/* return the number of chars read */
-	        num = LastChar - InputBuf;
+	        num = (int) (LastChar - InputBuf);
 	        /*
 	         * For continuation lines, we set the prompt to prompt 2
 	         */
@@ -352,13 +352,13 @@ Inputl()
 	    switch (retval) {
 	    case CC_COMPLETE:
 		fn = RECOGNIZE;
-		curlen = LastChar - InputBuf;
+		curlen = (int) (LastChar - InputBuf);
 		curchoice = -1;
 		rotate = 0;
 		break;
 	    case CC_COMPLETE_ALL:
 		fn = RECOGNIZE_ALL;
-		curlen = LastChar - InputBuf;
+		curlen = (int) (LastChar - InputBuf);
 		curchoice = -1;
 		rotate = 0;
 		break;
@@ -376,15 +376,15 @@ Inputl()
 		abort();
 	    }
 	    if (InputBuf[curlen] && rotate) {
-		newlen = LastChar - InputBuf;
-		for (idx = (Cursor - InputBuf); 
+		newlen = (int) (LastChar - InputBuf);
+		for (idx = (int) (Cursor - InputBuf); 
 		     idx <= newlen; idx++)
 			InputBuf[idx - newlen + curlen] =
 			InputBuf[idx];
 		LastChar = InputBuf + curlen;
 		Cursor = Cursor - newlen + curlen;
 	    }
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 
 
 	    if (adrof(STRautoexpand))
@@ -394,7 +394,7 @@ Inputl()
 	     * A separate variable now controls beeping after
 	     * completion, independently of autolisting.
 	     */
-	    expnum = Cursor - InputBuf;
+	    expnum = (int) (Cursor - InputBuf);
 	    switch (matchval = tenematch(InputBuf, Cursor-InputBuf, fn)){
 	    case 1:
 		if (non_unique_match && matchbeep &&
@@ -452,15 +452,15 @@ Inputl()
 	case CC_LIST_CHOICES:
 	case CC_LIST_ALL:
 	    if (InputBuf[curlen] && rotate) {
-		newlen = LastChar - InputBuf;
-		for (idx = (Cursor - InputBuf); 
+		newlen = (int) (LastChar - InputBuf);
+		for (idx = (int) (Cursor - InputBuf); 
 		     idx <= newlen; idx++)
 			InputBuf[idx - newlen + curlen] =
 			InputBuf[idx];
 		LastChar = InputBuf + curlen;
 		Cursor = Cursor - newlen + curlen;
 	    }
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 	    if (curchoice >= 0)
 		curchoice--;
 
@@ -512,7 +512,7 @@ Inputl()
 	    Argument = 1;
 	    DoingArg = 0;
 	    curchoice = -1;
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 	    break;
 
 	case CC_FATAL:		/* fatal error, reset to known state */
@@ -526,7 +526,7 @@ Inputl()
 	    Argument = 1;
 	    DoingArg = 0;
 	    curchoice = -1;
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 	    break;
 
 	case CC_ERROR:
@@ -536,7 +536,7 @@ Inputl()
 	    SoundBeep();
 	    flush();
 	    curchoice = -1;
-	    curlen = LastChar - InputBuf;
+	    curlen = (int) (LastChar - InputBuf);
 	    break;
 	}
     }
@@ -661,7 +661,11 @@ GetNextCommand(cmdnum, ch)
 	    return num;
 	}
 #ifdef	KANJI
-	if (!adrof(STRnokanji) && (*ch & META)) {
+	if (
+#ifdef DSPMBYTE
+	     _enable_mbdisp &&
+#endif
+	     !adrof(STRnokanji) && (*ch & META)) {
 	    MetaNext = 0;
 	    cmd = F_INSERT;
 	    break;
@@ -733,9 +737,9 @@ GetNextChar(cp)
     if (Rawmode() < 0)		/* make sure the tty is set up correctly */
 	return 0;		/* oops: SHIN was closed */
 
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     __nt_want_vcode = 1;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     while ((num_read = read(SHIN, (char *) &tcp, 1)) == -1) {
 	if (errno == EINTR)
 	    continue;
@@ -747,14 +751,14 @@ GetNextChar(cp)
             if (errno != EINTR)
                 stderror(ERR_SYSTEM, progname, strerror(errno));
 #endif  /* convex */
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	    __nt_want_vcode = 0;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	    *cp = '\0';
 	    return -1;
 	}
     }
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     if (__nt_want_vcode == 2)
 	*cp = __nt_vcode;
     else
@@ -762,7 +766,7 @@ GetNextChar(cp)
     __nt_want_vcode = 0;
 #else
     *cp = tcp;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
     return num_read;
 }
 
@@ -806,12 +810,26 @@ SpellLine(cmdonly)
 	mismatch[1] = HISTSUB;
 	if (!Strchr(mismatch, *argptr) &&
 	    (!cmdonly || starting_a_command(argptr, InputBuf))) {
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	    /*
 	     * This hack avoids correcting drive letter changes
 	     */
 	    if((Cursor - InputBuf) != 2 || (char)InputBuf[1] != ':')
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
+	    {
+#ifdef HASH_SPELL_CHECK
+		Char save;
+		size_t len = Cursor - InputBuf;
+
+		save = InputBuf[len];
+		InputBuf[len] = '\0';
+		if (find_cmd(InputBuf, 0) != 0) {
+		    InputBuf[len] = save;
+		    argptr = Cursor;
+		    continue;
+		}
+		InputBuf[len] = save;
+#endif /* HASH_SPELL_CHECK */
 		switch (tenematch(InputBuf, Cursor - InputBuf, SPELL)) {
 		case 1:		/* corrected */
 		    matchval = 1;
@@ -823,7 +841,7 @@ SpellLine(cmdonly)
 		default:		/* was correct */
 		    break;
 		}
-
+	    }
 	    if (LastChar != OldLastChar) {
 		if (argptr < OldCursor)
 		    OldCursor += (LastChar - OldLastChar);

@@ -108,7 +108,9 @@ Disabled_Modules = 				\
 # the default config file.
 ##
 External_Modules = dav:libdav	\
-		   ssl:libssl
+		   ssl:libssl	\
+		   perl:libperl	\
+		   php4:libphp4
 
 ##
 # install-local does the following:
@@ -163,16 +165,18 @@ install-local:
 		    file=$${mod#*:};			\
 		  $(APXS) -A -n $${module} $${file}.so;	\
 	      done
-	$(_v) perl -i -pe 's|(User\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(Group\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(MinSpareServers\s+)\d+$$|$${1}1|'						$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(MaxSpareServers\s+)\d+$$|$${1}5|'						$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(StartServers\s+)\d+$$|$${1}1|'						$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(MaxRequestsPerChild\s+)\d+$$|$${1}100000|'				$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(UserDir\s+).+$$|$${1}\"Sites\"|'						$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(ServerAdmin\s+).*$$|#$${1}webmaster\@example.com|'			$(DSTROOT)$(ConfigFile)
-	$(_v) perl -i -pe 's|(ServerName\s+).*$$|#$${1}www.example.com|'				$(DSTROOT)$(ConfigFile)
+	$(APXS) -a -n hfs_apple mod_hfs_apple.so
+	$(_v) perl -i -pe 's|^(User\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(Group\s+).*$$|$${1}www|'							$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(MinSpareServers\s+)\d+$$|$${1}1|'					$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(MaxSpareServers\s+)\d+$$|$${1}5|'					$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(StartServers\s+)\d+$$|$${1}1|'						$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(MaxRequestsPerChild\s+)\d+$$|$${1}100000|'				$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(UserDir\s+).+$$|$${1}\"Sites\"|'						$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(ServerAdmin\s+).*$$|#$${1}webmaster\@example.com|'			$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|^(ServerName\s+).*$$|#$${1}www.example.com|'				$(DSTROOT)$(ConfigFile)
 	$(_v) perl -i -pe 's|Log "(/var/log/httpd/.+)"|Log "\|/usr/sbin/rotatelogs $${1} 86400"|'	$(DSTROOT)$(ConfigFile)
+	$(_v) perl -i -pe 's|public_html|Sites|'							$(DSTROOT)$(ConfigFile)
 	$(_v) echo "" >>										$(DSTROOT)$(ConfigFile)
 	$(_v) echo "Include $(ConfigDir)/users" >>							$(DSTROOT)$(ConfigFile)
 	$(_v) $(CP)    $(DSTROOT)$(ConfigFile) $(DSTROOT)$(ConfigFile).default

@@ -126,6 +126,8 @@ extern int ui_out_get_verblvl (struct ui_out *uiout);
 
 extern int ui_out_test_flags (struct ui_out *uiout, int mask);
 
+extern void ui_out_cleanup_after_error (struct ui_out *uiout);
+
 #if 0
 extern void ui_out_result_begin (struct ui_out *uiout, char *class);
 

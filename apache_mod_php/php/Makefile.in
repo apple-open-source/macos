@@ -18,7 +18,7 @@ LTLIBRARY_LIBADD = $(LTLIBRARY_DEPENDENCIES) $(EXTRA_LIBS)
 
 PROGRAM_NAME         = php
 PROGRAM_SOURCES      = stub.c
-PROGRAM_LDADD        = libphp4.la
+PROGRAM_LDADD        = libphp4.la $(EXT_PROGRAM_LDADD)
 PROGRAM_LDFLAGS      = -export-dynamic	
 PROGRAM_DEPENDENCIES = $(PROGRAM_LDADD)
 
@@ -31,7 +31,7 @@ include $(top_srcdir)/build/library.mk
 include $(top_srcdir)/build/program.mk
 
 install-sapi:
-	@$(LIBTOOL) --mode=install cp libphp4.la $(phptempdir)/libphp4.la
+	@$(LIBTOOL) --silent --mode=install cp libphp4.la $(phptempdir)/libphp4.la >/dev/null 2>&1
 	-@$(mkinstalldirs) $(INSTALL_ROOT)$(bindir)
 	-@if test ! -r $(phptempdir)/libphp4.$(SHLIB_SUFFIX_NAME); then \
 		for i in 0.0.0 0.0 0; do \
@@ -50,7 +50,13 @@ install-modules:
 	rm -f modules/*.la && \
 	cp modules/* $(INSTALL_ROOT)$(moduledir) >/dev/null 2>&1 || true
 
-install-su: install-modules
+install-tester:
+	-$(mkinstalldirs) $(datadir)
+	$(INSTALL) -m 755 $(srcdir)/run-tests.php $(INSTALL_ROOT)$(datadir)
+
+install-pear: install-modules
 	(cd pear && $(MAKE) install)
+
+install-su: install-pear install-tester
 
 .NOEXPORT:

@@ -39,6 +39,7 @@ static unsigned long macRISC2Speed[] = { 0, 1 };
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include "IOPMSlotsMacRISC2.h"
 #include "IOPMUSBMacRISC2.h"
+#include <IOKit/pwr_mgt/IOPMPagingPlexus.h>
 
 extern char *gIOMacRISC2PMTree;
 
@@ -67,12 +68,11 @@ bool MacRISC2PE::start(IOService *provider)
     if ( (provider_name != NULL) && (0 == strncmp(provider_name, "PowerMac", strlen("PowerMac"))) )
     {
         machineType = kMacRISC2TypePowerMac;
-        kDoFrameBufferDeepSleep = true;
     }
+    
     if ( (provider_name != NULL) && (0 == strncmp(provider_name, "PowerBook", strlen("PowerBook"))) )
     {
         machineType = kMacRISC2TypePowerBook;
-        kDoFrameBufferDeepSleep = false;
     }
 
     setMachineType(machineType);
@@ -93,6 +93,9 @@ bool MacRISC2PE::start(IOService *provider)
   
     // Set QAckDelay depending on the version of Uni-N.
     uniNVersion = readUniNReg(kUniNVersion);
+
+    if (uniNVersion < kUniNVersion150)
+    {
         uniNArbCtrl = readUniNReg(kUniNArbCtrl);
         uniNArbCtrl &= ~kUniNArbCtrlQAckDelayMask;
 
@@ -105,6 +108,7 @@ bool MacRISC2PE::start(IOService *provider)
             uniNArbCtrl |= kUniNArbCtrlQAckDelay << kUniNArbCtrlQAckDelayShift;
         }
         writeUniNReg(kUniNArbCtrl, uniNArbCtrl);
+    }
 
     // Creates the nubs for the children of uni-n
     IOService *uniNServiceEntry = OSDynamicCast(IOService, uniNRegEntry);
@@ -226,39 +230,12 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
         return true;
     }
 
-    // Publish the dual heads for the ATI graphics device on certain Books.
-    if (!strcmp(service->getName(), "ATY,RageM3p12Parent"))
-    {
-        if (kIOReturnSuccess == IONDRVLibrariesInitialize(service))
-        {
-            createNubs(this, service->getChildIterator( gIODTPlane ));
-        }
-    
-        return true;
-    }
-
-    if (!strcmp(service->getName(), "ATY,RageM3p29Parent"))
-    {
-        if (kIOReturnSuccess == IONDRVLibrariesInitialize(service))
-        {
-            createNubs(this, service->getChildIterator( gIODTPlane ));
-        }
-    
-        return true;
-    }
-
     if (!strcmp(service->getName(), "via-pmu"))
     {
         service->setProperty("BusSpeedCorrect", this);
         return true;
     }
-  
-    if ( strcmp(service->getName(), "usb") == 0 )
-    {
-        service->setProperty("USBclock","");
-        return true;
-    }
-  
+    
     return true;
 }
 
@@ -289,6 +266,10 @@ IOReturn MacRISC2PE::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
   
+    if (functionName->isEqualTo("AccessUniN15PerformanceRegister"))
+    {
+        return accessUniN15PerformanceRegister((bool)param1, (long)param2, (unsigned long *)param3);
+    }
   
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
@@ -315,6 +296,9 @@ void MacRISC2PE::getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList)
 void MacRISC2PE::enableUniNEthernetClock(bool enable)
 {
     unsigned long regTemp;
+
+    if (mutex != NULL)
+        IOLockLock(mutex);
   
     regTemp = readUniNReg(kUniNClockControl);
   
@@ -328,15 +312,21 @@ void MacRISC2PE::enableUniNEthernetClock(bool enable)
     }
   
     writeUniNReg(kUniNClockControl, regTemp);
+
+    if (mutex != NULL)
+        IOLockUnlock(mutex);
 }
 
 void MacRISC2PE::enableUniNFireWireClock(bool enable)
 {
     unsigned long regTemp;
-  
-    regTemp = readUniNReg(kUniNClockControl);
 
-    IOLog("FWClock, enable = %d kFW = %x\n", enable, kUniNFirewireClockEnable);
+    //IOLog("FWClock, enable = %d kFW = %x\n", enable, kUniNFirewireClockEnable);
+  
+    if (mutex != NULL)
+        IOLockLock(mutex);
+
+    regTemp = readUniNReg(kUniNClockControl);
 
     if (enable)
     {
@@ -348,6 +338,9 @@ void MacRISC2PE::enableUniNFireWireClock(bool enable)
     }
   
     writeUniNReg(kUniNClockControl, regTemp);
+
+    if (mutex != NULL)
+        IOLockUnlock(mutex);
 }
 
 void MacRISC2PE::enableUniNFireWireCablePower(bool enable)
@@ -370,6 +363,48 @@ void MacRISC2PE::enableUniNFireWireCablePower(bool enable)
 }
 
 
+enum
+{
+  kMCMonitorModeControl = 0,
+  kMCCommand,
+  kMCPerformanceMonitor0,
+  kMCPerformanceMonitor1,
+  kMCPerformanceMonitor2,
+  kMCPerformanceMonitor3
+};
+
+IOReturn MacRISC2PE::accessUniN15PerformanceRegister(bool write, long regNumber, unsigned long *data)
+{
+    unsigned long offset;
+  
+    if (uniNVersion < kUniNVersion150) return kIOReturnUnsupported;
+  
+    switch (regNumber)
+    {
+    case kMCMonitorModeControl  : offset = kUniNMMCR; break;
+    case kMCCommand             : offset = kUniNMCMDR; break;
+    case kMCPerformanceMonitor0 : offset = kUniNMPMC1; break;
+    case kMCPerformanceMonitor1 : offset = kUniNMPMC2; break;
+    case kMCPerformanceMonitor2 : offset = kUniNMPMC3; break;
+    case kMCPerformanceMonitor3 : offset = kUniNMPMC4; break;
+    default                     : return kIOReturnBadArgument;
+    }
+  
+    if (data == 0) return kIOReturnBadArgument;
+  
+    if (write)
+    {
+        writeUniNReg(offset, *data);
+    } 
+    else 
+    {
+        *data = readUniNReg(offset);
+    }
+  
+    return kIOReturnSuccess;
+}
+
+
 //*********************************************************************************
 // PMInstantiatePowerDomains
 //
@@ -384,7 +419,6 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
     OSString * errorStr = new OSString;
     OSObject * obj;
     IOPMUSBMacRISC2 * usbMacRISC2;
-    IOPMSlotsMacRISC2 * slotsMacRISC2;
 
     obj = OSUnserializeXML (gIOMacRISC2PMTree, &errorStr);
 
@@ -395,20 +429,25 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
 
     getProvider()->setProperty ("powertreedesc", thePowerTree);
 
+#if CREATE_PLEXUS
+   plexus = new IOPMPagingPlexus;
+   if ( plexus ) {
+        plexus->init();
+        plexus->attach(this);
+        plexus->start(this);
+    }
+#endif
+         
     root = new IOPMrootDomain;
     root->init();
     root->attach(this);
     root->start(this);
-    root->youAreRoot();
 
-    if(kDoFrameBufferDeepSleep)
-    {
-        root->setSleepSupported(kRootDomainSleepSupported | kFrameBufferDeepSleepSupported);
+    if ( plexus ) {
+        root->addPowerChild(plexus);
     }
-    else
-    {
-        root->setSleepSupported(kRootDomainSleepSupported);
-    }
+
+    root->setSleepSupported(kRootDomainSleepSupported);
    
     if (NULL == root)
     {
@@ -425,6 +464,9 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
         usbMacRISC2->attach (this);
         usbMacRISC2->start (this);
         PMRegisterDevice (root, usbMacRISC2);
+        if ( plexus ) {
+            plexus->addPowerChild (usbMacRISC2);
+        }
     }
 
     slotsMacRISC2 = new IOPMSlotsMacRISC2;
@@ -434,6 +476,9 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
         slotsMacRISC2->attach (this);
         slotsMacRISC2->start (this);
         PMRegisterDevice (root, slotsMacRISC2);
+        if ( plexus ) {
+            plexus->addPowerChild (slotsMacRISC2);
+        }
     }
 
 }
@@ -449,62 +494,24 @@ extern const IORegistryPlane * gIOPowerPlane;
 
 void MacRISC2PE::PMRegisterDevice(IOService * theNub, IOService * theDevice)
 {
-    OSData *	  aString;
     bool            nodeFound  = false;
     IOReturn        err        = -1;
+    OSData *	    propertyPtr = 0;
+    const char *    theProperty;
 
     // Starts the protected area, we are trying to protect numInstancesRegistered
     if (mutex != NULL)
       IOLockLock(mutex);
      
     // reset our tracking variables before we check the XML-derived tree
-
     multipleParentKeyValue = NULL;
     numInstancesRegistered = 0;
 
     // try to find a home for this registrant in our XML-derived tree
-
     nodeFound = CheckSubTree (thePowerTree, theNub, theDevice, NULL);
-
-    // Disable sleep on desktop machines with PCI cards in slots
-    if(getMachineType() == kMacRISC2TypePowerMac)
-    {
-        if ( OSDynamicCast(IOPCIDevice, theDevice) )
-        {
-            aString = (OSData *)theDevice->getProperty("AAPL,slot-name");
-            
-            if ( (aString != NULL) && (0 != strncmp(aString->getBytesNoCopy(), "SLOT-1", strlen("SLOT-1"))) )
-            {
-                if(kDoFrameBufferDeepSleep)
-                {
-                    root->setSleepSupported(kRootDomainSleepNotSupported | kFrameBufferDeepSleepSupported);
-                }
-                else
-                {
-                    root->setSleepSupported(kRootDomainSleepNotSupported);
-                }
-            }
-        }
-    }
 
     if (0 == numInstancesRegistered)
     {
-        // hmm...no home was found in the XML-derived tree so we have to
-        // just register with the correct provider. If we have an ATI Rage
-        // device, get its provider from the DTPlane. This is reportedly
-        // a temporary thing and should be removed in the near (?) future.
-
-        if( theNub && (0 == strncmp(theNub->getName(), "ATY,RageM3p", strlen("ATY,RageM3p"))) &&
-            (0 != strncmp(theNub->getName(), "ATY,RageM3p1", strlen("ATY,RageM3p1"))) &&
-            (0 != strncmp(theNub->getName(), "ATY,RageM3p2", strlen("ATY,RageM3p2"))) )
-            theNub = (IOService *) theNub->getParentEntry(gIODTPlane);
-
-        if( theNub && (0 == strncmp(theNub->getName(), "ATY,RageM3p12", strlen("ATY,RageM3p12"))) )
-            theNub = (IOService *) theNub->getParentEntry(gIODTPlane);
-
-        if( theNub && (0 == strncmp(theNub->getName(), "ATY,RageM3p29", strlen("ATY,RageM3p29"))) )
-            theNub = (IOService *) theNub->getParentEntry(gIODTPlane);
-        
         // make sure the provider is within the Power Plane...if not, 
         // back up the hierarchy until we find a grandfather or great
         // grandfather, etc., that is in the Power Plane.
@@ -518,13 +525,25 @@ void MacRISC2PE::PMRegisterDevice(IOService * theNub, IOService * theDevice)
        IOLockUnlock(mutex);
      
     // try to register with the given (or reassigned in the case above) provider.
-
     if ( NULL != theNub )
         err = theNub->addPowerChild (theDevice);
 
     // failing that then register with root (but only if we didn't register in the 
     // XML-derived tree and only if the device we're registering is not the root).
-
-    if ((err != IOPMNoErr) && (0 == numInstancesRegistered) && (theDevice != root))
+    if ((err != IOPMNoErr) && (0 == numInstancesRegistered) && (theDevice != root)) {
         root->addPowerChild (theDevice);
+        if ( plexus ) {
+            plexus->addPowerChild (theDevice);
+        }
+    }
+
+    // in addition, if it's in a PCI slot, give it to the Aux Power Supply driver
+    
+    propertyPtr = OSDynamicCast(OSData,theDevice->getProperty("AAPL,slot-name"));
+    if ( propertyPtr ) {
+	theProperty = (const char *) propertyPtr->getBytesNoCopy();
+        if ( strncmp("SLOT-",theProperty,5) == 0 ) {
+            slotsMacRISC2->addPowerChild (theDevice);
+	}
+    }
 }

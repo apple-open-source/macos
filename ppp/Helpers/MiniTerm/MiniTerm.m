@@ -1,150 +1,115 @@
+/*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+
 #import <AppKit/NSTextView.h>
 
 #import "MiniTerm.h"
-#import "MTTerminalView.h"
 
-#import <AppKit/NSComboBox.h>
-#import <fcntl.h>
-#import <sys/un.h>
-#import <sys/socket.h>
-#import <syslog.h>
-#import <unistd.h>
-#import "../../Controller/ppp_msg.h"
 #import "../../Controller/ppp_privmsg.h"
 
-extern u_long ppplink;
-int csockfd;
 
 @implementation PromptChat
 
-/* ------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------- */
-void sys_send_confd(int sockfd, u_long code, u_char *data, u_long len, u_long *link, u_char expect_result)
-{
-    struct ppp_msg_hdr	msg;
-    char 		*tmp;
-
-    if (sockfd == -1)
-        return;
-
-    bzero(&msg, sizeof(msg));
-    msg.m_type = code;
-    msg.m_len = len;
-    msg.m_link = *link;
-
-    if (write(sockfd, &msg, sizeof(msg)) != sizeof(msg)) {
-        return;
-    }
-
-    if (len && data && write(sockfd, data, len) != len) {
-        return;
-    }
-
-    if (expect_result) {
-       if (read(sockfd, &msg, sizeof(msg)) != sizeof(msg)) {
-            return; //error
-        }
-        *link = msg.m_link;
-        if (msg.m_len) {
-            tmp = malloc(msg.m_len);
-            if (tmp) {
-                if (read(sockfd, tmp, msg.m_len) != msg.m_len) {
-                    free(tmp);
-                   return;//error
-                }
-                free(tmp);
-            }
-        }
-    }
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void closeall()
-{
-    int i;
-
-    for (i = getdtablesize() - 1; i >= 0; i--) close(i);
-    open("/dev/null", O_RDWR, 0);
-    dup(0);
-    dup(0);
-    return;
-}
+enum {
+    MATCH_NONE,
+    MATCH_7E,
+    MATCH_FF,
+    MATCH_7D,
+    MATCH_23,
+    MATCH_03,
+    MATCH_COMPLETE
+};
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (void)awakeFromNib {
 
     NSRange 	range;
-    u_long		len;
-    struct sockaddr_un	adr;
-    MTTerminalView* newTextView;
-    
+
     // init vars
     fromline = 0;
-
-    // Ensure that descriptors 0, 1, 2 are opened to /dev/null.
-
-    if ((csockfd = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0) {
-        exit(0);
-    }
-    bzero(&adr, sizeof(adr));
-    adr.sun_family = AF_LOCAL;
-    strcpy(adr.sun_path, PPP_PATH);
-    if (connect(csockfd,  (struct sockaddr *)&adr, sizeof(adr)) < 0) {
-        exit(0);
-    }
-    len = 1500;	// buffer we want to use
-    sys_send_confd(csockfd, PPP_OPENFD, (u_char *)&len, sizeof(len), &ppplink, 1);
+    match = MATCH_NONE;
 
     // affect self as delegate to intercept input
     range.location = 0;
     range.length = 0;
-    // Create our own textview and center it inside the scrollview
-    // I'm doing it via code so we don't have to change the nib and involve
-    // the localization folks.
-    newTextView = [[[MTTerminalView alloc] init] autorelease];
-    [(NSScrollView*)[[text superview] superview] setDocumentView: newTextView];
-    
-    [newTextView setFrame: [text frame]];
-    text = newTextView;
     [text setSelectedRange: range];
     [text setDelegate: self];
     [[text window] makeFirstResponder:text];
 
-    // detach a thread for reading
-    [NSThread detachNewThreadSelector:@selector(input) toTarget:self withObject:nil];
+    // bring the app to the front, window centered
+    [NSApp activateIgnoringOtherApps:YES];
+    [[text window] center];
+    [[text window] makeKeyAndOrderFront:self];
 
+    // install notification and read asynchronously on stdin
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(input:) 
+        name:NSFileHandleReadCompletionNotification 
+        object:nil];    
+    
+    [[NSFileHandle fileHandleWithStandardInput] readInBackgroundAndNotify];
 }
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (BOOL)textView:(NSTextView *)aTextView shouldChangeTextInRange:(NSRange)affectedCharRange replacementString:(NSString *)replacementString
 {
+
+    u_char 		c, *p;
+    int 		i, len = [replacementString length];
+    NSFileHandle	*file = [NSFileHandle fileHandleWithStandardOutput];
+    NSMutableData 	*data;
+    
     // are we inserting the incoming char from the line ?
-    // could be a critical section here... mot sure about messaging system
+    // could be a critical section here... not sure about messaging system
     if (fromline) 
         return YES;
+    
+    data = [NSMutableData alloc]; 
+    if (data) {
 
-   if ([replacementString length] == 1) {
-     //   just do it 1 byte at a time for now
-    // otherwise we are intercepting user input... write it to the stdout
-        u_char c = [replacementString cString][0];
-        if (c == 10)
+        if (len == 0) {
+            // send the delete char
+            c = 8;
+            [data initWithBytes: &c length: 1]; 
+        }
+        else {
+            [data initWithBytes: [replacementString cString] length: len];     
+            // replace 10 by 13 in the string
             c = 13;
-        sys_send_confd(csockfd, PPP_WRITEFD, &c, 1, &ppplink, 0);
+            p = [data mutableBytes];
+            for (i = 0; i < len; i++)
+                if (p[i] == 10)
+                    p[i] = 13;
+        }
+
+        // write the data to stdout
+        [file writeData: data];
+        [data release];
     }
-//    write(1, [replacementString cString], [replacementString length]);
+    
     return NO;
-}
-
-/* ------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------- */
-
-- (void)passKeyToSocket:(u_char)character
-{
-    if (csockfd >= 0)
-        sys_send_confd(csockfd, PPP_WRITEFD, &character, 1, &ppplink, 0);
 }
 
 /* ------------------------------------------------------------------------------------------
@@ -157,78 +122,107 @@ void closeall()
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
-- (void)input {
-
-    NSAutoreleasePool 	*pool = [[NSAutoreleasePool alloc] init];
-    u_char 		str[2];
-    int 		status;
-    struct ppp_msg_hdr	msg;
-    u_long 		lval;
+- (void)display:(u_char *)data
+    length:(u_int)length {
     
-    str[1] = 0;
-
-    for (;;) {
-
-        lval = 1;
-        sys_send_confd(csockfd, PPP_READFD, (char*)&lval, sizeof(lval), &ppplink, 0);
-
-        status = read(csockfd, &msg, sizeof(msg));
-        if (status == sizeof(msg)) {
-            status = read(csockfd, &str[0], 1);
+    NSString *str;
+    
+    if (length) {
+    	str = [[NSString alloc] initWithCString:data length:length];
+        if (str) {
+            fromline = 1;
+            [text insertText:str];
+            fromline = 0;
+            [str release];
         }
-         // read stdin
-       //read(0, &str[0], 1);
+    }
+}
+
+/* ------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------ */
+- (void)input:(NSNotification *)notification {
+
+    NSData 	*data;
+    u_char	*p, *p0;
+    u_long	len;
+        
+    // move the selection to the end
+    [text setSelectedRange: NSMakeRange([[text string] length], 0)];
+    
+    data = [[notification userInfo] objectForKey: NSFileHandleNotificationDataItem];
+    
+    p0 = p = (u_char *)[data bytes];
+    len = [data length];
+
+    while (len) {
 
         // look for ppp frame
-        if (str[0] == 0x7e) {
-            break;
+        // match for 7E-FF-03
+        // match for 7E-FF-7D-23
+        switch (*p) {
+            case 0x7e: match = MATCH_7E; break;
+            case 0xff: match = (match == MATCH_7E) ? MATCH_FF : MATCH_NONE; break;
+            case 0x7d: match = (match == MATCH_FF) ? MATCH_7D : MATCH_NONE; break;
+            case 0x03: match = (match == MATCH_FF) ? MATCH_COMPLETE : MATCH_NONE; break;
+            case 0x23: match = (match == MATCH_7D) ? MATCH_COMPLETE : MATCH_NONE; break;
+            default: match = MATCH_NONE;
+        }
+    
+        if (match == MATCH_COMPLETE) {
+            // display what was valid before we exit
+            [self display:p0 length:p - p0];
+            // will quit app, successfully
+            [self continuechat: self];
+            return;
         }
         
+        if (*p >= 128)
+            *p -= 128;
         
-        fromline = 1;
-        if (str[0] >= 128)
-            str[0] -= 128;
-        if (str[0] == 8)
-        {
-            NSString* string = [text string];
-            if ([string length] > 0)
-                string = [string substringWithRange: NSMakeRange(0, [string length] - 1)];
-            [text setString:string];
+        if ((*p >= 0x20)
+            || (*p == 9)
+            || (*p == 10)
+            || (*p == 13)) {
+                
+            // valid bytes, they will be display later, in one chunck
         }
-        else if ((str[0] >= 0x20)
-            || (str[0] == 9)
-            || (str[0] == 10)
-            || (str[0] == 13)) {
-            [text insertText:[[[NSString alloc] initWithCString:str] autorelease]];
+        else {
+            // got a non printable byte, display what was valid so far
+            [self display:p0 length:p - p0];
+            p0 = p + 1;
+            
+            // check for delete char
+            if (*p == 8) {
+                if ([[text string] length] > 0)
+                    [text replaceCharactersInRange: NSMakeRange([[text string] length] - 1, 1) 
+                        withString:@""];
             }
-        fromline = 0;
+        }
+        
+        p++;
+        len--;
     }
-
-    lval = cclErr_ExitOK;
-    sys_send_confd(csockfd, PPP_CCLRESULT, (u_char *)&lval, sizeof(lval), &ppplink, 0);
-    [text setSelectedRange: NSMakeRange ([[text string] length],0)];
-    [text scrollRangeToVisible:[text selectedRange]];
-    [pool release];
-    exit(0);
+    
+    // display all the undisplayed bytes
+    [self display:p0 length:p - p0];
+    
+    // post an other read
+    [[NSFileHandle fileHandleWithStandardInput] readInBackgroundAndNotify];
 }
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (IBAction)cancelchat:(id)sender
 {
-    u_long 	m = cclErr_ScriptCancelled;
 
-    sys_send_confd(csockfd, PPP_CCLRESULT, (u_char *)&m, sizeof(m), &ppplink, 0);
-    exit(0);
+    exit(cclErr_ScriptCancelled);
 }
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (IBAction)continuechat:(id)sender
 {
-    u_long 	m = cclErr_ExitOK;
 
-    sys_send_confd(csockfd, PPP_CCLRESULT, (u_char *)&m, sizeof(m), &ppplink, 0);
     exit(0);
 }
 

@@ -178,6 +178,16 @@ static struct nlist * _dyld_NSLookupSymbolInModule(
     module_state *module,
     char *symbol_name);
 
+static struct nlist * _dyld_NSLookupSymbolInImage(
+    struct mach_header *mh,
+    char *symbol_name,
+    unsigned long options);
+/* TODO: figure out how to share these with <mach-o/dyld.h> */
+#define LOOKUP_OPTION_BIND            0x0
+#define LOOKUP_OPTION_BIND_NOW        0x1
+#define LOOKUP_OPTION_BIND_FULLY      0x2
+#define LOOKUP_OPTION_RETURN_ON_ERROR 0x4
+
 static enum bool _dyld_NSMakePrivateModulePublic(
     module_state *module);
 
@@ -187,6 +197,10 @@ static enum bool _dyld_NSIsSymbolNameDefined(
 static enum bool _dyld_NSIsSymbolNameDefinedWithHint(
     char *symbol_name,
     char *libraryNameHint);
+
+static enum bool _dyld_NSIsSymbolNameDefinedInImage(
+    struct mach_header *mh,
+    char *symbol_name);
 
 static char * _dyld_NSNameOfModule(
     module_state *module);
@@ -199,6 +213,15 @@ static enum bool _dyld_NSAddLibrary(
 
 static enum bool _dyld_NSAddLibraryWithSearching(
     char *dylib_name);
+
+static struct mach_header * _dyld_NSAddImage(
+    char *dylib_name,
+    unsigned long options);
+/* TODO: figure out how to share these with <mach-o/dyld.h> */
+#define ADDIMAGE_OPTION_NONE                  0x0
+#define ADDIMAGE_OPTION_RETURN_ON_ERROR       0x1
+#define ADDIMAGE_OPTION_WITH_SEARCHING        0x2
+#define ADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED 0x4
 
 static enum bool _dyld_launched_prebound(
     void);
@@ -259,18 +282,23 @@ struct dyld_func dyld_funcs[] = {
 	(void (*)(void))_dyld_NSLookupAndBindSymbolWithHint},
     {"__dyld_NSLookupSymbolInModule",
 	(void (*)(void))_dyld_NSLookupSymbolInModule},
+    {"__dyld_NSLookupSymbolInImage",
+	(void (*)(void))_dyld_NSLookupSymbolInImage},
     {"__dyld_NSMakePrivateModulePublic",
 	(void (*)(void))_dyld_NSMakePrivateModulePublic},
     {"__dyld_NSIsSymbolNameDefined",
 	(void (*)(void))_dyld_NSIsSymbolNameDefined},
     {"__dyld_NSIsSymbolNameDefinedWithHint",
 	(void (*)(void))_dyld_NSIsSymbolNameDefinedWithHint},
+    {"__dyld_NSIsSymbolNameDefinedInImage",
+	(void (*)(void))_dyld_NSIsSymbolNameDefinedInImage},
     {"__dyld_NSNameOfModule",	(void (*)(void))_dyld_NSNameOfModule },
     {"__dyld_NSLibraryNameForModule",
 			(void (*)(void))_dyld_NSLibraryNameForModule },
     {"__dyld_NSAddLibrary",	(void (*)(void))_dyld_NSAddLibrary },
     {"__dyld_NSAddLibraryWithSearching",
 	(void (*)(void))_dyld_NSAddLibraryWithSearching },
+    {"__dyld_NSAddImage", (void (*)(void))_dyld_NSAddImage },
     {"__dyld_launched_prebound",(void (*)(void))_dyld_launched_prebound },
     {"__dyld_call_module_initializers_for_dylib",
 	(void (*)(void))_dyld_call_module_initializers_for_dylib },
@@ -599,7 +627,7 @@ module_state **module)
 	/* set lock for dyld data structures */
 	set_lock();
 
-	lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 	link_state = GET_LINK_STATE(*defined_module);
 	if(link_state == FULLY_LINKED){
@@ -706,8 +734,10 @@ unsigned long options)
 	 * allow all changes to be backed out if an error occurs.  This gets
 	 * set back to FALSE in release_lock().
 	 */
-	if(options & LINK_OPTION_RETURN_ON_ERROR)
+	if(options & LINK_OPTION_RETURN_ON_ERROR){
+	    clear_module_states_saved();
 	    return_on_error = TRUE;
+	}
 	else
 	    return_on_error = FALSE;
 
@@ -728,6 +758,36 @@ unsigned long options)
 	    object_image->image.private = TRUE;
 	else
 	    object_image->image.private = FALSE;
+
+	/*
+	 * Load the dependent libraries.
+	 */
+	if(load_dependent_libraries() == FALSE &&
+	   return_on_error == TRUE){
+	    /*
+	     * Since at this point no symbols have been bound we can just fake
+	     * this bundle as being private and call unload_bundle_image() to
+	     * do all the unloading.
+	     */
+	    object_image->image.private = TRUE;
+	    unload_bundle_image(object_image, FALSE, FALSE);
+	    /* release lock for dyld data structures */
+	    release_lock();
+	    return(NULL);
+	}
+
+	/*
+	 * If we are not forcing flatname space and this object image is a
+	 * two-level namespace image and has hints then set the
+	 * image_can_use_hints bit for this object image.
+	 */
+	if(force_flat_namespace == FALSE){
+	    if((object_image->image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	       (object_image->image.hints_cmd != NULL))
+		object_image->image.image_can_use_hints = TRUE;
+	     else
+		object_image->image.image_can_use_hints = FALSE;
+	}
 
 	/*
 	 * Link in the object modules symbols, checking for multiply defined
@@ -1526,9 +1586,15 @@ void)
 
         task_self_ = task_self();
 #endif
+	cached_thread = MACH_PORT_NULL;
+	cached_stack = 0;
 
 	saved_dyld_mem_protect = dyld_mem_protect;
 	dyld_mem_protect = FALSE;
+
+	/* clear the global lock in case another thread in the parent got it
+	   while we were fork'ing */
+	clear_lock(global_lock);
 
 	/* release lock for dyld data structures */
 	release_lock();
@@ -1810,13 +1876,16 @@ char *symbol_name)
     unsigned long i;
     struct object_images *p;
     enum link_state link_state;
-    struct nlist *symbol;
 
+    struct nlist *defined_symbol;
+    module_state *defined_module;
+    struct image *defined_image;
+    struct library_image *defined_library_image;
 
 	/* set lock for dyld data structures */
 	set_lock();
 
-	symbol = NULL;
+	defined_symbol = NULL;
 /*
 printf("In __dyld_NSLookupAndBindSymbol(module = 0x%x, symbol_name = %s)\n",
 module, symbol_name);
@@ -1846,8 +1915,10 @@ printf("p->images[%lu].module = 0x%x name = %s\n", i, p->images[i].module, p->im
 		    if(link_state == UNUSED)
 			goto done;
 
-		    symbol = lookup_symbol_in_object_image(symbol_name,
-							   &(p->images[i]));
+		    (void)lookup_symbol_in_object_image(symbol_name,
+			&(p->images[i].image), &(p->images[i].module),
+			&defined_symbol, &defined_module, &defined_image,
+			&defined_library_image, NULL);
 		    goto done;
 		}
 	    }
@@ -1856,7 +1927,275 @@ done:
 	/* release lock for dyld data structures */
 	release_lock();
 
-	return(symbol);
+	return(defined_symbol);
+}
+
+/*
+ * _dyld_NSLookupSymbolInImage() is the dyld side of NSLookupSymbolInImage().
+ * It is passed a pointer to a mach header of a dynamic library and a
+ * symbol_name and a set of options.  It looks up and binds the symbol_name
+ * from the dynamic library for the specified options and returns a pointer to
+ * the symbol.
+ */
+static struct nlist *
+_dyld_NSLookupSymbolInImage(
+struct mach_header *mh,
+char *symbol_name,
+unsigned long options)
+{
+    unsigned long i;
+    enum bool image_found, return_value, bind_now, bind_fully, module_index;
+    struct object_images *p;
+    struct library_images *q;
+    enum link_state link_state;
+    struct image *defined_image, *lookup_image;
+    struct nlist *defined_symbol;
+    module_state *defined_module;
+    struct library_image *defined_library_image;
+    struct object_image *object_image;
+
+	/* set lock for dyld data structures */
+	set_lock();
+
+	defined_symbol = NULL;
+
+	/*
+	 * First find the dynamic library for this mach header and lookup the
+	 * the symbol_name in it if the mach header is a loaded dynamic library.
+	 */
+	i = 0;
+	image_found = FALSE;
+	for(q = &library_images; q != NULL; q = q->next_images){
+	    for(i = 0; i < q->nimages; i++){
+		if(q->images[i].image.mh == mh){
+		    if(force_flat_namespace == FALSE)
+			lookup_image = &(q->images[i].image);
+		    else
+			lookup_image = NULL;
+		    /*
+		     * look this symbol up in this image.
+		     */
+		    lookup_symbol(symbol_name, lookup_image, NULL,
+				  &defined_symbol, &defined_module,
+				  &defined_image, &defined_library_image, NULL);
+		    image_found = TRUE;
+		    goto down;
+		}
+	    }
+	}
+	for(p = &object_images; p != NULL; p = p->next_images){
+	    for(i = 0; i < p->nimages; i++){
+		if(p->images[i].image.mh == mh){
+		    if(force_flat_namespace == FALSE ||
+		       p->images[i].image.private == TRUE)
+			lookup_image = &(p->images[i].image);
+		    else
+			lookup_image = NULL;
+		    /*
+		     * look this symbol up in this image.
+		     */
+		    lookup_symbol(symbol_name, lookup_image, NULL,
+			          &defined_symbol, &defined_module,
+				  &defined_image, &defined_library_image, NULL);
+		    image_found = TRUE;
+		    goto down;
+		}
+	    }
+	}
+down:
+	/*
+	 * If the mach header was invalid and return on error is set then set
+	 * the error info before returning.
+	 */
+	if(image_found == FALSE){
+	    if(options & LOOKUP_OPTION_RETURN_ON_ERROR){
+		error("NSLookupSymbolInImage() invalid struct mach_header * "
+		      "argument: 0x%x", (unsigned int)mh);
+		return_on_error = TRUE;
+		link_edit_error(DYLD_OTHER_ERROR, DYLD_INVALID_ARGS, NULL);
+	    }
+	    /*
+	     * Release lock for dyld data structures.
+	     * Note release_lock() alwasys clears return_on_error.
+	     */
+	    release_lock();
+	    return(NULL);
+	}
+	/*
+	 * If the symbol was not found in the library for the specified mach
+	 * header and return on error is set then set the error info before
+	 * returning.
+	 */
+	if(defined_image == NULL){
+	    if(options & LOOKUP_OPTION_RETURN_ON_ERROR){
+		error("NSLookupSymbolInImage() dynamic library: %s does not "
+		      "define symbol: %s",q->images[i].image.name, symbol_name);
+		return_on_error = TRUE;
+		link_edit_error(DYLD_OTHER_ERROR, DYLD_INVALID_ARGS,
+				q->images[i].image.name);
+	    }
+	    /*
+	     * Release lock for dyld data structures.
+	     * Note release_lock() always clears return_on_error.
+	     */
+	    release_lock();
+	    return(NULL);
+	}
+	/*
+	 * If the module that defines this symbol is linked enough to satisfy
+	 * the options specified then there is nothing needed to do so just
+	 * return the pointer to the symbol.
+	 */
+	link_state = GET_LINK_STATE(*defined_module);
+	if((link_state == FULLY_LINKED &&
+	     (options & LOOKUP_OPTION_BIND_FULLY) == 0) ||
+	   (link_state == LINKED &&
+	    (options & LOOKUP_OPTION_BIND_FULLY) == 0 &&
+	    (options & LOOKUP_OPTION_BIND_NOW) == 0) ){
+	    /* release lock for dyld data structures */
+	    release_lock();
+	    return(defined_symbol);
+	}
+
+	/*
+	 * If the module that defines this symbol is not linked enough to
+	 * satisfy the options specified so link the library module based on
+	 * the options.
+	 */
+	if(options & LOOKUP_OPTION_RETURN_ON_ERROR)
+	    return_on_error = TRUE;
+	else
+	    return_on_error = FALSE;
+	if(options & LOOKUP_OPTION_BIND_NOW)
+	    bind_now = TRUE;
+	else
+	    bind_now = FALSE;
+	if(options & LOOKUP_OPTION_BIND_FULLY){
+	    bind_fully = TRUE;
+	    bind_now = TRUE;
+	}
+	else
+	    bind_fully = FALSE;
+	/*
+	 * If return on error is TRUE then we may have to back out the module
+	 * state changes to this library and any other library we cause modules
+	 * to be linked in from if there later is an error.
+	 * 
+	 * So first call clear_module_states_saved to clear the
+	 * module_states_saved fields of everything so that resolve_undefineds()
+	 * will know to save the state of the modules it changes.
+	 *
+	 * Then save the module states of this library before linking in the
+	 * needed module.
+	 */
+	if(return_on_error == TRUE){
+	    clear_module_states_saved();
+	    if(defined_library_image->saved_module_states == NULL){
+		defined_library_image->saved_module_states =
+		    allocate(defined_library_image->nmodules *
+			     sizeof(module_state));
+	    }
+	    memcpy(defined_library_image->saved_module_states,
+		   defined_library_image->modules,
+		   defined_library_image->nmodules *
+			sizeof(module_state));
+	    defined_library_image->module_states_saved = TRUE;
+	    if(defined_image->mh->filetype != MH_DYLIB){
+		object_image = (struct object_image *)
+				defined_image->outer_image;
+		object_image->saved_module_state = object_image->module;
+		object_image->module_state_saved = TRUE;
+	    }
+	}
+	/*
+	 * Link in the module that defines this symbol if needed.
+	 */
+	if(defined_image->mh->filetype == MH_DYLIB){
+	    if(link_state == PREBOUND_UNLINKED){
+		undo_prebinding_for_library_module(
+		    defined_module,
+		    defined_image,
+		    defined_library_image);
+		module_index = defined_module - defined_library_image->modules;
+		SET_LINK_STATE(*defined_module, UNLINKED);
+		link_state = UNLINKED;
+		/*
+		 * If we are doing return_on_error and this library may need
+		 * its state restore if we hit a later error set the state
+		 * to be restore to UNLINKED as we do not need to back out
+		 * going from PREBOUND_UNLINKED to UNLINKED.
+		 */
+		if(return_on_error == TRUE &&
+		   defined_library_image->saved_module_states != NULL)
+		    SET_LINK_STATE(defined_library_image->saved_module_states
+				   [module_index], UNLINKED);
+	    }
+	    if(link_state == UNLINKED ||
+	       (bind_now == TRUE && link_state == LINKED) ||
+	       (bind_fully == TRUE &&
+		GET_FULLYBOUND_STATE(*defined_module) == 0) ){
+		return_value = link_library_module(defined_library_image,
+				    defined_image, defined_module,
+				    bind_now, bind_fully, FALSE);
+	    }
+	    else{
+		return_value = TRUE;
+	    }
+	}
+	else{
+	    if(bind_fully == TRUE && GET_FULLYBOUND_STATE(*defined_module)==0){
+		object_image = (struct object_image *)
+				defined_image->outer_image;
+		return_value = link_object_module(object_image, bind_now,
+						  bind_fully);
+	    }
+	    else{
+		return_value = TRUE;
+	    }
+	}
+
+	/*
+	 * If we are doing return on error and the library module failed to be
+	 * linked then back out the changes and return NULL.
+	 */
+	if(return_on_error == TRUE && return_value == FALSE)
+	    goto back_out_changes;
+
+	/*
+	 * Now link in any needed modules to the level of binding specified in
+	 * the options.
+	 */
+	return_value = link_in_need_modules(bind_fully, FALSE);
+
+	/*
+	 * Again if we are doing return on error and any needed library modules
+	 * failed to be linked then back out the changes and return NULL.
+	 */
+	if(return_on_error == TRUE && return_value == FALSE)
+	    goto back_out_changes;
+
+	/* release lock for dyld data structures */
+	release_lock();
+
+	return(defined_symbol);
+
+back_out_changes:
+	/*
+	 * Back out state changes to the modules that were changed.
+	 */
+	clear_state_changes_to_the_modules();
+	/*
+	 * Clear out symbols added to the being linked list and undefined
+	 * list after return_on_error was set.
+	 */
+	clear_being_linked_list(TRUE);
+	clear_undefined_list(TRUE);
+
+	/* release lock for dyld data structures */
+	release_lock();
+
+	/* return NULL to our caller to indicate failure */
+	return(NULL);
 }
 
 /*
@@ -1938,7 +2277,7 @@ char *symbol_name)
 	set_lock();
 
 	defined = FALSE;
-	lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+	lookup_symbol(symbol_name, NULL, NULL, &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 	if(defined_symbol != NULL)
 	    defined = TRUE;
@@ -1982,8 +2321,9 @@ char *libraryNameHint)
 	    defined = TRUE;
 	}
 	else{
-	    lookup_symbol(symbol_name, &defined_symbol, &defined_module,
-			  &defined_image, &defined_library_image, NULL);
+	    lookup_symbol(symbol_name, NULL, NULL, &defined_symbol,
+			  &defined_module, &defined_image,
+			  &defined_library_image, NULL);
 	    if(defined_symbol != NULL)
 		defined = TRUE;
 	}
@@ -1992,6 +2332,77 @@ char *libraryNameHint)
 	release_lock();
 
 	return(defined);
+}
+
+/*
+ * _dyld_NSIsSymbolNameDefinedInImage() is the dyld side of
+ * NSIsSymbolNameDefinedInImage().  It looks up the specified symbol_name in the
+ * dynamic library for the specified mach_header.  If it is defined there it
+ * returns TRUE else it returns FALSE.
+ */
+static
+enum bool
+_dyld_NSIsSymbolNameDefinedInImage(
+struct mach_header *mh,
+char *symbol_name)
+{
+    unsigned long i;
+    struct library_images *q;
+    struct object_images *p;
+    struct nlist *defined_symbol;
+    module_state *defined_module;
+    struct image *defined_image, *lookup_image;
+    struct library_image *defined_library_image;
+
+	/* set lock for dyld data structures */
+	set_lock();
+
+	defined_symbol = NULL;
+
+	/*
+	 * First find the dynamic library for this mach header and lookup the
+	 * the symbol_name in it if the mach header is a loaded dynamic library.
+	 */
+	i = 0;
+	for(q = &library_images; q != NULL; q = q->next_images){
+	    for(i = 0; i < q->nimages; i++){
+		if(q->images[i].image.mh == mh){
+		    if(force_flat_namespace == FALSE)
+			lookup_image = &(q->images[i].image);
+		    else
+			lookup_image = NULL;
+		    /*
+		     * look this symbol up in this image.
+		     */
+		    lookup_symbol(symbol_name, lookup_image, NULL,
+			          &defined_symbol, &defined_module,
+				  &defined_image, &defined_library_image, NULL);
+		    goto down;
+		}
+	    }
+	}
+	for(p = &object_images; p != NULL; p = p->next_images){
+	    for(i = 0; i < p->nimages; i++){
+		if(p->images[i].image.mh == mh){
+		    if(force_flat_namespace == FALSE ||
+		       p->images[i].image.private == TRUE)
+			lookup_image = &(p->images[i].image);
+		    else
+			lookup_image = NULL;
+		    /*
+		     * look this symbol up in this image.
+		     */
+		    lookup_symbol(symbol_name, lookup_image, NULL,
+			          &defined_symbol, &defined_module,
+				  &defined_image, &defined_library_image, NULL);
+		    goto down;
+		}
+	    }
+	}
+down:
+	/* release lock for dyld data structures */
+	release_lock();
+	return(defined_image != NULL);
 }
 
 /*
@@ -2107,7 +2518,7 @@ char *dylib_name)
 
 	p = allocate(strlen(dylib_name) + 1);
 	strcpy(p, dylib_name);
-	return_value = load_library_image(NULL, p, FALSE);
+	return_value = load_library_image(NULL, p, FALSE, NULL);
 	load_dependent_libraries();
 	call_registered_funcs_for_add_images();
 
@@ -2143,7 +2554,7 @@ char *dylib_name)
 
 	p = allocate(strlen(dylib_name) + 1);
 	strcpy(p, dylib_name);
-	return_value = load_library_image(NULL, p, TRUE);
+	return_value = load_library_image(NULL, p, TRUE, NULL);
 	load_dependent_libraries();
 	call_registered_funcs_for_add_images();
 
@@ -2151,6 +2562,118 @@ char *dylib_name)
 	release_lock();
 
 	return(return_value);
+}
+
+/*
+ * _dyld_NSAddImage is the dyld side of NSAddImage().
+ */
+static
+struct mach_header *
+_dyld_NSAddImage(
+char *dylib_name,
+unsigned long options)
+{
+    enum bool return_value, force_searching;
+    struct image *image;
+    struct stat stat_buf;
+    char *p;
+
+	/* set lock for dyld data structures */
+	set_lock();
+
+	/*
+	 * If the RETURN_ONLY_IF_LOADED option is used then check the library
+	 * images loaded to see if this name is loaded.  Otherwise stat the
+	 * dylib_name and see if the library is loaded by maching the stat
+	 * struct info.  If it is not loaded return NULL.
+	 */
+	if(options & ADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED){
+	    return_value = is_library_loaded_by_name(dylib_name, NULL, &image);
+	    if(return_value == TRUE){
+		/* release lock for dyld data structures */
+		release_lock();
+		return(image->mh);
+	    }
+	    if(stat(dylib_name, &stat_buf) == -1){
+		/* release lock for dyld data structures */
+		release_lock();
+		return(NULL);
+	    }
+	    return_value = is_library_loaded_by_stat(dylib_name, NULL,
+						     &stat_buf, &image);
+	    if(return_value == TRUE){
+		/* release lock for dyld data structures */
+		release_lock();
+		return(image->mh);
+	    }
+	    /* release lock for dyld data structures */
+	    release_lock();
+	    return(NULL);
+	}
+
+	p = allocate(strlen(dylib_name) + 1);
+	strcpy(p, dylib_name);
+
+	if(options & ADDIMAGE_OPTION_WITH_SEARCHING)
+	    force_searching = TRUE;
+	else
+	    force_searching = FALSE;
+
+	if(options & ADDIMAGE_OPTION_RETURN_ON_ERROR)
+	    return_on_error = TRUE;
+	else
+	    return_on_error = FALSE;
+
+	return_value = load_library_image(NULL, p, force_searching, &image);
+	if(return_on_error == TRUE && return_value == FALSE){
+	    free(p);
+	    /* release lock for dyld data structures */
+	    release_lock();
+	    return(NULL);
+	}
+
+	return_value = load_dependent_libraries();
+	if(return_on_error == TRUE && return_value == FALSE){
+	    /*
+	     * Note that the library loaded with the above load_library_image()
+	     * is also automaticly unloaded if load_dependent_libraries()
+	     * returns FALSE since return_on_error was set to true before
+	     * the call to load_library_image().
+	     */
+	    free(p);
+	    /* release lock for dyld data structures */
+	    release_lock();
+	    return(NULL);
+	}
+
+	/*
+	 * If return_on_error is set clear remove_on_error for libraries now
+	 * that no more errors can occur.  Then clear return_on_error.  This is
+	 * done now because we will now call user code that can come back to
+	 * dyld.
+	 */
+	if(return_on_error == TRUE){
+	    clear_remove_on_error_libraries();
+	    return_on_error = FALSE;
+	}
+
+	call_registered_funcs_for_add_images();
+
+	/*
+	 * Release lock for dyld data structures.
+	 * Note this will also set return_on_error to FALSE and clear and
+	 * return_on_error bits that are set on libraries we loaded here.
+	 */
+	release_lock();
+
+	/*
+	 * Call the routine that gdb might have a break point on to let it
+	 * know it is time to re-read the internal dyld structures as defined
+	 * by <mach-o/dyld_gdb.h>
+	 */
+	gdb_dyld_state_changed();
+
+	return(image->mh);
 }
 
 static

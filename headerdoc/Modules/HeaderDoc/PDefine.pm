@@ -5,7 +5,7 @@
 #           are used to comment symbolic constants declared with #define
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/01 07:25:08 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -53,6 +53,7 @@ sub processPDefineComment {
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
 	foreach my $field (@fields) {
+        chomp($field);
 		SWITCH: {
             ($field =~ /^\/\*\!/)&& do {last SWITCH;}; # ignore opening /*!
             ($field =~ s/^define(d)?\s+//) && do {$self->name($field); last SWITCH;};
@@ -79,6 +80,24 @@ sub setPDefineDeclaration {
     print "============================================================================\n" if ($localDebug);
     $self->declarationInHTML($dec);
     return $dec;
+}
+
+sub documentationBlock {
+    my $self = shift;
+    my $name = $self->name();
+    my $desc = $self->discussion();
+    my $declaration = $self->declarationInHTML();
+    my $abstract = $self->abstract();
+    my $contentString;
+ 
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote>$declaration</blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    $contentString .= "<hr>\n";
+    return $contentString;
 }
 
 

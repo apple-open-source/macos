@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.file.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.file.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
 /*
  * sh.file.c: File completion for csh. This file is not used in tcsh.
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.file.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $")
+RCSID("$Id: sh.file.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
 
 #ifdef FILEC
 
@@ -456,14 +456,14 @@ static void
 beep()
 {
     if (adrof(STRnobeep) == 0)
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	(void) write(SHOUT, "\007", 1);
-#else /*_OSD_POSIX*/
+#else
     {
 	unsigned char beep_ch = CTL_ESC('\007');
 	(void) write(SHOUT, &beep_ch, 1);
     }
-#endif /*_OSD_POSIX*/
+#endif
 }
 
 /*

@@ -221,22 +221,30 @@ static int branch_taken(unsigned long instruction)
 char *format_disasm_line(FILE *f, char *src, void *data)
 {
     DisasmData    *disasm_info = (DisasmData *)data;
-    char 	  *p1, *p2, *src0 = src;
-    int	 	  n, n_addr, n_offset, n_opcode, n_operand;
+    char 	  c, c2, *p1, *p2, *src0 = src;
+    int	 	  n, n_addr, n_offset, n_opcode, n_operand, brack, paren, angle, len, wrap;
     unsigned long instruction;
-    char 	  address[11], function[1024], offset[8], opcode[12], operand[1025], verify[20];
+    char 	  address[11], function[1024], offset[8], opcode[12], operand[1025],
+    		  verify[20];
     
     static char   formatted[3000];
   
     if (!src)					/* null means flush, no meaning here	*/
     	return (NULL);
 
-    /* A disassembly line from dbg is formatted as follows:				*/
+    /* A disassembly line from gdb is formatted as one of the following:		*/
     
-    /* 0xaaaa <function+dddd>:    opcode   operand					*/
+    /* 0xaaaa <function[+dddd][ at file:line]>:    opcode   operand			*/
+    /* 0xaaaa <function[+dddd][ in file]>:         opcode   operand			*/
     
-    /* where 0xaaaa is the address and dddd is the offset in the specified function. 	*/
+    /* Where 0xaaaa is the address and dddd is the offset in the specified function. 	*/
     /* There offset is suppressed if +dddd is zero.					*/
+    /* If SET print symbol-filename is on the the "in" or "at" info is present showing	*/
+    /* file and line.									*/
+    /* The function name could be a Objective C message and thus enclosed in brackets 	*/
+    /* which may contain embedded spaces (e.g., "[msg p1]").				*/
+    /* The function may also be an unmangled C++ name, possibly a template instance 	*/
+    /* which means we have to be careful about nested parens and angle brackets.	*/
     
     /* Extract the address...								*/
     
@@ -257,7 +265,9 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     /* To extract the "function+dddd" information we make no assumptions about what	*/
     /* characters are in the function name other than the sequence ">:".  We look for	*/
     /* the ">:" first and work backwords towards the '+' sign.  Everything before is 	*/
-    /* taken as the function name and everything after is the offset.			*/
+    /* taken as the stuff containing the function name and everything after is the 	*/
+    /* stuff that contains the offset.  Both then need additional processing to 	*/
+    /* extract the proper information out of the additional "noise".			*/
     
     while (*src && isspace(*src))		/* skip white space up to '<'		*/
     	++src;
@@ -280,13 +290,46 @@ char *format_disasm_line(FILE *f, char *src, void *data)
  	        if (n > 1023) n = 1023;
  	        memcpy(function, p1, n);	/* ...save function name		*/
  	        function[n] = '\0';
- 	    
- 	        n_offset = src - p2;		/* ...save offset			*/
+ 	    	
+		p1 = p2;			/* ...find out where offset ends	*/
+ 	        while (*p1 && *p1 != '>' && *p1 != ' ')
+		    ++p1;			/*    "+dddd[ in/out...]>"		*/
+ 	        n_offset = p1 - p2;		/* ...save offset			*/
  	        if (n_offset > 7) n_offset = 7;
  	        memcpy(offset, p2, n_offset);
  	        offset[n_offset] = '\0';
 	    } else {				/* ...if there wasn't any offset...	*/
- 	        n = src - p2;			/* ...we only have a function name	*/
+		brack = paren = angle = 0;	/* ...find out where funct name ends	*/
+ 	        p1 = p2;
+ 	        while ((c = *p1++) != '\0')
+ 	            if (c == ' ') {
+ 	            	if (paren == 0 && brack == 0 && angle == 0 &&
+ 	            	    (strncmp(p1, "in ", 3) == 0 || strncmp(p1, "at ", 3) == 0)) {
+ 	            	    --p1;
+ 	            	    break;
+ 	            	}
+ 	            } else if (c == '<') {
+ 	            	if (paren == 0 && brack == 0)
+ 	            	    ++angle;
+ 	            } else if (c == '>') {
+ 	            	if (paren == 0 && brack == 0 && --angle <= 0 && *p1 == ':') {
+ 	            	    --p1;
+ 	            	    break;
+ 	            	}
+ 	            } else if (c == '[') {
+ 	            	if (paren == 0)
+ 	            	    ++brack;
+ 	            } else if (c == ']') {
+ 	            	if (paren == 0 && --brack <= 0 && *p1 == '>')
+ 	            	    break;
+ 	            } else if (c == '(') {
+ 	            	if (brack == 0)
+ 	            	    ++paren;
+ 	            } else if (c == ')') {
+ 	            	if (brack == 0 && --paren <= 0 && *p1 == '>')
+ 	            	    break;
+ 	            }
+		n = p1 - p2;
  	        if (n > 1023) n = 1023;
  	        memcpy(function, p2, n);	/* ...save function name		*/
  	        function[n] = '\0';
@@ -362,10 +405,15 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     /* where, +dddddd is offset, aaaaaaaa is adddress, xxxxxxxx is instruction.		*/
     
     memset(formatted, ' ', 50);
-    
+        	  
     if (strcmp(function, curr_function) != 0 || (disasm_info->flags & ALWAYS_SHOW_NAME)) {
     	strcpy(curr_function, function);
-    	gdb_fprintf(disasm_info->stream, " %s\n", function);
+    	if (disasm_info->flags & WRAP_TO_SIDEBAR)
+    	    function[max_cols-12] = '\0';
+    	if (0 && !macsbug_screen && isatty(STDOUT_FILENO))
+    	    gdb_fprintf(disasm_info->stream, " " COLOR_BLUE "%s" COLOR_OFF "\n", function);
+    	else
+    	    gdb_fprintf(disasm_info->stream, " %s\n", function);
     }
     
     memcpy(formatted + 2 + (7-n_offset), offset, n_offset);	/* +dddddd		*/
@@ -407,7 +455,34 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     if (find_breakpoint(disasm_info->addr) >= 0)		/* flag breakpoints	*/
 	formatted[29] = '.';
     
-    gdb_fprintf(disasm_info->stream, " %s", formatted);
+    /* Writing to the macsbug screen takes care of line wrapping for us.  But if we are	*/
+    /* not writing to the macsbug screen and we are going to display the sidebar we 	*/
+    /* need to handle the wrapping here ourselves.  Otherwise the sidebar would cut off	*/
+    /* the right side of the line.							*/
+    
+    if (disasm_info->flags & WRAP_TO_SIDEBAR) {
+    	get_screen_size(&max_rows, &max_cols);
+    	if ((len = strlen(formatted) - 1) < max_cols-12)
+    	    gdb_fprintf(disasm_info->stream, "%s", formatted);
+    	else {
+    	    wrap = max_cols - 13;
+    	    p1 = formatted;
+    	    while (len >= wrap) {
+    	    	c  = *(p1+wrap);
+    	    	c2 = *(p1+wrap+1);
+    	    	*(p1+wrap)   = '\n';
+    	    	*(p1+wrap+1) = '\0';
+    	    	gdb_fputs(p1, disasm_info->stream);
+    	    	len -= wrap;
+    	    	p1 += wrap;
+    	    	*p1 = c;
+    	    	*(p1+1) = c2;
+    	    }
+    	    if (len > 0)
+    	        gdb_fputs(p1, disasm_info->stream);
+    	}
+    } else
+    	gdb_fprintf(disasm_info->stream, "%s", formatted);
     
     return (NULL);
 }
@@ -422,11 +497,11 @@ char *format_disasm_line(FILE *f, char *src, void *data)
  
 void __disasm(char *arg, int from_tty)
 {
-    int  	  argc, n, nopc = 0;
+    int  	  argc, n, nopc = 0, show_sidebar;
     unsigned long addr, limit;
     DisasmData	  disasm_info;
     GDB_FILE	  *redirect_stdout, *prev_stdout;
-    char 	  *argv[6], line[1024], tmpCmdLine[1024];
+    char 	  *argv[6], tmpCmdLine[1024];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__disasm", &argc, argv, 5);
     
@@ -444,19 +519,23 @@ void __disasm(char *arg, int from_tty)
     redirect_stdout = gdb_open_output(stdout, format_disasm_line, &disasm_info);
     prev_stdout     = gdb_redirect_output(redirect_stdout);
     
+    show_sidebar = (gdb_target_running() && !macsbug_screen && sidebar_state && isatty(STDOUT_FILENO));
+    
     disasm_info.pc        = gdb_get_int("$pc");
     disasm_info.max_width = -1;
-    disasm_info.flags	  = nopc ? 0 : FLAG_PC;
+    disasm_info.flags	  = (nopc ? 0 : FLAG_PC) | (show_sidebar ? WRAP_TO_SIDEBAR : 0);
     disasm_info.stream    = prev_stdout;
     
     while (addr < limit) {
     	disasm_info.addr = addr;
-    	sprintf(line, "x/i 0x%lX", addr);
-    	gdb_execute_command(line);
+    	gdb_execute_command("x/i 0x%lX", addr);
     	addr += 4;
     }
     
     gdb_close_output(redirect_stdout);
+    
+    /* The "branch taken" info is handled by display_pc_area() when the MacsBug screen	*/
+    /* is on...										*/
     
     if (disasm_info.flags & BRANCH_TAKEN) {
     	gdb_set_int("$branch_taken", branchTaken = 1);
@@ -469,7 +548,7 @@ void __disasm(char *arg, int from_tty)
     } else
     	gdb_set_int("$branch_taken", branchTaken = 0);
     
-    if (gdb_target_running() && !macsbug_screen)
+    if (show_sidebar)
     	__display_side_bar("right", 0);
 }
 
@@ -480,12 +559,12 @@ void __disasm(char *arg, int from_tty)
 "line is output indicating whether the branch will be taken and $branch_taken\n"	\
 "is set to 1 if the branch will br taken, -1 if it won't be taken.  In all\n"		\
 "other cases $branch_taken is set to 0.\n"						\
-"Ê\n"											\
+"\n"											\
 "As a byproduct of calling __DISASM the registers are displayed in a side bar\n"	\
 "on the right side of the screen IF the MacsBug screen is NOT being used.\n"		\
-"Ê\n"											\
+"\n"											\
 "Enabled breakpoints are always flagged with a '.'.\n"					\
-"Ê\n"											\
+"\n"											\
 "Note that this command cannot be used unless the target program is currently\n"	\
 "running.  Use __is_running to determine if the program is running."
 
@@ -553,11 +632,11 @@ static void __getenv(char *arg, int from_tty)
 "Sets $name with value of environment variable \"name\".  If the\n"			\
 "environment variable does not exist $name is set to a null string\n"			\
 "and $__undefenv__ set to 1.\n"								\
-"Ê\n"											\
+"\n"											\
 "If the environment variable is numeric then the type of $name is\n"			\
 "an integer that contains the environment variable's value.  If it\n"			\
 "isn't numeric, $name is the environment variable's string value.\n"			\
-"Ê\n"											\
+"\n"											\
 "Note, due to the way gdb stores string convenience variables, $name\n"			\
 "CANNOT be a string unless the target program is running!  Thus when\n"			\
 "the target is NOT running, and the environment variable value is\n"			\
@@ -656,7 +735,7 @@ void __is_running(char *arg, int from_tty)
 #define __IS_RUNNING_HELP \
 "__IS_RUNNING [msg] -- Test to see if target is currently being run.\n"			\
 "Sets $__running__ to 1 if the target is running and 0 otherwise.\n"			\
-"Ê\n"											\
+"\n"											\
 "If a msg is supplied and the target is not running then the command\n"			\
 "is aborted with the error message just as if __error msg was issued."
 
@@ -871,7 +950,7 @@ static void __print_char(char *arg, int from_tty)
 "Just echos the c to stdout unless it's to be represented as a escaped\n"		\
 "character (e.g., \\n) or octal (bolded) if not one of the standard escapes,\n"		\
 "or quotes.\n"										\
-"Ê\n"											\
+"\n"											\
 "If s (actually any 2nd argument) is specified then the character is in\n"		\
 "the context of a \"string\" as opposed to a 'string' (i.e., the surrounding\n"		\
 "quotes on the string) so that a single quote does not need to be escaped.\n"		\

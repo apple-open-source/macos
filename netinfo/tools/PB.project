@@ -4,7 +4,7 @@
         CLASSES = (); 
         H_FILES = (); 
         OTHER_LINKED = (); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, create_nidb); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
         SUBPROJECTS = (nicl, nidomain, nidump, nifind, nigrep, niload, nireport, niutil); 
     }; 
     LANGUAGE = English; 

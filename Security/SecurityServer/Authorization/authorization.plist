@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+<!-- NOTICE: this file will be replaced by a system facility in
+             forthcoming releases.  It is provided purely for your
+             convenience using this release.
+
+     The name of the requested right is matched against the keys.
+     An exact match has priority, otherwise the longest match from
+     the start is used.  Note that the right will only match wildcard
+     rules (ending in a ".") during this reduction.
+
+     Rules are specified as a string or a dict.  The latter being a
+     user-in-group rule.
+
+     allow rule: this is always allowed
+     <key>com.apple.TestApp.benign</key>
+	 <string>allow</string>
+
+     deny rule: this is always denied
+     <key>com.apple.TestApp.dangerous</key>
+	 <string>deny</string>
+
+     user-in-group rule: successful authentication as a user in the
+     specified group(5) allows the associated right.
+
+     The shared property specifies whether a credential generated on
+     success is shared with other apps (same "session"). This property
+     defaults to false if not specified.
+
+     The timeout property specifies the maximum age of a (cached/shared)
+     credential accepted for this rule.
+
+     The allow-root property specifies whether a right should be allowed
+     automatically if the requesting process is running with uid == 0.
+     This defaults to false if not specified.
+
+          See remaining rules for examples.
+
+     Successful login produces a credential.
+  -->
+
+<!-- Used by AuthorizationExecuteWithPrivileges(...)
+     AuthorizationExecuteWithPrivileges is used by programs requesting
+     to run a tool as root (ie. some installers).
+     Credentials remain valid 5 minutes after they've been obtained.
+     An acquired credential isn't shared with other clients.
+     Clients running as root will be granted this right automatically.
+  -->
+	<key>system.privilege.admin</key>
+	<dict>
+		<key>group</key>
+		<string>admin</string>
+		<key>shared</key>
+		<false/>
+		<key>allow-root</key>
+		<true/>
+		<key>timeout</key>
+		<integer>300</integer>
+	</dict>
+
+<!-- Used by the dvd player to set the regioncode the first time
+     Note that changed the region code after it has been set requires a
+	 different right (system.device.dvd.setregion.change)
+     Credentials remain valid indefinitely after they've been obtained.
+     An acquired credential is shared amongst all clients.
+  -->
+	<key>system.device.dvd.setregion.initial</key>
+	<dict>
+		<key>group</key>
+		<string>admin</string>
+		<key>shared</key>
+		<true/>
+	</dict>
+
+<!-- All other rights will be matched by this rule.
+     Credentials remain valid 5 minutes after they've been obtained.
+     An acquired credential is shared amongst all clients.
+  -->
+	<key/>
+	<dict>
+		<key>group</key>
+		<string>admin</string>
+		<key>shared</key>
+		<true/>
+		<key>timeout</key>
+		<integer>300</integer>
+	</dict>
+</dict>
+</plist>

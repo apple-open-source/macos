@@ -2,7 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         BUNDLES = (); 
-        FRAMEWORKS = (IOKit.framework); 
+        FRAMEWORKS = (CoreFoundation.framework, IOKit.framework); 
         H_FILES = (); 
         LIBS = (); 
         OTHER_LINKED = (nvram.c); 

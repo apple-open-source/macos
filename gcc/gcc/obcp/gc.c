@@ -1,1 +1,0 @@
-#include "../cp/gc.c"

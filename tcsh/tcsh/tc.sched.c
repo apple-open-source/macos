@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sched.c,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.sched.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $ */
 /*
  * tc.sched.c: Scheduled command execution
  *
@@ -38,7 +38,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.sched.c,v 1.1.1.1 1999/04/23 01:59:57 wsanchez Exp $")
+RCSID("$Id: tc.sched.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $")
 
 #include "ed.h"
 #include "tc.h"
@@ -77,11 +77,11 @@ dosched(v, c)
     USE(c);
 /* This is a major kludge because of a gcc linker  */
 /* Problem.  It may or may not be needed for you   */
-#ifdef _MINIX
+#if defined(_MINIX) && !defined(_MINIX_VMD)
     char kludge[10];
     extern char *sprintf();
     sprintf(kludge, CGETS(24, 1, "kludge"));
-#endif /* _MINIX */
+#endif /* _MINIX && !_MINIX_VMD */
 
     v++;
     cp = *v++;
@@ -171,7 +171,11 @@ dosched(v, c)
 	}
     }
     tp = (struct sched_event *) xcalloc(1, sizeof *tp);
+#ifdef _SX
+    tp->t_when = cur_time - ltp->tm_sec + dif_hour * 3600 + dif_min * 60;
+#else	/* _SX */	
     tp->t_when = cur_time - ltp->tm_sec + dif_hour * 3600L + dif_min * 60L;
+#endif /* _SX */
     /* use of tm_sec: get to beginning of minute. */
     if (!sched_ptr || tp->t_when < sched_ptr->t_when) {
 	tp->t_next = sched_ptr;

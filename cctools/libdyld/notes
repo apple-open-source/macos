@@ -1,6 +1,14 @@
 TODO:
 - Test dlopen() with Apache, perl, and tcl.
 
+Changes for the 5.9 release (the cctools-365 release):
+- Added NSAddImage(), NSLookupSymbolInImage() and NSIsSymbolNameDefinedInImage()
+  to dyld_support.c .  Radar bug #2689833.
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes for the the 5.8 release (the cctools-353 release):
 - Changed NSIsSymbolNameDefinedWithHint() and NSLookupAndBindSymbolWithHint()
   in dyld_support.c and _dyld_lookup_and_bind_with_hint() in bind.c to call

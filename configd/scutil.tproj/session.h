@@ -20,6 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _SESSION_H
 #define _SESSION_H
 
@@ -27,10 +34,10 @@
 
 __BEGIN_DECLS
 
-void	do_open			__P((int argc, char **argv));
-void	do_close		__P((int argc, char **argv));
-void	do_lock			__P((int argc, char **argv));
-void	do_unlock		__P((int argc, char **argv));
+void	do_open			(int argc, char **argv);
+void	do_close		(int argc, char **argv);
+void	do_lock			(int argc, char **argv);
+void	do_unlock		(int argc, char **argv);
 
 __END_DECLS
 

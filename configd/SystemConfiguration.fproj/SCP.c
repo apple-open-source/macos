@@ -20,8 +20,19 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <SystemConfiguration/SystemConfiguration.h>
-#include "SCPPrivate.h"
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCPreferencesInternal.h"
 
 #include <fcntl.h>
 #include <pwd.h>
@@ -29,29 +40,8 @@
 #include <sys/errno.h>
 #include <sys/param.h>
 
-
-static const struct scp_errmsg {
-	SCPStatus	status;
-	char		*message;
-} scp_errmsgs[] = {
-	{ SCP_OK,		"Success!" },
-	{ SCP_BUSY,		"Configuration daemon busy" },
-	{ SCP_NEEDLOCK,		"Lock required for this operation" },
-	{ SCP_EACCESS,		"Permission denied (must be root to obtain lock)" },
-	{ SCP_ENOENT,		"Configuration file not found" },
-	{ SCP_BADCF,		"Configuration file corrupt" },
-	{ SCP_NOKEY,		"No such key" },
-	{ SCP_NOLINK,		"No such link" },
-	{ SCP_EXISTS,		"Key already defined" },
-	{ SCP_STALE,		"Write attempted on stale version of object" },
-	{ SCP_INVALIDARGUMENT,	"Invalid argument" },
-	{ SCP_FAILED,		"Failed!" }
-};
-#define nSCP_ERRMSGS (sizeof(scp_errmsgs)/sizeof(struct scp_errmsg))
-
-
 __private_extern__ CFDataRef
-_SCPSignatureFromStatbuf(const struct stat *statBuf)
+__SCPSignatureFromStatbuf(const struct stat *statBuf)
 {
 	CFMutableDataRef	signature;
 	SCPSignatureDataRef	sig;
@@ -68,7 +58,10 @@ _SCPSignatureFromStatbuf(const struct stat *statBuf)
 
 
 __private_extern__ char *
-_SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
+__SCPreferencesPath(CFAllocatorRef	allocator,
+		    CFStringRef		prefsID,
+		    Boolean		perUser,
+		    CFStringRef		user)
 {
 	CFStringRef	path		= NULL;
 	int		pathLen;
@@ -90,24 +83,33 @@ _SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
 
 			bzero(&login, sizeof(login));
 			if (user == NULL) {
+				CFStringRef	u;
+
 				/* get current console user */
-				if (SCDConsoleUserGet(login,
-						      MAXLOGNAME,
-						      NULL,
-						      NULL) != SCD_OK) {
+				u = SCDynamicStoreCopyConsoleUser(NULL, NULL, NULL);
+				if (!u) {
 					/* if could not get console user */
 					return NULL;
 				}
+				(void) CFStringGetBytes(u,
+							CFRangeMake(0, CFStringGetLength(u)),
+							kCFStringEncodingMacRoman,
+							0,
+							FALSE,
+							login,
+							MAXLOGNAME,
+							NULL);
+				CFRelease(u);
 			} else {
 				/* use specified user */
-				(void)CFStringGetBytes(user,
-						       CFRangeMake(0, CFStringGetLength(user)),
-						       kCFStringEncodingMacRoman,
-						       0,
-						       FALSE,
-						       login,
-						       MAXLOGNAME,
-						       NULL);
+				(void) CFStringGetBytes(user,
+							CFRangeMake(0, CFStringGetLength(user)),
+							kCFStringEncodingMacRoman,
+							0,
+							FALSE,
+							login,
+							MAXLOGNAME,
+							NULL);
 			}
 
 			/* get password entry for user */
@@ -118,7 +120,7 @@ _SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
 			}
 
 			/* create prefs ID */
-			path = CFStringCreateWithFormat(NULL,
+			path = CFStringCreateWithFormat(allocator,
 							NULL,
 							CFSTR("%s/%@/%@"),
 							pwd->pw_dir,
@@ -128,7 +130,7 @@ _SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
 	} else {
 		if (prefsID == NULL) {
 			/* default preference ID */
-			path = CFStringCreateWithFormat(NULL,
+			path = CFStringCreateWithFormat(allocator,
 							NULL,
 							CFSTR("%@/%@"),
 							PREFS_DEFAULT_DIR,
@@ -138,7 +140,7 @@ _SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
 			path = CFRetain(prefsID);
 		} else {
 			/* relative path */
-			path = CFStringCreateWithFormat(NULL,
+			path = CFStringCreateWithFormat(allocator,
 							NULL,
 							CFSTR("%@/%@"),
 							PREFS_DEFAULT_DIR,
@@ -150,13 +152,13 @@ _SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
 	 * convert CFStringRef path to C-string path
 	 */
 	pathLen = CFStringGetLength(path) + 1;
-	pathStr = CFAllocatorAllocate(NULL, pathLen, 0);
+	pathStr = CFAllocatorAllocate(allocator, pathLen, 0);
 	if (!CFStringGetCString(path,
 				pathStr,
 				pathLen,
 				kCFStringEncodingMacRoman)) {
-		SCDLog(LOG_DEBUG, CFSTR("could not convert path to C string"));
-		CFAllocatorDeallocate(NULL, pathStr);
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("could not convert path to C string"));
+		CFAllocatorDeallocate(allocator, pathStr);
 		pathStr = NULL;
 	}
 
@@ -165,86 +167,75 @@ _SCPPrefsPath(CFStringRef prefsID, boolean_t perUser, CFStringRef user)
 }
 
 
-SCPStatus
-SCPGetSignature(SCPSessionRef session, CFDataRef *signature)
+CFDataRef
+SCPreferencesGetSignature(SCPreferencesRef session)
 {
-	SCPSessionPrivateRef	sessionPrivate;
+	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
 
-	if (session == NULL) {
-		return SCP_FAILED;           /* you can't do anything with a closed session */
-	}
-	sessionPrivate = (SCPSessionPrivateRef)session;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesGetSignature:"));
 
-	*signature = sessionPrivate->signature;
-	return SCP_OK;
+	sessionPrivate->accessed = TRUE;
+	return sessionPrivate->signature;
 }
 
 
 __private_extern__ CFStringRef
-_SCPNotificationKey(CFStringRef	prefsID,
-		    boolean_t	perUser,
-		    CFStringRef	user,
-		    int		keyType)
+_SCPNotificationKey(CFAllocatorRef	allocator,
+		    CFStringRef		prefsID,
+		    Boolean		perUser,
+		    CFStringRef		user,
+		    int			keyType)
 {
 	CFStringRef	key		= NULL;
 	char		*pathStr;
 	char		*typeStr;
 
-	pathStr = _SCPPrefsPath(prefsID, perUser, user);
+	pathStr = __SCPreferencesPath(allocator, prefsID, perUser, user);
 	if (pathStr == NULL) {
 		return NULL;
 	}
 
 	/* create notification key */
 	switch (keyType) {
-		case kSCPKeyLock :
+		case kSCPreferencesKeyLock :
 			typeStr = "lock";
 			break;
-		case kSCPKeyCommit :
+		case kSCPreferencesKeyCommit :
 			typeStr = "commit";
 			break;
-		case kSCPKeyApply :
+		case kSCPreferencesKeyApply :
 			typeStr = "apply";
 			break;
 		default :
 			typeStr = "?";
 	}
 
-	key = CFStringCreateWithFormat(NULL,
+	key = CFStringCreateWithFormat(allocator,
 				       NULL,
 				       CFSTR("%@%s:%s"),
-				       kSCCacheDomainPrefs,
+				       kSCDynamicStoreDomainPrefs,
 				       typeStr,
 				       pathStr);
 
-	CFAllocatorDeallocate(NULL, pathStr);
+	CFAllocatorDeallocate(allocator, pathStr);
 	return key;
 }
 
 
 CFStringRef
-SCPNotificationKeyCreate(CFStringRef prefsID, int keyType)
+SCDynamicStoreKeyCreatePreferences(CFAllocatorRef	allocator,
+				   CFStringRef		prefsID,
+				   int			keyType)
 {
-	return _SCPNotificationKey(prefsID, FALSE, NULL, keyType);
+	return _SCPNotificationKey(allocator, prefsID, FALSE, NULL, keyType);
 }
 
 
 CFStringRef
-SCPUserNotificationKeyCreate(CFStringRef prefsID, CFStringRef user, int keyType)
+SCDynamicStoreKeyCreateUserPreferences(CFAllocatorRef	allocator,
+				       CFStringRef	prefsID,
+				       CFStringRef	user,
+				       int		keyType)
 {
-	return _SCPNotificationKey(prefsID, TRUE, user, keyType);
-}
-
-
-const char *
-SCPError(SCPStatus status)
-{
-	int i;
-
-	for (i = 0; i < nSCP_ERRMSGS; i++) {
-		if (scp_errmsgs[i].status == status) {
-			return scp_errmsgs[i].message;
-		}
-	}
-	return "(unknown error)";
+	return _SCPNotificationKey(allocator, prefsID, TRUE, user, keyType);
 }

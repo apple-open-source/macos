@@ -14,16 +14,16 @@ PROJECT_TYPE = Component
 
 HFILES = fp.h genassym.h
 
-OTHERLINKED = abs.s bcopy.s bzero.s ffs.s mcount.s memcpy.s\
-              memmove.s strlen.s
+OTHERLINKED = abs.s blockmoof.s bzero.s ffs.s mcount.s \
+              strlen.s
 
 CFILES = bcmp.c ecvt.c insque.c isinf.c remque.c setjmperr.c\
          strcat.c strcpy.c strncat.c strncmp.c strncpy.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 
-OTHERLINKEDOFILES = abs.o bcopy.o bzero.o ffs.o mcount.o memcpy.o\
-                    memmove.o strlen.o
+OTHERLINKEDOFILES = abs.o blockmoof.o bzero.o ffs.o mcount.o \
+                    strlen.o
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

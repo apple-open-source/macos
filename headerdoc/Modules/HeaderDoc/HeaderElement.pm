@@ -4,7 +4,7 @@
 # Synopsis: Root class for Function, Typedef, Constant, etc. -- used by HeaderDoc.
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/15/99
+# Last Updated: $Date: 2000/09/20 04:39:51 $
 #
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -92,10 +92,11 @@ sub discussion {
 sub declaration {
     my $self = shift;
     my $dec = $self->declarationInHTML();
-    $dec =~s/<br>/\n/g;
-    # $dec =~s{<(?:[^>'"]+|".*?"|'.*?')+>}{}gsx; #remove HTML markup
-    # modified to ignore enum 'kWater  =  (1  <<  9)' type use of angle brackets
-    $dec =~s{(^|[^<])<(?!<)(?:[^>'"]+|".*?"|'.*?')+>}{}gsx;
+    # remove simple markup that we add to declarationInHTML
+    $dec =~s/<br>/\n/gi;
+    $dec =~s/<(\/)?tt>//gi;
+    $dec =~s/<(\/)?b>//gi;
+    $dec =~s/<(\/)?pre>//gi;
     $self->{DECLARATION} = $dec;  # don't really have to have this ivar
     return $dec;
 }

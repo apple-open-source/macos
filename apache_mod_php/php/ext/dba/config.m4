@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/01/25 04:59:11 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:02 zarzycki Exp $
 dnl config.m4 for extension dba
 dnl don't forget to call PHP_EXTENSION(dba)
 
@@ -31,8 +31,8 @@ AC_DEFUN(AC_DBA_STD_CHECK,[
 
 dnl Attach THIS_x to DBA_x
 AC_DEFUN(AC_DBA_STD_ATTACH,[
-  AC_ADD_INCLUDE($THIS_INCLUDE)
-  AC_ADD_LIBRARY_WITH_PATH($THIS_LIBS, $THIS_LFLAGS, DBA_SHARED_LIBADD)
+  PHP_ADD_INCLUDE($THIS_INCLUDE)
+  PHP_ADD_LIBRARY_WITH_PATH($THIS_LIBS, $THIS_LFLAGS, DBA_SHARED_LIBADD)
 
   THIS_INCLUDE=""
   THIS_LIBS=""

@@ -1,0 +1,60 @@
+.\" Copyright (c) 1993 by Mike Sample and UBC
+.\" See section COPYING for conditions for redistribution
+.\" $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/mkchdr.1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+.\" $Log: mkchdr.1,v $
+.\" Revision 1.1.1.1  2001/05/18 23:14:10  mb
+.\" Move from private repository to open source repository
+.\"
+.\" Revision 1.1.1.1  1999/03/16 18:05:53  aram
+.\" Originals from SMIME Free Library.
+.\"
+.\" Revision 1.2  1997/01/01 22:47:18  rj
+.\" first check-in
+.\"
+.TH MKCHDR 1 "11 July 1993"
+.SH NAME
+mkchdr \- creates a C header file from a type table
+.SH SYNOPSIS
+.nf
+mkchdr <tbl-file> [output-file]
+.SH DESCRIPTION
+mkchdr will generate a C header file from the given type table.  The C
+data structures will be written to the given output file.  If an
+output file is not given, the C header is written to stdout.
+
+The generated C data structure is the value representation that table
+driven encoder expects (and decoder returns) for the type definitions
+in the given type table.  The table driven encoder and decoder, etc.
+routines do not use the generated header - they treat the data in a
+generic way.  The generated header file simply saves you the hassle of
+dealing with ASN.1 values in the same generic way.  Instead you get
+properly named structs and field names.  You do not need to use mkchdr
+to use the table driven encoders etc. but it is recommended.
+.PP
+.\" there is a tab between the file name and the description
+.SH FILES
+.PD 0
+.TP 28
+.B snacc/tbl-tools/mkchdr/
+Source code for the mkchdr program
+.PD
+.SH BUGS
+There is no means of customizing the generated data structure.
+.SH COPYING
+Copyright (c) 1993 Mike Sample and the University of British Columbia
+.PP
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+.PP
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+.PP
+.SH AUTHOR
+Mike Sample <msample@cs.ubc.ca>, University of British Columbia
+.SH ACKNOWLEDGEMENTS
+This work was made possible by grants from the Canadian Institute for
+Telecommunications Research (CITR) and Natural Sciences and
+Engineering Research Council of Canada (NSERC).

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.print.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.print.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.print.c: Primitive Output routines.
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.print.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.print.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
 
 #include "ed.h"
 
@@ -130,12 +130,24 @@ xputchar(c)
     c &= CHAR | QUOTE;
     if (!output_raw && (c & QUOTE) == 0) {
 	if (Iscntrl(c)) {
+#ifdef COLORCAT
+	    if (c != '\t' && c != '\n' && !(adrof(STRcolorcat) && c=='\033') && (xlate_cr || c != '\r')) {
+#else
 	    if (c != '\t' && c != '\n' && (xlate_cr || c != '\r')) {
+#endif
 		xputchar('^' | atr);
+#ifdef IS_ASCII
 		if (c == ASCII)
 		    c = '?';
 		else
 		    c |= 0100;
+#else
+		if (c == CTL_ESC('\177'))
+		    c = '?';
+		else
+		    c =_toebcdic[_toascii[c]|0100];
+#endif
+
 	    }
 	}
 	else if (!Isprint(c)) {
@@ -186,7 +198,7 @@ putpure(c)
 }
 
 void
-draino()
+drainoline()
 {
     linp = linbuf;
 }
@@ -246,6 +258,18 @@ flush()
 #endif
 #ifdef EBADF
 	case EBADF:
+#endif
+#ifdef ESTALE
+	/*
+	 * Lost our file descriptor, exit (IRIS4D)
+	 */
+	case ESTALE:
+#endif
+	/*
+	 * Over our quota, writing the history file
+	 */
+#ifdef EDQUOT
+	case EDQUOT:
 #endif
 	/* Nothing to do, but die */
 	    xexit(1);

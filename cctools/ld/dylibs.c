@@ -61,6 +61,9 @@ __private_extern__ struct merged_segment *dylib_segments = NULL;
 /* the pointer to the merged sub_umbrella commands if any */
 __private_extern__ struct merged_sub_umbrella *merged_sub_umbrellas = NULL;
 
+/* the pointer to the merged sub_library commands if any */
+__private_extern__ struct merged_sub_library *merged_sub_librarys = NULL;
+
 /* the pointer to the merged sub_client commands if any */
 __private_extern__ struct merged_sub_client *merged_sub_clients = NULL;
 
@@ -352,6 +355,63 @@ void)
 
 	    sizeofcmds += cmdsize;
 	    merged_sub_umbrellas[i].sub = sub;
+	}
+	return(sizeofcmds);
+}
+
+/*
+ * create_sub_library_commands() creates the LC_SUB_LIBRARY load commands from
+ * the command line options.  It is called from layout() when the output 
+ * filetype is MH_DYLIB and one or more -sub_library flags were specified.
+ * It returns the total size of the load commands it creates.
+ */
+__private_extern__
+unsigned long
+create_sub_library_commands(
+void)
+{
+    unsigned long i;
+    char *name, *library_name, *has_suffix;
+    unsigned long cmdsize, sizeofcmds;
+    struct sub_library_command *sub;
+    enum bool found, is_framework;
+    struct merged_dylib **p, *mdl;
+
+	sizeofcmds = 0;
+	merged_sub_librarys = allocate(sizeof(struct merged_sub_library) *
+				        nsub_librarys);
+	for(i = 0; i < nsub_librarys ; i++){
+	    name = sub_librarys[i];
+
+	    found = FALSE;
+	    p = &merged_dylibs;
+	    while(*p){
+		mdl = *p;
+		library_name = guess_short_name(mdl->dylib_name,
+			&is_framework, &has_suffix);
+		if(library_name != NULL &&
+		   is_framework == FALSE &&
+		   strcmp(library_name, name) == 0){
+		    found = TRUE;
+		    break;
+		}
+		p = &(mdl->next);
+	    }
+	    if(found == FALSE)
+		error("-sub_library %s specified but no library by that "
+		      "name is linked in", name);
+
+	    cmdsize = sizeof(struct sub_library_command) +
+		      round(strlen(name) + 1, sizeof(long));
+	    sub = allocate(cmdsize);
+	    memset(sub, '\0', cmdsize);
+	    sub->cmd = LC_SUB_LIBRARY;
+	    sub->cmdsize = cmdsize;
+	    sub->sub_library.offset = sizeof(struct sub_library_command);
+	    strcpy((char *)sub + sizeof(struct sub_library_command), name);
+
+	    sizeofcmds += cmdsize;
+	    merged_sub_librarys[i].sub = sub;
 	}
 	return(sizeofcmds);
 }

@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = nicl nidomain nidump nifind nigrep niload nireport niutil
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble create_nidb
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

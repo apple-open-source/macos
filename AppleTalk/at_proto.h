@@ -152,6 +152,7 @@ int nbp_reg_lookup(at_entity_t *entity,
 /* Printer Access Protocol (PAP) Functions */
 
 int pap_open(at_nbptuple_t *tuple);
+int pap_open2(at_nbptuple_t *tuple, int num_tries, long wait_time);
 int pap_read(int fd,
 	     u_char *data,
 	     int len);

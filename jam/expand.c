@@ -55,7 +55,7 @@ char	*end;
 LOL	*lol;
 int	cancopyin;
 {
-	char out_buf[ MAXSYM ];
+	char out_buf[ MAXSYM * 3 ];
 	char *out = out_buf;
 	char *inp = in;
 	char *ov;		/* for temp copy of variable in outbuf */

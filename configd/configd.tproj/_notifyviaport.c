@@ -20,34 +20,46 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDNotifierInformViaMachPort(SCDSessionRef session, mach_msg_id_t identifier, mach_port_t *port)
+int
+__SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
+			       mach_msg_id_t		identifier,
+			       mach_port_t		*port)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	CFStringRef		sessionKey;
-	CFDictionaryRef		info;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	CFStringRef			sessionKey;
+	CFDictionaryRef			info;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDNotifierInformViaMachPort:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreNotifyMachPort:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;		/* you must have an open session to play */
 	}
 
-	if (sessionPrivate->notifyStatus != NotifierNotRegistered) {
+	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
-		return SCD_NOTIFIERACTIVE;
+		return kSCStatusNotifierActive;
 	}
 
 	if (*port == MACH_PORT_NULL) {
 		/* sorry, you must specify a valid mach port */
-		return SCD_INVALIDARGUMENT;
+		return kSCStatusInvalidArgument;
 	}
 
 	/* push out a notification if any changes are pending */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), sessionPrivate->server);
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 	info = CFDictionaryGetValue(sessionData, sessionKey);
 	CFRelease(sessionKey);
 	if (info && CFDictionaryContainsKey(info, kSCDChangedKeys)) {
@@ -58,12 +70,12 @@ _SCDNotifierInformViaMachPort(SCDSessionRef session, mach_msg_id_t identifier, m
 							       0,
 							       &kCFTypeSetCallBacks);
 
-		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &sessionPrivate->server);
+		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		CFSetAddValue(needsNotification, sessionNum);
 		CFRelease(sessionNum);
 	}
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
@@ -71,29 +83,29 @@ kern_return_t
 _notifyviaport(mach_port_t	server,
 	       mach_port_t	port,
 	       mach_msg_id_t	identifier,
-	       int		*scd_status
+	       int		*sc_status
 )
 {
-	serverSessionRef	mySession = getSession(server);
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)mySession->session;
+	serverSessionRef		mySession = getSession(server);
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 
-	SCDLog(LOG_DEBUG, CFSTR("Send mach message when a notification key changes."));
-	SCDLog(LOG_DEBUG, CFSTR("  server     = %d"), server);
-	SCDLog(LOG_DEBUG, CFSTR("  port       = %d"), port);
-	SCDLog(LOG_DEBUG, CFSTR("  message id = %d"), identifier);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Send mach message when a notification key changes."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server     = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  port       = %d"), port);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  message id = %d"), identifier);
 
-	if (sessionPrivate->notifyPort != MACH_PORT_NULL) {
-		SCDLog(LOG_DEBUG, CFSTR("  destroying old callback mach port %d"), sessionPrivate->notifyPort);
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->notifyPort);
+	if (storePrivate->notifyPort != MACH_PORT_NULL) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  destroying old callback mach port %d"), storePrivate->notifyPort);
+		(void) mach_port_destroy(mach_task_self(), storePrivate->notifyPort);
 	}
 
-	*scd_status = _SCDNotifierInformViaMachPort(mySession->session, identifier, &port);
+	*sc_status = __SCDynamicStoreNotifyMachPort(mySession->store, identifier, &port);
 
-	if (*scd_status == SCD_OK) {
+	if (*sc_status == kSCStatusOK) {
 		/* save notification port, requested identifier, and set notifier active */
-		sessionPrivate->notifyStatus         = Using_NotifierInformViaMachPort;
-		sessionPrivate->notifyPort           = port;
-		sessionPrivate->notifyPortIdentifier = identifier;
+		storePrivate->notifyStatus         = Using_NotifierInformViaMachPort;
+		storePrivate->notifyPort           = port;
+		storePrivate->notifyPortIdentifier = identifier;
 	}
 
 	return KERN_SUCCESS;

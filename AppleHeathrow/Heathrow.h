@@ -160,11 +160,23 @@ private:
 
   void EnableSCC(bool state);
   void PowerModem(bool state);
+  void ModemResetLow();
+  void ModemResetHigh();
 
   // callPlatformFunction symbols
   const OSSymbol 	*heathrow_sleepState;
   const OSSymbol 	*heathrow_powerMediaBay;
   const OSSymbol 	*heathrow_set_light;
+  const OSSymbol 	*heathrow_writeRegUInt8;
+  const OSSymbol 	*heathrow_safeWriteRegUInt8;
+  const OSSymbol 	*heathrow_safeReadRegUInt8;
+  const OSSymbol 	*heathrow_safeWriteRegUInt32;
+  const OSSymbol 	*heathrow_safeReadRegUInt32;
+
+  // this is to ensure mutual exclusive access to
+  // the keylargo registers:
+  IOSimpleLock *mutex;
+
 public:
   virtual bool start(IOService *provider);
 
@@ -189,6 +201,16 @@ public:
   virtual void restoreInterruptState(void);
   virtual void setChassisLightFullpower(bool fullpwr);
 
+  virtual UInt8     readRegUInt8(unsigned long offset);
+  virtual void      writeRegUInt8(unsigned long offset, UInt8 data);
+  virtual UInt32    readRegUInt32(unsigned long offset);
+  virtual void      writeRegUInt32(unsigned long offset, UInt32 data);
+
+  // share register access:
+  void safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data);
+  UInt8 safeReadRegUInt8(unsigned long offset);
+  void safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data);
+  UInt32 safeReadRegUInt32(unsigned long offset);
 };
 
 
@@ -210,7 +232,11 @@ private:
   unsigned long     clear2Reg;
   unsigned long     levels1Reg;
   unsigned long     levels2Reg;
-  
+
+  void privDisableVectorHard(long vectorNumber, IOInterruptVector *vector);
+  void privEnableVector(long vectorNumber, IOInterruptVector *vector);
+  void privCauseVector(long vectorNumber, IOInterruptVector *vector);
+
 public:
   virtual IOReturn initInterruptController(IOService *provider,
 					   IOLogicalAddress iBase);

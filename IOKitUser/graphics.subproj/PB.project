@@ -4,23 +4,18 @@
         H_FILES = (
             IOGraphicsLibPrivate.h, 
             IOGraphicsLib.h, 
-            IOGraphicsInterface.h, 
-            IOGraphicsInterfaceTypes.h, 
             IOAccelSurfaceControl.h
         ); 
         OTHER_LINKED = (
             IOAccelSurfaceControl.c, 
             IOGraphicsLib.c, 
-            IODisplayLib.c, 
-            IOGraphicsM64.c
+            IODisplayLib.c
         ); 
         OTHER_SOURCES = (Makefile.preamble, Makefile); 
         PROJECT_HEADERS = (IOGraphicsLib.h); 
         PUBLIC_HEADERS = (
             IOGraphicsLib.h, 
-            IOAccelSurfaceControl.h, 
-            IOGraphicsInterfaceTypes.h, 
-            IOGraphicsInterface.h
+            IOAccelSurfaceControl.h
         ); 
         SUBPROJECTS = (); 
     }; 

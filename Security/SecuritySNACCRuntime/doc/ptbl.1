@@ -1,0 +1,64 @@
+.\" Copyright (c) 1993 by Mike Sample and UBC
+.\" See section COPYING for conditions for redistribution
+.\" $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/ptbl.1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+.\" $Log: ptbl.1,v $
+.\" Revision 1.1.1.1  2001/05/18 23:14:10  mb
+.\" Move from private repository to open source repository
+.\"
+.\" Revision 1.1.1.1  1999/03/16 18:05:54  aram
+.\" Originals from SMIME Free Library.
+.\"
+.\" Revision 1.2  1997/01/01 22:47:19  rj
+.\" first check-in
+.\"
+.TH PTBL 1 "11 July 1993"
+.SH NAME
+ptbl \- print a type table
+.SH SYNOPSIS
+.nf
+ptbl [\-a] <tbl-file>
+.SH DESCRIPTION
+
+ptbl prints the give type table to stdout.  It will print it in one of
+two formats: internal style and ASN.1 stlye.  The internal style shows
+the contents of the type table data structure in ASN.1 value notation.
+You will need to look at the tbl.asn1 file to understand the internal
+form.  The ASN.1 form attempts to re-create the ASN.1 that generated
+the given type table.
+
+.SH OPTIONS
+
+.TP
+.B \-a
+Print the table in ASN.1 style (recommended)
+.PP
+.\" there is a tab between the file name and the description
+.SH FILES
+.PD 0
+.TP 28
+.B snacc/tbl-tools/ptbl/
+Source code for the ptbl program
+.B snacc/asn1specs/tbl.asn1
+ASN.1 definition for the type table data structure
+.PD
+.SH BUGS
+ptbl does not attempt to print the IMPORTs information even though it
+is possible with a bit of work.
+.SH COPYING
+Copyright (c) 1993 Mike Sample and the University of British Columbia
+.PP
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+.PP
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+.PP
+.SH AUTHOR
+Mike Sample <msample@cs.ubc.ca>, University of British Columbia
+.SH ACKNOWLEDGEMENTS
+This work was made possible by grants from the Canadian Institute for
+Telecommunications Research (CITR) and Natural Sciences and
+Engineering Research Council of Canada (NSERC).

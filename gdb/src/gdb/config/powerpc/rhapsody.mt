@@ -1,8 +1,7 @@
 # Target: PowerPC running NeXTStep/Rhapsody
 
 MT_CFLAGS = \
-	-DTARGET_POWERPC \
-	-DTARGET_HAS_EMBEDDED_SYMBOLS
+	-DTARGET_POWERPC
 
 TDEPFILES = \
 	core-macho.o \
@@ -15,7 +14,6 @@ TDEPFILES = \
 	kdp-udp.o \
 	kdp-transactions.o \
 	kdp-protocol.o \
-	nextstep-tdep.o \
-        embedded-symbol.o
+	nextstep-tdep.o
 
 TM_FILE = tm-ppc-next.h

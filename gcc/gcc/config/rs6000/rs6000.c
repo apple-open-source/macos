@@ -1019,7 +1019,7 @@ rs6000_override_options (default_cpu)
 		break;
 	      }
 
-	  if (i == ptt_size)
+	  if (j == ptt_size)
 	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
 	}
     }
@@ -1061,6 +1061,12 @@ rs6000_override_options (default_cpu)
 	}
     }
 
+  if (flag_pic == 1 && DEFAULT_ABI == ABI_MACOSX)
+    {
+      warning ("-fpic is not supported; -fPIC assumed");
+      flag_pic = 2;
+    }
+  else
   if (flag_pic && (DEFAULT_ABI == ABI_AIX))
     {
       warning ("-f%s ignored for AIX (all code is position independent)",
@@ -1845,6 +1851,48 @@ mask_operand (op, mode)
       last_bit_value ^= 1, transitions++;
 
   return transitions <= 2;
+}
+
+/*
+ * as above, but insist all the ones in the mask be contiguous
+ * (MB < ME)
+ */
+int
+narrow_mask_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  HOST_WIDE_INT c;
+  int i;
+  int last_bit_value;
+  int contiguous_ones_in_middle ;
+  int transitions = 0;
+
+  if (GET_CODE (op) != CONST_INT)
+    return 0;
+
+  c = INTVAL (op);
+
+  if (c == 0 || c == ~0)
+    return 0;
+
+  /* true if ones in the middle, zeroes on ends: 0000...1111...111...000 */
+  contiguous_ones_in_middle = !(c & 0x80000000) & !(c & 1) ;
+
+  /*
+   * O.K. to have the ones reach one end of the word;
+   * 000..111 and 111...000 don't have "contiguous_ones_in_middle",
+   * but they have only one "transition"
+   */
+
+  last_bit_value = c & 1;
+
+  for (i = 1; i < 32; i++)
+    if (((c >>= 1) & 1) != last_bit_value)
+      last_bit_value ^= 1, transitions++;
+
+  /* refuse non-contiguous masks of the form 111...000...111 */
+  return (transitions == 2 && contiguous_ones_in_middle) || (transitions == 1) ;
 }
 
 /* Return 1 if the operand is a constant that is a PowerPC64 mask.
@@ -3491,6 +3539,84 @@ includes_rshift_p (shiftop, andop)
   shift_mask >>= INTVAL (shiftop);
 
   return (INTVAL (andop) & ~ shift_mask) == 0;
+}
+
+/*
+ * true if we can use a rotate to do the given shift, IFF the result is masked with mask
+ * shift_op is an operator, shift count is its constant count
+ * mask is a mask of contiguous ones, legal for use with rwlinm/rlwimi
+ */
+int
+rotatable_shift_and_mask( shift_op, mask)
+     register rtx shift_op;
+     register rtx mask ;
+{
+  rtx shift_count = XEXP ( shift_op, 1) ;
+  int sh = INTVAL ( shift_count) ;
+
+  /* assert( sh >= 0 ) ; *//* reject negative shifts * presumed disallowed by FE */
+
+  /* mask must not have ones on both ends * e.g. insist MB < ME */
+  if ( ! narrow_mask_operand( mask))
+    return 0 ;
+
+  switch (GET_CODE ( shift_op))
+    {
+    case ASHIFT:
+      return includes_lshift_p( shift_count, mask) ;
+
+    case ASHIFTRT:
+    case LSHIFTRT:
+      return includes_rshift_p( shift_count, mask) ;
+
+    default:
+      return 0 ;
+    }
+}
+
+int
+shift_operator( shift_op, ignored_mode)
+     register rtx shift_op;
+     enum machine_mode ignored_mode;
+{
+  switch (GET_CODE ( shift_op))
+    {
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      return 1 ;
+
+    default:
+      return 0 ;
+    }
+}
+
+/*
+ * given a shift operator and a count,
+ * return a count to use with a left rotate and mask
+ * assumes the result will be masked to discard rotated bits
+ */
+int
+rotate_count( shift_op)
+     register rtx shift_op;
+{
+  int shift_count = INTVAL ( XEXP ( shift_op, 1)) ;
+
+  if (shift_count < 0)
+    return -1 ;
+
+  switch (GET_CODE ( shift_op))
+    {
+    case ASHIFT:
+      return shift_count ;
+
+    case ASHIFTRT:
+    case LSHIFTRT:
+      return 32 - shift_count ;
+
+    default:	/* never happens */
+      return -1 ;
+    }
 }
 
 unsigned
@@ -5575,7 +5701,7 @@ output_prolog (file, size)
 	/* Output pic base label.  */
 	ASM_OUTPUT_LABEL (file, piclabel_name);
     }
-#endif
+#endif	/* MACHO_PIC */
 
   if (TARGET_32BIT)
     {
@@ -6537,6 +6663,7 @@ world_restored:
 	 value for C for now.  There is no official value for Java,
          although IBM appears to be using 13.  There is no official value
 	 for Chill, so we've choosen 44 pseudo-randomly.  */
+      /* zlaski 2001-May-02: Obj-C++ will share the # with C++ */   
       if (! strcmp (language_string, "GNU C")
 	  || ! strcmp (language_string, "GNU Obj-C"))
 	i = 0;
@@ -6546,7 +6673,8 @@ world_restored:
 	i = 3;
       else if (! strcmp (language_string, "GNU Pascal"))
 	i = 2;
-      else if (! strcmp (language_string, "GNU C++"))
+      else if (! strcmp (language_string, "GNU C++") 
+          || ! strcmp (language_string, "GNU Obj-C++"))
 	i = 9;
       else if (! strcmp (language_string, "GNU Java"))
 	i = 13;

@@ -1,0 +1,158 @@
+.TH BLESS 1 "June 4, 2001" "Apple Computer, Inc."
+.SH NAME
+bless \- set boot options for volumes and Open Firmware
+.SH SYNOPSIS
+.B bless
+-info
+.I mountpoint
+[
+-plist
+]
+[
+-verbose
+] [
+-bootBlocks
+]
+
+.B bless
+[
+-bootinfo
+.I "arg"
+] [
+-bootBlocks
+] [
+-noexec
+] [
+-folder
+.I folder
+] [
+-folder9
+.I folder
+] [
+-quiet
+] [
+-setOF
+] [
+-use9
+] [
+-verbose
+]
+.SH DESCRIPTION
+The
+.I bless
+command modifies on-disk an Open Firmware-based parameters used during the
+boot sequence. It allows folders the be \(lqblessed\(rq in the volume header, which
+allows OF to find the loader program (usually BootX).
+.I bless
+also sets Open Firmware variables to boot off the volume specified.
+.PP
+In the first usage, the following flags apply:
+.TP
+.B \-bootBlocks
+Display important data from the boot blocks for the specified volume
+.TP
+.B \-info mountpoint
+Choose the volume mounted at
+.I mountpoint
+to print information about.
+.TP
+.B \-plist
+Display the requested information as a Property List using the
+CoreFoundation API.
+.TP
+.B \-verbose
+Be verbose while collecting data and accessing the volume.
+.PP
+Root privelege is not required to collect this information, although you must
+have read access to the volume.
+.PP
+The second form of the command can take:
+.TP
+.B \-bootinfo arg
+Create a new BootX file in the folder specified by
+.B \-folder.
+.B arg
+should point to a
+.I bootx.bootinfo
+file, most commonly /System/Library/CoreServices/bootx.bootinfo
+.TP
+.B \-bootBlocks
+Create boot blocks for the specified volume by extracting them from the
+'boot' 1 resource of the
+.I System
+file contained in
+.B \-folder9. Write these boot blocks to the volume.
+.TP
+.B \-noexec
+Simulate execution of
+.B bless
+without performing any permanent changes to the system.
+This flag is used by default when
+.B bless
+is run by a non-root user.
+.TP
+.B \-folder folder
+The Mac OS X/Darwin folder to by blessed. This folder should have
+a valid BootX file (unless
+.B \-bootinfo
+was also specified to create a new one). The folder's volume is what
+all disk operations will be performed on. This is most commonly
+/System/Library/CoreServices
+.TP
+.B \-folder9 folder
+The Mac OS 9 System folder to bless. This folder should have a valid
+System file and Finder. If
+.I CarbonCore
+is available, the
+.B \-bootBlocks
+option is also available. 
+.TP
+.B \-quiet
+Don't print out any information except errors
+.TP
+.B \-setOF
+Using the volume where
+.B \-folder
+resides (or both
+.B \-folder
+and
+.B \-folder9,
+if both were specified), set Open Firmware variables to boot off this device.
+.TP
+.B \-use9
+If both
+.B \-folder
+and
+.B \-folder9
+were specified, prefer
+.B \-folder9
+as the primary blessed folder.
+.TP
+.B \-verbose
+Be verbose while collecting data and accessing the volume.
+
+.SH EXAMPLES
+
+Darwin and Mac OS 9 are on seperate partitions, and want to boot into OS 9:
+
+bless -folder9 "/Volumes/Mac OS 9/System Folder" -setOF
+
+Darwin and Mac OS 9 on the same partition, and want to boot into OS 9:
+
+bless -folder "/System/Library/CoreServices" -folder9 "/Volumes/Mac OS 9/System Folder"
+
+Darwin and Mac OS X  on seperate partitions, and want to boot into Mac OS X:
+
+bless -folder "/Volumes/Mac OS X/System/Library/CoreServices" -setOF
+
+BootX file needs to be created (for creating a bootable partition):
+
+bless -folder "/Volumes/Test/System/Library/CoreServices" -bootinfo /usr/standalone/ppc/bootx.bootinfo
+
+.SH BUGS
+.B bless
+is only intelligent enough to deal with HFS+ volumes for most cases. It will
+detect external booters, but other functionality may not work and has not been well-tested.
+
+
+

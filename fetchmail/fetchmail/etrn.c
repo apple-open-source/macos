@@ -1,5 +1,5 @@
 /*
- * etrn.c -- ETRN protocol methods
+ * etrn.c -- ETRN protocol methods (see RFC 1985)
  *
  * For license terms, see the file COPYING in this directory.
  */
@@ -9,6 +9,9 @@
 #include  <stdio.h>
 #include  <stdlib.h>
 #include  <assert.h>
+#ifdef HAVE_NET_SOCKET_H /* BeOS needs this */
+#include <net/socket.h>
+#endif
 #include  <netdb.h>
 #include  <errno.h>
 #include  <unistd.h>
@@ -57,7 +60,7 @@ static int etrn_getrange(int sock, struct query *ctl, const char *id,
      * By default, the hostlist has a single entry, the fetchmail host's
      * canonical DNS name.
      */
-    for (qnp = ctl->smtphunt; qnp; qnp = qnp->next)
+    for (qnp = ctl->domainlist; qnp; qnp = qnp->next)
     {
 	/* ship the actual poll and get the response */
 	gen_send(sock, "ETRN %s", qnp->id);
@@ -117,15 +120,16 @@ static int etrn_logout(int sock, struct query *ctl)
 const static struct method etrn =
 {
     "ETRN",		/* ESMTP ETRN extension */
-#if INET6
+#if INET6_ENABLE
     "smtp",		/* standard SMTP port */
-#else /* INET6 */
+    "smtps",		/* ssl SMTP port */
+#else /* INET6_ENABLE */
     25,			/* standard SMTP port */
-#endif /* INET6 */
+    465,			/* ssl SMTP port */
+#endif /* INET6_ENABLE */
     FALSE,		/* this is not a tagged protocol */
     FALSE,		/* this does not use a message delimiter */
     etrn_ok,		/* parse command response */
-    NULL,		/* no password canonicalization */
     NULL,		/* no need to get authentication */
     etrn_getrange,	/* initialize message sending */
     NULL,		/* we cannot get a list of sizes */

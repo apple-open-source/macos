@@ -286,6 +286,7 @@ ni_init(char *rootdir, void **handle)
 	status = file_init(rootdir, &ni->file_hdl);
 	if (status != NI_OK)
 	{
+		system_log(LOG_ERR, "file_init failed: %s", ni_error(status));
 		MM_FREE(ni);
 		return status;
 	}
@@ -391,6 +392,8 @@ ni_root(void *handle, ni_id *id_p)
 		 */
 		MM_ALLOC(obj);
 		MM_ZERO(obj);
+
+		obj->nio_id.nii_object=-1;
 
 		status = file_write(FH(handle), obj);
 		if (status != NI_OK)

@@ -20,71 +20,74 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDAdd(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
+int
+__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	SCDStatus		scd_status = SCD_OK;
-	boolean_t		wasLocked;
-	SCDHandleRef		tempHandle;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	int				sc_status	= kSCStatusOK;
+	CFPropertyListRef		tempValue;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDAdd:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  data         = %@"), SCDHandleGetData(handle));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreAddValue:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
-	 * 1. Determine if the cache lock is currently held
-	 *    and acquire the lock if necessary.
+	 * 1. Ensure that we hold the lock.
 	 */
-	wasLocked = SCDOptionGet(NULL, kSCDOptionIsLocked);
-	if (!wasLocked) {
-		scd_status = _SCDLock(session);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_DEBUG, CFSTR("  _SCDLock(): %s"), SCDError(scd_status));
-			return scd_status;
-		}
+	sc_status = __SCDynamicStoreLock(store, TRUE);
+	if (sc_status != kSCStatusOK) {
+		return sc_status;
 	}
 
 	/*
 	 * 2. Ensure that this is a new key.
 	 */
-	scd_status = _SCDGet(session, key, &tempHandle);
-	switch (scd_status) {
-		case SCD_NOKEY :
-			/* cache key does not exist, proceed */
+	sc_status = __SCDynamicStoreCopyValue(store, key, &tempValue);
+	switch (sc_status) {
+		case kSCStatusNoKey :
+			/* store key does not exist, proceed */
 			break;
 
-		case SCD_OK :
-			/* cache key exists, sorry */
-			SCDHandleRelease(tempHandle);
-			scd_status = SCD_EXISTS;
+		case kSCStatusOK :
+			/* store key exists, sorry */
+			CFRelease(tempValue);
+			sc_status = kSCStatusKeyExists;
 			goto done;
 
 		default :
-			SCDLog(LOG_DEBUG, CFSTR("  _SCDGet(): %s"), SCDError(scd_status));
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _SCDGet(): %s"), SCErrorString(sc_status));
 			goto done;
 	}
 
 	/*
 	 * 3. Save the new key.
 	 */
-	scd_status = _SCDSet(session, key, handle);
+	sc_status = __SCDynamicStoreSetValue(store, key, value);
 
 	/*
-	 * 4. Release the lock if we acquired it as part of this request.
+	 * 4. Release our lock.
 	 */
     done:
-	if (!wasLocked)
-		_SCDUnlock(session);
+	__SCDynamicStoreUnlock(store, TRUE);
 
-	return scd_status;
+	return sc_status;
 }
 
 
@@ -95,7 +98,7 @@ _configadd(mach_port_t 			server,
 	   xmlData_t			dataRef,	/* raw XML bytes */
 	   mach_msg_type_number_t	dataLen,
 	   int				*newInstance,
-	   int				*scd_status
+	   int				*sc_status
 )
 {
 	kern_return_t		status;
@@ -104,17 +107,18 @@ _configadd(mach_port_t 			server,
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFDataRef		xmlData;	/* data (XML serialized) */
 	CFPropertyListRef	data;		/* data (un-serialized) */
-	SCDHandleRef		handle;
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Add key to configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Add key to configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+
+	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -122,17 +126,23 @@ _configadd(mach_port_t 			server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
-		return KERN_SUCCESS;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
 	xmlData = CFDataCreate(NULL, dataRef, dataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	data = CFPropertyListCreateFromXMLData(NULL,
@@ -140,20 +150,27 @@ _configadd(mach_port_t 			server,
 					       kCFPropertyListImmutable,
 					       &xmlError);
 	CFRelease(xmlData);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() data: %s"), xmlError);
-		CFRelease(key);
-		*scd_status = SCD_FAILED;
+	if (!data) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() data: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+	} else if (!isA_CFPropertyList(data)) {
+		*sc_status = kSCStatusInvalidArgument;
+	}
+
+	if (*sc_status != kSCStatusOK) {
+		if (key)	CFRelease(key);
+		if (data)	CFRelease(data);
 		return KERN_SUCCESS;
 	}
 
-	handle = SCDHandleInit();
-	SCDHandleSetData(handle, data);
-	*scd_status = _SCDAdd(mySession->session, key, handle);
-	if (*scd_status == SCD_OK) {
-		*newInstance = SCDHandleGetInstance(handle);
-	}
-	SCDHandleRelease(handle);
+	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data);
+	*newInstance = 0;
+
 	CFRelease(key);
 	CFRelease(data);
 

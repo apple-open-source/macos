@@ -1,152 +1,128 @@
-.TH DEFAULTS 1 "March 7 1995" "Apple Computer, Inc."
-.SH NAME
-defaults \- access the Mac OS X user defaults system
-.SH SYNOPSIS
-.B defaults
-.B read
-.RI "[ " domain_name " [ " key " ] ]"
-.PP
-.B defaults
-.B write
-.I domain_name
-.RI "{ " "'domain_rep'" " | " "domain_name key 'value_rep'" " }"
-.PP
-.B defaults
-.B delete
-.RI "[ " domain_name " [ " key " ] ]"
-.PP
-.B defaults
-{\ \fBdomains\fR\ |\ \fBfind\fR \fIword\fR\ | \fBhelp\fR\ }
-
-.SH DESCRIPTION
-.I defaults
-allows users to read, write, and delete Mac OS X user defaults
-from a command-line shell.
-Mac OS X applications and other programs use the defaults system
-to record user preferences and other information
-that must be maintained when the applications aren't running
-(such as default font for new documents, or the position
-of an Inspector panel).
-Much of this information is accessible through an application's
-Preferences panel (or the equivalent), but some of it isn't,
-such as the position of the Inspector panel.
-You can access this information with
-.IR defaults .
-.PP
-.B Note:
-Since applications
-.I do
-access the defaults system while they're running,
-you shouldn't modify the defaults of a running application.
-If you change a default in a domain that belongs to a running application,
-the application won't see the change and might even overwrite the default.
-.PP
+.\""Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.Dd March 24, 2001 
+.Dt DEFAULTS 1
+.Os Mac 10 
+.Sh NAME
+.Nm defaults
+.Nd access the Mac OS X user defaults system
+.Sh SYNOPSIS
+.Nm
+.Op Ar currentHost | Fl host Ar hostname
+read
+.Oo 
+.Ar domain 
+.Op Ar key
+.Oc
+.Pp
+.Nm
+.Op Ar currentHost | Fl host Ar hostname
+read-type 
+.Ar domain key
+.Pp
+.Nm
+.Op Ar currentHost | Fl host Ar hostname
+write
+.Ar domain Li { Ar 'plist' | domain key 'value'
+}
+.Pp
+.Nm
+.Op Ar currentHost | Fl host Ar hostname
+rename
+.Ar domain old_key new_key
+.Pp
+.Nm
+.Op Ar currentHost | Fl host Ar hostname
+delete 
+.Oo
+.Ar domain
+.Op Ar key
+.Oc
+.Pp
+.Nm
+.Op Ar currentHost | Fl host Ar hostname
+.Li { Ar domains
+| find
+.Ar word | help
+}
+.Pp
+.Sh DESCRIPTION
+.Nm Defaults
+allows users to read, write, and delete Mac OS X user defaults from a command-line shell. Mac OS X applications and other programs use the defaults system to record user preferences and other information that must be maintained when the applications aren't running (such as default font for new documents, or the position of an Info panel). Much of this information is accessible through an application's Preferences panel, but some of it isn't, such as the position of the Info panel. You can access this information with
+.Nm
+.Pp
+.Sy Note:
+Since applications do access the defaults system while they're running, you shouldn't modify the defaults of a running application. If you change a default in a domain that belongs to a running application, the application won't see the change and might even overwrite the default.
+.Pp
 User defaults belong to
-.IR domains ,
-which typically correspond to individual applications.
-Each domain has a dictionary of keys and values
-representing its defaults;
-for example, "Default\ Font" = "Helvetica".
-Keys are always strings, but values can be complex data structures
-comprising arrays, dictionaries, strings, and binary data.
-These data structures are stored as
-.I property
-.IR lists ;
-see
-.IR PropertyList (5)
-for more information.
-.PP
-Though all applications, system services, and other programs
-have their own domains, they also share a domain named
-.BR NSGlobalDomain .
-If a default isn't specified in the application's domain,
-but is specified in
-.BR NSGlobalDomain ,
+.Ar domains ,
+which typically correspond to individual applications. Each domain has a dictionary of keys and values representing its defaults; for example, "Default\ Font" = "Helvetica". Keys are always strings, but values can be complex data structures comprising arrays, dictionaries, strings, and binary data. These data structures are stored as XML Property Lists.
+.Pp
+Though all applications, system services, and other programs have their own domains, they also share a domain named
+.Sy NSGlobalDomain .
+If a default isn't specified in the application's domain, but is specified in
+.Sy NSGlobalDomain ,
 then the application uses the value in that domain.
-.SH OPTIONS
-.TP
-.B read
+.Pp
+The options are as follows:
+.Bl -tag -indent -width domains
+.It Sy read
 Prints all of the user's defaults, for every domain, to standard output.
-.TP
-.B read \fIdomain_name\fR
+.It Sy read Ar domain
 Prints all of the user's defaults for
-.I domain_name
+.Ar domain
 to standard output.
-.TP
-.B read \fIdomain_name key\fR
+.It Sy read Ar domain key
 Prints the value for the default of
-.I domain_name
+.Ar domain
 identified by
-.IR key .
-.TP
-.B write \fIdomain_name key\fR '\fIvalue_rep\fR'
+.Ar key .
+.It Sy write Ar domain key 'value'
 Writes
-.I value_rep
+.Ar value
 as the value for
-.I key
+.Ar key
 in
-.IR domain_name .
-.I value_rep
+.Ar domain .
+.Ar value
 must be a property list, and must be enclosed in single quotes.
 For example:
-.PP
-.in +1i
-.nf
-defaults write MyApplication "Default Color" '(255, 0, 0)'
-.fi
-.PP
-.DT
-.in +0.5i
-sets the value for Default\ Color to an array containing
-the strings 255, 0, 0 (the red, green, and blue components).
-Note that the key is enclosed in quotation marks because
-it contains a space.
-.TP
-.B write \fIdomain_name\fR '\fIdomain_rep\fR'
+.Bd -literal -indent
+defaults write com.companyname.appname "Default Color" '(255, 0, 0)'
+.Ed
+.Pp
+sets the value for Default Color to an array containing the strings 255, 0, 0 (the red, green, and blue components). Note that the key is enclosed in quotation marks because it contains a space.
+.It Sy write Ar domain 'plist'
 Overwrites the defaults information in
-.I domain_name
+.Ar domain
 with that given as
-.IR domain_rep .
-.I domain_rep
-must be a property list representation of a dictionary,
-and must be enclosed in single quotes.
-For example, this command:
-.PP
-.in +1i
-.nf
-defaults write MyApplication '{ "Default Color" = (255, 0, 0);
-"Default Font" = Helvetica; }'
-.fi
-.PP
-.DT
-.in +0.5i
-erases any previous defaults for MyApplication and
-writes the values for the two names into the defaults system.
-.TP
-.B delete \fIdomain_name\fR
+.Ar plist .
+.Ar plist
+must be a property list representation of a dictionary, and must be enclosed in single quotes.
+For example: 
+.Bd -literal -indent
+defaults write com.companyname.appname '{ "Default Color" = (255, 0, 0);
+				"Default Font" = Helvetica; }';
+.Ed
+.Pp
+erases any previous defaults for com.companyname.appname and writes the values for the two names into the defaults system.
+.It Sy delete Ar domain
 Removes all default information for
-.IR domain_name .
-.TP
-.B delete \fIdomain_name key\fR
+.Ar domain .
+.It Sy delete Ar domain key
 Removes the default named
-.I key
+.Ar key
 from
-.IR domain_name .
-.TP
-.B domains
+.Ar domain .
+.It Sy domains
 Prints the names of all domains in the user's defaults system.
 .TP
-.B find \fIword\fR
-Searches
-for
-.I word
-in the domain names, keys, and values of the user's defaults,
-and prints out a list of matches.
-.TP
-.B help
+.It Sy find Ar word
+Searches for
+.Ar word
+in the domain names, keys, and values of the user's defaults, and prints out a list of matches.
+.It Sy help
 Prints a list of possible command formats.
-.SH "SEE ALSO"
-PropertyList(5)
-.SH BUGS
-Defaults can be structured in very complex ways,
-making it difficult for the user to enter them with this command.
+.Sh BUGS
+Defaults can be structured in very complex ways, making it difficult for the user to enter them with this command.
+.Sh HISTORY
+First appeared in NeXTStep.

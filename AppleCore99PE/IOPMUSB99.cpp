@@ -68,34 +68,6 @@ IOReturn IOPMUSB99::setPowerState ( long powerStateOrdinal, IOService* whatDevic
 
 
 // **********************************************************************************
-// maxCapabilityForDomainState
-//
-// this is incomplete pending completed design of root domain states
-// **********************************************************************************
-unsigned long IOPMUSB99::maxCapabilityForDomainState ( IOPMPowerFlags powerFlags)
-{
-    if ( powerFlags & IOPMPowerOn ) {
-        return  number_of_power_states-1;
-    }
-    return  0;
-}
-
-
-// **********************************************************************************
-// powerStateForDomainState
-//
-// this is incomplete pending completed design of root domain states
-// **********************************************************************************
-unsigned long IOPMUSB99::powerStateForDomainState ( IOPMPowerFlags powerFlags)
-{
-    if ( powerFlags & IOPMPowerOn ) {
-        return  number_of_power_states-1;
-    }
-    return  0;
-}
-
-
-// **********************************************************************************
 // initialPowerStateForDomainState
 //
 // this is incomplete pending completed design of root domain states

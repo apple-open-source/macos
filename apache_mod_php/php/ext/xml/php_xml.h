@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_xml.h,v 1.1.1.3 2001/01/25 05:00:19 wsanchez Exp $ */
+/* $Id: php_xml.h,v 1.1.1.4 2001/07/19 00:20:29 zarzycki Exp $ */
 
 #ifndef PHP_XML_H
 #define PHP_XML_H
@@ -35,8 +35,12 @@ extern zend_module_entry xml_module_entry;
 
 #if defined(HAVE_LIBEXPAT) && defined(PHP_XML_INTERNAL)
 
+#ifdef HAVE_LIBEXPAT2
+#include <expat.h>
+#else
 #include <xmltok.h>
 #include <xmlparse.h>
+#endif
 
 #ifdef PHP_WIN32
 #define PHP_XML_API __declspec(dllexport)
@@ -67,7 +71,10 @@ typedef struct {
 	zval *notationDeclHandler;
 	zval *externalEntityRefHandler;
 	zval *unknownEncodingHandler;
-
+#ifdef HAVE_LIBEXPAT2
+	zval *startNamespaceDeclHandler;
+	zval *endNamespaceDeclHandler;
+#endif
 	zval *object;
 
 	zval *data;
@@ -107,6 +114,9 @@ enum php_xml_option {
 #define XML_MAXLEVEL 255 /* XXX this should be dynamic */
 	
 PHP_FUNCTION(xml_parser_create);
+#ifdef HAVE_LIBEXPAT2
+PHP_FUNCTION(xml_parser_create_ns);
+#endif
 PHP_FUNCTION(xml_set_object);
 PHP_FUNCTION(xml_set_element_handler);
 PHP_FUNCTION(xml_set_character_data_handler);
@@ -115,6 +125,10 @@ PHP_FUNCTION(xml_set_default_handler);
 PHP_FUNCTION(xml_set_unparsed_entity_decl_handler);
 PHP_FUNCTION(xml_set_notation_decl_handler);
 PHP_FUNCTION(xml_set_external_entity_ref_handler);
+#ifdef HAVE_LIBEXPAT2
+PHP_FUNCTION(xml_set_start_namespace_decl_handler);
+PHP_FUNCTION(xml_set_end_namespace_decl_handler);
+#endif
 PHP_FUNCTION(xml_parse);
 PHP_FUNCTION(xml_get_error_code);
 PHP_FUNCTION(xml_error_string);

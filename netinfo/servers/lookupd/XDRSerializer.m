@@ -75,6 +75,7 @@ extern char *nettoa(unsigned long net);
 - (void)encodeInt:(char *)key
 	from:(LUDictionary *)item
 	intoXdr:(XDR *)xdrs
+	default:(int)def
 {
 	char *value;
 	int i;
@@ -82,7 +83,7 @@ extern char *nettoa(unsigned long net);
 	value = [item valueForKey:key];
 	if (value == NULL)
 	{
-		i = 0;
+		i = def;
 		[self encodeInt:i intoXdr:xdrs];
 		return;
 	}
@@ -92,6 +93,13 @@ extern char *nettoa(unsigned long net);
 	{
 		system_log(LOG_WARNING, "xdr_int failed");
 	}
+}
+
+- (void)encodeInt:(char *)key
+	from:(LUDictionary *)item
+	intoXdr:(XDR *)xdrs
+{
+	[self encodeInt:key from:item intoXdr:xdrs default:0];
 }
 
 - (void)encodeIPAddr:(char *)key

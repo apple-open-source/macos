@@ -15,8 +15,7 @@
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
-    NEXTSTEP_COMPILEROPTIONS = "-Wno-four-char-constants"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
     NEXTSTEP_INSTALLDIR = /usr/libexec; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

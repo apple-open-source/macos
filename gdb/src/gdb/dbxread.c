@@ -1285,19 +1285,17 @@ unparse_stabtype (int i)
 static char namebuf[4192];
 
 #define SET_NAMESTRING_PREFIX(prefix)\
-  if (((unsigned int) CUR_SYMBOL_STRX + file_string_table_offset) >=	\
-      DBX_STRINGTAB_SIZE (objfile)) {					\
+  if (((unsigned int) CUR_SYMBOL_STRX + file_string_table_offset) >= DBX_STRINGTAB_SIZE (objfile)) {	\
     complain (&string_table_offset_complaint, symnum);			\
-    namestring = "<bad string table offset>";				\
+    namestring = "[INVALID]";						\
   } else {								\
     char *p = prefix;							\
-    char *s = CUR_SYMBOL_STRX + file_string_table_offset +		\
-		 DBX_STRINGTAB (objfile);				\
-    /* if (s[0] == bfd_get_symbol_leading_char (abfd)) { s++; } */      \
-    if ((p != NULL) && (p[0] != '\0')) {				\
+    char *s = CUR_SYMBOL_STRX + file_string_table_offset + DBX_STRINGTAB (objfile);	\
+    char l = bfd_get_symbol_leading_char (abfd);			\
+    if ((p != NULL) && (p[0] != '\0') && (s[0] == l)) {			\
       assert ((strlen (s) + strlen (p) + 1) < 4096);			\
-      sprintf (namebuf, "%s%s", p, s);        	                	\
-      namestring = namebuf;                                             \
+      sprintf (namebuf, "%c%s%s", l, p, s + 1);      	                \
+      namestring = namebuf;						\
     } else {								\
       namestring = s;							\
     }									\

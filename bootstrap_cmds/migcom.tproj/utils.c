@@ -207,17 +207,17 @@ WriteBogusDefines(file)
 
     fprintf(file, "#ifndef\tUseStaticTemplates\n");
     if (BeAnsiC) {
-        fprintf(file, "#define\tUseStaticTemplates\t1\n");
+        fprintf(file, "#define\tUseStaticTemplates\t0\n");
     } else {
         fprintf(file, "#if\t%s\n", NewCDecl);
-        fprintf(file, "#define\tUseStaticTemplates\t1\n");
+        fprintf(file, "#define\tUseStaticTemplates\t0\n");
         fprintf(file, "#endif\t/* %s */\n", NewCDecl);
     }    
     fprintf(file, "#endif\t/* UseStaticTemplates */\n");
     fprintf(file, "\n");
 
     fprintf(file, "#define _WALIGN_(x) (((x) + %d) & ~%d)\n",
-	    itWordAlign - 1, itWordAlign - 1);
+	    (int)(itWordAlign - 1), (int)(itWordAlign - 1));
     fprintf(file, "#define _WALIGNSZ_(x) _WALIGN_(sizeof(x))\n");
 }
 
@@ -302,10 +302,13 @@ WriteUserVarDecl(file, arg)
     FILE *file;
     argument_t *arg;
 {
-    char *ref = (arg->argByReferenceUser ||
-                 arg->argType->itNativePointer) ? "*" : "";
+    boolean_t pointer = (arg->argByReferenceUser ||arg->argType->itNativePointer);
+    char *ref = (pointer) ? "*" : "";
+    char *cnst = ((IS_VARIABLE_SIZED_UNTYPED(arg->argType) ||
+			arg->argType->itNoOptArray) &&
+			(arg->argFlags & flConst)) ? "const " : "";
 
-    fprintf(file, "\t%s %s%s", arg->argType->itUserType, ref, arg->argVarName);
+    fprintf(file, "\t%s%s %s%s", cnst, arg->argType->itUserType, ref, arg->argVarName);
 }
 
 void
@@ -484,7 +487,7 @@ WriteTemplateKPD_port(file, arg, in)
     register ipc_type_t *it = arg->argType;
 
     fprintf(file, "#if\tUseStaticTemplates\n");
-    fprintf(file, "\tstatic %s %s = {\n", it->itUserKPDType, arg->argTTName);
+    fprintf(file, "\tconst static %s %s = {\n", it->itUserKPDType, arg->argTTName);
 
     fprintf(file, "\t\t/* name = */\t\tMACH_PORT_NULL,\n");
     fprintf(file, "\t\t/* pad1 = */\t\t0,\n");
@@ -506,7 +509,7 @@ WriteTemplateKPD_ool(file, arg, in)
     register ipc_type_t *it = arg->argType;
 
     fprintf(file, "#if\tUseStaticTemplates\n");
-    fprintf(file, "\tstatic %s %s = {\n", it->itUserKPDType, arg->argTTName);
+    fprintf(file, "\tconst static %s %s = {\n", it->itUserKPDType, arg->argTTName);
 
     if (IS_MULTIPLE_KPD(it))
 	it = it->itElement;
@@ -539,7 +542,7 @@ WriteTemplateKPD_oolport(file, arg, in)
     register ipc_type_t *it = arg->argType;
 
     fprintf(file, "#if\tUseStaticTemplates\n");
-    fprintf(file, "\tstatic %s %s = {\n", it->itUserKPDType, arg->argTTName);
+    fprintf(file, "\tconst static %s %s = {\n", it->itUserKPDType, arg->argTTName);
 
     if (IS_MULTIPLE_KPD(it))
 	it = it->itElement;

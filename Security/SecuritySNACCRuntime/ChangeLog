@@ -1,0 +1,761 @@
+Fri Oct 10 13:43:18 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* tcl-asn/makefile, tcl-asn/asnwish.c, tcl-asn/beredit, compiler/core/val-parser.c, tcl-asn/README, c-lib/src/tbl-gen.c, compiler/core/define.c, c++-examples/simple/good-pr.ber, c-examples/simple/good-pr.ber, version.h, README:
+	Corrected bug in generic table decoder wrt. indefinite length elements
+	Corrected compiler access to freed memory (bug reported by Markku Savela)
+	Broke asnwish.c into two pieces so that one can build ones on wish
+	Added beredit tool (based on asnwish, allowes to edit BER messages)
+
+Tue Sep 16 15:05:10 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* tbl-tools/berdecode/berdecode.c: Changed default value of strip to 0.
+
+	* entry.html: Documented current situation
+
+Tue Sep 16 14:57:59 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* README: Proper description of last-minute changes
+
+	* asn1specs/p-rec.asn1, tbl-example/p-rec.ber:
+	Added test for "tag dividable by 128" case.
+
+	* c-lib/src/tbl-enc.c, c-lib/src/tbl-gen.c:
+	Fixed "tag dividable by 128" case.
+	Fixed problem of peeking beyond tag size.
+
+Fri Sep  5 07:15:06 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* tcl-asn/asnwish.c: Picky compiler mods
+
+Thu Sep  4 13:54:10 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* tbl-tools/berdecode/berdecode.c, c++-lib/src/asn-list.C, configure.in:
+	A little more portability
+
+Wed Sep  3 12:50:33 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* compiler/makefile: Shifted parse and lex
+
+	* tcl-asn/makefile, tcl-asn/asnwish.c:
+	Reworked asnwish to neither strip nor encapsulate; instead,
+	buffer reads during decoding incrementally Tcl_Read the channel.
+
+	* c-lib/src/tbl-enc.c, c-lib/src/asn-tag.c:
+	Patch to tag decoding for tags > 2^14 (thanks to Enrico Badella)
+	Patch to TblEncTag to emit final 0x00 if previous octet signals continuation
+
+	* c++-lib/src/asn-tag.C:
+	Patch to tag decoding for tags > 2^14 (thanks to Enrico Badella)
+
+Mon Sep  1 14:21:03 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* compiler/core/err-chk.c: Improved error output in certain cases.
+
+Thu Aug 28 09:48:08 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* README, entry.html, ChangeLog: Added description of changes
+
+	* compiler/core/lex-asn1.l, compiler/core/parse-asn1.y:
+	Reworked number range checking, only gives warning now.
+
+Wed Aug 27 15:56:09 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* tcl-asn/README, tcl-asn/asnwish.c, tcl-asn/makefile, tbl-tools/berdecode/berdecode.c, tbl-tools/berdecode/makefile, tbl-tools/berdecode/README, tbl-tools/makefile, c-lib/src/tbl-dbg.c, c-lib/src/tbl-gen.c, c-lib/inc/tbl-dbg.h, c-lib/inc/tbl-gen.h, c-lib/makefile:
+	Added generic table decoding, debug routines, berdecode, and asnwish.
+
+	* c++-lib/src/asn-bits.C:
+	GetBit now returns 0 or 1, not 0 or <#bit>, even if bool type is emulated.
+
+	* version.h, makefile:
+	Added generic table decoding, debug routines, berdecode, and asnwish.
+
+Thu Jun 19 09:32:22 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* README: Added 1.3b3 change description
+
+	* doc/makefile: Disabled making new doc due to new version string.
+
+	* compiler/boot/tbl.h, compiler/boot/tbl.c, c-lib/boot/tbl.h, c-lib/boot/tbl.c:
+	Remade by make tar
+
+	* version.h: Fixed release date.
+
+	* tbl-tools/ptbl/pasn1.c, compiler/core/lex-asn1.l, compiler/core/parse-asn1.y, compiler/boot/tbl.c, compiler/boot/tbl.h, compiler/core/gen-tbls.c, c-lib/boot/tbl.h, c-lib/src/tbl-util.c, c-lib/boot/tbl.c, asn1specs/tbl.asn1, version.h:
+	Added isPdu flag to tables. Added value range checks during parsing.
+
+Wed May  7 15:20:57 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* README, tbl-tools/ptbl/pasn1.c, compiler/core/gen-tbls.h, compiler/core/snacc.c, c-lib/inc/tbl-incl.h, compiler/core/gen-tbls.c, asn1specs/tbl.asn1, version.h:
+	Added (limited) size constraints, bitstring and enumeration names to tables
+
+	* compiler/back-ends/c-gen/gen-vals.c:
+	Fixed bug in C value string generation.
+
+Mon Apr  7 13:14:16 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* README: Final README for 1.3b1
+
+	* snacc.h: Made more C++ readable (credits to Steve Walker)
+
+Thu Mar 20 15:50:25 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* version.h, README: Push to 1.3b1.
+
+Thu Mar 13 14:48:28 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* compiler/core/parse-asn1.y:
+	Parsed SEQUENCE SIZE(..) OF as SET, corrected.
+
+	* compiler/boot/tbl.h, compiler/boot/tbl.c, compiler/back-ends/idl-gen/gen-code.c, c-lib/src/print.c, c-lib/src/asn-tag.c, c-lib/inc/asn-config.h, c-lib/boot/tbl.h, c-lib/boot/tbl.c, c-lib/boot/asn-useful.h, c-lib/boot/asn-useful.c, c-lib/makefile, c++-lib/makefile, version.h:
+	Improved dependency generation for stupid makedepends.
+	Corrected PeekTag to peek into buffer only as far as necessary.
+	Added installable error handler.
+	Fixed small glitch in idl-code generator (Markku Savela <msa@msa.tte.vtt.fi>).
+
+Mon Mar  3 11:58:34 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* compiler/core/parse-asn1.y, compiler/boot/tbl.c, compiler/boot/tbl.h, compiler/makefile, c-lib/boot/tbl.c, c-lib/boot/tbl.h, c-lib/boot/asn-useful.c, c-lib/boot/asn-useful.h, c++-examples/test-lib/makefile, acconfig.h, makefile, ChangeLog:
+	Final pre-delivery stuff (I hope).
+
+Fri Feb 28 13:43:53 1997  Sebastian Wangnick  <sebastian.wangnick@eurocontrol.be>
+
+	* version.h: New version #.
+
+	* .cvsignore: Added config.cache
+
+	* tcl-lib/snacced.tcl, tcl-example/edex1.asn1, tcl-lib/selbox.tcl, compiler/core/parse-asn1.y, compiler/core/print.c, compiler/back-ends/c-gen/gen-dec.c, compiler/back-ends/c++-gen/gen-code.c, c-lib/src/tbl-util.c, compiler/makefile, c-lib/src/hash.c, c-lib/src/nibble-alloc.c, c-lib/src/tbl-free.c, c-lib/src/asn-real.c, c-lib/src/asn-tag.c, c-lib/inc/asn-any.h, c-lib/inc/hash.h, c-lib/src/asn-any.c, c++-lib/src/tkAppInit.c, c-lib/tbl.h.patch, c++-lib/src/meta.C, c++-lib/src/tcl-if.C, c++-lib/src/asn-oid.C, c++-lib/src/asn-real.C, c++-lib/src/hash.C, c++-lib/src/asn-int.C, c++-lib/src/asn-octs.C, c++-lib/src/asn-bits.C, c++-lib/src/asn-bool.C, c++-lib/src/asn-enum.C, c++-lib/inc/meta.h, c++-lib/src/asn-any.C, c++-examples/test-lib/test-lib.C, c++-lib/inc/hash.h, c++-examples/test-lib/makefile, configure.in, snacc.h, acconfig.h:
+	Modifications collected for new version 1.3: Bug fixes, tk4.2.
+
+Sun Feb 16 22:26:40 1997  rj  <rj@masoms2.mas.hide>
+
+	* README: url corrected
+
+	* c-examples/test-lib/README, c-examples/any/example.c, c-examples/any/README, c++-lib/src/str-stk.C, c++-lib/src/print.C, c++-lib/src/hash.C, c++-lib/src/asn-tag.C, c++-lib/src/asn-len.C, c++-lib/src/asn-bool.C, c++-lib/src/asn-any.C, c++-lib/inc/str-stk.h, c++-lib/inc/print.h, c++-lib/inc/hash.h, c++-lib/inc/asn-type.h, c++-lib/inc/asn-tag.h, c++-lib/inc/asn-real.h, c++-lib/inc/asn-octs.h, c++-lib/inc/asn-list.h, c++-lib/inc/asn-incl.h, c++-lib/inc/asn-buf.h, c++-lib/inc/asn-bits.h, c++-examples/test-lib/README, c++-examples/any/README, asn1specs/ex1.asn1, asn1specs/any.asn1:
+	check-in of a few cosmetic changes
+
+	* README, ChangeLog, version.h: final release of snacc 1.2rj
+
+	* makefile: remove tcl-p when making clobber
+
+	* INITIAL: first check-in
+
+	* tcl-example/.cvsignore: ignore yet two more generated files
+
+	* doc/makefile: typo fixed
+
+	* c++-examples/any/.cvsignore, c-examples/any/.cvsignore:
+	ignore more generated files and directories
+
+	* c++-examples/simple/.cvsignore, c-examples/simple/.cvsignore:
+	ignore generated directories
+
+	* c-examples/test-lib/.cvsignore: ignore yet another generated file
+
+	* tbl-example/.cvsignore: ignore two more generated files
+
+	* tbl-tools/pval/.cvsignore, tbl-tools/ptbl/.cvsignore, tbl-tools/mkchdr/.cvsignore:
+	ignore yet another generated file
+
+	* makefile: correct path to configure script
+
+	* compiler/makefile: snacc is needed to generate the distfiles
+
+	* tcl-example/.cvsignore: ignore more generated files
+
+	* tbl-tools/mkchdr/.cvsignore: ignore yet another generated file
+
+	* tbl-example/.cvsignore, doc/.cvsignore:
+	ignore yet two more generated files
+
+	* doc/.cvsignore: ignore yet another generated file
+
+	* tcl-example/.cvsignore, tbl-tools/pval/.cvsignore, tbl-tools/ptbl/.cvsignore, tbl-tools/mkchdr/.cvsignore, tbl-example/.cvsignore, c-examples/test-lib/.cvsignore:
+	ignore the dependencies file
+
+	* c-examples/snmp/.cvsignore, c-examples/simple/.cvsignore, c-examples/any/.cvsignore, c++-examples/test-lib/.cvsignore, c++-examples/snmp/.cvsignore, c++-examples/simple/.cvsignore, c++-examples/any/.cvsignore:
+	ignore yet another file
+
+	* c++-lib/.cvsignore: ignore generated directories
+
+	* c++-lib/.cvsignore, compiler/.cvsignore:
+	ignore yet another generated file
+
+	* c-lib/.cvsignore: ignore more generated files and directories
+
+	* doc/thisnextafter.tex, doc/misc-defs.tex, doc/list-popup.eps, doc/str-popup.eps, doc/struct.eps, doc/simple.eps, doc/selbox.eps, doc/recur.eps, doc/example.eps, c-lib/tbl.h.patch:
+	first check-in
+
+	* makefile: generate tcl-p before it is needed...
+
+	* configure.in, doc/intro-1.2.tex, c++-lib/makefile, c++-examples/snmp/makefile, c++-examples/simple/makefile, c++-examples/any/makefile:
+	made return *this after calling abort()'' a compile time option.
+
+	* maketail: rule to generate $(TCL-P) added
+
+	* makehead.in, doc/snacc.1, compiler/back-ends/c++-gen/gen-code.h, compiler/back-ends/c++-gen/gen-code.c:
+	made return *this after calling abort()'' a compile time option.
+
+	* compiler/core/snacc.c:
+	made ``return *this after calling abort()'' a compile time option.
+
+	* c++-lib/inc/asn-oid.h: construct in the order the members are defined
+
+	* tcl-example/makefile: remove more generated files
+
+	* compiler/back-ends/c++-gen/gen-code.c:
+	use the TIME_WITH_SYS_TIME flag (checked and generated by configure).
+	return *this after calling abort() for compilers that don't know about this volatile function.
+	comment out unused parameters, the compiler otherwise may complain.
+
+	* compiler/makefile:
+	let make clobber remove the link to install-sh that make made
+	let make clean remove more created files
+
+	* c-lib/makefile:
+	let make clobber remove the link to install-sh that make made
+
+	* c++-lib/src/asn-oid.C: name lookup of \for' scoping
+
+	* c++-lib/inc/asn-null.h: comment out an unused argument
+
+	* c++-lib/inc/asn-len.h: make the unsigned value unsigned :-)
+
+Sun Feb 16 05:22:42 1997  Robert Joop  <rj@rainbow.in-berlin.de>
+
+	* ***** this is the end, my last words on my final snacc release, 1.2rj.10. *****
+
+	* lots of files and directories added to the various .cvsignore files.
+
+	* added a file INITIAL to explain the first steps necessary after
+	an initial cvs checkout.
+
+	* made ``return *this after calling abort()'' a compile time
+ 	option.
+
+	* compiler/back-ends/c++-gen/gen-code.c: comment out unused
+	parameters, the compiler otherwise may complain.
+
+	* compiler/back-ends/c++-gen/gen-code.c: return *this after
+	calling abort() for compilers that don't know about this volatile
+	function.
+
+	* compiler/back-ends/c++-gen/gen-code.c: use the
+ 	TIME_WITH_SYS_TIME flag (checked and generated by configure)
+
+	* changes for new ANSI `for' scoping
+
+Sat Feb 15 19:09:43 1997  Robert Joop  <rj@rainbow.in-berlin.de>
+
+	* configure.in and acconfig.h: check whether the compiler supports
+ 	volatile functions (and whether abort() is volatile). In member
+ 	functions, return *this after calling abort() for those stupid
+ 	compilers (they would otherwise abort with an error).
+
+	* tbl-tools/ and tbl-example/ directoies added.
+
+	* compiler/core/snacc.c: do not silently ignore the -tcl option if
+ 	not compiled for tcl code generation
+
+	* compiler/core/snacc.c: use the TIME_WITH_SYS_TIME flag (checked
+ 	and generated by configure)
+
+	* c++-lib/src/asn-list.C: names of Tcl*-functions fixed (obviously
+ 	they weren't needed :-)
+
+	* c++-lib/inc/tcl-if.h, c++-lib/src/tcl-if.C: `typename' appears
+ 	to be a reserved word in gcc 2.7, so prefix it with `_'
+
+	* c++-lib/src/asn-bits.C: dereferencing pointer to member function
+ 	is neither necessary nor allowed
+
+	* c++-lib/src/asn-type.C: "virtual" removed from functions. (fix
+ 	due to changed C++ language.)
+
+Thu Sep  7 20:21:39 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* deep copying code added to C++ backend generated assignment
+	operators.
+
+	* c-lib/makefile and c++-lib/makefile: asn-useful.asn1 is compiled
+	with the -l 50 option, as recommended by MS in the documentation.
+
+	* compiler/back-ends/c++-gen/kwd.c: bool, true and false are
+	reserved words in new C++ (supported by gcc since version 2.6).
+
+	* new options -mA and -mC for snacc(1) that switch the names used
+	between those defined in the ASN.1 files and those used in the
+	generated C++ code. enum type MetaNameStyle introduced.
+
+	* c++-lib/src/tcl-if.C: duplicate code merged into a new function
+	SnaccTcl::gettypedesc().
+
+	* c++-lib/*: long int replaced by AsnIntType at a lot of
+	places. It shall provide a 32 bit integer type on all platforms.
+	new type introduced: AsnUIntType (32 bit unsigned integer type).
+
+Thu Aug 17 17:01:59 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* c++-lib/*/asn-real.[hC]: recognize and return "±inf" for
+	PLUS-INFINITY/MINUS-INFINITY
+
+	* c++-lib/*/asn-enum.[hC]: AsnEnumTypeDesc gets its own TclGetVal
+	and TclSetVal functions.
+
+	* c++-lib/*/meta.[hC]: introduce an AsnEnumTypeDesc class with its
+	own TclGetDesc2 function that returns the value names but omits
+	the numeric values.
+
+	* c++-lib/src/tcl-if.C &al.: set Tcl's errorCode variable
+
+	* c++-lib/{inc,src}: snacced.[hC] renamed to tcl-if.[hC]. class
+	SnaccEd renamed to SnaccTcl.
+
+	* the PDU flag belongs to the metacode, not only to the tcl
+	interface. (type and variable named adjusted)
+
+Thu Jul 27 10:27:07 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* cpp macro TBL changed to TTBL since some type table code uses
+	TBL as a type name.
+
+	* c++-lib/makefile: make $(TCL-P) if necessary.
+
+	* c++-lib/makefile: actions for stamp-useful rule: call diff only
+	if both input files exist.
+
+	* rfc1155-smi.asn1, rfc1157-snmp.asn1 and rfc1213-mib2.asn1
+	renamed from 1155-smi.asn1, 1157-snmp.asn1 and 1213-mib2.asn1 to
+	accomodate to snacc's new file name generation scheme.
+
+Tue Jul 25 13:35:58 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* policy.h: added switch for (en|dis)abling the compilation of the
+	idl code generator.
+
+	* compiler: PrintConditionalIncludeOpen() and
+	PrintConditionalIncludeClose() moved from
+	back-ends/c-gen/gen-code.[ch] to back-ends/cond.[ch].
+
+	* .../compiler/back-ends/c++-gen/gen-vals.c: use true/false
+	instead of AsnBool::true/false.
+
+	* the compiler is compiled from two files, tbl.h and tbl.c, it
+	generates itself. for bootstrapping purposes, initial versions are
+	supplied with the distribution.
+
+Mon Jul 24 14:26:16 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* .../c++-lib: code extracted from AsnOcts::TclGetVal and
+	AsnOcts::TclSetVal (src/asn-octs.C) into ::debinify and ::binify
+	(src/meta.C).
+
+	* Clone() added to AsnEnum.
+
+	* various C++ files: ``#error "..."'' instead of ``#error ...''
+
+	* c++-lib/*/asn-list.?: operator == and != return bool instead of int.
+
+	* .../maketail: the .C.o default rule now uses CXXFLAGS instead of
+	CFLAGS for compilation.
+
+	* .../c-lib and c++-lib call make recursively to generate the
+	different depencies for all the different makefiles.
+
+	* .../configure looks for tclsh(1)---the tcl-lib uses it to
+	construct the tclIndex file. .../configure doesn't look for Tcl/Tk
+	if the tclsh is absent.
+
+	* .../configure looks for patch(1)---the c-lib uses it to patch
+	tbl.h.
+
+	* .../configure searches for tree-3.6's libtktree.a and sets
+	TREELIBS in .../makehead accordingly.
+
+	* type table tools and the example merged into the distribution:
+	.../tbl-tools/ and .../tbl-example.
+
+	* dummy action added to config.h.in and config.h rules to trick
+	many makes' overoptimization.
+
+	* snacc -h now prints the usage to stdout.
+
+	* bug report address changed to protect an innocent's mailbox :-)
+
+	* .../version.h contains the snacc version---it is included in the
+	compiler source and is used by the .../makefile upon tar-file
+	generation.
+
+	* configure checks for memset(3), memcpy(3) and memcmp(3) and
+	.../snac.h defines replacements using bzero(3), bcopy(3) and
+	bcmp(3) if necessary.
+
+	* .../compiler/core/mem.c: Realloc() now checks realloc(3)'s
+	return value.
+
+	* changed `_' to `-' in file names.
+
+	* file names in .../compiler/back-ends/ have been shortened for
+	redundant parts (e.g. c_gen/gen_c_code -> c_gen/gen_code or
+	c++_gen/c++_kwd -> c++_gen/kwd).
+
+Sun Jul 23 12:51:24 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* an additional type description, AsnAliasTypeDesc, for type
+	definitions of the form ``TypeB ::= TypeA''. see the documentation
+	for further details.
+
+	* allow for more than one PDU per .asn1 file set:
+	- each type description gets a bool flag, pdu.
+	- each type description gets accompanied with a create function
+	that returns a newly allocated object of its mirror type. the type
+	description contains a pointer to this function. the getTclPDU()
+	function is deleted.
+	- compiler/core/meta.h: struct TclPDU becomes a linked list. it
+	gets a flag `used' to detect invalid command line arguments.
+
+	* additional function TclUnsetVal() to delete OPTIONAL members and
+	SEQUENCE OF and SET OF list elements.
+
+	*_getref() gets an additional optional argument, bool
+	create=false, to faciliate the different member access semantics
+	of TclGetVal() and TclSetVal().
+
+	* to accomodate to snacc's new file name generation scheme:
+	-  useful.asn1 renamed to asn-useful.asn1
+	- any-test.[hC] renamed to any.[hC]
+
+	* by default, snacc now derives output file names from the .asn1
+	input file name instead of the module name. a global variable,
+	`keepbaseG', is used to toggle between old and new behaviour.
+
+Sat Jul 22 22:49:25 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* use install-sh instead of install.sh, to prevent `make' implicit
+	rules from creating a file called install from it when there is no
+	makefile.
+
+Mon Feb 20 12:38:00 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* c{,++}_lib/makefile: remove stamp-useful before removing
+	asn_useful.[hcC].
+
+Sun Feb 19 19:13:50 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* some c{,++}_examples/*/makefile: some make(1)s leave a trailing
+	`/' on $(@D). since some mkdir(1)s deny their cooperation with
+	such arguments, this slash has got to be stripped.
+
+Sat Feb 18 14:12:23 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* in a lot of makefiles: dirname(1) and basename(1) do not exist
+	on every system. so we're using $(@D) and $(@F) instead.
+
+	* the code partially relied on big endianess. autoconf is used to
+	(un)define WORDS_BIGENDIAN accordingly and the byte order
+	dependent code parts have been fixed.
+
+	* instead of relying on (sizeof (int) == 4), autoconf now checks
+	some integer sizes and cpp is used to select appropiatly sized
+	integer types.
+
+	* c++_lib/{inc/asn_list.h,src/asn_list.C}: #pragma
+	interface/implementation are GNU specific and need to be wrapped
+	(by #ifdef __GNUG__).
+
+	* configure.in, acconfig.h, misc .C files: added #define
+	HAVE_VARIABLE_SIZED_AUTOMATIC_ARRAYS (we need to check for this
+	since not every C++ compiler provides them.)
+
+	* snacc.h: added #defines GLASS and KHO for wrapping and enabling
+	of project and user specific code, resp.
+
+Fri Feb 17 15:27:31 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* c_examples/simple/README: reflect the test script's integration
+	into the makefile.
+
+	* makehead.in, maketail: added a small hack to find gcc's hidden
+	include directory to pass it to makedepend. this shall enable
+	X11's makedepend to find .h files a little more the way gcc does.
+
+	* configure.in, changes for autoconf 2.x
+
+Mon Feb 13 15:43:10 1995  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* miscelleanous makefiles: make depend builds snacc if and where
+	necessary.
+
+	* makefiles changed to augment CPPFLAGS instead of overriding
+	them.
+
+	* CFLAGS, CXXFLAGS and LDFLAGS moved from the various makefiles to
+	makehead(.in).
+
+	* settings for IEEE_REAL_FMT/IEEE_REAL_LIB moved from
+	{c_lib,c++_lib}/inc/asn_config.h to acconfig.h.
+
+Mon Oct 10 01:59:50 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* compiler/back_ends/c++_gen/gen_c++_code.c: the list functions
+	Append(), Prepend(), InsertBefore() and InsertAfter() now set the
+	current element to the element just inserted.
+
+Sat Oct  8 02:20:20 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* since autoconf substitutes in config.h.bot as well, we can't use
+	it. therefore it has been renamed to snacc.h and it includes the
+	config.h (generated by autoconf/configure) and policy.h (edited by
+	the person who wishes to compile/install/use snacc).
+
+	* the compiler is generated with a file it generates itself. for
+	bootstraping purposes,  an initial version is supplied in the
+	distribution (c_lib/boot/asn_useful.[hc]).
+
+	* to complement the destructors, T::T (const T&) and
+	T &T::operator = (const T &) have been added to override the
+	defaults supplied by the compiler. reason: simple pointer
+	duplication may lead to unreferenced objects and to objects
+	referenced more than once (on which the destructors delete may
+	choke).
+
+	* three bugs in compiler/back_ends/c++_gen/gen_c++_code.c's list
+	functions fixed (IBM ENC detected and fixed it at only place only).
+
+	* at the same places as the below two points: code for a Tcl
+	interface added.
+
+	* c++_lib/*: meta code for the basic types added. (and a little
+	glue code in compiler/core/snacc.c)
+
+	* compiler/back_ends/c++_gen/gen_c++_code.c: code added that (on
+	 request) added meta information to the C++ classes generated.
+
+	* compiler/back_ends/c++_gen/gen_c++_code.c: turned character
+	pointers into constant character arrays.
+
+	* several `unsigned long int' turned into `size_t' (C++ code
+	only).
+
+Thu Oct  6 19:25:31 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* c++_lib/*: virtual inline functions (the destructor and the
+	Clone() function) moved from inc/*.h to src/*.C because g++ turns
+	every one of them into a static non-inline function in every file
+	where the .h file gets included.
+
+Wed Sep 28 12:17:50 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* c++_lib/inc/asn_buf.h: fixed both Copy()'s name and
+	implementation to CopyOut() that always returns the number of
+	bytes copied out instead of 0 in case less than the requested
+	amount is available.
+
+Sat Sep 17 20:07:29 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* compiler/back_ends/c++_gen/gen_c++_code.c: reordered the
+	functions to get rid of their annoying declarations.
+
+Wed Sep 14 00:59:36 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* the constructors should initialize all pointers or else the
+	destructor may delete bogus pointers.
+
+	* c_lib/inc/asn_list.h: is unwise to #define unbalanced if()s!
+
+	* since i was still irritated by cpp standing for c++ and not the
+	C preprocessor, i renamed them to cxx (which is one known suffix
+	for C++ source files). since the standard #define is __cplusplus,
+	cplusplus would have been the more obvious choice, but it is a
+	little too long.
+
+	* made Print() const (and some other, mainly comparison functions).
+
+Thu Sep  1 01:11:17 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* compiler/core/snacc_config.h dissolved into mem.h and
+	snacc_util.h.
+
+	* the empty statement in a
+	    for (...; ...; ...);
+	  has often been overseen; the equivalent
+	    for (...; ...; ...)
+	      ;
+	  has proven to be less error prone.
+
+	* off-topic: cvs and rcs fixed to recognize .C and .asn1 as
+	suffices for C++ and ASN.1 code, respectively.
+
+Wed Aug 31 00:03:22 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* it is a good idea to have every .c file include its
+	corresponding .h file were its functions are declared, because
+	it's a very effictive way to let an ANSI compiler assert that
+	every function is defined with the same number and types of
+	arguments as it is declared with. proof: ParseValues() was
+	declared different than defined (different return type and
+	arguments reversed).
+
+	* for reasons unknown, the compiler files included two of the
+	various almost identical config.h files.
+
+	* compiler/back_ends/c++_gen/gen_c++_code.c: turned the huge
+	inline funtions into normal functions. (the change was actually
+	made by IBM ENC, but wasn't properly marked.) due to their size,
+	these inlines wouldn't get inlined anyway. due to their size they
+	wouldn't offer any speed advantage (the function call overhead
+	diminishes). instead, the compiler generated static functions in
+	every .C file were the .h file is included!  this inflates the .o
+	files and executables real quick (i'm speaking of MBytes per
+	executable).
+
+	* integrating c{,++}_examples:
+	.../simple: test csh-script integrated into makefile.
+
+Mon Aug 29 11:18:11 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* the dependencies have been moved into a separate file that is
+	not under cvs control. otherwise, the makefiles would inflate the
+	repository unnecessarily.
+
+Sun Aug 28 11:18:23 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* config.h defines TRUE/FALSE for C only. for C++, the built-in
+	bool type accompanied by true/false is used. for C++ compilers
+	that don't have bool built-in, an equivalent enum is defined.
+
+	* merged .../tbl_{lib,include}/ with .../c_lib/. changes detected
+	were:
+	- asn_any.h present in c_lib only.
+	- asn_bits.c ...
+	- tbl_*/asn_len.[ch] has an additional function PeekEoc().
+	- tbl_include/asn_list.h has an additonal macro
+	  FOR_REST_LIST_ELMT_RVS() and three additional functions,
+	  GetAsnListElmtIndex(), AsnListFree() and GetAsnListElmt().
+	  tbl_lib/asn_list.c defines only one additional function,
+	  GetAsnListElmt().
+	- asn_oid.h has the same extension as the compiler version.
+	- asn_real.c: the tbl version at two places has
+	    exponent >>= 8;
+	  where the c_lib has
+	    exponent >> 8;
+	  since the latter is a statement without any effect, that's
+	  probably the buggy version...
+	- tbl_*/asn_tag.[hc]: two additional macros, CONSIFY() and
+	  DECONSIFY(), and an additional function, PeekTag().
+	- asn_useful.c: the c_lib version contains two dozen used
+	  variables, so why not use the tbl version?
+	- exp_buf.h ...
+	- files only found in tbl_include: gen_buf.h,
+	  tbl{,_dec,_enc,_free,_gen_c_hdr,_incl,_print,_util}.h.
+	- files only found in tbl_lib: gen_buf.c,
+	  tbl{,_dec,_enc,_free,_print,_util}.c.
+	- sbuf.[hc]: tbl uses functions, c_lib defines cpp macros.
+
+	* modified the makefiles to include depend, install, clean and
+	clobber phony targets following the usual conventions.
+
+	* INSTALL, mkinstalldirs and install.sh copied from autoconf-1.11.
+
+	* 1.0-to-1.1-changes renamed to NEWS. README.changes that starts
+	with a line reading ``Changes between 1.0 and 1.1'' merged into NEWS.
+
+	* collected common code from compiler/core/snacc_config.h,
+	c_lib/inc/asn_config.h and c++_lib/inc/asn_config.h into config.h.bot.
+
+	* adding support for configuration via GNU autoconf:
+	- writing a configure.in, acconfig.h, makehead.in.
+	- replace a lot of macros in the makefiles with an inclusion of a
+	  makehead file generated by configure. since file inclusion has
+	  been a feature supported since UNIX System III, i consider it
+	  pretty portable.
+
+	* first cvs import.
+
+	* inserting RCS keywords as a preparation for cvs import.
+
+Sat Aug 27 11:59:08 1994  Robert Joop  (rj@rainbow.in-berlin.de)
+
+	* fixed the developer's nightmare that for every tiny change,
+	virtually everything was remade.
+
+	* -DFLEX ain't necessary since flex defines FLEX_SCANNER already.
+
+	* renamed asn1.lex to lex-asn1.l and asn1.yacc to parse-asn1.y to
+	take advantage of make's default rules.
+
+	* collision of #define Free() in the compiler's mem.h and a member
+	called Free in c_lib's struct AnyInfo in asn_any.h resolved.
+
+	* changed the directory structure. the content of .../c_lib/ +
+	.../c_include/ was almost identical to that of .../src/c_lib/, so
+	i merged them. .../src/ isn't the only directory containing
+	source, so i renamed it to compiler.  to sum it up:
+
+	old:			new:
+	.../src/back_ends	.../compiler/back_ends
+	.../src			.../compiler/core
+	.../src/c_lib			-> merged with .../c_{lib,include}
+	.../c_lib		.../c_lib/src
+	.../c_include		.../c_lib/inc
+	.../c++_lib		.../c++_lib/src
+	.../c++_include		.../c++_lib/inc
+
+	the differences found between .../src/c_lib/ and
+	.../c_{lib,include}/:
+	- Malloc()/Free() vs. NibbleAlloc()
+	- snacc_config.h partially copied to asn_config.h
+	- for the compiler, struct OID in asn_oid.h contains an additional
+	  member.
+	- the functions AsnListConcat(), AsnListFree() and
+	  GetAsnListElmtIndex() existed in the compiler version only.
+	  the mixture of Asn1Alloc() in combination with Free() and free()
+	  has been unified to using Asn1Free().
+
+	yet another almost identical copy of c_lib/ can be found in
+	.../tbl_{lib,include}/.
+
+	* since the code was quite inconsistent in respect of where lines
+	were broken (many short lines that unbroken are shorter than 72
+	columns were broken, and many long lines were broken into pieces
+	that were much longer than 80 columns), i took the liberty to
+	unify the layout.
+
+	* some international rules of typography:
+	- put a space before an opening parenthesis, and one after a
+	  closing one.
+	- no space after an opening parenthesis, or before a closing one.
+	- no space before punctuation.
+	- one space after punctuation (in some countries two after a full
+	  stop).
+
+	* a space somewhere between function name and first argument helps
+	to see that there are actually two words, not just one. for me,
+	  AlongFunctionName(andanArgument, ...)
+	looks too much like
+	  AlongFunctionNameCandanArgument, ...)
+	and thus i prefer
+	  AlongFunctionName (andanArgument, ...)
+
+	* moved `*' and `&' from the type to the value. that's where C and
+	C++ bind them to!  people are often mislead by this and generate
+	bugs like
+	  char* p1, p2;
+	instead of 
+	  char *p1, *p2;
+	which they really meant. blame K&R, not me :-)
+
+	* removed trailing blank lines. they simply produce blank pages
+	when the file is printed out. some files had got a dozen of them!
+
+	* trailing white space removed. noted here because it might cause
+	problems when someone wants to integrate patches; but vi users
+	hate empty lines that aren't empty because of white space, since
+	it keeps some movement commands from working.
+
+	* one of IBM ENC's changes is the addition of C++ destructors.
+	this change was clearly marked and therefore i removed the
+	#defines.
+
+	* i took the official snacc-1.1 distribution and made a diff(1) to
+	another version modified by IBM ENC. this diff has been merged
+	with the official version using `patch -D _IBM_ENC_`.

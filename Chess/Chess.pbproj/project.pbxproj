@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 34;
 	objects = {
 		0145C6BE000FA8B211CA1586 = {
 			buildStyles = (
@@ -13,7 +13,7 @@
 			isa = PBXProject;
 			mainGroup = 0145C6BF000FA8B211CA1586;
 			productRefGroup = 0145C724000FA8B211CA1586;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				0145C726000FA8B211CA1586,
 			);
@@ -540,6 +540,7 @@
 			refType = 4;
 		};
 		0145C707000FA8B211CA1586 = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = English.lproj/Localizable.strings;
@@ -729,7 +730,6 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers\"";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -737,8 +737,6 @@
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = app;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -1243,11 +1241,22 @@
 			settings = {
 			};
 		};
+//010
+//011
+//012
+//013
+//014
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
 		0A6F9B500019130B11CA14D0 = {
 			buildRules = (
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -1282,6 +1291,16 @@
 			settings = {
 			};
 		};
+//0A0
+//0A1
+//0A2
+//0A3
+//0A4
+//0D0
+//0D1
+//0D2
+//0D3
+//0D4
 		0D378EB900263F6411CA14D0 = {
 			isa = PBXFileReference;
 			path = chess.icns;

@@ -20,29 +20,36 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
 
-SCDStatus
-_SCDOpen(SCDSessionRef *session, CFStringRef name)
+int
+__SCDynamicStoreOpen(SCDynamicStoreRef *store, CFStringRef name)
 {
-	SCDSessionPrivateRef	sessionPrivate;
-
-	SCDLog(LOG_DEBUG, CFSTR("_SCDOpen:"));
-	SCDLog(LOG_DEBUG, CFSTR("  name = %@"), name);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreOpen:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  name = %@"), name);
 
 	/*
 	 * allocate and initialize a new session
 	 */
-	sessionPrivate = (SCDSessionPrivateRef)_SCDSessionCreatePrivate();
-	*session       = (SCDSessionRef)sessionPrivate;
+	*store = __SCDynamicStoreCreatePrivate(NULL, name, NULL, NULL);
 
 	/*
-	 * If necessary, initialize the cache and session data dictionaries
+	 * If necessary, initialize the store and session data dictionaries
 	 */
-	if (cacheData == NULL) {
-		cacheData          = CFDictionaryCreateMutable(NULL,
+	if (storeData == NULL) {
+		storeData          = CFDictionaryCreateMutable(NULL,
 							       0,
 							       &kCFTypeDictionaryKeyCallBacks,
 							       &kCFTypeDictionaryValueCallBacks);
@@ -61,7 +68,7 @@ _SCDOpen(SCDSessionRef *session, CFStringRef name)
 							&kCFTypeSetCallBacks);
 	}
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
@@ -70,28 +77,28 @@ _configopen(mach_port_t			server,
 	    xmlData_t			nameRef,		/* raw XML bytes */
 	    mach_msg_type_number_t	nameLen,
 	    mach_port_t			*newServer,
-	    int				*scd_status)
+	    int				*sc_status)
 {
 	kern_return_t 		status;
 	serverSessionRef	mySession, newSession;
 	CFDataRef		xmlName;	/* name (XML serialized) */
 	CFStringRef		name;		/* name (un-serialized) */
 	CFStringRef		xmlError;
-	mach_port_t             oldNotify;
+	mach_port_t		oldNotify;
 	CFStringRef		sessionKey;
 	CFDictionaryRef		info;
 	CFMutableDictionaryRef	newInfo;
 	CFMachPortRef		mp;
 
-	SCDLog(LOG_DEBUG, CFSTR("Open new session."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Open new session."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/* un-serialize the name */
 	xmlName = CFDataCreate(NULL, nameRef, nameLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)nameRef, nameLen);
 	if (status != KERN_SUCCESS) {
 		CFRelease(xmlName);
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	name = CFPropertyListCreateFromXMLData(NULL,
@@ -99,17 +106,26 @@ _configopen(mach_port_t			server,
 					       kCFPropertyListImmutable,
 					       &xmlError);
 	CFRelease(xmlName);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() name: %s"), xmlError);
-		*scd_status = SCD_FAILED;
+	if (!name) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() name: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+		return KERN_SUCCESS;
+	} else if (!isA_CFString(name)) {
+		CFRelease(name);
+		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
 
 	mySession = getSession(server);
-	if (mySession->session) {
+	if (mySession->store) {
 		CFRelease(name);
-		SCDLog(LOG_DEBUG, CFSTR("  Sorry, this session is already open."));
-		*scd_status = SCD_FAILED;	/* you can't re-open an "open" session */
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  Sorry, this session is already open."));
+		*sc_status = kSCStatusFailed;	/* you can't re-open an "open" session */
 		return KERN_SUCCESS;
 	}
 
@@ -136,12 +152,12 @@ _configopen(mach_port_t			server,
 	newSession->callerEUID = mySession->callerEUID;
 	newSession->callerEGID = mySession->callerEGID;
 
-	*scd_status = _SCDOpen(&newSession->session, name);
+	*sc_status = __SCDynamicStoreOpen(&newSession->store, name);
 
 	/*
 	 * Make the server port accessible to the framework routines.
 	 */
-	((SCDSessionPrivateRef)newSession->session)->server = *newServer;
+	((SCDynamicStorePrivateRef)newSession->store)->server = *newServer;
 
 	/* Request a notification when/if the client dies */
 	status = mach_port_request_notification(mach_task_self(),
@@ -152,19 +168,17 @@ _configopen(mach_port_t			server,
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
 		CFRelease(name);
 		cleanupSession(*newServer);
 		*newServer = MACH_PORT_NULL;
-		*scd_status = SCD_FAILED;
+		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
-       }
-
-#ifdef	DEBUG
-	if (oldNotify != MACH_PORT_NULL) {
-		SCDLog(LOG_DEBUG, CFSTR("_configopen(): why is oldNotify != MACH_PORT_NULL?"));
 	}
-#endif	/* DEBUG */
+
+	if (oldNotify != MACH_PORT_NULL) {
+		SCLog(_configd_verbose, LOG_ERR, CFSTR("_configopen(): why is oldNotify != MACH_PORT_NULL?"));
+	}
 
 	/*
 	 * Save the name of the calling application / plug-in with the session data.

@@ -31,13 +31,15 @@
    
  */
 
-#import "rcz_common.h"
-#import "unistd.h"
+#include "rcz_common.h"
+#include <stdlib.h>
+#include <unistd.h>
 static unsigned short que[QLEN];
  
 #define REWIND	-1
 
 // extern int read(int fd, char *buf, int len);
+extern int  b_lseek(int fdesc, unsigned int addr, int ptr);
 
 static unsigned char *buf;
 static int buf_count;
@@ -115,7 +117,7 @@ rcz_decompress_file(
 {
     unsigned int c, j, k, jmatch, jabove;
     int length;
-    unsigned int even_length, word, token, version;
+    unsigned int even_length, word, token;
     unsigned char *outorigin = out;
 
     length = rcz_file_size(in_fd);

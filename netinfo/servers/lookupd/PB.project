@@ -6,6 +6,7 @@
             Config.m, 
             Controller.m, 
             DNSAgent.m, 
+            DSAgent.m, 
             FFAgent.m, 
             FFParser.m, 
             LDAPAgent_FixedSchema.m, 
@@ -17,7 +18,6 @@
             LUCache.m, 
             LUDictionary.m, 
             LULDAPDictionary.m, 
-            LUNIDomain.m, 
             LUServer.m, 
             MachRPC.m, 
             MemoryWatchdog.m, 
@@ -29,11 +29,14 @@
             YPAgent.m
         ); 
         C_FILES = (); 
+        FRAMEWORKS = (DirectoryService.framework, NetInfo.framework); 
+        FRAMEWORKSEARCH = ("$(DSTROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"); 
         H_FILES = (
             CacheAgent.h, 
             Config.h, 
             Controller.h, 
             DNSAgent.h, 
+            DSAgent.h, 
             FFAgent.h, 
             FFParser.h, 
             LDAPAgent_FixedSchema.h, 
@@ -41,14 +44,13 @@
             LDAPAgent.h, 
             LDAPAttributes.h, 
             LUAgent.h, 
-            LUArray_LDAP.h, 
             LUArray.h, 
+            LUArray_LDAP.h, 
             LUCache.h, 
             LUCachedDictionary.h, 
             LUDictionary.h, 
             LUGlobal.h, 
             LULDAPDictionary.h, 
-            LUNIDomain.h, 
             LUPrivate.h, 
             LUServer.h, 
             MachRPC.h, 
@@ -130,6 +132,7 @@
             lookupd.8, 
             _lu_types.x
         ); 
+        PROJECT_HEADERS = (); 
         SUBPROJECTS = (); 
     }; 
     GENERATEMAIN = YES; 

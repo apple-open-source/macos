@@ -1,0 +1,13 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+SECURITYSERVER=-YES-	# needs to be put into /etc/hostconfig
+
+if [ "$SECURITYSERVER" != "-NO-" ]; then
+  ConsoleMessage "Starting SecurityServer"
+  export DEBUGDEST=LOG_AUTHPRIV
+  /System/Library/CoreServices/SecurityServer
+else
+  ConsoleMessage "SecurityServer disabled"
+fi

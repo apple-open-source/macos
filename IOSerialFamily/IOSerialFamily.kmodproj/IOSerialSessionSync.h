@@ -63,6 +63,8 @@ public:
     virtual IOReturn acquireAudit(bool sleep);
     virtual IOReturn acquirePort(bool sleep);
     virtual IOReturn releasePort();
+    virtual IOReturn stopPort();
+
     virtual IOReturn setState(UInt32 state, UInt32 mask);
     virtual UInt32   getState();
     virtual IOReturn watchState(UInt32 *state, UInt32 mask);

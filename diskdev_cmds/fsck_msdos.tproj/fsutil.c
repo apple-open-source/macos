@@ -193,6 +193,9 @@ pwarn(va_alist)
 	va_end(ap);
 }
 
+#ifdef __APPLE__
+__private_extern__
+#endif
 void
 perror(s)
 	const char *s;
@@ -200,6 +203,9 @@ perror(s)
 	pfatal("%s (%s)", s, strerror(errno));
 }
 
+#ifdef __APPLE__
+__private_extern__
+#endif
 void
 #if __STDC__
 panic(const char *fmt, ...)

@@ -1,58 +1,63 @@
 #!/bin/sh
 ## ====================================================================
-## Copyright (c) 1995-1999 The Apache Group.  All rights reserved.
+## The Apache Software License, Version 1.1
+##
+## Copyright (c) 2000 The Apache Software Foundation.  All rights
+## reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions
 ## are met:
 ##
 ## 1. Redistributions of source code must retain the above copyright
-##    notice, this list of conditions and the following disclaimer. 
+##    notice, this list of conditions and the following disclaimer.
 ##
 ## 2. Redistributions in binary form must reproduce the above copyright
 ##    notice, this list of conditions and the following disclaimer in
 ##    the documentation and/or other materials provided with the
 ##    distribution.
 ##
-## 3. All advertising materials mentioning features or use of this
-##    software must display the following acknowledgment:
-##    "This product includes software developed by the Apache Group
-##    for use in the Apache HTTP server project (http://www.apache.org/)."
+## 3. The end-user documentation included with the redistribution,
+##    if any, must include the following acknowledgment:
+##       "This product includes software developed by the
+##        Apache Software Foundation (http://www.apache.org/)."
+##    Alternately, this acknowledgment may appear in the software itself,
+##    if and wherever such third-party acknowledgments normally appear.
 ##
-## 4. The names "Apache Server" and "Apache Group" must not be used to
-##    endorse or promote products derived from this software without
-##    prior written permission. For written permission, please contact
-##    apache@apache.org.
+## 4. The names "Apache" and "Apache Software Foundation" must
+##    not be used to endorse or promote products derived from this
+##    software without prior written permission. For written
+##    permission, please contact apache@apache.org.
 ##
-## 5. Products derived from this software may not be called "Apache"
-##    nor may "Apache" appear in their names without prior written
-##    permission of the Apache Group.
+## 5. Products derived from this software may not be called "Apache",
+##    nor may "Apache" appear in their name, without prior written
+##    permission of the Apache Software Foundation.
 ##
-## 6. Redistributions of any form whatsoever must retain the following
-##    acknowledgment:
-##    "This product includes software developed by the Apache Group
-##    for use in the Apache HTTP server project (http://www.apache.org/)."
-##
-## THIS SOFTWARE IS PROVIDED BY THE APACHE GROUP ``AS IS'' AND ANY
-## EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-## IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-## PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE APACHE GROUP OR
+## THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+## WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+## OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+## DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
 ## ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-## SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-## NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-## LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-## HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-## STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-## OF THE POSSIBILITY OF SUCH DAMAGE.
+## SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+## LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+## USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+## ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+## OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+## OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+## SUCH DAMAGE.
 ## ====================================================================
 ##
 ## This software consists of voluntary contributions made by many
-## individuals on behalf of the Apache Group and was originally based
-## on public domain software written at the National Center for
-## Supercomputing Applications, University of Illinois, Urbana-Champaign.
-## For more information on the Apache Group and the Apache HTTP server
-## project, please see <http://www.apache.org/>.
+## individuals on behalf of the Apache Software Foundation.  For more
+## information on the Apache Software Foundation, please see
+## <http://www.apache.org/>.
+##
+## Portions of this software are based upon public domain software
+## originally written at the National Center for Supercomputing Applications,
+## University of Illinois, Urbana-Champaign.
+##
+
+
 
 # Uses 6 supplemental scripts located in ./helpers:
 #	CutRule: Determines the value for a specified Rule
@@ -429,10 +434,17 @@ case "$PLAT" in
 	    CFLAGS="$CFLAGS -DIRIX"
 	fi
 	;;
-    *-linux2)
+    *-linux20)
 	DEF_WANTHSREGEX=yes
 	OS='Linux'
-	CFLAGS="$CFLAGS -DLINUX=2"
+	CFLAGS="$CFLAGS -DLINUX=20"
+	LIBS="$LIBS -lm"
+	;;
+    *-linux22)
+        # This handles linux 2.2 and above (2.4, ...)
+	DEF_WANTHSREGEX=yes
+	OS='Linux'
+	CFLAGS="$CFLAGS -DLINUX=22"
 	LIBS="$LIBS -lm"
 	;;
     *-GNU*)
@@ -608,7 +620,7 @@ case "$PLAT" in
     *-unixware7)
 	OS='UnixWare 7'
 	CFLAGS="$CFLAGS -DUW=700"
-	LIBS="$LIBS -lsocket -lnsl -lcrypt -lgen"
+	LIBS="$LIBS -lsocket -lnsl -lcrypt -lgen -lresolv"
 	DBM_LIB=""
 	;;
     maxion-*-sysv4*)
@@ -777,8 +789,18 @@ case "$PLAT" in
 	DEF_WANTHSREGEX=yes
 	;;
     *-BeOS*)
-	OS='BeOS';
-	CFLAGS="$CFLAGS -DBEOS"
+	PLATOSVER=`uname -r`
+        case "$PLATOSVER" in
+            5.1*)
+                OS="BeOS BONE"
+                LIBS="-lbind -lsocket -lbe -lroot"
+                CFLAGS="$CFLAGS -DBONE"
+                ;;
+            *)
+                OS='BeOS';
+	        CFLAGS="$CFLAGS -DBEOS"
+                ;;
+        esac
 	DEF_WANTHSREGEX=yes
 	;;
     4850-*.*)
@@ -813,6 +835,13 @@ case "$PLAT" in
        DEF_WANTHSREGEX=yes
        LIBS="$LIBS"
        ;;
+    *-cygwin*)
+	OS='Cygwin'
+	OSDIR="os/cygwin"
+	CFLAGS="$CFLAGS -DCYGWIN"
+	DEF_WANTHSREGEX=yes
+	LIBS="$LIBS -lcrypt"
+	;;
     *) # default: Catch systems we don't know about
 	OS='Unknown and unsupported OS'
     	echo Sorry, but we cannot grok \"$PLAT\"
@@ -828,7 +857,7 @@ case "$PLAT" in
 	uname -X
 	echo Ideally, read the file PORTING, do what it says, and send the
 	echo resulting patches to The Apache Group by filling out a report
-	echo form at http://www.apache.org/bug_report.html. If you don\'t 
+	echo form at http://bugs.apache.org/.  If you don\'t 
 	echo wish to do the port yourself, please submit this output rather 
 	echo than the patches. Thank you.
 	echo
@@ -1039,7 +1068,7 @@ if [ "x$using_shlib" = "x1" ] ; then
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    LDFLAGS_SHLIB_EXPORT="-rdynamic"
 	    ;;
-	*-linux2)
+	*-linux2*)
 		LD_SHLIB="gcc"
 	    CFLAGS_SHLIB="-fpic"
 	    LDFLAGS_SHLIB="-shared"
@@ -1070,11 +1099,20 @@ if [ "x$using_shlib" = "x1" ] ; then
 	    fi  
 	    ;;
 	*-openbsd*)
+	    PLATOSVERS=`echo $PLAT | sed 's/^.*openbsd//'`
 	    CFLAGS_SHLIB="-fPIC"
-	    LDFLAGS_SHLIB="-Bforcearchive -Bshareable"
-	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    LDFLAGS_SHLIB_EXPORT=""
 	    SHLIB_SUFFIX_DEPTH=2
+	    case "$PLATOSVERS" in
+		[01].*|2.[0-7]|2.[0-7].*)
+		   LDFLAGS_SHLIB="-Bshareable"
+		;;
+		*)
+		   LD_SHLIB="gcc"
+		   LDFLAGS_SHLIB="-shared \$(CFLAGS_SHLIB)"
+		;;
+	    esac
+	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    ;;
 	*-netbsd*)
 	    CFLAGS_SHLIB="-fPIC -DPIC"
@@ -1107,10 +1145,18 @@ if [ "x$using_shlib" = "x1" ] ; then
  	    LDFLAGS_SHLIB_EXPORT=''
  	    SHLIB_SUFFIX_DEPTH=0
  	    ;;
-	*-apple-rhapsody* | *-apple-darwin* )
+	*-apple-rhapsody*)
 	    LD_SHLIB="cc"
 	    CFLAGS_SHLIB=""
 	    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -undefined suppress'
+	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
+	    LDFLAGS_SHLIB_EXPORT=""
+	    SHLIB_SUFFIX_DEPTH=0
+	    ;;
+	*-apple-darwin*)
+	    LD_SHLIB="cc"
+	    CFLAGS_SHLIB=""
+	    LDFLAGS_SHLIB='$(EXTRA_LDFLAGS) -bundle -bundle_loader /usr/sbin/httpd'
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    LDFLAGS_SHLIB_EXPORT=""
 	    SHLIB_SUFFIX_DEPTH=0
@@ -1347,6 +1393,19 @@ if [ "x$using_shlib" = "x1" ] ; then
 	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
 	    LDFLAGS_SHLIB_EXPORT=""
             ;;
+	*-cygwin*)
+	    DEF_SHARED_CORE=yes
+	    LDFLAGS_SHLIB="-g"
+	    LDFLAGS_MOD_SHLIB=$LDFLAGS_SHLIB
+	    SHLIB_SUFFIX_NAME=dll
+	    SHLIB_SUFFIX_DEPTH=0
+	    DLL_IMPORT_LIB='lib$(TARGET).a'
+	    DLL_IMPORT_DEF='lib$(TARGET).def'
+	    LD_SHLIB='dllwrap --export-all --output-def $(DLL_IMPORT_DEF) --implib $(DLL_IMPORT_LIB) --driver-name $(CC)'
+	    LD_SHCORE_LIBS='$(LIBS)'
+	    LIBS_SHLIB='$(EXTRA_LIBS)'
+	    SHARED_CORE_EP=''
+	    ;;
 	*)
 	    ##  ok, no known explict support for shared objects
 	    ##  on this platform, but we give not up immediately.
@@ -1383,7 +1442,7 @@ if [ "x$using_shlib" = "x1" ] ; then
 		    echo "** for creating shared objects from your Perl installation."
 		    echo "** If they actually work, please send the following information"
 		    echo "** for inclusion into later releases to new-httpd@apache.org or make"
-		    echo "** a suggestion report at http://www.apache.org/bug_report.html:"
+		    echo "** a suggestion report at http://bugs.apache.org/:"
 		    echo "**     PLATFORM=$PLAT"
 		    echo "**     CFLAGS_SHLIB=$CFLAGS_SHLIB"
 		    echo "**     LDFLAGS_SHLIB=$LDFLAGS_SHLIB"
@@ -1824,7 +1883,11 @@ if [ "x$using_shlib" = "x1" ] ; then
 	RULE_SHARED_CORE=$DEF_SHARED_CORE
     fi
     if [ "x$RULE_SHARED_CORE" = "xyes" ]; then
-	echo " + enabling generation of Apache core as DSO"
+	DSO_STRING="DSO"
+	if [ "$OS" = "Cygwin" ]; then
+	    DSO_STRING="DLL"
+	fi
+	echo " + enabling generation of Apache core as $DSO_STRING"
 	#    shuffle compiler flags from shlib variant to standard
 	CFLAGS="$CFLAGS $CFLAGS_SHLIB"
 	CFLAGS_SHLIB=""
@@ -1833,7 +1896,7 @@ if [ "x$using_shlib" = "x1" ] ; then
 	#    select the special subtarget for shared core generation
 	SUBTARGET=target_shared
 	#    determine additional suffixes for libhttpd.so
-	V=1 R=3 P=14
+	V=1 R=3 P=20
 	if [ "x$SHLIB_SUFFIX_DEPTH" = "x0" ]; then
 	    SHLIB_SUFFIX_LIST=""
 	fi
@@ -1867,6 +1930,12 @@ fi
 if [ "x$using_shlib" = "x1" ] ; then
     if [ "x$TCFLAGS_SHLIB" = "x" ]; then
 	echo "CFLAGS_SHLIB=$CFLAGS_SHLIB -DSHARED_MODULE" >> Makefile.config
+    fi
+    if [ "x$TDLL_IMPORT_DEF" = "x" ]; then
+	echo "DLL_IMPORT_DEF=$DLL_IMPORT_DEF" >> Makefile.config
+    fi
+    if [ "x$TDLL_IMPORT_LIB" = "x" ]; then
+	echo "DLL_IMPORT_LIB=$DLL_IMPORT_LIB" >> Makefile.config
     fi
     if [ "x$TLD_SHLIB" = "x" ]; then
 	echo "LD_SHLIB=$LD_SHLIB" >> Makefile.config
@@ -2129,6 +2198,41 @@ echo "#endif" >>$AP_CONFIG_AUTO_H
 ####################################################################
 ## More building ap_config_auto.h
 ##
+## Check for availability of isinf() and isnan()
+##
+if ./helpers/TestCompile func isinf ; then
+    echo "" >>$AP_CONFIG_AUTO_H
+    echo "/* determine: isinf() found in libc */ " >>$AP_CONFIG_AUTO_H
+    echo "#ifndef HAVE_ISINF" >>$AP_CONFIG_AUTO_H
+    echo "#define HAVE_ISINF 1" >>$AP_CONFIG_AUTO_H
+    echo "#endif" >>$AP_CONFIG_AUTO_H
+elif ./helpers/TestCompile lib m isinf ; then
+    echo "" >>$AP_CONFIG_AUTO_H
+    echo "/* determine: isinf() found in libm */ " >>$AP_CONFIG_AUTO_H
+    echo "#ifndef HAVE_ISINF" >>$AP_CONFIG_AUTO_H
+    echo "#define HAVE_ISINF 1" >>$AP_CONFIG_AUTO_H
+    echo "#endif" >>$AP_CONFIG_AUTO_H
+    LIBS="$LIBS -lm"
+    ADDED_LM="yes"
+fi
+
+if ./helpers/TestCompile func isnan ; then
+    echo "" >>$AP_CONFIG_AUTO_H
+    echo "/* determine: isnan() found in libc */ " >>$AP_CONFIG_AUTO_H
+    echo "#ifndef HAVE_ISNAN" >>$AP_CONFIG_AUTO_H
+    echo "#define HAVE_ISNAN 1" >>$AP_CONFIG_AUTO_H
+    echo "#endif" >>$AP_CONFIG_AUTO_H
+elif ./helpers/TestCompile lib m isnan ; then
+    echo "" >>$AP_CONFIG_AUTO_H
+    echo "/* determine: isnan() found in libm */ " >>$AP_CONFIG_AUTO_H
+    echo "#ifndef HAVE_ISNAN" >>$AP_CONFIG_AUTO_H
+    echo "#define HAVE_ISNAN 1" >>$AP_CONFIG_AUTO_H
+    echo "#endif" >>$AP_CONFIG_AUTO_H
+    if [ "x$ADDED_LM" != "xyes" ]; then
+        LIBS="$LIBS -lm"
+    fi
+fi
+
 ## We check for the endianess of the machine
 ##
 AP_BYTE_ORDER=`./helpers/TestCompile -r byteorder`

@@ -145,10 +145,8 @@ main(argc, argv)
 	else
 		termwidth = ws.ws_col - 1;
 
-        /* Go through and parse all of the arguments */
-        for (i = 1; i < argc; i++) {
-          argv[i] = kludge_oldps_options(argv[i]);
-        }
+	if( argc > 1 )
+		argv[1] = kludge_oldps_options(argv[1]);
 
 	all = fmt = prtheader = wflag = xflg = 0;
 	pid = -1;

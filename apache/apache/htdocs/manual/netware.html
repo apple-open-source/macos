@@ -43,7 +43,7 @@ to help with development, or to track down bugs), see the section on
   <LI><A HREF="#down">Downloading Apache for NetWare</A>
   <LI><A HREF="#inst">Installing Apache for NetWare</A>
   <LI><A HREF="#run">Running Apache for NetWare</A>
-  <LI><A HREF="#use">Using Apache for NetWare</A>
+  <LI><A HREF="#use">Configuring Apache for NetWare</A>
   <LI><A HREF="#comp">Compiling Apache for NetWare</A>
 </UL>
 
@@ -73,23 +73,36 @@ There is no Apache install program for NetWare currently.  You will need
 to compile apache and copy the files over to the server manually.  An
 install program will be posted at a later date.
 <P>
-Follow these steps to install Apache on NetWare (assuming you will install to sys:/apache):
+Follow these steps to install Apache on NetWare from the binary download (assuming you will install to sys:/apache):
+
+<UL>
+  <LI>Unzip the binary download file to the root of the SYS: volume (may be
+    installed to any volume)
+  <LI>Edit the httpd.conf file setting ServerRoot and ServerName to reflect your correct
+      server settings
+  <LI>Add SYS:/APACHE to the search path.  EXAMPLE: SEARCH ADD SYS:\APACHE
+</UL>
+
+<P>
+Follow these steps to install Apache on NetWare manually from your own build
+source (assuming you will install to sys:/apache):
 
 <UL>
   <LI>Create a directory called <CODE>Apache</CODE> on a NetWare volume
   <LI>Copy Apache.nlm, Apachec.nlm, htdigest.nlm, and htpasswd.nlm to sys:/apache
-  <LI>Create a directory under <CODE>sys:/Apache</CODE> called <CODE>conf</CODE>
-  <LI>Copy all the *.conf-dist-nw files to the <CODE>sys:/apache/conf</CODE> directory
-      and rename them all as *.conf files
-  <LI>Copy the mime.types and magic files to sys:/apache/conf directory
-  <LI>Copy all files and subdirectories in \apache-1.3\icons to sys:/apache/icons
-  <LI>Create the directory sys:/apache/logs on the server
-  <LI>Create the directory sys:/apache/cgi-bin on the server
-  <LI>Create the directory sys:/apache/modules and copy all nlm modules built into the
+  <LI>Create a directory under SYS:/APACHE called CONF
+  <LI>Copy all the *.CONF-DIST-NW files to the SYS:/APACHE/CONF directory
+      and rename them all as *.CONF files
+  <LI>Copy the MIME.TYPES and magic files to SYS:/APACHE/CONF directory
+  <LI>Copy all files and subdirectories in \apache-1.3\icons to
+    SYS:/APACHE/ICONS
+  <LI>Create the directory SYS:/APACHE/LOGS on the server
+  <LI>Create the directory SYS:/APACHE/CGI-BIN on the server
+  <LI>Create the directory SYS:/APACHE/MODULES and copy all nlm modules built into the
       modules directory
-  <LI>Edit the httpd.conf file setting ServerRoot and ServerName to reflect your correct
+  <LI>Edit the HTTPD.CONF file setting ServerRoot and ServerName to reflect your correct
       server settings
-  <LI>Add <CODE>sys:/apache</CODE> to the search path.  EXAMPLE: search add sys:\apache
+  <LI>Add SYS:/APACHE to the search path.  EXAMPLE: SEARCH ADD SYS:\APACHE
 </UL>
 
 <P>Apache may be installed to other volumes besides the default <CODE>sys</CODE> volume.
@@ -100,9 +113,7 @@ To start Apache just type <STRONG>apache</STRONG> at the console.  This
 will load apache in the OS address space.  If you prefer to load
 Apache in a protected address space you may specify the address space
 with the load statement as follows:
-<P>
-<PRE>
-    load address space = apache apache
+<PRE>    load address space = apache apache
 </PRE>
 <P>
 This will load Apache into an address space called apache. Running multiple instances
@@ -145,7 +156,7 @@ in two ways:
 <UL>
 <LI>-f specifies a path to a particular configuration file
 </UL>
-<PRE>    apache -f "vol:/my server/conf/my.conf"</PRE>
+<PRE>    apache -f &quot;vol:/my server/conf/my.conf&quot;</PRE>
 <PRE>    apache -f test/test.conf</PRE>
 
 In these cases, the proper ServerRoot should be set in the configuration file.
@@ -214,7 +225,7 @@ The main differences in Apache for NetWare are:
       uses Unix-style names internally, you must use forward slashes, not
       backslashes. Volumes can be used; if omitted, the drive with the
       Apache executable will be assumed.</P>
-  <LI><P>Apache for NetWare contains the ability to load modules at runtime,
+  <LI><P>Apache for NetWare has the ability to load modules at runtime,
       without recompiling the server. If Apache is compiled normally, it
       will install a number of optional modules in the
       <CODE>\Apache\modules</CODE> directory. To activate these, or other
@@ -231,7 +242,7 @@ The main differences in Apache for NetWare are:
 
 <H2><A NAME="comp">Compiling Apache for NetWare</A></H2>
 
-<P>Compiling Apache requires MetroWerks CodeWarrior 5 to be properly
+<P>Compiling Apache requires MetroWerks CodeWarrior 4.04 or higher to be properly
    installed. 
    
 <P>First, unpack the Apache distribution into an appropriate

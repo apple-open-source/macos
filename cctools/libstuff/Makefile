@@ -1,8 +1,16 @@
 OFLAG = -O
+ifeq "macos" "$(RC_OS)"
+  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
+			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
+			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
+			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
+	     echo -Wno-long-double ; \
+	     fi; )
+endif
 ifeq "mwcc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include
 else
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall -Wno-precomp
+  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall -Wno-precomp $(X_CFLAGS)
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"

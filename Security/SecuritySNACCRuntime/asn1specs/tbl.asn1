@@ -1,0 +1,171 @@
+-- .../asn1specs/tbl.asn1
+--
+--  TBL types describe ASN.1 data structures.
+--  These can be used in generic, interpretive encoders/decoders.
+--  Interpretive decoders are typically slower, but don't eat memory
+--  with type-specific encoding and decoding code.
+--  The tbl types can also be sent over the network
+--  and allow dynamic re-configuration of encoders/decoders.
+--
+--  To understand how this type table structure is used
+--  look in:
+--      1. .../compiler/core/gen-tbls.c
+--           this will show you how various things are generated
+--           from the big parse tree (asn1module.asn1).
+--           Pay particular attention to the typeDefId use
+--
+--      2.  look in .../c-lib/makefile for an example of how you can
+--          modify the tbl.h file generated from this module to suit
+--          your own needs.
+--
+--      3.  look in .../tbl-tools/ptbl/pasn1.c to see how the
+--          TBL data struct relates to the original ASN.1
+--
+--
+--
+--  Mike Sample, April 11, 1992
+--  Mods MS Feb 7/93
+--
+-- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/asn1specs/tbl.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+-- $Log: tbl.asn1,v $
+-- Revision 1.1.1.1  2001/05/18 23:14:05  mb
+-- Move from private repository to open source repository
+--
+-- Revision 1.1.1.1  1999/03/16 18:05:56  aram
+-- Originals from SMIME Free Library.
+--
+-- Revision 1.5  1997/06/19 09:17:13  wan
+-- Added isPdu flag to tables. Added value range checks during parsing.
+--
+-- Revision 1.4  1997/05/07 15:18:33  wan
+-- Added (limited) size constraints, bitstring and enumeration names to tables
+--
+-- Revision 1.3  1995/07/25 19:56:00  rj
+-- introductory comments adjusted to match changed file names.
+--
+-- changed `_' to `-' in file names.
+--
+-- Revision 1.2  1994/08/28  09:54:18  rj
+-- comment leader fixed.
+--
+-- Revision 1.1  1994/08/28  09:51:14  rj
+-- first check-in.
+
+TBL DEFINITIONS ::=
+BEGIN
+
+
+-- imports nothing
+-- exports nothing
+
+TBL ::= --snacc isPdu:"TRUE" -- SEQUENCE
+{
+   totalNumModules  INTEGER,  -- these totals can help allocation
+   totalNumTypeDefs INTEGER,  -- when decoding (ie use arrays)
+   totalNumTypes    INTEGER,
+   totalNumTags     INTEGER,
+   totalNumStrings  INTEGER,
+   totalLenStrings  INTEGER,
+   modules SEQUENCE OF TBLModule
+}
+
+TBLModule ::= SEQUENCE
+{
+    name     [0] IMPLICIT PrintableString,
+    id       [1] IMPLICIT OBJECT IDENTIFIER OPTIONAL,
+    isUseful [2] IMPLICIT BOOLEAN, -- true if useful types module
+    typeDefs [3] IMPLICIT SEQUENCE OF TBLTypeDef
+}
+
+--
+-- The typedefId is just an integer that uniquely identifies
+-- each TBLTypeDef (type references use these as "pointers").
+-- The typeDefId's in each module will have consecutive type ids.
+-- The first typedef in a module will have the lowest Id and the
+-- last typedef will have the highest.  Thus if the first typedef
+-- in a module has the id of 12 and the last typedef in that module
+-- has  the id of 27, the module contains the typdefs in the range
+-- 12..27 (inclusive).  This can be used  to re-compute the
+-- IMPORT information for modules in a type table.
+--
+-- (The LoadTBL routine hides this integer/ptr crap from the user
+-- by adding real pointers to the tbl.h data structures where useful.
+-- When loading, the typeDefIds are converted into these real ptrs)
+--
+TBLTypeDef ::= SEQUENCE
+{
+   typeDefId TBLTypeDefId,
+   typeName  PrintableString, -- OPTIONAL, I have forgotten why this is opt!
+                                        -- I can see no good reason for it
+   type      TBLType,
+   isPdu     NULL OPTIONAL
+}
+
+TBLType ::= SEQUENCE
+{
+   typeId    [0] IMPLICIT TBLTypeId,
+   optional  [1] IMPLICIT BOOLEAN,
+   tagList   [2] IMPLICIT SEQUENCE OF TBLTag OPTIONAL,
+   content   [3] TBLTypeContent,
+   fieldName [4] IMPLICIT PrintableString OPTIONAL,
+   constraint[5] IMPLICIT TBLRange OPTIONAL,
+   values    [6] IMPLICIT TBLNamedNumberList OPTIONAL
+}
+
+TBLRange ::= SEQUENCE
+{
+    from [0] IMPLICIT INTEGER,
+    to [1] IMPLICIT INTEGER
+}
+
+TBLNamedNumberList ::= SEQUENCE OF TBLNamedNumber
+
+TBLNamedNumber ::= SEQUENCE
+{
+    name [0] IMPLICIT PrintableString,
+    value [1] IMPLICIT INTEGER
+}
+
+TBLTypeContent ::= CHOICE
+{
+   primType [0] IMPLICIT NULL,
+   elmts    [1] IMPLICIT SEQUENCE OF TBLType,
+   typeRef  [2] IMPLICIT TBLTypeRef
+}
+
+TBLTypeRef ::= SEQUENCE
+{
+    typeDef TBLTypeDefId,
+    implicit BOOLEAN
+}
+
+TBLTypeId ::= ENUMERATED
+{
+    tbl-boolean (0),
+    tbl-integer (1),
+    tbl-bitstring (2),
+    tbl-octetstring (3),
+    tbl-null (4),
+    tbl-oid (5),
+    tbl-real (6),
+    tbl-enumerated (7),
+    tbl-sequence (8),
+    tbl-set (9),
+    tbl-sequenceof (10),
+    tbl-setof (11),
+    tbl-choice (12),
+    tbl-typeref (13)
+}
+
+TBLTypeDefId ::= INTEGER
+
+TBLTag ::= SEQUENCE
+{
+    tclass TBLTagClass,
+    code INTEGER (0..MAX)
+}
+
+TBLTagClass ::=  ENUMERATED { universal (0), application (1),
+                             context (2), private (3) }
+
+END

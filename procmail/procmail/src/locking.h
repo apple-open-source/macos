@@ -1,10 +1,10 @@
-/*$Id: locking.h,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: locking.h,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $*/
 
 void
- lockit P((char*name,char**const lockp)),
- lcllock P((void)),
  unlock P((char**const lockp));
 int
+ lockit P((char*name,char**const lockp)),
+ lcllock P((const char*const noext,const char*const withext)),
  xcreat Q((const char*const name,const mode_t mode,time_t*const tim,
   const chownit));
 
@@ -21,3 +21,5 @@ int
  fdlock P((int fd)),
  fdunlock P((void));
 #endif
+
+extern char*globlock;

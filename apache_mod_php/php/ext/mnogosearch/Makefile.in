@@ -1,0 +1,9 @@
+# $Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/Makefile.in,v $
+# $Id: Makefile.in,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $
+
+LTLIBRARY_NAME    = libmnogosearch.la
+LTLIBRARY_SOURCES = php_mnogo.c
+LTLIBRARY_SHARED_NAME = mnogosearch.la
+LTLIBRARY_SHARED_LIBADD = $(MNOGOSEARCH_SHARED_LIBADD)
+
+include $(top_srcdir)/build/dynlib.mk

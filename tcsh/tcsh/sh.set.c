@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.set.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.set.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.set.c: Setting and Clearing of variables
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.set.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $")
+RCSID("$Id: sh.set.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
 
 #include "ed.h"
 #include "tw.h"
@@ -178,6 +178,12 @@ update_vars(vp)
 	update_dspmbyte_vars();
     }
 #endif
+#ifdef NLS_CATALOGS
+    else if (eq(vp, STRcatalog)) {
+	(void) catclose(catd);
+	nlsinit();
+    }
+#endif /* NLS_CATALOGS */
 }
 
 
@@ -745,6 +751,10 @@ unset(v, c)
 #if defined(KANJI) && defined(SHORT_STRINGS) && defined(DSPMBYTE)
     update_dspmbyte_vars();
 #endif
+#ifdef NLS_CATALOGS
+    (void) catclose(catd);
+    nlsinit();
+#endif /* NLS_CATALOGS */
 }
 
 void
@@ -1076,16 +1086,19 @@ x:
 }
 
 #if defined(KANJI) && defined(SHORT_STRINGS) && defined(DSPMBYTE)
+bool dspmbyte_ls;
+
 void
 update_dspmbyte_vars()
 {
     int lp, iskcode;
     Char *dstr1;
-
+    struct varent *vp;
+    
     /* if variable "nokanji" is set, multi-byte display is disabled */
-    if (adrof(CHECK_MBYTEVAR) && !adrof(STRnokanji)) {
+    if ((vp = adrof(CHECK_MBYTEVAR)) && !adrof(STRnokanji)) {
 	_enable_mbdisp = 1;
-	dstr1 = varval(CHECK_MBYTEVAR);
+	dstr1 = vp->vec[0];
 	if(eq (dstr1, STRKSJIS))
 	    iskcode = 1;
 	else if (eq(dstr1, STRKEUC))
@@ -1098,6 +1111,10 @@ update_dspmbyte_vars()
 	       "Warning: unknown multibyte display; using default(euc(JP))\n"));
 	    iskcode = 2;
 	}
+	if (dstr1 && vp->vec[1] && eq(vp->vec[1], STRls))
+	  dspmbyte_ls = 1;
+	else
+	  dspmbyte_ls = 0;
 	for (lp = 0; lp < 256 && iskcode > 0; lp++) {
 	    switch (iskcode) {
 	    case 1:
@@ -1156,6 +1173,7 @@ update_dspmbyte_vars()
 	    _mbmap[lp] = 0;	/* Default map all 0 */
 	}
 	_enable_mbdisp = 0;
+	dspmbyte_ls = 0;
     }
 #ifdef MBYTEDEBUG	/* Sorry, use for beta testing */
     {
@@ -1180,8 +1198,10 @@ autoset_dspmbyte(pcp)
 	Char *n;
 	Char *v;
     } dspmt[] = {
-	{ STRLANGEUC, STRKEUC },
-	{ STRLANGEUCB, STRKEUC },
+	{ STRLANGEUCJP, STRKEUC },
+	{ STRLANGEUCKR, STRKEUC },
+	{ STRLANGEUCJPB, STRKEUC },
+	{ STRLANGEUCKRB, STRKEUC },
 	{ STRLANGSJIS, STRKSJIS },
 	{ STRLANGSJISB, STRKSJIS },
 	{ NULL, NULL }

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: crypt.c,v 1.1.1.3 2001/01/25 05:00:03 wsanchez Exp $ */
+/* $Id: crypt.c,v 1.1.1.4 2001/07/19 00:20:11 zarzycki Exp $ */
 #include <stdlib.h>
 
 #include "php.h"
@@ -48,6 +48,7 @@ extern char *crypt(char *__key,char *__salt);
 
 #include "php_lcg.h"
 #include "php_crypt.h"
+#include "php_rand.h"
 
 /* 
    The capabilities of the crypt() function is determined by the test programs
@@ -71,7 +72,7 @@ extern char *crypt(char *__key,char *__salt);
 
 #if PHP_BLOWFISH_CRYPT
 #undef PHP_MAX_SALT_LEN
-#define PHP_MAX_SALT_LEN 17
+#define PHP_MAX_SALT_LEN 60
 #endif
 
  /*
@@ -85,36 +86,36 @@ extern char *crypt(char *__key,char *__salt);
 #define PHP_STD_DES_CRYPT 1
 #endif
 
-#if HAVE_LRAND48
-#define PHP_CRYPT_RAND lrand48()
-#elif HAVE_RANDOM
-#define PHP_CRYPT_RAND random()
-#else
-#define PHP_CRYPT_RAND rand()
-#endif
+
+#define PHP_CRYPT_RAND php_rand()
+
+static int php_crypt_rand_seeded=0;
 
 PHP_MINIT_FUNCTION(crypt)
 {
 #if PHP_STD_DES_CRYPT
-    REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", 2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", 2, CONST_CS | CONST_PERSISTENT);
 #elif PHP_MD5_CRYPT
-    REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", 12, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", 12, CONST_CS | CONST_PERSISTENT);
 #endif
-    REGISTER_LONG_CONSTANT("CRYPT_STD_DES", PHP_STD_DES_CRYPT, CONST_CS | CONST_PERSISTENT);
-    REGISTER_LONG_CONSTANT("CRYPT_EXT_DES", PHP_EXT_DES_CRYPT, CONST_CS | CONST_PERSISTENT);
-    REGISTER_LONG_CONSTANT("CRYPT_MD5", PHP_MD5_CRYPT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CRYPT_STD_DES", PHP_STD_DES_CRYPT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CRYPT_EXT_DES", PHP_EXT_DES_CRYPT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CRYPT_MD5", PHP_MD5_CRYPT, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CRYPT_BLOWFISH", PHP_BLOWFISH_CRYPT, CONST_CS | CONST_PERSISTENT);
 
-#if HAVE_SRAND48
-	srand48((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
-#elif HAVE_SRANDOM
-	srandom((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
-#else
-	srand((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
-#endif
-
-    return SUCCESS;
+	return SUCCESS;
 }
+
+
+PHP_RINIT_FUNCTION(crypt)
+{
+	if(!php_crypt_rand_seeded) {
+		php_srand(time(0) * getpid() * (php_combined_lcg() * 10000.0));
+		php_crypt_rand_seeded=1;
+	} 
+	return SUCCESS;
+}
+
 
 static unsigned char itoa64[] = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 

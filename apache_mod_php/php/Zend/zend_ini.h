@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -25,6 +25,36 @@
 #define ZEND_INI_SYSTEM	(1<<2)
 
 #define ZEND_INI_ALL (ZEND_INI_USER|ZEND_INI_PERDIR|ZEND_INI_SYSTEM)
+
+#ifndef XtOffsetOf
+# if defined(CRAY) || (defined(__arm) && !defined(LINUX))
+# ifdef __STDC__
+# define XtOffset(p_type,field) _Offsetof(p_type,field)
+# else
+# ifdef CRAY2
+# define XtOffset(p_type,field) \
+    (sizeof(int)*((unsigned int)&(((p_type)NULL)->field)))
+
+# else /* !CRAY2 */
+
+# define XtOffset(p_type,field) ((unsigned int)&(((p_type)NULL)->field))
+
+# endif /* !CRAY2 */
+# endif /* __STDC__ */
+# else /* ! (CRAY || __arm) */
+
+# define XtOffset(p_type,field) \
+    ((long) (((char *) (&(((p_type)NULL)->field))) - ((char *) NULL)))
+
+# endif /* !CRAY */
+
+# ifdef offsetof
+# define XtOffsetOf(s_type,field) offsetof(s_type,field)
+# else
+# define XtOffsetOf(s_type,field) XtOffset(s_type*,field)
+# endif
+
+#endif
 
 typedef struct _zend_ini_entry zend_ini_entry;
 
@@ -52,15 +82,17 @@ struct _zend_ini_entry {
 };
 
 
-int zend_ini_mstartup(void);
-int zend_ini_mshutdown(void);
-int zend_ini_rshutdown(void);
+ZEND_API int zend_ini_startup(ELS_D);
+ZEND_API int zend_ini_shutdown(ELS_D);
+ZEND_API int zend_ini_deactivate(ELS_D);
 
-void zend_ini_sort_entries(void);
+ZEND_API int zend_copy_ini_directives(ELS_D);
+
+ZEND_API void zend_ini_sort_entries(ELS_D);
 
 ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_number);
 ZEND_API void zend_unregister_ini_entries(int module_number);
-ZEND_API void zend_ini_refresh_caches(int stage);
+ZEND_API void zend_ini_refresh_caches(int stage ELS_DC);
 ZEND_API int zend_alter_ini_entry(char *name, uint name_length, char *new_value, uint new_value_length, int modify_type, int stage);
 ZEND_API int zend_restore_ini_entry(char *name, uint name_length, int stage);
 ZEND_API void display_ini_entries(zend_module_entry *module);
@@ -71,8 +103,6 @@ ZEND_API char *zend_ini_string(char *name, uint name_length, int orig);
 zend_ini_entry *get_ini_entry(char *name, uint name_length);
 
 ZEND_API int zend_ini_register_displayer(char *name, uint name_length, void (*displayer)(zend_ini_entry *ini_entry, int type));
-
-ZEND_API void zend_ini_apply_with_argument(apply_func_arg_t apply_func, void *arg);
 
 ZEND_API ZEND_INI_DISP(zend_ini_boolean_displayer_cb);
 ZEND_API ZEND_INI_DISP(zend_ini_color_displayer_cb);
@@ -138,9 +168,6 @@ ZEND_API ZEND_INI_DISP(display_link_numbers);
 
 #define REGISTER_INI_DISPLAYER(name, displayer) zend_ini_register_displayer((name), sizeof(name), displayer)
 #define REGISTER_INI_BOOLEAN(name) REGISTER_INI_DISPLAYER(name, zend_ini_boolean_displayer_cb)
-
-zval *cfg_get_entry(char *name, uint name_length);
-
 
 /* Standard message handlers */
 ZEND_API ZEND_INI_MH(OnUpdateBool);

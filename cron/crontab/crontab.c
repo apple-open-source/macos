@@ -18,7 +18,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/crontab/crontab.c,v 1.12 1999/08/28 01:15:52 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/crontab/crontab.c,v 1.17 2001/06/16 03:16:52 peter Exp $";
 #endif
 
 /* crontab - install and manage per-user crontab files
@@ -31,6 +31,7 @@ static const char rcsid[] =
 #include "cron.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <paths.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #ifdef USE_UTIMES
@@ -225,7 +226,7 @@ static void
 list_cmd() {
 	char	n[MAX_FNAME];
 	FILE	*f;
-	int	ch;
+	int	ch, x;
 
 	log_it(RealUser, Pid, "LIST", User);
 	(void) sprintf(n, CRON_TAB(User));
@@ -239,6 +240,24 @@ list_cmd() {
 	/* file is open. copy to stdout, close.
 	 */
 	Set_LineNum(1)
+
+	/* ignore the top few comments since we probably put them there.
+	 */
+	for (x = 0;  x < NHEADER_LINES;  x++) {
+		ch = get_char(f);
+		if (EOF == ch)
+			break;
+		if ('#' != ch) {
+			putchar(ch);
+			break;
+		}
+		while (EOF != (ch = get_char(f)))
+			if (ch == '\n')
+				break;
+		if (EOF == ch)
+			break;
+	}
+
 	while (EOF != (ch = get_char(f)))
 		putchar(ch);
 	fclose(f);
@@ -248,6 +267,16 @@ list_cmd() {
 static void
 delete_cmd() {
 	char	n[MAX_FNAME];
+	int ch, first;
+
+	if (isatty(STDIN_FILENO)) {
+		(void)fprintf(stderr, "remove crontab for %s? ", User);
+		first = ch = getchar();
+		while (ch != '\n' && ch != EOF)
+			ch = getchar();
+		if (first != 'y' && first != 'Y')
+			return;
+	}
 
 	log_it(RealUser, Pid, "DELETE", User);
 	(void) sprintf(n, CRON_TAB(User));
@@ -274,8 +303,8 @@ static void
 edit_cmd() {
 	char		n[MAX_FNAME], q[MAX_TEMPSTR], *editor;
 	FILE		*f;
-	int		ch=EOF, t, x;
-	struct stat	statbuf;
+	int		ch, t, x;
+	struct stat	statbuf, fsbuf;
 	time_t		mtime;
 	WAIT_T		waiter;
 	PID_T		pid, xpid;
@@ -287,8 +316,8 @@ edit_cmd() {
 		if (errno != ENOENT)
 			err(ERROR_EXIT, "%s", n);
 		warnx("no crontab for %s - using an empty one", User);
-		if (!(f = fopen("/dev/null", "r")))
-			err(ERROR_EXIT, "/dev/null");
+		if (!(f = fopen(_PATH_DEVNULL, "r")))
+			err(ERROR_EXIT, _PATH_DEVNULL);
 	}
 
 	um = umask(077);
@@ -307,7 +336,7 @@ edit_cmd() {
 		warn("fchown");
 		goto fatal;
 	}
-	if (!(NewCrontab = fdopen(t, "w"))) {
+	if (!(NewCrontab = fdopen(t, "r+"))) {
 		warn("fdopen");
 		goto fatal;
 	}
@@ -337,14 +366,20 @@ edit_cmd() {
 		while (EOF != (ch = get_char(f)))
 			putc(ch, NewCrontab);
 	fclose(f);
-	if (fclose(NewCrontab))
+	if (fflush(NewCrontab))
 		err(ERROR_EXIT, "%s", Filename);
+	if (fstat(t, &fsbuf) < 0) {
+		warn("unable to fstat temp file");
+		goto fatal;
+	}
  again:
 	if (stat(Filename, &statbuf) < 0) {
 		warn("stat");
  fatal:		unlink(Filename);
 		exit(ERROR_EXIT);
 	}
+	if (statbuf.st_dev != fsbuf.st_dev || statbuf.st_ino != fsbuf.st_ino)
+		errx(ERROR_EXIT, "temp file must be edited in place");
 	mtime = statbuf.st_mtime;
 
 	if ((!(editor = getenv("VISUAL")))
@@ -409,15 +444,13 @@ edit_cmd() {
 		warn("stat");
 		goto fatal;
 	}
+	if (statbuf.st_dev != fsbuf.st_dev || statbuf.st_ino != fsbuf.st_ino)
+		errx(ERROR_EXIT, "temp file must be edited in place");
 	if (mtime == statbuf.st_mtime) {
 		warnx("no changes made to crontab");
 		goto remove;
 	}
 	warnx("installing new crontab");
-	if (!(NewCrontab = fopen(Filename, "r"))) {
-		warn("%s", Filename);
-		goto fatal;
-	}
 	switch (replace_cmd()) {
 	case 0:
 		break;
@@ -487,10 +520,10 @@ replace_cmd() {
 
 	/* copy the crontab to the tmp
 	 */
+	rewind(NewCrontab);
 	Set_LineNum(1)
 	while (EOF != (ch = get_char(NewCrontab)))
 		putc(ch, tmp);
-	fclose(NewCrontab);
 	ftruncate(fileno(tmp), ftell(tmp));
 	fflush(tmp);  rewind(tmp);
 

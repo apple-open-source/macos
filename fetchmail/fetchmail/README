@@ -1,32 +1,33 @@
 			 fetchmail README
 
-fetchmail is a free, full-featured, robust, well-documented remote
+Fetchmail is a free, full-featured, robust, well-documented remote
 mail retrieval and forwarding utility intended to be used over
 on-demand TCP/IP links (such as SLIP or PPP connections).  It
 retrieves mail from remote mail servers and forwards it to your local
 (client) machine's delivery system, so it can then be be read by
 normal mail user agents such as elm(1) or Mail(1).
 
-fetchmail supports standard all mail-retrieval protocols in use on the
-Internet: POP2, POP3 (including POP3 with RFC1938 one-time passwords),
-RPOP, APOP, KPOP, Compuserve's POP3 with RPA, Demon Internet's SDPS, 
-all flavors of IMAP (including IMAP4rev1 with RFC1731 Kerberos v4  or
-GSSAPI authentication or CRAM-MD5 authentication), and ESMTP ETRN.
+Fetchmail supports all standard mail-retrieval protocols in use on the
+Internet: POP2, POP3, RPOP, APOP, KPOP, IMAP2bis, IMAP4, IMAP4rev1
+ESMTP ETRN, and ODMR.  Fetchmail also fully supports authentication
+via GSSAPI, Kerberos 4 and 5, RFC1938 one-time passwords, Compuserve's
+POP3 with RPA, Microsoft's NTLM, Demon Internet's SDPS, or CRAM-MD5
+authentication a la RFC2195.  Fetchmail also supports end-to-end
+encryption with OpenSSL.
 
 The fetchmail code was developed under Linux, but has also been
-extensively tested under 4.4BSD, AIX, HP-UX versions 9 and 10, 
-SunOS, Solaris, NEXTSTEP, OSF 3.2\, and Rhapsody.  
+extensively tested under the BSD variants, AIX, HP-UX versions 9 and
+10, SunOS, Solaris, NEXTSTEP, OSF 3.2, IRIX, and Rhapsody.
 
 It should be readily portable to other Unix variants (it uses GNU
-autoconf).  It has been ported to LynxOS and will build there without
-special action.  It has also been ported to QNX; to build under QNX,
-see the header comments in the Makefile.  It is reported to build and
-run under AmigaOS.
-
-Fetchmail is Y2K safe.
+autoconf).  It has been ported to LynxOS and BeOS and will build there
+without special action.  It has also been ported to QNX; to build
+under QNX, see the header comments in the Makefile.  It is reported to
+build and run under AmigaOS.
 
 See the distribution files FEATURES for a full list of features, NEWS
-for detailed information on recent changes and NOTES for design notes.
+for detailed information on recent changes, NOTES for design notes, and
+TODO for a list of things that still need doing.
 
 The fetchmail code appears to be stable and free of bugs affecting
 normal operation (that is, retrieving from POP3 or IMAP in single-drop

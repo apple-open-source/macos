@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.misc.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.misc.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
 /*
  * sh.misc.c: Miscelaneous functions
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.misc.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.misc.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
 
 static	int	renum	__P((int, int));
 static  Char  **blkend	__P((Char **));

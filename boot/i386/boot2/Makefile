@@ -32,12 +32,12 @@ VPATH = $(OBJROOT):$(SYMROOT)
 
 # The ordering is important;
 # boot2.o must be first.
-OBJS = boot2.o boot.o graphics.o prompt.o
+OBJS = boot2.o boot.o graphics.o drivers.o prompt.o
 # button.o browser.o scrollbar.o == NOTYET	
 
 UTILDIR = ../util
 SFILES = boot2.s
-CFILES = boot.c graphics.c prompt.c
+CFILES = boot.c graphics.c drivers.c prompt.c
 HFILES = boot.h
 OTHERFILES = Makefile
 ALLSRC = $(FOREIGNSRC) $(FOREIGNBIN) $(SFILES) $(CFILES) \

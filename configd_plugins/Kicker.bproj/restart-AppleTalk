@@ -27,7 +27,44 @@ __END_OF_SCUTIL_COMMAND
 #
 # If running, shutdown current AppleTalk networking
 #
-appletalk -d >/dev/null 2>&1
+
+CHECK=1
+LIMIT=10
+
+while [ 1 ]
+do
+	#
+	# shutdown the stack
+	#
+	appletalk -d >/dev/null 2>&1
+	status=$?
+	case "${status}" in
+	0 )	# shutdown successful
+		break
+		;;
+	89 )	# AppleTalk not running
+		break
+		;;
+	esac
+
+	#
+	# Error detected during shutdown
+	#
+	CHECK=`expr ${CHECK} + 1`
+	if [ ${CHECK} -le ${LIMIT} ]; then
+		#
+		# Delay and retry
+		#
+		sleep 1
+		continue
+	else
+		#
+		# We've waiting long enough, something's not right
+		#
+		logger -i -p daemon.notice -t restart-AppleTalk "AppleTalk shutdown failed (status=${status})"
+		break
+	fi
+done
 
 
 #

@@ -266,12 +266,13 @@ static void get_cstring_section(
     enum byte_sex object_byte_sex,
     char *object_addr,
     unsigned long object_size,
-    struct section_info *cstring_section);
+    struct section_info *cstring_section_ptr);
 
 static enum bool print_method_list(
     struct objc_method_list *addr,
     struct section_info *objc_sections,
     unsigned long nobjc_sections,
+    struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     struct nlist *sorted_symbols,
@@ -283,6 +284,7 @@ static enum bool print_protocol_list(
     struct objc_protocol_list *addr,
     struct section_info *objc_sections,
     unsigned long nobjc_sections,
+    struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
@@ -292,6 +294,7 @@ static void print_protocol(
     struct objc_protocol *protocol,
     struct section_info *objc_sections,
     unsigned long nobjc_sections,
+    struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
@@ -301,6 +304,7 @@ static enum bool print_method_description_list(
     struct objc_method_description_list *addr,
     struct section_info *objc_sections,
     unsigned long nobjc_sections,
+    struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
@@ -310,6 +314,7 @@ static enum bool print_PHASH(
     struct _hashEntry *addr,
     struct section_info *objc_sections,
     unsigned long nobjc_sections,
+    struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
@@ -321,7 +326,8 @@ static void *get_pointer(
     void *p,
     unsigned long *left,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections);
+    unsigned long nobjc_sections,
+    struct section_info *cstring_section_ptr);
 
 static enum bool get_symtab(
     void *p,
@@ -434,6 +440,7 @@ enum bool verbose)
     char *p;
     struct section_info *objc_sections;
     unsigned long nobjc_sections;
+    struct section_info cstring_section;
 
     struct objc_module *modules, *m, module;
     unsigned long modules_addr, modules_size;
@@ -455,7 +462,11 @@ enum bool verbose)
 	    return;
 	}
 
-	host_byte_sex = get_host_byte_sex();
+    if (verbose)
+        get_cstring_section(mh, load_commands, object_byte_sex,
+                            object_addr, object_size, &cstring_section);
+
+    host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
 	memset(&module, '\0', sizeof(struct objc_module));
@@ -482,7 +493,7 @@ enum bool verbose)
 	    printf("       size %lu\n", module.size);
 	    if(verbose){
 		p = get_pointer((void *)module.name, &left,
-				objc_sections, nobjc_sections);
+		    objc_sections, nobjc_sections, &cstring_section);
 		if(p != NULL)
 		    printf("       name %.*s\n", (int)left, p);
 		else
@@ -493,8 +504,8 @@ enum bool verbose)
 		printf("       name 0x%08x\n", (unsigned int)(module.name));
 
 	    if(get_symtab(module.symtab, &symtab, &defs, &defs_left, &trunc,
-			  objc_sections, nobjc_sections, host_byte_sex,
-			  swapped) == FALSE){
+		    objc_sections, nobjc_sections,
+		    host_byte_sex, swapped) == FALSE){
 		printf("     symtab 0x%08x (not in an " SEG_OBJC
 		       " section)\n", (unsigned int)module.symtab);
 		continue;
@@ -505,7 +516,7 @@ enum bool verbose)
 		       " section\n");
 	    printf("\tsel_ref_cnt %lu\n", symtab.sel_ref_cnt);
 	    p = get_pointer(symtab.refs, &left,
-			    objc_sections, nobjc_sections);
+                     objc_sections, nobjc_sections, &cstring_section);
 	    if(p != NULL)
 		printf("\trefs 0x%08x", (unsigned int)symtab.refs);
 	    else
@@ -540,7 +551,7 @@ print_objc_class:
 
 		    if(verbose && CLS_GETINFO(&objc_class, CLS_META)){
 			p = get_pointer(objc_class.isa, &left,
-					objc_sections, nobjc_sections);
+					objc_sections, nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -553,7 +564,7 @@ print_objc_class:
 			   (unsigned int)objc_class.super_class);
 		    if(verbose){
 			p = get_pointer(objc_class.super_class, &left,
-					objc_sections, nobjc_sections);
+					objc_sections, nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -566,7 +577,7 @@ print_objc_class:
 			   (unsigned int)objc_class.name);
 		    if(verbose){
 			p = get_pointer((void *)objc_class.name, &left,
-					objc_sections, nobjc_sections);
+					objc_sections, nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -593,8 +604,8 @@ print_objc_class:
 
 		    if(get_ivar_list(objc_class.ivars, &objc_ivar_list,
 			    &ivar_list, &ivar_list_left, &trunc,
-			    objc_sections, nobjc_sections, host_byte_sex,
-			    swapped) == TRUE){
+			    objc_sections, nobjc_sections,
+                host_byte_sex, swapped) == TRUE){
 			printf("\t\t    ivars 0x%08x\n",
 			       (unsigned int)objc_class.ivars);
 			if(trunc == TRUE)
@@ -618,7 +629,7 @@ print_objc_class:
 				   (unsigned int)ivar.ivar_name);
 			    if(verbose){
 				p = get_pointer(ivar.ivar_name, &left,
-					    objc_sections, nobjc_sections);
+					    objc_sections, nobjc_sections, &cstring_section);
 				if(p != NULL)
 				    printf(" %.*s\n", (int)left, p);
 				else
@@ -631,7 +642,7 @@ print_objc_class:
 				   (unsigned int)ivar.ivar_type);
 			    if(verbose){
 				p = get_pointer(ivar.ivar_type, &left,
-					    objc_sections, nobjc_sections);
+					    objc_sections, nobjc_sections, &cstring_section);
 				if(p != NULL)
 				    printf(" %.*s\n", (int)left, p);
 				else
@@ -653,9 +664,9 @@ print_objc_class:
 		    printf("\t\t  methods 0x%08x",
 			   (unsigned int)objc_class.methodLists);
 		    if(print_method_list((struct objc_method_list *)
-					 objc_class.methodLists, objc_sections,
-					 nobjc_sections, host_byte_sex,
-					 swapped, sorted_symbols,
+					 objc_class.methodLists,
+					 objc_sections, nobjc_sections, &cstring_section,
+					 host_byte_sex, swapped, sorted_symbols,
 					 nsorted_symbols, verbose) == FALSE)
 			printf(" (not in an " SEG_OBJC " section)\n");
 
@@ -665,15 +676,14 @@ print_objc_class:
 		    printf("\t\tprotocols 0x%08x",
 			   (unsigned int)objc_class.protocols);
 		    if(print_protocol_list(16, objc_class.protocols,
-			    objc_sections, nobjc_sections, host_byte_sex,
-			    swapped, verbose) == FALSE)
+			    objc_sections, nobjc_sections, &cstring_section,
+                host_byte_sex, swapped, verbose) == FALSE)
 			printf(" (not in an " SEG_OBJC " section)\n");
 
 		    if(CLS_GETINFO((&objc_class), CLS_CLASS)){
 			printf("\tMeta Class");
 			if(get_objc_class((unsigned long)objc_class.isa,
-				 &objc_class,
-				 &trunc, objc_sections, nobjc_sections,
+				 &objc_class, &trunc, objc_sections, nobjc_sections,
 				 host_byte_sex, swapped) == TRUE){
 			    goto print_objc_class;
 			}
@@ -701,8 +711,8 @@ print_objc_class:
 		    def = SWAP_LONG(def);
 
 		if(get_objc_category(def, &objc_category, &trunc,
-			  objc_sections, nobjc_sections, host_byte_sex,
-			  swapped) == TRUE){
+			  objc_sections, nobjc_sections,
+              host_byte_sex, swapped) == TRUE){
 		    printf("\tdefs[%lu] 0x%08x", i + symtab.cls_def_cnt,
 			   (unsigned int)def);
 		    if(trunc == TRUE)
@@ -713,7 +723,7 @@ print_objc_class:
 			   (unsigned int)objc_category.category_name);
 		    if(verbose){
 			p = get_pointer(objc_category.category_name, &left,
-					objc_sections, nobjc_sections);
+					objc_sections, nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -726,7 +736,7 @@ print_objc_class:
 			   (unsigned int)objc_category.class_name);
 		    if(verbose){
 			p = get_pointer(objc_category.class_name, &left,
-					objc_sections, nobjc_sections);
+					objc_sections, nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -738,7 +748,7 @@ print_objc_class:
 		    printf("\t    instance methods 0x%08x",
 			   (unsigned int)objc_category.instance_methods);
 		    if(print_method_list(objc_category.instance_methods,
-					 objc_sections, nobjc_sections,
+					 objc_sections, nobjc_sections, &cstring_section,
 					 host_byte_sex, swapped,
 					 sorted_symbols, nsorted_symbols,
 					 verbose) == FALSE)
@@ -747,7 +757,7 @@ print_objc_class:
 		    printf("\t       class methods 0x%08x",
 			   (unsigned int)objc_category.class_methods);
 		    if(print_method_list(objc_category.class_methods,
-					 objc_sections, nobjc_sections,
+					 objc_sections, nobjc_sections, &cstring_section,
 					 host_byte_sex, swapped,
 					 sorted_symbols, nsorted_symbols,
 					 verbose) == FALSE)
@@ -772,7 +782,7 @@ enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    struct section_info *objc_sections;
+    struct section_info *objc_sections, cstring_section;
     unsigned long nobjc_sections;
     struct objc_protocol *protocols, *p, protocol;
     unsigned long protocols_addr, protocols_size;
@@ -783,7 +793,11 @@ enum bool verbose)
 		object_size, &objc_sections, &nobjc_sections, "__protocol",
 		(char **)&protocols, &protocols_addr, &protocols_size);
 
-	host_byte_sex = get_host_byte_sex();
+    if (verbose)
+        get_cstring_section(mh, load_commands, object_byte_sex,
+                            object_addr, object_size, &cstring_section);
+
+    host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
 	for(p = protocols; (char *)p < (char *)protocols + protocols_size; p++){
@@ -800,7 +814,8 @@ enum bool verbose)
 	    printf("Protocol 0x%x\n", (unsigned int)
 		   (protocols_addr + (char *)p - (char *)protocols));
 
-	    print_protocol(0, &protocol, objc_sections, nobjc_sections,
+	    print_protocol(0, &protocol,
+			      objc_sections, nobjc_sections, &cstring_section,
 			      host_byte_sex, swapped, verbose);
 	}
 }
@@ -862,7 +877,7 @@ enum bool verbose)
 		   (unsigned int)string_object.characters);
 	    if(verbose){
 		p = get_pointer(string_object.characters, &left,
-			        &cstring_section, 1);
+			        &cstring_section, 1, &cstring_section);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -890,7 +905,7 @@ enum bool verbose)
 
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    struct section_info *objc_sections;
+    struct section_info *objc_sections, cstring_section;
     unsigned long i, nobjc_sections, left;
     struct _hashEntry **PHASH, *phash, *HASH, _hashEntry;
     char *sect, *p;
@@ -901,7 +916,11 @@ enum bool verbose)
 		object_size, &objc_sections, &nobjc_sections, "__runtime_setup",
 		&sect, &sect_addr, &sect_size);
 
-	host_byte_sex = get_host_byte_sex();
+    if (verbose)
+        get_cstring_section(mh, load_commands, object_byte_sex,
+                            object_addr, object_size, &cstring_section);
+
+    host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
 	PHASH = (struct _hashEntry **)sect;
@@ -918,7 +937,8 @@ enum bool verbose)
 		continue;
 
 	    printf("PHASH[%3lu] 0x%x", i, (unsigned int)phash);
-	    if(print_PHASH(4, phash, objc_sections, nobjc_sections,
+	    if(print_PHASH(4, phash,
+			   objc_sections, nobjc_sections, &cstring_section,
 			   host_byte_sex, swapped, verbose) == FALSE)
 		printf(" (not in an " SEG_OBJC " section)\n");
 	}
@@ -933,8 +953,8 @@ enum bool verbose)
 		   (unsigned int)(sect_addr + (char *)(HASH + i) - sect));
 	    printf("     sel 0x%08x", (unsigned int)_hashEntry.sel);
 	    if(verbose){
-		p = get_pointer(_hashEntry.sel, &left, objc_sections,
-				nobjc_sections);
+		p = get_pointer(_hashEntry.sel, &left,
+				objc_sections, nobjc_sections, &cstring_section);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1198,6 +1218,7 @@ print_method_list(
 struct objc_method_list *addr,
 struct section_info *objc_sections,
 unsigned long nobjc_sections,
+struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 struct nlist *sorted_symbols,
@@ -1211,8 +1232,8 @@ enum bool verbose)
     char *p;
 
 	if(get_method_list(addr, &method_list, &methods, &methods_left, &trunc,
-			   objc_sections, nobjc_sections, host_byte_sex,
-			   swapped) == FALSE)
+			   objc_sections, nobjc_sections,
+			   host_byte_sex, swapped) == FALSE)
 	    return(FALSE);
 	
 	printf("\n");
@@ -1238,7 +1259,7 @@ enum bool verbose)
 		   (unsigned int)method.method_name);
 	    if(verbose){
 		p = get_pointer(method.method_name, &left,
-			        objc_sections, nobjc_sections);
+			        objc_sections, nobjc_sections, cstring_section_ptr);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1251,7 +1272,7 @@ enum bool verbose)
 		   (unsigned int)method.method_types);
 	    if(verbose){
 		p = get_pointer(method.method_types, &left,
-			        objc_sections, nobjc_sections);
+			        objc_sections, nobjc_sections, cstring_section_ptr);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1276,6 +1297,7 @@ unsigned long indent,
 struct objc_protocol_list *addr,
 struct section_info *objc_sections,
 unsigned long nobjc_sections,
+struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
@@ -1285,8 +1307,8 @@ enum bool verbose)
     enum bool trunc;
     unsigned long i, list_left;
 
-	if(get_protocol_list(addr, &protocol_list, &list, &list_left,
-			     &trunc, objc_sections, nobjc_sections,
+	if(get_protocol_list(addr, &protocol_list, &list, &list_left, &trunc,
+			     objc_sections, nobjc_sections,
 			     host_byte_sex, swapped) == FALSE)
 	    return(FALSE);
 
@@ -1316,8 +1338,9 @@ enum bool verbose)
 
 	    print_indent(indent);
 	    printf("      list[%lu] 0x%08x", i, (unsigned int)l);
-	    if(get_protocol((unsigned long)l, &protocol, &trunc, objc_sections,
-			    nobjc_sections, host_byte_sex, swapped) == FALSE){
+	    if(get_protocol((unsigned long)l, &protocol, &trunc,
+			    objc_sections, nobjc_sections,
+			    host_byte_sex, swapped) == FALSE){
 		printf(" (not in an " SEG_OBJC " section)\n");
 		continue;
 	    }
@@ -1331,9 +1354,9 @@ enum bool verbose)
 	    if(swapped)
 		swap_objc_protocol((Protocol *)&protocol, host_byte_sex);
 
-	    print_protocol(indent, &protocol, objc_sections, nobjc_sections,
+	    print_protocol(indent, &protocol,
+			   objc_sections, nobjc_sections, cstring_section_ptr,
 			   host_byte_sex, swapped, verbose);
-
 	}
 	return(TRUE);
 }
@@ -1345,6 +1368,7 @@ unsigned long indent,
 struct objc_protocol *protocol,
 struct section_info *objc_sections,
 unsigned long nobjc_sections,
+struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
@@ -1360,7 +1384,7 @@ enum bool verbose)
 	       (unsigned int)protocol->protocol_name);
 	if(verbose){
 	    p = get_pointer(protocol->protocol_name, &left,
-			    objc_sections, nobjc_sections);
+			    objc_sections, nobjc_sections, cstring_section_ptr);
 	    if(p != NULL)
 		printf(" %.*s\n", (int)left, p);
 	    else
@@ -1372,24 +1396,24 @@ enum bool verbose)
 	printf("    protocol_list 0x%08x",
 	       (unsigned int)protocol->protocol_list);
 	if(print_protocol_list(indent + 4, protocol->protocol_list,
-		objc_sections, nobjc_sections, host_byte_sex,
-		swapped, verbose) == FALSE)
+		objc_sections, nobjc_sections, cstring_section_ptr,
+		host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 
 	print_indent(indent);
 	printf(" instance_methods 0x%08x",
 	       (unsigned int)protocol->instance_methods);
 	if(print_method_description_list(indent, protocol->instance_methods,
-		objc_sections, nobjc_sections, host_byte_sex,
-		swapped, verbose) == FALSE)
+		objc_sections, nobjc_sections, cstring_section_ptr,
+		host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 
 	print_indent(indent);
 	printf("    class_methods 0x%08x",
 	       (unsigned int)protocol->class_methods);
 	if(print_method_description_list(indent, protocol->class_methods,
-		objc_sections, nobjc_sections, host_byte_sex,
-		swapped, verbose) == FALSE)
+		objc_sections, nobjc_sections, cstring_section_ptr,
+		host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 }
 
@@ -1400,6 +1424,7 @@ unsigned long indent,
 struct objc_method_description_list *addr,
 struct section_info *objc_sections,
 unsigned long nobjc_sections,
+struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
@@ -1411,8 +1436,8 @@ enum bool verbose)
     char *p;
 
 	if(get_method_description_list(addr, &mdl, &list, &list_left,
-			     &trunc, objc_sections, nobjc_sections,
-			     host_byte_sex, swapped) == FALSE)
+	    &trunc, objc_sections, nobjc_sections,
+	    host_byte_sex, swapped) == FALSE)
 	    return(FALSE);
 
 	printf("\n");
@@ -1441,7 +1466,8 @@ enum bool verbose)
 	    print_indent(indent);
 	    printf("             name 0x%08x", (unsigned int)md.name);
 	    if(verbose){
-		p = get_pointer(md.name, &left, objc_sections, nobjc_sections);
+		p = get_pointer(md.name, &left,
+		    objc_sections, nobjc_sections, cstring_section_ptr);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1453,7 +1479,8 @@ enum bool verbose)
 	    print_indent(indent);
 	    printf("            types 0x%08x", (unsigned int)md.types);
 	    if(verbose){
-		p = get_pointer(md.types, &left, objc_sections, nobjc_sections);
+		p = get_pointer(md.types, &left,
+		    objc_sections, nobjc_sections, cstring_section_ptr);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1471,6 +1498,7 @@ unsigned long indent,
 struct _hashEntry *addr,
 struct section_info *objc_sections,
 unsigned long nobjc_sections,
+struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
@@ -1481,8 +1509,8 @@ enum bool verbose)
     char *p;
 
 	if(get_hashEntry((unsigned long)addr, &_hashEntry, &trunc,
-			 objc_sections, nobjc_sections, host_byte_sex,
-			 swapped) == FALSE)
+			 objc_sections, nobjc_sections,
+			 host_byte_sex, swapped) == FALSE)
 	    return(FALSE);
 
 	printf("\n");
@@ -1494,8 +1522,8 @@ enum bool verbose)
 	print_indent(indent);
 	printf(" sel 0x%08x", (unsigned int)_hashEntry.sel);
 	if(verbose){
-	    p = get_pointer(_hashEntry.sel, &left, objc_sections,
-			    nobjc_sections);
+	    p = get_pointer(_hashEntry.sel, &left,
+    	    objc_sections, nobjc_sections, cstring_section_ptr);
 	    if(p != NULL)
 		printf(" %.*s\n", (int)left, p);
 	    else
@@ -1510,8 +1538,9 @@ enum bool verbose)
 	    printf("\n");
 	    return(TRUE);
 	}
-	if(print_PHASH(indent+4, _hashEntry.next, objc_sections, nobjc_sections,
-		       host_byte_sex, swapped, verbose) == FALSE)
+	if(print_PHASH(indent+4, _hashEntry.next,
+	    objc_sections, nobjc_sections, cstring_section_ptr,
+	    host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 	return(TRUE);
 }
@@ -1541,21 +1570,30 @@ get_pointer(
 void *p,
 unsigned long *left,
 struct section_info *objc_sections,
-unsigned long nobjc_sections)
+unsigned long nobjc_sections,
+struct section_info *cstring_section_ptr)
 {
+    void* returnValue = NULL;
     unsigned long i, addr;
 
-	addr = (unsigned long)p;
-	for(i = 0; i < nobjc_sections; i++){
+    addr = (unsigned long)p;
+    if(addr >= cstring_section_ptr->s.addr &&
+       addr < cstring_section_ptr->s.addr + cstring_section_ptr->size){
+        *left = cstring_section_ptr->size -
+        (addr - cstring_section_ptr->s.addr);
+        returnValue = (cstring_section_ptr->contents +
+                       (addr - cstring_section_ptr->s.addr));
+    }
+	for(i = 0; !returnValue && i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].s.addr &&
 	       addr < objc_sections[i].s.addr + objc_sections[i].size){
 		*left = objc_sections[i].size -
 		        (addr - objc_sections[i].s.addr);
-		return(objc_sections[i].contents +
+		returnValue = (objc_sections[i].contents +
 		       (addr - objc_sections[i].s.addr));
 	    }
 	}
-	return(NULL);
+	return returnValue;
 }
 
 static

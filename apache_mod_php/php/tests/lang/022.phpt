@@ -5,7 +5,7 @@ Switch test 3
 --FILE--
 <?php 
 
-cfunction switchtest ($i, $j)
+function switchtest ($i, $j)
 {
 	switch ($i):
 		case 0:
@@ -33,7 +33,6 @@ for ($i=0; $i<3; $i++) {
 }
 ?>
 --EXPECT--
-
 zero
 one
 2

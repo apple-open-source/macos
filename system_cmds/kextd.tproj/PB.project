@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (IOKit.framework); 
+        FRAMEWORKS = (CoreFoundation.framework, IOKit.framework); 
         FRAMEWORKSEARCH = (); 
         H_FILES = (GetSymbolFromPEF.h, KEXTD.h, PTLock.h); 
         OTHER_LINKED = (KEXTD.c, KEXTD_main.c, PEFSupport.c, PTLock.c); 
@@ -14,7 +14,6 @@
     NEXTSTEP_COMPILEROPTIONS = "-fpascal-strings -Wno-four-char-constants"; 
     NEXTSTEP_INSTALLDIR = /usr/libexec; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
-    NEXTSTEP_LINKEROPTIONS = "-undefined warning"; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
     PDO_UNIX_INSTALLDIR = /bin; 

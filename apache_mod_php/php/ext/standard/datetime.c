@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.1.1.3 2001/01/25 05:00:03 wsanchez Exp $ */
+/* $Id: datetime.c,v 1.1.1.4 2001/07/19 00:20:11 zarzycki Exp $ */
 
 
 #include "php.h"
@@ -214,7 +214,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	time_t the_time;
 	struct tm *ta, tmbuf;
 	int i, size = 0, length, h, beat;
-	char tmp_buff[16];
+	char tmp_buff[32];
 
 	switch(ZEND_NUM_ARGS()) {
 	case 1:
@@ -255,8 +255,14 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				break;
 			case 'F':		/* month, textual, full */
 			case 'l':		/* day (of the week), textual */
+				size += 28;
+				break;
 			case 'T':		/* timezone name */
-				size += 9;
+#if HAVE_TM_ZONE
+				size += strlen(ta->tm_zone);
+#elif HAVE_TZNAME
+				size += strlen(tzname[0]);
+#endif
 				break;
 			case 'Z':		/* timezone offset in seconds */
 				size += 6;
@@ -294,6 +300,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				if(i < (*format)->value.str.len-1) {
 					i++;
 				}
+				size ++;
 				break;
 			case 'L':		/* boolean for leap year */
 			case 'w':		/* day of the week, numeric */
@@ -426,7 +433,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_GMTOFF				
 				sprintf(tmp_buff, "%c%02d%02d", (ta->tm_gmtoff < 0) ? '-' : '+', abs(ta->tm_gmtoff / 3600), abs( ta->tm_gmtoff % 3600));
 #else
-				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? timezone - 3600:timezone)<0)?'-':'+',abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600), abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600));
+				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? timezone - 3600:timezone)>0)?'-':'+',abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600), abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600));
 #endif
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
@@ -434,7 +441,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_GMTOFF
 				sprintf(tmp_buff, "%ld", ta->tm_gmtoff);
 #else
-				sprintf(tmp_buff, "%ld", ta->tm_isdst ? timezone - 3600 : timezone);
+				sprintf(tmp_buff, "%ld", ta->tm_isdst ? -(timezone - 3600) : -timezone);
 #endif
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
@@ -445,14 +452,17 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 			case 'T':		/* timezone name */
 #if HAVE_TM_ZONE
 				strcat(return_value->value.str.val, ta->tm_zone);
-#else
+#elif HAVE_TZNAME
 				strcat(return_value->value.str.val, tzname[0]);
 #endif
 				break;
 			case 'B':	/* Swatch Beat a.k.a. Internet Time */
 				beat =  (((((long)the_time)-(((long)the_time) -
 					((((long)the_time) % 86400) + 3600))) * 10) / 864);
-				if (beat > 999) beat = 0;
+				while (beat < 0) {
+					beat += 1000;
+				}
+				beat = beat % 1000;
 				sprintf(tmp_buff, "%03d", beat); /* SAFE */
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
@@ -483,7 +493,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 					ta->tm_hour,
 					ta->tm_min,
 					ta->tm_sec,
-					((ta->tm_isdst ? timezone - 3600 : timezone) < 0) ? '-' : '+',
+					((ta->tm_isdst ? timezone - 3600 : timezone) > 0) ? '-' : '+',
 					abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600),
 					abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600)
 				);
@@ -511,7 +521,7 @@ PHP_FUNCTION(date)
 /* }}} */
 
 /* {{{ proto string gmdate(string format [, int timestamp])
-   Format a GMT/CUT date/time */
+   Format a GMT/UTC date/time */
 PHP_FUNCTION(gmdate)
 {
 	php_date(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
@@ -752,7 +762,7 @@ PHP_FUNCTION(strftime)
 /* }}} */
 
 /* {{{ proto string gmstrftime(string format [, int timestamp])
-   Format a GMT/CUT time/date according to locale settings */
+   Format a GMT/UCT time/date according to locale settings */
 PHP_FUNCTION(gmstrftime)
 {
 	_php_strftime(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
@@ -776,6 +786,8 @@ PHP_FUNCTION(strtotime)
 	}
 
 	convert_to_string_ex(z_time);
+	if (Z_STRLEN_PP(z_time) == 0)
+		php_error (E_NOTICE, "strtotime() called with empty time parameter");
 	if (argc == 2) {
 		convert_to_long_ex(z_now);
 		now = Z_LVAL_PP(z_now);

@@ -233,12 +233,6 @@ static void next_add_to_port_set
   if ((flags & NEXT_SOURCE_SIGNAL) && (inferior->signal_status.receive_fd > 0)) {
     FD_SET (inferior->signal_status.receive_fd, fds);
   }
-    
-#if WITH_CFM
-  if ((flags & NEXT_SOURCE_CFM) && (inferior->cfm_status.receive_fd > 0)) {
-    FD_SET (inferior->cfm_status.receive_fd, fds);
-  }
-#endif
 }
 
 static unsigned int next_fetch_event 
@@ -250,9 +244,6 @@ static unsigned int next_fetch_event
   
   CHECK_FATAL (len >= sizeof (next_exception_thread_message));
   CHECK_FATAL (len >= sizeof (next_signal_thread_message));
-#if WITH_CFM
-  CHECK_FATAL (len >= sizeof (next_cfm_thread_message));
-#endif /* WITH_CFM */
   tv.tv_sec = 0;
   tv.tv_usec = timeout;
 
@@ -288,14 +279,6 @@ static unsigned int next_fetch_event
     return NEXT_SOURCE_SIGNAL; 
   }
 
-#if WITH_CFM
-  fd = inferior->cfm_status.receive_fd;
-  if ((fd > 0) && FD_ISSET (fd, &fds)) {
-    read (fd, buf, sizeof (next_cfm_thread_message));
-    return NEXT_SOURCE_CFM; 
-  }
-#endif /* WITH_CFM */
-  
   return NEXT_SOURCE_NONE;
 } 
 
@@ -354,14 +337,6 @@ static void next_process_events
 	break;
       }
     }
-
-#if WITH_CFM      
-    else if (source == NEXT_SOURCE_CFM) {
-      next_handle_cfm_event (next_status, buf);
-      status->kind = TARGET_WAITKIND_LOADED;
-      break;
-    }
-#endif /* WITH_CFM */
 
     else {
       error ("got message from unknown source: 0x%08x\n", source);
@@ -482,7 +457,6 @@ static void next_child_resume (int tpid, int step, enum target_signal signal)
 int next_wait (struct next_inferior_status *ns, struct target_waitstatus *status)
 {
   int thread_id;
-  kern_return_t kret;
 
   CHECK_FATAL (ns != NULL);
   
@@ -582,7 +556,6 @@ char **next_process_completer_quoted (char *text, char *word, int quote)
   
   char **procnames = NULL;
   char **ret = NULL;
-  char *orig_chars;
   int quoted = 0;
 
   if (text[0] == '"') {
@@ -1248,11 +1221,6 @@ next_async (void (*callback) (enum inferior_event_type event_type,
       if (next_status->signal_status.receive_fd > 0)
 	  add_file_handler (next_status->signal_status.receive_fd, 
 			    next_file_handler, NULL);
-#if WITH_CFM
-      if (next_status->cfm_status.receive_fd > 0)
-	  add_file_handler (next_status->cfm_status.receive_fd, 
-			    next_file_handler, NULL);
-#endif /* WITH_CFM */
     }
   else
     {
@@ -1260,10 +1228,6 @@ next_async (void (*callback) (enum inferior_event_type event_type,
 	delete_file_handler (next_status->exception_status.receive_fd);
       if (next_status->signal_status.receive_fd > 0)
 	delete_file_handler (next_status->signal_status.receive_fd);
-#if WITH_CFM
-      if (next_status->cfm_status.receive_fd > 0)
-	delete_file_handler (next_status->cfm_status.receive_fd);
-#endif /* WITH_CFM */
     }
 
 }

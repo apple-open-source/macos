@@ -1,4 +1,4 @@
-/*$Id: includes.h,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: includes.h,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $*/
 
 #include "../autoconf.h"
 #ifdef NO_const
@@ -46,7 +46,7 @@
 #endif
 #ifndef STDLIB_H_MISSING
 #include <stdlib.h>		/* getenv() malloc() realloc() free()
-				/* strtol() exit() EXIT_SUCCESS */
+				/* strtol() strtod() exit() EXIT_SUCCESS */
 #endif
 #include <time.h>		/* time() ctime() time_t */
 #include <fcntl.h>		/* fcntl() struct flock O_RDONLY O_WRONLY
@@ -73,7 +73,8 @@
 #ifndef STRING_H_MISSING
 #include <string.h>		/* strcpy() strncpy() strcat() strlen()
 				/* strspn() strcspn() strchr() strcmp()
-				   strncmp() strpbrk() strstr() memmove() */
+				   strncmp() strpbrk() strstr() memmove()
+				   strncasecmp() memset() */
 #endif
 #ifndef MATH_H_MISSING
 #include <math.h>		/* pow() */
@@ -84,12 +85,12 @@
 				   LOG_PID LOG_MAIL */
 #endif
 #include <errno.h>		/* EINTR EEXIST ENFILE EACCES EAGAIN EXDEV */
-				/* EDQUOT ENOSPC */
+				/* EDQUOT ENOSPC strerror() */
 #ifndef SYSEXITS_H_MISSING
 #include <sysexits.h>		/* EX_USAGE EX_DATAERR EX_NOINPUT EX_NOUSER
 				   EX_UNAVAILABLE EX_OSERR EX_OSFILE
 				   EX_CANTCREAT EX_IOERR EX_TEMPFAIL
-				   EX_NOPERM */
+				   EX_NOPERM EX__BASE */
 #endif
 
 #ifdef STDLIB_H_MISSING
@@ -142,8 +143,9 @@ double pow();
 #endif
 #ifdef SYSEXITS_H_MISSING
 #undef SYSEXITS_H_MISSING
-		/* Standard exit codes, original list maintained
-		   by Eric Allman (eric@berkeley.edu) */
+		/* Standard exitcodes, original list maintained
+		   by Eric Allman (eric@Sendmail.COM) */
+#define EX__BASE	64
 #define EX_USAGE	64
 #define EX_DATAERR	65
 #define EX_NOINPUT	66
@@ -159,6 +161,10 @@ double pow();
 
 #ifndef EXIT_SUCCESS
 #define EXIT_SUCCESS	0
+#endif
+
+#ifdef NO_exit
+#define _exit(sig)	exit(sig)
 #endif
 
 #if O_SYNC
@@ -455,6 +461,10 @@ extern void*memmove();
 #define truncate(file,length)		(-1)
 #endif
 
+#ifdef NOfsync
+#define fsync(fd)	0
+#endif
+
 #ifdef NOfstat
 #define fstat(fd,st)	(-1)
 #endif
@@ -482,10 +492,28 @@ extern void*memmove();
 #define strstr(haystack,needle) sstrstr(haystack,needle)
 #endif
 
+#ifdef NOmemset
+#ifdef NObzero
+#define NEEDbbzero
+#else
+#define bbzero(s,l)	bzero(s,l)
+#endif
+#else
+#define bbzero(s,l)	memset(s,'\0',l)
+#endif
+
 #ifndef P
 #define P(args)		args
 #endif
-#define Q(args)		() /* needed until function definitions are ANSI too */
+
+/*
+ * Until function definitions are ANSI, any function whose argument list
+ * includes a size_t, uid_t, gid_t, mode_t, pid_t, or time_t type variable
+ * should be declared with Q() instead of P().	This is done to prevent
+ * problems caused by one of those types being shorter than int and thereby
+ * being passed differently under ANSI rules.
+ */
+#define Q(args)		()
 
 #ifdef oBRAIN_DAMAGE
 #undef oBRAIN_DAMAGE
@@ -501,7 +529,7 @@ extern void*memmove();
 #define maxindex(x)	(sizeof(x)/sizeof((x)[0])-1)
 #define STRLEN(x)	(sizeof(x)-1)
 #define ioffsetof(s,m)	((int)offsetof(s,m))
-#define numeric(x)	((unsigned)(x)-'0'<='9'-'0')
+#define numeric(x)	(alphanum((unsigned char)(x))>1)
 #define sizeNUM(v)	(8*sizeof(v)*4/10+1+1)
 #define charNUM(num,v)	char num[sizeNUM(v)]
 
@@ -512,3 +540,13 @@ typedef unsigned char uschar;	     /* sometimes uchar is already typedef'd */
 #undef uchar
 #endif
 #define uchar uschar
+
+#if ! (__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 5))
+#define __attribute__(foo)
+#endif
+
+#if defined(__OpenBSD__) && defined(DEBUGGING)
+#define setuid(x) 0			 /* Under OpenBSD, you can't trace a */
+#define setgid(x) 0		      /* program after it calls any of these */
+#define setegid(x) 0
+#endif

@@ -104,6 +104,7 @@ static struct opt {
 	{ MNT_RDONLY,		"read-only" },
 	{ MNT_SYNCHRONOUS,	"synchronous" },
 	{ MNT_UNION,		"union" },
+	{ MNT_AUTOMOUNTED,	"automounted" },
 	{ NULL }
 };
 

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleADBMouse</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleADBMouse</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleADBMouse</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleADBMouseType1</key>
+		<dict>
+			<key>ADB Match</key>
+			<string>3</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleADBMouse</string>
+			<key>IOClass</key>
+			<string>AppleADBMouseType1</string>
+			<key>IOProbeScore</key>
+			<integer>5000</integer>
+			<key>IOProviderClass</key>
+			<string>IOADBDevice</string>
+			<key>dpi</key>
+			<integer>100</integer>
+		</dict>
+		<key>AppleADBMouseType2</key>
+		<dict>
+			<key>ADB Match</key>
+			<string>3</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleADBMouse</string>
+			<key>IOClass</key>
+			<string>AppleADBMouseType2</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOADBDevice</string>
+			<key>dpi</key>
+			<integer>200</integer>
+		</dict>
+		<key>AppleADBMouseType4</key>
+		<dict>
+			<key>ADB Match</key>
+			<string>3-01</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleADBMouse</string>
+			<key>IOClass</key>
+			<string>AppleADBMouseType4</string>
+			<key>IOProbeScore</key>
+			<integer>20000</integer>
+			<key>IOProviderClass</key>
+			<string>IOADBDevice</string>
+			<key>JitterNoClick</key>
+			<integer>1</integer>
+			<key>JitterNoMove</key>
+			<integer>0</integer>
+			<key>Trackpad Jitter Max delta</key>
+			<integer>16</integer>
+			<key>Trackpad Jitter Milliseconds</key>
+			<integer>750</integer>
+			<key>acclAAPL</key>
+			<data>
+			AACAAEAyMDAAAgAAAAAAAQABAAAAAQAAAAEAAAAJAABxOwAAYAAA
+			BE7FABCAAAAMAAAAXwAAABbsTwCLAAAAHTsUAJSAAAAidicAlgAA
+			ACRidgCWAAAAJgAAAJYAAAAoAAAAlgAA
+			</data>
+			<key>accltpad</key>
+			<data>
+			AACwAHRwYWQABwAAAAAAAQABAAAAAQAAAAAgAAAFAAEjxgABAAAA
+			Av48AAOAAAAFVxkACwAAAAguvwAaAAAACj/xAC4AAAAAUAAABQAB
+			I8YAAQAAAALeigAEEAAABWgsAA/gAAAIHr8AImAAAAofaAA34AAA
+			AIAAAAcAASPGAAEAAAABw3gAAoAAAAKsFQAEoAAABFQCAA3AAAAG
+			EoUAG7AAAAfmiwAtEAAACkTrAEqQAAAAsAAACQABJCkAAQAAAAGz
+			fAACgAAAAl5fAAWAAAADvywADwAAAAS8NQAXoAAABh44ACewAAAH
+			XUUAOFAAAAiZogBLsAAACpEFAGawAAAA4AAACgABGFUAATAAAAGy
+			KAAC8AAAAlNpAAagAAADb0oAENAAAARqqwAfEAAABUqrAC1QAAAG
+			JVUAP0AAAAcaqwBRwAAACJqrAGYwAAAKiqsAfXAAAAEAAAALAAEY
+			VQABMAAAAbIoAAMQAAACU2kABxAAAAMvSgARgAAAA6z7AByIAAAE
+			OqsAKOAAAATKqwA4QAAABVVVAEjwAAAGOqsAXJAAAAeqqwBzEAAA
+			CjqrAItwAA==
+			</data>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOADBFamily</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.iokit.IOHIDSystem</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>

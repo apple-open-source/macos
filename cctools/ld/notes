@@ -2,6 +2,10 @@ TODO (post MacWorld):
 - Test coalesced symbols with -static code gen and with rld()?
 
 TODO:
+- If a two-level library is loaded the definition from the specified library
+  is not loaded when there is another definition.  This can lead to ld not
+  catching a multiply defined symbol in a flat library as dyld would cause.
+  Test case in ~/bug_tests/Puma5D13.Sampler .
 - Might be a bug in search_dynamic_libs() if it is searching an archive then
   it does not take into account -all_load or -Objc.
 - The sreloc->r_address field is only 24-bits (16 meg) and can overflow
@@ -13,8 +17,6 @@ TODO:
 - Add check for undefined dyld_stub_binding_helper and __dyld_func_lookup if
   output_for_dyld is set.
 - Think about how indirect section would be ordered if allowed.
-- Added some way to do checking of bundle's undefined symbols by providing
-  a bundle_loader argument.
 
 Build problems:
 - For i386 builds with -dynamic -fomit-frame-pointer produces bad code (bug
@@ -22,7 +24,303 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.9 release (the cctools-382 release):
+- Fixed the change below for cctools-381.  The ifndef RLD should only have been
+  around twolevel_namespace_hints_specified not twolevel_namespace_hints.
+- Fixed the building of static_kld when $(SRCROOT) = . which needed otmp_obj
+  after libmacho/otmp_obj in the Makefile.
+
+Changes for the 5.9 release (the cctools-381 release):
+- Added an ifndef RLD around the definition of twolevel_namespace_hints so that
+  it would not get a warning when the ofiles_install target is built.
+
+Changes for the 5.9 release (the cctools-380 release):
+- Added the -twolevel_namespace_hints option which is off by default for bundles
+  and on otherwise.  The changes are in ld.c, layout.c, symbols.c and pass2.c.
+  Radar bug #2735266.
+
+Changes for the 5.9 release (the cctools-377 release):
+- Fixed a problem with the change below in cctools-376 to process_undefineds()
+  in symbols.c that would not build when RLD was defined.
+
+Changes for the 5.9 release (the cctools-376 release):
+- Fixed a bug in search_dynamic_libs() in pass1.c that should not have free()'ed
+  the "fake" merged_symbol when -Y was used.  This caused the code in
+  process_undefineds() in symbols.c to crash.
+- Fixed a bug in process_undefineds() in symbols.c that was not correctly
+  reporting undefined symbols for the -Y flag correctly.  It should not have
+  had the expression
+      merged_symbol->twolevel_reference == TRUE
+  when testing for undefined symbols.
+
+Changes for the 5.9 release (the cctools-375 release):
+- Fixed a bug in fine_reloc_output_sectnum() in objects.c where it should do
+  the same thing for lazy pointer sections as well as non-lazy pointer
+  sections.  This case showed up when a non-pic symbol stub was used for a local
+  symbol.  In this case the relocation entry to the lazy pointer was not a
+  scattered relocation entry so fine_reloc_output_sectnum() was being called
+  by ppc_reloc.c.  In the case for a local symbol the lazy pointer will not be
+  in the output so it does not even matter what the section number being
+  returned is.
+- Fixed ld(1) to correctly support the semantics of two-level namespace library
+  references.  Radar bug #2716249.
+
+  The basic approach is was to "fake" up a merged_symbol with the new
+  twolevel_reference bit set and add it to the undefined list in
+  merge_dylib_module_symbols() in symbols.c when it was merging a dylib module
+  from a two-level namespace dylib.
+
+  Then search_dynamic_libs() would look for these entries in the undefined list
+  and search for the dylib module that defines them name call
+  merge_dylib_module_symbols() to load the specified dynamic library.
+
+  Changes to process_undefineds() in symbols.c were also needed to check for
+  remaining two-level references and report them correctly.
+
+  Changed search_dynamic_libs() in pass1.c to always set up the sub_images even
+  if -twolevel_namespace is not in effect as it is needed when a two-level
+  namespace library is used to resolve its references with the correct
+  semantics.
+
+  Added the twolevel_reference bit and the referencing_library field to the
+  merged symbol struct in symbols.h.
+
+- Removed a number of #ifndef RLD #endif pairs from symbols.c that were already
+  inside an outer #ifndef RLD #endif pair.  These were inside the functions
+  command_line_indr_symbol(), merge_dylib_module_symbols() and
+  merge_bundle_loader_symbols() and all around the calls to
+  tell_ProjectBuilder().
+
+Changes for the 5.9 release (the cctools-373 release):
+- Changed the default to -twolevel_namespace in ld.c.  Also adding setting
+  twolevel_namespace to FALSE for -force_flat_namespace and -static.  Also
+  removed some #ifdef notdef code after the testing of LD_TWOLEVEL_NAMESPACE.
+
+Changes for the 5.9 release (the cctools-371 release):
+- Added a log message ""[Logging for XBS] Referenced bundle loader: <path>" when
+  the environment variable XBS_TRACE_BUNDLE_LOADER is set where <path> is the
+  argument of -bundle_loader if set.  Radar bug #2710229.
+
+Changes for the 5.9 release (the cctools-370 release):
+- Added the -nomultidefs flag to ld(1) to set the MH_NOMULTIDEFS flag in the
+  mach header.
+- Added support in ld(1) for the two-level namespace hints optimization.  Radar
+  bug #2558069.
+
+  The following field was added to the struct merged_symbol in symbols.h:
+    /*
+     * For two-level namespace hints this is the index into the table of
+     * contents for the definition symbol in the dylib it is defined in,
+     */
+    unsigned long itoc;
+
+  In search_dynamic_libs() in pass1.c code was added to set the itoc field in
+  the merged symbol after it was found in a DYLIB.
+    if(twolevel_namespace == TRUE)
+	undefined->merged_symbol->itoc = toc - q->tocs;
+
+  Also in merge_dylib_module_symbols() in symbols.c the itoc of a merged
+  symbol is set if not zero as the symbol in the merged symbol table could be
+  a common or undefined.  This changed required the function dylib_bsearch() in
+  pass1.c to now be __private_extern__ rather than static.  Also with this the
+  variable strings and symbols were changed to bsearch_strings and
+  bsearch_symbols in pass1.c and made __private_extern__ rather than static.
+
+  The following new struct was added to layout.[ch] to hold info about the
+  hints:
+    /*
+     * The output file's two level hints load command.
+     */
+    struct hints_info {
+	struct twolevel_hints_command twolevel_hints_command;
+    };
+    __private_extern__ struct hints_info output_hints_info;
+
+  In assign_output_symbol_indexes() in symbols.c number of hints was set based
+  on the value of nundefsym.
+
+  In layout_segments() in layout.c accounting for the size of the hints in the
+  linkedit segment was done.
+
+  Also in layout_segments() in layout.c code was added to account for the hints
+  command and its size.
+
+  Also in layout_segments() in layout.c the offsets to the hints table are set
+  as to be just after the symbol table.
+
+  In output_headers() in pass2.c the hints command is placed in the output.
+
+  In setup_output_flush() in pass2.c the space between the end of the symbol
+  table and the start of the hints is flushed and the offset is moved to the
+  end of the hints table.
+
+  In output_merged_symbols() in symbols.c at the end of the routine it outputs
+  the two-level namespace hints.
+
+  In check_cur_obj() in pass1.c added code to check a LC_TWOLEVEL_HINTS
+  command.
+
+Changes for the 5.9 release (the cctools-369 release):
+- Added kld_load_from_memory & kld_load_basefile_from_memory for the dynamic
+  build variant of libkld.  These APIs will be used by the Kernel's dynamic
+  OSObject patch code.  Changes in rld.c .
+
+Changes for the 5.9 release (the cctools-368 release):
+- Fixed a bug with -bundle_loader and cross bytesex links.  Code to swap the
+  symbol table of a BUNDLE_LOADER was added to search_dynamic_libs() in pass1.c.
+- Also needed a test in merge() in pass1.c before add_dynamic_lib() was called
+  for a BUNDLE_LOADER to make sure it has symbols as it could be of the wrong
+  architecture and will cause later code in search_dynamic_libs() to crash.
+
+Changes for the 5.9 release (the cctools-367 release):
+- Added support for the -sub_library option. Radar bug #2697458.
+
+  The following field was added to the struct dynamic_library in pass1.h:
+    char *library_name;
+
+  Added code in check_cur_obj() in pass1.c to check LC_SUB_LIBRARY command.
+
+  Changed search_dynamic_libs() in pass1.c in the third major block of code that
+  sets the library_ordinals to set the library_name field like the umbrella_name
+  field of the dynamic_library struct.
+
+  Added code to setup_sub_images() in pass1.c to handle sub_librarys as it
+  handles sub_umbrellas.
+
+  Changed set_sub_umbrella_ordinal() to set_sub_umbrella_sub_library_ordinal()
+  to do both sub_umbrellas and sub_libraries.  And factor out the code that
+  sets the index into the sub_images into the routine set_isub_image().
+
+- Added support in ld(1) to build the two-level namespace sub images arrays for
+  each dynamic library when -twolevel_namespace is in effect.  This is for the
+  two-level namespace hints optimization.  Radar bug #2558069.
+
+  The following fields were added to the struct dynamic_library in pass1.h:
+    /* following are used when -twolevel_namespace is in effect */
+    unsigned long ndependent_images;
+    struct dynamic_library **dependent_images;
+    enum bool sub_images_setup;
+    unsigned long nsub_images;
+    struct dynamic_library **sub_images;
+    enum bool twolevel_searched;
+
+  The following fields were added to the struct object_file in objects.h:
+    unsigned long isub_image;   /* when -twolevel_name space is in effect */
+				/*  this the sub_image index for recording */
+    unsigned long nload_dylibs; /* Number of LC_LOAD_DYLIB commands */
+
+  TODO: need to add code in check_cur_obj() to check LC_TWOLEVEL_HINTS command
+  then the hints.
+
+  Changed check_cur_obj() in pass1.c to increment nload_dylibs in the cur_obj
+  for each LC_LOAD_DYLIB commands.
+
+  Changed search_dynamic_libs() in pass1.c in the first major loop in
+  to allocate the dependent_images as well as the second major loop for 
+  dependent libraries when -twolevel_namespace is in effect.
+
+  Changed search_dynamic_libs() in pass1.c in the second major loop in
+  to fill in the dependent_images from the return value of add_dynamic_lib()
+  when -twolevel_namespace is in effect.
+
+  Changed search_dynamic_libs() in pass1.c in the third major block of code that
+  sets the library_ordinals added a loop that calls the new routine 
+  setup_sub_images() that has the same logic as in dyld's images.c.
+
+  Added code in both set_sub_frameworks_ordinals() and
+  set_sub_umbrella_ordinal() to set the isub_image for the libraries.
+
+  Added code in search_dynamic_libs() when the debug 22 bit is set and
+  -twolevel_namespace is in effect to printout the dependent and sub images.
+
+  After the sub_images arrays are set up the main loop to search for undefined
+  symbol in search_dynamic_libs() was changed to search all the sub_images of
+  each DYLIB as it is encountered.  The new twolevel_searched field is first
+  set to FALSE in all the dynamic_libray structs in the list and if a symbol is
+  not found in a DYLIB then all the sub_images are searched in turn.  This same
+  bit of logic is also done in the last loop that checks merged symbols coming
+  from dynamic libraries.
+
+- Fixed a bug where if only the -stack_size was set then the default stack
+  address value used was not put into the thread state.  This change was in
+  layout_segments() in layout.c where it now simply sets stack_addr_specified
+  to TRUE after calling get_stack_addr_from_flag().
+
+Changes for the 5.9 release (the cctools-361 release):
+- Added the -prebind_allow_overlap flag as well as the LD_PREBIND_ALLOW_OVERLAP
+  environment variable which allow prebinding to still be done even if some of
+  the libraries overlap.  Changes in ld.c, ld.h and layout.c in check_overlap().
+- Added the case for LC_PREBOUND_DYLIB in check_cur_obj() in pass1.c as it was
+  missing and -bundle_loader arguments can have these load commands.
+- Fixed a bug add_dynamic_lib() in pass1.c that changed the definition_obj of a
+  dynamic_library struct when it was a sub-umbrella.  This was old code from
+  the first attempt (cctools-344) to get the primary library stuff for
+  two-level namespace working.  This bug caused a cross bytesex link to fail
+  because when the symbolic info for each dylib was set up in
+  search_dynamic_libs() it swapped the nlist structs more than once because
+  more than one dynamic_library struct pointed to the same info.
+
+Changes for the 5.9 release (the cctools-360 release):
+- Ifdef'ed out the code that turns off -twolevel_namespace when the environment
+  variable LD_TWOLEVEL_NAMESPACE is set and -undefined is specified that is not
+  "error" or any -U flags are specified to cause hard errors for now.  This may
+  have to be put back in at some point. But we want things to fail at first to
+  find projects that use these flags.
+- Added savestr() to ld.c to avoid a multiply defineds for allocate() and
+  reallocate().
+- Changed the Makefile so that static_kld build will use libmacho from the
+  the $(SYMROOT) not from /usr/local/lib/system.
+- Added a definition of savestr() to rld.c to avoid pulling in allocate.o from
+  libstuff.
+- Changed the Makefile so that the rld stuff does not get built for RC_OS being
+  macos and RC_RELEASE being after Cheetah.
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added the -multiply_defined flag for the treatment of two-level namespace
+  multiply defined symbols.  It takes error, warning and suppress as arguments
+  with warning being the default.
+- Added the LD_TWOLEVEL_NAMESPACE environment variable to turn on
+  -twolevel_namespace when -flat_namespace and -static are not specified.  It
+  is also not turned on when -undefined is specified that is not "error" or any
+  -U flags are specified but prints a warning that LD_TWOLEVEL_NAMESPACE is
+  ignored.
+- Changed check_overlap() in layout.c for the check that does not disable
+  prebinding when there is an overlap with a split library's __LINKEDIT segment
+  such that an executable can be linked where some it the libraries it links
+  with split libraries that are not stripped it does not disable prebinding.
+- Added checking force_flat_namespace when checking for MH_TWOLEVEL so that if
+  forcing a flat name space the checking for multiply defined symbol is treated
+  as an error even if a two-level namespace library is used.
+- Changed check_dylibs_for_reference() in pass1.c to only check for references
+  in flat libraries so that two-level namespace libaries can be used with
+  different references and the resulting item being linked can be prebound
+  except when -force_flat_namespace is also being used.
+- Added the check and printing a message about unused multiply defined symbols
+  when -twolevel_namespace is in effect.  This is done with the new routine
+  twolevel_namespace_check_for_unused_dylib_symbols() defined in pass1.c and
+  called from layout() in layout.c .  To implement it the routine
+  check_dylibs_for_definition() in pass1.c was change to take two flags so it
+  can be used for prebinding and two-level name space checks.
+- Added the -bundle_loader <executable> and -private_bundle flags.  Along with
+  many other changes this allows -bundle outputs to have their undefined symbols
+  to be checked against the executable.  This is required for -bundle outputs
+  and -twolevel_namespace when the bundle references symbols from the executable
+  and EXECUTABLE_ORDINAL gets recorded for the library ordinal.
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+- Added a check to make sure -U flags are not used when twolevel_namespace is
+  in effect.
+- Fixed a bug with or'ing in of REFERENCED_DYNAMICALLY in
+  merge_dylib_module_symbols() in symbols.c on line 1965 which should not
+  be or'ed in when the dynamic library is a MH_TWOLEVEL.
+- Fixed a bug in merge_dylib_module_symbols() that incorrectly flagged a
+  multiply defined symbol as an error not a warning when one symbol came from
+  a flat library and one came from a two-level library and we were building an
+  executable.
+
 Changes for the 5.8 release (the cctools-355 release):
+- Changed the include file <mach/vm_task.h> to <mach/vm_map.h> in rld.c and
+  sets.c .  Radar bug #2579488.
 - Changed the way -twolevel_namespace sets the primary ordinal and reports
   errors for illegally referenced indirect libraries from the cctools-344
   original implementation:
@@ -1995,17 +2293,4 @@ Changes for the 2.0 impulse X.X release (the -19 compiler release):
   <sys/machine.h>
 - Fixed a bug in layout() that didn't get the addresses of sections right (and
   then possibly the filesizes of segments right).  This was cause by setting
-  the section address to the rounded value of 'addr' but not setting 'addr' to
-  that value before incrementing it by the section size.
-- Fixed a bug in check_size_offset*() in pass1.c that printed the wrong string.
-  And made the alignment checks in there a warning not an error (ifdef'ed
-  mc68000).
-- Built the rld package from the new link editor.  This is all ifdef'ed RLD and
-  lots of stuff is ifdef'ed out to kept the code size down.
-
-Changes for the 2.0 impulise 0.01A release (the -18 compiler release):
-- Fixed the problem if the output file is not writable but can be removed.
-  Added an unlink() in pass2().
-
-Changes for the 2.0 impulse 0.01 release (the -17 compiler release):
-- Rewrote the entire link editor.
+  the section address to the rounded 

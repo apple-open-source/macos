@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * June 2, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 
 #ifndef _S_SCD_H
 #define _S_SCD_H
@@ -28,7 +38,7 @@
 
 
 /*
- * keys in the "cacheData" dictionary
+ * keys in the "storeData" dictionary
  */
 
 /*
@@ -76,14 +86,15 @@
 #define	kSCDSessionKeys	CFSTR("sessionKeys")
 
 
-extern CFMutableDictionaryRef	cacheData;
+extern int			storeLocked;
+extern CFMutableDictionaryRef	storeData;
 extern CFMutableDictionaryRef	sessionData;
 extern CFMutableSetRef		changedKeys;
 extern CFMutableSetRef		deferredRemovals;
 extern CFMutableSetRef		removedSessionKeys;
 extern CFMutableSetRef		needsNotification;
 
-extern CFMutableDictionaryRef	cacheData_s;
+extern CFMutableDictionaryRef	storeData_s;
 extern CFMutableSetRef		changedKeys_s;
 extern CFMutableSetRef		deferredRemovals_s;
 extern CFMutableSetRef		removedSessionKeys_s;
@@ -93,109 +104,136 @@ extern CFMutableSetRef		removedSessionKeys_s;
  * _addRegexWatcherBySession(), and _removeRegexWatcherByKey() functions.
  */
 typedef struct {
-	SCDSessionPrivateRef	session;
-	regex_t			*preg;
+	SCDynamicStorePrivateRef	store;
+	regex_t				*preg;
 } addContext, *addContextRef;
 
 
 typedef struct {
-	SCDSessionPrivateRef	session;
-	regex_t			*preg;
+	SCDynamicStorePrivateRef	store;
+	regex_t				*preg;
 } removeContext, *removeContextRef;
 
 
 __BEGIN_DECLS
 
-SCDStatus	_SCDOpen			__P((SCDSessionRef	*session,
-						     CFStringRef	name));
+int
+__SCDynamicStoreOpen			(SCDynamicStoreRef	*store,
+					 CFStringRef		name);
+int
+__SCDynamicStoreClose			(SCDynamicStoreRef	*store);
 
-SCDStatus	_SCDClose			__P((SCDSessionRef	*session));
+int
+__SCDynamicStoreLock			(SCDynamicStoreRef	store,
+					 Boolean		recursive);
 
-SCDStatus	_SCDLock			__P((SCDSessionRef	session));
+int
+__SCDynamicStoreUnlock			(SCDynamicStoreRef	store,
+					 Boolean		recursive);
 
-SCDStatus	_SCDUnlock			__P((SCDSessionRef	session));
+int
+__SCDynamicStoreCopyKeyList		(SCDynamicStoreRef	store,
+					 CFStringRef		prefix,
+					 Boolean		isRegex,
+					 CFArrayRef		*subKeys);
 
-SCDStatus	_SCDList			__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     int		regexOptions,
-						     CFArrayRef		*subKeys));
+int
+__SCDynamicStoreAddValue		(SCDynamicStoreRef	store,
+					 CFStringRef		key,
+					 CFPropertyListRef	value);
 
-SCDStatus	_SCDAdd				__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     SCDHandleRef	handle));
+int
+__SCDynamicStoreAddTemporaryValue	(SCDynamicStoreRef	store,
+					 CFStringRef		key,
+					 CFPropertyListRef	value);
 
-SCDStatus	_SCDAddSession			__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     SCDHandleRef	handle));
+int
+__SCDynamicStoreCopyValue		(SCDynamicStoreRef	store,
+					 CFStringRef		key,
+					 CFPropertyListRef	*value);
 
-SCDStatus	_SCDGet				__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     SCDHandleRef	*handle));
+int
+__SCDynamicStoreSetValue		(SCDynamicStoreRef	store,
+					 CFStringRef		key,
+					 CFPropertyListRef	value);
 
-SCDStatus	_SCDSet				__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     SCDHandleRef	handle));
+int
+__SCDynamicStoreRemoveValue		(SCDynamicStoreRef	store,
+					 CFStringRef		key);
 
-SCDStatus	_SCDRemove			__P((SCDSessionRef	session,
-						     CFStringRef	key));
+int
+__SCDynamicStoreTouchValue		(SCDynamicStoreRef	store,
+					 CFStringRef		key);
 
-SCDStatus	_SCDTouch			__P((SCDSessionRef	session,
-						     CFStringRef	key));
+int
+__SCDynamicStoreNotifyValue		(SCDynamicStoreRef	store,
+					 CFStringRef		key);
 
-SCDStatus	_SCDSnapshot			__P((SCDSessionRef	session));
+int
+__SCDynamicStoreSnapshot		(SCDynamicStoreRef	store);
 
-SCDStatus	_SCDNotifierList		__P((SCDSessionRef	session,
-						     int		regexOptions,
-						     CFArrayRef		*notifierKeys));
+int
+__SCDynamicStoreAddWatchedKey		(SCDynamicStoreRef	store,
+					 CFStringRef		key,
+					 Boolean		isRegex);
 
-SCDStatus	_SCDNotifierAdd			__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     int		regexOptions));
+int
+__SCDynamicStoreRemoveWatchedKey	(SCDynamicStoreRef	store,
+					 CFStringRef		key,
+					 Boolean		isRegex);
 
-SCDStatus	_SCDNotifierRemove		__P((SCDSessionRef	session,
-						     CFStringRef	key,
-						     int		regexOptions));
+int
+__SCDynamicStoreCopyNotifiedKeys	(SCDynamicStoreRef	store,
+					 CFArrayRef		*notifierKeys);
 
-SCDStatus	_SCDNotifierGetChanges		__P((SCDSessionRef	session,
-						     CFArrayRef		*notifierKeys));
+int
+__SCDynamicStoreNotifyMachPort		(SCDynamicStoreRef	store,
+					 mach_msg_id_t		msgid,
+					 mach_port_t		*port);
 
-SCDStatus	_SCDNotifierInformViaMachPort	__P((SCDSessionRef	session,
-						     mach_msg_id_t	msgid,
-						     mach_port_t	*port));
+int
+__SCDynamicStoreNotifyFileDescriptor	(SCDynamicStoreRef	store,
+					 int32_t		identifier,
+					 int			*fd);
 
-SCDStatus	_SCDNotifierInformViaFD		__P((SCDSessionRef	session,
-						     int32_t		identifier,
-						     int		*fd));
+int
+__SCDynamicStoreNotifySignal		(SCDynamicStoreRef	store,
+					 pid_t			pid,
+					 int			sig);
 
-SCDStatus	_SCDNotifierInformViaSignal	__P((SCDSessionRef	session,
-						     pid_t		pid,
-						     int		sig));
+int
+__SCDynamicStoreNotifyCancel		(SCDynamicStoreRef	store);
 
-SCDStatus	_SCDNotifierCancel		__P((SCDSessionRef	session));
+void
+_swapLockedStoreData			();
 
-void		_swapLockedCacheData		__P(());
+void
+_addWatcher				(CFNumberRef		sessionNum,
+					 CFStringRef		watchedKey);
 
-void		_addWatcher			__P((CFNumberRef	sessionNum,
-						     CFStringRef	watchedKey));
+void
+_addRegexWatcherByKey			(const void		*key,
+					 void			*val,
+					 void			*context);
 
-void		_addRegexWatcherByKey		__P((const void		*key,
-						     void		*val,
-						     void		*context));
+void
+_addRegexWatchersBySession		(const void		*key,
+					 void			*val,
+					 void			*context);
 
-void		_addRegexWatchersBySession	__P((const void		*key,
-						     void		*val,
-						     void		*context));
+void
+_removeWatcher				(CFNumberRef		sessionNum,
+					 CFStringRef		watchedKey);
 
-void		_removeWatcher			__P((CFNumberRef	sessionNum,
-						     CFStringRef	watchedKey));
+void
+_removeRegexWatcherByKey		(const void		*key,
+					 void			*val,
+					 void			*context);
 
-void		_removeRegexWatcherByKey	__P((const void		*key,
-						     void		*val,
-						     void		*context));
-
-void		_removeRegexWatchersBySession	__P((const void		*key,
-						     void		*val,
-						     void		*context));
+void
+_removeRegexWatchersBySession		(const void		*key,
+					 void			*val,
+					 void			*context);
 
 __END_DECLS
 

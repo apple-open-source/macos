@@ -84,7 +84,7 @@ static int 			DoProbe( char *theDeviceNamePtr );
 static int 			DoUnmount( char *theDeviceNamePtr );
 static int 			DoVerifyArgs( int argc, const char *argv[] );
 
-static int	get_ssector(const char *devpath);
+static int	get_ssector(const char *devpath, int devfd);
 static u_char *	get_cdtoc(const char * devpath);
 
 static u_char *	CreateBufferFromCFData(CFDataRef theData);
@@ -337,7 +337,7 @@ static int DoProbe( char *theDeviceNamePtr )
 		goto ExitThisRoutine;
 	}
 
-	blkoff = get_ssector(theDeviceNamePtr);
+	blkoff = get_ssector(theDeviceNamePtr, myFD);
 	maxblk = MAX_BLOCK_TO_SCAN + blkoff;
 
 	/* Scan for the ISO Volume Descriptor.  It should be at block 16 on the CD but may be past */
@@ -615,15 +615,19 @@ struct CDTOC {
  * to probe the very first session.
  */
 static int
-get_ssector(const char *devpath)
+get_ssector(const char *devpath, int devfd)
 {
 	struct CDTOC * toc_p;
 	struct CDTOC_Desc *toc_desc;
+	struct ISOVolumeDescriptor *isovdp;
+	char iobuf[CDROM_BLOCK_SIZE];
+	int cmpsize = sizeof(isovdp->id);
 	int i, count;
 	int ssector;
 	u_char track;
 
 	ssector = 0;
+	isovdp = (struct ISOVolumeDescriptor *)iobuf;
 
 	if ((toc_p = (struct CDTOC *)get_cdtoc(devpath)) == NULL)
 		goto exit;
@@ -640,8 +644,27 @@ get_ssector(const char *devpath)
 			continue;
 
 		if (toc_desc[i].ctrl_adr & CD_CTRL_DATA) {
-			ssector = MSF_TO_LBA(toc_desc[i].p);
-			break;
+			int sector;
+
+			sector = MSF_TO_LBA(toc_desc[i].p);		
+			if (sector == 0)
+				break;
+
+			/* 
+			 * Kodak Photo CDs have multiple tracks per session
+			 * and a primary volume descriptor (PVD) will be in
+			 * one of these tracks.  So we check each data track
+			 * to find the latest valid PVD.
+			 */
+			lseek(devfd, ((16 + sector) * CDROM_BLOCK_SIZE), 0);
+			if (read(devfd, iobuf, CDROM_BLOCK_SIZE) != CDROM_BLOCK_SIZE)
+				continue;
+		
+			if ((memcmp(&isovdp->id[0], ISO_STANDARD_ID, cmpsize) == 0)
+				&& (isovdp->type[0] == ISO_VD_PRIMARY)) {
+				ssector = sector;
+				break;
+			}
 		}
 	}
 	

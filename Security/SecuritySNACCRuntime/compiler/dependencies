@@ -1,0 +1,1232 @@
+lex-asn1.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/exports.h core/parse-asn1.h core/parser.h \
+  core/lex-stuff.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/errno.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/errno.h 
+parse-asn1.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h ../c-lib/inc/print.h \
+  ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h ../c-lib/inc/asn-bool.h \
+  ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h ../c-lib/inc/asn-real.h \
+  ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h ../c-lib/inc/asn-oid.h \
+  ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h ../c-lib/inc/hash.h \
+  ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h core/asn1module.h \
+  core/lib-types.h core/snacc-util.h core/exports.h core/parser.h \
+  core/lex-stuff.h 
+define.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/define.h 
+dependency.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h core/dependency.h 
+do-macros.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h back-ends/str-util.h core/normalize.h \
+  core/snacc-util.h core/do-macros.h 
+err-chk.o : /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h back-ends/tag-util.h core/define.h \
+  core/err-chk.h 
+exports.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h core/exports.h 
+gen-tbls.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/tbl.h core/gen-tbls.h 
+lib-types.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/lib-types.h 
+link-types.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h core/link-types.h 
+link-values.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h core/link-values.h 
+mem.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/mem.h 
+meta.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h core/meta.h 
+normalize.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/oid.h core/lib-types.h core/snacc-util.h \
+  core/normalize.h 
+oid.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/oid.h 
+print.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/lib-types.h core/print.h 
+recursive.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/recursive.h core/snacc-util.h 
+snacc.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/time.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/time.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/limits.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/limits.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h ../c-lib/inc/print.h \
+  ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h ../c-lib/inc/asn-bool.h \
+  ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h ../c-lib/inc/asn-real.h \
+  ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h ../c-lib/inc/asn-oid.h \
+  ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h ../c-lib/inc/hash.h \
+  ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h ../version.h \
+  core/asn1module.h core/exports.h core/parser.h core/dependency.h \
+  core/link-types.h core/link-values.h core/err-chk.h core/print.h \
+  core/recursive.h core/define.h core/normalize.h core/do-macros.h \
+  core/snacc-util.h core/meta.h back-ends/str-util.h \
+  back-ends/c-gen/rules.h back-ends/c-gen/type-info.h \
+  back-ends/c-gen/gen-code.h back-ends/c++-gen/rules.h \
+  back-ends/c++-gen/types.h back-ends/c++-gen/gen-code.h core/gen-tbls.h \
+  back-ends/idl-gen/rules.h back-ends/idl-gen/types.h \
+  back-ends/idl-gen/gen-code.h 
+snacc-util.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/lib-types.h core/define.h core/snacc-util.h 
+val-parser.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h core/oid.h core/val-parser.h 
+str-util.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/unistd.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  core/asn1module.h core/define.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/c-gen/kwd.h \
+  back-ends/c++-gen/kwd.h back-ends/str-util.h 
+tag-util.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h core/lib-types.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/str-util.h core/snacc-util.h \
+  back-ends/c-gen/util.h back-ends/tag-util.h 
+cond.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  back-ends/cond.h 
+type-info.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/snacc-util.h core/define.h back-ends/str-util.h \
+  back-ends/c-gen/rules.h back-ends/c-gen/type-info.h 
+util.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h back-ends/c-gen/rules.h core/snacc-util.h \
+  back-ends/c-gen/util.h 
+rules.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h back-ends/c-gen/rules.h 
+gen-code.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/print.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/c-gen/util.h back-ends/cond.h \
+  back-ends/c-gen/gen-type.h back-ends/c-gen/gen-enc.h \
+  back-ends/c-gen/gen-dec.h back-ends/c-gen/gen-vals.h \
+  back-ends/c-gen/gen-free.h back-ends/c-gen/gen-print.h \
+  back-ends/c-gen/gen-any.h back-ends/c-gen/gen-code.h 
+gen-type.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/print.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/c-gen/util.h \
+  back-ends/c-gen/gen-type.h 
+gen-enc.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/str-util.h back-ends/c-gen/util.h \
+  back-ends/tag-util.h core/snacc-util.h back-ends/c-gen/gen-enc.h 
+gen-dec.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h core/lib-types.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/str-util.h core/snacc-util.h \
+  back-ends/c-gen/util.h back-ends/tag-util.h back-ends/c-gen/gen-dec.h 
+gen-vals.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/oid.h core/asn1module.h core/define.h core/lib-types.h \
+  back-ends/c-gen/rules.h back-ends/c-gen/type-info.h back-ends/str-util.h \
+  core/snacc-util.h back-ends/c-gen/util.h back-ends/c-gen/kwd.h \
+  back-ends/c-gen/gen-vals.h 
+gen-free.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/str-util.h back-ends/c-gen/util.h \
+  back-ends/c-gen/gen-free.h 
+gen-print.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h back-ends/c-gen/rules.h \
+  back-ends/c-gen/type-info.h back-ends/str-util.h back-ends/c-gen/util.h \
+  back-ends/c-gen/gen-print.h 
+gen-any.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h back-ends/c-gen/rules.h core/define.h \
+  back-ends/str-util.h back-ends/c-gen/gen-vals.h core/lib-types.h \
+  back-ends/c-gen/gen-any.h 
+kwd.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  back-ends/c-gen/kwd.h 
+kwd.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  back-ends/c++-gen/kwd.h 
+types.o : /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/define.h core/asn1module.h core/snacc-util.h back-ends/str-util.h \
+  back-ends/c++-gen/rules.h back-ends/c++-gen/kwd.h \
+  back-ends/c++-gen/types.h 
+rules.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h back-ends/c++-gen/rules.h 
+gen-code.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/time.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/time.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/limits.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/limits.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h ../c-lib/inc/print.h \
+  ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h ../c-lib/inc/asn-bool.h \
+  ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h ../c-lib/inc/asn-real.h \
+  ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h ../c-lib/inc/asn-oid.h \
+  ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h ../c-lib/inc/hash.h \
+  ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h core/asn1module.h \
+  core/define.h core/lib-types.h back-ends/c++-gen/rules.h \
+  back-ends/c++-gen/types.h back-ends/cond.h back-ends/str-util.h \
+  core/snacc-util.h core/print.h back-ends/tag-util.h core/meta.h \
+  back-ends/c++-gen/gen-vals.h back-ends/c++-gen/gen-any.h \
+  back-ends/c++-gen/gen-code.h 
+gen-vals.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/oid.h core/define.h core/lib-types.h \
+  back-ends/str-util.h core/snacc-util.h back-ends/c++-gen/rules.h \
+  back-ends/c++-gen/gen-vals.h 
+gen-any.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h back-ends/str-util.h \
+  back-ends/c++-gen/rules.h back-ends/c++-gen/gen-vals.h core/lib-types.h \
+  back-ends/c++-gen/gen-any.h 
+rules.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h back-ends/idl-gen/rules.h 
+types.o : /System/Library/Frameworks/System.framework/Headers/bsd/ctype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/runetype.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/define.h core/asn1module.h core/snacc-util.h back-ends/str-util.h \
+  back-ends/idl-gen/rules.h back-ends/c++-gen/kwd.h \
+  back-ends/idl-gen/types.h 
+gen-any.o : /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/define.h back-ends/str-util.h \
+  back-ends/idl-gen/rules.h back-ends/idl-gen/gen-vals.h core/lib-types.h \
+  back-ends/idl-gen/gen-any.h 
+gen-code.o : ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  ../policy.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/string.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h ../c-lib/inc/print.h \
+  ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h ../c-lib/inc/asn-bool.h \
+  ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h ../c-lib/inc/asn-real.h \
+  ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h ../c-lib/inc/asn-oid.h \
+  ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h ../c-lib/inc/hash.h \
+  ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h core/asn1module.h \
+  core/define.h core/lib-types.h back-ends/idl-gen/rules.h \
+  back-ends/idl-gen/types.h back-ends/cond.h back-ends/str-util.h \
+  core/snacc-util.h core/print.h back-ends/tag-util.h \
+  back-ends/idl-gen/gen-vals.h back-ends/idl-gen/gen-any.h \
+  back-ends/idl-gen/gen-code.h 
+gen-vals.o : \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/asn1module.h core/oid.h core/define.h core/lib-types.h \
+  back-ends/str-util.h core/snacc-util.h back-ends/idl-gen/rules.h \
+  back-ends/idl-gen/gen-vals.h 
+tbl.o : ../c-lib/inc/asn-incl.h ../c-lib/inc/asn-config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdio.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/sys/cdefs.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/types.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/ansi.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/endian.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/setjmp.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/machine/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/ppc/signal.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/math.h \
+  ../snacc.h ../config.h \
+  /System/Library/Frameworks/System.framework/Headers/bsd/stdlib.h \
+  ../policy.h ../c-lib/inc/mem.h ../c-lib/inc/exp-buf.h \
+  ../c-lib/inc/print.h ../c-lib/inc/asn-len.h ../c-lib/inc/asn-tag.h \
+  ../c-lib/inc/asn-bool.h ../c-lib/inc/asn-int.h ../c-lib/inc/asn-enum.h \
+  ../c-lib/inc/asn-real.h ../c-lib/inc/asn-octs.h ../c-lib/inc/asn-bits.h \
+  ../c-lib/inc/asn-oid.h ../c-lib/inc/asn-null.h ../c-lib/inc/asn-any.h \
+  ../c-lib/inc/hash.h ../c-lib/inc/asn-list.h ../c-lib/boot/asn-useful.h \
+  core/tbl.h 

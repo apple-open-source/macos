@@ -31,7 +31,6 @@ PROF_LIBS = $(LIBS)
 
 
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
-NEXTSTEP_PB_CFLAGS = -Wno-four-char-constants
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

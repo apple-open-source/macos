@@ -31,8 +31,8 @@ PROF_LIBS = $(LIBS)
 
 
 NEXTSTEP_PB_CFLAGS = -fpascal-strings -Wno-four-char-constants
-NEXTSTEP_PB_LDFLAGS = -undefined warning
-FRAMEWORKS = -framework IOKit
+
+FRAMEWORKS = -framework CoreFoundation -framework IOKit
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

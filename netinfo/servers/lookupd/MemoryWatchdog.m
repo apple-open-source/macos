@@ -34,6 +34,7 @@
  */
 
 #import "MemoryWatchdog.h"
+#import "LUAgent.h"
 #import <string.h>
 
 @implementation MemoryWatchdog
@@ -69,6 +70,8 @@
 {
 	int i, len;
 	id obj;
+	char cachecode;
+	BOOL valid;
 
 	syslock_lock(listLock);
 	len = [list count];
@@ -77,10 +80,25 @@
 	for (i = 0; i < len; i++)
 	{
 		obj = [list objectAtIndex:i];
+		cachecode = ' ';
+		if ([self objectInCache:obj])
+		{
+			valid = NO;
+			if ([obj isMemberOf:[LUArray class]])
+			{
+				valid = [cacheAgent isArrayValid:obj];
+			}
+			else
+			{
+				valid = [cacheAgent isValid:obj];
+			}
+			if (valid) cachecode = '*';
+			else cachecode = '.';
+		}
 
-		fprintf(f, "%5d %2d %s 0x%08x %s",
+		fprintf(f, "%5d %2d %c 0x%08x %s",
 			i, [obj retainCount] - 1,
-			([self objectInCache:obj] ? "*" : " "),
+			cachecode,
 			(unsigned int)obj, [obj banner]);
 		fprintf(f, "\n");
 

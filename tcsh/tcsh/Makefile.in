@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.1.1.2 1999/04/23 02:00:56 wsanchez Exp $
+# $Id: Makefile.in,v 1.1.1.3 2001/06/28 23:10:49 bbraun Exp $
 #	Makefile.in	4.3	6/11/83
 #
 # C Shell with process control; VM/UNIX VAX Makefile
@@ -8,7 +8,7 @@
 # things; Paul Placeway, CIS Dept., Ohio State University
 #
 SHELL=/bin/sh
-VERSION=6.08
+VERSION=6.10
 BUILD=tcsh
 VPATH=@srcdir@
 srcdir=@srcdir@
@@ -28,6 +28,7 @@ CPPFLAGS=-I. -I$(srcdir)
 LFLAGS=
 #LFLAGS= -Zn10000		# hpux lint
 
+
 CFLAGS = @CFLAGS@		# This is set by autoconf.
 #CFLAGS= -g			# debug
 #CFLAGS= -O			# production
@@ -37,24 +38,24 @@ CFLAGS = @CFLAGS@		# This is set by autoconf.
 #CFLAGS= -O -pg -DPROF
 
 # gcc 1.00-1.37
-#CFLAGS=-O -finline-functions -fstrength-reduce 
+#CFLAGS= -O -finline-functions -fstrength-reduce 
 
 # gcc 1.37-1.40
-#CFLAGS=-O -fcombine-regs -finline-functions -fstrength-reduce 
+#CFLAGS= -O -fcombine-regs -finline-functions -fstrength-reduce 
 # add -msoft-float for 68881 machines.
 
 # gcc 2.0
 # On the sparc, don't use -O2; it breaks setjmp() and vfork()
-#CFLAGS=-O
+#CFLAGS= -O
 
 # gcc-2.1+
-#CFLAGS=-O2
+#CFLAGS= -O2
 
 # lucid c on suns
-#CFLAGS=-O5
+#CFLAGS= -O5
 
 # gcc 2.1 on linux
-#CFLAGS=-O6 -fomit-frame-pointer
+#CFLAGS= -O6 -fomit-frame-pointer
 
 # HP/UX 8.0, 9.0
 #CFLAGS= +O3 -Aa
@@ -63,7 +64,7 @@ CFLAGS = @CFLAGS@		# This is set by autoconf.
 #CFLAGS= -O -Olimit 2000
 
 # Intel Paragon OSF/1 with PGI compilers
-#CFLAGS=-O -Mnodebug -Mnoperfmon
+#CFLAGS= -O -Mnodebug -Mnoperfmon
 
 # DEC Alpha OSF/1
 #CFLAGS= -O2 -Olimit 2000	## Normal Optimization
@@ -75,7 +76,7 @@ CFLAGS = @CFLAGS@		# This is set by autoconf.
 # for silicon graphics (and other mips compilers) -- use the
 # global optimizer! (-O3).
 # On SGI 4.0+ you need to add -D__STDC__ too.
-#CFLAGS= -O3 
+#CFLAGS= -O3
 #CFLAGS= -O3 -Olimit 2000	## Ultrix 4.2a
 #CF=-j
 #SUF=u
@@ -154,6 +155,13 @@ LDFLAGS= @LDFLAGS@		## This is set by autoconf.
 #LDFLAGS= -s -N			## Impure executable (linux)
 
 ################################################################
+## SBINLDFLAGS.  Flags to build a tcsh suitable for installation in
+##		 in /sbin under Solaris with gcc. See the "tcsh.sbin"
+##		 target.
+################################################################
+SBINLDFLAGS=-Wl,-R/etc/lib,-I/etc/lib/ld.so.1,-ldl,-Bstatic
+
+################################################################
 ## LIBES.  Pick one, or roll your own.
 ################################################################
 LIBES= @LIBS@	 			 ## This is set by autoconf.
@@ -207,10 +215,6 @@ LIBES= @LIBS@	 			 ## This is set by autoconf.
 ################################################################
 ## EXTRAFLAGS and EXTRALIBS
 ################################################################
-# Compiling for HESIOD
-#HESDEF = -DHESIOD -I/usr/athena/include
-#HESLIB = -L/usr/athena/lib -lhesiod
-#
 # Compiling for AFS with kerberos authentication
 #AFSLIBDIR = /usr/afsws/lib
 #AFSDEF = -DAFS -I/usr/afsws/include
@@ -226,8 +230,8 @@ LIBES= @LIBS@	 			 ## This is set by autoconf.
 #         $(AFSLIBDIR)/afs/util.a $(AFS33LIB) $(AFSAUXLIB)
 #
 
-EXTRAFLAGS = $(HESDEF) $(AFSDEF)
-EXTRALIBS = $(HESLIB) $(AFSLIB)
+EXTRAFLAGS = @HESDEF@ $(AFSDEF)
+EXTRALIBS = @HESLIB@ $(AFSLIB)
 
 
 # The difficult choice of a c-compiler...
@@ -243,6 +247,7 @@ CPP = @CPP@ # This is set by autoconf.
 # The -B tells gcc to use /bin/ld. This is to avoid using the gnu ld, which
 # on the suns does not know how to make dynamically linked binaries.
 CC = @CC@ # This is set by autoconf.
+#CC= gcc -Wall -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Werror
 #CC=	gcc -Wall -pipe -B/bin/	# -ansi -pedantic
 #CC=	gcc -m486 -pipe -Wall # Generate code for Intel 486 (linux)
 #CC=	shlicc 	# BSDI2.1 w/ shared libraries
@@ -256,6 +261,7 @@ CC = @CC@ # This is set by autoconf.
 #CC=	/usr/lib/sun.compile/cc  # FPS 500 (+FPX) with Sun C compiler
 #CC=	/opt/SUNWspro/bin/cc	# Solaris 2.1
 #CC=	scc 	# Alliant fx2800
+#CC=	cc	-h0,ansi,novector,float0 # for NEC SX-4
 #CC=	lcc	-wa 
 ED=	ed
 AS=	as
@@ -270,13 +276,11 @@ PARALLEL=12				# Make the multi-max run fast.
 P=
 prefix=@prefix@
 exec_prefix=@exec_prefix@
+bindir=@bindir@
 mandir=@mandir@
-INITDIR=${prefix}/share/init/tcsh
-DESTDIR=${prefix}
-#DESTDIR=/usr/contrib
 MANSECT=1
-DESTBIN=@bindir@
-DESTMAN=${mandir}/man${MANSECT}
+DESTBIN=${DESTDIR}${bindir}
+DESTMAN=${DESTDIR}${mandir}/man${MANSECT}
 # DESTMAN=${DESTDIR}/catman/man${MANSECT}	 # A/UX
 # DESTMAN=${DESTDIR}/usr/share/man/man${MANSECT} # Stardent Vistra (SysVR4)
 # DESTMAN=/usr/catman/1l			 # Amiga unix (SysVR4)
@@ -340,6 +344,10 @@ tcsh:$(P) ${OBJS}
 	rm -f tcsh core
 	${CC} -o tcsh ${LDFLAGS} ${CFLAGS} ${CPPFLAGS} ${OBJS} ${LIBES} ${EXTRALIBS}
 
+tcsh.sbin:$(P) ${OBJS} 
+	rm -f tcsh.sbin core
+	${CC} -o tcsh.sbin ${SBINLDFLAGS} ${LDFLAGS} ${CFLAGS} ${CPPFLAGS} ${OBJS} ${LIBES} ${EXTRALIBS}
+
 # Purify
 pure:$(P) ${OBJS} 
 	rm -f tcsh core
@@ -384,7 +392,7 @@ tcsh.ps: tcsh.man
 
 #ed.init.o: ed.init.c
 #	${CPP} ${CFLAGS} ${CPPFLAGS} $*.c | ${XSTR} -c -
-#	${CC} -R ${CF} ${CF} x.c 
+#	${CC} -R ${CF} ${CFLAGS} ${CPPFLAGS} x.c 
 #	mv -f x.o $*.o
 #	rm -f x.c
 
@@ -421,7 +429,7 @@ tc.const.h: tc.const.c sh.char.h config.h config_f.h sh.types.h sh.err.h
 	@echo '/* Do not edit this file, make creates it. */' > $@
 	@echo '#ifndef _h_tc_const' >> $@
 	@echo '#define _h_tc_const' >> $@
-	${CPP} ${CPPFLAGS} ${DFLAGS} ${EXTRAFLAGS} -D_h_tc_const\
+	${CPP} $(CPPFLAGS) ${DFLAGS} ${EXTRAFLAGS} -D_h_tc_const\
 	    $(srcdir)/tc.const.c | grep 'Char STR' | \
 	    sed -e 's/Char \([a-zA-Z0-9_]*\)\[\].*/extern Char \1[];/' | \
 	    sort >> $@
@@ -436,10 +444,10 @@ sh.prof.${SUF}:
 	${CC} ${CF} ${CFLAGS} ${CPPFLAGS} -DPROF sh.prof.c
 
 lint: tc.const.h ed.defns.h
-	lint ${DFLAGS} ${LFLAGS} ${CPPFLAGS} sh*.c tw*.c ed*.c tc.*.c ${LIBES}
+	lint ${DFLAGS} ${CPPFLAGS} ${LFLAGS} sh*.c tw*.c ed*.c tc.*.c ${LIBES}
 
 alint: tc.const.h ed.defns.h
-	alint ${DFLAGS} ${LFLAGS} ${CPPFLAGS} sh*.c tw*.c ed*.c tc.*.c ${LIBES}
+	alint ${DFLAGS} ${CPPFLAGS} ${LFLAGS} sh*.c tw*.c ed*.c tc.*.c ${LIBES}
 
 print:
 	@pr READ_ME
@@ -466,15 +474,15 @@ vgrind:
 
 install-strip: install
 
-install: tcsh install.man install.init
-	mkdir -p ${DESTBIN}
+install: tcsh 
+	-mkdir -p ${DESTBIN}
 	-mv -f ${DESTBIN}/tcsh  ${DESTBIN}/tcsh.old
 	cp tcsh ${DESTBIN}/tcsh
 	-strip ${DESTBIN}/tcsh
 	chmod 555 ${DESTBIN}/tcsh
 
 install.man: tcsh.man
-	mkdir -p ${DESTMAN}
+	-mkdir -p ${DESTMAN}
 	-rm -f ${DESTMAN}/tcsh.${MANSECT}
 	cp $(srcdir)/tcsh.man ${DESTMAN}/tcsh.${MANSECT}
 	chmod 444 ${DESTMAN}/tcsh.${MANSECT}
@@ -490,12 +498,6 @@ install.man: tcsh.man
 #	-rm -f ${DESTMAN}/tcsh.${MANSECT}.Z
 #	nroff -man tcsh.man | compress > ${DESTMAN}/tcsh.${MANSECT}.Z
 #	chmod 444 ${DESTMAN}/tcsh.${MANSECT}.Z
-
-install.init:
-	-rm -rf ${INITDIR}
-	mkdir -p ${INITDIR}
-	cp `find $(srcdir)/init -type f -print` ${INITDIR}
-	chmod 444 ${INITDIR}/*
 
 clean:
 	${RM} -f a.out strings x.c xs.c tcsh tcsh.a _MAKE_LOG core gethost
@@ -514,7 +516,7 @@ tags:	/tmp
 tar.Z:
 	rm -f tcsh-${VERSION}.tar.Z
 	rm -rf tcsh-${VERSION} 
-	mkdir tcsh-${VERSION} tcsh-${VERSION}/config
+	-mkdir tcsh-${VERSION} tcsh-${VERSION}/config
 	cp ${ALLSRCS} tcsh-${VERSION}
 	cp ${CONFSRCS} tcsh-${VERSION}/config
 	tar cf - nls/Makefile nls/?*/set?* | (cd tcsh-${VERSION}; tar xpf -)
@@ -524,7 +526,7 @@ tar.Z:
 tar.gz:
 	rm -f tcsh-${VERSION}.tar.gz
 	rm -rf tcsh-${VERSION} 
-	mkdir tcsh-${VERSION} tcsh-${VERSION}/config
+	-mkdir tcsh-${VERSION} tcsh-${VERSION}/config
 	cp ${ALLSRCS} tcsh-${VERSION}
 	cp ${CONFSRCS} tcsh-${VERSION}/config
 	tar cf - nls/Makefile nls/?*/set?* | (cd tcsh-${VERSION}; tar xpf -)
@@ -534,7 +536,7 @@ tar.gz:
 shar:
 	rm -f tcsh-*.shar
 	rm -rf tcsh-${VERSION} 
-	mkdir tcsh-${VERSION} tcsh-${VERSION}/config
+	-mkdir tcsh-${VERSION} tcsh-${VERSION}/config
 	cp ${ALLSRCS} tcsh-${VERSION}
 	cp ${CONFSRCS} tcsh-${VERSION}/config
 	tar cf - nls/Makefile nls/?*/set?* | (cd tcsh-${VERSION}; tar xpf -)
@@ -549,11 +551,11 @@ catalogs:
 tcsh-${VERSION}.tar.Z:
 	rm -rf tcsh-${VERSION} 
 	rm -f tcsh-${VERSION}.tar tcsh-${VERSION}.tar.Z DIFFS.[123]
-	mkdir tcsh-${VERSION}
+	-mkdir tcsh-${VERSION}
 	./MAKEDIFFS bsd
 	mv DIFFS.1 DIFFS.2 DIFFS.3 tcsh-${VERSION}
 	cp ${DISTSRCS} tcsh-${VERSION}
-	mkdir tcsh-${VERSION}/config
+	-mkdir tcsh-${VERSION}/config
 	cp ${CONFSRCS} tcsh-${VERSION}/config
 	cp Makefile tcsh-${VERSION}/Makefile.new
 	tar cf - nls/Makefile nls/?*/set?* | (cd tcsh-${VERSION}; tar xpf -)
@@ -563,11 +565,11 @@ tcsh-${VERSION}.tar.Z:
 tcsh.tahoe-${VERSION}.tar.Z:
 	rm -rf tcsh.tahoe-${VERSION} 
 	rm -f tcsh.tahoe-${VERSION}.tar tcsh.tahoe-${VERSION}.tar.Z DIFFS.[123]
-	mkdir tcsh.tahoe-${VERSION}
+	-mkdir tcsh.tahoe-${VERSION}
 	./MAKEDIFFS tahoe
 	mv DIFFS.1 DIFFS.2 DIFFS.3 tcsh.tahoe-${VERSION}
 	cp ${DISTSRCS} tcsh.tahoe-${VERSION}
-	mkdir tcsh.tahoe-${VERSION}/config
+	-mkdir tcsh.tahoe-${VERSION}/config
 	cp ${CONFSRCS} tcsh.tahoe-${VERSION}/config
 	cp Makefile tcsh.tahoe-${VERSION}/Makefile.new
 	tar cf - nls/Makefile nls/?*/set?* | (cd tcsh-${VERSION}; tar xpf -)
@@ -577,11 +579,11 @@ tcsh.tahoe-${VERSION}.tar.Z:
 tcsh.reno-${VERSION}.tar.Z:
 	rm -rf tcsh.reno-${VERSION} 
 	rm -f tcsh.reno-${VERSION}.tar tcsh.reno-${VERSION}.tar.Z DIFFS.[123]
-	mkdir tcsh.reno-${VERSION}
+	-mkdir tcsh.reno-${VERSION}
 	./MAKEDIFFS reno
 	mv DIFFS.1 DIFFS.2 DIFFS.3 tcsh.reno-${VERSION}
 	cp ${DISTSRCS} tcsh.reno-${VERSION}
-	mkdir tcsh.reno-${VERSION}/config
+	-mkdir tcsh.reno-${VERSION}/config
 	cp ${CONFSRCS} tcsh.reno-${VERSION}/config
 	cp Makefile tcsh.reno-${VERSION}/Makefile.new
 	tar cf - nls/Makefile nls/?*/set?* | (cd tcsh-${VERSION}; tar xpf -)

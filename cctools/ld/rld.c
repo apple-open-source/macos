@@ -166,7 +166,7 @@ static void rld_loaded_state_changed(void);
 #define NSTATES_INCREMENT 10
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
 
-/* The internal routine that implements rld_load()'s */
+/* The internal routine that implements rld_load_basefiles()'s */
 #ifdef KLD
 static long internal_kld_load(
 #else /* !defined(KLD) */
@@ -180,6 +180,7 @@ static long internal_rld_load(
     const char *obj_addr,
     long obj_size);
 
+
 /* The internal routine that implements rld_unload()'s */
 #ifdef KLD
 static long internal_kld_unload(
@@ -188,6 +189,21 @@ static long internal_rld_unload(
     NXStream *stream,
 #endif /* KLD */
     enum bool internal_cleanup);
+
+#if !defined(SA_RLD) && !defined(KLD)
+static long internal_rld_load_basefile(
+    NXStream *stream,
+    const char *base_filename,
+    char *base_addr,
+    long base_size);
+#endif /* !defined(SA_RLD) && !defined(KLD) */
+
+#if defined(KLD) && !defined(__STATIC__)
+static long internal_kld_load_basefile(
+    const char *base_filename,
+    char *base_addr,
+    long base_size);
+#endif /* defined(KLD) && !defined(__STATIC__) */
 
 #if !defined(SA_RLD) && !defined(KLD)
 /*
@@ -228,7 +244,7 @@ const char *output_filename)
  * argument.  Errors for the kld api's are done through kld_error_vprintf()
  * which kmodload(8) provides.
  * 
- * Note this symbol is really __private_extern__ and done by the "nmedit -p"
+ * Note thes symbols are really __private_extern__ and done by the "nmedit -p"
  * command in the Makefile so that the other __private_extern__ symbols can be
  * hidden by the "ld -r" first.
  */
@@ -245,6 +261,23 @@ const char *output_filename)
 
 	return(internal_kld_load(header_addr, object_filenames,
 				 output_filename, NULL, NULL, 0));
+}
+
+/*
+ * kld_load_from_memory() is the same as kld_load() but loads one object file
+ * that has been mapped into memory.  The object is described by its name,
+ * object_name, at address object_addr and is of size object_size.
+ */
+long
+kld_load_from_memory(
+struct mach_header **header_addr,
+const char *object_name,
+char *object_addr,
+long object_size,
+const char *output_filename)
+{
+	return(internal_kld_load(header_addr, NULL, output_filename,
+				 object_name, object_addr, object_size));
 }
 #endif /* defined(KLD) && defined(__DYNAMIC__) */
 
@@ -489,7 +522,7 @@ long obj_size)
 #if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
 	if(file_name == NULL){
 	    for(i = 0; object_filenames[i] != NULL; i++)
-		pass1((char *)object_filenames[i], FALSE, FALSE, FALSE);
+		pass1((char *)object_filenames[i], FALSE, FALSE, FALSE, FALSE);
 	}
 	else
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
@@ -500,7 +533,7 @@ long obj_size)
 	    cur_obj->user_obj_addr = TRUE;
 	    cur_obj->obj_addr = (char *)obj_addr;
 	    cur_obj->obj_size = obj_size;
-	    merge(FALSE);
+	    merge(FALSE, FALSE);
 	}
 
 	if(errors){
@@ -749,14 +782,47 @@ long obj_size)
  * rld_load_basefile() loads a base file from an object file rather than just
  * picking up the link edit segment from this program.
  */
+#if defined(KLD)
 long
-#ifdef KLD
 kld_load_basefile(
+const char *base_filename)
+{
+	return(internal_kld_load_basefile(base_filename, NULL, 0));
+}
+
+long
+kld_load_basefile_from_memory(
+const char *base_filename,
+char *base_addr,
+long base_size)
+{
+	return(internal_kld_load_basefile(base_filename, base_addr, base_size));
+}
+
 #else /* !defined(KLD) */
+long
 rld_load_basefile(
 NXStream *stream,
-#endif
 const char *base_filename)
+{
+	return(internal_rld_load_basefile(stream, base_filename, NULL, 0));
+}
+#endif /* defined(KLD) */
+
+/*
+ * rld_load_basefile() loads a base file from an object file rather than just
+ * picking up the link edit segment from this program.
+ */
+static long
+#ifdef KLD
+internal_kld_load_basefile(
+#else /* !defined(KLD) */
+internal_rld_load_basefile(
+NXStream *stream,
+#endif
+const char *base_filename,
+char *base_addr,
+long base_size)
 {
     long size;
     char *addr;
@@ -773,6 +839,8 @@ const char *base_filename)
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
     enum bool from_fat_file;
 
+	size = 0;
+	from_fat_file = FALSE;
 #ifndef KLD
 	error_stream = stream;
 #endif /* !defined(KLD) */
@@ -836,144 +904,157 @@ const char *base_filename)
 	 * symbols from the base file are never placed in any output file.
 	 */
 
-	/*
-	 * Open this file and map it in.
-	 */
-	if((fd = open(base_name, O_RDONLY, 0)) == -1){
-	    system_error("Can't open: %s", base_name);
-	    free(base_name);
-	    base_name = NULL;
-	    return(0);
-	}
-	if(fstat(fd, &stat_buf) == -1)
-	    system_fatal("Can't stat file: %s", base_name);
-	/*
-	 * For some reason mapping files with zero size fails so it has to
-	 * be handled specially.
-	 */
-	if(stat_buf.st_size == 0){
-	    error("file: %s is empty (not an object)", base_name);
-	    close(fd);
-	    free(base_name);
-	    base_name = NULL;
-	    return(0);
-	}
-	size = stat_buf.st_size;
-	if((r = map_fd((int)fd, (vm_offset_t)0, (vm_offset_t *)&addr,
-	    (boolean_t)TRUE, (vm_size_t)size)) != KERN_SUCCESS)
-	    mach_fatal(r, "can't map file: %s", base_name);
-#ifdef RLD_VM_ALLOC_DEBUG
-	print("rld() map_fd: addr = 0x%0x size = 0x%x\n",
-	      (unsigned int)addr, (unsigned int)size);
-#endif /* RLD_VM_ALLOC_DEBUG */
-	/*
-	 * The mapped file can't be made read-only because even in the case of
-	 * errors where a wrong bytesex file is attempted to be loaded it must
-	 * be writeable to detect the error.
-	 *  if((r = vm_protect(mach_task_self(), (vm_address_t)addr, size,
-	 * 		       FALSE, VM_PROT_READ)) != KERN_SUCCESS)
-	 *      mach_fatal(r, "can't make memory for mapped file: %s "
-	 *      	   "read-only", base_name);
-	 */
-	close(fd);
-
-	/*
-	 * Determine what type of file it is (fat or thin object file).
-	 */
-	if(sizeof(struct fat_header) > size){
-	    error("truncated or malformed file: %s (file size too small to be "
-		  "any kind of object)", base_name);
-	    free(base_name);
-	    base_name = NULL;
-	    return(0);
-	}
-	from_fat_file = FALSE;
-	fat_header = (struct fat_header *)addr;
-#ifdef __LITTLE_ENDIAN__
-	fat_archs = NULL;
-#endif /* __LITTLE_ENDIAN__ */
-#ifdef __BIG_ENDIAN__
-	if(fat_header->magic == FAT_MAGIC)
-#endif /* __BIG_ENDIAN__ */
-#ifdef __LITTLE_ENDIAN__
-	if(fat_header->magic == SWAP_LONG(FAT_MAGIC))
-#endif /* __LITTLE_ENDIAN__ */
-	{
-	    from_fat_file = TRUE;
-#ifdef __LITTLE_ENDIAN__
-	    struct_fat_header = *fat_header;
-	    swap_fat_header(&struct_fat_header, host_byte_sex);
-	    fat_header = &struct_fat_header;
-#endif /* __LITTLE_ENDIAN__ */
-
-	    if(sizeof(struct fat_header) + fat_header->nfat_arch *
-	       sizeof(struct fat_arch) > size){
-		error("fat file: %s truncated or malformed (fat_arch structs "
-		      "would extend past the end of the file)", base_name);
-		goto rld_load_basefile_error_return;
-	    }
-
-#ifdef __BIG_ENDIAN__
-	    fat_archs = (struct fat_arch *)(addr + sizeof(struct fat_header));
-#endif /* __BIG_ENDIAN__ */
-#ifdef __LITTLE_ENDIAN__
-	    fat_archs = allocate(fat_header->nfat_arch *
-				 sizeof(struct fat_arch));
-	    memcpy(fat_archs, addr + sizeof(struct fat_header),
-		   fat_header->nfat_arch * sizeof(struct fat_arch));
-	    swap_fat_arch(fat_archs, fat_header->nfat_arch, host_byte_sex);
-#endif /* __LITTLE_ENDIAN__ */
-
-	    /* check the fat file */
-	    check_fat(base_name, size, fat_header, fat_archs, NULL, 0);
-	    if(errors){
-		goto rld_load_basefile_error_return;
+	if (base_addr == NULL) {
+	    /*
+	    * Open this file and map it in.
+	    */
+	    if((fd = open(base_name, O_RDONLY, 0)) == -1){
+		system_error("Can't open: %s", base_name);
+		free(base_name);
+		base_name = NULL;
 		return(0);
 	    }
-
-#if defined(KLD) && defined(__STATIC__)
-	    best_fat_arch = cpusubtype_findbestarch(
-			    arch_flag.cputype, arch_flag.cpusubtype,
-			    fat_archs, fat_header->nfat_arch);
-#else /* !(defined(KLD) && defined(__STATIC__)) */
-	    if(get_arch_from_host(&host_arch_flag, NULL) == 0){
-		error("can't determine the host architecture (fix "
-		      "get_arch_from_host() )");
-		goto rld_load_basefile_error_return;
+	    if(fstat(fd, &stat_buf) == -1)
+		system_fatal("Can't stat file: %s", base_name);
+	    /*
+	    * For some reason mapping files with zero size fails so it has to
+	    * be handled specially.
+	    */
+	    if(stat_buf.st_size == 0){
+		error("file: %s is empty (not an object)", base_name);
+		close(fd);
+		free(base_name);
+		base_name = NULL;
+		return(0);
 	    }
-	    best_fat_arch = cpusubtype_findbestarch(
-			    host_arch_flag.cputype, host_arch_flag.cpusubtype,
-			    fat_archs, fat_header->nfat_arch);
+	    size = stat_buf.st_size;
+	    if((r = map_fd((int)fd, (vm_offset_t)0, (vm_offset_t *)&addr,
+		(boolean_t)TRUE, (vm_size_t)size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't map file: %s", base_name);
+#ifdef RLD_VM_ALLOC_DEBUG
+	    print("rld() map_fd: addr = 0x%0x size = 0x%x\n",
+		(unsigned int)addr, (unsigned int)size);
+#endif /* RLD_VM_ALLOC_DEBUG */
+	    /*
+	     * The mapped file can't be made read-only because even in the case
+	     * of errors where a wrong bytesex file is attempted to be loaded
+	     * it must be writeable to detect the error.
+	     *  if((r = vm_protect(mach_task_self(), (vm_address_t)addr, size,
+	     * 		       FALSE, VM_PROT_READ)) != KERN_SUCCESS)
+	     *      mach_fatal(r, "can't make memory for mapped file: %s "
+	     *      	   "read-only", base_name);
+	     */
+	    close(fd);
+    
+	    /*
+	    * Determine what type of file it is (fat or thin object file).
+	    */
+	    if(sizeof(struct fat_header) > size){
+		error("truncated or malformed file: %s (file size too small "
+		    "to be any kind of object)", base_name);
+		free(base_name);
+		base_name = NULL;
+		return(0);
+	    }
+	    from_fat_file = FALSE;
+	    fat_header = (struct fat_header *)addr;
+#ifdef __LITTLE_ENDIAN__
+	    fat_archs = NULL;
+#endif /* __LITTLE_ENDIAN__ */
+#ifdef __BIG_ENDIAN__
+	    if(fat_header->magic == FAT_MAGIC)
+#endif /* __BIG_ENDIAN__ */
+#ifdef __LITTLE_ENDIAN__
+	    if(fat_header->magic == SWAP_LONG(FAT_MAGIC))
+#endif /* __LITTLE_ENDIAN__ */
+	    {
+		from_fat_file = TRUE;
+#ifdef __LITTLE_ENDIAN__
+		struct_fat_header = *fat_header;
+		swap_fat_header(&struct_fat_header, host_byte_sex);
+		fat_header = &struct_fat_header;
+#endif /* __LITTLE_ENDIAN__ */
+    
+		if(sizeof(struct fat_header) + fat_header->nfat_arch *
+		sizeof(struct fat_arch) > size){
+		    error("fat file: %s truncated or malformed (fat_arch "
+			"structs would extend past the end of the file)",
+			base_name);
+		    goto rld_load_basefile_error_return;
+		}
+    
+#ifdef __BIG_ENDIAN__
+		fat_archs = (struct fat_arch *)
+				    (addr + sizeof(struct fat_header));
+#endif /* __BIG_ENDIAN__ */
+#ifdef __LITTLE_ENDIAN__
+		fat_archs = allocate(fat_header->nfat_arch *
+				    sizeof(struct fat_arch));
+		memcpy(fat_archs, addr + sizeof(struct fat_header),
+		    fat_header->nfat_arch * sizeof(struct fat_arch));
+		swap_fat_arch(fat_archs, fat_header->nfat_arch, host_byte_sex);
+#endif /* __LITTLE_ENDIAN__ */
+    
+		/* check the fat file */
+		check_fat(base_name, size, fat_header, fat_archs, NULL, 0);
+		if(errors){
+		    goto rld_load_basefile_error_return;
+		    return(0);
+		}
+    
+#if defined(KLD) && defined(__STATIC__)
+		best_fat_arch = cpusubtype_findbestarch(
+				arch_flag.cputype, arch_flag.cpusubtype,
+				fat_archs, fat_header->nfat_arch);
+#else /* !(defined(KLD) && defined(__STATIC__)) */
+		if(get_arch_from_host(&host_arch_flag, NULL) == 0){
+		    error("can't determine the host architecture (fix "
+			"get_arch_from_host() )");
+		    goto rld_load_basefile_error_return;
+		}
+		best_fat_arch = cpusubtype_findbestarch(
+				host_arch_flag.cputype,
+				host_arch_flag.cpusubtype,
+				fat_archs, fat_header->nfat_arch);
 #endif /* defined(KLD) && defined(__STATIC__) */
-	    if(best_fat_arch != NULL){
+		if(best_fat_arch != NULL){
+		    cur_obj = new_object_file();
+		    cur_obj->file_name = base_name;
+		    cur_obj->obj_addr = addr + best_fat_arch->offset;
+		    cur_obj->obj_size = best_fat_arch->size;
+		    cur_obj->from_fat_file = TRUE;
+		    base_obj = cur_obj;
+		}
+		if(base_obj == NULL){
+		    error("fat file: %s does not contain the host architecture "
+			"(can't be used as a base file)", base_name);
+		    goto rld_load_basefile_error_return;
+		}
+#ifdef __LITTLE_ENDIAN__
+		free(fat_archs);
+#endif /* __LITTLE_ENDIAN__ */
+	    }
+	    else{
 		cur_obj = new_object_file();
 		cur_obj->file_name = base_name;
-		cur_obj->obj_addr = addr + best_fat_arch->offset;
-		cur_obj->obj_size = best_fat_arch->size;
-		cur_obj->from_fat_file = TRUE;
+		cur_obj->obj_addr = addr;
+		cur_obj->obj_size = size;
 		base_obj = cur_obj;
 	    }
-	    if(base_obj == NULL){
-		error("fat file: %s does not contain the host architecture "
-		      "(can't be used as a base file)", base_name);
-		goto rld_load_basefile_error_return;
-	    }
-#ifdef __LITTLE_ENDIAN__
-	    free(fat_archs);
-#endif /* __LITTLE_ENDIAN__ */
 	}
 	else{
 	    cur_obj = new_object_file();
 	    cur_obj->file_name = base_name;
-	    cur_obj->obj_addr = addr;
-	    cur_obj->obj_size = size;
+	    cur_obj->obj_addr = base_addr;
+	    cur_obj->obj_size = base_size;
+	    cur_obj->user_obj_addr = TRUE;
 	    base_obj = cur_obj;
 	}
 
 	/*
 	 * Now that the file is mapped in merge it as the base file.
 	 */
-	merge(FALSE);
+	merge(FALSE, FALSE);
 
 	if(errors){
 #ifdef KLD
@@ -2051,6 +2132,24 @@ unsigned long size)
 	return(p);
 }
 #endif /* defined(SA_RLD) || defined(KLD) */
+
+/*
+ * savestr() malloc's space for the string passed to it, copys the string into
+ * the space and returns a pointer to that space.
+ */
+__private_extern__
+char *
+savestr(
+const char *s)
+{
+    long len;
+    char *r;
+
+	len = strlen(s) + 1;
+	r = (char *)allocate(len);
+	strcpy(r, s);
+	return(r);
+}
 
 #if defined(KLD) && defined(__STATIC__)
 /*

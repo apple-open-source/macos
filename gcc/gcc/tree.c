@@ -3733,7 +3733,12 @@ struct type_hash
    While all these live in the same table, they are completely independent,
    and the hash code is computed differently for each of these.  */
 
+#ifdef NEXT_SEMANTICS
+/* Bumping hash size from 59 to 1403 shaves 10% off Finder compile times.  */
+#define TYPE_HASH_SIZE 1403
+#else
 #define TYPE_HASH_SIZE 59
+#endif
 struct type_hash *type_hash_table[TYPE_HASH_SIZE];
 
 /* Compute a hash code for a list of types (chain of TREE_LIST nodes

@@ -29,9 +29,14 @@
  * Copyright 1994,  NeXT Computer Inc.
  */
 
+//#include <NetInfo/ni_glue.h>
 #include <NetInfo/nilib2.h>
+#include <NetInfo/system_log.h>
+#include <NetInfo/dsutil.h>
 #include <stdlib.h>
 #include <rpc/rpc.h>
+
+static unsigned long ni_connect_timeout = 300;
 
 enum ni_parse_status
 ni_parse_server_tag(char *str, struct sockaddr_in *server, char **t)
@@ -144,20 +149,31 @@ do_open(char *tool, char *name, void **domain, bool bytag, int timeout, char *us
 			return NI_FAILED + 1;
 		}
 	}
-
-	else {
-		/* open domain */
-		ni_open(NULL, ".", &localni);
-		ni_setabort(localni, 1);
-		ni_setreadtimeout(localni, timeout);
-		ni_setwritetimeout(localni, timeout);
+	else
+	{
+		if (!strcmp(name, "."))
+		{
+			status = ni_open(NULL, ".", domain);
+		}
+		else
+		{
+			status = ni_open(NULL, ".", &localni);
+			if (status != NI_OK)
+			{
+				fprintf(stderr, "%s: can't connect to server for local domain\n", tool);
+				return status;
+			}
+			ni_setabort(localni, 1);
+			ni_setreadtimeout(localni, timeout);
+			ni_setwritetimeout(localni, timeout);
 		
-		status = ni_open(localni, name, domain);
-		ni_free(localni);
+			status = ni_open(localni, name, domain);
+			ni_free(localni);
+		}
 
-		if (status != NI_OK) {
-			fprintf(stderr, "%s: can't connect to server for domain %s\n",
-				tool, name);
+		if (status != NI_OK)
+		{
+			fprintf(stderr, "%s: can't connect to server for domain %s\n", tool, name);
 			return status;
 		}
 	}
@@ -1254,4 +1270,200 @@ ni_index ni_namelist_insert_sorted(ni_namelist *values, const ni_name newvalue)
 
 	ni_namelist_insert(values, newvalue, NI_INDEX_NULL);
 	return NI_INDEX_NULL;
+}
+
+void *
+niHandleForTag(char *tag, struct sockaddr_in *addr)
+{
+	void *domain;
+	int a;
+	unsigned long t;
+	ni_status status;
+	ni_id root;
+
+	if (tag == NULL) return NULL;
+	if (addr == NULL) return NULL;
+	if (addr->sin_addr.s_addr == -1) return NULL;
+
+	domain = ni_connect(addr, tag);
+
+	if (domain == NULL) return NULL;
+
+	a = 1;
+	t = ni_connect_timeout;
+
+	if (!strcmp(tag, "local") && (addr->sin_addr.s_addr == htonl(INADDR_LOOPBACK)))
+	{
+		a = 0;
+		t = 0;
+	}
+
+	ni_setabort(domain, a);
+	ni_setreadtimeout(domain, t);
+
+	root.nii_object = 0;
+
+	status = ni_self(domain, &root);
+
+	if (status != NI_OK) 
+	{
+		system_log(LOG_ALERT,
+			"NetInfo open failed for %s@%s (%s)",
+			tag, inet_ntoa(addr->sin_addr), ni_error(status));
+		ni_free(domain);
+		return NULL;
+	}
+
+	ni_setabort(domain, 1);
+	ni_setreadtimeout(domain, ni_connect_timeout);
+
+	return domain;
+}
+
+void *
+niHandleForPath(char *path, struct sockaddr_in *addr)
+{
+	void *d0, *d1;
+	ni_status status;
+	char **parts;
+	int a, i;
+	unsigned long t;
+	ni_id root;
+
+	if (path == NULL) return NULL;
+	if (addr == NULL) return NULL;
+	if (addr->sin_addr.s_addr == -1) return NULL;
+
+	root.nii_object = 0;
+
+	d0 = ni_connect(addr, "local");
+
+	if (d0 == NULL) return NULL;
+
+	a = 1;
+	t = ni_connect_timeout;
+
+	if (!strcmp(path, ".") && (addr->sin_addr.s_addr == htonl(INADDR_LOOPBACK)))
+	{
+		a = 0;
+		t = 0;
+	}
+
+	ni_setabort(d0, a);
+	ni_setreadtimeout(d0, t);
+
+	status = ni_self(d0, &root);
+
+	if (status != NI_OK) 
+	{
+		system_log(LOG_ALERT,
+			"NetInfo open failed for local@%s (%s)",
+			inet_ntoa(addr->sin_addr), ni_error(status));
+		ni_free(d0);
+		return NULL;
+	}
+		
+	ni_setabort(d0, 1);
+	ni_setreadtimeout(d0, ni_connect_timeout);
+
+	if (!strcmp(path, ".")) return d0;
+
+	status = NI_OK;
+	while (status == NI_OK)
+	{
+		status = ni_open(d0, "..", &d1);
+		if (status == NI_OK) status = ni_self(d1, &root);
+
+		if (status == NI_OK)
+		{
+			ni_free(d0);
+			d0 = d1;
+		}
+		if (!strcmp(path, "..")) return d0;
+	}
+
+	if (!strcmp(path, "/")) return d0;
+
+	parts = explode(path+1, "/");
+
+	for (i = 0; parts[i] != NULL; i++)
+	{
+		status = ni_open(d0, parts[i], &d1);
+		if (status == NI_OK) status = ni_self(d1, &root);
+
+		if (status != NI_OK)
+		{
+			system_log(LOG_ALERT,
+				"NetInfo open failed for domain component %s at address %s (%s)",
+				parts[i], inet_ntoa(addr->sin_addr), ni_error(status));
+			freeList(parts);
+			return NULL;
+		}
+		ni_free(d0);
+		d0 = d1;
+	}
+
+	freeList(parts);
+	return d0;
+}
+
+void *
+niHandleForName(char *name)
+{
+	void *domain;
+	char *p_colon, *p_at;
+	struct sockaddr_in server;
+
+	if (name == NULL) return NULL;
+
+	/*
+	 * names may be of the following formats:
+	 *
+	 * path -> domain with given pathname
+	 * tag@address -> connect by tag to given address
+	 * path@address -> path relative to local domain at host
+	 *
+	 * niserver:tag -> connect by tag, localhost
+	 * niserver:tag@address -> connect by tag
+	 * nidomain:path -> domain with given pathname
+	 * nidomain:path@address -> path relative to local domain at host
+	 */
+
+	domain = NULL;
+
+	p_colon = strchr(name, ':');
+	p_at = strchr(name, '@');
+
+	memset(&server, 0, sizeof(struct sockaddr_in));
+	server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	if (p_at != NULL)
+	{
+		*p_at = '\0';
+		server.sin_addr.s_addr = inet_addr(p_at + 1);
+	}
+
+	if (p_colon != NULL)
+	{
+		if (!strncmp(name, "niserver:", 9))
+			domain = niHandleForTag(name+9, &server);
+
+		if (!strncmp(name, "nidomain:", 9))
+			domain = niHandleForPath(name+9, &server);
+	}
+	else
+	{
+		if ((name[0] == '/') || (name[0] == '.'))
+			domain = niHandleForPath(name, &server);
+
+		else domain = niHandleForTag(name, &server);
+	}
+
+	if (domain == NULL)
+	{
+		system_log(LOG_ALERT, "NetInfo open failed for %s", name);
+	}
+
+	if (p_at != NULL) *p_at = '@';
+
+	return domain;
 }

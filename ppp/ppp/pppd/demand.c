@@ -17,7 +17,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: demand.c,v 1.3 2001/01/20 03:35:44 callie Exp $";
+#define RCSID	"$Id: demand.c,v 1.4 2001/05/09 17:52:30 callie Exp $"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,10 +36,6 @@
 #include <net/if.h>
 #include <net/bpf.h>
 #include <pcap.h>
-#endif
-
-#ifdef APPLE
-#include "../../../ppp/Drivers/PPPSerial/PPPSerial.kmodproj/pppserial.h"
 #endif
 
 #include "pppd.h"
@@ -220,7 +216,7 @@ loop_chars(p, n)
 	    if (!escape_flag && !flush_flag
 		&& framelen > 2 && fcs == PPP_GOODFCS) {
 		framelen -= 2;
-		if (loop_frame(frame, framelen))
+		if (loop_frame((unsigned char *)frame, framelen))
 		    rv = 1;
 	    }
 	    framelen = 0;

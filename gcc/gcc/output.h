@@ -51,25 +51,31 @@ extern int get_attr_length	PROTO((rtx));
    any branches of variable length if possible.  */
 extern void shorten_branches	PROTO((rtx));
 
+/* APPLE LOCAL:
+   Check whether this function is of the form that permits us to eliminate
+   the prologue and epilog and simply jump to the callee function:
+      int f() { return g(3); } */
+extern int look_for_jumpto_pattern  PROTO((rtx, int));
+
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
    assembler pseudo-ops have already been output in
    `assemble_start_function'.  */
-extern void final_start_function  PROTO((rtx, FILE *, int));
+extern void final_start_function  PROTO((rtx, FILE *, int, int));
 
 /* Output assembler code for the end of a function.
    For clarity, args are same as those of `final_start_function'
    even though not all of them are needed.  */
-extern void final_end_function  PROTO((rtx, FILE *, int));
+extern void final_end_function  PROTO((rtx, FILE *, int, int));
 
 /* Output assembler code for some insns: all or part of a function.  */
-extern void final		PROTO((rtx, FILE *, int, int));
+extern void final		PROTO((rtx, FILE *, int, int, int));
 
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx final_scan_insn	PROTO((rtx, FILE *, int, int, int));
+extern rtx final_scan_insn	PROTO((rtx, FILE *, int, int, int, int));
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>AbsoluteSchedule</key>
+	<dict>
+		<key>com.apple.SWUpdateSchedule</key>
+		<dict>
+			<key>FirstSWUpdateSchedule</key>
+			<dict>
+				<key>Action</key>
+				<dict>
+					<key>process</key>
+					<string>/System/Library/CoreServices/Software Update.app/Contents/Resources/SWUpdateSchedule.app</string>
+				</dict>
+				<key>Timer</key>
+				<dict>
+					<key>date</key>
+					<date>2001-01-01T08:00:00Z</date>
+				</dict>
+				<key>infoKey</key>
+				<dict>
+					<key>NextFireDate</key>
+					<date>2001-01-01T08:00:00Z</date>
+					<key>Repeats</key>
+					<false/>
+				</dict>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

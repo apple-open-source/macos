@@ -1,0 +1,41 @@
+.\""Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.\"The contents of this file constitute Original Code as defined in and are 
+.\"subject to the Apple Public Source License Version 1.2 (the 'License'). 
+.\"You may not use this file except in compliance with the
+.\"License. Please obtain a copy of the License at 
+.\"http://www.apple.com/publicsource and read it before using this file.
+.\"
+.\"This Original Code and all software distributed under the License are 
+.\"distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+.\"EXPRESS OR IMPLIED, AND APPLE
+.\"HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY 
+.\"WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+.\"QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the 
+.\"specific language governing rights and limitations under the License."
+.Dd August 4, 2001
+.Dt BOM 1
+.Os Mac OS X
+.Sh NAME
+.Nm bom
+.Nd bill of materials 
+.Sh DESCRIPTION
+The Mac OS X Installer uses a file system "bill of materials" to determine which files to install, remove, or upgrade. A bill of materials, 
+.Nm bom ,
+contains all the files within a directory, along with some information about each file. File information includes: the file's UNIX permissions, its owner and group, its size, its time of last modification, and so on.  Also included are a checksum for each file and information about hard links.
+.Pp
+The bill of materials for a minimal Mac OS X system is stored in /System/Library/CoreServices/BaseSystem.bom.
+.Nm Boms
+for optional packages are found within the package receipts located in /Library/Receipts.
+.Sh FILES
+/System/Library/CoreServices/BaseSystem.bom -
+.Nm 
+for the required parts of Mac OS X
+.Sh SEE ALSO 
+.Xr ditto 8 , 
+.Xr lsbom 8 ,
+.Xr mkbom 8
+.Sh BUGS 
+Mac OS X's bill of materials format is not compatible with formats from older operating systems.
+.Sh HISTORY
+The bill of materials file appeared in NeXTSTEP to support installation. The file format was updated and extended for Mac OS X 10.0.
+

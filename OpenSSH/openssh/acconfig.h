@@ -1,4 +1,4 @@
-/* $Id: acconfig.h,v 1.1.1.8 2001/05/03 16:50:58 zarzycki Exp $ */
+/* $Id: acconfig.h,v 1.1.1.9 2001/06/26 01:03:15 zarzycki Exp $ */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -153,6 +153,12 @@
 
 /* Define if you don't want to use wtmpx */
 #undef DISABLE_WTMPX
+
+/* Some systems need a utmpx entry for /bin/login to work */
+#undef LOGIN_NEEDS_UTMPX
+
+/* Some versions of /bin/login need the TERM supplied on the commandline */
+#undef LOGIN_NEEDS_TERM
 
 /* Define if you want to specify the path to your lastlog file */
 #undef CONF_LASTLOG_FILE

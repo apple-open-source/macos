@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pspell.h,v 1.1.1.1 2000/09/07 00:05:55 wsanchez Exp $ */
+/* $Id: php_pspell.h,v 1.1.1.2 2001/07/19 00:19:54 zarzycki Exp $ */
 
 #ifndef _PSPELL_H
 #define _PSPELL_H

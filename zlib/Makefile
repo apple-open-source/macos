@@ -7,6 +7,7 @@ Project         = zlib
 UserType        = Developer
 ToolType        = Libraries
 GnuAfterInstall = strip
+Extra_CC_Flags  = -DHAVE_UNISTD_H -DUSE_MMAP
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

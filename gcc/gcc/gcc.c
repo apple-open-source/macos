@@ -3430,6 +3430,14 @@ process_command (argc, argv)
 #endif
                   break;
                 }
+              else if (!strncmp (p, "fgen-index=", 11))
+                { 
+                  if (!p[11])
+                    fatal ("Missing argument to -fgen-index=");
+                  n_switches++;
+                  break;
+                }
+
 
 #ifdef NEXT_SEMANTICS
             case 'i':
@@ -3848,6 +3856,12 @@ process_command (argc, argv)
       else if (save_temps_flag && strcmp (argv[i], "-pipe") == 0)
 	error ("Warning: -pipe ignored since -save-temps specified");
 #if defined (NEXT_SEMANTICS) || defined (NEXT_PDO)
+      else if (strcmp (argv[i], "-flat_namespace") == 0
+      		|| strcmp (argv[i], "-force_flat_namespace") == 0)
+        {
+	  infiles[n_infiles].language = "*";
+	  infiles[n_infiles++].name = argv[i];
+        }
       /* The -framework switch needs to be treated in a manner similar
 	 to the -l switch.  */
       else if (strcmp (argv[i], "-framework") == 0)
@@ -3910,6 +3924,29 @@ process_command (argc, argv)
 	    }
 	}
 #endif /* NEXT_PDO */
+      /* 12 = strlen ("-fgen-index") */
+      else if (strncmp (argv[i], "-fgen-index=", 12) == 0)
+	{
+          int arg_len = 0;
+          char *part1 = (char *) xmalloc (13);
+          strcpy (part1, "-fgen-index=");
+          arg_len = strlen (&argv[i][12]);
+          switches[n_switches].part1 = &argv[i][1];
+          switches[n_switches].args = 0;
+          /* switches[n_switches].part1 = &argv[i][1]; */
+          /*
+          switches[n_switches].part1 = part1;
+          switches[n_switches].args = (char **) xmalloc (1 * sizeof (char *));
+          switches[n_switches].args[0] = xmalloc (arg_len+1);
+          strcpy (switches[n_switches].args[0], &argv[i][12]);
+          switches[n_switches].args[1] = 0;
+          */
+          switches[n_switches].live_cond = 1;
+          switches[n_switches].validated     = 1;
+	  add_preprocessor_option (argv[i], strlen (argv[i]));
+          n_switches++;
+	}
+
 #endif /* NEXT_SEMANTICS || NEXT_PDO */
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{

@@ -2,7 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         CLASSES = (); 
-        FRAMEWORKS = (IOKit.framework); 
+        FRAMEWORKS = (IOKit.framework, Corefoundation.framework); 
         H_FILES = (); 
         OTHER_LINKED = (cd9660.util_main.m); 
         OTHER_SOURCES = (

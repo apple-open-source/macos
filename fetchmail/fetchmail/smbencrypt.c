@@ -32,7 +32,9 @@ extern int DEBUGLEVEL;
 #include "smbdes.h"
 #include "smbmd4.h"
 
+#ifndef _AIX
 typedef unsigned char uchar;
+#endif
 typedef signed short int16;
 typedef unsigned short uint16;
 typedef int BOOL;

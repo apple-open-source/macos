@@ -111,6 +111,8 @@ static int configSource = configSourceAutomatic;
 static char *configPath = NULL;
 static char *configDomain = NULL;
 
+static int max_priority = -1;
+
 #define LONG_STRING_LENGTH 8192
 
 static void
@@ -177,12 +179,19 @@ goodbye(int x)
 void
 handleSIGHUP()
 {
+	system_log(LOG_ERR, "Caught SIGHUP - reset");
+	[controller reset];
+}
+
+void
+handleSIGUSR1()
+{
 	Thread *t;
 
-	/* Ignore HUP if already restarting */
+	/* Ignore USR1 if already restarting */
 	if (shutting_down) return;
 
-	system_log(LOG_ERR, "Caught SIGHUP - restarting");
+	system_log(LOG_ERR, "Caught SIGUSR1 - restarting");
 	shutting_down = YES;
 
 	t = [[Thread alloc] init];
@@ -220,6 +229,7 @@ lookupd_startup()
 	if (portName == NULL) name = DefaultName;
 	
 	system_log_open(name, (LOG_NOWAIT | LOG_PID), LOG_NETINFO, NULL);
+	if (max_priority != -1) system_log_set_max_priority(max_priority);
 
 	controller = [[Controller alloc] initWithName:portName];
 
@@ -795,6 +805,9 @@ main(int argc, char *argv[])
 
 	/* Clean up and re-initialize state on SIGHUP */
 	signal(SIGHUP, handleSIGHUP);
+	
+	/* Restart on SIGUSR1 */
+	signal(SIGUSR1, handleSIGUSR1);
 
 	qp = -1;
 	fp = -1;
@@ -831,12 +844,22 @@ main(int argc, char *argv[])
 			debugMode = YES;
 			customName = YES;
 			if (((argc - i) - 1) < 1) 
-			{
+			{				
 				fprintf(stderr,"usage: lookupd -D name\n");
 				exit(1);
 			}
 			portName = argv[++i];
 			if (streq(portName, "-")) portName = NULL;
+		}
+
+		else if (streq(argv[i], "-l"))
+		{
+			if (((argc - i) - 1) < 1) 
+			{
+				fprintf(stderr,"usage: lookupd -l max_syslog_priority\n");
+				exit(1);
+			}
+			max_priority = atoi(argv[++i]);
 		}
 
 		else if (streq(argv[i], "-r"))
@@ -876,7 +899,6 @@ main(int argc, char *argv[])
 
 			i++;
 			if (streq(argv[i], "default")) configSource = configSourceDefault;
-			else if (streq(argv[i], "configd")) configSource = configSourceConfigd;
 			else if (streq(argv[i], "netinfo"))
 			{
 				configSource = configSourceNetInfo;
@@ -904,7 +926,6 @@ main(int argc, char *argv[])
 			{
 				fprintf(stderr, "Unknown config source.  Must be one of:\n");
 				fprintf(stderr, "    default\n");
-				fprintf(stderr, "    configd\n");
 				fprintf(stderr, "    netinfo \n");
 				fprintf(stderr, "    file\n");
 				exit(1);

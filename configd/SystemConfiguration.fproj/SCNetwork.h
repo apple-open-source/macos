@@ -20,145 +20,125 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef _SCPNETWORK_H
-#define _SCPNETWORK_H
+#ifndef _SCNETWORK_H
+#define _SCNETWORK_H
 
 #include <sys/cdefs.h>
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <CoreFoundation/CoreFoundation.h>
+
 
 /*!
-	@header SCPNetwork.h
-	The SystemConfiguration framework provides access to the data used
-		to configure a running system.
+	@header SCNetwork
+	The SCNetworkCheckReachabilityXXX() APIs allow an application to
+	determine the status of the system's current network configuration.
 
-	Specifically, the SCPNetworkXXX() API's allow an application
-		to determine the status of the systems current network
-		configuration.
+	The term "reachable" reflects whether a data packet, sent by
+	an application into the network stack, will be able to reach
+	the destination host.
+
+	Please note that being able to reach the destination host
+	does not guarantee that the data packet will reach the
+	host.
 
 	The APIs provided by this framework communicate with the "configd"
-		daemon to obtain information regarding the systems current
-		configuration.
+	daemon to obtain information regarding the system's current
+	configuration.
  */
 
 /*!
-	@enum SCNStatus
-	@discussion Returned status codes from the SCNIsReachableByAddress()
-		and SCNIsReachableByName() functions.
+	@enum SCNetworkConnectionFlags
+	@discussion Flags that indicate whether the specified network
+		nodename/address is reachable, requires a connection,
+		requires some user intervention in establishing the
+		connection, and whether the calling application must
+		initiate the connection using the (TBD???) API.
 
-		The term "reachable" in these status codes reflects whether
-		a data packet, sent by an application into the network stack,
-		will be able to reach the destination host.
-
-		Please not that being "able" to reach the destination host
-		does not guarantee that the data packet "will" reach the
-		host.
-
-	@constant SCN_REACHABLE_UNKNOWN
-		A determination could not be made regarding the reachability
-		of the specified nodename/address.
-
-	@constant SCN_REACHABLE_NO
-		The specified nodename/address can not be reached using the
-		current network configuration.
-
-	@constant SCN_REACHABLE_CONNECTION_REQUIRED
-		The specified nodename/address can be reached using the
-		current network configuration but a connection must first
-		be established.
-
-		This status would be returned for a dialup connection which
-		was not currently active but could handle network traffic for
-		the target system.
-
-	@constant SCN_REACHABLE_YES
-		The specified nodename/address can be reached using the
-		current network configuration.
- */
-typedef enum {
-	SCN_REACHABLE_UNKNOWN			= -1,
-	SCN_REACHABLE_NO			=  0,
-	SCN_REACHABLE_CONNECTION_REQUIRED	=  1,
-	SCN_REACHABLE_YES			=  2,
-} SCNStatus;
-
-
-/*!
-	@enum SCNConnectionFlags
-	@discussion Additional flags which reflect whether a network connection
-		to the specified nodename/address is reachable, requires a
-		connection, requires some user intervention in establishing
-		the connection, and whether the calling application must initiate
-		the connection using the SCNEstablishConnection() API.
-
-	@constant kSCNFlagsTransientConnection
+	@constant kSCNetworkFlagsTransientConnection
 		This flag indicates that the specified nodename/address can
 		be reached via a transient (e.g. PPP) connection.
 
-	@constant kSCNFlagsConnectionAutomatic
-		The specified nodename/address can be reached using the
-		current network configuration but a connection must first
-		be established.  Any traffic directed to the specified
-		name/address will initiate the connection.
+	@constant kSCNetworkFlagsReachable
+		This flag indicates that the specified nodename/address can
+		be reached using the current network configuration.
 
-	@constant kSCNFlagsInterventionRequired
-		The specified nodename/address can be reached using the
-		current network configuration but a connection must first
-		be established.  In addition, some form of user intervention
-		will be required to establish this connection (e.g. providing
-		a password, authentication token, etc.).
+	@constant kSCNetworkFlagsConnectionRequired
+		This flag indicates that the specified nodename/address can
+		be reached using the current network configuration but a
+		connection must first be established.
+
+		As an example, this status would be returned for a dialup
+		connection that was not currently active but could handle
+		network traffic for the target system.
+
+	@constant kSCNetworkFlagsConnectionAutomatic
+		This flag indicates that the specified nodename/address can
+		be reached using the current network configuration but a
+		connection must first be established.  Any traffic directed
+		to the specified name/address will initiate the connection.
+
+	@constant kSCNetworkFlagsInterventionRequired
+		This flag indicates that the specified nodename/address can
+		be reached using the current network configuration but a
+		connection must first be established.  In addition, some
+		form of user intervention will be required to establish
+		this connection (e.g. providing a password, authentication
+		token, etc.).
  */
 typedef enum {
-	kSCNFlagsTransientConnection	=  1<<0,
-	kSCNFlagsConnectionAutomatic	=  1<<1,
-	kSCNFlagsInterventionRequired	=  1<<2,
-} SCNConnectionFlags;
+	kSCNetworkFlagsTransientConnection	=  1<<0,
+	kSCNetworkFlagsReachable		=  1<<1,
+	kSCNetworkFlagsConnectionRequired	=  1<<2,
+	kSCNetworkFlagsConnectionAutomatic	=  1<<3,
+	kSCNetworkFlagsInterventionRequired	=  1<<4,
+} SCNetworkConnectionFlags;
 
 
 __BEGIN_DECLS
 
 /*!
-	@function SCNIsReachableByAddress
+	@function SCNetworkCheckReachabilityByAddress
 	@discussion Determines if the given network address is
 		reachable using the current network configuration.
 
 		Note: This API is not thread safe.
-	@param address Pass the network address of the desired host.
-	@param addrlen Pass the length, in bytes, of the address.
-	@param flags A pointer to memory which will be filled with a
-		set of SCNConnectionFlags related to the reachability
-		of the specified address.  If NULL, no flags will be
-		returned.
-	@param status A pointer to memory which will be filled with the
-		error status associated with any error communicating with
-		the system configuration daemon.
-	@result A constant of type SCNStatus indicating the reachability
-		of the specified node address.
+	@param address The network address of the desired host.
+	@param addrlen The length, in bytes, of the address.
+	@param flags A pointer to memory that will be filled with a
+		set of SCNetworkConnectionFlags detailing the reachability
+		of the specified address.
+	@result TRUE if the network connection flags are valid; FALSE if the
+		status could not be determined.
  */
-SCNStatus	SCNIsReachableByAddress	(const struct sockaddr	*address,
-					 const int		addrlen,
-					 int			*flags,
-					 const char		**errorMessage);
+Boolean
+SCNetworkCheckReachabilityByAddress	(
+					const struct sockaddr		*address,
+					const int			addrlen,
+					SCNetworkConnectionFlags	*flags
+					);
 
 /*!
-	@function SCNIsReachableByName
+	@function SCNetworkCheckReachabilityByName
 	@discussion Determines if the given network host/node name is
 		reachable using the current network configuration.
-	@param nodename Pass a node name of the desired host. This name would
+
+		Note: This API is not thread safe.
+
+	@param nodename The node name of the desired host. This name would
 		be the same as that passed to gethostbyname() or getaddrinfo().
-	@param flags A pointer to memory which will be filled with a
-		set of SCNConnectionFlags related to the reachability
-		of the specified address.  If NULL, no flags will be
-		returned.
-	@param status A pointer to memory which will be filled with the
-		error status associated with any error communicating with
-		the system configuration daemon.
-	@result A constant of type SCNStatus indicating the reachability
-		of the specified node address.
+	@param flags A pointer to memory that will be filled with a
+		set of SCNetworkConnectionFlags detailing the reachability
+		of the specified node name.
+	@result TRUE if the network connection flags are valid; FALSE if the
+		status could not be determined.
  */
-SCNStatus	SCNIsReachableByName	(const char		*nodename,
-					 int			*flags,
-					 const char		**errorMessage);
+Boolean
+SCNetworkCheckReachabilityByName	(
+					const char			*nodename,
+					SCNetworkConnectionFlags	*flags
+					);
 
 __END_DECLS
 
-#endif /* _SCPNETWORK_H */
+#endif /* _SCNETWORK_H */

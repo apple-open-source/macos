@@ -20,36 +20,60 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * April 14, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDSnapshot(SCDSessionRef session)
+Boolean
+SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	SCDStatus		scd_status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	int				sc_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDSnapshot:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreSnapshot:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;	/* you must have an open session to play */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	status = snapshot(sessionPrivate->server, (int *)&scd_status);
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
+	}
+
+	status = snapshot(storePrivate->server, (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("snapshot(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("snapshot(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-	return scd_status;
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
+	}
+
+	return TRUE;
 }

@@ -46,6 +46,7 @@
 - (Vnode *)root;
 - (BOOL)checkVnodePath:(String *)path from:(Vnode *)v;
 - (Vnode *)createVnodePath:(String *)path from:(Vnode *)v;
+- (Vnode *)createVnodePath:(String *)path from:(Vnode *)v withType:(String *)type;
 - (Vnode *)mkdir:(String *)s attributes:(void *)x atVnode:(Vnode *)v;
 - (Vnode *)symlink:(String *)l name:(String *)s atVnode:(Vnode *)v;
 

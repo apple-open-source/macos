@@ -20,41 +20,60 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDUnlock(SCDSessionRef session)
+Boolean
+SCDynamicStoreUnlock(SCDynamicStoreRef store)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	SCDStatus		scd_status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	int				sc_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDUnlock:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreUnlock:"));
 
-	if (session == NULL) {
-		return SCD_NOSESSION;		/* you can't do anything without closed session */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	scd_status = (sessionPrivate->server == MACH_PORT_NULL) ? SCD_NOSESSION : SCD_OK;
-
-	if (scd_status == SCD_OK) {
-		/* (attempt to) release the servers lock */
-		status = configunlock(sessionPrivate->server, (int *)&scd_status);
-
-		if (status != KERN_SUCCESS) {
-			if (status != MACH_SEND_INVALID_DEST)
-				SCDLog(LOG_DEBUG, CFSTR("configunlock(): %s"), mach_error_string(status));
-			(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-			sessionPrivate->server = MACH_PORT_NULL;
-			return SCD_NOSERVER;
-		}
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
 	}
 
-	return scd_status;
+	/* (attempt to) release the servers lock */
+	status = configunlock(storePrivate->server, (int *)&sc_status);
+	if (status != KERN_SUCCESS) {
+		if (status != MACH_SEND_INVALID_DEST)
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("configunlock(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
+	}
+
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
+	}
+
+	return TRUE;
 }

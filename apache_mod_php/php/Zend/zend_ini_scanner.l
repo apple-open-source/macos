@@ -3,7 +3,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -44,6 +44,9 @@
 #else
 #define YY_DECL int ini_lex(zval *ini_lval)
 #endif
+
+#include "zend_istdiostream.h"
+
 
 #ifndef ZTS
 static char *ini_filename;
@@ -159,6 +162,8 @@ void zend_ini_close_file(zend_file_handle *fh)
 
 %}
 
+NEWLINE ("\r"|"\n"|"\r\n")
+
 %option noyywrap
 %option yylineno
 
@@ -180,7 +185,7 @@ void zend_ini_close_file(zend_file_handle *fh)
 	return CFG_FALSE;
 }
 
-<INITIAL>[[][^[]+[\]]([\n]?|"\r\n"?) {
+<INITIAL>[[][^[]+[\]]{NEWLINE}? {
 	/* SECTION */
 
 	/* eat trailng ] */
@@ -258,11 +263,11 @@ void zend_ini_close_file(zend_file_handle *fh)
 	return yytext[0];
 }
 
-<INITIAL>"\r\n" {
+<INITIAL>{NEWLINE} {
 	return '\n';
 }
 
-<INITIAL>[;][^\r\n]*[\r\n]? {
+<INITIAL>[;][^\r\n]*{NEWLINE}? {
 	/* comment */
 	return '\n';
 }

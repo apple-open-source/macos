@@ -20,41 +20,51 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * October 17, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDAddSession(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
+int
+__SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	SCDStatus		scd_status = SCD_OK;
-	CFStringRef		sessionKey;
-	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict;
-	CFArrayRef		keys;
-	CFMutableArrayRef	newKeys;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	int				sc_status = kSCStatusOK;
+	CFStringRef			sessionKey;
+	CFDictionaryRef			dict;
+	CFMutableDictionaryRef		newDict;
+	CFArrayRef			keys;
+	CFMutableArrayRef		newKeys;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDAddSession:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  data         = %@"), SCDHandleGetData(handle));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreAddTemporaryValue:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	/*
 	 * 1. Add the key
 	 */
-	scd_status = _SCDAdd(session, key, handle);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_DEBUG, CFSTR("  _SCDAdd(): %s"), SCDError(scd_status));
-		return scd_status;
+	sc_status = __SCDynamicStoreAddValue(store, key, value);
+	if (sc_status != kSCStatusOK) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreAddValue(): %s"), SCErrorString(sc_status));
+		return sc_status;
 	}
 
 	/*
 	 * 2. Create the session key
 	 */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), sessionPrivate->server);
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 
 	/*
 	 * 3. Add this key to my list of per-session keys
@@ -89,14 +99,14 @@ _SCDAddSession(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
 	/*
 	 * 4. Mark the key as a "session" key and track the creator.
 	 */
-	dict    = CFDictionaryGetValue(cacheData, key);
+	dict    = CFDictionaryGetValue(storeData, key);
 	newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	CFDictionarySetValue(newDict, kSCDSession, sessionKey);
-	CFDictionarySetValue(cacheData, key, newDict);
+	CFDictionarySetValue(storeData, key, newDict);
 	CFRelease(newDict);
 
 	CFRelease(sessionKey);
-	return scd_status;
+	return sc_status;
 }
 
 
@@ -107,7 +117,7 @@ _configadd_s(mach_port_t 		server,
 	     xmlData_t			dataRef,	/* raw XML bytes */
 	     mach_msg_type_number_t	dataLen,
 	     int			*newInstance,
-	     int			*scd_status
+	     int			*sc_status
 )
 {
 	kern_return_t		status;
@@ -116,17 +126,18 @@ _configadd_s(mach_port_t 		server,
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFDataRef		xmlData;	/* data (XML serialized) */
 	CFPropertyListRef	data;		/* data (un-serialized) */
-	SCDHandleRef		handle;
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Add (session) key to configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Add (session) key to configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+
+	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -134,17 +145,23 @@ _configadd_s(mach_port_t 		server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
-		return KERN_SUCCESS;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
 	xmlData = CFDataCreate(NULL, dataRef, dataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	data = CFPropertyListCreateFromXMLData(NULL,
@@ -152,20 +169,28 @@ _configadd_s(mach_port_t 		server,
 					       kCFPropertyListImmutable,
 					       &xmlError);
 	CFRelease(xmlData);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() data: %s"), xmlError);
-		CFRelease(key);
-		*scd_status = SCD_FAILED;
+	if (!data) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() data: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+	} else if (!isA_CFPropertyList(data)) {
+		*sc_status = kSCStatusInvalidArgument;
+	}
+
+	if (*sc_status != kSCStatusOK) {
+		if (key)	CFRelease(key);
+		if (data)	CFRelease(data);
 		return KERN_SUCCESS;
 	}
 
-	handle = SCDHandleInit();
-	SCDHandleSetData(handle, data);
-	*scd_status = _SCDAddSession(mySession->session, key, handle);
-	if (*scd_status == SCD_OK) {
-		*newInstance = SCDHandleGetInstance(handle);
+	*sc_status = __SCDynamicStoreAddTemporaryValue(mySession->store, key, data);
+	if (*sc_status == kSCStatusOK) {
+		*newInstance = 1;
 	}
-	SCDHandleRelease(handle);
 	CFRelease(key);
 	CFRelease(data);
 

@@ -43,9 +43,10 @@ static id watchdog = nil;
 
 #import "MemoryWatchdog.h"
 
-/* #define _ALLOC_DEBUG_ */
-/* #define _INIT_DEBUG_ */
-/* #define _DEALLOC_DEBUG_ */
+//#define _ALLOC_DEBUG_
+//#define _INIT_DEBUG_
+//#define _DEALLOC_DEBUG_
+
 
 @implementation Root
 
@@ -138,6 +139,11 @@ static id watchdog = nil;
 	fprintf(stderr, "\n");
 #endif
 	if (banner != NULL) free(banner);
+
+	rootLock = 0xdeadbeef;
+	refCount = 0xdeadbeef;
+	banner = (char *)0xdeadbeef;
+	
 	[super free];
 }
 
@@ -160,7 +166,7 @@ static id watchdog = nil;
 
 - (void)print:(FILE *)f
 {
-	if (banner == NULL) fprintf(f, "Object 0x%08x\n", (int)self);
+	if (banner == NULL) fprintf(f, "%s 0x%08x\n", [[self class] name], (int)self);
 	else fprintf(f, "%s\n", banner);
 }
 

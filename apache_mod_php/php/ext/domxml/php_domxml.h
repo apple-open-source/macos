@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,14 +16,16 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.1.1.3 2001/01/25 04:59:14 wsanchez Exp $ */
+/* $Id: php_domxml.h,v 1.1.1.4 2001/07/19 00:19:05 zarzycki Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
 
 #if HAVE_DOMXML
 #include <libxml/parser.h>
+#if defined(LIBXML_XPATH_ENABLED)
 #include <libxml/xpath.h>
+#endif
 #if defined(LIBXML_XPTR_ENABLED)
 #include <libxml/xpointer.h>
 #endif
@@ -47,12 +49,13 @@ PHP_FUNCTION(domxml_dumpmem);
 
 /* Class Node methods */
 PHP_FUNCTION(domxml_attributes);
-PHP_FUNCTION(domxml_getattr);
-PHP_FUNCTION(domxml_setattr);
+PHP_FUNCTION(domxml_get_attribute);
+PHP_FUNCTION(domxml_set_attribute);
 PHP_FUNCTION(domxml_children);
-PHP_FUNCTION(domxml_lastchild);
+PHP_FUNCTION(domxml_last_child);
 PHP_FUNCTION(domxml_parent);
 PHP_FUNCTION(domxml_node);
+PHP_FUNCTION(domxml_unlink_node);
 PHP_FUNCTION(domxml_new_child);
 PHP_FUNCTION(domxml_set_content);
 
@@ -60,10 +63,12 @@ PHP_FUNCTION(domxml_set_content);
 PHP_FUNCTION(domxml_attrname);
 
 /* Class XPathContext methods */
+#if defined(LIBXML_XPATH_ENABLED)
 PHP_FUNCTION(xpath_init);
 PHP_FUNCTION(xpath_new_context);
 PHP_FUNCTION(xpath_eval);
 PHP_FUNCTION(xpath_eval_expression);
+#endif
 #if defined(LIBXML_XPTR_ENABLED)
 PHP_FUNCTION(xptr_new_context);
 PHP_FUNCTION(xptr_eval);

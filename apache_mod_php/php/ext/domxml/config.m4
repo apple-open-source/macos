@@ -1,9 +1,9 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/01/25 04:59:14 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:19:05 zarzycki Exp $
 dnl config.m4 for extension domxml
 
 AC_DEFUN(PHP_DOM_CHECK_VERSION,[
   old_CPPFLAGS=$CPPFLAGS
-  CPPFLAGS="-I$DOMXML_DIR/include"
+  CPPFLAGS=-I$DOMXML_DIR/include
   AC_MSG_CHECKING(for libxml version)
   AC_EGREP_CPP(yes,[
   #include <libxml/xmlversion.h>
@@ -44,35 +44,23 @@ if test "$PHP_DOM" != "no"; then
 
   PHP_DOM_CHECK_VERSION
 
-  AC_ADD_INCLUDE($DOMXML_DIR/include)
+  PHP_ADD_INCLUDE($DOMXML_DIR/include)
 
-  PHP_SUBST(DOMXML_SHARED_LIBADD)
-  AC_ADD_LIBRARY_WITH_PATH(xml, $DOMXML_DIR/lib, DOMXML_SHARED_LIBADD)
-
-  if test $HAVE_ZLIB; then
-    old_withval=$withval
-    AC_MSG_CHECKING([for zlib (needed by DOM support)])
-    AC_ARG_WITH(zlib-dir,
-    [  --with-zlib-dir[=DIR]   zlib dir for libxml or include zlib support],[
-     AC_MSG_RESULT( )
-     if test -z $withval; then
-       withval="/usr/local"
-     fi
-     LIBS="$LIBS -L$withval/lib -lz"
-     AC_CHECK_LIB(z,deflate, ,[AC_MSG_RESULT(no)],)
-     AC_ADD_LIBRARY_WITH_PATH(z, $withval/lib)
-    ],[
-     AC_MSG_RESULT(no)
-     AC_MSG_WARN(If configure fails try --with-zlib=<DIR>)
-    ])
-    withval=$old_withval
+  if test -f $DOMXML_DIR/lib/libxml2.a -o -f $DOMXML_DIR/lib/libxml2.s? ; then
+    DOM_LIBNAME=xml2
   else
-    echo "checking for libz needed by libxml ... already zlib support"
-    LIBS="$LIBS -L$withval/lib -lz"
+    DOM_LIBNAME=xml
   fi
 
-  AC_DEFINE(HAVE_DOMXML,1,[ ])
-  AC_ADD_LIBRARY(z)
+  PHP_SUBST(DOMXML_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH($DOM_LIBNAME, $DOMXML_DIR/lib, DOMXML_SHARED_LIBADD)
 
+  if test "$PHP_ZLIB_DIR" = "no"; then
+    AC_MSG_ERROR(DOMXML requires ZLIB. Use --with-zlib-dir=<DIR>)
+  fi
+
+  PHP_ADD_LIBRARY_WITH_PATH(z, $PHP_ZLIB_DIR/lib, DOMXML_SHARED_LIBADD)
+
+  AC_DEFINE(HAVE_DOMXML,1,[ ])
   PHP_EXTENSION(domxml, $ext_shared)
 fi

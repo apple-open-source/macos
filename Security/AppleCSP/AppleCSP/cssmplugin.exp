@@ -1,0 +1,4 @@
+_CSSM_SPI_ModuleLoad
+_CSSM_SPI_ModuleAttach
+_CSSM_SPI_ModuleDetach
+_CSSM_SPI_ModuleUnload

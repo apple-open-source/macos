@@ -19,9 +19,10 @@ test("mysql");
 test("odbc(mssql)");
 test("mysql://localhost");
 test("mysql://remote.host.com/db");
-test("mysql://testuser:testpw");
+test("mysql://testuser:testpw@");
 test("oci8://user:pass@tns-name");
 test("odbc(solid)://foo:bar@tcp+localhost+1313");
+test("ibase://user%40domain:password@database");
 
 /* phptype,dbsyntax,protocol,hostspec,database,username,password */
 ?>
@@ -29,10 +30,11 @@ test("odbc(solid)://foo:bar@tcp+localhost+1313");
 --POST--
 --EXPECT--
 testing DB::parseDSN...
-mysql,,,,,,
+mysql,mysql,,,,,
 odbc,mssql,,,,,
 mysql,mysql,,localhost,,,
 mysql,mysql,,remote.host.com,db,,
 mysql,mysql,,,,testuser,testpw
 oci8,oci8,,tns-name,,user,pass
 odbc,solid,tcp,localhost 1313,,foo,bar
+ibase,ibase,,database,,user@domain,password

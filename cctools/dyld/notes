@@ -1,4 +1,17 @@
 TODO for MacOS X:
+- Figure out why setting the FULLYBOUND_STATE does not seem to work.  Doing the
+  first two seem to break the work space putting disks on the desktop on the
+  Cheetah4K78 twolevel partion on rino.apple.com
+    - Changed try_to_use_prebound_libraries() in images.c to set the
+      FULLYBOUND_STATE using SET_FULLYBOUND_STATE() on the execututable after
+      the link state is set to FULLY_LINKED.
+    - Changed set_prebound_state() in images.c to set the FULLYBOUND_STATE using
+      SET_FULLYBOUND_STATE() on the library modules after the link state is
+      set to FULLY_LINKED.
+    Also why not set the executable's state to FULLYBOUND_STATE in
+    set_images_to_prebound() in images.c?
+- Change the symbol_list struct to be smaller and make the fields,
+  remove_on_error, bind_fully and flat_reference all fit in 32 bits.
 - Add the vm_region tags as per Robert Bowdidge email of 11/6/2000.
 - Determine which existing API's should call link_library_module() with the
   new bind_fully parameter set to TRUE or link_object_module() with the new
@@ -16,6 +29,457 @@ TODO for MacOS X:
 
 TODO:
 - For hppa cache flushing use FDC and FIC on the written instruction address.
+
+Changes for the 5.9 release (the cctools-383 release):
+- Changed _dyld_NSLookupSymbolInImage() and _dyld_NSIsSymbolNameDefinedInImage()
+  in dyld_libfuncs.c to do flat lookups if force_flat_namespace is set and the
+  image is not private.  Radar bug #2731330.
+
+Changes for the 5.9 release (the cctools-381 release):
+- Added support for the new LC_REQ_DYLD bit in the load command that marks a
+  load command required to be understood by the dynamic linker for proper
+  execution.  Code to check for this bit was added in load_executable_image()
+  and check_image() in images.c .
+
+Changes for the 5.9 release (the cctools-379 release):
+- Changed call_module_initializers_for_library() in mod_init_funcs.c to continue
+  if the image has no S_MOD_INIT_FUNC_POINTERS section. Changed
+  _dyld_mod_term_funcs() in mod_init_funcs.c in the loop for dynamic libraries
+  to continue if the image has no S_MOD_TERM_FUNC_POINTERS section.  This is to
+  avoid touching link edit pages of libraries.  Radar bug #2732714.
+
+Changes for the 5.9 release (the cctools-377 release):
+- Fixed a bug in all_dependents_twolevel_prebound() in images.c when
+  DYLD_IMAGE_SUFFIX is used.  The loop to get the dependent image from the
+  LC_LOAD_DYLIB load command was comparing install names to get the dependent
+  image.  This was changed to used the dependent_images[] array which was set
+  up when the dependent images were loaded.  Radar bug 2724475
+
+Changes for the 5.9 release (the cctools-375 release):
+- Changed the debug printing of sub-images in load_dependent_libraries() in
+  images.c to print them without testing the for the MH_TWOLEVEL flag.  Since
+  the sub-images are always set up this should be printed.
+
+Changes for the 5.9 release (the cctools-374 release):
+- Fixed inline_bsearch_toc_with_index() in inline_bsearch.h which was basicly
+  totally broken unless the hint was not used or exactly right.
+- Fixed a bug in the code that was added in lock.c in cctools-370 Radar bug
+  #2704241. The bug was after a fork on the child side of fork(), the
+  cached_thread port is no longer valid and could have been re-used by 
+  another Mach call (like mach_port_allocate()), but dyld called
+  mach_port_deallocate() on it anyway.  The fix was to make cached_thread and
+  cached_stack global in lock.c and set them to MACH_PORT_NULL and 0 in
+  _dyld_fork_child() in dyld_libfuncs.c .  Radar bug #2716915.
+- Fixed a bug in all_dependents_twolevel_prebound() in images.c that was doing
+  a strcmp() of the file name:
+	q->images[j].image.name
+  not the install name:
+	(char *)q->images[j].dlid + q->images[j].dlid->dylib.name.offset
+  Also fixed this same problem of doing a a strcmp() of the file name and not
+  the install name in call_dependent_init_routines() in images.c
+
+Changes for the 5.9 release (the cctools-371 release):
+- Fixed a typo in unload_remove_on_error_libraries() in images.c where this:
+	memset(library_image,'0',sizeof(struct library_image));
+  should have been this:
+	memset(library_image,'\0',sizeof(struct library_image));
+- Removed the code in lookup_symbol_in_library_image() and
+  lookup_symbol_in_object_image() both in symbols.c that was "ifdef remove".
+- Fixed setup_prebound_coalesed_symbols() in symbols.c to also check when the
+  image's symbol on the being linked list does not match the image it is about
+  to relocate to make sure the image it is about to relocate is not two-level or
+  force_flat_namespace is TRUE.  This was a changed for the object image and the
+  library images (2 places).
+
+- Changed dyld to used the twolevel hints.  Radar bug #2558069.
+
+  Added dyld_hints_debug to dyld_init.c set by the evnironment variable
+  DYLD_HINTS_DEBUG.
+
+  Changed all the callers of lookup_symbol() to pass a value for the new
+  hint parameter.  If the caller passed NULL for the primary_image parameter
+  it also passes NULL for the new hint parameter.  If the caller passed the
+  return value of get_primary_image() for the primary_image parameter then it
+  passes the return value for get_hint() (called with the same image and symbol
+  as get_primary_image()).  In the other callers that were looking up in a
+  specific image NULL was passed as the hint.
+
+  Added the routine get_hint() to symbols.c to return the twolevel_hint for
+  a given image and symbol.
+
+  Changed lookup_symbol() in symbols.c to take a new third parameter:
+    struct twolevel_hint *hint, /* the two-level hint if not NULL */
+  and added the code to use the hint to lookup the symbol in the hinted
+  sub-image and use the hinted itoc.
+
+  Changed lookup_symbol_in_library_image() in symbols.c to take a new second
+  parameter:
+    unsigned long itoc,		/* hint of index into the table of contents */
+  and changed it to call inline_bsearch_toc_with_index().
+
+  Added inline_bsearch_toc_with_index() to inline_bsearch.h.
+
+  Added setting the images_can_use_hints bit to load_executable_image() in
+  images.c and _dyld_link_module() in dyld_libfuncs.c .
+
+  Changed setup_sub_images() in images.c to set the images_can_use_hints bit 
+  and the subs_can_use_hints bit in the image struct when the hints can be used.
+
+  Changed _dyld_link_module() in dyld_libfuncs.c to call
+  load_dependent_libraries() after it called map_bundle_image().  With this the
+  call to load_dependent_libraries() was removed from the top of
+  link_in_need_modules() in symbols.c .
+
+  Added the hints_cmd parameter to map_image() in images.c and changed the
+  callers to pass it and store it in their image struct on return.
+  Also changed load_executable_image() in images.c to also pick up and store
+  the hints_cmd in the image struct.
+
+  Added a new field and two new bits in the image struct in images.h:
+    struct twolevel_hints_command/* The twolevel hints command for the image */
+	*hints_cmd;
+      image_can_use_hints:1,	/* set when the hints are usable in this image*/
+      subs_can_use_hints:1,	/* set when the hints are usable for images */
+				/*  that have this image as a sub image */
+
+Changes for the 5.9 release (the cctools-371 release):
+- Integrated the changes to use two-level prebound libraries.
+
+  In _dyld_init() in dyld_init.c a call to the new routine
+  find_twolevel_prebound_lib_subtrees() is done when prebinding is FALSE.
+
+  Also changed picking up DYLD_PREBIND_DEBUG so the value of "3" is also
+  picked up. Which is used for more detailed internal debugging of two-level
+  prebound libraries code.
+
+  The new routines:
+    all_dependents_twolevel_prebound()
+  and
+    find_twolevel_prebound_lib_subtrees()
+  were added to images.c which do the main of the work of correctly setting
+  the two-level prebound state of the libraries.
+
+  Changed undo_prebinding_for_library() in images.c to contionally undo the
+  prebinding of the lazy symbols and set the state to PREBOUND_UNLINKED if
+  the library has subtrees_twolevel_prebound set to FALSE.  If the field
+  subtrees_twolevel_prebound is TRUE then the modules are set to the
+  FULLY_LINKED state and the FULLYBOUND_STATE is set
+
+  Changed try_to_use_prebound_libraries() in images.c to return and set
+  prebinding to FALSE and return if force_flat_namespace is FALSE and there is
+  one two-level library.  This is so that the caller, dyld_init(), can call
+  find_twolevel_prebound_lib_subtrees() instead in this case.
+
+  Two new bits were used in the image struct in images.h:
+      subtrees_twolevel_prebound_setup:1, /* state of this and deps setup */
+      subtrees_twolevel_prebound:1, /* this and deps twolevel and prebound */
+  And the prototype to the new routine in image.c was added to images.h:
+    extern void find_twolevel_prebound_lib_subtrees(
+	void);
+
+Changes for the 5.9 release (the cctools-370 release):
+- Changed dyld_mach_thread_self() in lock.c to call mach_port_deallocate() on
+  the cached_thread before changing it to not leak a port right.  Radar bug
+  #2704241.
+
+Changes for the 5.9 release (the cctools-369.2 release):
+- Changed setup_sub_images() in images.c to reset the umbrella_images_setup
+  field of any sub image to FALSE to force the umbrella_images it to be
+  recreated as a new umbrella for an existing library could be added after
+  the umbrella_images were first set up.  Radar bug #2706662.
+
+Changes for the 5.9 release (the cctools-369.1 release):
+- Changed _dyld_NSLookupSymbolInImage() and _dyld_NSIsSymbolNameDefinedInImage()
+  in dyld_libfuncs.c to allow it to handle mach headers from object file images.
+- Fixed again the bug in _dyld_NSLookupSymbolInImage() in dyld_libfuncs.c where 
+  it was not working when called from an init routine.   The problem was it was
+  unconditionally calling link_library_module() and this was causing it to set
+  the link_state back to BEING_LINKED from its REGISTERING state.  This caused
+  things to be relocated twice so address of symbols would have twice their
+  value.
+
+Changes for the 5.9 release (the cctools-369 release):
+- Fixed a bug in _dyld_NSLookupSymbolInImage() in dyld_libfuncs.c where it was
+  testing GET_FULLYBOUND_STATE(*defined_module) and returning when it was
+  set.  It turns out this can be set when the link_state is REGISTERING when
+  called from an init routine.
+
+Changes for the 5.9 release (the cctools-367 release):
+- Added support for sub-libraries like sub-umbrellas.  Radar bug #2697458.
+
+  Added the following field to the image struct:
+    char *library_name; 
+  and changed the of the following field from umbrella_name_size to:
+    unsigned long name_size;    
+  for use both by umbrella_name and library_name.  The code in errors.c and
+  images.c was changed to use the new field name.
+
+  Added a get_library_name() routine like get_framework_name() to images.c and
+  a call to get_library_name() from map_library_image() in images.c .
+
+  In load_dependent_libraries() in images.c change it to used library_name when
+  not NULL for DYLD_TWO_LEVEL_DEBUG printing.
+
+  In setup_sub_images() in images.c changed the header comments to include
+  sub-libraries and added code to deal with sub-libraries like sub-umbrellas.
+
+- Added some code in load_dependent_libraries() in images.c when
+  DYLD_TWO_LEVEL_DEBUG is set to print out the flat library order.  Also some
+  minor code changes and comment changes.  Radar bug #2558069.
+
+Changes for the 5.9 release (the cctools-366 release):
+- Fixed a problem with undefined symbol references from two-level images where
+  the definition of the symbol is in a sub-framework of a flat namespace
+  umbrella framework that would come up undefined.   The fix was in
+  load_images_libraries() in images.c for the setting up of the pointers to
+  dependent images no longer being conditional on the image being MH_TWOLEVEL. 
+  And in load_dependent_libraries() in images.c the call to setup_sub_images()
+  is also longer conditional on if the image is MH_TWOLEVEL. 
+
+Changes for the 5.9 release (the cctools-365 release):
+- Fixed a bug in resolve_undefineds() in symbols.c when return_on_error is
+  set and the prebinding was undone for a prebound library module and the
+  saved module state was assigned to UNLINKED where it should have used the
+  macro SET_LINK_STATE().  This same problem is also in link_library_module()
+  in symbol.c in two places also. Radar bug #2665925.
+- Added the routine clear_module_states_saved() to symbols.c that is called 
+  in _dyld_link_module() in dyld_libfuncs.c when return_on_error is set to
+  true and called in _dyld_NSLookupSymbolInImage() in the same case.  This is
+  needed to fix a potential bug where a previoully saved state could later get
+  incorrectly restored.  This could be part of the cause of Radar bug #2665925.
+- Added _dyld_NSAddImage(), _dyld_NSLookupSymbolInImage() and
+  _dyld_NSIsSymbolNameDefinedInImage() to dyld_libfuncs.c .
+  As part of this is_library_loaded_by_name() and is_library_loaded_by_stat() in
+  images.c were changed from static to extern functions.  Also as part of this
+  the new DYLD_INVALID_ARGS dyld_other_error_numbers enum in errors.h was added
+  and the matching NSOtherErrorInvalidArgs in the NSOtherErrorNumbers enum in
+  <mach-o/dyld.h> was added.  Radar bug #2689833.
+
+Changes for the 5.9 release (the cctools-364 release):
+- Changed call_dependent_init_routines() in images.c to set init_called for
+  shared libraries that don't have init routines so they are not visted more
+  than needed by the code.  Also init_called is tested for FALSE before calling
+  call_dependent_init_routines() recursively.  Radar bug #2686444.
+- Fixed a bug in the external_relocation() routines in all the *_reloc.c files
+  when dealing with an prebound dylib that has nmedit(1) run on it.  What
+  happens is nmedit(1) produces a file with external relocation entries for
+  non-external symbols that were private_extern symbols.  Then when
+  undo_external_relocation() sees a relocation entry with this symbol it
+  correctly undoes the relocation because it does not need to lookup the symbol.
+  But when external_relocation() see the entry it does lookup the symbol and
+  fails to find it as it is not an external symbol and undoes the relocations it
+  did for that module and returns.  The fix was to test the symbol type for a
+  non-external symbols that was a private_extern and if so use the symbol from
+  the image (just like coalesced symbols in private images).  Radar bug
+  #2676317.
+- Fixed a bug in is_library_loaded_by_name() in images.c where if the library
+  name is not a full path we can't match by name if the program was already
+  launched as it could be the same name as a library already loaded but be a
+  different library if the current working directory changed. So code was added
+  to return FALSE in this case and let it be opened and checked to be the same
+  if the stat(2) info is the same.
+- Fixed a bug in the case when a module in a prebound library is later used
+  that was not part of the prebound set that calls another prebound library
+  that was not part of the prebound set and the module initialization would
+  not get run.  This happens because the prebound lazy pointers of the module
+  that gets bound in later are not reset to cause it to call dyld.  The case
+  that the Radar ran into was when all modules in the library were not part of
+  the prebound set.  For this some code in set_prebound_state() was added that
+  calls undo_prebound_lazy_pointers() to undo the prebinding of the lazy symbols
+  pointers for libraries that don't have any modules used and the new field
+  undone_prebound_lazy_pointers is then set to TRUE. For the harder case when
+  some of the modules are part of the prebound set then a fair bit of code in
+  undo_prebinding_for_library_module() in relocs.c was added which calls the
+  new routine reset_lazy_symbol_pointers() also in relocs.c.  That new routine
+  then calls undo_prebound_lazy_pointers() which was changed to take two new
+  parameters to allow it to undo only the needed pointer.  The callers of
+  undo_prebound_lazy_pointers() were also updated.  Radar bug #2650066.
+- Fixed a bug in search_for_name_in_path() in images.c that cause it to crash
+  if the DYLD_LIBRARY_PATH ended in a ':'.  Radar bug #2676732.
+
+Changes for the 5.9 release (the cctools-363 release):
+- Picked up the change suggested in Radar bug #2667248 which removes one
+  clear_lock() and try_to_get_lock() loop pair in set_lock() in lock.c .
+- Picked up the change suggested in Radar bug #2667241 which added a 
+  dyld_mach_thread_self() call to lock.c to improve preformance by caching the
+  last value of the mach_thread_self() call against the page truncated stack
+  address making the call.
+
+Changes for the 5.9 release (the cctools-361 release):
+- Fixed a bug in load_dependent_libraries() in images.c that was only calling 
+  setup_umbrella_images() if the library was a MH_TWOLEVEL.  This needed to
+  call setup_umbrella_images() for all libraries as it is possible that a
+  sub-framework of an umbrella library is flat and the umbrella library is
+  two-level.  In that case other images could have two-level namespace
+  references recorded to the umbrella library for symbols defined in the flat
+  sub-framework.  This happened with the umbrella library ApplicationServices
+  and its subframework ATS when the two-level library libCGATS was referencing
+  _gImagePathAGPtr from ApplicationServices.  Then what happened is the code in
+  relocate_symbol_pointers_in_library_image() did not match up the symbol on
+  the being linked list for _gImagePathAGPtr defined in ATS because it did not
+  have any umbrella images.
+- Fixed a bug in lookup_symbol() in symbols.c in the case of a two-level name
+  space lookup drops into the sub images loop the outer_object_image was
+  set wrong.  It was a copy and paste error using:
+	primary_image->outer_image;
+  when it should have been using:
+	primary_image->sub_images[i]->outer_image;
+  This caused a bogus multiply defined error stating the same module defined
+  the same symbol.  As link_library_module() thought the symbol was defined
+  in different modules because the prev_module did not match the module
+  returned by the look up.  The symbol that was getting the multiple definitions
+  error was _identityMatrix in ATS(ATS.link2.o).  The symbol actually being
+  looked up was _INIT_ATS but looked up in the umbrella framework
+  ApplicationServices.  In this case ATS was flat and ApplicationServices was
+  two-level.  The lookup of _INIT_ATS was from libCGATS.A.dylib which was
+  two-level.
+- Fixed another bug in add_reference() in symbols.c when there was a
+  symbol_list entry on the being linked list that had flat_reference == FALSE.
+  In this case an extra test was needed to check the incoming flat_reference
+  and if it was TRUE and the being_linked->flat_reference == FALSE then set the 
+  being_linked->flat_reference to TRUE.  This caused things using the flat
+  reference not to have their symbol pointers set.  This was found with the
+  symbol _kCFAllocatorSystemDefault and Sherlock and using a two-level
+  CoreFoundation and a flat QD when the non-lazy pointer in QD was not getting
+  set.
+- Fixed a bug in add_reference() in symbols.c where a symbol was on the being
+  linked list with a flat_reference == TRUE and later that symbol needs to be
+  fully bound which is has flat_reference == FALSE.  Then flat_reference bit
+  gets lost as the symbol is taken off the being linked list and then put back
+  on the undefined list.  This causes things using the flat reference not to be
+  relocated.  This was found with errno and a PB and a two-level libSystem
+  because libobjc.A.dylib has a library init routine ___initialize_objc which
+  has to be fully bound.
+
+Changes for the 5.9 release (the cctools-360 release):
+- Changed the size of _symbol_blocks in section_order.s to match the 'C'
+  struct size.  This should have been done when the flat_reference field was
+  added to the struct symbol_list.
+- Added an outer_image field to the image struct to point back to the
+  library_image or object_image so that for two-level namespace lookups the
+  library_image or object_image can be quickly obtained from the image structure
+  for calls to lookup_symbol_in_library_image() or
+  lookup_symbol_in_object_image().  This is filled in by map_library_image(),
+  map_bundle_image() and load_executable_image() in images.c.  Then changed
+  lookup_symbol() in symbols.c to use this field and removed the hacked code in
+  lookup_symbol_in_library_image() and lookup_symbol_in_object_image() to
+  figure out the values if they were NULL.  Along with this change was the
+  change to lookup_symbol() itself for the flat lookup to also use the sub
+  routines lookup_symbol_in_library_image() and lookup_symbol_in_object_image().
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added a check in map_library_image() in images.c to disable prebinding if 
+  we are forcing flat name space and we have a two-level namespace library.
+- Fixed a bug in link_library_module() and link_object_module() in symbols.c
+  for the checking of multiply defined symbols where this was part of the
+  expression:
+		(prev_image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL){
+  that should have been this:
+	       (force_flat_namespace == TRUE ||
+		(prev_image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)){
+- Removed the following PowerPC sync instruction in try_to_get_lock():
+	sync		; Fix for 3.2 and older CPUs
+  Radar bug #2615783.
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+- Added a call to clear_lock(global_lock) in _dyld_fork_child() in
+  dyld_libfuncs.c in case another thread in the parent got it while we were
+  fork'ing.
+- Changed the name of look_for_reference() to look_for_flat_reference() and
+  changed the name of change_symbol_pointers_in_images() to 
+  change_symbol_pointers_in_flat_images().  Then added code in there to only
+  look at flat images and these should only be used for updateing flat images.
+- Added the flat_reference parameter to add_to_being_linked_list() in symbols.c
+  and changed the callers to pass it so that it is set correctly for symbols
+  being used from already bound images.  This is needed so that
+  relocate_symbol_pointers() knows which symbol pointers to update from the
+  symbols in the being linked list.
+- Changed resolve_undefineds() in symbols.c to call the lookup_symbol() routine
+  based on the type image in the undefined list (flat or two-level) by using
+  get_primary_library().
+- Changed relocate_symbol_pointers_in_object_image() and 
+  relocate_symbol_pointers_in_library_image() in symbols.c to deal with setting
+  symbol pointer values correctly based on the images for the symbols on the
+  being linked list for two-level images.  And also only using symbols on the
+  being linked list for flat images that have flat_reference set.
+- Changed the code in check_and_report_undefineds() in errors.c for the
+  reporting undefined symbols so that when a two-level bound symbol can't be
+  found the the image making the reference and the image with the expected
+  definition is printed along with the symbol name.
+- Changed the way link_library_module() and link_object_module() in symbols.c
+  handles multiply defined symbols when two-level namespace linking so that it
+  does not print an error.  The approach taken for global coalesced symbols in
+  a two-level namespace image currently is to use the definition in the image
+  for those references.  To allow global coalesced symbols to work but to not
+  check for multiple defined symbols link_library_module() has a test for doing
+  two-level namespace linking for the image. Then a loop to add the global
+  coalesed symbol is done before skiping over the multiply defined symbol check
+  with a goto add_undefineds.  The same thing is already done in
+  link_object_module() for private images and that is simply used for two-level
+  namespace linking as well.
+- A first cut at the new part of the lookup_symbol() routine was written
+  to do the two-level namespace lookup using the primary_image and the
+  sub-images of the primary_image.  Factored out two new routines
+  lookup_symbol_in_object_image() and lookup_symbol_in_library_image() to do
+  the work lookup_symbol does looking up a symbol in a single image.   Still
+  will need to make a major change to move the the library_image struct fields
+  nmodules and modules as well as the object_image struct field module to the
+  struct image.  So they can be gotten to via the arrays of image pointers.
+  This involves changing lots of code so this so it will wait till things are
+  working some what.
+- Added the primary_image parameter lookup_symbol() in symbols.c for use
+  when doing two-level namespace lookups.  This prameter is usually a call to
+  get_primary_image() or NULL.  Updated all the call sites of lookup_symbol()
+  to added the correct value of primary_image.  Also update all the places
+  N_INDR symbols are handled to get the correct primary_image before calling
+  lookup_symbol().
+- Added the static "inline" (not yet) routine get_primary_image() it symbols.c
+- Added the enum bool flat_reference parameter to the static routine
+  add_to_undefined_list() in symbols.c and changed all the call sites to pass
+  the correct value for flat_reference based on the type of reference.
+- Added the following field to the symbol_list struct in symbols.h for
+  supporting two-level and flat namespace references:
+    enum bool flat_reference;	/* symbol is for a flat namespace reference */
+
+- Added the code in images.c to set up the two-level namespace images lists.
+  This is done in with the new routines setup_sub_images(), 
+  setup_umbrella_images(), allocate_image_pointers(),
+  reallocate_image_pointers() and deallocate_image_pointers().
+  With other changes in load_images_libraries(), load_dependent_libraries() and 
+  load_library_image().
+- Added the variable force_flat_namespace and the setting of it in dyld_init()
+  in dyld_init.c based on MH_FORCE_FLAT in the executable's header or the
+  environment variable DYLD_FORCE_FLAT_NAMESPACE.
+- Added the following fields to the image struct in images.h for supporting
+  two-level namespace:
+      ...
+      sub_images_setup:1,	/* the sub images have been set up */
+      umbrella_images_setup:1,  /* the umbrella_images have been set up */
+      ...
+    /*
+     * For two-level namespace images this is the array of pointers to the
+     * dependent images and the count of them.
+     */
+    struct image **dependent_images;
+    unsigned long ndependent_images;
+    /*
+     * If this is a library image which has a framework name then this is the
+     * part that would be the umbrella name and the size of the name.  This
+     * points into the name and since framework names may have suffixes the size
+     * is needed to exclude it.  This is only needed for two-level namespace
+     * images.  umbrella_name will be NULL and umbrella_name_size will be 0
+     * if there is no umbrella name.
+     */
+    char *umbrella_name;
+    unsigned long umbrella_name_size;
+
+    /* array of pointers to sub-frameworks and sub-umbrellas and count */
+    struct image **sub_images;
+    unsigned long nsub_images;
+    /* array of pointers to back to umbrella frameworks and sub-umbrellas
+     if any which the image is a part of and the count of them. */
+    struct image **umbrella_images;
+    unsigned long numbrella_images;
 
 Changes for the 5.8 release (the cctools-358 release):
 - Fixed a bug in link_object_module() in symbols.c where when loading a module

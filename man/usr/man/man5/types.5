@@ -33,9 +33,9 @@
 .\"
 .\"     @(#)types.5	8.1 (Berkeley) 6/5/93
 .\"
-.Dd June 5, 1993
+.Dd AUGUST 2, 2001
 .Dt TYPES 5
-.Os BSD 4
+.Os Darwin 
 .Sh NAME
 .Nm types
 .Nd system data types
@@ -115,7 +115,7 @@ typedef u_long	fixpt_t;
  * be >= NOFILE (param.h).
  */
 #ifndef	FD_SETSIZE
-#define	FD_SETSIZE	256
+#define	FD_SETSIZE	1024
 #endif
 
 typedef long	fd_mask;

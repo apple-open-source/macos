@@ -51,21 +51,12 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <sys/dirent.h>
 #include <sys/param.h>
 #include <sys/signal.h>
 #include <sys/stat.h>
 #include <rpc/rpc.h>
 #include <rpc/pmap_clnt.h>
-#include "bootparam_prot.h"
-#ifdef _DHCP_BINDING_
-#ifdef _OS_VERSION_MACOS_X_
-#define MOSX
-#endif
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-#include "ipconfig.h"
-#include "ipconfig_ext.h"
-#endif
 
 #ifdef _OS_NEXT_
 /* Support the old rpcgen, which doesn't append the _svc suffix
@@ -147,25 +138,17 @@ extern void setproctitle(char *fmt, ...);
 
 extern int have_notifications_pending(void);
 
+extern int ni_svc_connections;
+extern int ni_svc_topconnections;
+extern int ni_svc_maxconnections;
+extern int ni_svc_lruclosed;
+
 /* for getting language */
 #define NAME_LOCALCONFIG "localconfig"
 #define NAME_LANGUAGE "language"
 
 #define KEY_PARENT_SERVER_ADDR "ServerAddresses"
 #define KEY_PARENT_SERVER_TAG "ServerTags"
-
-#define BOOTPARAM_FILEID (bp_fileid_t)"netinfo_parent"
-#define BOOTPARAM_TAG "-BOOTPARAMS-"
-
-#define DHCP_TAG "-DHCP-"
-
-#ifdef _DHCP_BINDING_
-#define DHCP_NETINFO_SERVER_ADDRESS 	112
-#define DHCP_NETINFO_SERVER_TAG 		113
-#endif
-
-static struct in_addr bootparam_addr;
-static ni_name bootparam_tag;
 
 #define forever for(;;)
 
@@ -423,6 +406,10 @@ _ni_ping_2_svc(
 	   struct svc_req *req
 	   )
 {
+	if (req == NULL) return ((void *)~0);
+
+//	system_log(LOG_DEBUG, "ni_ping on connection %u", req->rq_xprt->xp_sock);
+
 	return ((void *)~0);
 }
 
@@ -463,18 +450,19 @@ _ni_statistics_2_svc(
 	 */
 	static int props_sizes[] = {
 	    MAXINTSTRSIZE,	/* checksum: */
-	    BUFSIZ,		/* server_version: */
+	    128,		/* server_version: */
 	    NI_NAME_MAXLEN+1,	/* tag: max(NI_NAME_MAXLEN+1, 7, MAXINTSTRSIZE) */
-	    16,			/* ip_address: "xxx.yyy.zzz.www" */
-	    MAXHOSTNAMELEN + 1,	/* hostname: */
-	    MAXINTSTRSIZE + 17,	/* write_locked: strlen(SENDING_ALLn_STG)+MAXINTSTRSIZE */
+	    16,			/* ip_address(es): "xxx.yyy.zzz.www" */
+	    MAXHOSTNAMELEN+1,	/* hostname: */
+	    MAXINTSTRSIZE+17,	/* write_locked: strlen(SENDING_ALLn_STG)+MAXINTSTRSIZE */
 	    MAXINTSTRSIZE,	/* notify_threads: 3 of MAXINTSTRSIZE */
 	    MAXINTSTRSIZE,	/* notifications_pending: */
 	    MAXINTSTRSIZE,	/* authentications: 4 of MAXINTRSTRSIZE */
-	    MAXINTSTRSIZE,	/* readall_proxies: max(MAXINTSTRSIZE, "strict"|"loose") */
+	    MAXINTSTRSIZE,	/* readall_proxies: max(MAXINTSTRSIZE, "strict"|"loose}) */
 	    MAXINTSTRSIZE,	/* cleanup_wait: */
 	    MAXINTSTRSIZE,	/* total_calls: */
-	    NI_NAME_MAXLEN+1+16	/* binding: "xxx.yyy.zzz.www/tag" */
+	    16+1+MAXNAMLEN+1,	/* binding: "xxx.yyy.zzz.www/tag" */
+	    MAXINTSTRSIZE	/* connections: 4 of MAXINTSTRSIZE */
 	};
 
 #define wProps(i, fmt, val) \
@@ -497,7 +485,7 @@ _ni_statistics_2_svc(
 #define STATS_TAG 0
 #define STATS_MASTER 1
 #define STATS_NCLONES 2
-	    {"ip_address", {1, NULL}},
+	    {"ip_address", {16, NULL}},
 #define P_ADDR 3
 	    {"hostname", {1, NULL}},
 #define P_HOST 4
@@ -506,7 +494,7 @@ _ni_statistics_2_svc(
 #define SENDING_ALL1_STG "Yes (a readall)"
 #define SENDING_ALLn_STG "Yes (%u readalls)"
 #define READING_ALL_STG "clone%s"
-	    {"notify_threads", {3, NULL}},	/* max, current, latency */
+	    {"notify_threads", {3, NULL}},	/* current, max, latency */
 #define P_THREADS 6
 #define STATS_THREADS_USED 0
 #define STATS_THREADS_MAX 1
@@ -527,11 +515,17 @@ _ni_statistics_2_svc(
 #define P_CALLS 11
 	    {"binding", {1, NULL}},		/* unknown, notResponding, addr/tag, root, forcedRoot */
 #define P_BINDING 12
+	    {"connections", {4, NULL}},		/* current, top, max, lru-closed */
+#define P_CONNECTIONS 13
+#define STATS_CONNECTIONS_USED 0
+#define STATS_CONNECTIONS_TOP 1
+#define STATS_CONNECTIONS_MAX 2
+#define STATS_CONNECTIONS_CLOSED 3
 	    /*
 	     * 3 values of following properties:
 	     * procnum, ncalls, time (usec)
 	     */
-#define PROC_STATS_START	13
+#define PROC_STATS_START	14
 	    {NULL, {N_STATS_VALS, NULL}},	/* 0: ping */
 	    {NULL, {N_STATS_VALS, NULL}},
 	    {NULL, {N_STATS_VALS, NULL}},
@@ -571,6 +565,8 @@ _ni_statistics_2_svc(
 		return (NULL);
 	}
 
+//	system_log(LOG_DEBUG, "ni_statistics on connection %u", req->rq_xprt->xp_sock);
+
 	if (first_time) {
 	    /* Save myself some typing (and static memory)... */
 	    first_time = FALSE;
@@ -581,16 +577,16 @@ _ni_statistics_2_svc(
 					  sizeof(ni_name)))) {
 			system_log(LOG_ALERT, 
 				"Couldn't allocate memory for statistics");
-                	system_log(LOG_ALERT, "Aborting!");
-                	abort();
+			system_log(LOG_ALERT, "Aborting!");
+			abort();
 		}
 		for (j = 0; j < props[i].nip_val.ni_namelist_len; j++) {
 		    if (NULL == (props[i].nip_val.ni_namelist_val[j] =
 				    (ni_name)malloc(props_sizes[i]))) {
 				system_log(LOG_ALERT, 
 					"Couldn't allocate memory for statistics");
-                		system_log(LOG_ALERT, "Aborting!");
-                		abort();
+				system_log(LOG_ALERT, "Aborting!");
+				abort();
 		    }
 		}
 	    }
@@ -604,16 +600,16 @@ _ni_statistics_2_svc(
 						    N_STATS_VALS))) {
 				system_log(LOG_ALERT, 
 					"Couldn't allocate memory for statistics");
-                		system_log(LOG_ALERT, "Aborting!");
-                		abort();
+				system_log(LOG_ALERT, "Aborting!");
+				abort();
 		}
 		for (j = 0; j < N_STATS_VALS; j++) {
 		    if (NULL == (props[i].nip_val.ni_namelist_val[j] = 
 				    (ni_name)malloc(MAXINTSTRSIZE+1))) {
 				system_log(LOG_ALERT, 
 					"Couldn't allocate memory for statistics");
-                		system_log(LOG_ALERT, "Aborting!");
-                		abort();
+				system_log(LOG_ALERT, "Aborting!");
+				abort();
 		    }
 		}
 		/* Set up the (static) procedure number */
@@ -634,23 +630,6 @@ _ni_statistics_2_svc(
 		wPropsN(P_TAG, STATS_MASTER, "%s", "clone");
 		props[P_TAG].nip_val.ni_namelist_len = 2;
 	    }
-
-	    /* ip_address */
-		ifaces = sys_interfaces();
-		if (ifaces == NULL)
-		{
-			wProps(P_ADDR, "%s", "0.0.0.0");
-		}
-		else
-		{
-			for (i = 0; i < ifaces->count; i++)
-			{
-				if ((ifaces->interface[i].flags & IFF_UP) == 0) continue;
-				if (ifaces->interface[i].flags & IFF_LOOPBACK) continue;
-				
-				wProps(P_ADDR, "%s", inet_ntoa(ifaces->interface[i].addr));
-			}
-		}
 
 	    /* hostname */
 	    wProps(P_HOST, "%s", sys_hostname());
@@ -683,6 +662,22 @@ _ni_statistics_2_svc(
 	if (!i_am_clone) {
 	    wPropsN(P_TAG, STATS_NCLONES, "%d", count_clones());
 	}
+
+	/* ip_address(es) */
+	ifaces = sys_interfaces();
+	for (i = 0, j = 0; ifaces && (i < ifaces->count) && (j < 16); i++)
+	{
+	    if ((ifaces->interface[i].flags & IFF_UP) == 0) continue;
+	    if (ifaces->interface[i].flags & IFF_LOOPBACK) continue;
+			
+	    wPropsN(P_ADDR, j++, "%s", inet_ntoa(ifaces->interface[i].addr));
+	}
+	if (j == 0)
+	{
+	    props[P_ADDR].nip_val.ni_namelist_len = 1;
+	    wPropsN(P_ADDR, j++, "%s", "0.0.0.0");
+	}
+	props[P_ADDR].nip_val.ni_namelist_len = j;
 
 	/* write_locked */
 	if (i_am_clone) {
@@ -737,7 +732,7 @@ _ni_statistics_2_svc(
 	}
 	else
 	{
-		switch ((ni_status) latestParentStatus)
+		switch (get_binding_status())
 		{
 			case NI_NORESPONSE:
 				wProps(P_BINDING,  "%s", "notResponding");
@@ -754,6 +749,16 @@ _ni_statistics_2_svc(
 				break;
 		}
 	}
+
+	/* connections: current, max, lru-closed */
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_USED, "%d",
+		ni_svc_connections);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_TOP, "%d",
+		ni_svc_topconnections);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_MAX, "%d",
+		ni_svc_maxconnections);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_CLOSED, "%d",
+		ni_svc_lruclosed);
 
 	/* We'll return to total_calls later */
 
@@ -1502,28 +1507,6 @@ catch(void *vstuff, struct sockaddr_in *raddr, int which)
 	return (TRUE);
 }
 
-static bool_t
-getfile_catch(struct bp_getfile_res *res, struct sockaddr_in *from)
-{
-	union
-	{
-		char c[4];
-		unsigned int i;
-	} ci;
-
-	if (res == NULL) return FALSE;
-
-	ci.c[0] = res->server_address.bp_address_u.ip_addr.net;
-	ci.c[1] = res->server_address.bp_address_u.ip_addr.host;
-	ci.c[2] = res->server_address.bp_address_u.ip_addr.lh;
-	ci.c[3] = res->server_address.bp_address_u.ip_addr.impno;
-
-	bootparam_addr.s_addr = ci.i;
-	bootparam_tag = ni_name_dup(res->server_path);
-
-	return TRUE;
-}
-
 /*
  * Determine if this entry serves ".." (i.e. it has a serves property of
  * which one of the values looks like ../SOMETAG.
@@ -1584,135 +1567,6 @@ add_binding_entry(struct in_addr sa, ni_name st, struct in_addr ca, ni_name ct,
 	stuff->bindings[*naddrs].client_addr = ntohl(ca.s_addr);
 	stuff->bindings[*naddrs].server_tag = ni_name_dup(st);
 	*naddrs = *naddrs + 1;
-}
-
-#ifdef _DHCP_BINDING_
-#ifdef _IPC_UNTYPED_
-static void
-sys_port_free(mach_port_t p)
-{
-	mach_port_deallocate(mach_task_self(), p);
-}
-#else
-static void
-sys_port_free(port_t p)
-{
-	port_deallocate(task_self(), p);
-}
-#endif
-#endif
-
-static void
-add_binding_from_dhcp(struct in_addr server_addr, ni_name client_tag,
-	struct in_addr **addrs, ni_rparent_stuff *stuff, unsigned int *naddrs)
-#ifdef _DHCP_BINDING_
-{
-	boolean_t active = FALSE;
-	int i, j;
-	interface_list_t *l;
-	unsigned int len;
-	struct in_addr dhcp_ni_addr[128];
-	char dhcp_ni_tag[256];
-	port_t server;
-	kern_return_t status;
-
-	status = ipconfig_server_port(&server, &active);
-	if (status != KERN_SUCCESS) return;
-	if (active == FALSE)
-	{
-		sys_port_free(server);
-		return;   
-	}
-
-	l = sys_interfaces();
-	if (l == NULL)
-	{
-		sys_port_free(server);
-		return;   
-	}
-
-	for (i = 0; i < l->count; i++)
-	{
-		/* get tag, allow for null termination */
-		len = sizeof(dhcp_ni_tag) - 1; 
-		status = ipconfig_get_option(server, l->interface[i].name, DHCP_NETINFO_SERVER_TAG, (void *)&dhcp_ni_tag, &len);
-	
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_DEBUG,
-				"-DHCP- ipconfig get netinfo server tag"
-				" option failed for \"%s\", %s",
-				l->interface[i].name, mach_error_string(status));
-			continue;
-		}
-
-		dhcp_ni_tag[len] = '\0';
-
-		/* get address(es) */
-		len = sizeof(dhcp_ni_addr);
-		status = ipconfig_get_option(server, l->interface[i].name, DHCP_NETINFO_SERVER_ADDRESS, (void *)&dhcp_ni_addr[0], &len);
-
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_DEBUG,
-				"-DHCP- ipconfig get netinfo server address"
-				" option failed for \"%s\", %s",
-				l->interface[i].name, mach_error_string(status));
-			continue;
-		}
-
-		len /= 4;
-		for (j = 0; j < len; j++) 
-		{
-			/* add a binding for each server in the array */
-			add_binding_entry(dhcp_ni_addr[j], ni_name_dup(dhcp_ni_tag), l->interface[i].addr, client_tag, addrs, stuff, naddrs);
-			system_log(LOG_INFO,
-				"-DHCP- bind lookup returned %s/%s",
-				inet_ntoa(dhcp_ni_addr[j]), dhcp_ni_tag);
-		}
-	}
-
-	sys_port_free(server);
-}
-#else
-{
-}
-#endif _DHCP_BINDING_
-
-static void
-add_binding_from_bootparams(struct in_addr server_addr, ni_name client_tag,
-	struct in_addr **addrs, ni_rparent_stuff *stuff, unsigned int *naddrs)
-{
-	enum clnt_stat stat;
-	struct bp_getfile_arg getfile_arg;
-	struct bp_getfile_res getfile_res;
-	interface_list_t *l;
-	int i;
-
-	l = sys_interfaces();
-	if (l == NULL) return;
-
-	getfile_arg.client_name = (bp_machine_name_t)sys_hostname();
-	getfile_arg.file_id = BOOTPARAM_FILEID;
-	memset(&getfile_res, 0, sizeof(struct bp_getfile_res));
-
-	stat = clnt_broadcast(BOOTPARAMPROG, BOOTPARAMVERS, BOOTPARAMPROC_GETFILE,
-		xdr_bp_getfile_arg, (char *)&getfile_arg,
-		xdr_bp_getfile_res, (char *)&getfile_res,
-		getfile_catch);
-
-	if (stat != RPC_SUCCESS) return;
-
-	system_log(LOG_INFO, "-BOOTPARAMS- bind lookup returned %s/%s",
-		inet_ntoa(bootparam_addr), bootparam_tag);
-
-	for (i = 0; i < l->count; i++)
-	{
-		if ((l->interface[i].flags & IFF_UP) == 0) continue;
-		if ((l->interface[i].flags & IFF_LOOPBACK) && (l->count > 1)) continue;
-
-		add_binding_entry(bootparam_addr, bootparam_tag, l->interface[i].addr, client_tag, addrs, stuff, naddrs);
-	}
 }
 
 static void
@@ -2051,18 +1905,7 @@ add_parent_server(struct in_addr server_addr, ni_name server_tag, ni_name client
 	 * If the address is a general broadcast address (0xffffffff)
 	 * we substitute the network-specific broadcast addresss for
 	 * each configured non-loopback interface.
-	 *
-	 * If the tag is "-BOOTPARAMS-", we broadcast (on all interfaces)
-	 * to get a parent server address and tag from the BOOTPARMS 
-	 * service.  To support this, the bootparams server must have
-	 * an entry "netinfo_parent=server_name:tag".  If we get a
-	 * address and tag from BOOTPARAMS, we add it to the list.
 	 * 
-	 * If the tag is "-DHCP-", we ask the DHCP client for the
-	 * values of the netinfo_server_address (112) and
-	 * netinfo_server_tag (113) options.  If we get an address and
-	 * tag from DHCP, we add it to the list.
-	 *
 	 * If the address is not a broadcast address, we ping the 
 	 * NetInfo server with the given address and tag.  If the server
 	 * is up, we cut short the search and "bind" to that server.
@@ -2072,24 +1915,7 @@ add_parent_server(struct in_addr server_addr, ni_name server_tag, ni_name client
 	 */
 	if (server_addr.s_addr == 0) return;
 	
-	if (!strcmp(server_tag, DHCP_TAG))
-	{
-		/*
-		 * Special case for DHCP binding when the tag is "-DHCP-".
-		 * We ask DHCP for a server address and tag.
-		 * Thanks to Dieter Siegmund for DHCP client support!
-		 */
-		add_binding_from_dhcp(server_addr, client_tag, addrs, stuff, naddrs);
-	}
-	else if (!strcmp(server_tag, BOOTPARAM_TAG))
-	{
-		/*
-		 * Special case for BOOTPARM binding when the tag is "-BOOTPARAMS-".
-		 * We do a bootparams broadcast for a server address and tag.
-		 */
-		add_binding_from_bootparams(server_addr, client_tag, addrs, stuff, naddrs);
-	}
-	else if (sys_is_general_broadcast(&server_addr))
+	if (sys_is_general_broadcast(&server_addr))
 	{
 		/*
 		 * Add network_specific broadcast for each
@@ -2208,29 +2034,75 @@ get_parents_from_db(void *ni, struct in_addr **addrs, ni_rparent_stuff *stuff, u
 	return NI_OK;
 }
 
+static void
+swap_addrs(struct in_addr *addrs, ni_rparent_stuff *stuff, int a, int b)
+{
+	unsigned long tempaddr;
+	ni_name temptag;
+
+	if (a == b) return;
+
+	tempaddr = addrs[a].s_addr;
+	addrs[a].s_addr = addrs[b].s_addr;
+	addrs[b].s_addr = tempaddr;
+
+	temptag = stuff->bindings[a].server_tag;
+	stuff->bindings[a].server_tag = stuff->bindings[b].server_tag;
+	stuff->bindings[b].server_tag = temptag;
+
+	tempaddr = stuff->bindings[a].client_addr;
+	stuff->bindings[a].client_addr = stuff->bindings[b].client_addr;
+	stuff->bindings[b].client_addr = tempaddr;
+
+	temptag = stuff->bindings[a].client_tag;
+	stuff->bindings[a].client_tag = stuff->bindings[b].client_tag;
+	stuff->bindings[b].client_tag = temptag;
+
+	return;
+}
+
 static ni_status
 bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int naddrs, ni_rparent_res *res)
 {
-	int i, j, r;
-	ni_name temptag;
+	int i, j;
 	unsigned int nlocal;
 	unsigned int nnetwork;
-	unsigned long tempaddr;
 	enum clnt_stat stat;
 	static ni_rparent_res old_res = { NI_NOTMASTER };
 	static struct in_addr old_binding;
 	static struct in_addr new_binding;
-	int *shuffle;
+	int *shuffle, temp;
+	unsigned int rentry;
 
 	if (naddrs == 0) return NI_NETROOT;
 
 	/*
 	 * Majka - 1994.04.27
-	 * re-order the servers so that:
-	 * servers on the local host are first, then
-	 * servers on the local network are next, then
-	 * all other servers are next
+	 * 1. shuffle the servers to distribute client load
+	 * 2. re-order the servers so that:
+	 *    a. servers on the local host are first
+	 *    b. servers on the local network are next
+	 *    c. all other servers
 	 */
+
+	shuffle = (int *)malloc(naddrs * sizeof(int)); 
+	for (i = 0; i < naddrs; i++) shuffle[i] = i;
+
+	for (i = 0, j = naddrs; j > 0; i++, j--)
+	{
+		/* pick one of the remaining entries */
+		rentry = random() % j;
+
+		/* swap entries */
+		temp = shuffle[rentry];
+		shuffle[rentry] = shuffle[j-1];
+		shuffle[j-1]  = temp;
+
+		/* and swap the actual NI addresses */
+		swap_addrs(addrs, stuff, rentry, j-1);
+	}
+
+	free(shuffle);
 
 	/*
 	 * move local servers to the head of the list
@@ -2240,22 +2112,7 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	{
 		if (sys_is_my_address(&(addrs[i])))
 		{
-			tempaddr = addrs[nlocal].s_addr;
-			addrs[nlocal].s_addr = addrs[i].s_addr;
-			addrs[i].s_addr = tempaddr;
-
-			temptag = stuff->bindings[nlocal].server_tag;
-			stuff->bindings[nlocal].server_tag = stuff->bindings[i].server_tag;
-			stuff->bindings[i].server_tag = temptag;
-
-			tempaddr = stuff->bindings[nlocal].client_addr;
-			stuff->bindings[nlocal].client_addr = stuff->bindings[i].client_addr;
-			stuff->bindings[i].client_addr = tempaddr;
-
-			temptag = stuff->bindings[nlocal].client_tag;
-			stuff->bindings[nlocal].client_tag = stuff->bindings[i].client_tag;
-			stuff->bindings[i].client_tag = temptag;
-
+			swap_addrs(addrs, stuff, nlocal, i);
 			nlocal++;
 		}
 	}
@@ -2266,24 +2123,9 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	nnetwork = nlocal;
 	for (i = nnetwork; i < naddrs; i++)
 	{
-		if (sys_is_my_network(&(addrs[i])))
+		if (sys_is_on_attached_network(&(addrs[i])))
 		{
-			tempaddr = addrs[nnetwork].s_addr;
-			addrs[nnetwork].s_addr = addrs[i].s_addr;
-			addrs[i].s_addr = tempaddr;
-
-			temptag = stuff->bindings[nnetwork].server_tag;
-			stuff->bindings[nnetwork].server_tag = stuff->bindings[i].server_tag;
-			stuff->bindings[i].server_tag = temptag;
-
-			tempaddr = stuff->bindings[nnetwork].client_addr;
-			stuff->bindings[nnetwork].client_addr = stuff->bindings[i].client_addr;
-			stuff->bindings[i].client_addr = tempaddr;
-
-			temptag = stuff->bindings[nnetwork].client_tag;
-			stuff->bindings[nnetwork].client_tag = stuff->bindings[i].client_tag;
-			stuff->bindings[i].client_tag = temptag;
-
+			swap_addrs(addrs, stuff, nnetwork, i);
 			nnetwork++;
 		}
 	}
@@ -2291,42 +2133,26 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	/*
 	 * Anonymous Binding.
 	 * Majka - 1999.08.25
-	 * We shuffle the servers to distribute client load.
 	 */
 	 
-	shuffle = (int *)malloc(naddrs * sizeof(int));
-
-	for (i = 0; i < naddrs; i++) shuffle[i] = i;	
 	for (i = 0; i < naddrs; i++)
 	{
-		r = random() % naddrs;
-		j = shuffle[i];
-		shuffle[i] = shuffle[r];
-		shuffle[r] = j;
-	}
+		if (sys_is_my_broadcast(&(addrs[i]))) continue;
 
-	for (i = 0; i < naddrs; i++)
-	{
-		j = shuffle[i];
-
-		if (sys_is_my_broadcast(&(addrs[j]))) continue;
-
-		if (ni_ping(addrs[j].s_addr, stuff->bindings[j].server_tag))
+		if (ni_ping(addrs[i].s_addr, stuff->bindings[i].server_tag))
 		{
 			ni_name_free(&(res->ni_rparent_res_u.binding.tag));
-			res->ni_rparent_res_u.binding.tag = ni_name_dup(stuff->bindings[j].server_tag);
-			res->ni_rparent_res_u.binding.addr = addrs[j].s_addr;
+			res->ni_rparent_res_u.binding.tag = ni_name_dup(stuff->bindings[i].server_tag);
+			res->ni_rparent_res_u.binding.addr = addrs[i].s_addr;
 
 			system_log(LOG_INFO, "Anonymous binding to %s/%s",
-				inet_ntoa(addrs[j]), stuff->bindings[j].server_tag);
+				inet_ntoa(addrs[i]), stuff->bindings[i].server_tag);
 
 			res->status = NI_OK;
 			stat = RPC_SUCCESS;
-			free(shuffle);
 			goto binding_done;
 		}
 	}
-	free(shuffle);
 
 	/*
 	 * Found the addresses and committed to multicalling now
@@ -2407,7 +2233,7 @@ binding_done:
 	}
 
 	old_binding.s_addr = old_res.ni_rparent_res_u.binding.addr;
-	
+
 	if (NI_OK == res->status)
 	{
 		/* Successfully bound */
@@ -2443,7 +2269,6 @@ binding_done:
 			res->ni_rparent_res_u.binding.tag);
 
 		/* keep track of latest parent for statistics */
-		latestParentStatus = res->status;
 		if (latestParentInfo == NULL)
 			latestParentInfo = malloc(sizeof("xxx.xxx.xxx.xxx") + 1 + NI_NAME_MAXLEN + 1);
 		sprintf(latestParentInfo, "%s/%s",
@@ -2452,17 +2277,16 @@ binding_done:
 	else
 	{
 		/* Binding failed (!) */
-		switch (old_res.status)\
+		switch (old_res.status)
 		{
 			case NI_NOTMASTER:
-				system_log(LOG_ERR, "unable to bind to parent - %s",
+				system_log(LOG_ERR, "unable to bind to parent - %s", 
 					clnt_sperrno(stat));
 				break;
 			default:
 				system_log(LOG_ERR, "unable to rebind from %s/%s - %s",
 					inet_ntoa(old_binding), old_res.ni_rparent_res_u.binding.tag,
 					clnt_sperrno(stat));
-				latestParentStatus = res->status;
 				break;
 		}
 	}
@@ -2476,7 +2300,7 @@ binding_done:
 ni_rparent_res *
 _ni_rparent_2_svc(void *arg, struct svc_req *req)
 {
-	static ni_rparent_res res = { NI_FAILED };
+	static ni_rparent_res res;
 	static long root_time = -1;
 	static unsigned long paddr = -1;
 	long now;
@@ -2487,20 +2311,20 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 
 	if (req == NULL) return NULL;
 
+	res.status = get_binding_status();
+
 	/*
 	 * If standalone (i.e. no network attached), then stop here
 	 */
 	if (alert_aborted())
 	{
-		res.status = NI_NETROOT;
-		latestParentStatus = NI_NETROOT;
+		set_binding_status(NI_NETROOT);
 		return &res;
 	}
 
 	if (sys_is_standalone())
 	{
-		res.status = NI_NETROOT;
-		latestParentStatus = NI_NETROOT;
+		set_binding_status(NI_NETROOT);
 		return &res;
 	}
 
@@ -2552,8 +2376,7 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 	if (status != NI_OK)
 	{
 		/* Can't get any potential parents! */
-		res.status = NI_NETROOT;
-		latestParentStatus = NI_NETROOT;
+		set_binding_status(NI_NETROOT);
 		return &res;
 	}
 
@@ -2573,6 +2396,8 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 		res.status = NI_NETROOT;
 		time(&root_time);
 	}
+
+	set_binding_status(res.status);
 
 	MM_FREE_ARRAY(addrs, naddrs);
 

@@ -17,13 +17,13 @@ class handler {
     function read($key)
     {
         print "READ: $key\n";
-        return $this->data;
+        return $GLOBALS["hnd"]->data;
     }
 
     function write($key, $val)
     {
         print "WRITE: $key, $val\n";
-		$this->data = $val;
+		$GLOBALS["hnd"]->data = $val;
         return true;
     }
 
@@ -60,6 +60,9 @@ session_write_close();
 session_set_save_handler(array($hnd, "open"), array($hnd, "close"), array($hnd, "read"), array($hnd, "write"), array($hnd, "destroy"), array($hnd, "gc"));
 session_start();
 
+var_dump($baz);
+var_dump($arr);
+
 session_destroy();
 --EXPECT--
 OPEN: /tmp, PHPSESSID
@@ -82,4 +85,19 @@ array(1) {
 WRITE: test, baz|O:3:"foo":2:{s:3:"bar";s:2:"ok";s:3:"yes";i:2;}arr|a:1:{i:3;O:3:"foo":2:{s:3:"bar";s:2:"ok";s:3:"yes";i:2;}}
 OPEN: /tmp, PHPSESSID
 READ: test
+object(foo)(2) {
+  ["bar"]=>
+  string(2) "ok"
+  ["yes"]=>
+  int(2)
+}
+array(1) {
+  [3]=>
+  object(foo)(2) {
+    ["bar"]=>
+    string(2) "ok"
+    ["yes"]=>
+    int(2)
+  }
+}
 DESTROY: test

@@ -338,6 +338,11 @@ Start it from the beginning? "))
       state_change_hook (STATE_INFERIOR_LOGICALLY_RUNNING);
     }
   
+  if (run_command_hook) {        
+      if (run_command_hook() == 0) {
+        return;
+      }
+  }
   target_create_inferior (exec_file, inferior_args,
 			  environ_vector (inferior_environ));
 }
@@ -405,6 +410,9 @@ continue_command (char *proc_count_exp, int from_tty)
 
   if (state_change_hook)
       state_change_hook (STATE_INFERIOR_LOGICALLY_RUNNING);
+      
+  if (continue_command_hook) 
+    continue_command_hook();
 
   proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 0);
 }
@@ -553,8 +561,12 @@ which has no line number information.\n", name);
     and handle them one at the time, through step_once(). */
   else
     {
-      if (event_loop_p && target_can_async_p ())
+      if (event_loop_p && target_can_async_p ()) {
+        if (stepping_command_hook) {
+            stepping_command_hook();
+        }
 	step_once (skip_subroutines, single_inst, count);
+      }
     }
 }
 
@@ -1802,12 +1814,16 @@ _initialize_infcmd (void)
 	   "Set terminal for future runs of program being debugged.");
 
   add_show_from_set
-    (add_set_cmd ("args", class_run, var_string_noescape,
+    (c = add_set_cmd ("args", class_run, var_string_noescape,
 		  (char *) &inferior_args,
 		  "Set argument list to give program being debugged when it is started.\n\
 Follow this command with any number of args, to be passed to the program.",
 		  &setlist),
      &showlist);
+
+  c->completer = filename_completer;
+  c->completer_word_break_characters =
+    gdb_completer_filename_word_break_characters;
 
   c = add_cmd
     ("environment", no_class, environment_info,
@@ -1937,7 +1953,7 @@ the breakpoint won't break until the Nth time it is reached).");
   add_com_alias ("c", "cont", class_run, 1);
   add_com_alias ("fg", "cont", class_run, 1);
 
-  add_com ("run", class_run, run_command,
+  c = add_com ("run", class_run, run_command,
 	   "Start debugged program.  You may specify arguments to give it.\n\
 If 'start-with-shell' is set to 1, args may include \"*\", or \"[...]\";\n\
 they will be expanded using \"sh\".  Input and output redirection with
@@ -1945,6 +1961,11 @@ they will be expanded using \"sh\".  Input and output redirection with
 With no arguments, uses arguments last specified (with \"run\" or \"set args\").\n\
 To cancel previous arguments and run with no arguments,\n\
 use \"set args\" without arguments.");
+
+  c->completer = filename_completer;
+  c->completer_word_break_characters =
+    gdb_completer_filename_word_break_characters;
+
   add_com_alias ("r", "run", class_run, 1);
   if (xdb_commands)
     add_com ("R", class_run, run_no_args_command,

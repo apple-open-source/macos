@@ -724,7 +724,17 @@ receive_exception_label (handler_label)
      rtx handler_label;
 {
   emit_label (handler_label);
-  
+
+  /* If no code is generated for the exception_receiver or 
+     nonlocal_goto_receiver patterns, don't bother emitting them; this
+     should result in a better jump optimiser pass, getting rid of a few
+     jumps to jumps, or two successive duplicate jumps.  */
+
+#ifdef NO_EH_RECEIVER_CODE_NECESSARY_P
+  if (NO_EH_RECEIVER_CODE_NECESSARY_P ())
+    return;
+#endif
+
 #ifdef HAVE_exception_receiver
   if (! exceptions_via_longjmp)
     if (HAVE_exception_receiver)
@@ -1675,6 +1685,10 @@ void
 expand_leftover_cleanups ()
 {
   struct eh_entry *entry;
+#ifdef NOTE_INSN_EH_CLEANUP_BEG
+  rtx note = NULL;
+  static int eh_cleanup_counter = 0;
+#endif
 
   while ((entry = dequeue_eh_entry (&ehqueue)) != 0)
     {
@@ -1687,6 +1701,16 @@ expand_leftover_cleanups ()
       /* Output the label for the start of the exception handler.  */
 
       receive_exception_label (entry->exception_handler_label);
+
+#ifdef NOTE_INSN_EH_CLEANUP_BEG
+      if (note == NULL)
+	{
+	  note = emit_note_before (NOTE_INSN_EH_CLEANUP_BEG,
+				entry->exception_handler_label);
+	
+	  NOTE_BLOCK_NUMBER (note) = ++eh_cleanup_counter;
+	}
+#endif
 
       /* register a handler for this cleanup region */
       add_new_handler (
@@ -1705,6 +1729,19 @@ expand_leftover_cleanups ()
       do_pending_stack_adjust ();
       free (entry);
     }
+
+#ifdef NOTE_INSN_EH_CLEANUP_BEG
+  if (note != NULL)
+    {
+      rtx insn = get_last_insn ();
+      /* If the last insn is a barrier, emit our note BEFORE it.  */
+      if (GET_CODE (insn) == BARRIER)
+	note = emit_note_before (NOTE_INSN_EH_CLEANUP_END, insn);
+      else
+	note = emit_note_after (NOTE_INSN_EH_CLEANUP_END, insn);
+      NOTE_BLOCK_NUMBER (note) = eh_cleanup_counter;
+    }
+#endif
 }
 
 /* Called at the start of a block of try statements.  */

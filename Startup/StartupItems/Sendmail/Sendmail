@@ -18,6 +18,6 @@ if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
     queue=/var/spool/mqueue
     rm -f ${queue}/nf* ${queue}/lf*
 
-    /usr/sbin/sendmail -bd -q1h &
+    /usr/sbin/sendmail -bd -q1h 
 
 fi

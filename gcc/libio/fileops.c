@@ -623,12 +623,13 @@ _IO_file_write (f, data, n)
 #ifdef MACOSX
   if ((_io_mode_bits & _IO_OSX_SYNC_STDIO) && _IO_IS_STDFILE(f)) 
     {
-      count = fwrite (data, 1, to_do, _IO_WHICH_OFILE(f));
+      count = fwrite (data, 1, to_do, _IO_WHICH_OFILE (f));
       if (count < to_do)
 	{
 	  f->_flags |= _IO_ERR_SEEN;
 	  break;
 	}
+      fflush (_IO_WHICH_OFILE (f));
     }
   else
 #endif /* MACOSX */

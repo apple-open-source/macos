@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <Sterling.Hughes@pentap.net>                |
+   | Authors: Sterling Hughes <sterling@php.net>                          |
    +----------------------------------------------------------------------+
  */
 
@@ -52,7 +52,12 @@ PHP_FUNCTION(xslt_process);
 PHP_FUNCTION(xslt_create);
 PHP_FUNCTION(xslt_run);
 PHP_FUNCTION(xslt_set_sax_handler);
+PHP_FUNCTION(xslt_set_scheme_handler);
 PHP_FUNCTION(xslt_set_error_handler);
+#ifdef HAVE_SABLOT_SET_ENCODING
+PHP_FUNCTION(xslt_set_encoding);
+#endif
+PHP_FUNCTION(xslt_set_base);
 PHP_FUNCTION(xslt_fetch_result);
 PHP_FUNCTION(xslt_free);
 
@@ -93,6 +98,9 @@ typedef struct {
 	zval *charactersHandler;
 	zval *endDocHandler;
 	
+    /* Scheme Handling */
+	zval *getAllHandler;
+
 	/* Sablotron Related */
 	SablotHandle p;
 

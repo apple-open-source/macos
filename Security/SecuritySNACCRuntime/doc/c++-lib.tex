@@ -1,0 +1,973 @@
+% file: .../doc/c++-lib.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/c++-lib.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: c++-lib.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:51  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:37  rj
+% first check-in
+%
+
+\chapter{\label{lib-C++-chapter}C++ ASN.1 Library}
+\section{\label{libover-C++-section}Overview}
+
+The following sections describe the C++ representation of the
+non-aggregate ASN.1 types, ANY and ANY DEFINED BY types and
+the buffer and memory management.  These classes and routines make
+up the C++ ASN.1 runtime library. Every aggregate ASN.1 type will be
+composed of these library types. The source files for this library
+are in {\ufn \dots/c++-lib/inc/} and {\ufn \dots/c++-lib/src/}.
+
+As mentioned in the last chapter, each ASN.1 type is represented by a
+C++ class which inherits from the {\C AsnType} base class.  In
+addition to the standard encode, decode, print and clone methods
+described in the last chapter, each ASN.1 type class in the library
+may also have special constructors and other routines that simplify
+their use.
+
+Unlike the classes generated for some of the aggregate types such as
+SETs and SEQUENCEs, the library types' data members are typically
+protected and accessed via methods.
+
+All of the library classes' {\C BDec} routines will report tagging errors
+via {\C longjmp()} as described in section~\ref{type-gen-C++-section}.
+
+The top level PDU encode and decode methods are the same for all
+library types so they are defined as macros in
+{\ufn \dots/c++-lib/inc/asn-config.h}. For clarity's sake, the macro
+that is used to define these methods in the library type class
+definitions will be replaced with the actual prototypes.
+
+Run the {\ufn test-lib} program in {\ufn \dots/c++-examples/test-lib/}
+to make sure the library routines are working properly for your
+architecture.  The testing is not exhaustive but should point out
+obvious problems.
+
+
+\section{\label{tag-C++-section}Tags}
+
+The C++ tags are identical to those used in snacc's C ASN.1
+environment.  While it would have been nice to define a tag class, the
+performance cost would likely have been noticeable.  Also, the snacc
+users usually do not have to muck around with tags directly, so the
+lack of a class interface will probably not be missed.  The C ASN.1
+tags are described in Section~\ref{tag-C-section}.
+
+Initially I defined a C++ class for tags, but close examination of the
+produced assembly code led me to reject it.  The C++ class for tags
+used the C tag representation internally and had constructor, encode
+and decode methods.  The constructor could not be used as
+{\C switch} statement case labels like {\C MAKE\_TAG\_ID} because it
+did not reduce to an integer constant; this caused problems in the
+generated decoders.
+
+As with the C representation of tags, 4 byte long integers limit the
+maximum representable tag code to $2^{21}$.  Again, this should not be
+a problem.
+
+
+\section{\label{len-C++-section}Lengths}
+
+The C++ representation of lengths is the same at the C representation
+described in Section~\ref{len-C-section}.  The length type was not given
+its own C++ class for reasons similar to those of tags.
+
+
+\section{\label{asntype-C++-section}The AsnType Base Class}
+
+Every ASN.1 type's C++ class uses the {\C AsnType} as its base class.
+The {\C AsnType} base class provides the following virtual functions:
+\begin{itemize}
+  \item the destructor
+  \item {\C Clone()}
+  \item {\C BDec()}
+  \item {\C BEnc()}
+  \item {\C Print()}
+  \item {\C \_getdesc()} (metacode)
+  \item {\C \_getref()} (metacode)
+  \item {\C TclGetDesc()} (Tcl interface)
+  \item {\C TclGetVal()} (Tcl interface)
+  \item {\C TclSetVal()} (Tcl interface)
+  \item {\C TclUnsetVal()} (Tcl interface)
+\end{itemize}
+
+The {\C AsnType} class is defined as follows:
+\begin{Ccode}
+class AsnType\\
+\{\\
+public:\+\\
+  virtual			\>\>\~{}AsnType();\\
+\\
+\<\#ifdef SUPPORT\_ANY\_TYPE\\
+  virtual AsnType		\>\>*Clone() const;\\
+  virtual void			\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+  virtual AsnLen		\>\>BEnc (BUF\_TYPE b);\\
+\<\#else\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env) \{\}\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b) \{ return 0; \}\\
+\<\#endif\\
+  virtual void			\>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnTypeDesc	\>\>\_desc;\\
+\\
+  virtual const AsnTypeDesc	\>\>*\_getdesc() const;\\
+  virtual AsnType		\>\>*\_getref (const char *membername, bool create=false);\\
+\\
+\<private:\\
+  const char			\>\>*\_typename() const;\\
+\-\\
+\#if TCL\\
+public:\+\\
+  virtual int			\>\>TclGetDesc (Tcl\_DString *) const;\\
+  virtual int			\>\>TclGetVal (Tcl\_Interp *) const;\\
+  virtual int			\>\>TclSetVal (Tcl\_Interp *, const char *val);\\
+  virtual int			\>\>TclUnsetVal (Tcl\_Interp *, const char *membernames);\-\\
+\#endif // TCL\\
+\#endif // META\\
+\};
+\end{Ccode}
+
+The {\C AsnType} class and its virtual functions were added to
+support the ANY DEFINED BY type handling mechanism.  This mechanism is
+described in Section~\ref{any-C++-section}.
+
+Even if you do not use the ANY or ANY DEFINED BY types, the
+{\C AsnType} base class may be useful for adding features that are
+common to all of the types, such as changing the {\C new} and
+{\C delete} functions to improve performance.
+
+Virtual functions provide the simplest method of handling ANY DEFINED
+BY and ANY types. Unfortunately, calls to virtual functions are slower
+than calls to normal functions due to their indirect nature.  If you
+do not need support for the ANY DEFINED BY or ANY types you can remove
+most of the virtual functions to improve performance by undefining the
+{\C SUPPORT\_ANY\_TYPE} symbol (see the
+{\ufn asn-type.h} file).
+
+Note that a virtual destructor is included in the {\C AsnType} base
+class as well.  This is done to make sure the {\C delete} routine
+always gets the correct size.  See pages 215--217 of Stroustrup
+\cite{stroustrup} for a discussion of this.
+
+\section{\label{bool-C++-section}BOOLEAN}
+
+The BOOLEAN type is represented by the {\C AsnBool} class. The
+following is the class definition of {\C AsnBool} from the
+{\ufn \dots/c++-lib/inc/asn-bool.h} file.
+
+\begin{Ccode}
+class AsnBool: public AsnType\\
+\{\\
+protected:\+\\
+  bool				\>\>value;\\
+\\
+\<public:\\
+				\>\>AsnBool (const bool val): value (val) \{\};\\
+				\>\>AsnBool() \{\};\\
+  AsnType			\>\>*Clone() const;\\
+				\>\>operator bool() const \{ return value; \}\\
+  AsnBool			\>\>\&operator = (bool newvalue) \{ value = newvalue; return *this; \}\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnBoolTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif // TCL\\
+\#endif // META\\
+\};
+\end{Ccode}
+
+The upcoming C++ standard \cite{c++-draft} defines a type {\C bool} accompanied by {\C false} and {\C true} to denote the boolean values.
+The Snacc configuration script checks whether the C++ compiler already supplies this new type and defines a look-alike if it does not.
+
+For backwards compatibility, {\C AsnBool::true} and {\C AsnBool::false} are still valid.
+
+The {\C operator bool()} is defined such that when an {\C AsnBool}
+value is cast to a boolean, it returns the C++ style boolean
+value of the {\C AsnBool}s value.  There is also a constructor for {\C AsnBool}
+that builds an {\C AsnBool} value from the given C++ style boolean
+value. These two methods allow you to manipulate and access
+{\C AsnBool} values in a straight forward way as the following code
+illustrates.
+\begin{Ccode}
+Message::Send()\\
+\{\+\\
+  AsnBool	\>\>okToSend;\\
+  bool		\>\>connectionOpen;\\
+  bool		\>\>pduOk;\\
+  \dots\\
+  okToSend = connectionOpen \&\& pduOk; // assign AsnBool from bool\\
+  if (okToSend) // cast AsnBool to bool\\
+    \>\dots\\
+\<\}
+\end{Ccode}
+
+The {\C AsnBool} class contains the standard encode and decode
+methods that were described in Chapter~\ref{c++-code-gen-chapter}.
+
+{\C BDecContent} will report an error via {\C longjmp} if the
+length of an encoded BOOLEAN value's content is not exactly 1 octet.
+
+Note that the {\C Clone} method returns an {\C AsnType~*} value
+instead of an {\C AsnBool~*}.  It might be more obvious to return an
+{\C AsnBool~*} since due to single inheritance an {\C AsnBool} is also
+an {\C AsnType}.  However, it must return an {\C AsnType~*} for it
+to override the virtual function {\C Clone} defined in the
+{\C AsnType}.
+
+The {\C Print} method will print either ``TRUE'' or ``FALSE''
+depending on the {\C AsnBool} value.  No newline or other formatting
+characters are printed.  The global indent information does not affect
+the output from this method.
+
+
+\section{\label{int-C++-section}INTEGER}
+
+The INTEGER type is represented by the {\C AsnInt} class. The
+following is the class definition of {\C AsnInt} from the
+{\ufn \dots/c++-lib/inc/asn-int.h} file.
+\begin{Ccode}
+class AsnInt: public AsnType\\
+\{\\
+protected:\+\\
+  AsnIntType			\>\>value;\\
+\\
+\<public:\\
+				\>\>AsnInt() \{\}\\
+				\>\>AsnInt (AsnIntType val): value (val) \{\}\\
+\\
+  AsnType			\>\>*Clone() const;\\
+\\
+				\>\>operator AsnIntType() \{ return value; \}\\
+  AsnInt			\>\>\&operator = (AsnIntType newvalue) \{ value = newvalue; return *this; \}
+\\
+  void				\>\>Set (AsnIntType i) \{ value = i; \}\\
+  void				\>\>ReSet (AsnIntType i) \{ value = i; \}\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const \{ os <\/< value; \}\\
+\\
+\<\#if META\\
+  static const AsnIntTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif /* TCL */\\
+\#endif /* META */\\
+\};
+\end{Ccode}
+
+The internal representation of an ASN.1 INTEGER value is a {\C AsnIntType}.
+This is a {\C typedef}, the real type may be {\C int}, {\C long} or {\C short}, whatever is found to be 32 bits in size.
+The types' sizes depend on the machine and compiler and are determined at configuration time.
+The {\C BDecContent} routine will signal an error if the integer
+value being decoded will not fit into the {\C AsnIntType}
+representation.
+
+Unlike the C ASN.1 library, the non-negative
+%{\C unsigned long int}
+version of
+INTEGER is not provided.  If you need it, it should be relatively
+trivial to combine the C unsigned version with the existing C++ class.
+The unsigned version of an integer is useful if your ASN.1 source uses
+subtyping similar to:
+\begin{ASNcode}
+Counter ::= [APPLICATION 1] IMPLICIT INTEGER (0..4294967295)
+\end{ASNcode}
+
+\section{\label{enum-C++-section}ENUMERATED}
+
+The ENUMERATED type is represented by the {\C AsnEnum} class. The
+following is the class definition of {\C AsnEnum} from the
+{\ufn \dots/c++-lib/inc/asn-enum.h} file.
+\begin{Ccode}
+class AsnEnum: public AsnInt\\
+\{\\
+public:\+\\
+\<\#if !TCL\\
+				\>\>AsnEnum(): AsnInt() \{\}\\
+\<\#endif\\
+				\>\>AsnEnum (int i): AsnInt (i) \{\}\\
+\\
+  AsnType			\>\>*Clone() const;\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+           		                \`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+\<\#if META\\
+  static const AsnEnumTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\-\\
+\#endif /* META */\\
+\};
+\end{Ccode}
+
+Note that it is not derived from {\C class AsnType} directly but from {\C class AsnInt} instead.
+
+\section{\label{null-C++-section}NULL}
+
+The NULL type is provided by the {\C AsnNull} class.  This class has
+no data members and includes only the standard methods.
+\begin{Ccode}
+class AsnNull: public AsnType\\
+\{\\
+public:\+\\
+				\>\>AsnNull() \{\}\\
+  AsnType			\>\>*Clone() const;\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const \{ os <\/< "NULL"; \}\\
+\\
+\<\#if META\\
+  static const AsnNullTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif /* TCL */\\
+\#endif /* META */\\
+\};
+\end{Ccode}
+
+\section{\label{real-C++-section}REAL}
+
+REAL types are represented by the {\C AsnReal} class.  Internally, a
+{\C double} is used to hold the real value.  The following is from
+{\ufn \dots/c++-lib/inc/asn-real.h}:
+\begin{Ccode}
+class AsnReal: public AsnType\\
+\{\\
+protected:\\
+  \>double			\>\>value;\\
+\\
+public:\+\\
+				\>\>AsnReal(): value (0.0) \{\}\\
+				\>\>AsnReal (double val): value (val) \{\}\\
+  AsnType			\>\>*Clone() const;\\
+				\>\>operator double() const  \{ return value; \}\\
+  AsnReal			\>\>\&operator = (double newvalue) \{ value = newvalue; return *this; \}\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const \{ os <\/< value; \}\\
+\\
+\<\#if META\\
+  static const AsnRealTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif /* TCL */\\
+\#endif /* META */\\
+\};\\
+\\
+extern const AsnReal		\>\>\>PLUS\_INFINITY;\\
+extern const AsnReal		\>\>\>MINUS\_INFINITY;
+\end{Ccode}
+
+The {\C double} representation and support routines can depend on
+the compiler or system you are using so several different encoding
+routines are provided.  Even so, you may need to modify the code.
+
+There are three content encoding routines included and they can be selected by defining one of {\C IEEE\_REAL\_FMT}, {\C IEEE\_REAL\_LIB} or nothing.
+Defining {\C IEEE\_REAL\_FMT} uses the encode routine that assumes the double representation is the standard IEEE double \cite{68881}.
+Defining {\C IEEE\_REAL\_LIB} uses the encode routine that assumes the IEEE functions library (isinf, scalbn, signbit etc.) is available.
+If neither are defined, the default encode routine uses {\C frexp}.
+%The {\ufn \dots/configure} script tries to find the {\C isinf} and {\C finite} functions 
+%Look at the related comments in {\ufn \dots/c++-lib/inc/asn-config.h}.
+Currently, the {\ufn \dots/configure} script has not got any checks for the IEEE format or library and therefore does not define any of the symbols. (This should be fixed.)
+
+{\C AsnReal} constants are used to hold {\C PLUS\_INFINITY} and
+{\C MINUS\_INFINITY} values.  These values are initialized using the
+{\C AsnReal} constructor mechanism with the {\C AsnPlusInfinity}
+and {\C AsnMinusInfinity} routines.  If you do not define
+{\C IEEE\_REAL\_FMT} or {\C IEEE\_REAL\_LIB}, you should rewrite the
+{\C AsnPlusInfinity} routine such that it is correct for your system.
+
+There is only one content decoding routine and it builds the value
+through multiplication and the {\C pow} routine (requires the math
+library). The content decoding routine only supports the binary
+encoding of a REAL, not the decimal encoding.
+
+\section{\label{bits-C++-section}BIT STRING}
+
+The BIT STRING type is represented by the {\C AsnBits} class.  From\linebreak
+{\ufn \dots/c++-lib/inc/asn-bits.h}:
+\begin{Ccode}
+class AsnBits: public AsnType\\
+\{\\
+private:\+\\
+  int				\>\>BitsEquiv (AsnBits \&ab);\\
+  void				\>\>BDecConsBits (BUF\_TYPE b, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+  void				\>\>FillBitStringStk (BUF\_TYPE b, AsnLen elmtLen0,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\<protected:\\
+  size\_t			\>\>bitLen;\\
+  char				\>\>*bits;\\
+\\
+\<public:\\
+				\>\>AsnBits() \{ bits = NULL; bitLen = 0; \}\\
+				\>\>AsnBits (const size\_t numBits) \{ Set (numBits); \}\\
+				\>\>AsnBits (const char *bitOcts, const size\_t numBits) \\
+					\`\{ Set (bitOcts, numBits); \}\\
+				\>\>AsnBits (const AsnBits \&b) \{ Set (b); \}\\
+				\>\>\~{}AsnBits() \{ delete bits; \}\\
+\\
+  AsnType			\>\>*Clone() const;\\
+\\
+  AsnBits			\>\>\&operator = (const AsnBits \&b) \{ ReSet (b); return *this; \}\\
+\\
+  size\_t			\>\>BitLen() \{ return bitLen; \}\\
+\\
+  bool				\>\>operator == (AsnBits \&ab) const \{ return BitsEquiv (ab); \}\\
+  bool				\>\>operator != (AsnBits \&ab) const \{ return !BitsEquiv (ab); \}\\
+\\
+  // overwrite existing bits and bitLen values\\
+  void				\>\>Set (size\_t numBits);\\
+  void				\>\>Set (const char *bitOcts, size\_t numBits);\\
+  void				\>\>Set (const AsnBits \&b);\\
+\\
+  // free old bits value, the reset bits and bitLen values\\
+  void				\>\>ReSet (const size\_t numBits);\\
+  void				\>\>ReSet (const char *bitOcts, size\_t numBits);\\
+  void				\>\>ReSet (const AsnBits \&b);\\
+\\
+  void				\>\>SetBit (size\_t);\\
+  void				\>\>ClrBit (size\_t);\\
+  int				\>\>GetBit (size\_t) const;\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnBitsTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif /* TCL */\\
+\#endif /* META */\\
+\};
+\end{Ccode}
+
+The {\C AsnBits} class contains a pointer to the bits and an
+integer that holds the length in bits of the BIT STRING\@.
+
+In addition to the standard methods, the {\C AsnBits} class has
+methods for initializing and comparing bit string values and methods
+for setting and getting individual bits in a value.
+
+An {\C AsnBits} value can be created three ways: from the number of
+bits, from a {\C char~*} and its bit length or from another
+{\C AsnBits} value.  Look at the constructors and the {\C Set} and
+{\C ReSet} methods.
+
+{\C SetBit} and {\C ClrBit} can be used for setting the values of
+individual bits in the BIT STRING value.  Given the bit's index,
+{\C SetBits} sets that bit to one.  {\C ClrBit} sets the bit
+of the given index to zero.  The bit indexes start at zero, with zero
+being the first (most signficant) bit in the BIT STRING\@. {\C GetBit}
+will return {\C true} if the specified bit is one and {\C false} if the bit is
+zero.  If the given bit index is too large, {\C SetBit} and
+{\C ClrBit} do nothing and {\C GetBit} returns {\C false}\@.
+
+The {\C ==} and {\C !=} operators have been overloaded such that
+given two {\C AsnBits} values, they will behave as expected.
+
+Each {\C AsnBits} value stores its bit string in a single contiguous
+block of memory.  Received BIT STRING values that were encoded in the
+constructed form are converted to the simple, flat form (see Section
+\ref{bits-C-section}).  Snacc provides no facility for encoding or
+internally representing constructed BIT STRING values.
+
+\section{\label{octets-C++-section}OCTET STRING}
+OCTET STRING values are represented with the {\C AsnOcts} class.
+From\linebreak {\ufn \dots/c++-lib/inc/asn-octs.h}:
+\begin{Ccode}
+class AsnOcts: public AsnType\\
+\{\\
+private:\+\\
+  int				\>\>OctsEquiv (const AsnOcts \&o);\\
+  void				\>\>FillBitStringStk (BUF\_TYPE b, AsnLen elmtLen0,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+  void				\>\>BDecConsOcts (BUF\_TYPE b, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+\<protected:\\
+  size\_t			\>\>octetLen;\\
+  char				\>\>*octs;\\
+\\
+\<public:\\
+  // constructor and Set alway copy strings so destructor can always delete\\
+				\>\>AsnOcts(): octs (NULL), octetLen (0) \{\}\\
+				\>\>AsnOcts (const char *str)  \{ Set (str); \}\\
+				\>\>AsnOcts (const char *str, const size\_t len) \{ Set (str, len); \}\\
+				\>\>AsnOcts (const AsnOcts \&o) \{ Set (o); \}\\
+				\>\>\~{}AsnOcts() \{ delete octs; \}\\
+  AsnType			\>\>*Clone() const;\\
+\\
+  AsnOcts			\>\>\&operator = (const AsnOcts \&o) \{ ReSet (o); return *this; \}\\
+  AsnOcts			\>\>\&operator = (const char *str) \{ ReSet (str); return *this; \}\\
+\\
+  size\_t			\>\>Len() const \{ return octetLen; \}\\
+				\>\>operator const char *() const \{ return octs; \}\\
+				\>\>operator char *() \{ return octs; \}\\
+\\
+  bool				\>\>operator == (const AsnOcts \&o) const \{ return OctsEquiv (o); \}\\
+  bool				\>\>operator != (const AsnOcts \&o) const \{ return !OctsEquiv (o); \}\\
+\\
+  // these set the octs and octetLen values\\
+  void				\>\>Set (const char *str, size\_t len);\\
+  void				\>\>Set (const AsnOcts \&o);\\
+  void				\>\>Set (const char *str);\\
+\\
+  // these free the old octs value and then reset the octs and octetLen values\\
+  void				\>\>ReSet (const char *str, size\_t len);\\
+  void				\>\>ReSet (const AsnOcts \&o);\\
+  void				\>\>ReSet (const char *str);\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnOctsTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif /* TCL */\\
+\#endif /* META */\\
+\};
+\end{Ccode}
+
+The {\C AsnOcts} class contains a pointer to the octets and an
+integer that holds the length in octets of the OCTET STRING\@.
+
+There are four constructors for {\C AsnOcts}.  The parameterless
+constructor will initialize the octet string to zero length with a
+{\C NULL} octets pointer.  The constructor that takes a single {\C char~*}
+assumes that the given string is NUL terminated and initializes the octet
+pointer with a pointer to a copy of the given string and sets the
+{\C octetLen} to the {\C strlen} of the string (this does not usually
+include the NUL terminator).  The constructor that takes
+{\C char~*} and a length, {\C len}, initializes the octets pointer
+to point to a copy of {\C len} characters from the given string and
+sets the {\C octetLen} to {\C len}.  The last constructor will initialize
+an {\C AsnOcts} value by copying the given {\C AsnOcts} value.
+
+As with the BIT STRING content decoder, OCTET STRING content decoder
+can handle constructed values.  These are handled in the same way as
+the constructed BIT STRING values; they are converted to the simple
+contiguous representation.  Every OCTET STRING value will
+automatically have a NUL terminator appended to it; this extra
+character will not be included in the string's length and will make
+some strings easier to deal with for printing etc.
+
+The {\C operator char~*()} is defined for the {\C AsnOcts} class to
+return a pointer to the octets.  The {\C Len}
+method returns the length in bytes of the string value.
+These may be useful for passing the
+octets to other functions such as {\C memcpy} etc.  
+
+The {\C ==} and {\C !=} operators have been overloaded such that
+given two {\C AsnOcts} values, they will behave as expected.
+
+
+
+\section{\label{oid-C++-section}OBJECT IDENTIFIER}
+OBJECT IDENTIFIER values are represented with the {\C AsnOid} class.
+From\linebreak {\ufn \dots/c++-lib/inc/asn-oid.h}:
+\begin{Ccode}
+class AsnOid: public AsnType\\
+\{\\
+private:\\
+  \>int				\>\>OidEquiv (AsnOid o);\\
+\\
+protected:\+\\
+  size\_t			\>\>octetLen;\\
+  char				\>\>*oid;\\
+\\
+\<public:\\
+				\>\>AsnOid(): oid (NULL), octetLen (0) \{\}\\
+				\>\>AsnOid (const char *encOid, size\_t len) \{ Set (encOid, len); \}\\
+				\>\>AsnOid (const AsnOid \&o) \{ Set (o); \}\\
+				\>\>AsnOid (unsigned long int a1, unsigned long int a2, long int a3 = -1,\\
+					\`long int a4 = -1, long int a5 = -1, long int a6 = -1, long int a7 = -1,\\
+					\`long int a8 = -1, long int a9 = -1, long int a10 = -1, long int a11 = -1);\\
+				\>\>\~{}AsnOid() \{ delete oid; \}\\
+  AsnType			\>\>*Clone() const;\\
+\\
+  AsnOid			\>\>\&operator = (const AsnOid \&o) \{ ReSet (o); return *this; \}\\
+\\
+  size\_t			\>\>Len() \{ return octetLen; \}\\
+  const char			\>\>*Str() const \{ return oid; \}\\
+				\>\>operator const char * () const \{ return oid; \}\\
+				\>\>operator char * () \{ return oid; \}\\
+  unsigned long int		\>\>NumArcs() const;\\
+\\
+  bool				\>\>operator == (AsnOid \&o) const \{ return OidEquiv (o); \}\\
+  bool				\>\>operator != (AsnOid \&o) const \{ return !OidEquiv (o); \}\\
+\\
+  // Set methods overwrite oid and octetLen values\\
+  void				\>\>Set (const char *encOid, const size\_t len);\\
+  void				\>\>Set (const AsnOid \&o);\\
+\\
+  // first two arc numbers are mandatory.  rest are optional since negative arc nums are not allowed in the\\
+  // encodings, use them to indicate the 'end of arc numbers' in the optional parameters\\
+  void				\>\>Set (unsigned long int a1, unsigned long int a2, long int a3 = -1,\\
+					\`long int a4 = -1, long int a5 = -1, long int a6 = -1, long int a7 = -1,\\
+					\`long int a8 = -1, long int a9 = -1, long int a10 = -1, long int a11 = -1);\\
+\\
+  // ReSet routines are like Set except the old oid value is freed\\
+  void				\>\>ReSet (const char *encOid, const size\_t len);\\
+  void				\>\>ReSet (const AsnOid \&o);\\
+  void				\>\>ReSet (unsigned long int a1, unsigned long int a2, long int a3 = -1,\\
+					\`long int a4 = -1, long int a5 = -1, long int a6 = -1, long int a7 = -1,\\
+					\`long int a8 = -1, long int a9 = -1, long int a10 = -1, long int a11 = -1);\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen			\>\>BEncContent (BUF\_TYPE b);\\
+  void				\>\>BDecContent (BUF\_TYPE b, AsnTag tagId, AsnLen elmtLen,\\
+					\`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnOidTypeDesc	\>\>\_desc;\\
+\\
+  const AsnTypeDesc		\>\>*\_getdesc() const;\\
+\\
+\<\#if TCL\\
+  int				\>\>TclGetVal (Tcl\_Interp *) const;\\
+  int				\>\>TclSetVal (Tcl\_Interp *, const char *val);\-\\
+\#endif /* TCL */\\
+\#endif /* META */\\
+\};
+\end{Ccode}
+
+The {\C AsnOid} stores OBJECT IDENTIFIER values in their encoded form
+to improve performance.  It seems that the most common operation with
+OBJECT IDENTIFIERs is to compare for equality, for which the encoded
+representation (which is canonical) works well.
+
+The {\C AsnOid} is very similar to the {\C AsnOcts} class in all
+respects, except that its content decoding routine does not need to
+handle constructed encodings.
+
+The {\C AsnOid} class has four constructors which are similiar to
+those of the {\C AsnOcts} class.  A special constructor that takes
+arc numbers as parameters and uses default parameters is provided.  An
+OBJECT IDENTIFIER value must have at least two arc numbers so the
+first two parameters do not have default values.  All of the other
+parameters are optional; since their default value of {\C --1} is an
+invalid arc number (they must be positive) they will not be used in the
+value. For example to build the value {\C \{1 2 3\}} you simply use
+{\C AsnOid (1, 2, 3)}.  This constructor is convenient but is more
+expensive in terms of CPU time than the others.
+
+The {\C operator char~*()} is defined for the {\C AsnOid} class to
+return a pointer to the encoded OBJECT IDENTIFIER value.  The {\C Len}
+method returns the length in bytes of the encode OBJECT IDENTIFIER
+value (NOT the number arcs in the value).  These may be useful for
+passing the octets to other functions such as {\C memcpy} etc.
+{\C NumArcs} returns the number of arcs that the value is comprised of.
+
+The {\C ==} and {\C !=} operators have been overloaded such that
+given two {\C AsnOcts} values, they will behave as expected.
+
+
+
+\section{\label{list-C++-section}SET OF and SEQUENCE OF}
+
+In the C ASN.1 library, the list type was in the library because it
+was generic and every SET OF and SEQUENCE OF was defined as an
+{\C AsnList}.  In C++, a new class is defined every list, providing
+a type safe list mechanism.  This was described in the previous chapter.
+
+
+\section{\label{any-C++-section}ANY and ANY DEFINED BY}
+
+The ANY DEFINED BY type can be handled automatically by snacc
+provided you use the SNMP OBJECT-TYPE macro to specify the identifier
+to type mappings.  The identifier can be an INTEGER or OBJECT
+IDENTIFIER\@.  Handling ANY types properly will require modifications to
+the generated code since there is no identifier associated with the
+type.
+
+Look at the C and C++ ANY examples and the {\ufn any.asn1} file
+included with this release for information on using the OBJECT-TYPE
+macro.  Note that the OBJECT-TYPE macro has been modified slightly to
+allow INTEGER values (identifiers).
+
+An ANY DEFINED BY type is represented by the {\C AsnAny} class.
+The following is from {\ufn \dots/c++-lib/inc/asn-any.h}.
+\begin{Ccode}
+/* AnyInfo is a hash table entry */\\
+class AnyInfo\\
+\{\\
+public:\+\\
+  int				\>\>anyId;  // will be a value from the AnyId enum\\
+  AsnOid			\>\>oid;    // will be zero len/null if intId is valid\\
+  AsnInt			\>\>intId;\\
+  AsnType			\>\>*typeToClone;\-\\
+\};\\
+\\
+class AsnAny: public AsnType\\
+\{\\
+public:\+\\
+  static Table			\>\>*oidHashTbl;  // all AsnAny class instances\\
+  static Table			\>\>*intHashTbl;  // share these tables\\
+  AnyInfo			\>\>*ai; // points to entry in hash tbl for this type\\
+  AsnType			\>\>*value;\\
+\\
+				\>\>AsnAny() \{ ai = NULL; value = NULL; \}\\
+\\
+  // class level methods\\
+  static void			\>\>InstallAnyByInt (AsnInt intId, int anyId, AsnType *type);\\
+  static void			\>\>InstallAnyByOid (AsnOid \&oid, int anyId, AsnType *type);\\
+\\
+  int				\>\>GetId() \{ return ai ? ai-->anyId : -1; \}\\
+  void				\>\>SetTypeByInt (AsnInt id);\\
+  void				\>\>SetTypeByOid (AsnOid \&id);\\
+\\
+  AsnLen			\>\>BEnc (BUF\_TYPE b);\\
+  void				\>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int				\>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int				\>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void				\>\>Print (ostream \&os) const \{ value-->Print (os); \}\\
+\<\};
+\end{Ccode}
+
+The C++ mechanism is similar to the C mechanism which uses hash tables
+to hold the identifier to type mappings.  In this section we will
+discuss the main differences of the C++ ANY DEFINED BY handling
+mechanism.  You should read Section~\ref{any-C-section} for caveats and
+other important information.
+
+In C, the hash table entry held the size of the type and pointers to
+its encode, decode, free etc. routines to describe the type.  In C++
+these have been replaced with a pointer to an instance of the type. A
+hash table entry contains:
+\begin{itemize}
+\item {the {\C anyId}}
+\item {the INTEGER or OBJECT IDENTIFIER that maps to it}
+\item {a pointer to an instance of the identified type}
+\end{itemize}
+
+All C++ ASN.1 types use the {\C AsnType} base class which designates the following functions as virtual:
+\begin{itemize}
+  \item the destructor
+  \item {\C Clone()}
+  \item {\C BDec()}
+  \item {\C BEnc()}
+  \item {\C Print()}
+  \item {\C \_getdesc()} (metacode)
+  \item {\C \_getref()} (metacode)
+  \item {\C TclGetDesc()} (Tcl interface)
+  \item {\C TclGetVal()} (Tcl interface)
+  \item {\C TclSetVal()} (Tcl interface)
+  \item {\C TclUnsetVal()} (Tcl interface)
+\end{itemize}
+
+This allows the ANY DEFINED BY handling routines to treat a value of
+any ASN.1 type as an {\C AsnType}.  So, for each type the ANY
+DEFINED BY handling code has access to the virtual methods.  Note
+that the {\C value} field in the {\C AsnAny} class and the
+{\C typeToClone} field in the {\C AnyInfo} class are both
+{\C AsnType~*}.
+
+To build an ANY DEFINED BY value, simply set the value field in the
+{\C AsnAny} object to point to the object you want to encode.  Then
+set the identifier field for that ANY DEFINED BY value to the correct
+identifier (as generated for its OBJECT-TYPE macro value).  It is very
+important to do this correctly because the encoder will simply call
+the virtual {\C BEnc} routine for the object pointed to by the
+{\C AsnAny}'s value field.  There is no attempt to make sure that
+the identifier field's value matches the object that was encoded.
+
+A potential solution to the last identifier problem is to add a type
+id field to the {\C AsnType} base class.  Snacc could generate a
+unique identifier (that would be stored in the base class) for each
+type.  The encoder could then check identifiers between the value
+being encoded and the value stored in the hash table.  The identifier
+in the base class could easily be automatically set (correctly) from
+the constructors for each type (constructors are snacc generated).  It
+would be difficult to ensure unique identifiers for each type between
+modules if the ASN.1 modules were compiled separately.
+
+Before an ANY DEFINED BY value can be decoded, the field that contains
+its identifier must have been decoded and used with the {\C AsnAny}
+value's {\C SetTypeByInt} or {\C SetTypeByOid} methods.  Then the
+ANY DEFINED BY value can be decoded by calling its ({\C AsnAny})
+{\C BDec} routine.  This in turn calls the {\C Clone} routine on
+the type in the hash table entry to generate the correct object.  Then
+the {\C BDec} method of the newly created object is called.
+
+When the C ANY DEFINED BY decoder allocates a value, it uses the size
+information for the identified type.  This is not safe for C++ so the
+virtual {\C Clone} routine was added to the {\C AsnType} base
+class.  This allows the proper constructor mechanism to be used when
+allocating the value.
+
+The virtual {\C Clone} routine simply calls its type's parameterless
+constructor via {\C new} (hence every ASN.1 type's class must have a
+parameterless constructor).  {\C Clone} is a poor name since
+the routine only produces a new instance of the given type without
+copying the original's data.
+
+The hash tables are automatically initialized using the C++ constructor
+mechanism.  You do not need to call any initialization routines as
+described in the C chapter.
+
+
+\section{\label{buffer-C++-section}Buffer Management}
+
+The C++ buffer management provided with snacc is similar to that of
+the C {\C SBuf}s.  The following is from
+{\ufn \dots/c++-lib/inc/asn-buf.h}:
+\begin{Ccode}
+class AsnBuf\\
+\{\\
+protected:\+\\
+  char			\>\>*dataStart;\\
+  char			\>\>*dataEnd;\\
+  char			\>\>*blkStart;\\
+  char			\>\>*blkEnd;\\
+  char			\>\>*readLoc;\\
+  bool			\>\>writeError;\\
+  bool			\>\>readError;\\
+\\
+\<public:\\
+  void			\>\>Init (char *data, size\_t dataLen);\\
+  void			\>\>ResetInReadMode();\\
+  void			\>\>ResetInWriteRvsMode();\\
+  void			\>\>InstallData (char *data, size\_t dataLen);\\
+  size\_t		\>\>DataLen();\\
+  char			\>\>*DataPtr();\\
+  size\_t		\>\>BlkLen();\\
+  char			\>\>*BlkPtr();\\
+  bool			\>\>Eod();\\
+\\
+  /* the following 9 methods are required */\\
+  bool			\>\>ReadError();\\
+  bool			\>\>WriteError();\\
+  void			\>\>Skip (size\_t skipLen);\\
+  size\_t		\>\>CopyOut (char *dst, size\_t copyLen);\\
+  unsigned char		\>\>PeekByte();\\
+  char			\>\>*GetSeg (size\_t *lenPtr);\\
+  void			\>\>PutSegRvs (char *seg, size\_t segLen);\\
+  unsigned char		\>\>GetByte();\\
+  void			\>\>PutByteRvs (unsigned char byte);\\
+\<\};
+\end{Ccode}
+
+This is the only buffer type provided with the C++ library.
+
+\section{\label{mem-C++-section}Dynamic Memory Management}
+
+The built-in C++ memory management system is used by snacc ({\C new}
+and {\C delete}).  Better performance might be gained by using a
+different management scheme.
+
+To change {\C new} and {\C delete} to use your own memory
+management scheme the best way to start is by defining them as virtual
+in the {\C AsnType} base class.  More information on providing your
+own memory management can be found in Stroustrup \cite{stroustrup}.
+
+\section{\label{error-C++-section}Error Management}
+
+The C++ ASN.1 error management is identical to that of the C ASN.1
+model.  C++ exception handling ({\C try} and {\C throw}) were not
+used to replace {\C setjmp()} and {\C longjmp()} because they were not
+implemented by the C++ compiler we used.

@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (IOKit.framework); 
+        FRAMEWORKS = (); 
         HEADERSEARCH = (
             "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders"
         ); 

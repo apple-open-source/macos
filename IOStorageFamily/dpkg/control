@@ -1,0 +1,6 @@
+Package: iostoragefamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 1.1
+Build-Depends: files, file-cmds, shell-cmds, system-cmds, grep, cctools, zsh, libsystem, gcc, iokituser, jam, xnu
+Description: IOKit Storage Family Framework

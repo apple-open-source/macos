@@ -17,7 +17,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: ipcp.c,v 1.5 2001/01/20 03:35:44 callie Exp $"
+#define RCSID	"$Id: ipcp.c,v 1.7 2001/08/11 00:46:33 callie Exp $"
 
 /*
  * TODO:
@@ -53,11 +53,25 @@ void (*ip_up_hook) __P((void)) = NULL;
 /* Hook for a plugin to know when IP protocol has come down */
 void (*ip_down_hook) __P((void)) = NULL;
 
+/* Hook for a plugin to choose the remote IP address */
+void (*ip_choose_hook) __P((u_int32_t *)) = NULL;
+
+#ifdef __APPLE__
+struct notifier *ip_up_notify = NULL;
+struct notifier *ip_down_notify = NULL;
+#endif
+
 /* local vars */
 static int default_route_set[NUM_PPP];	/* Have set up a default route */
 static int proxy_arp_set[NUM_PPP];	/* Have created proxy arp entry */
 static bool usepeerdns;			/* Ask peer for DNS addrs */
 static int ipcp_is_up;			/* have called np_up() */
+static bool ask_for_local;		/* request our address from peer */
+
+#ifdef __APPLE__
+char	*ip_up_script = NULL; /* Script to run when IP is UP */
+char	*ip_down_script = NULL; /* Script to run when IP is DOWN */
+#endif
 
 /*
  * Callbacks for fsm code.  (CI = Configuration Information)
@@ -115,7 +129,7 @@ static option_t ipcp_option_list[] = {
     { "-vjccomp", o_bool, &ipcp_wantoptions[0].cflag,
       "Disable VJ connection-ID compression", OPT_A2COPY,
       &ipcp_allowoptions[0].cflag },
-    { "vj-max-slots", 1, setvjslots,
+    { "vj-max-slots", 1, (void *)setvjslots,
       "Set maximum VJ header slots" },
     { "ipcp-accept-local", o_bool, &ipcp_wantoptions[0].accept_local,
       "Accept peer's address for us", 1 },
@@ -125,9 +139,9 @@ static option_t ipcp_option_list[] = {
       "Set ip script parameter" },
     { "noipdefault", o_bool, &disable_defaultip,
       "Don't use name for default IP adrs", 1 },
-    { "ms-dns", 1, setdnsaddr,
+    { "ms-dns", 1, (void *)setdnsaddr,
       "DNS address for the peer's use" },
-    { "ms-wins", 1, setwinsaddr,
+    { "ms-wins", 1, (void *)setwinsaddr,
       "Nameserver for SMB over TCP/IP for peer" },
     { "ipcp-restart", o_int, &ipcp_fsm[0].timeouttime,
       "Set timeout for IPCP" },
@@ -155,6 +169,12 @@ static option_t ipcp_option_list[] = {
       &ipcp_wantoptions[0].proxy_arp },
     { "usepeerdns", o_bool, &usepeerdns,
       "Ask peer for DNS address(es)", 1 },
+#ifdef __APPLE__
+    { "ip-up", o_string, &ip_up_script,
+      "A script to run when IP is UP", OPT_PRIVFIX },
+    { "ip-down", o_string, &ip_down_script,
+      "A script to run when IP is DOWN", OPT_PRIVFIX},
+#endif
     { NULL }
 };
 
@@ -449,15 +469,17 @@ ipcp_resetci(f)
     ipcp_options *go = &ipcp_gotoptions[f->unit];
 
     wo->req_addr = wo->neg_addr && ipcp_allowoptions[f->unit].neg_addr;
-    if (wo->ouraddr == 0 || disable_defaultip)
+    if (wo->ouraddr == 0)
 	wo->accept_local = 1;
     if (wo->hisaddr == 0)
 	wo->accept_remote = 1;
     wo->req_dns1 = usepeerdns;	/* Request DNS addresses from the peer */
     wo->req_dns2 = usepeerdns;
     *go = *wo;
-    if (disable_defaultip)
+    if (!ask_for_local)
 	go->ouraddr = 0;
+    if (ip_choose_hook)
+	ip_choose_hook(&wo->hisaddr);
 }
 
 
@@ -1300,7 +1322,7 @@ ip_check_options()
      * Default our local IP address based on our hostname.
      * If local IP address already given, don't bother.
      */
-    if (wo->ouraddr == 0) {
+    if (wo->ouraddr == 0 && !disable_defaultip) {
 	/*
 	 * Look up our hostname (possibly with domain name appended)
 	 * and take the first IP address as our local IP address.
@@ -1313,6 +1335,7 @@ ip_check_options()
 		wo->ouraddr = local;
 	}
     }
+    ask_for_local = wo->ouraddr != 0 || !disable_defaultip;
 }
 
 
@@ -1335,7 +1358,7 @@ ip_demand_conf(u)
 	/* make up an arbitrary address for us */
 	wo->ouraddr = htonl(0x0a404040 + ifunit);
 	wo->accept_local = 1;
-	disable_defaultip = 1;	/* don't tell the peer this address */
+	ask_for_local = 0;	/* don't tell the peer this address */
     }
     if (!sifaddr(u, wo->ouraddr, wo->hisaddr, GetMask(wo->ouraddr)))
 	return 0;
@@ -1349,6 +1372,12 @@ ip_demand_conf(u)
     if (wo->proxy_arp)
 	if (sifproxyarp(u, wo->hisaddr))
 	    proxy_arp_set[u] = 1;
+
+#ifdef __APPLE__
+    // publish some dns information
+    if (usepeerdns)
+        sifdns(wo->hisaddr, wo->hisaddr);
+#endif
 
     notice("local  IP address %I", wo->ouraddr);
     notice("remote IP address %I", wo->hisaddr);
@@ -1372,33 +1401,37 @@ ipcp_up(f)
     ipcp_options *wo = &ipcp_wantoptions[f->unit];
 
     IPCPDEBUG(("ipcp: up"));
-    
-   /*
+
+    /*
      * We must have a non-zero IP address for both ends of the link.
      */
     if (!ho->neg_addr)
 	ho->hisaddr = wo->hisaddr;
 
-    if (ho->hisaddr == 0) {
-	error("Could not determine remote IP address");
-	ipcp_close(f->unit, "Could not determine remote IP address");
-	return;
-    }
     if (go->ouraddr == 0) {
 	error("Could not determine local IP address");
 	ipcp_close(f->unit, "Could not determine local IP address");
 	return;
     }
-    script_setenv("IPLOCAL", ip_ntoa(go->ouraddr));
-    script_setenv("IPREMOTE", ip_ntoa(ho->hisaddr));
+    if (ho->hisaddr == 0) {
+	ho->hisaddr = htonl(0x0a404040 + ifunit);
+	warn("Could not determine remote IP address: defaulting to %I",
+	     ho->hisaddr);
+    }
+    script_setenv("IPLOCAL", ip_ntoa(go->ouraddr), 0);
+    script_setenv("IPREMOTE", ip_ntoa(ho->hisaddr), 1);
 
     if (usepeerdns && (go->dnsaddr[0] || go->dnsaddr[1])) {
-	script_setenv("USEPEERDNS", "1");
+	script_setenv("USEPEERDNS", "1", 0);
 	if (go->dnsaddr[0])
-	    script_setenv("DNS1", ip_ntoa(go->dnsaddr[0]));
+	    script_setenv("DNS1", ip_ntoa(go->dnsaddr[0]), 0);
 	if (go->dnsaddr[1])
-	    script_setenv("DNS2", ip_ntoa(go->dnsaddr[1]));
+	    script_setenv("DNS2", ip_ntoa(go->dnsaddr[1]), 0);
+#ifdef __APPLE__
+        sifdns(go->dnsaddr[0], go->dnsaddr[1]);
+#else
 	create_resolv(go->dnsaddr[0], go->dnsaddr[1]);
+#endif
     }
 
     /*
@@ -1423,13 +1456,13 @@ ipcp_up(f)
 	    ipcp_clear_addrs(f->unit, wo->ouraddr, wo->hisaddr);
 	    if (go->ouraddr != wo->ouraddr) {
 		warn("Local IP address changed to %I", go->ouraddr);
-		script_setenv("OLDIPLOCAL", ip_ntoa(wo->ouraddr));
+		script_setenv("OLDIPLOCAL", ip_ntoa(wo->ouraddr), 0);
 		wo->ouraddr = go->ouraddr;
 	    } else
 		script_unsetenv("OLDIPLOCAL");
 	    if (ho->hisaddr != wo->hisaddr) {
 		warn("Remote IP address changed to %I", ho->hisaddr);
-		script_setenv("OLDIPREMOTE", ip_ntoa(wo->hisaddr));
+		script_setenv("OLDIPREMOTE", ip_ntoa(wo->hisaddr), 0);
 		wo->hisaddr = ho->hisaddr;
 	    } else
 		script_unsetenv("OLDIPREMOTE");
@@ -1516,16 +1549,23 @@ ipcp_up(f)
     if (ip_up_hook)
 	ip_up_hook();
 
+#ifdef __APPLE__
+    notify(ip_up_notify, 0);
+#endif
+
     /*
      * Execute the ip-up script, like this:
      *	/etc/ppp/ip-up interface tty speed local-IP remote-IP
      */
     if (ipcp_script_state == s_down && ipcp_script_pid == 0) {
 	ipcp_script_state = s_up;
-	ipcp_script(_PATH_IPUP);
+#ifdef __APPLE__
+        ipcp_script(ip_up_script ? ip_up_script : _PATH_IPUP);
+#else        
+        ipcp_script(_PATH_IPUP);
+#endif
     }
 }
-
 
 /*
  * ipcp_down - IPCP has gone DOWN.
@@ -1538,23 +1578,29 @@ ipcp_down(f)
     fsm *f;
 {
     IPCPDEBUG(("ipcp: down"));
-
     /* XXX a bit IPv4-centric here, we only need to get the stats
      * before the interface is marked down. */
     update_link_stats(f->unit);
+
     if (ip_down_hook)
 	ip_down_hook();
+
     if (ipcp_is_up) {
 	ipcp_is_up = 0;
 	np_down(f->unit, PPP_IP);
     }
     sifvjcomp(f->unit, 0, 0, 0);
 
+#ifdef __APPLE__
+    notify(ip_down_notify, 0);
+#endif
+
     /*
      * If we are doing dial-on-demand, set the interface
      * to queue up outgoing packets (for now).
      */
-    if (demand) {
+    if (demand)
+    {
 	sifnpmode(f->unit, PPP_IP, NPMODE_QUEUE);
     } else {
 	sifnpmode(f->unit, PPP_IP, NPMODE_DROP);
@@ -1566,7 +1612,11 @@ ipcp_down(f)
     /* Execute the ip-down script */
     if (ipcp_script_state == s_up && ipcp_script_pid == 0) {
 	ipcp_script_state = s_down;
+#ifdef __APPLE__
+        ipcp_script(ip_down_script ? ip_down_script : _PATH_IPDOWN);
+#else        
 	ipcp_script(_PATH_IPDOWN);
+#endif
     }
 }
 
@@ -1617,13 +1667,21 @@ ipcp_script_done(arg)
     case s_up:
 	if (ipcp_fsm[0].state != OPENED) {
 	    ipcp_script_state = s_down;
-	    ipcp_script(_PATH_IPDOWN);
+#ifdef __APPLE__
+            ipcp_script(ip_down_script ? ip_down_script : _PATH_IPDOWN);
+#else        
+            ipcp_script(_PATH_IPDOWN);
+#endif
 	}
 	break;
     case s_down:
 	if (ipcp_fsm[0].state == OPENED) {
 	    ipcp_script_state = s_up;
-	    ipcp_script(_PATH_IPUP);
+#ifdef __APPLE__
+            ipcp_script(ip_up_script ? ip_up_script : _PATH_IPUP);
+#else        
+            ipcp_script(_PATH_IPUP);
+#endif
 	}
 	break;
     }
@@ -1794,7 +1852,7 @@ ipcp_printpkt(p, plen, printer, arg)
     case TERMREQ:
 	if (len > 0 && *p >= ' ' && *p < 0x7f) {
 	    printer(arg, " ");
-	    print_string(p, len, printer, arg);
+	    print_string((char *)p, len, printer, arg);
 	    p += len;
 	    len = 0;
 	}

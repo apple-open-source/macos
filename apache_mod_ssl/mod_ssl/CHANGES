@@ -17,6 +17,143 @@
   _INTENTIONALLY_ no contributor names attached to the entries. Instead all
   contributors are listed in the CREDITS file.
 
+      ____    ___  
+     |___ \  ( _ ) 
+       __) | / _ \ 
+      / __/ | (_) |
+  __ |_____(_)___/ ___________________________________________
+              
+  Changes with mod_ssl 2.8.4 (04-May-2001 to 20-May-2001)
+
+   *) Removed old db1/ndbm.h kludge from mod_ssl.h, because it should be
+      not needed at all, because mod_ssl downgrades to SDBM anyway on all
+      Linux platforms. Additionally made the Linux check more accurate
+      by using src/Configure's $PLAT variable instead of $OS.
+
+   *) Upgraded to Apache 1.3.20
+
+   *) +------------------------------------------------------------------+
+      | Officially moved mod_ssl to Apache 2.0:                          |
+      | The mod_ssl 2.8.x source tree is now frozen for development      |
+      | and will only be updated for bugfixes and Apache 1.3.x version   |
+      | upgrades. The last release (2.8.3) was imported to the ASF CVS   |
+      | repository under httpd-2.0/modules/ssl/. All development efforts |
+      | are now directed to the Apache 2.0 area. Nevertheless, mod_ssl   |
+      | 2.8.x releases will occur as long as Apache 1.3.x releases occur.|
+      +------------------------------------------------------------------+
+
+  Changes with mod_ssl 2.8.3 (30-Mar-2001 to 04-May-2001)
+
+   *) Allow loadcacert.cgi script to work inside mod_perl.
+
+   *) Fixed typo in the directive descriptions in mod_ssl.c
+
+   *) Fixed EAPI context usage in http_request.c: a context pointer
+      potentially can be NULL requests and can cause a segfault if
+      dereferenced.
+
+   *) Fixed ENGINE support: the engine support is are now already
+      loaded at configure time. Else mod_ssl fails to find them.
+
+   *) Fixed typo in httpd.conf-dist.
+
+  Changes with mod_ssl 2.8.2 (03-Mar-2001 to 30-Mar-2001)
+
+   *) Moved the Shared Memory Cyclic Buffer (SHMCB) session cache
+      variant from "experimental" state to "production" by removing the
+      `#ifdef SSL_EXPERIMENTAL_SHMCB ...#endif' wrappers. This means
+      that now `SSLSessionCache shmcb:...' is unconditionally available.
+
+   *) Modified (only) Win32's specific function SSL_recvwithtimeout()
+      to use the same retry logic as SSL_writewithtimeout(). This
+      fixes some problems with MSIE 5.x clients.
+
+   *) Made the mutex handling more robust by retrying the
+      semaphore-based operations in interrupt situations 
+      (errno == EINTR).
+
+   *) Also log the OpenSSL error message if the RSA temporary
+      key(s) cannot be generated.
+
+   *) Mention in INSTALL document that building OpenSSL with
+      `no-threads' increased performance without negative side-effects
+      because Apache 1.3 is never multi-threaded.
+
+   *) Fixed mod_ssl Auth handler: it now returns DECLINED instead of
+      OK if authentication is passed successfully to allow other modules
+      (usually mod_auth) to still deny the request.
+
+   *) Allow IPC semaphore support also under Tru64 5.x.
+
+   *) Fixed certificate DN handling under EBCDIC platforms.
+
+   *) Try to avoid casting warnings by using "unsigned long" type
+      instead of "unsigned int" in the EAPI macros AP_CTX_XXXX.
+
+   *) Make sure that the default path /usr/include is never added to
+      CFLAGS with an explicit -I options to avoid conflicts with vendor
+      include paths.
+
+   *) Make extra sure the ssl_expr_parse.[ch] and ssl_expr_scan.c
+      files are not regenerated for regular users by timestamping
+      them in a little bit more conservative way.
+
+   *) More fixes to configure.bat and Makefile.win32 to
+      make mod_ssl work again under Win32.
+
+  Changes with mod_ssl 2.8.1 (30-Jan-2001 to 03-Mar-2001)
+
+   *) Conditionally adjusted source to build quietly also under
+      latest OpenSSL 0.9.7-dev versions.
+
+   *) Added a bunch of (untested!) adjustments and fixes for 
+      the Win32 platform as posted to modssl-users some time
+      ago by various people.
+
+   *) Fixed SSLCipherSuite example in httpd.conf-dist: 
+      The string EXP56 is actually EXPORT56, although OpenSSL
+      internally the variable is named SSL_TXT_EXP56.
+
+   *) Upgraded to Apache 1.3.19 as base version.
+
+   *) Extended FAQ entry for MSIE problems.
+
+   *) Added FAQ entry for questions "Why do I get lots of random SSL
+      errors under heavy load?"
+
+  Changes with mod_ssl 2.8.0 (14-Oct-2000 to 30-Jan-2001)
+   
+   *) Upgraded to Apache 1.3.17 as base version.
+   
+   *) Changed ApacheModuleSSL.dll to mod_ssl.so in Makefile.Win32 to
+      make mod_ssl not too broken after Apache 1.3.16's Win32 changes.
+
+   *) Enhanced ApacheCore.def patch for Win32 folks.
+
+   *) Upgraded to Apache 1.3.16 as base version.
+    
+   *) Fixed ssl_intro.wml: DES uses 56 bit, not 54 bit.
+
+   *) Allow %{ENV:variable} in SSLRequire expressions, too.
+
+   *) Fixed version parsing for APXS stuff in configure.
+
+   *) Fixed Geoff Thorpe's Email addresses in various places.
+
+   *) Fixed typo in INSTALL document.
+
+   *) Make sure the user is not able to fake the client certificate
+      based authentication by just entering an X.509 Subject DN
+      ("/XX=YYY/XX=YYY/..") as the username and "password" as the
+      password if "SSLVerifyClient optional" is used in combination
+      with "SSLOptions +FakeBasicAuth".
+
+   *) Fixed URLs in FAQ.
+
+   *) Various fixes for the Win32 world:
+      reflect renaming of "makefile.nt" to "makefile.win"; scache
+      reorganisation adjustments; etc.
+
       ____   _____ 
      |___ \ |___  |
        __) |   / / 

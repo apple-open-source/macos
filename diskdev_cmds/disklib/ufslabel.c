@@ -114,7 +114,7 @@ ufslabel_check(struct ufslabel * ul_p)
     if (bcmp(&ul_p->ul_magic, ufs_label_magic, 
 	     sizeof(ul_p->ul_magic))) {
 #ifdef DEBUG
-	fprintf(stderr, "check_label: label has bad magic number\n",
+	fprintf(stderr, "check_label: label has bad magic number\n");
 #endif DEBUG
 	return (FALSE);
     }

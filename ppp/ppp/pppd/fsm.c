@@ -17,7 +17,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: fsm.c,v 1.3 2001/01/20 03:35:44 callie Exp $"
+#define RCSID	"$Id: fsm.c,v 1.4 2001/05/09 17:52:30 callie Exp $"
 
 /*
  * TODO:

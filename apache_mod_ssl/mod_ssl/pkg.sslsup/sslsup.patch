@@ -7,8 +7,8 @@
 ## ____________________________________________________________________________
 ##
 ## Annotated patch file: sslsup.patch
-## Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 14-Oct-2000
+## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
+## Created on: 20-May-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -29,9 +29,9 @@
 | already done by APACI for the HTTP port (80).
 +---------------------------------------------------------------------------
 Index: configure
---- configure	2000/10/12 08:17:27	1.1.1.9
-+++ configure	2000/10/12 08:31:46	1.21
-@@ -256,6 +256,9 @@
+--- configure	2001/02/28 19:40:45	1.1.1.11
++++ configure	2001/02/28 19:44:33	1.23
+@@ -258,6 +258,9 @@
  iflags_script="-m 755"
  iflags_data="-m 644"
  
@@ -41,7 +41,7 @@ Index: configure
  #   various other flags
  support=1
  confadjust=1
-@@ -1041,7 +1044,7 @@
+@@ -1043,7 +1046,7 @@
  echo "##" >>$configstatus
  echo "" >>$configstatus
  for var in CC CPP OPTIM CFLAGS CFLAGS_SHLIB LDFLAGS LD_SHLIB LDFLAGS_SHLIB \
@@ -50,7 +50,7 @@ Index: configure
      eval "val=\"\$$var\""
      if [ "x$val" != "x" ]; then
          echo "$var=$val" |\
-@@ -1087,6 +1090,13 @@
+@@ -1089,6 +1092,13 @@
  fi
  
  ##
@@ -64,7 +64,7 @@ Index: configure
  ##  target name
  ##
  if [ "x$TARGET" != "x" ]; then
-@@ -1160,6 +1170,7 @@
+@@ -1162,6 +1172,7 @@
  else
      conf_port="80"
  fi
@@ -72,7 +72,7 @@ Index: configure
  conf_serveradmin="you@your.address"
  conf_servername="new.host.name"
  if [ "x$confadjust" = "x1" ]; then
-@@ -1183,6 +1194,7 @@
+@@ -1185,6 +1196,7 @@
      fi
      if [ "x`$aux/getuid.sh`" != "x0" -a "x$port" = "x" ]; then
          conf_port="8080"
@@ -80,7 +80,7 @@ Index: configure
      fi
      conf_serveradmin="`$aux/buildinfo.sh -n %u@%h%d`"
      conf_servername="`$aux/buildinfo.sh -n %h%d`"
-@@ -1248,6 +1260,7 @@
+@@ -1250,6 +1262,7 @@
      echo "   SERVER_CONFIG_FILE: ${sysconfdir_relative}${thetarget}.conf"
      echo "   ACCESS_CONFIG_FILE: ${sysconfdir_relative}access.conf"
      echo " RESOURCE_CONFIG_FILE: ${sysconfdir_relative}srm.conf"
@@ -88,7 +88,7 @@ Index: configure
      echo ""
      if [ "x$suexec" = "x1" ]; then
          echo "suEXEC setup:"
-@@ -1315,9 +1328,11 @@
+@@ -1317,9 +1330,11 @@
  -e "s%@suexec_gidmin@%$suexec_gidmin%g" \
  -e "s%@suexec_safepath@%$suexec_safepath%g" \
  -e "s%@suexec_umask@%$suexec_umask%g" \
@@ -100,7 +100,7 @@ Index: configure
  -e "s%@conf_serveradmin@%$conf_serveradmin%g" \
  -e "s%@conf_servername@%$conf_servername%g" \
  -e "s%@build_support@%$build_support%g" \
-@@ -1346,6 +1361,8 @@
+@@ -1348,6 +1363,8 @@
  echo "echo '-DSERVER_CONFIG_FILE=\"${sysconfdir_relative}${thetarget}.conf\"'" >>$src/apaci
  echo "echo '-DACCESS_CONFIG_FILE=\"${sysconfdir_relative}access.conf\"'" >>$src/apaci
  echo "echo '-DRESOURCE_CONFIG_FILE=\"${sysconfdir_relative}srm.conf\"'" >>$src/apaci
@@ -109,7 +109,7 @@ Index: configure
  chmod a+x $src/apaci
  CFLAGS="$CFLAGS \\\`\$(SRCDIR)/apaci\\\`"
  
-@@ -1362,7 +1379,7 @@
+@@ -1364,7 +1381,7 @@
  OIFS="$IFS"
  IFS="$DIFS"
  for var in CC CPP OPTIM CFLAGS CFLAGS_SHLIB LDFLAGS LD_SHLIB LDFLAGS_SHLIB \
@@ -127,9 +127,9 @@ Index: configure
 | additionally installed.
 +---------------------------------------------------------------------------
 Index: Makefile.tmpl
---- Makefile.tmpl	2000/10/12 08:17:27	1.1.1.8
-+++ Makefile.tmpl	2000/10/12 08:31:46	1.40
-@@ -137,10 +137,14 @@
+--- Makefile.tmpl	2001/01/23 11:35:01	1.1.1.9
++++ Makefile.tmpl	2001/01/23 11:48:04	1.41
+@@ -140,10 +140,14 @@
  suexec_safepath = @suexec_safepath@
  suexec_umask    = @suexec_umask@
  
@@ -144,7 +144,7 @@ Index: Makefile.tmpl
  conf_serveradmin = @conf_serveradmin@
  conf_servername  = @conf_servername@
  
-@@ -150,6 +154,13 @@
+@@ -153,6 +157,13 @@
  clean-support     = @clean_support@
  distclean-support = @distclean_support@
  
@@ -158,7 +158,7 @@ Index: Makefile.tmpl
  #   forwarding arguments
  MFWD = root=$(root)
  
-@@ -171,6 +182,7 @@
+@@ -174,6 +185,7 @@
  	@if [ "x$(build-support)" != "x" ]; then \
  	    $(MAKE) -f $(TOP)/$(MKF) $(MFLAGS) $(MFWD) $(build-support); \
          fi
@@ -166,7 +166,7 @@ Index: Makefile.tmpl
  	@touch $(TOP)/$(SRC)/.apaci.build.ok
  	@echo "<=== $(SRC)"
  
-@@ -207,6 +219,44 @@
+@@ -210,6 +222,44 @@
  	fi
  	@echo "<=== $(SRC)/support"
  
@@ -211,7 +211,7 @@ Index: Makefile.tmpl
  ## ------------------------------------------------------------------
  ##                       Installation Targets
  ## ------------------------------------------------------------------
-@@ -248,6 +298,10 @@
+@@ -251,6 +301,10 @@
  		echo "|                                                        |"; \
  		echo "|   $(sbindir)/$${apachectl} start"; \
  		echo "|                                                        |"; \
@@ -222,7 +222,7 @@ Index: Makefile.tmpl
  		echo "| Thanks for using Apache.       The Apache Group        |"; \
  		echo "|                                http://www.apache.org/  |"; \
  		echo "+--------------------------------------------------------+"; \
-@@ -266,6 +320,11 @@
+@@ -269,6 +323,11 @@
  	$(MKDIR) $(root)$(mandir)/man1
  	$(MKDIR) $(root)$(mandir)/man8
  	$(MKDIR) $(root)$(sysconfdir)
@@ -234,7 +234,7 @@ Index: Makefile.tmpl
  	$(MKDIR) $(root)$(htdocsdir)
  	$(MKDIR) $(root)$(iconsdir)
  	$(MKDIR) $(root)$(cgidir)
-@@ -324,19 +383,34 @@
+@@ -327,19 +386,34 @@
  			echo "$(INSTALL_DSO) $(TOP)/$(SRC)/$${mod} $(root)$(libexecdir)/$${file}"; \
  			$(INSTALL_DSO) $(TOP)/$(SRC)/$${mod} $(root)$(libexecdir)/$${file}; \
  			name=`$(TOP)/$(AUX)/fmn.sh $(TOP)/$(SRC)/$${mod}`; \
@@ -274,7 +274,7 @@ Index: Makefile.tmpl
  	fi
  	@echo "<=== [programs]"
  
-@@ -500,6 +574,15 @@
+@@ -503,6 +577,15 @@
  		 echo ""; \
  		 cat $(TOP)/conf/$${conf}-dist ) |\
  		 sed -e '/# LoadModule/r $(TOP)/$(SRC)/.apaci.install.conf' \
@@ -290,7 +290,7 @@ Index: Makefile.tmpl
  			-e 's;@@ServerRoot@@/htdocs;$(htdocsdir);' \
  			-e 's;@@ServerRoot@@/icons;$(iconsdir);' \
  			-e 's;@@ServerRoot@@/cgi-bin;$(cgidir);' \
-@@ -518,9 +601,12 @@
+@@ -521,9 +604,12 @@
  			-e 's;User nobody;User $(conf_user);' \
  			-e 's;Group #-1;Group $(conf_group);' \
  			-e 's;Port 80;Port $(conf_port);' \
@@ -304,7 +304,7 @@ Index: Makefile.tmpl
  		echo "$(INSTALL_DATA) $(TOP)/conf/$${conf}-dist[*] $(root)$(sysconfdir)/$${target_conf}.default"; \
  		$(INSTALL_DATA) $(TOP)/$(SRC)/.apaci.install.tmp $(root)$(sysconfdir)/$${target_conf}.default; \
  		if [ ! -f "$(root)$(sysconfdir)/$${target_conf}" ]; then \
-@@ -540,6 +626,91 @@
+@@ -543,6 +629,91 @@
  			echo "[PRESERVING EXISTING CONFIG FILE: $(root)$(sysconfdir)/$${conf}]"; \
  		fi; \
  	done
@@ -403,8 +403,8 @@ Index: Makefile.tmpl
 | script.
 +---------------------------------------------------------------------------
 Index: src/Makefile.tmpl
---- src/Makefile.tmpl	2000/10/12 08:17:28	1.1.1.8
-+++ src/Makefile.tmpl	2000/10/12 08:31:47	1.17
+--- src/Makefile.tmpl	2001/05/20 08:16:15	1.1.1.9
++++ src/Makefile.tmpl	2001/05/20 08:23:01	1.18
 @@ -11,6 +11,12 @@
    $(OSDIR)/libos.a \
    ap/libap.a
@@ -439,8 +439,8 @@ Index: src/Makefile.tmpl
 | `startssl' adds a -DSSL define when starting httpd.
 +---------------------------------------------------------------------------
 Index: src/support/apachectl
---- src/support/apachectl	1999/08/17 11:22:17	1.1.1.5
-+++ src/support/apachectl	1999/08/17 11:42:14	1.7
+--- src/support/apachectl	2001/01/23 11:35:14	1.1.1.6
++++ src/support/apachectl	2001/01/23 11:48:09	1.8
 @@ -75,6 +75,18 @@
  	    ERROR=3
  	fi
@@ -474,9 +474,9 @@ Index: src/support/apachectl
 | environment variables mod_ssl provides to CGI scripts.
 +---------------------------------------------------------------------------
 Index: src/support/suexec.c
---- src/support/suexec.c	2000/01/21 18:07:04	1.1.1.7
-+++ src/support/suexec.c	2000/01/21 19:51:12	1.7
-@@ -227,7 +227,13 @@
+--- src/support/suexec.c	2001/05/20 08:16:26	1.1.1.9
++++ src/support/suexec.c	2001/05/20 08:23:03	1.9
+@@ -228,7 +228,13 @@
      cidx++;
  
      for (ep = environ; *ep && cidx < AP_ENVBUF-1; ep++) {

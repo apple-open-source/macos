@@ -61,6 +61,7 @@ extern BOOL doServerMounts;
 		[x release];
 		[v setMode:00777 | NFSMODE_LNK];
 		[v setMounted:YES];
+		[v setFakeMount:YES];
 		return;
 	}
 
@@ -77,11 +78,11 @@ extern BOOL doServerMounts;
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type
 {
 	String *servername, *serversrc, *x;
-        String *authOpts;
+	String *authOpts, *opt;
 	Vnode *v, *s;
 	Server *server;
-	BOOL pathOK;
-        int i;
+	BOOL pathOK, isAuto;
+	int i;
 
 	serversrc = [src postfix:':'];
 	if (serversrc == nil) return;
@@ -107,16 +108,18 @@ extern BOOL doServerMounts;
 	}
 
 	x = [String uniqueString:"net"];
+	isAuto = [opts containsObject:x];
 
-        if (![opts containsObject:x]) {
-
-            printf("Object is not there %s...\n", [[opts objectAtIndex:0] value]);
-        }
-        
-	if ((![opts containsObject:x]) || (![self acceptOptions:opts]))
+#ifdef DEBUG
+	if (!isAuto)
 	{
-		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (FstabMap)",
-   	             [src value], [dst value]);
+		printf("Object is not there %s...\n", [[opts objectAtIndex:0] value]);
+	}
+#endif
+	
+	if ((!isAuto) || (![self acceptOptions:opts]))
+	{
+		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (FstabMap)", [src value], [dst value]);
 		[x release];
 		[servername release];
 		[serversrc release];
@@ -125,11 +128,11 @@ extern BOOL doServerMounts;
 	[x release];
 
 	pathOK = [self checkVnodePath:servername from:root];
-	s = [self createVnodePath:servername from:root];
+	s = [self createVnodePath:servername from:root withType:type];
 
 	if ((!pathOK) && doServerMounts) [s setServer:server];
 
-	v = [self createVnodePath:serversrc from:s];
+	v = [self createVnodePath:serversrc from:s withType:type];
 	if ([v type] == NFLNK)
 	{
 		/* mount already exists - do not override! */
@@ -138,22 +141,24 @@ extern BOOL doServerMounts;
 		return;
 	}
 
-        authOpts = [String uniqueString:""];
+	authOpts = [String uniqueString:""];
 
-        for (i=0;i<[opts count];i++) {
-            String *opt = [opts objectAtIndex:i];
-            if (!strncmp([opt value], "url==", 5)) {
-                authOpts = [[opt postfix:'='] postfix:'='];
-                sys_msg(debug, LOG_DEBUG, "*******Found url string %s\n", [authOpts value]);
-            }
-        }
+	for (i = 0; i < [opts count]; i++)
+	{
+		opt = [opts objectAtIndex:i];
+		if (!strncmp([opt value], "url==", 5))
+		{
+			authOpts = [[opt postfix:'='] postfix:'='];
+			sys_msg(debug, LOG_DEBUG, "***** Found url string %s\n", [authOpts value]);
+		}
+	}
 
 	[v setType:NFLNK];
 	[v setServer:server];
 	[v setSource:serversrc];
 	[v setupOptions:opts];
-        [v setVfsType:type];
-        [v setUrlString:authOpts];
+	[v setVfsType:type];
+	[v setUrlString:authOpts];
 	[servername release];
 	[serversrc release];
 	[self setupLink:v];
@@ -195,20 +200,20 @@ extern BOOL doServerMounts;
 	file = [String uniqueString:""];
 	type = [String uniqueString:"rw"];
 	opts = [String uniqueString:"net"];
-        vfstype = [String uniqueString:"nfs"];
+	vfstype = [String uniqueString:"nfs"];
 
 	options = [[Array alloc] init];
 	[options addObject:opts];
 	[options addObject:type];
 
-        [self newMount:spec dir:file opts:options vfsType:vfstype];
+	[self newMount:spec dir:file opts:options vfsType:vfstype];
 
 	[spec release];
 	[file release];
 	[type release];
 	[opts release];
 	[options release];
-        [vfstype release];
+	[vfstype release];
 
 	setfsent();
 	while (NULL != (f = getfsent()))
@@ -217,20 +222,19 @@ extern BOOL doServerMounts;
 		file = [String uniqueString:f->fs_file];
 		type = [String uniqueString:f->fs_type];
 		opts = [String uniqueString:f->fs_mntops];
-                vfstype = [String uniqueString:f->fs_vfstype];
+		vfstype = [String uniqueString:f->fs_vfstype];
 
 		options = [opts explode:','];
 		if (type != nil) [options addObject:type];
 
-                [self newMount:spec dir:file opts:options vfsType:vfstype];
+		[self newMount:spec dir:file opts:options vfsType:vfstype];
 
 		[spec release];
 		[file release];
 		[type release];
 		[opts release];
 		[options release];
-                [vfstype release];
-
+		[vfstype release];
 	}
 	endfsent();
 }
@@ -248,7 +252,7 @@ extern BOOL doServerMounts;
 	spec = [String uniqueString:hn];
 	file = [String uniqueString:""];
 	opts = [String uniqueString:"net"];
-        vfstype = [String uniqueString:"nfs"];
+	vfstype = [String uniqueString:"nfs"];
 
 	options = [[Array alloc] init];
 	[options addObject:opts];
@@ -259,7 +263,7 @@ extern BOOL doServerMounts;
 	[file release];
 	[opts release];
 	[options release];
-        [vfstype release];
+	[vfstype release];
 
 	x = setmntent(NULL, "r");
 	while (NULL != (f = getmntent(x)))
@@ -267,16 +271,16 @@ extern BOOL doServerMounts;
 		spec = [String uniqueString:f->mnt_fsname];
 		file = [String uniqueString:f->mnt_dir];
 		opts = [String uniqueString:f->mnt_opts];
-                vfstype = [String uniqueString:f->mnt_vfstype];
+		vfstype = [String uniqueString:f->mnt_vfstype];
 
 		options = [opts explode:','];
 
-                [self newMount:spec dir:file opts:options vfsType:vfstype];
+		[self newMount:spec dir:file opts:options vfsType:vfstype];
 
 		[spec release];
 		[file release];
 		[opts release];
-                [vfstype release];
+		[vfstype release];
 		[options release];
 	}
 	endmntent(x);

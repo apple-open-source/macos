@@ -51,6 +51,7 @@
 #define		PAP_CONNID		0
 #define		PAP_TYPE		1
 #define		PAP_EOF			2
+#define		PAP_UNUSED		3
 
 #define		REQ_COMPLETED(p)	(*((char *) p))
 #define		REQ_ARRIVED(p)		(!*((char *) p))
@@ -103,6 +104,7 @@ int  eof, flush;
 			puserdata[PAP_CONNID] = papp->pap_connID;
 			puserdata[PAP_TYPE] = AT_PAP_TYPE_DATA;
 			puserdata[PAP_EOF] = eof ? 1 : 0;
+			puserdata[PAP_UNUSED] = 0;
 			resp.resp[i].iov_base = (caddr_t)data;
 			if (data)
 			    data += AT_PAP_DATA_SIZE;

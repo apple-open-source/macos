@@ -83,12 +83,12 @@ void gdb_testa(char *arg, int from_tty)
     char   alias[1024];
     
     if (arg && *arg) {
-    	gdb_define_plugin(arg, a_cmd, myClass, "cmd help.");
+    	gdb_define_cmd(arg, a_cmd, myClass, "cmd help.");
 	
 	if (strlen(arg) > 1) {
 	    strcpy(alias, arg);
 	    alias[0]= 'X';
-	    gdb_define_plugin_alias(arg, alias);
+	    gdb_define_cmd_alias(arg, alias);
 	}
     }
 }
@@ -97,16 +97,9 @@ void gdb_testa(char *arg, int from_tty)
 
 void gdb_testw(char *arg, int from_tty)
 {
-    if (arg && *arg)
-    	myClass = gdb_define_class(arg, "category title");
-    
-    //Xgdb_define_plugin("Ê", a_cmd, myClass, "");
 }
 
 /*--------------------------------------------------------------------------------------*/
-
-#include "gdbarch.h"
-#include "inferior.h"
 
 void gdb_testz(char *arg, int from_tty)
 {
@@ -136,5 +129,227 @@ void gdb_testz(char *arg, int from_tty)
 	memcpy(virtual_buffer, raw_buffer, REGISTER_VIRTUAL_SIZE(regnum));
     #endif
 }
+
+/*--------------------------------------------------------------------------------------*/
+
+#if 0
+#include <time.h>
+#include <locale.h>
+#include "breakpoint.h"
+#include "ui-file.h"
+
+#define ALL_BREAKPOINTS(B)  for (B = breakpoint_chain; B; B = B->next)
+extern struct breakpoint *breakpoint_chain;
+
+static void
+write_one_breakpoint (struct breakpoint *b, FILE *stream)
+{
+  register struct command_line *l;
+  
+  switch (b->type)
+    {
+    case bp_watchpoint:
+      fprintf_unfiltered (stream, "watch %s", b->exp_string);
+      break;
+    
+    case bp_hardware_watchpoint:
+      fprintf_unfiltered (stream, "watch %s", b->exp_string);
+      break;
+    
+    case bp_read_watchpoint:
+      fprintf_unfiltered (stream, "rwatch %s", b->exp_string);
+      break;
+    
+    case bp_access_watchpoint:
+      fprintf_unfiltered (stream, "awatch %s", b->exp_string);
+      break;
+          
+    case bp_catch_load:
+    case bp_catch_unload:
+      fprintf_unfiltered (stream, "%scatch %sload", b->disposition == del ? "t" : "",
+                                         b->type == bp_catch_unload ? "un" : "");
+      if (b->dll_pathname != NULL)
+        fputs_unfiltered (b->dll_pathname, stream);
+      break;
+      
+    case bp_catch_fork:
+      fprintf_unfiltered (stream, "%scatch fork", b->disposition == del ? "t" : "");
+      break;
+        
+    case bp_catch_vfork:
+      fprintf_unfiltered (stream, "%scatch vfork", b->disposition == del ? "t" : "");
+      break;
+      
+    case bp_catch_exec:
+      fprintf_unfiltered (stream, "%scatch exec", b->disposition == del ? "t" : "");
+      break;
+
+    case bp_catch_catch:
+      fprintf_unfiltered (stream, "%scatch catch", b->disposition == del ? "t" : "");
+      break;
+
+    case bp_catch_throw:
+      fprintf_unfiltered (stream, "%scatch throw", b->disposition == del ? "t" : "");
+      break;
+      
+    case bp_breakpoint:
+    case bp_hardware_breakpoint:
+      if (b->enable == shlib_disabled)
+        fputs_unfiltered ("future-", stream);
+      fprintf_unfiltered (stream, "%s%sbreak", b->disposition == del ? "t" : "",
+                        (b->type == bp_hardware_breakpoint) ? "h" : "");
+      
+      if (b->addr_string)
+        {
+          int len = strlen(b->addr_string) - 1;
+	  if (b->addr_string[len] == ' ')
+	    b->addr_string[len] = 0;
+          else
+            len = 0;
+          fprintf_unfiltered (stream, " %s", b->addr_string);
+          if (len)
+	    b->addr_string[len] = ' ';
+	}
+      else if (b->source_file)
+          fprintf_unfiltered (stream, " %s:%d", b->source_file, b->line_number);
+      else
+        fprintf_unfiltered(stream, " %s", 
+		           local_hex_string_custom((unsigned long) b->address, "08l"));
+      break;
+    }
+  
+  if (b->thread != -1)
+    fprintf_unfiltered (stream, " thread %d", b->thread);
+  
+  if (b->cond_string)
+    fprintf_unfiltered (stream, " if %s", b->cond_string);
+  
+  fputc_unfiltered ('\n', stream);
+  
+  if ((l = b->commands))
+    {
+      fputs_unfiltered ("commands\n", stream);
+      
+      while (l)
+        {
+          print_command_line (l, 1, stream);
+          l = l->next;
+        }
+      
+      fputs_unfiltered ("end\n", stream);
+    }
+ 
+  if (b->ignore_count)
+    fprintf_unfiltered (stream, "ignore $bpnum %d\n", b->ignore_count);
+    
+  if (b->enable == disabled)
+      fputs_unfiltered ("disable $bpnum\n", stream);
+}
+
+void save_breakpoints_commandX (char *arg, int from_tty)
+{
+  char *pathname, buf[256], *p;
+  register struct breakpoint *b;
+  int found_a_breakpoint = 0, current_radix, skip, prev_radix;
+  long n;
+  FILE *fp;
+  struct ui_file *stream;
+  time_t t;
+  
+  extern char *tilde_expand (char *);
+ 
+  if (!arg || !*arg)
+    error ("Argument required (file name in which to save breakpoints");
+  
+  ALL_BREAKPOINTS (b)
+    {
+      /* Filter out non-user breakpoints. */
+      if (   b->type != bp_breakpoint
+          && b->type != bp_catch_load
+          && b->type != bp_catch_unload
+          && b->type != bp_catch_fork
+          && b->type != bp_catch_vfork
+          && b->type != bp_catch_exec
+          && b->type != bp_catch_catch
+          && b->type != bp_catch_throw
+          && b->type != bp_hardware_breakpoint
+          && b->type != bp_watchpoint
+          && b->type != bp_read_watchpoint
+          && b->type != bp_access_watchpoint
+          && b->type != bp_hardware_watchpoint)
+        continue;
+      
+      if (!found_a_breakpoint++)
+        {
+          if ((fp = fopen ((pathname = tilde_expand (arg)), "w")) == NULL)
+            error ("Unable to open file '%s' for saving breakpoints (%s)",
+                    arg, strerror (errno));
+          stream = stdio_fileopen (fp);
+          if (time (&t) != -1)
+            {
+              char *l= setlocale (LC_ALL, NULL);
+              if (l)
+                {
+                  char *orig_locale = strcpy(xmalloc(strlen(l)+1), l);
+                  (void)setlocale(LC_ALL, "");
+                  if (strftime (buf, sizeof(buf), "%a %b %e %H:%M:%S %Z %Y", localtime (&t)))
+                    fprintf_unfiltered (stream, "# Saved breakpoints file created on %s\n\n", buf);
+                  setlocale(LC_ALL, orig_locale);
+                }
+            }
+	  current_radix = -1;
+        }
+
+      skip = (b->commands || b->ignore_count || b->enable == disabled);
+      if (skip)
+        fputc_unfiltered ('\n', stream);
+
+      if (b->input_radix != current_radix)
+        {
+          if (!skip && current_radix != -1)
+            fputc_unfiltered ('\n', stream);
+          // ------- determine initial radix here -------
+          prev_radix = (current_radix == -1) ? input_radix : current_radix;
+          if (prev_radix > 36)
+            {
+              ui_file_delete (stream);
+              fclose (fp);
+              remove (pathname);
+              xfree (pathname);
+              error ("Current radix (%d) for breakpoint #%d to large to support for saving.",
+                     prev_radix, b->number);
+            }
+          n = b->input_radix;
+          p = buf + 255;
+          *p-- = '\0';
+          do
+            {
+              *p-- = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[n % prev_radix];
+              n /= prev_radix;
+            } while (n);
+          fprintf_unfiltered (stream, "set input-radix %s\n", ++p);
+          current_radix = b->input_radix;
+        }
+        
+      write_one_breakpoint (b, stream);
+  
+      if (skip && b->next)
+        fputc_unfiltered ('\n', stream);
+    }
+  
+  if (!found_a_breakpoint)
+    printf_filtered ("No breakpoints or watchpoints to save.\n");
+  else
+    {
+      // ------- restore original input radix here -------
+      //fprintf_unfiltered (stream, "\nset input-radix %d\n", ???????);
+      ui_file_delete (stream);
+      fclose (fp);
+      xfree (pathname);
+      if (from_tty)
+        printf_filtered ("Breakpoints saved to file '%s'.\n", arg);
+    }
+}
+#endif
 
 /*--------------------------------------------------------------------------------------*/

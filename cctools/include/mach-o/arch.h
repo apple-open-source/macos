@@ -46,6 +46,10 @@ typedef struct {
     const char *description;
 } NXArchInfo;
 
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /* NXGetAllArchInfos() returns a pointer to an array of all known
  * NXArchInfo structures.  The last NXArchInfo is marked by a NULL name.
  */
@@ -92,3 +96,6 @@ extern cpu_subtype_t NXCombineCpuSubtypes(cpu_type_t cputype,
 					  cpu_subtype_t cpusubtype1,
 					  cpu_subtype_t cpusubtype2);
 
+#if __cplusplus
+};
+#endif /* __cplusplus */

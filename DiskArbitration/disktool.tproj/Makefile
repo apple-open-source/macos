@@ -29,6 +29,7 @@ PROF_LIBS = $(LIBS)
 
 
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
+NEXTSTEP_PB_CFLAGS = -Werror
 FRAMEWORKS = -framework DiskArbitration -framework Foundation
 
 

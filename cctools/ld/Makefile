@@ -10,8 +10,16 @@ KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
 
 MIG = $(NEXT_ROOT)/usr/bin/mig
 
+ifeq "macos" "$(RC_OS)"
+  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
+			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
+			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
+			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
+	     echo -Wno-long-double ; \
+	     fi; )
+endif
 ifneq "mwcc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall -Wno-precomp
+  GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
 endif
 
 # This won't happen for a while 
@@ -36,11 +44,6 @@ ifeq "macos" "$(RC_OS)"
 	 echo /Local/Developer/System; else echo /usr/local/lib/system; fi; )
 else
   SYSTEMDIR = /Local/Developer/System
-endif
-ifeq "macos" "$(RC_OS)"
-  LIBMACHO = -L$(NEXT_ROOT)$(SYSTEMDIR) -lmacho_static
-else
-  LIBMACHO = -lmacho_static
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -283,6 +286,7 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		MAKEINCDIR=`pwd` OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-static -DRLD -DKLD $(KERN)" CC="$(CC)"		\
 		LIBSTUFF="-L../../libstuff -lstuff" PRIVATE_IFLAG=""	\
+		LIBMACHO="-L../../libmacho/otmp_obj -lmacho_static"	\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_CFLAGS="$(RC_CFLAGS)" RC_ARCHS="$(RC_ARCHS)";	\
 	else								\
@@ -291,6 +295,7 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		SYMROOT=$(SYMROOT)/ld_dir SRCROOT=$(SRCROOT) CC="$(CC)"	\
 		COPTS="-static -DRLD -DKLD $(KERN)" RC_CFLAGS="$(RC_CFLAGS)" \
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
+		LIBMACHO="-L$(SYMROOT)/../libmacho -lmacho_static"	\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" PRIVATE_IFLAG="" \
 		MAKEINCDIR=`pwd` RC_ARCHS="$(RC_ARCHS)";		\
 	fi
@@ -303,8 +308,11 @@ ld.NEW:	$(OBJS) ld_vers.o makeUser.o
 		$(SYMROOT)/ld.private.o
 
 ld_g.NEW: $(OBJS) ld_vers.o makeUser.o
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) \
-		$(OBJS) ld_vers.o makeUser.o $(LIBSTUFF) -o $(SYMROOT)/ld_g.NEW
+	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+		$(OBJS) ld_vers.o makeUser.o $(LIBSTUFF) \
+		-o $(SYMROOT)/ld_g.private.o
+	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/ld_g.NEW \
+		$(SYMROOT)/ld_g.private.o
 
 librld_static.a librld_pg.a librld.a: librld.o
 	libtool -static -o $(SYMROOT)/$@ librld.o
@@ -405,26 +413,38 @@ ifeq "macos" "$(RC_OS)"
 			  [ "$(RC_RELEASE)" = "Gonzo" ] || \
 			  [ "$(RC_RELEASE)" = "Kodiak" ]; then \
 	 echo ""; else echo kld_build; fi; )
+  X_LIB_OFILES := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
+			     [ "$(RC_RELEASE)" = "Bunsen" ] || \
+			     [ "$(RC_RELEASE)" = "Gonzo" ] || \
+			     [ "$(RC_RELEASE)" = "Kodiak" ] || \
+			     [ "$(RC_RELEASE)" = "Cheetah" ]; then \
+	 echo "x_lib_ofiles"; else echo ""; fi; )
 else
   KLD_BUILD = 
+  X_LIB_OFILES = 
 endif
 
-macos_lib_ofiles_install: $(KLD_BUILD) lib_ofiles common_install
+x_lib_ofiles: lib_ofiles common_install
+
+macos_lib_ofiles_install: $(KLD_BUILD) $(X_LIB_OFILES)
 	$(MKDIRS) $(DSTROOT)$(SYSTEMDIR)
-	install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a \
-		 $(DSTROOT)$(LOCLIBDIR)/librld.a
-	ranlib $(DSTROOT)$(LOCLIBDIR)/librld.a
-	install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a \
-		 $(DSTROOT)$(SYSTEMDIR)/librld.a
-	ranlib $(DSTROOT)$(SYSTEMDIR)/librld.a
-	(cd $(DSTROOT)$(SYSTEMDIR); \
-	rm -f librld_debug.a ; ln -s librld.a librld_debug.a)
-	install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a \
-		 $(DSTROOT)$(LOCLIBDIR)/librld_profile.a
-	ranlib $(DSTROOT)$(LOCLIBDIR)/librld_profile.a
-	install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a \
-		 $(DSTROOT)$(SYSTEMDIR)/librld_profile.a
-	ranlib $(DSTROOT)$(SYSTEMDIR)/librld_profile.a
+	if [ $(X_LIB_OFILES) = x_lib_ofiles ];				\
+	then								\
+	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a		\
+		     $(DSTROOT)$(LOCLIBDIR)/librld.a ;			\
+	    ranlib $(DSTROOT)$(LOCLIBDIR)/librld.a ;			\
+	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld.a		\
+		     $(DSTROOT)$(SYSTEMDIR)/librld.a ;			\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/librld.a ;			\
+	    (cd $(DSTROOT)$(SYSTEMDIR);					\
+	    rm -f librld_debug.a ; ln -s librld.a librld_debug.a) ;	\
+	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a		\
+		     $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;		\
+	    ranlib $(DSTROOT)$(LOCLIBDIR)/librld_profile.a ;		\
+	    install -p -c -m 444 $(SYMROOT)/ld_dir/librld_pg.a		\
+		     $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/librld_profile.a ;		\
+	fi
 	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)
 	if [ $(KLD_BUILD) = kld_build ];				\
 	then								\

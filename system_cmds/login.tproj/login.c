@@ -364,6 +364,7 @@ main(argc, argv)
 
 	(void)chown(ttyn, pwd->pw_uid,
 	    (gr = getgrnam(TTYGRPNAME)) ? gr->gr_gid : pwd->pw_gid);
+	(void)chmod(ttyn, 0620);
 	(void)setgid(pwd->pw_gid);
 
 	initgroups(username, pwd->pw_gid);

@@ -515,9 +515,8 @@ enum bool *debug)
     struct segment_command *sg;
     struct dylib_command *dlid;
     char *install_name, *suffix;
-    struct stat stat_buf;
     struct seg_addr_table *entry;
-    char *env_seg_addr_table_name, *short_name;
+    char *short_name;
     enum bool is_framework;
 
 	*debug = FALSE;
@@ -601,38 +600,15 @@ enum bool *debug)
 	    *debug = FALSE;
 
 	/*
-	 * If there is no -seg_addr_table argument then check to see if the
-	 * environment variable LD_SEG_ADDR_TABLE (used to set the addresses
-	 * when building) is set and use that as the segment address table if
-	 * that file exists.  THIS IS A HACK until some time in the future
-	 * we switch over to using a segment address table.
+	 * If there is no -seg_addr_table argument then open the default segment
+	 * address table.
 	 */
-	if(seg_addr_table == NULL){
-#ifndef FUTURE
-	    env_seg_addr_table_name = getenv("LD_SEG_ADDR_TABLE");
-	    if(env_seg_addr_table_name != NULL){
-		if(stat(env_seg_addr_table_name, &stat_buf) != -1){
-		    seg_addr_table_name = env_seg_addr_table_name;
-		    seg_addr_table = parse_seg_addr_table(
-					    seg_addr_table_name,
-					    "LD_SEG_ADDR_TABLE",
-					    "environment variable",
-					    &table_size);
-		}
-	    } 
-#else /* defined(FUTURE) */
-	    /*
-	     * In the future when we cut over to using the segment address table
-	     * instead of the dylib table we will open the default segment
-	     * address table if none were specified via the -seg_addr_table.
-	     */
+	if(seg_addr_table == NULL)
 	    seg_addr_table = parse_default_seg_addr_table(
 				&seg_addr_table_name, &table_size);
-#endif
-	}
 	/*
 	 * Use the segment address table if there is one to check the addresses
-	 * if not falling back to using the the dylib table.
+	 * if not fall back to using the the dylib table.
 	 */
 	if(seg_addr_table != NULL){
 	    entry = search_seg_addr_table(seg_addr_table, install_name);

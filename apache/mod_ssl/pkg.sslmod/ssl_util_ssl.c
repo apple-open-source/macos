@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2000 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -384,6 +384,9 @@ BOOL SSL_X509_getCN(pool *p, X509 *xs, char **cppCN)
             *cppCN = ap_palloc(p, xsne->value->length+1);
             ap_cpystrn(*cppCN, (char *)xsne->value->data, xsne->value->length+1);
             (*cppCN)[xsne->value->length] = NUL;
+#ifdef CHARSET_EBCDIC
+            ascii2ebcdic(*cppCN, *cppCN, strlen(*cppCN));
+#endif
             return TRUE;
         }
     }

@@ -24,6 +24,7 @@
  */
 #include "SYS.h"
 
+#if 0
 LEAF(_vfork, 0) 
 	CALL_EXTERN(__cthread_fork_prepare)
 #if defined(__DYNAMIC__)
@@ -161,4 +162,24 @@ L2:
 	CALL_EXTERN_AGAIN(__cthread_fork_parent)
 	pop	%eax
 	ret		
+#else
+
+LEAF(_vfork, 0)
+        popl    %ecx
+        movl    $SYS_vfork,%eax;      // code for vfork -> eax
+        UNIX_SYSCALL_TRAP;              // do the system call
+        jnb     L1                      // jump if CF==0
+        pushl   %ecx
+        BRANCH_EXTERN(cerror)
+
+L1:
+        orl     %edx,%edx       // CF=OF=0,  ZF set if zero result
+        jz      L2              // parent, since r1 == 0 in parent, 1 in child
+        xorl    %eax,%eax       // zero eax
+        jmp     *%ecx
+
+L2:
+        jmp     *%ecx
+
+#endif
 

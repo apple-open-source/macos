@@ -1,0 +1,2 @@
+The MySQL tests should run out of the box since MySQL's default setup
+includes a database called "test" and gives everyone full access to it.

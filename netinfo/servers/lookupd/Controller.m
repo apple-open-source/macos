@@ -45,11 +45,11 @@
 #import "LUServer.h"
 #import "CacheAgent.h"
 #import "NIAgent.h"
-#import "LUNIDomain.h"
 #import "DNSAgent.h"
 #import "FFAgent.h"
 #import "YPAgent.h"
 #import "LDAPAgent.h"
+#import "DSAgent.h"
 #import "NILAgent.h"
 #import <NetInfo/dsutil.h>
 #import "sys.h"
@@ -130,7 +130,7 @@ extern int _lookup_link();
 	agentCount++;
 }
 
-- (id)agentNamed:(char *)name
+- (id)agentClassNamed:(char *)name
 {
 	int i;
 	char cname[256];
@@ -145,42 +145,19 @@ extern int _lookup_link();
 	return nil;
 }
 
-- (void)setLookupOrder:(char **)order forCategory:(LUCategory)cat
-{
-	int i;
-	id agent;
-
-	if (order == NULL) return;
-
-	for (i = 0; order[i] != NULL; i++)
-	{
-		agent = [self agentNamed:order[i]];
-		if (agent == nil)
-		{
-			system_log(LOG_ALERT, "Can't initialize agent: %s", order[i]);
-			continue;
-		}
-
-		[lookupOrder[(int)cat] addObject:agent];		
-	}
-}
-
 - (void)initConfig
 {
-	char **gLUorder, **cLUorder;
-	int i;
-	LUDictionary *global, *config;
-	BOOL gValidation, cValidation;
+	LUArray *configurationArray;
+	LUDictionary *global;
 	char *logFileName;
 	char *logFacilityName;
-	unsigned int gMax, gFreq, cMax, cFreq;
-	time_t now, gTTL, cTTL, gDelta, cDelta;
+	time_t now;
 	char str[64];
 	FILE *fp;
+	int pri;
 
-	global = [configManager configGlobal];
-
-	gLUorder = [global valuesForKey:"LookupOrder"];
+	configurationArray = [configManager config];
+	global = [configManager configGlobal:configurationArray];
 
 	logFileName = [configManager stringForKey:"LogFile" dict:global default:NULL];
 	fp = fopen(logFileName, "a");
@@ -195,48 +172,16 @@ extern int _lookup_link();
 
 	/* remove ctime trailing newline */
 	str[strlen(str) - 1] = '\0';
-	system_log(LOG_DEBUG, str);
+	system_log(LOG_NOTICE, str);
 
 	maxThreads = [configManager intForKey:"MaxThreads" dict:global default:16];
 	maxIdleThreads = [configManager intForKey:"MaxIdleThreads" dict:global default:16];
 	maxIdleServers = [configManager intForKey:"MaxIdleServers" dict:global default:16];
 
-	gValidation = [configManager boolForKey:"ValidateCache" dict:global default:YES];
-	gMax = [configManager intForKey:"CacheCapacity" dict:global default:-1];
-	if (gMax == 0) gMax = (unsigned int)-1;
-	gTTL = (time_t)[configManager intForKey:"TimeToLive" dict:global default:43200];
-	gDelta = (time_t)[configManager intForKey:"TimeToLiveDelta" dict:global default:0];
-	gFreq = [configManager intForKey:"TimeToLiveFreq" dict:global default:0];
+	pri = [configManager intForKey:"LogPriority" dict:global default:system_log_max_priority()];
+	system_log_set_max_priority(pri);
 
-	for (i = 0; i < NCATEGORIES; i++)
-	{
-		lookupOrder[i] = [[LUArray alloc] init];
-		sprintf(str, "Controller lookup order for category %s", [LUAgent categoryName:i]);
-		[lookupOrder[i] setBanner:str];
-
-		cLUorder = gLUorder;
-		config = [configManager configForCategory:(LUCategory)i];
-		if (config != nil)
-		{
-			cLUorder = [config valuesForKey:"LookupOrder"];
-			if (cLUorder == NULL) cLUorder = gLUorder;
-		}
-
-		cValidation = [configManager boolForKey:"ValidateCache" dict:config default:gValidation];
-		cMax = [configManager intForKey:"CacheCapacity" dict:config default:gMax];
-		if (cMax == 0) cMax = (unsigned int)-1;
-		cTTL = (time_t)[configManager intForKey:"TimeToLive" dict:config default:gTTL];
-		cDelta = (time_t)[configManager intForKey:"TimeToLiveDelta" dict:config default:gDelta];
-		cFreq = [configManager intForKey:"TimeToLiveFreq" dict:config default:gFreq];
-
-		[cacheAgent setCacheIsValidated:cValidation forCategory:(LUCategory)i];
-		[cacheAgent setCapacity:cMax forCategory:(LUCategory)i];
-		[cacheAgent setTimeToLive:cTTL forCategory:(LUCategory)i];
-		[cacheAgent addTimeToLive:cDelta afterCacheHits:cFreq forCategory:(LUCategory)i];
-		
-		[self setLookupOrder:cLUorder forCategory:(LUCategory)i];
-	}
-
+	[configurationArray release];
 }
 
 - (id)initWithName:(char *)name
@@ -266,7 +211,6 @@ extern int _lookup_link();
 	statistics = [[LUDictionary alloc] init];
 	[statistics setBanner:"lookupd statistics"];
 	
-
 	[statistics setValue:_PROJECT_BUILD_INFO_ forKey:"# build"];
 	[statistics setValue:_PROJECT_VERSION_    forKey:"# version"];
 
@@ -276,6 +220,7 @@ extern int _lookup_link();
 	[self newAgent:[FFAgent class] name:"FFAgent"];
 	[self newAgent:[YPAgent class] name:"YPAgent"];
 	[self newAgent:[LDAPAgent class] name:"LDAPAgent"];
+	[self newAgent:[DSAgent class] name:"DSAgent"];
 	[self newAgent:[NILAgent class] name:"NILAgent"];
 
 	[self initConfig];
@@ -306,8 +251,6 @@ extern int _lookup_link();
 
 - (void)dealloc
 {
-	int i;
-
 	if (dnsSearchList != NULL) freeList(dnsSearchList);
 	dnsSearchList = NULL;
 
@@ -316,8 +259,6 @@ extern int _lookup_link();
 
 	if (serverList != nil)
 		[serverList release];
-
-	[NIAgent releaseDomainStore];
 
 	if (portName != NULL) 
 	{
@@ -335,11 +276,6 @@ extern int _lookup_link();
 	if (loginUser != nil) [loginUser release];
 
 	syslock_free(serverLock);
-
-	for (i = 0; i < NCATEGORIES; i++)
-	{
-		if (lookupOrder[i] != nil) [lookupOrder[i] release];
-	}
 
 	if (statistics != nil) [statistics release];
 	freeList(agentNames);
@@ -474,18 +410,23 @@ extern int _lookup_link();
 - (LUServer *)checkOutServer
 {
 	LUServer *server;
-	int i, len;
+	int i;
 
 	syslock_lock(serverLock);
 	server = nil;
 
-	len = [serverList count];
-
-	for (i = 0; i < len; i++)
+	for (i = [serverList count] - 1; i >= 0; i--)
 	{
 		if ([[serverList objectAtIndex:i] isIdle])
 		{
 			server = [serverList objectAtIndex:i];
+			if ([server isStale]) 
+			{
+				[serverList removeObject:server];
+				server = nil;
+				continue;
+			}
+
 			[server setIsIdle:NO];
 			break;
 		}
@@ -498,10 +439,6 @@ extern int _lookup_link();
 		 */
 		server = [[LUServer alloc] init];
 		[server setIsIdle:NO];
-
-		for (i = 0; i < NCATEGORIES; i++)
-			[server setLookupOrder:lookupOrder[i] forCategory:(LUCategory)i];
-
 		[serverList addObject:server];
 		[server release];
 	}
@@ -526,7 +463,7 @@ extern int _lookup_link();
 		if ([[serverList objectAtIndex:i] isIdle]) idleServerCount++;
 	}
 
-	if (idleServerCount > maxIdleServers)
+	if ((idleServerCount > maxIdleServers) || ([server isStale]))
 	{
 		[serverList removeObject:server];
 	}
@@ -563,6 +500,26 @@ extern int _lookup_link();
 - (void)flushCache
 {
 	[cacheAgent flushCache];
+}
+
+- (void)reset
+{
+	LUServer *server;
+	int i;
+
+	syslock_lock(serverLock);
+
+	[configManager reset];
+	[cacheAgent reset];
+
+	for (i = [serverList count] - 1; i >= 0; i--)
+	{
+		server = [serverList objectAtIndex:i];
+		if ([server isIdle] && [server isStale]) 
+			[serverList removeObject:server];
+	}
+
+	syslock_unlock(serverLock);
 }
 
 - (void)suspend

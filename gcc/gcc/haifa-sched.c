@@ -3341,6 +3341,58 @@ sched_analyze_1 (x, insn)
       dest = SUBREG_REG (dest);
     }
 
+#ifdef NEXT_SEMANTICS
+  /** APPLE LOCAL dbj */
+  if (!flag_no_peephole && reload_completed )
+    {
+      /* Look for load of FP constant.  Code for this has its address */
+      /* computed into a register (2 insns), then load of the register.  */
+      /* We have a peephole that will combine the load and the preceding */
+      /* one of the address-computation instructions, but to make sure it */
+      /* is matched, we must keep them together. */
+      rtx tem, link, prev, sym;
+      if ((tem = find_reg_note (insn, REG_EQUIV, NULL_RTX))
+	  && GET_CODE (XEXP (tem, 0)) == CONST_DOUBLE
+	  && GET_MODE_CLASS (GET_MODE (XEXP (tem, 0))) == MODE_FLOAT
+	  && GET_CODE (dest) == REG
+	  && GET_MODE_CLASS (GET_MODE (dest)) == MODE_FLOAT )
+        {
+	  /* There may be a note before this insn now, but all notes will
+	     be removed before we actually try to schedule the insns, so
+	     it won't cause a problem later.  We must avoid it here though.  */
+	  /* It is possible for the loop phase to move the address of the 
+	     const out of the loop, but not the const itself (stupid).  So
+	     make sure we have the right instruction. */
+	  prev = prev_nonnote_insn (insn);
+	  sym = XEXP (XEXP (XEXP (tem, 0), 0), 0);
+	  if (prev
+	      && GET_CODE (prev)==INSN
+	      && GET_CODE (PATTERN (prev))==SET
+	      && GET_CODE (XEXP (PATTERN (prev), 0))==REG
+	      && GET_CODE (XEXP (PATTERN (prev), 1))==LO_SUM
+	      && GET_CODE (XEXP (XEXP (PATTERN (prev), 1), 0))==REG
+	      && GET_CODE (XEXP (XEXP (PATTERN (prev), 1), 1))==CONST
+	      && GET_CODE (XEXP (XEXP (XEXP (PATTERN (prev), 1), 1), 0))==MINUS
+	      && XEXP (XEXP (XEXP (XEXP (PATTERN (prev), 1), 1), 0), 0)==sym)
+	    {
+	    SCHED_GROUP_P (insn) = 1;
+
+	    /* Make a copy of all dependencies on the immediately previous insn,
+	       and add to this insn.  This is so that all the dependencies will
+	       apply to the group.  Remove an explicit dependence on this insn
+	       as SCHED_GROUP_P now represents it.  */
+
+	    if (find_insn_list (prev, LOG_LINKS (insn)))
+	      remove_dependence (insn, prev);
+
+	    for (link = LOG_LINKS (prev); link; link = XEXP (link, 1))
+	      add_dependence (insn, XEXP (link, 0), REG_NOTE_KIND (link));
+	    }
+	}
+    }
+  /** APPLE LOCAL end */
+#endif	/* NEXT_SEMANTICS  */
+
   if (GET_CODE (dest) == REG)
     {
       register int i;

@@ -63,12 +63,8 @@ jmp_buf jmpenv;
 extern void lock_threads(void);
 extern void unlock_threads(void);
 
-@interface Controller (ControllerPrivate)
-- (id)agentNamed:(char *)name;
-@end
-
 @interface LUServer (LUServerPrivate)
-- (LUAgent *)agentForSystem:(id)systemClass;
+- (LUAgent *)agentNamed:(char *)name;
 @end
 
 static id askMe = nil;
@@ -677,6 +673,13 @@ void dohelp(FILE *in, FILE *out, int proc, char **commands)
 		fprintf(out, "Looks up the protocol with the given number.\n");
 	}	
 	
+	else if (streq(commands[proc], "reset"))
+	{
+		fprintf(out, "\n");
+		fprintf(out, "usage: reset\n\n");
+		fprintf(out, "Resets configuration.\n");
+	}
+	
 	else if (streq(commands[proc], "rpcWithName"))
 	{
 		fprintf(out, "\n");
@@ -793,7 +796,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	int i, len;
 	BOOL resultIsList;
 	BOOL test;
-	id agentClass;
 	LUAgent *agent;
 	id ask;
 	char *name, *host, *user, *domain, *proto;
@@ -808,11 +810,21 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		return;
 	}
 
-	server = [controller checkOutServer];
-	if (server == nil)
+	server = nil;
+
+	if (streq(commands[proc], "memory"));
+	else if (streq(commands[proc], "flushCache"));
+	else if (streq(commands[proc], "normalLookupOrder"));
+	else if (streq(commands[proc], "reset"));
+	else if (streq(commands[proc], "showMemoryObject"));
+	else
 	{
-		fprintf(out, "Internal error: can't check out a server!\n");
-		return;
+		server = [controller checkOutServer];
+		if (server == nil)
+		{
+			fprintf(out, "Internal error: can't check out a server!\n");
+			return;
+		}
 	}
 
 	list = nil;
@@ -824,26 +836,16 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	if (streq(commands[proc], "agent"))
 	{
-		agentClass = [controller agentNamed:get_string(in, out, ": ")];
+		agent = [server agentNamed:get_string(in, out, ": ")];
 		fprintf(out, "\n");
 
-		if (agentClass == nil) 
-		{
-			fprintf(out, "No such agent\n");
-			[controller checkInServer:server];
-			return;
-		}
-
-		agent = [server agentForSystem:agentClass];
 		if (agent == nil)
 		{
 			fprintf(out, "No such agent\n");
-			[controller checkInServer:server];
 			return;
 		}
 
 		askMe = agent;
-		[controller checkInServer:server];
 		return;
 	}
 
@@ -978,7 +980,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	{
 		fprintf(out, "\n");
 		[controller flushCache];
-		[controller checkInServer:server];
 		return;
 	}
 
@@ -1086,7 +1087,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	{
 		fprintf(out, "\n");
 		[rover showMemory:out];
-		[controller checkInServer:server];
 		return;
 	}
 	
@@ -1121,7 +1121,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		if (askMe != nil) [askMe release];
 		askMe = nil;
 		fprintf(out, "Using normal lookup order\n");
-		[controller checkInServer:server];
 		return;
 	}
 
@@ -1142,6 +1141,12 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		dict = [ask itemWithKey:"number" value:get_string(in, out, ": ") category:LUCategoryProtocol];
 		fprintf(out, "\n");
 	}	
+	
+	else if (streq(commands[proc], "reset"))
+	{
+		[controller reset];
+		return;
+	}
 	
 	else if (streq(commands[proc], "rpcWithName"))
 	{
@@ -1176,7 +1181,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		i = atoi(get_string(in, out, ": "));
 		fprintf(out, "\n");
 		[rover printObject:i file:out];
-		[controller checkInServer:server];
 		return;
 	}
 	
@@ -1204,16 +1208,12 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 
 	else if (streq(commands[proc], "statisticsForAgent"))
 	{
-		agentClass = [controller agentNamed:get_string(in, out, ": ")];
+		agent = [server agentNamed:get_string(in, out, ": ")];
 		fprintf(out, "\n");
-		if (agentClass != nil) 
+		if (agent != nil)
 		{
-			agent = [server agentForSystem:agentClass];
-			if (agent != nil)
-			{
-				dict = [agent statistics];
-				if (dict != nil) [dict retain];
-			}
+			dict = [agent statistics];
+			if (dict != nil) [dict retain];
 		}
 	}
 
@@ -1338,7 +1338,6 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("hostWithEthernetAddress", commands);
 	commands = appendString("hostWithInternetAddress", commands);
 	commands = appendString("hostWithName", commands);
-	commands = appendString("hostsWithService", commands);
 	commands = appendString("inNetgroup", commands);
 	commands = appendString("isNetwareEnabled", commands);
 	commands = appendString("isSecurityEnabledForOption", commands);
@@ -1353,6 +1352,7 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("protocolWithName", commands);
 	commands = appendString("protocolWithNumber", commands);
 	commands = appendString("quit", commands);
+	commands = appendString("reset", commands);
 	commands = appendString("rpcWithName", commands);
 	commands = appendString("rpcWithNumber", commands);
 	commands = appendString("serviceWithName", commands);

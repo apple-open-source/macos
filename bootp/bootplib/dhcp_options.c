@@ -691,13 +691,20 @@ dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
     if (err)
 	err[0] = '\0';
 
+    if (len < (sizeof(*pkt) + RFC_MAGIC_SIZE)) {
+	if (err) {
+	    sprintf(err, "packet is too short: %d < %d",
+		    len, sizeof(*pkt) + RFC_MAGIC_SIZE);
+	}
+	return (FALSE);
+    }
     if (bcmp(pkt->dp_options, rfc_magic, RFC_MAGIC_SIZE)) {
 	if (err)
 	    sprintf(err, "missing magic number");
 	return (FALSE);
     }
     if (dhcpol_parse_buffer(options, pkt->dp_options + RFC_MAGIC_SIZE,
-			     len - RFC_MAGIC_SIZE, err) == FALSE)
+			    len - sizeof(*pkt) - RFC_MAGIC_SIZE, err) == FALSE)
 	return (FALSE);
     { /* get overloaded options */
 	unsigned char *	overload;
@@ -986,7 +993,7 @@ dhcpoa_count(dhcpoa_t * oa_p)
     return (oa_p->oa_option_count);
 }
 
-#ifdef TESTING
+#ifdef TEST_DHCP_OPTIONS
 char test_empty[] = {
     99, 130, 83, 99,
     255,
@@ -1008,6 +1015,20 @@ char test_vendor[] = {
     255,
 };
 
+char test_no_end[] = {
+    0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x05, 0x36, 
+    0x04, 0xc0, 0xa8, 0x01, 0x01, 0x33, 0x04, 0x80,
+    0x00, 0x80, 0x00, 0x01, 0x04, 0xff, 0xff, 0xff,
+    0x00, 0x03, 0x04, 0xc0, 0xa8, 0x01, 0x01, 0x06,
+    0x0c, 0x18, 0x1a, 0xa3, 0x21, 0x18, 0x1a, 0xa3,
+    0x20, 0x18, 0x5e, 0xa3, 0x21, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+char test_too_short[] = {
+    0x1 
+};
 struct test {
     char * 		name;
     char *		data;
@@ -1019,6 +1040,8 @@ struct test tests[] = {
     { "empty", test_empty, sizeof(test_empty), TRUE },
     { "simple", test_simple, sizeof(test_simple), TRUE },
     { "vendor", test_vendor, sizeof(test_vendor), TRUE },
+    { "no_end", test_no_end, sizeof(test_no_end), TRUE },
+    { "too_short", test_too_short, sizeof(test_too_short), FALSE },
     { NULL, NULL, 0, FALSE },
 };
 
@@ -1036,16 +1059,22 @@ main()
     dhcpol_init(&options);
 
     for (i = 0; tests[i].name; i++) {
+	printf("\nTest %d: ", i);
 	bcopy(tests[i].data, pkt->dp_options, tests[i].len);
 	if (dhcpol_parse_packet(&options, pkt, 
-				 sizeof(*pkt) + sizeof(test_empty),
-				 error) != tests[i].result) {
+				sizeof(*pkt) + tests[i].len,
+				error) != tests[i].result) {
 	    printf("test '%s' FAILED\n", tests[i].name);
-	    if (tests[i].result == TRUE)
+	    if (tests[i].result == TRUE) {
 		printf("error message returned was %s\n", error);
+	    }
 	}
-	else
+	else {
 	    printf("test '%s' PASSED\n", tests[i].name);
+	    if (tests[i].result == FALSE) {
+		printf("error message returned was %s\n", error);
+	    }
+	}
 	dhcpol_print(&options);
 	dhcpol_free(&options);
     }
@@ -1088,6 +1117,7 @@ main()
 	    printf("parse buffer failed, %s\n", err);
 	    exit(1);
 	}
+	printf("\nTesting dhcpoa\n");
 	dhcpol_print(&options);
 	{
 	    struct in_addr * iaddr;
@@ -1104,4 +1134,4 @@ main()
     }
     exit(0);
 }
-#endif TESTING
+#endif TEST_DHCP_OPTIONS

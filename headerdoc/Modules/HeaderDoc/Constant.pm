@@ -4,7 +4,7 @@
 # Synopsis: Holds constant info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -26,6 +26,8 @@ package HeaderDoc::Constant;
 
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::HeaderElement;
+use HeaderDoc::APIOwner;
+
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use strict;
@@ -58,7 +60,7 @@ sub processConstantComment {
     	print "Constant field is |$field|\n" if ($localDebug);
 		SWITCH: {
             ($field =~ /^\/\*\!/)&& do {last SWITCH;}; # ignore opening /*!
-            ($field =~ s/^constant\s+//) && 
+            ($field =~ s/^const(ant)?\s+//) && 
             do {
                 my ($name, $disc);
                 ($name, $disc) = &getAPINameAndDisc($field); 
@@ -68,7 +70,7 @@ sub processConstantComment {
             };
             ($field =~ s/^abstract\s+//) && do {$self->abstract($field); last SWITCH;};
             ($field =~ s/^discussion\s+//) && do {$self->discussion($field); last SWITCH;};
-            print "Unknown field: $field\n";
+            print "Unknown field in constant comment: $field\n";
 		}
 	}
 }
@@ -90,6 +92,25 @@ sub setConstantDeclaration {
     return $dec;
 }
 
+sub documentationBlock {
+    my $self = shift;
+    my $contentString;
+    my $name = $self->name();
+    my $abstract = $self->abstract();
+    my $desc = $self->discussion();
+    my $declaration = $self->declarationInHTML();
+    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
+    
+    $contentString .= "<a name=\"//$apiUIDPrefix/c/data/$name\"></a>\n"; # apple_ref marker
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote>$declaration</blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    $contentString .= "<hr>\n";
+    return $contentString;
+}
 
 sub printObject {
     my $self = shift;

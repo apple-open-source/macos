@@ -1,4 +1,4 @@
-/*	$Id: zlib.h,v 1.3 2001/01/20 03:35:55 callie Exp $	*/
+/*	$Id: zlib.h,v 1.4 2001/05/09 17:52:38 callie Exp $	*/
 
 /*
  * This file is derived from zlib.h and zconf.h from the zlib-0.95

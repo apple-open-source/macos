@@ -40,6 +40,7 @@ typedef struct
 	u_int32_t retain;
 } dsattribute;
 
+dsattribute *dsattribute_alloc(void);
 dsattribute *dsattribute_new(dsdata *);
 dsattribute *dsattribute_copy(dsattribute *);
 
@@ -53,6 +54,7 @@ void dsattribute_merge(dsattribute *, dsdata *);
 
 u_int32_t dsattribute_index(dsattribute *, dsdata *);
 dsdata *dsattribute_value(dsattribute *, u_int32_t);
+dsdata *dsattribute_key(dsattribute *a);
 
 int dsattribute_match(dsattribute *, dsattribute *);
 int dsattribute_equal(dsattribute *, dsattribute *);

@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2000 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -450,7 +450,16 @@ const char *ssl_cmd_SSLCryptoDevice(
     SSLModConfigRec *mc = myModConfig();
     const char *err;
     ENGINE *e;
+#if SSL_LIBRARY_VERSION >= 0x00907000
+    static int loaded_engines = FALSE;
 
+    /* early loading to make sure the engines are already 
+       available for ENGINE_by_id() above... */
+    if (!loaded_engines) {
+        ENGINE_load_builtin_engines();
+        loaded_engines = TRUE;
+    }
+#endif
     if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY)) != NULL)
         return err;
     if (strcEQ(arg, "builtin")) {
@@ -755,7 +764,6 @@ const char *ssl_cmd_SSLSessionCache(
                                    "size has to be < %d bytes on this platform", maxsize);
         }
     }
-#ifdef SSL_EXPERIMENTAL_SHMCB
     else if (strlen(arg) > 6 && strcEQn(arg, "shmcb:", 6)) {
         if (!ap_mm_useable())
             return "SSLSessionCache: shared memory cache not useable on this platform";
@@ -778,7 +786,6 @@ const char *ssl_cmd_SSLSessionCache(
                                    "size has to be < %d bytes on this platform", maxsize);
         }
     }
-#endif
 	else
 #ifdef SSL_VENDOR
         if (!ap_hook_use("ap::mod_ssl::vendor::cmd_sslsessioncache",

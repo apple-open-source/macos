@@ -1,4 +1,4 @@
-#$Id: Makefile,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+#$Id: Makefile,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $
 
 all: init
 	$(MAKE) make $@
@@ -12,6 +12,6 @@ init:
 
 Makefile makefile Makefiles makefiles: init
 
-procmail lockfile formail multigram mailstat setid ../autoconf.h \
-autoconf.h: init
+procmail lockfile formail multigram mailstat setid getparams gethome \
+../autoconf.h autoconf.h: init
 	$(MAKE) make $@

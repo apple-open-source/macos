@@ -1,5 +1,5 @@
 
- mod_ssl version 2.7              ``mod_ssl combines the flexibility of   
+ mod_ssl version 2.8              ``mod_ssl combines the flexibility of   
  ===================                Apache with the security of OpenSSL.''
                                   
  The Apache Interface to OpenSSL  ``The best SSL solution for       
@@ -15,6 +15,7 @@
 
  As a summary, here are its main features:
 
+   o  Supports Apache 1.3.20
    o  Open-Source software (BSD-style license)
    o  Useable for both commercial and non-commercial use
    o  Available for both Unix and Win32 (Windows 95/98/NT) platforms 
@@ -41,7 +42,7 @@
    o  Assistance in X.509v3 certificate generation (both RSA and DSA)
    o  Experimental support for external Crypto Devices (OpenSSL ENGINE)
 
- mod_ssl version 2.7 is considered to be the best version of mod_ssl
+ mod_ssl version 2.8 is considered to be the best version of mod_ssl
  available and users of older versions are encouraged to upgrade as soon
  as possible. mod_ssl is available for download via HTTP and FTP from
  the following master locations (the various FTP mirrors you can find

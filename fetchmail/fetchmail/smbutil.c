@@ -3,9 +3,12 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <assert.h>
+#include <string.h>
 #include "ntlm.h"
 #include "smbencrypt.h"
 #include "smbbyteorder.h"
+
+char versionString[] ="libntlm version 0.21";
 
 /* Utility routines that handle NTLM auth structures. */
 
@@ -61,11 +64,11 @@ AddBytes(ptr, header, b, len*2); \
 
 
 #define GetUnicodeString(structPtr, header) \
-unicodeToString((uint16*)(((char*)structPtr) + SVAL(&structPtr->header.offset,0)), structPtr->header.len/2)
+unicodeToString(((char*)structPtr) + IVAL(&structPtr->header.offset,0) , SVAL(&structPtr->header.len,0)/2)
 #define GetString(structPtr, header) \
 toString((((char *)structPtr) + IVAL(&structPtr->header.offset,0)), SVAL(&structPtr->header.len,0))
 #define DumpBuffer(fp, structPtr, header) \
-dumpRaw(fp,((unsigned char*)structPtr)+IVAL(&structPtr->header.offset,0),structPtr->header.len)
+dumpRaw(fp,((unsigned char*)structPtr)+IVAL(&structPtr->header.offset,0),SVAL(&structPtr->header.len,0))
 
 
 static void dumpRaw(FILE *fp, unsigned char *buf, size_t len)
@@ -78,7 +81,7 @@ static void dumpRaw(FILE *fp, unsigned char *buf, size_t len)
     fprintf(fp,"\n");
   }
 
-static char *unicodeToString(uint16 *p, size_t len)
+static char *unicodeToString(char *p, size_t len)
   {
   int i;
   static char buf[1024];
@@ -86,7 +89,10 @@ static char *unicodeToString(uint16 *p, size_t len)
   assert(len+1 < sizeof buf);
   
   for (i=0; i<len; ++i)
-    buf[i] = p[i] & 0x7f;
+    {  
+    buf[i] = *p & 0x7f;
+    p += 2;
+    }
 
   buf[i] = '\0';
   return buf;
@@ -156,33 +162,57 @@ void dumpSmbNtlmAuthResponse(FILE *fp, tSmbNtlmAuthResponse *response)
 
 void buildSmbNtlmAuthRequest(tSmbNtlmAuthRequest *request, char *user, char *domain)
   {
-  request->bufIndex = 0;
-  memcpy(request->ident,"NTLMSSP\0\0\0",8);
-  SIVAL(&request->msgType,0,1);
-  SIVAL(&request->flags,0,0x0000b207);  /* have to figure out what these mean */
-  AddString(request,user,user);
-  AddString(request,domain,domain);
+    char *u = strdup(user);
+    char *p = strchr(u,'@');
+    
+    if (p)
+      {
+        if (!domain) 
+          domain = p+1;
+        *p = '\0';
+      }
+    
+    request->bufIndex = 0;
+    memcpy(request->ident,"NTLMSSP\0\0\0",8);
+    SIVAL(&request->msgType,0,1);
+    SIVAL(&request->flags,0,0x0000b207);  /* have to figure out what these mean */
+    AddString(request,user,u);
+    AddString(request,domain,domain);
+    free(u);
   }
 
 void buildSmbNtlmAuthResponse(tSmbNtlmAuthChallenge *challenge, tSmbNtlmAuthResponse *response, char *user, char *password)
   {
-  uint8 lmRespData[24];
-  uint8 ntRespData[24];
+    uint8 lmRespData[24];
+    uint8 ntRespData[24];
+    char *d = strdup(GetUnicodeString(challenge,uDomain));
+    char *domain = d;
+    char *u = strdup(user);
+    char *p = strchr(u,'@');
+    
+    if (p)
+      {
+        domain = p+1;
+        *p = '\0';
+      }
+    
+    SMBencrypt(password,   challenge->challengeData, lmRespData);
+    SMBNTencrypt(password, challenge->challengeData, ntRespData);
+    
+    response->bufIndex = 0;
+    memcpy(response->ident,"NTLMSSP\0\0\0",8);
+    SIVAL(&response->msgType,0,3);
+    
+    AddBytes(response,lmResponse,lmRespData,24);
+    AddBytes(response,ntResponse,ntRespData,24);
+    AddUnicodeString(response,uDomain,domain);
+    AddUnicodeString(response,uUser,u);
+    AddUnicodeString(response,uWks,u);
+    AddString(response,sessionKey,NULL);
   
-  SMBencrypt(password,   challenge->challengeData, lmRespData);
-  SMBNTencrypt(password, challenge->challengeData, ntRespData);
-  
-  response->bufIndex = 0;
-  memcpy(response->ident,"NTLMSSP\0\0\0",8);
-  SIVAL(&response->msgType,0,3);
-
-  AddBytes(response,lmResponse,lmRespData,24);
-  AddBytes(response,ntResponse,ntRespData,24);
-  AddUnicodeString(response,uDomain,GetUnicodeString(challenge,uDomain));
-  AddUnicodeString(response,uUser,user);
-  AddUnicodeString(response,uWks,user);
-  AddString(response,sessionKey,NULL);
-  
-  response->flags = challenge->flags;
+    response->flags = challenge->flags;
+    
+    free(d);
+    free(u);
   }
     

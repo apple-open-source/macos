@@ -81,16 +81,29 @@ unsigned int time18(void)
 
 int memsize(int which)
 {
-    if (which) {
-        get_memsize(&bb);		
-		return (bb.edx.rr << 16) | bb.eax.rr;
+    int size;
+        
+    if ( which )
+    {
+        // Get the total system memory discovered by the
+        // BIOS in kilobytes.
+
+        get_memsize(&bb);
+        size = (bb.edx.rr << 16) | bb.eax.rr;
+
+        // Convert to extended memory size.
+
+        size = ( size > 1024 ) ? size - 1024 : 0;
     }
-    else {
-        /* conventional memory */
+    else
+    {
+        // Get amount of conventional memory available.
+
         bb.intno = 0x12;
         bios(&bb);
-        return bb.eax.rr;
+        size = bb.eax.rr;
     }
+    return size;
 }
 
 void video_mode(int mode)
@@ -298,9 +311,9 @@ APMPresent(void)
 	(bb.ebx.r.h == 'P') &&
 	(bb.ebx.r.l == 'M')) {
 	    /* Success */
-	    kbp->apm_config.major_vers = bb.eax.r.h;
-	    kbp->apm_config.minor_vers = bb.eax.r.l;
-	    kbp->apm_config.flags.data = bb.ecx.rr;
+	    kbp->apmConfig.major_vers = bb.eax.r.h;
+	    kbp->apmConfig.minor_vers = bb.eax.r.l;
+	    kbp->apmConfig.flags.data = bb.ecx.rr;
 	    return 1;
     }
     return 0;
@@ -318,19 +331,19 @@ APMConnect32(void)
     bios(&bb);
     if (bb.flags.cf == 0) {
 	/* Success */
-	kbp->apm_config.cs32_base = (bb.eax.rr) << 4;
-	kbp->apm_config.entry_offset = bb.ebx.rx;
-	kbp->apm_config.cs16_base = (bb.ecx.rr) << 4;
-	kbp->apm_config.ds_base = (bb.edx.rr) << 4;
-	if (kbp->apm_config.major_vers >= 1 &&
-	    kbp->apm_config.minor_vers >= 1) {
-		kbp->apm_config.cs_length = bb.esi.rr;
-		kbp->apm_config.ds_length = bb.edi.rr;
+	kbp->apmConfig.cs32_base = (bb.eax.rr) << 4;
+	kbp->apmConfig.entry_offset = bb.ebx.rx;
+	kbp->apmConfig.cs16_base = (bb.ecx.rr) << 4;
+	kbp->apmConfig.ds_base = (bb.edx.rr) << 4;
+	if (kbp->apmConfig.major_vers >= 1 &&
+	    kbp->apmConfig.minor_vers >= 1) {
+		kbp->apmConfig.cs_length = bb.esi.rr;
+		kbp->apmConfig.ds_length = bb.edi.rr;
 	} else {
-		kbp->apm_config.cs_length = 
-		    kbp->apm_config.ds_length = 64 * 1024;
+		kbp->apmConfig.cs_length = 
+		    kbp->apmConfig.ds_length = 64 * 1024;
 	}
-	kbp->apm_config.connected = 1;
+	kbp->apmConfig.connected = 1;
 	return 1;
     }
     return 0;

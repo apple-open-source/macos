@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "fetchmail.h"
+#include "i18n.h"
 
 static unsigned char unhex(unsigned char c)
 {
@@ -211,7 +212,7 @@ void UnMimeHeader(unsigned char *hdr)
            * and prepare to process the new MIME charset/encoding
 	   * header.
 	   */
-	  p_in = p + strlen(MIMEHDR_INIT);
+	  p_in = p + sizeof(MIMEHDR_INIT) - 1;
 	  state = S_SKIP_MIMEINIT;
         }
       }
@@ -270,10 +271,10 @@ static void SetEncoding8bit(unsigned char *XferEncOfs)
   unsigned char *p;
 
   if (XferEncOfs != NULL) {
-     memcpy(XferEncOfs, ENC8BIT, strlen(ENC8BIT));
+     memcpy(XferEncOfs, ENC8BIT, sizeof(ENC8BIT) - 1);
 
      /* If anything left, in this header, replace with whitespace */
-     for (p=XferEncOfs+strlen(ENC8BIT); (*p >= ' '); p++) *p=' ';
+     for (p=XferEncOfs+sizeof(ENC8BIT)-1; (*p >= ' '); p++) *p=' ';
   }
 }
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_hyperwave.h,v 1.1.1.3 2001/01/25 04:59:21 wsanchez Exp $ */
+/* $Id: php_hyperwave.h,v 1.1.1.4 2001/07/19 00:19:14 zarzycki Exp $ */
 
 #ifndef PHP_HYPERWAVE_H
 #define PHP_HYPERWAVE_H
@@ -47,7 +47,6 @@ typedef struct {
 	long num_links,num_persistent;
 	long max_links,max_persistent;
 	long allow_persistent;
-	int le_socketp, le_psocketp, le_document;
 } zend_hw_globals;
 
 #ifdef ZTS
@@ -132,6 +131,7 @@ PHP_FUNCTION(hw_insdoc);
 PHP_FUNCTION(hw_identify);
 PHP_FUNCTION(hw_free_document);
 PHP_FUNCTION(hw_new_document);
+PHP_FUNCTION(hw_new_document_from_file);
 PHP_FUNCTION(hw_output_document);
 PHP_FUNCTION(hw_document_size);
 PHP_FUNCTION(hw_document_attributes);

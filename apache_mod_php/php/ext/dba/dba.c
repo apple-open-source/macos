@@ -27,7 +27,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba.c,v 1.1.1.3 2001/01/25 04:59:12 wsanchez Exp $ */
+/* $Id: dba.c,v 1.1.1.4 2001/07/19 00:19:02 zarzycki Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 

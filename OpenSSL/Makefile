@@ -27,6 +27,8 @@ Environment     = CFLAG="$(CFLAGS)"									\
 
 Install_Target  = install
 
+installhdrs:: install
+
 # Shadow the source tree
 lazy_install_source:: shadow_source
 	$(_v) if [ -L $(BuildDirectory)/Makefile.ssl ]; then						\
@@ -39,7 +41,8 @@ lazy_install_source:: shadow_source
 test:: build
 	$(MAKE) -C "$(BuildDirectory)" test
 
-Version      := $(shell $(GREP) 'VERSION=' $(Sources)/Makefile.ssl | $(SED) 's/VERSION=//')
+#Version      := $(shell $(GREP) 'VERSION=' $(Sources)/Makefile.ssl | $(SED) 's/VERSION=//')
+Version      := $(shell $(GREP) "SHLIB_VERSION_NUMBER" openssl/crypto/opensslv.h | $(GREP) define | $(SED) s/\#define\ SHLIB_VERSION_NUMBER\ // | $(SED) s/\"//g)
 FileVersion  := $(shell echo $(Version) | $(SED) 's/^\([^\.]*\.[^\.]*\)\..*$$/\1/')
 VersionFlags := -compatibility_version $(FileVersion) -current_version $(shell echo $(Version) | sed 's/[a-z]//g')
 CC_Shlib      = $(CC) $(CC_Archs) -dynamiclib $(VersionFlags) -all_load

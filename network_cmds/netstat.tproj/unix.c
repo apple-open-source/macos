@@ -59,7 +59,7 @@
 static char sccsid[] = "@(#)unix.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-	"$Id: unix.c,v 1.1.1.2 2000/01/11 01:48:53 wsanchez Exp $";
+	"$Id: unix.c,v 1.2 2001/07/31 05:54:11 wsanchez Exp $";
 #endif /* not lint */
 
 /*
@@ -140,7 +140,7 @@ unixpr()
 				printf("Some %s sockets may have been created.\n",
 			       socktype[type]);
 			} else {
-				printf("Some %s sockets may have been created or deleted",
+				printf("Some %s sockets may have been created or deleted\n",
 			       socktype[type]);
 			}
 		}

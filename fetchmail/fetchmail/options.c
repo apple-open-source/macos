@@ -41,7 +41,7 @@
 #define LA_PROTOCOL	17
 #define LA_UIDL		18
 #define LA_PORT		19
-#define LA_PREAUTH	20
+#define LA_AUTH		20
 #define LA_TIMEOUT	21
 #define LA_ENVELOPE	22
 #define LA_QVIRTUAL     23
@@ -55,21 +55,37 @@
 #define LA_WARNINGS	31
 #define LA_FOLDER	32
 #define LA_SMTPHOST	33
-#define LA_SMTPADDR     34
-#define LA_ANTISPAM	35
-#define LA_BATCHLIMIT	36
-#define LA_FETCHLIMIT	37
-#define LA_EXPUNGE	38
-#define LA_MDA		39
-#define LA_BSMTP	40
-#define LA_LMTP		41
-#define LA_PLUGIN	42
-#define LA_PLUGOUT	43
-#define LA_NETSEC	44
-#define LA_INTERFACE    45
-#define LA_MONITOR      46
-#define LA_CONFIGDUMP	47
-#define LA_YYDEBUG	48
+#define LA_FETCHDOMAINS	34
+#define LA_SMTPADDR     35
+#define LA_ANTISPAM	36
+#define LA_BATCHLIMIT	37
+#define LA_FETCHLIMIT	38
+#define LA_EXPUNGE	39
+#define LA_MDA		40
+#define LA_BSMTP	41
+#define LA_LMTP		42
+#define LA_PLUGIN	43
+#define LA_PLUGOUT	44
+#define LA_NETSEC	45
+#define LA_INTERFACE    46
+#define LA_MONITOR      47
+#define LA_CONFIGDUMP	48
+#define LA_YYDEBUG	49
+#define LA_SMTPNAME     50
+#define LA_SHOWDOTS	51
+#define LA_PRINCIPAL	52
+#define LA_TRACEPOLLS	53
+
+#ifdef SSL_ENABLE
+#define LA_SSL		54
+#define LA_SSLKEY	55
+#define LA_SSLCERT	56
+#define LA_SSLPROTO 	57
+#define LA_SSLCERTCK	58
+#define LA_SSLCERTPATH	59
+#define LA_SSLFINGERPRINT	60
+#endif
+
 
 /* options still left: CDgGhHjJoORwWxXYz */
 static const char *shortoptions = 
@@ -87,6 +103,7 @@ static const struct option longoptions[] = {
   {"quit",	no_argument,	   (int *) 0, LA_QUIT        },
   {"logfile",	required_argument, (int *) 0, LA_LOGFILE     },
   {"invisible",	no_argument,	   (int *) 0, LA_INVISIBLE   },
+  {"showdots",	no_argument,	   (int *) 0, LA_SHOWDOTS    },
   {"syslog",	no_argument,	   (int *) 0, LA_SYSLOG      },
   {"nosyslog",	no_argument,	   (int *) 0, LA_NOSYSLOG    },
   {"fetchmailrc",required_argument,(int *) 0, LA_RCFILE      },
@@ -98,7 +115,7 @@ static const struct option longoptions[] = {
   {"proto",	required_argument, (int *) 0, LA_PROTOCOL    },
   {"uidl",	no_argument,	   (int *) 0, LA_UIDL	     },
   {"port",	required_argument, (int *) 0, LA_PORT        },
-  {"preauth",	required_argument, (int *) 0, LA_PREAUTH},
+  {"auth",	required_argument, (int *) 0, LA_AUTH},
   {"timeout",	required_argument, (int *) 0, LA_TIMEOUT     },
   {"envelope",	required_argument, (int *) 0, LA_ENVELOPE    },
   {"qvirtual",	required_argument, (int *) 0, LA_QVIRTUAL    },
@@ -116,7 +133,9 @@ static const struct option longoptions[] = {
 
   {"folder",	required_argument, (int *) 0, LA_FOLDER	     },
   {"smtphost",	required_argument, (int *) 0, LA_SMTPHOST    },
+  {"fetchdomains",	required_argument, (int *) 0, LA_FETCHDOMAINS    },
   {"smtpaddress", required_argument, (int *) 0, LA_SMTPADDR  },
+  {"smtpname",  required_argument, (int *) 0, LA_SMTPNAME    },
   {"antispam",	required_argument, (int *) 0, LA_ANTISPAM    },
   
   {"batchlimit",required_argument, (int *) 0, LA_BATCHLIMIT  },
@@ -126,20 +145,34 @@ static const struct option longoptions[] = {
   {"bsmtp",	required_argument, (int *) 0, LA_BSMTP       },
   {"lmtp",	no_argument,       (int *) 0, LA_LMTP        },
 
-#ifdef INET6
+#ifdef INET6_ENABLE
   {"netsec",	required_argument, (int *) 0, LA_NETSEC      },
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 
-#if (defined(linux) && !INET6) || defined(__FreeBSD__)
+#ifdef SSL_ENABLE
+  {"ssl",       no_argument,       (int *) 0, LA_SSL        },
+  {"sslkey",    required_argument, (int *) 0, LA_SSLKEY     },
+  {"sslcert",   required_argument, (int *) 0, LA_SSLCERT    },
+  {"sslproto",   required_argument, (int *) 0, LA_SSLPROTO    },
+  {"sslcertck", no_argument,       (int *) 0, LA_SSLCERTCK  },
+  {"sslcertpath",   required_argument, (int *) 0, LA_SSLCERTPATH },
+  {"sslfingerprint",   required_argument, (int *) 0, LA_SSLFINGERPRINT },
+#endif
+
+  {"principal", required_argument, (int *) 0, LA_PRINCIPAL },
+
+#if (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__)
   {"interface",	required_argument, (int *) 0, LA_INTERFACE   },
   {"monitor",	required_argument, (int *) 0, LA_MONITOR     },
-#endif /* (defined(linux) && !INET6) || defined(__FreeBSD__) */
+#endif /* (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__) */
   {"plugin",	required_argument, (int *) 0, LA_PLUGIN      },
   {"plugout",	required_argument, (int *) 0, LA_PLUGOUT     },
 
   {"configdump",no_argument,	   (int *) 0, LA_CONFIGDUMP  },
 
   {"yydebug",	no_argument,	   (int *) 0, LA_YYDEBUG     },
+
+  {"tracepolls",no_argument,       (int *) 0, LA_TRACEPOLLS  },
 
   {(char *) 0,  no_argument,       (int *) 0, 0              }
 };
@@ -285,19 +318,19 @@ struct query *ctl;	/* option record to be initialized */
 	case LA_INVISIBLE:
 	    rctl->invisible = TRUE;
 	    break;
+	case LA_SHOWDOTS:
+	    rctl->showdots = TRUE;
+	    break;
 	case 'f':
 	case LA_RCFILE:
-	    rcfile = (char *) xmalloc(strlen(optarg)+1);
-	    strcpy(rcfile,optarg);
+	    rcfile = (char *) xstrdup(optarg);
 	    break;
 	case 'i':
 	case LA_IDFILE:
-	    rctl->idfile = (char *) xmalloc(strlen(optarg)+1);
-	    strcpy(rctl->idfile,optarg);
+	    rctl->idfile = (char *) xstrdup(optarg);
 	    break;
 	case LA_POSTMASTER:
-	    rctl->postmaster = (char *) xmalloc(strlen(optarg)+1);
-	    strcpy(rctl->postmaster,optarg);
+	    rctl->postmaster = (char *) xstrdup(optarg);
 	    break;
 	case LA_NOBOUNCE:
 	    run.bouncemail = FALSE;
@@ -325,33 +358,23 @@ struct query *ctl;	/* option record to be initialized */
 	    else if (strcasecmp(optarg,"kpop") == 0)
 	    {
 		ctl->server.protocol = P_POP3;
-#if INET6
+#if INET6_ENABLE
 		ctl->server.service = KPOP_PORT;
-#else /* INET6 */
+#else /* INET6_ENABLE */
 		ctl->server.port = KPOP_PORT;
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 #ifdef KERBEROS_V5
-		ctl->server.preauthenticate =  A_KERBEROS_V5;
+		ctl->server.authenticate =  A_KERBEROS_V5;
 #else
-		ctl->server.preauthenticate =  A_KERBEROS_V4;
+		ctl->server.authenticate =  A_KERBEROS_V4;
 #endif /* KERBEROS_V5 */
 	    }
 	    else if (strcasecmp(optarg,"imap") == 0)
 		ctl->server.protocol = P_IMAP;
-#ifdef KERBEROS_V4
-	    else if (strcasecmp(optarg,"imap-k4") == 0)
-		ctl->server.protocol = P_IMAP_K4;
-#endif /* KERBEROS_V4 */
-#ifdef GSSAPI
-	    else if (strcasecmp(optarg, "imap-gss") == 0)
-                ctl->server.protocol = P_IMAP_GSS;
-#endif /* GSSAPI */
-	    else if (strcasecmp(optarg, "imap-crammd5") == 0)
-                ctl->server.protocol = P_IMAP_CRAM_MD5;
-	    else if (strcasecmp(optarg, "imap-login") == 0)
-                ctl->server.protocol = P_IMAP_LOGIN;
 	    else if (strcasecmp(optarg,"etrn") == 0)
 		ctl->server.protocol = P_ETRN;
+	    else if (strcasecmp(optarg,"odmr") == 0)
+		ctl->server.protocol = P_ODMR;
 	    else {
 		fprintf(stderr,_("Invalid protocol `%s' specified.\n"), optarg);
 		errflag++;
@@ -363,28 +386,41 @@ struct query *ctl;	/* option record to be initialized */
 	    break;
 	case 'P':
 	case LA_PORT:
-#if INET6
+#if INET6_ENABLE
 	    ctl->server.service = optarg;
-#else /* INET6 */
+#else /* INET6_ENABLE */
 	    ctl->server.port = xatoi(optarg, &errflag);
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 	    break;
-	case 'A':
-	case LA_PREAUTH:
+	case LA_AUTH:
 	    if (strcmp(optarg, "password") == 0)
-		ctl->server.preauthenticate = A_PASSWORD;
+		ctl->server.authenticate = A_PASSWORD;
 	    else if (strcmp(optarg, "kerberos") == 0)
 #ifdef KERBEROS_V5
-		ctl->server.preauthenticate = A_KERBEROS_V5;
+		ctl->server.authenticate = A_KERBEROS_V5;
 #else
-		ctl->server.preauthenticate = A_KERBEROS_V4;
+		ctl->server.authenticate = A_KERBEROS_V4;
 #endif /* KERBEROS_V5 */
 	    else if (strcmp(optarg, "kerberos_v5") == 0)
-		ctl->server.preauthenticate = A_KERBEROS_V5;
+		ctl->server.authenticate = A_KERBEROS_V5;
 	    else if (strcmp(optarg, "kerberos_v4") == 0)
-		ctl->server.preauthenticate = A_KERBEROS_V4;
+		ctl->server.authenticate = A_KERBEROS_V4;
+	    else if (strcmp(optarg, "ssh") == 0)
+		ctl->server.authenticate = A_SSH;
+	    else if (strcmp(optarg, "otp") == 0)
+		ctl->server.authenticate = A_OTP;
+	    else if (strcmp(optarg, "ntlm") == 0)
+		ctl->server.authenticate = A_NTLM;
+	    else if (strcmp(optarg, "cram") == 0)
+		ctl->server.authenticate = A_CRAM_MD5;
+	    else if (strcmp(optarg, "cram-md5") == 0)
+		ctl->server.authenticate = A_CRAM_MD5;
+	    else if (strcmp(optarg, "gssapi") == 0)
+		ctl->server.authenticate = A_GSSAPI;
+	    else if (strcmp(optarg, "any") == 0)
+		ctl->server.authenticate = A_ANY;
 	    else {
-		fprintf(stderr,_("Invalid preauthentication `%s' specified.\n"), optarg);
+		fprintf(stderr,_("Invalid authentication `%s' specified.\n"), optarg);
 		errflag++;
 	    }
 	    break;
@@ -453,10 +489,22 @@ struct query *ctl;	/* option record to be initialized */
 		((cp = strtok((char *)NULL, ",")));
 	    ocount++;
 	    break;
+	case LA_FETCHDOMAINS:
+	    xalloca(buf, char *, strlen(optarg) + 1);
+	    strcpy(buf, optarg);
+	    cp = strtok(buf, ",");
+	    do {
+		save_str(&ctl->domainlist, cp, TRUE);
+	    } while
+		((cp = strtok((char *)NULL, ",")));
+	    break;
 	case 'D':
 	case LA_SMTPADDR:
 	    ctl->smtpaddress = xstrdup(optarg);
 	    break;
+	case LA_SMTPNAME:
+	  ctl->smtpname = xstrdup(optarg);
+	  break;
 	case 'Z':
 	case LA_ANTISPAM:
 	    xalloca(buf, char *, strlen(optarg) + 1);
@@ -465,7 +513,7 @@ struct query *ctl;	/* option record to be initialized */
 	    do {
 		struct idlist	*idp = save_str(&ctl->antispam, NULL, 0);;
 
-		idp->val.status.num = atoi(cp);
+		idp->val.status.num = xatoi(cp, &errflag);
 	    } while
 		((cp = strtok((char *)NULL, ",")));
 	    break;
@@ -507,7 +555,7 @@ struct query *ctl;	/* option record to be initialized */
 #endif /* NET_SECURITY */
 	    break;
 
-#if (defined(linux) && !INET6) || defined(__FreeBSD__)
+#if (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__)
 	case 'I':
 	case LA_INTERFACE:
 	    interface_parse(optarg, &ctl->server);
@@ -516,12 +564,46 @@ struct query *ctl;	/* option record to be initialized */
 	case LA_MONITOR:
 	    ctl->server.monitor = xstrdup(optarg);
 	    break;
-#endif /* (defined(linux) && !INET6) || defined(__FreeBSD__) */
+#endif /* (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__) */
 	case LA_PLUGIN:
 	    ctl->server.plugin = xstrdup(optarg);
 	    break;
 	case LA_PLUGOUT:
 	    ctl->server.plugout = xstrdup(optarg);
+	    break;
+
+#ifdef SSL_ENABLE
+	case LA_SSL:
+	    ctl->use_ssl = FLAG_TRUE;
+	    break;
+
+	case LA_SSLKEY:
+	    ctl->sslkey = xstrdup(optarg);
+	    break;
+
+	case LA_SSLCERT:
+	    ctl->sslcert = xstrdup(optarg);
+	    break;
+
+	case LA_SSLPROTO:
+	    ctl->sslproto = xstrdup(optarg);
+	    break;
+
+	case LA_SSLCERTCK:
+	    ctl->sslcertck = FLAG_TRUE;
+	    break;
+
+	case LA_SSLCERTPATH:
+	    ctl->sslcertpath = xstrdup(optarg);
+	    break;
+
+	case LA_SSLFINGERPRINT:
+	    ctl->sslfingerprint = xstrdup(optarg);
+	    break;
+#endif
+
+	case LA_PRINCIPAL:
+	    ctl->server.principal = xstrdup(optarg);
 	    break;
 
 	case 'y':
@@ -546,6 +628,10 @@ struct query *ctl;	/* option record to be initialized */
 	case LA_NOSYSLOG:
 	    rctl->use_syslog = FLAG_FALSE;
 	    break;
+
+        case LA_TRACEPOLLS:
+            ctl->tracepolls = FLAG_TRUE;
+            break;
 
 	case '?':
 	case LA_HELP:
@@ -575,9 +661,15 @@ struct query *ctl;	/* option record to be initialized */
 	P(_("  -i, --idfile      specify alternate UIDs file\n"));
 	P(_("      --postmaster  specify recipient of last resort\n"));
 	P(_("      --nobounce    redirect bounces from user to postmaster.\n"));
-#if (defined(linux) && !INET6) || defined(__FreeBSD__)
+#if (defined(linux) && !INET6_ENABLE) || defined(__FreeBSD__)
 	P(_("  -I, --interface   interface required specification\n"));
 	P(_("  -M, --monitor     monitor interface for activity\n"));
+#endif
+#if defined( SSL_ENABLE )
+	P(_("      --ssl         enable ssl encrypted session\n"));
+	P(_("      --sslkey      ssl private key file\n"));
+	P(_("      --sslcert     ssl client certificate\n"));
+	P(_("      --sslproto    force ssl protocol (ssl2/ssl3/tls1)\n"));
 #endif
 	P(_("      --plugin      specify external command to open connection\n"));
 	P(_("      --plugout     specify external command to open smtp connection\n"));
@@ -585,10 +677,12 @@ struct query *ctl;	/* option record to be initialized */
 	P(_("  -p, --protocol    specify retrieval protocol (see man page)\n"));
 	P(_("  -U, --uidl        force the use of UIDLs (pop3 only)\n"));
 	P(_("  -P, --port        TCP/IP service port to connect to\n"));
-	P(_("  -A, --preauth     preauthentication type (password or kerberos)\n"));
+	P(_("      --auth        authentication type (password/kerberos/ssh)\n"));
 	P(_("  -t, --timeout     server nonresponse timeout\n"));
 	P(_("  -E, --envelope    envelope address header\n"));
 	P(_("  -Q, --qvirtual    prefix to remove from local user id\n"));
+	P(_("      --principal   mail service principal\n"));
+        P(_("      --tracepolls  add poll-tracing information to Received header\n"));
 
 	P(_("  -u, --username    specify users's login on server\n"));
 	P(_("  -a, --all         retrieve old and new messages\n"));
@@ -603,15 +697,18 @@ struct query *ctl;	/* option record to be initialized */
 	P(_("  -T, --netsec      set IP security request\n"));
 #endif /* NET_SECURITY */
 	P(_("  -S, --smtphost    set SMTP forwarding host\n"));
+	P(_("      --fetchdomains fetch mail for specified domains\n"));
 	P(_("  -D, --smtpaddress set SMTP delivery domain to use\n"));
+	P(_("      --smtpname    set SMTP full name username@domain\n"));
 	P(_("  -Z, --antispam,   set antispam response values\n"));
 	P(_("  -b, --batchlimit  set batch limit for SMTP connections\n"));
 	P(_("  -B, --fetchlimit  set fetch limit for server connections\n"));
 	P(_("  -e, --expunge     set max deletions between expunges\n"));
-        P(_("      --mda         set MDA to use for forwarding\n"));
+        P(_("  -m, --mda         set MDA to use for forwarding\n"));
         P(_("      --bsmtp       set output BSMTP file\n"));
         P(_("      --lmtp        use LMTP (RFC2033) for delivery\n"));
 	P(_("  -r, --folder      specify remote folder name\n"));
+	P(_("      --showdots    show progress dots even in logfiles\n"));
 #undef P
 
 	if (helpflag)

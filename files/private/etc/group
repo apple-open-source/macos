@@ -23,5 +23,5 @@ uucp:*:66:
 dialer:*:68:
 network:*:69:
 www:*:70:
-admin:*:80:
+admin:*:80:root
 unknown:*:99:

@@ -78,6 +78,16 @@
 	node[count].obj = nil;
 }
 
+- (void)print:(FILE *)f
+{
+	int i;
+
+	for (i = 0; i < count; i++)
+	{
+		fprintf(f, "0x%08x \"%s\" (%s)\n", (unsigned int)node[i].obj, node[i].key, [node[i].obj banner]);
+	}
+}
+
 - (void)removeObject:(id)obj
 {
 	int i, j;

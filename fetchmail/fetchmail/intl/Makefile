@@ -17,13 +17,15 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 PACKAGE = fetchmail
-VERSION = 5.1.0
+VERSION = 5.5.6
 
 SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = ..
 top_builddir = ..
+
+DESTDIR =
 
 prefix = /usr/local
 exec_prefix = ${prefix}
@@ -114,26 +116,26 @@ install-exec: all
 	if test "$(PACKAGE)" = "gettext" \
 	   && test '' = '$(GETTOBJS)'; then \
 	  if test -r $(MKINSTALLDIRS); then \
-	    $(MKINSTALLDIRS) $(libdir) $(includedir); \
+	    $(MKINSTALLDIRS) $(DESTDIR)$(libdir) $(DESTDIR)$(includedir); \
 	  else \
-	    $(top_srcdir)/mkinstalldirs $(libdir) $(includedir); \
+	    $(top_srcdir)/mkinstalldirs $(DESTDIR)$(libdir) $(DESTDIR)$(includedir); \
 	  fi; \
-	  $(INSTALL_DATA) intlh.inst $(includedir)/libintl.h; \
-	  $(INSTALL_DATA) libintl.a $(libdir)/libintl.a; \
+	  $(INSTALL_DATA) intlh.inst $(DESTDIR)$(includedir)/libintl.h; \
+	  $(INSTALL_DATA) libintl.a $(DESTDIR)$(libdir)/libintl.a; \
 	else \
 	  : ; \
 	fi
 install-data: all
 	if test "$(PACKAGE)" = "gettext"; then \
 	  if test -r $(MKINSTALLDIRS); then \
-	    $(MKINSTALLDIRS) $(gettextsrcdir); \
+	    $(MKINSTALLDIRS) $(DESTDIR)$(gettextsrcdir); \
 	  else \
-	    $(top_srcdir)/mkinstalldirs $(gettextsrcdir); \
+	    $(top_srcdir)/mkinstalldirs $(DESTDIR)$(gettextsrcdir); \
 	  fi; \
-	  $(INSTALL_DATA) VERSION $(gettextsrcdir)/VERSION; \
+	  $(INSTALL_DATA) VERSION $(DESTDIR)$(gettextsrcdir)/VERSION; \
 	  dists="$(DISTFILES.common)"; \
 	  for file in $$dists; do \
-	    $(INSTALL_DATA) $(srcdir)/$$file $(gettextsrcdir)/$$file; \
+	    $(INSTALL_DATA) $(srcdir)/$$file $(DESTDIR)$(gettextsrcdir)/$$file; \
 	  done; \
 	else \
 	  : ; \
@@ -145,7 +147,7 @@ installcheck:
 uninstall:
 	dists="$(DISTFILES.common)"; \
 	for file in $$dists; do \
-	  rm -f $(gettextsrcdir)/$$file; \
+	  rm -f $(DESTDIR)$(gettextsrcdir)/$$file; \
 	done
 
 info dvi:

@@ -1,5 +1,5 @@
 /* config.w32.h.  Configure file for win32 platforms  */
-/* tested only with MS Visual C++ V5 */
+/* tested only with MS Visual C++ V6 */
 
 
 /* Define if PHP to setup it's own SIGCHLD handler (not needed on Win32) */
@@ -10,7 +10,7 @@
    lib33bsd95.lib to the project settings, and add the path to the
    bind include directory to the preprocessor settings.  These libs
    are availabe in the ntbind distribution */
-#define HAVE_BINDLIB 1
+#define HAVE_LIBBIND 1
 
 /* set to enable bcmath */
 #define WITH_BCMATH 1
@@ -20,7 +20,6 @@
 
 /* set to enable FTP support */
 #define HAVE_FTP 1
-
 
 /* set to enable bundled PCRE library */
 #define HAVE_BUNDLED_PCRE	1
@@ -34,6 +33,9 @@
 
 /* set to enable trans sid */
 #define TRANS_SID 1
+
+/* set to enable force cgi redirect */
+#define FORCE_CGI_REDIRECT 0
 
 /* should be added to runtime config*/
 #define PHP_URL_FOPEN 1
@@ -57,7 +59,7 @@
 
 /* Undefine if you want stricter XML/SGML compliance by default */
 /* this disables "<?expression?>" and "<?=expression?>" */
-#define DEFAULT_SHORT_OPEN_TAG 1
+#define DEFAULT_SHORT_OPEN_TAG "1"
 
 
 /* ----------------------------------------------------------------
@@ -224,10 +226,12 @@
 /* Define if you have the setlocale function.  */
 #define HAVE_SETLOCALE 1
 
+#define HAVE_LOCALECONV 1
+
 #define HAVE_LOCALE_H 1
 
 /* Define if you have the setvbuf function.  */
-#ifndef HAVE_BINDLIB
+#ifndef HAVE_LIBBIND
 #define HAVE_SETVBUF 1
 #endif
 
@@ -321,3 +325,12 @@
 #define PHP_EXTENSION_DIR NULL
 
 #define SIZEOF_INT 4
+
+/* Define directory constants for php and pear */
+#define PHP_BINDIR "c:\\php4"
+#define PHP_LIBDIR "c:\\php4"
+#define PHP_DATADIR "c:\\php4"
+#define PHP_SYSCONFDIR "c:\\php4"
+#define PHP_LOCALSTATEDIR "c:\\php4"
+#define PHP_CONFIG_FILE_PATH "c:\\winnt"
+#define PEAR_INSTALLDIR "c:\\php4\\pear"

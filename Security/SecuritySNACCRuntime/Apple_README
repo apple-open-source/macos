@@ -1,0 +1,44 @@
+                 MacOS X Porting notes
+				   20 June 2001 dmitch
+				   
+-- snacc.pbproj contains the following targets:
+
+	world: aggregate target, builds UnixBuild and snaccRuntime
+	
+	UnixBuild: Legacy target, invokes MacOSX-Install, a custom
+		script to config and build the snacc compiler and the 
+		Unix versions of the various libraries. This does not install
+		the snacc binary; maybe it should. 
+	  
+		Due to many brain dead Makefiles, this target always rebuilds
+		a ton of stuff even if nothing has changed. Feel free to rewrite
+		all the Makefiles to fix this.
+	  
+   snaccRuntime: builds the runtime support library as an OSX
+      framework using the same source as c++-lib. Currently 
+	  obsolete; this is now part of Security.framework. 
+	  
+-- There are a few header files which have duplicate copies
+   in the snacc-1.3vda root directory and in c++-lib/inc. They're
+   needed in the root by the compiler build and various configure
+   operations, and neneded in c++lib for the framework built
+   there (snaccRuntime.framework). The headers are needed by
+   other headers installed in that framework. A non-trivial 
+   amount of Makefile and configure.in hacking could eliminate
+   the need for maintaining duplicate copies of these files.
+   Be my guest.  One header, config.h, is generated at configure
+   time and is subsequently copied into the c++-lib/inc directory
+   by the MacOSX-Install script. The other headers are policy.h 
+   and snacc.h, which change rarely. 
+   
+-- The following examples are skipped during the build all.
+
+    c++-examples.simple - runtime failure
+	c-examples/snmp - runtime failure
+	tbl-example - runtime failure
+	tcl-example - build failure
+	
+-- When running the snacc compiler to generate C++ source, you 
+   must specify the (undocumented) -D argument to enable VDADER_RULES. 
+   When compiling that source, you must do a -DVDADER_RULES. 
+   

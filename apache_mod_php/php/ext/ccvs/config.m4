@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/01/25 04:59:07 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.3 2001/07/19 00:18:58 zarzycki Exp $
 dnl config.m4 for PHP4 CCVS Extension
 
 AC_MSG_CHECKING(CCVS Support)
@@ -15,8 +15,8 @@ AC_ARG_WITH(ccvs,
 		AC_MSG_RESULT(yes)
 		PHP_EXTENSION(ccvs)
 		LIBS="$LIBS -L$CCVS_LIB_DIR"
-		AC_ADD_LIBRARY_WITH_PATH(ccvs, $CCVS_LIB_DIR)
-		AC_ADD_INCLUDE($CCVS_INCLUDE_DIR)
+		PHP_ADD_LIBRARY_WITH_PATH(ccvs, $CCVS_LIB_DIR)
+		PHP_ADD_INCLUDE($CCVS_INCLUDE_DIR)
     	  else
     	    AC_MSG_RESULT(no)
     	  fi

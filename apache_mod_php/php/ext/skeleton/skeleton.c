@@ -1,5 +1,9 @@
 /* __header_here__ */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_ini.h"
 #include "php_extname.h"
@@ -36,6 +40,8 @@ ZEND_GET_MODULE(extname)
 
 /* Remove comments and fill if you need to have entries in php.ini
 PHP_INI_BEGIN()
+    STD_PHP_INI_ENTRY("extname.value",      "42", PHP_INI_ALL, OnUpdateInt, global_value, zend_extname_globals, extname_globals)
+    STD_PHP_INI_ENTRY("extname.string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_extname_globals, extname_globals)
 PHP_INI_END()
 */
 
@@ -97,7 +103,7 @@ PHP_FUNCTION(confirm_extname_compiled)
 
 	convert_to_string_ex(arg);
 
-	len = sprintf(string, "Congratulations, you have successfully modified ext/extname/config.m4, module %s is compiled into PHP", Z_STRVAL_PP(arg));
+	len = sprintf(string, "Congratulations! You have successfully modified ext/%.78s/config.m4. Module %.78s is now compiled into PHP.", "extname", Z_STRVAL_PP(arg));
 	RETURN_STRINGL(string, len, 1);
 }
 /* }}} */

@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (); 
+        FRAMEWORKS = (CoreFoundation.framework); 
         H_FILES = (); 
         OTHER_LIBS = (disk); 
         OTHER_LINKED = (udfutil.c); 
@@ -14,6 +14,7 @@
             PkgInfo, 
             version.plist
         ); 
+        SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

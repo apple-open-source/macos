@@ -84,8 +84,7 @@
 	forcedNFSVersion = 0;
 	forcedProtocol = 0;
 
-        urlString = [String uniqueString:""];
-
+	urlString = [String uniqueString:""];
 
 	bzero(&nfsArgs, sizeof(struct nfs_args));
 #ifdef __APPLE__
@@ -159,15 +158,15 @@
 
 - (String *)vfsType
 {
-        return vfsType;
+	return vfsType;
 }
 
 - (void)setVfsType:(String *)s
 {
-    if (s == vfsType) return;
+	if (s == vfsType) return;
 
-        [vfsType release];
-        vfsType = [s retain];
+	[vfsType release];
+	vfsType = [s retain];
 }
 
 - (Server *)server
@@ -209,14 +208,14 @@
 
 - (void)setUrlString:(String *)n
 {
-    if (urlString != nil) [urlString release];
-    urlString = n;
-    [urlString retain];
+	if (urlString != nil) [urlString release];
+	urlString = n;
+	[urlString retain];
 }
 
 - (String *)urlString
 {
-    return urlString;
+	return urlString;
 }
 
 - (struct fattr)attributes
@@ -498,8 +497,8 @@
 		else if (!strncmp(s, "osvers<", 7)) {}
 		else if (!strncmp(s, "osvers<=", 8)) {}
 		else if (!strncmp(s, "osvers>", 7)) {}
-                else if (!strncmp(s, "osvers>=", 8)) {}
-                else if (!strncmp(s, "url==", 5)) {}
+		else if (!strncmp(s, "osvers>=", 8)) {}
+		else if (!strncmp(s, "url==", 5)) {}
 
 		else if (!strcmp(s, "noquota")) {}
 		else if (!strcmp(s, "grpid")) {}
@@ -532,50 +531,47 @@
 	attributes.fileid = n;
 }
 
-- (int) checkPathIsMount:(char *)apath
+- (BOOL)checkPathIsMount:(char *)apath
 {
-        struct stat statbuf;
-        static dev_t rootDevNode = 0;
+	struct stat statbuf, rootbuf;
+	static dev_t rootDevNode = 0;
 
-        sys_msg(debug_mount, LOG_DEBUG, "Checking path %s",
-        apath);
+	sys_msg(debug_mount, LOG_DEBUG, "Checking path %s", apath);
 
-        if (!rootDevNode) {
-                struct stat rootbuf;
-                stat("/", &rootbuf);
-                rootDevNode = rootbuf.st_dev;
-        }
+	if (rootDevNode == 0)
+	{
+		stat("/", &rootbuf);
+		rootDevNode = rootbuf.st_dev;
+	}
 
-        if (!stat(apath, &statbuf)) {
-                sys_msg(debug_mount, LOG_DEBUG, "%s stat succeeded",
-                apath);
-            if (statbuf.st_dev != rootDevNode) {
-                return TRUE;
-            }
+	if (stat(apath, &statbuf) == 0)
+	{
+		if (statbuf.st_dev != rootDevNode) return YES;
+	}
+	else
+	{
+		sys_msg(debug_mount, LOG_DEBUG, "%s stat failed, %s", apath, strerror(errno));
+	}
 
-        } else {
-                sys_msg(debug_mount, LOG_DEBUG, "%s stat failed, %s",
-                        apath, strerror(errno));
-        }
-
-        return FALSE;
+	return NO;
 }
 
 - (BOOL)mounted
 {
-        /* String *urlMountType;
+	String *urlMountType;
 
-        urlMountType = [String uniqueString:"url"];
+	urlMountType = [String uniqueString:"url"];
 
-        sys_msg(debug_mount, LOG_DEBUG, "checking type %s for %s",
-                [[self vfsType] value], [[self link] value]);
-        
-        if ([[self vfsType] equal:urlMountType] || ![self vfsType]) {
-            char mountDir[1024];
-            mounted = [self checkPathIsMount:[[self link] value]];
-        }
-        [urlMountType release]; */
-        return mounted;
+	sys_msg(debug_mount, LOG_DEBUG, "Checking type %s for %s", [[self vfsType] value], [[self link] value]);
+
+	if ([[self vfsType] equal:urlMountType])
+	{
+		mounted = [self checkPathIsMount:[[self link] value]];
+		if (!mounted) [self setMountPathCreated:NO]; 
+	}
+
+	[urlMountType release];
+	return mounted;
 }
 
 - (void)resetMountTime
@@ -750,3 +746,4 @@
 }
 
 @end
+

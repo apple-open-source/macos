@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pwd.h>
+#include <unistd.h>
 
 #define forever for (;;)
 
@@ -46,6 +47,7 @@
 static struct passwd _pw = { 0 };
 static FILE *_pfp;
 static int _pwStayOpen;
+static int _pwFileFormat = 1;
 
 static void
 free_pw()
@@ -223,11 +225,14 @@ struct passwd *
 parseUser(char *data)
 {
 	char **tokens;
+	int ntokens;
 
 	if (data == NULL) return NULL;
 
 	tokens = tokenize(data, ":");
-	if (listLength(tokens) != 10)
+	ntokens = listLength(tokens);
+	if (( _pwFileFormat && (ntokens != 10)) ||
+	    (!_pwFileFormat && (ntokens !=  7)))
 	{
 		freeList(tokens);
 		return NULL;
@@ -241,14 +246,27 @@ parseUser(char *data)
 	free(tokens[2]);
 	_pw.pw_gid = atoi(tokens[3]);
 	free(tokens[3]);
-	_pw.pw_class = tokens[4];
-	_pw.pw_change = atoi(tokens[5]);
-	free(tokens[5]);
-	_pw.pw_expire = atoi(tokens[6]);
-	free(tokens[6]);
-	_pw.pw_gecos = tokens[7];
-	_pw.pw_dir = tokens[8];
-	_pw.pw_shell = tokens[9];
+
+	if (_pwFileFormat)
+	{
+		_pw.pw_class = tokens[4];
+		_pw.pw_change = atoi(tokens[5]);
+		free(tokens[5]);
+		_pw.pw_expire = atoi(tokens[6]);
+		free(tokens[6]);
+		_pw.pw_gecos = tokens[7];
+		_pw.pw_dir = tokens[8];
+		_pw.pw_shell = tokens[9];
+	}
+	else
+	{
+		_pw.pw_class = copyString("");
+		_pw.pw_change = 0;
+		_pw.pw_expire = 0;
+		_pw.pw_gecos = tokens[4];
+		_pw.pw_dir = tokens[5];
+		_pw.pw_shell = tokens[6];
+	}
 
 	free(tokens); 
 
@@ -284,10 +302,20 @@ setpwent()
 {
 	if (_pfp == NULL)
 	{
-		_pfp = fopen(_PATH_MASTERPASSWD, "r");
+		char *pwFile;
+		if (geteuid() == 0)
+		{
+			pwFile = _PATH_MASTERPASSWD;
+		}
+		else
+		{
+			pwFile = _PATH_PASSWD;
+			_pwFileFormat = 0;
+		}
+		_pfp = fopen(pwFile, "r");
 		if (_pfp == NULL)
 		{
-			perror(_PATH_MASTERPASSWD);
+			perror(pwFile);
 			return(0);
 		}
 	}

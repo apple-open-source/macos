@@ -28,15 +28,23 @@
 #define __DISKARBITRATION_H
 
 
+#include <DiskArbitration/DiskArbitrationPublicAPI.h>
 #include <DiskArbitration/DiskArbitrationTypes.h>
 
 #include <mach/mach.h>
+
+#if __cplusplus
+extern "C" {
+#endif
+
 
 
 /*
 -- Callback registration
 */
 
+// PRIVATE CALLBACKS - NOT PUBLISHED
+// All of these callbacks eventually call DiskArbAddCallbackHandler with overwrite = 1
 
 /* This callback is only invoked if the disk is mounted */
 
@@ -68,18 +76,6 @@ typedef int ( * DiskArbCallback_DiskAppeared_t )(
 
 void DiskArbRegisterCallback_DiskAppeared( DiskArbCallback_DiskAppeared_t callback );
 
-/* This callback is invoked regardless of whether or not the disk is mounted. */
-/* Therefore, you should register for one or both of DiskAppearedWithMountpoint / DiskAppearedWithoutMountpoint, or for this one. */
-/* Note: The ioContent field can be the empty string, e.g., for AFP volumes. */
-
-typedef int ( * DiskArbCallback_DiskAppeared2_t )(
-					DiskArbDiskIdentifier diskIdentifier,
-					unsigned flags,
-					DiskArbMountpoint mountpoint,
-					DiskArbIOContent ioContent,
-					DiskArbDeviceTreePath deviceTreePath,
-					unsigned sequenceNumber );
-
 void DiskArbRegisterCallback_DiskAppeared2( DiskArbCallback_DiskAppeared2_t callback );
 
 /* Obsoleted by: DiskArbCallback_UnmountPreNotification_t + DiskArbCallback_UnmountPostNotification_t */
@@ -95,38 +91,11 @@ void DiskArbRegisterCallback_UnmountNotification( DiskArbCallback_UnmountNotific
 /*
 -- Async unmount + eject
 */
-
-
-typedef void ( * DiskArbCallback_UnmountPreNotification_t )(
-					DiskArbDiskIdentifier diskIdentifier,
-					unsigned flags );
-
 void DiskArbRegisterCallback_UnmountPreNotification( DiskArbCallback_UnmountPreNotification_t callback );
-
-typedef void ( * DiskArbCallback_UnmountPostNotification_t )(
-					DiskArbDiskIdentifier diskIdentifier,
-					int errorCode,
-					pid_t dissenter );
-
 void DiskArbRegisterCallback_UnmountPostNotification( DiskArbCallback_UnmountPostNotification_t callback );
-
-typedef void ( * DiskArbCallback_EjectPreNotification_t )(
-					DiskArbDiskIdentifier diskIdentifier,
-					unsigned flags );
-
 void DiskArbRegisterCallback_EjectPreNotification( DiskArbCallback_EjectPreNotification_t callback );
-
-typedef void ( * DiskArbCallback_EjectPostNotification_t )(
-					DiskArbDiskIdentifier diskIdentifier,
-					int errorCode,
-					pid_t dissenter );
-
 void DiskArbRegisterCallback_EjectPostNotification( DiskArbCallback_EjectPostNotification_t callback );
 
-/* 
--- Client Disconnected
-*/
-typedef void ( * DiskArbCallback_ClientDisconnectedNotification_t )();
 
 void DiskArbRegisterCallback_ClientDisconnectedNotification( DiskArbCallback_ClientDisconnectedNotification_t callback );
 
@@ -140,6 +109,11 @@ typedef void ( * DiskArbCallback_BlueBoxBootVolumeUpdated_t )(
 
 void DiskArbRegisterCallback_BlueBoxBootVolumeUpdated( DiskArbCallback_BlueBoxBootVolumeUpdated_t callback );
 
+void DiskArbRegisterCallback_DiskChangedNotification( DiskArbCallback_DiskChangedNotification_t callback );
+void DiskArbRegisterCallback_DiskWillBeCheckedNotification( DiskArbCallback_DiskWillBeCheckedNotification_t callback );
+void DiskArbRegisterCallback_CallFailedNotification( DiskArbCallback_CallFailedNotification_t callback );
+void DiskArbRegisterCallback_NotificationComplete( DiskArbCallback_NotificationComplete_t callback );
+
 /*
 -- Unknown File System Insertion
 */
@@ -152,27 +126,6 @@ typedef void ( * DiskArbCallback_UnknownFileSystemNotification_t )(					DiskArbD
                         int isWhole);
 
 void DiskArbRegisterCallback_UnknownFileSystemNotification( DiskArbCallback_UnknownFileSystemNotification_t callback );
-
-
-/*
--- Disk Changed
-The volume name and mountpoint can differ (esp. in the case of the mountpoint being / and the vol name being 'Mac OS X', etc., or in the case of duplicate vol or directory names)
-*/
-
-typedef void ( * DiskArbCallback_DiskChangedNotification_t )(					DiskArbDiskIdentifier diskIdentifier,
-                        char *newMountPoint,
-                        char *newVolumeName,
-                        int flags, // currently ignored
-                        int successFlags);
-
-void DiskArbRegisterCallback_DiskChangedNotification( DiskArbCallback_DiskChangedNotification_t callback );
-
-/*
--- Notification Complete
-*/
-
-typedef void ( * DiskArbCallback_NotificationComplete_t )(int messageType);
-void DiskArbRegisterCallback_NotificationComplete( DiskArbCallback_NotificationComplete_t callback );
 
 /*
 -- Printer Arbitration
@@ -253,6 +206,10 @@ kern_return_t DiskArbDeregister_auto(
 kern_return_t DiskArbRegisterWithPID_auto(
                                 mach_port_t client,
                                 unsigned flags);
+
+kern_return_t DiskArbUpdateClientWithPID_auto(
+                                unsigned flags);
+
 
 kern_return_t DiskArbDeregisterWithPID_auto(
                                 mach_port_t client);
@@ -422,5 +379,12 @@ kern_return_t DiskArbPrinter_Response_auto (
 kern_return_t DiskArbPrinter_Release_auto (
 					int locationID);
 
+void SetSecure(void);
+
+kern_return_t DiskArb_EjectKeyPressed();
+
+#if __cplusplus
+}
+#endif
 
 #endif

@@ -267,7 +267,10 @@ struct object_file link_edit_common_object = {
     FALSE,		/* fvmlib_stuff */
     FALSE,		/* dylib */
     FALSE,		/* dylib_stuff */
+    FALSE,		/* bundle_loader */
     0,			/* library_ordinal */
+    0,			/* isub_image */
+    0,			/* nload_dylibs */
     FALSE,		/* dylinker */
     FALSE,		/* command_line */
     NULL,		/* ar_hdr */
@@ -394,7 +397,7 @@ struct nlist *symbol,
 char *strings,
 unsigned long index)
 {
-    unsigned long section_type;
+    unsigned long section_type, library_ordinal;
 
 	/* check the n_strx field of this symbol */
 	if(symbol->n_un.n_strx < 0 ||
@@ -421,6 +424,23 @@ unsigned long index)
 				   symbol->n_un.n_strx == 0 ? "NULL name" :
 				   strings + symbol->n_un.n_strx);
 		return;
+	    }
+	    if((symbol->n_type & N_STAB) == 0 &&
+	       (((struct mach_header *)(cur_obj->obj_addr))->flags &
+	       MH_TWOLEVEL) == MH_TWOLEVEL){
+		library_ordinal = GET_LIBRARY_ORDINAL(symbol->n_desc);
+		if((library_ordinal == EXECUTABLE_ORDINAL &&
+		    ((struct mach_header *)(cur_obj->obj_addr))->filetype !=
+		    MH_BUNDLE) ||
+		   (library_ordinal != SELF_LIBRARY_ORDINAL &&
+		    library_ordinal-1 >= cur_obj->nload_dylibs) ){
+		    error_with_cur_obj("undefined symbol %lu (%s) has bad "
+				       "library oridinal %lu", index,
+				       symbol->n_un.n_strx == 0 ? "NULL name" :
+				       strings + symbol->n_un.n_strx,
+				       library_ordinal);
+		    return;
+		}
 	    }
 	    /* fall through to the check below */
 	case N_ABS:
@@ -1634,12 +1654,10 @@ char *indr_symbol_name)
 			warning("multiple definitions of symbol %s",
 			      merged_symbol->nlist.n_un.n_name);
 		    else{
-#ifndef RLD
 			if(told_ProjectBuilder == FALSE){
 			    tell_ProjectBuilder("Multiply defined symbols");
 			    told_ProjectBuilder = TRUE;
 			}
-#endif
 			error("multiple definitions of symbol %s",
 			      merged_symbol->nlist.n_un.n_name);
 		    }
@@ -1730,14 +1748,16 @@ void
 merge_dylib_module_symbols(
 struct dynamic_library *dynamic_library)
 {
-    unsigned long i, j, k, l, nundefineds, module_index;
-    char *strings, *symbol_name;
+    unsigned long i, j, k, l, nundefineds, module_index, library_ordinal;
+    char *strings, *symbol_name, *name;
     struct nlist *symbols;
     struct dylib_reference *refs;
     unsigned long flags;
     enum bool was_traced;
     struct merged_symbol **hash_pointer, *merged_symbol;
     struct object_file *obj;
+    struct dylib_table_of_contents *toc;
+    struct dynamic_library *dep;
 
 	strings = cur_obj->obj_addr + cur_obj->symtab->stroff;
 	symbols = (struct nlist *)(cur_obj->obj_addr +
@@ -1814,20 +1834,42 @@ struct dynamic_library *dynamic_library)
 			    break;
 		    }
 		    if(k == nmultiple_defs){
-			if(allow_multiply_defined_symbols == TRUE ||
-			   (twolevel_namespace == TRUE  &&
-			    merged_symbol->defined_in_dylib == FALSE) ||
-			   (((struct mach_header *)(cur_obj->obj_addr))->
-			    flags & MH_TWOLEVEL) == MH_TWOLEVEL)
+			if(allow_multiply_defined_symbols == TRUE){
 			    warning("multiple definitions of symbol %s",
 				  merged_symbol->nlist.n_un.n_name);
+			}
+			else if((twolevel_namespace == TRUE &&
+			    merged_symbol->defined_in_dylib == FALSE) ||
+			   (force_flat_namespace == FALSE &&
+			    ((((struct mach_header *)(cur_obj->obj_addr))->
+			        flags & MH_TWOLEVEL) == MH_TWOLEVEL ||
+			    (merged_symbol->defined_in_dylib == TRUE &&
+			     (((struct mach_header *)(merged_symbol->
+			        definition_object->obj_addr))->flags &
+   				MH_TWOLEVEL) == MH_TWOLEVEL)))){
+				if(multiply_defined_flag ==
+				   MULTIPLY_DEFINED_WARNING)
+				    warning("multiple definitions of symbol %s",
+					  merged_symbol->nlist.n_un.n_name);
+				else if(multiply_defined_flag ==
+				   MULTIPLY_DEFINED_ERROR){
+				    if(told_ProjectBuilder == FALSE){
+					tell_ProjectBuilder("Multiply defined "
+							    "symbols");
+					told_ProjectBuilder = TRUE;
+				    }
+				    error("multiple definitions of symbol %s",
+					  merged_symbol->nlist.n_un.n_name);
+				}
+				else if(multiply_defined_flag ==
+				   MULTIPLY_DEFINED_SUPPRESS)
+				    continue;
+			}
 			else{
-#ifndef RLD
 			    if(told_ProjectBuilder == FALSE){
 				tell_ProjectBuilder("Multiply defined symbols");
 				told_ProjectBuilder = TRUE;
 			    }
-#endif
 			    error("multiple definitions of symbol %s",
 				  merged_symbol->nlist.n_un.n_name);
 			}
@@ -1877,7 +1919,7 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 		dynamic_library->indirect_twolevel_ref_flagged = TRUE;
 	    }
 	    /*
-	     * Don't change the reference type bits if n_desc field as it
+	     * Don't change the reference type bits of the n_desc field as it
 	     * contains the reference type (lazy or non-lazy).
 	     */
 	    merged_symbol->nlist.n_value = symbols[j].n_value;
@@ -1894,6 +1936,24 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 	    if(twolevel_namespace == TRUE){
 		SET_LIBRARY_ORDINAL(merged_symbol->nlist.n_desc,
 			    dynamic_library->definition_obj->library_ordinal);
+		/*
+		 * It is possible that a common or undefined symbol could have
+		 * been in the merged symbol table and this dylib module is now
+		 * replacing it.  If so we have to look it up in the table of
+		 * contents to get the correct index into the table of contents
+		 * for the hint to be recorded.
+		 */
+		if(merged_symbol->itoc == 0){
+		    bsearch_strings = dynamic_library->strings;
+		    bsearch_symbols = dynamic_library->symbols;
+		    toc = bsearch(merged_symbol->nlist.n_un.n_name,
+			      dynamic_library->tocs,
+			      dynamic_library->definition_obj->dysymtab->ntoc,
+			      sizeof(struct dylib_table_of_contents),
+			      (int (*)(const void *, const void *))
+				dylib_bsearch);
+		    merged_symbol->itoc = toc - dynamic_library->tocs;
+		}
 	    }
 	}
 
@@ -1934,30 +1994,83 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 		if(ntrace_syms != 0){
 		    for(k = 0; k < ntrace_syms; k++){
 			if(strcmp(trace_syms[k], symbol_name) == 0){
-			    trace_symbol(symbol_name, &(undefined_symbol),
-				     cur_obj, "error in trace_symbol()");
+			    if(force_flat_namespace == TRUE ||
+           		       (((struct mach_header *)(cur_obj->obj_addr))->
+				flags & MH_TWOLEVEL) != MH_TWOLEVEL){
+				trace_symbol(symbol_name, &(undefined_symbol),
+					 cur_obj, "error in trace_symbol()");
+			    }
+			    else{
+				print_obj_name(cur_obj);
+				library_ordinal = GET_LIBRARY_ORDINAL(symbols[
+				    refs[j].isym].n_desc);
+				if(library_ordinal != 0){
+				    dep = dynamic_library->dependent_images[
+					      library_ordinal - 1];
+				    if(dep->umbrella_name != NULL)
+					name = dep->umbrella_name;
+				    else if(dep->library_name != NULL)
+					name = dep->library_name;
+				    else
+					name = dep->dylib_name;
+				    print("reference to undefined %s (from %s)"
+					  "\n", symbol_name, name);
+				}
+				else
+				    print("reference to undefined %s\n",
+					  symbol_name);
+			    }
 			    break;
 			}
 		    }
 		}
-		/* lookup the symbol and see if it has already been seen */
-		hash_pointer = lookup_symbol(symbol_name);
-		if(*hash_pointer == NULL){
-		    /*
-		     * The symbol has not been seen yet so just enter it as an
-		     * undefined symbol and it will be returned.
-		     */
-		    merged_symbol = enter_symbol(hash_pointer,
-				&(undefined_symbol), symbol_name, cur_obj);
+		/*
+		 * If -force_flat_namespace is TRUE or this dylib is not a
+		 * two-level namespace dylib then use flat semantics to resolve
+		 * the undefined symbols from this dylib module.
+		 */
+		if(force_flat_namespace == TRUE ||
+		   (((struct mach_header *)(cur_obj->obj_addr))->flags &
+		   MH_TWOLEVEL) != MH_TWOLEVEL){
+		    /* lookup the symbol and see if it has already been seen */
+		    hash_pointer = lookup_symbol(symbol_name);
+		    if(*hash_pointer == NULL){
+			/*
+			 * The symbol has not been seen yet so just enter it as
+			 * an undefined symbol and it will be returned.
+			 */
+			merged_symbol = enter_symbol(hash_pointer,
+				    &(undefined_symbol), symbol_name, cur_obj);
+		    }
+		    else{
+			merged_symbol = *hash_pointer;
+		    }
+		    merged_symbol->nlist.n_desc |= REFERENCED_DYNAMICALLY;
 		}
 		else{
-		    merged_symbol = *hash_pointer;
+		    /*
+		     * This is a two-level namespace dylib so this must be
+		     * resolved to the symbol from the referenced dylib. To do
+		     * this we fake up a merged_symbol and place it on the
+		     * undefined list with the twolevel_reference bit set and
+		     * the referencing_library field set.  Then
+		     * search_dynamic_libs() in pass1.c will figure out which
+		     * dylib module is being referenced and load it.
+		     */
+		    merged_symbol = allocate(sizeof(struct merged_symbol));
+		    memset(merged_symbol, '\0', sizeof(struct merged_symbol));
+
+		    merged_symbol->nlist = symbols[refs[j].isym];
+		    merged_symbol->nlist.n_un.n_name = symbol_name;
+		    merged_symbol->definition_object = cur_obj;
+		    merged_symbol->twolevel_reference = TRUE;
+		    merged_symbol->referencing_library = dynamic_library;
+		    add_to_undefined_list(merged_symbol);
 		}
 		if(Yflag){
 		    cur_obj->undefined_maps[nundefineds++].merged_symbol =
 			merged_symbol;
 		}
-		merged_symbol->nlist.n_desc |= REFERENCED_DYNAMICALLY;
 	    }
 	}
 
@@ -2012,6 +2125,197 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 		}
 	    }
 	}
+}
+/*
+ * merge_bundle_loader_symbols() merges the symbols from the current object
+ * (cur_obj) which represents the bundle loader module into the merged symbol
+ * table.  The parameter dynamic_library is the dynamic library struct the
+ * current object is from.
+ */
+__private_extern__
+void
+merge_bundle_loader_symbols(
+struct dynamic_library *dynamic_library)
+{
+    unsigned long i, j, k, l;
+    char *strings, *symbol_name;
+    struct nlist *symbols;
+    enum bool was_traced;
+    struct merged_symbol **hash_pointer, *merged_symbol;
+
+	strings = cur_obj->obj_addr + cur_obj->symtab->stroff;
+	symbols = (struct nlist *)(cur_obj->obj_addr +
+				   cur_obj->symtab->symoff);
+	/*
+	 * Loop through the symbols defined by the bundle loader and merge them
+	 * into the merged symbol table.
+	 */
+	for(i = 0; i < cur_obj->dysymtab->nextdefsym; i++){
+	    j = i + cur_obj->dysymtab->iextdefsym;
+	    symbol_name = strings + symbols[j].n_un.n_strx;
+	    /*
+	     * Do the trace of the symbol_name if specified.
+	     */
+	    was_traced = FALSE;
+	    if(ntrace_syms != 0){
+		for(k = 0; k < ntrace_syms; k++){
+		    if(strcmp(trace_syms[k], symbol_name) == 0){
+			trace_symbol(symbol_name, &(pbud_symbol), cur_obj,
+			    "error in trace_symbol()");
+			was_traced = TRUE;
+			break;
+		    }
+		}
+	    }
+	    /* lookup the symbol_name and see if it has already been seen */
+	    hash_pointer = lookup_symbol(symbol_name);
+	    if(*hash_pointer == NULL){
+		/*
+		 * The symbol has not been seen yet so just enter it as a
+		 * prebound undefined.
+		 */
+		merged_symbol = enter_symbol(hash_pointer, &(pbud_symbol),
+					     symbol_name, cur_obj);
+	    }
+	    else{
+		merged_symbol = *hash_pointer;
+		/*
+		 * If both symbols are coalesced symbols then the this
+		 * symbol is simply ignored.
+		 */
+		if((((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
+		      ((merged_symbol->definition_object->section_maps[
+			   merged_symbol->nlist.n_sect - 1].s->flags) &
+			   SECTION_TYPE) == S_COALESCED) ||
+		     merged_symbol->coalesced_defined_in_dylib == TRUE) &&
+		   (symbols[j].n_type & N_TYPE) == N_SECT &&
+		   ((cur_obj->section_maps[symbols[j].n_sect - 1].
+			s->flags) & SECTION_TYPE) == S_COALESCED){
+		    continue;
+		}
+		/*
+		 * The symbol exist and both are not coalesced symbols.  So if
+		 * the merged symbol is anything but a common or undefined then
+		 * it is multiply defined.
+		 */
+		if(merged_symbol->nlist.n_type != (N_UNDF | N_EXT)){
+		    /*
+		     * It is multiply defined so the logic of the routine
+		     * multiply_defined() is copied here so that tracing a
+		     * symbol from a dylib module can be done.
+		     */
+		    for(k = 0; k < nmultiple_defs; k++){
+			if(strcmp(multiple_defs[k],
+				  merged_symbol->nlist.n_un.n_name) == 0)
+			    break;
+		    }
+		    for(l = 0; l < ntrace_syms; l++){
+			if(strcmp(trace_syms[l],
+				  merged_symbol->nlist.n_un.n_name) == 0)
+			    break;
+		    }
+		    /*
+		     * If -private_bundle is used then don't worry about any
+		     * multiply defined references.
+		     */
+		    if(private_bundle == TRUE)
+			break;
+		    if(k == nmultiple_defs){
+			if(allow_multiply_defined_symbols == TRUE){
+			    warning("multiple definitions of symbol %s",
+				  merged_symbol->nlist.n_un.n_name);
+			}
+			else if((twolevel_namespace == TRUE &&
+			    merged_symbol->defined_in_dylib == FALSE) ||
+			   (force_flat_namespace == FALSE &&
+			    ((((struct mach_header *)(cur_obj->obj_addr))->
+			        flags & MH_TWOLEVEL) == MH_TWOLEVEL ||
+			    (merged_symbol->defined_in_dylib == TRUE &&
+			     (((struct mach_header *)(merged_symbol->
+			        definition_object->obj_addr))->flags &
+   				MH_TWOLEVEL) == MH_TWOLEVEL)))){
+				if(multiply_defined_flag ==
+				   MULTIPLY_DEFINED_WARNING)
+				    warning("multiple definitions of symbol %s",
+					  merged_symbol->nlist.n_un.n_name);
+				else if(multiply_defined_flag ==
+				   MULTIPLY_DEFINED_ERROR){
+				    if(told_ProjectBuilder == FALSE){
+					tell_ProjectBuilder("Multiply defined "
+							    "symbols");
+					told_ProjectBuilder = TRUE;
+				    }
+				    error("multiple definitions of symbol %s",
+					  merged_symbol->nlist.n_un.n_name);
+				}
+				else if(multiply_defined_flag ==
+				   MULTIPLY_DEFINED_SUPPRESS)
+				    continue;
+			}
+			else{
+			    if(told_ProjectBuilder == FALSE){
+				tell_ProjectBuilder("Multiply defined symbols");
+				told_ProjectBuilder = TRUE;
+			    }
+			    error("multiple definitions of symbol %s",
+				  merged_symbol->nlist.n_un.n_name);
+			}
+			multiple_defs = reallocate(multiple_defs,
+			    (nmultiple_defs + 1) * sizeof(char *));
+			multiple_defs[nmultiple_defs++] =
+			    merged_symbol->nlist.n_un.n_name;
+			if(l == ntrace_syms)
+			    trace_merged_symbol(merged_symbol);
+		    }
+		    if(was_traced == FALSE)
+			trace_symbol(symbol_name, &(pbud_symbol), cur_obj,
+			    "error in trace_symbol()");
+		    continue;
+		}
+	    }
+	    merged_symbol->nlist.n_type = N_PBUD | N_EXT;
+	    merged_symbol->nlist.n_sect = NO_SECT;
+	    if((symbols[j].n_type & N_TYPE) == N_SECT &&
+		((cur_obj->section_maps[symbols[j].n_sect - 1].
+		  s->flags) & SECTION_TYPE) == S_COALESCED){
+		merged_symbol->coalesced_defined_in_dylib = TRUE;
+#ifdef COALESCE_DEBUG
+printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
+#endif
+	    }
+
+	    /*
+	     * Since this is the bundle loader it always has the library
+	     * ordinal EXECUTABLE_ORDINAL assigned to it and we don't have to
+	     * worry about illegal reference to an indirect "dynamic library".
+	     */
+
+	    /*
+	     * Don't change the reference type bits if n_desc field as it
+	     * contains the reference type (lazy or non-lazy).
+	     */
+	    merged_symbol->nlist.n_value = symbols[j].n_value;
+	    merged_symbol->definition_object = cur_obj;
+	    merged_symbol->defined_in_dylib = TRUE;
+	    if((symbols[j].n_type & N_TYPE) == N_INDR){
+		merged_symbol->nlist.n_type = N_INDR | N_EXT;
+		enter_indr_symbol(merged_symbol, symbols + j, strings, cur_obj);
+	    }
+	    /*
+	     * If -twolevel_namespace is in effect record the library ordinal 
+	     * that this symbol definition is in.
+	     */
+	    if(twolevel_namespace == TRUE){
+		SET_LIBRARY_ORDINAL(merged_symbol->nlist.n_desc,
+			    dynamic_library->definition_obj->library_ordinal);
+	    }
+	}
+
+	/*
+	 * For the bundle loader we simply ignore any undefined references it
+	 * might have and since it is a one module image there is nothing to
+	 * do for its private symbols.
+	 */
 }
 #endif !defined(RLD)
 
@@ -2613,6 +2917,8 @@ define_common_symbols(void)
 		for(i = 0; i < object_list->used; i++){
 		    object_file = &(object_list->object_files[i]);
 		    if(object_file->dylib)
+			continue;
+		    if(object_file->bundle_loader)
 			continue;
 		    if(object_file->dylinker)
 			continue;
@@ -3878,7 +4184,9 @@ void)
 /*
  * output_merged_symbols() readies the merged symbols for the output file (sets
  * string indexes and handles indirect symbols) and copies the merged symbols
- * and their strings to the output file.
+ * and their strings to the output file.  This routine also copies out the
+ * two-level namespace hints for the undefined symbols if they are to be in
+ * the output.
  */
 __private_extern__
 void
@@ -3890,6 +4198,7 @@ output_merged_symbols(void)
     struct merged_symbol *merged_symbol, *indr_symbol;
     struct string_block **q, *string_block;
     struct nlist *nlist;
+    struct twolevel_hint *hint;
 
 	if(strip_level == STRIP_ALL)
 	    return;
@@ -4095,10 +4404,6 @@ output_merged_symbols(void)
 		     output_dysymtab_info.dysymtab_command.nundefsym *
 		     sizeof(struct nlist));
 #endif
-	if(undefsyms_order != NULL){
-	    free(undefsyms_order);
-	    undefsyms_order = NULL;
-	}
 	/*
 	 * Copy the merged strings into the memory buffer for the output file.
 	 */
@@ -4127,6 +4432,42 @@ output_merged_symbols(void)
 					  output_merged_strsize -
 					  start_string_size);
 #endif /* !defined(RLD) */
+
+	/*
+	 * Lastly create and copy out the two-level namespace hints for the
+	 * undefined symbols.  This must be in the same order as the undefined
+	 * symbols so the undefsyms_order array is used.
+	 */
+	hint = (struct twolevel_hint *)(output_addr +
+			output_hints_info.twolevel_hints_command.offset);
+	if(output_for_dyld && twolevel_namespace == TRUE &&
+	   twolevel_namespace_hints == TRUE){
+	    for(i = 0; i < output_dysymtab_info.dysymtab_command.nundefsym;i++){
+		merged_symbol = undefsyms_order[i];
+		hint->isub_image = merged_symbol->definition_object->isub_image;
+		hint->itoc = merged_symbol->itoc;
+		hint++;
+	    }
+	    if(host_byte_sex != target_byte_sex){
+		hint = (struct twolevel_hint *)(output_addr +
+			    output_hints_info.twolevel_hints_command.offset);
+		swap_twolevel_hint(hint,
+			       output_dysymtab_info.dysymtab_command.nundefsym,
+			       target_byte_sex);
+	    }
+#ifndef RLD
+	    output_flush(output_hints_info.twolevel_hints_command.offset,
+			 output_dysymtab_info.dysymtab_command.nundefsym *
+			 sizeof(struct twolevel_hint));
+#endif
+	}
+	/*
+	 * Now the undefsyms_order array is no longer needed.
+	 */
+	if(undefsyms_order != NULL){
+	    free(undefsyms_order);
+	    undefsyms_order = NULL;
+	}
 }
 
 #if defined(RLD) && !defined(SA_RLD)
@@ -4248,6 +4589,13 @@ void)
     struct merged_symbol *merged_symbol;
     enum bool printed_undef, allowed_undef, prebound_undef;
     struct object_list *object_list, **q;
+#ifndef RLD
+    struct undefined_list *undefined, *prevs;
+    char *short_name;
+    struct dynamic_library *dep, *lib, *prev_lib;
+    unsigned long library_ordinal;
+    enum bool reported;
+#endif
 
 	errors_save = 0;
 	printed_undef = FALSE;
@@ -4318,6 +4666,80 @@ void)
 		}
 	    }
 	}
+
+#ifndef RLD
+	/*
+	 * There can be two-level references left on the undefined list.  These
+	 * are "fake" merged symbols as they are not entered in the symbol
+	 * merged table so the will not be reported in the above loop.  There
+	 * can be many references to the same symbol expected to be defined in
+	 * ( a specific library (from many different modules).
+	 */
+	for(undefined = undefined_list.next;
+	    undefined != &undefined_list;
+	    undefined = undefined->next){
+	    if(undefined->merged_symbol->twolevel_reference == TRUE){
+		/*
+		 * Avoid printing the same undefined symbol expected from a
+		 * a specific library more then once by checking if we have
+		 * already reported this symbol before.  This is very slow
+		 * method but this is an error case.
+		 */
+		library_ordinal = GET_LIBRARY_ORDINAL(
+				    undefined->merged_symbol->nlist.n_desc);
+		if(library_ordinal == SELF_LIBRARY_ORDINAL)
+		    lib = undefined->merged_symbol->referencing_library;
+		else
+		    lib = undefined->merged_symbol->referencing_library->
+			    dependent_images[library_ordinal - 1];
+		reported = FALSE;
+		for(prevs = undefined_list.next;
+		    prevs != undefined;
+		    prevs = prevs->next){
+		    library_ordinal = GET_LIBRARY_ORDINAL(
+					prevs->merged_symbol->nlist.n_desc);
+		    if(library_ordinal == SELF_LIBRARY_ORDINAL)
+			prev_lib = prevs->merged_symbol->referencing_library;
+		    else
+			prev_lib = prevs->merged_symbol->referencing_library->
+				dependent_images[library_ordinal - 1];
+		    if(lib == prev_lib &&
+		       strcmp(undefined->merged_symbol->nlist.n_un.n_name,
+			      prevs->merged_symbol->nlist.n_un.n_name) == 0){
+			reported = TRUE;
+			break;
+		    }
+		}
+		if(reported == FALSE){
+		    /*
+		     * Since these are undefined two-level references they are
+		     * never allowed and always cause an error.
+		     */
+		    if(printed_undef == FALSE){
+			error("Undefined symbols:");
+			printed_undef = TRUE;
+		    }
+		    print("%s ", undefined->merged_symbol->nlist.n_un.n_name);
+		    dep = undefined->merged_symbol->referencing_library;
+		    if(dep->umbrella_name != NULL)
+			short_name = dep->umbrella_name;
+		    else if(dep->library_name != NULL)
+			short_name = dep->library_name;
+		    else
+			short_name = dep->dylib_name;
+		    print("referenced from %s ", short_name);
+		    if(lib->umbrella_name != NULL)
+			short_name = lib->umbrella_name;
+		    else if(lib->library_name != NULL)
+			short_name = lib->library_name;
+		    else
+			short_name = lib->dylib_name;
+		    print("expected to be defined in %s\n", short_name);
+		}
+	    }
+	}
+#endif /* !defined(RLD) */
+
 	if(printed_undef == TRUE && Yflag != 0){
 	    Ycount = 0;
 	    for(q = &objects; *q; q = &(object_list->next)){
@@ -4325,6 +4747,8 @@ void)
 		for(i = 0; i < object_list->used; i++){
 		    cur_obj = &(object_list->object_files[i]);
 		    if(cur_obj->dylib && cur_obj->dylib_module == NULL)
+			continue;
+		    if(cur_obj->bundle_loader)
 			continue;
 		    if(cur_obj->dylinker)
 			continue;
@@ -4339,8 +4763,29 @@ void)
 				goto done;
 			    }
 			    print_obj_name(cur_obj);
-			    print("reference to undefined %s\n",
+			    print("reference to undefined %s",
 				  merged_symbol->nlist.n_un.n_name);
+#ifndef RLD
+			    if(merged_symbol->twolevel_reference == TRUE){
+				library_ordinal = GET_LIBRARY_ORDINAL(
+						   merged_symbol->nlist.n_desc);
+				if(library_ordinal == SELF_LIBRARY_ORDINAL)
+				    lib = merged_symbol->referencing_library;
+				else
+				    lib = merged_symbol->referencing_library->
+					  dependent_images[library_ordinal - 1];
+				if(lib->umbrella_name != NULL)
+				    short_name = lib->umbrella_name;
+				else if(lib->library_name != NULL)
+				    short_name = lib->library_name;
+				else
+				    short_name = lib->dylib_name;
+				print(" expected to be defined in %s\n",
+				      short_name);
+			    }
+			    else
+#endif /* !defined(RLD) */
+				print("\n");
 			    Ycount++;
 			}
 		    }
@@ -4491,6 +4936,8 @@ void)
 		cur_obj = &(object_list->object_files[i]);
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 #ifdef RLD
@@ -4637,6 +5084,13 @@ void)
 	}
 
 	/*
+	 * If -twolevel_namespace is in effect set the number of the two-level
+	 * hints in the hints table to the number of undefined symbols.
+	 */
+	if(twolevel_namespace == TRUE)
+	    output_hints_info.twolevel_hints_command.nhints = nundefsym;
+
+	/*
 	 * Assign the symbol indexes to the private extern symbols if they are
 	 * turned into local symbols.
 	 */
@@ -4749,6 +5203,8 @@ void)
 		cur_obj = &(object_list->object_files[i]);
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 		for(j = 0; j < cur_obj->nrefsym; j++){
@@ -4779,6 +5235,8 @@ void)
 	    for(i = 0; i < object_list->used; i++){
 		cur_obj = &(object_list->object_files[i]);
 		if(cur_obj->dylib == TRUE)
+		    continue;
+		if(cur_obj->bundle_loader == TRUE)
 		    continue;
 		cur_obj->imodtab =
 		    output_dysymtab_info.dysymtab_command.nmodtab;
@@ -4842,6 +5300,8 @@ void)
 		cur_obj = &(object_list->object_files[i]);
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 		for(j = 0; j < cur_obj->nrefsym; j++){
@@ -4872,6 +5332,8 @@ void)
 	    for(i = 0; i < object_list->used; i++){
 		cur_obj = &(object_list->object_files[i]);
 		if(cur_obj->dylib == TRUE)
+		    continue;
+		if(cur_obj->bundle_loader == TRUE)
 		    continue;
 		mod->module_name = STRING_SIZE_OFFSET +
 			       merged_symbol_string_index(cur_obj->module_name);

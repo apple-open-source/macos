@@ -34,6 +34,10 @@
 #undef ERROR
 #endif
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 
 #if HAVE_ICAP
@@ -45,7 +49,7 @@
 #include <stdarg.h>
 #include "cal.h"
 #include "php_icap.h"
-#include "modules.h"
+#include "zend_modules.h"
 #include "ext/standard/info.h"
 #include "ext/standard/basic_functions.h"
 #ifdef PHP_WIN32

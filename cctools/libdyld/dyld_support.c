@@ -100,6 +100,20 @@ const char *libraryNameHint)
 	return(p(symbolName, libraryNameHint));
 }
 
+enum bool
+NSIsSymbolNameDefinedInImage(
+const struct mach_header *image,
+const char *symbolName)
+{
+    static enum bool (*p)(const struct mach_header *image,
+			  const char *symbolName) = NULL;
+
+	if(p == NULL)
+	    _dyld_func_lookup("__dyld_NSIsSymbolNameDefinedInImage",
+			      (unsigned long *)&p);
+	return(p(image, symbolName));
+}
+
 NSSymbol
 NSLookupAndBindSymbol(
 const char *symbolName)
@@ -137,6 +151,22 @@ const char *symbolName)
 	    _dyld_func_lookup("__dyld_NSLookupSymbolInModule",
 			      (unsigned long *)&p);
 	return(p(module, symbolName));
+}
+
+NSSymbol
+NSLookupSymbolInImage(
+const struct mach_header *image,
+const char *symbolName,
+unsigned long options)
+{
+    static NSSymbol (*p)(const struct mach_header *image,
+			 const char *symbolName,
+			 unsigned long options) = NULL;
+
+	if(p == NULL)
+	    _dyld_func_lookup("__dyld_NSLookupSymbolInImage",
+			      (unsigned long *)&p);
+	return(p(image, symbolName, options));
 }
 
 const char *
@@ -193,6 +223,20 @@ const char *pathName)
 	    _dyld_func_lookup("__dyld_NSAddLibraryWithSearching",
 			      (unsigned long *)&p);
 	return(p(pathName));
+}
+
+const struct mach_header *
+NSAddImage(
+const char *image_name,
+unsigned long options)
+{
+    static const struct mach_header * (*p)(const char *image_name,
+					   unsigned long options) = NULL;
+
+	if(p == NULL)
+	    _dyld_func_lookup("__dyld_NSAddImage",
+			      (unsigned long *)&p);
+	return(p(image_name, options));
 }
 
 /*

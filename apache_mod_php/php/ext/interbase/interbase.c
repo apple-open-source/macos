@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jouni Ahto <jah@mork.net>                                   |
+   | Authors: Jouni Ahto <jouni.ahto@exdec.fi>                            |
    |          Andrew Avdeev <andy@rsc.mv.ru>                              |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: interbase.c,v 1.1.1.3 2001/01/25 04:59:24 wsanchez Exp $ */
+/* $Id: interbase.c,v 1.1.1.4 2001/07/19 00:19:18 zarzycki Exp $ */
 
 
 /* TODO: Arrays, roles?
@@ -34,6 +34,10 @@ A lot... */
 			  rfinish could be called repeatedly
 			  emalloc & co. replaced with malloc & co.
 */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -596,7 +600,7 @@ PHP_MINFO_FUNCTION(ibase)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Interbase Support", "enabled");    
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.4 $");
 #ifdef COMPILE_DL_INTERBASE
 	php_info_print_table_row(2, "Dynamic Module", "yes");
 #endif
@@ -1727,15 +1731,10 @@ static int _php_ibase_var_pval(pval *val, void *data, int type, int len, int sca
 			/* fallout */
 		case SQL_TEXT:
 			val->value.str.val = (char *)emalloc(sizeof(char)*(len+1));
-            strncpy(val->value.str.val, data, len);
+			memcpy(val->value.str.val, data, len);
+			val->value.str.val[len] = '\0';
 			if (PG(magic_quotes_runtime)) {
-				/*
-				char *tmp = val->value.str.val;
-				*/
-				val->value.str.val = php_addslashes(val->value.str.val, len, &len, 0);
-				/*
-				efree(tmp);
-				*/
+				val->value.str.val = php_addslashes(val->value.str.val, len, &len, 1);
             }
 			val->type = IS_STRING;
 			val->value.str.len = len;
@@ -1745,8 +1744,9 @@ static int _php_ibase_var_pval(pval *val, void *data, int type, int len, int sca
 				int j, f = 1;
 				float n = (float) *(long *)(data);
 				
-				for (j = 0; j < -scale; j++)
+				for (j = 0; j < -scale; j++) {
 					f *= 10;
+				}
 				val->type = IS_STRING;
 				val->value.str.len = sprintf(string_data, "%.*f", -scale, n / f);
 				val->value.str.val = estrdup(string_data);
@@ -1779,8 +1779,8 @@ static int _php_ibase_var_pval(pval *val, void *data, int type, int len, int sca
 #ifdef SQL_INT64
 		case SQL_INT64:
 			val->type = IS_STRING;
-			val->value.str.len = sprintf(string_data, "%Ld.%Ld",
-										 (ISC_INT64) (*((ISC_INT64 *)data) / (int) pow(10.0, (double) -scale)),
+			val->value.str.len = sprintf(string_data, "%Ld.%0*Ld",
+										 (ISC_INT64) (*((ISC_INT64 *)data) / (int) pow(10.0, (double) -scale)), -scale,
 										 (ISC_INT64) abs((int) (*((ISC_INT64 *)data) % (int) pow(10.0, (double) -scale))));
 			val->value.str.val = estrdup(string_data);
 			break;
@@ -2213,7 +2213,7 @@ PHP_FUNCTION(ibase_prepare)
 /* }}} */
 
 
-/* {{{ proto int ibase_execute(int query [, int bind_args [, int ...])
+/* {{{ proto int ibase_execute(int query [, int bind_args [, int ...]])
    Execute a previously prepared query */
 PHP_FUNCTION(ibase_execute)
 {
@@ -2831,10 +2831,6 @@ PHP_FUNCTION(ibase_blob_echo)
 
 	GET_BLOB_ID_ARG(blob_arg, ib_blob_id);
 	
-	if (!php_header()) {
-		RETURN_FALSE;
-	}
-
 	if (ib_blob_id) { /*not null ?*/
 		
 		if (isc_open_blob(IB_STATUS, &ib_blob_id->link, &ib_blob_id->trans_handle,

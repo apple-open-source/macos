@@ -150,7 +150,7 @@ int ssl3_change_cipher_state(SSL *s, int which)
 		{
 		if ((s->enc_read_ctx == NULL) &&
 			((s->enc_read_ctx=(EVP_CIPHER_CTX *)
-			Malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
+			OPENSSL_malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
 			goto err;
 		dd= s->enc_read_ctx;
 		s->read_hash=m;
@@ -170,7 +170,7 @@ int ssl3_change_cipher_state(SSL *s, int which)
 				}
 			if (s->s3->rrec.comp == NULL)
 				s->s3->rrec.comp=(unsigned char *)
-					Malloc(SSL3_RT_MAX_PLAIN_LENGTH);
+					OPENSSL_malloc(SSL3_RT_MAX_PLAIN_LENGTH);
 			if (s->s3->rrec.comp == NULL)
 				goto err;
 			}
@@ -181,7 +181,7 @@ int ssl3_change_cipher_state(SSL *s, int which)
 		{
 		if ((s->enc_write_ctx == NULL) &&
 			((s->enc_write_ctx=(EVP_CIPHER_CTX *)
-			Malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
+			OPENSSL_malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
 			goto err;
 		dd= s->enc_write_ctx;
 		s->write_hash=m;
@@ -300,7 +300,7 @@ int ssl3_setup_key_block(SSL *s)
 
 	ssl3_cleanup_key_block(s);
 
-	if ((p=Malloc(num)) == NULL)
+	if ((p=OPENSSL_malloc(num)) == NULL)
 		goto err;
 
 	s->s3->tmp.key_block_length=num;
@@ -320,7 +320,7 @@ void ssl3_cleanup_key_block(SSL *s)
 		{
 		memset(s->s3->tmp.key_block,0,
 			s->s3->tmp.key_block_length);
-		Free(s->s3->tmp.key_block);
+		OPENSSL_free(s->s3->tmp.key_block);
 		s->s3->tmp.key_block=NULL;
 		}
 	s->s3->tmp.key_block_length=0;
@@ -356,7 +356,7 @@ int ssl3_enc(SSL *s, int send)
 	if ((s->session == NULL) || (ds == NULL) ||
 		(enc == NULL))
 		{
-		memcpy(rec->data,rec->input,rec->length);
+		memmove(rec->data,rec->input,rec->length);
 		rec->input=rec->data;
 		}
 	else
@@ -366,7 +366,6 @@ int ssl3_enc(SSL *s, int send)
 
 		/* COMPRESS */
 
-		/* This should be using (bs-1) and bs instead of 7 and 8 */
 		if ((bs != 1) && send)
 			{
 			i=bs-((int)l%bs);
@@ -376,12 +375,24 @@ int ssl3_enc(SSL *s, int send)
 			rec->length+=i;
 			rec->input[l-1]=(i-1);
 			}
-
+		
+		if (!send)
+			{
+			if (l == 0 || l%bs != 0)
+				{
+				SSLerr(SSL_F_SSL3_ENC,SSL_R_BLOCK_CIPHER_PAD_IS_WRONG);
+				ssl3_send_alert(s,SSL3_AL_FATAL,SSL_AD_DECRYPT_ERROR);
+				return(0);
+				}
+			}
+		
 		EVP_Cipher(ds,rec->data,rec->input,l);
 
 		if ((bs != 1) && !send)
 			{
 			i=rec->data[l-1]+1;
+			/* SSL 3.0 bounds the number of padding bytes by the block size;
+			 * padding bytes (except that last) are arbitrary */
 			if (i > bs)
 				{
 				SSLerr(SSL_F_SSL3_ENC,SSL_R_BLOCK_CIPHER_PAD_IS_WRONG);
@@ -504,7 +515,10 @@ int ssl3_mac(SSL *ssl, unsigned char *md, int send)
 	EVP_DigestFinal( &md_ctx,md,&md_size);
 
 	for (i=7; i>=0; i--)
-		if (++seq[i]) break; 
+		{
+		++seq[i];
+		if (seq[i] != 0) break; 
+		}
 
 	return(md_size);
 	}

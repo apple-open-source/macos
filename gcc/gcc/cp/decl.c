@@ -2398,6 +2398,9 @@ push_namespace (name)
       if (flag_dump_symbols)
         printf ("+Nh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (d)), 
                 DECL_SOURCE_LINE (d));
+      if (flag_gen_index)
+        dump_symbol_info ("+Nh ", IDENTIFIER_POINTER (DECL_NAME (d)), 
+                DECL_SOURCE_LINE (d));
       /* The global namespace is not pushed, and the global binding
 	 level is set elsewhere.  */
       if (!global)
@@ -7354,7 +7357,7 @@ groktypename_in_parm_context (typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
                          TREE_PURPOSE (typename),
-                         PARM, 0, NULL_TREE, NULL_TREE);
+                         PARM, 0, NULL_TREE);
 }
 #endif /* OBJCPLUS */
 
@@ -7362,7 +7365,7 @@ groktypename_in_parm_context (typename)
 void 
 dump_function_def (decl)
      tree decl;
-{     
+{
   char ch;
 
   if (DECL_ARTIFICIAL (decl))
@@ -7370,26 +7373,26 @@ dump_function_def (decl)
 
   if (processing_template_decl)
     return; // stay away from templates. Peace!
-    
+
   if (DECL_USE_TEMPLATE (decl))
     return; // stay away from templates. Peace!
 
   ch = 'f';
   if (DECL_STATIC_FUNCTION_P (decl))
-     ch = '+';  
-  else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl) 
+     ch = '+';
+  else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
            || DECL_CONSTRUCTOR_P (decl)
            || DECL_DESTRUCTOR_P (decl))
      ch = '-';
   if (DECL_DESTRUCTOR_P (decl)) // display '~' in front of destructor name
-     printf ("+%cm ~%s %u\n", ch, 
-             IDENTIFIER_POINTER (DECL_NAME (decl)), 
+     printf ("+%cm ~%s %u\n", ch,
+             IDENTIFIER_POINTER (DECL_NAME (decl)),
              DECL_SOURCE_LINE (decl));
   else {
      if (IDENTIFIER_OPNAME_P (DECL_NAME (decl))) {
          /* Operator Method
             Decode the name and put 'operator' word before the name.  */
-        printf ("+%cm operator%s %u\n", ch, 
+        printf ("+%cm operator%s %u\n", ch,
                 operator_name_string (DECL_NAME (decl)),
                 DECL_SOURCE_LINE (decl));
      }
@@ -7397,8 +7400,8 @@ dump_function_def (decl)
        /* Do not print compiler generated function defs.
           Fix Me: Find better way!  */
        if (strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)), "_GLOBAL_", 8)) {
-         printf ("+%cm %s %u\n", ch, 
-                 IDENTIFIER_POINTER (DECL_NAME (decl)), 
+         printf ("+%cm %s %u\n", ch,
+                 IDENTIFIER_POINTER (DECL_NAME (decl)),
                  DECL_SOURCE_LINE (decl));
       }
     }
@@ -7414,40 +7417,40 @@ dump_function_def (decl)
             IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (decl))),
             DECL_SOURCE_LINE (DECL_CONTEXT (decl)));
   }
-}     
+}
 
-void
+void    
 dump_decl (declarator, declspecs)
      tree declarator;
      tree declspecs;
-{
+{      
   char ch = 'v';
   if (DECL_CLASS_SCOPE_P (declarator))
     ch = 'd';
   switch (TREE_CODE (declarator))
     {
     case FUNCTION_DECL:
-      printf ("+fh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+      printf ("+fh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)),
+              DECL_SOURCE_LINE (declarator)); 
+      break;
+    case CONST_DECL: 
+      printf ("+nh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)),
               DECL_SOURCE_LINE (declarator));
       break;
-    case CONST_DECL:
-      printf ("+nh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
-              DECL_SOURCE_LINE (declarator)); 
-      break;    
     case VAR_DECL:
       printf ("+%cm %s %u\n", ch,
-              IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+              IDENTIFIER_POINTER (DECL_NAME (declarator)),
               DECL_SOURCE_LINE (declarator));
       if (DECL_CLASS_SCOPE_P (declarator))
         {
-          if (TYPE_CHECK (DECL_CLASS_CONTEXT (declarator))) 
+          if (TYPE_CHECK (DECL_CLASS_CONTEXT (declarator)))
             {
               tree typename = TYPE_NAME (DECL_CLASS_CONTEXT (declarator));
               printf ("+%ci %s %u\n", ch,
                       IDENTIFIER_POINTER (DECL_NAME (typename)),
                       DECL_SOURCE_LINE (TYPE_NAME (DECL_CLASS_CONTEXT (declarator))));
-            } 
-          else if (DECL_CONTEXT (declarator)) 
+            }
+          else if (DECL_CONTEXT (declarator))
             {
               printf ("+%ci %s %u\n", ch,
                       IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (declarator))),
@@ -7456,10 +7459,123 @@ dump_decl (declarator, declspecs)
         }
       break;
     case TYPE_DECL:
+      // Do not print compiler generated function defs :Fix Me: Find better way
+      if (strncmp (IDENTIFIER_POINTER (DECL_NAME (declarator)), "_Trivial", 8))
+        if (strncmp (IDENTIFIER_POINTER (DECL_NAME (declarator)), "_Is_POD", 7))
+          printf ("+th %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)),
+                  DECL_SOURCE_LINE (declarator));
+      break;
+    default:
+      break;
+    }
+}
+
+void 
+gen_function_def_index (decl)
+     tree decl;
+{     
+  char fn_type; /* Function, Static Member Function or Member Function */
+  char buf[15];
+
+  if (DECL_ARTIFICIAL (decl) || processing_template_decl || DECL_USE_TEMPLATE (decl))
+    return; // stay away from templates. Peace!
+
+  fn_type = 'f';
+  if (DECL_STATIC_FUNCTION_P (decl))
+     fn_type = '+';  
+  else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl) 
+           || DECL_CONSTRUCTOR_P (decl)
+           || DECL_DESTRUCTOR_P (decl))
+     fn_type = '-';
+  if (DECL_DESTRUCTOR_P (decl)) // display '~' in front of destructor name
+  {
+     sprintf (&buf[0], "+%cm ", fn_type);
+     dump_symbol_info (buf, NULL, -1);
+     dump_symbol_info (NULL, "~", -1), 
+     dump_symbol_info (NULL, 
+             IDENTIFIER_POINTER (DECL_NAME (decl)), 
+             DECL_SOURCE_LINE (decl));
+  }
+  else {
+     if (IDENTIFIER_OPNAME_P (DECL_NAME (decl))) {
+         /* Operator Method
+            Decode the name and put 'operator' word before the name.  */
+        sprintf (&buf[0], "+%cm ", fn_type);
+        dump_symbol_info (buf, NULL, -1);
+        dump_symbol_info (NULL, "operator", -1);
+        dump_symbol_info (NULL, 
+                operator_name_string (DECL_NAME (decl)),
+                DECL_SOURCE_LINE (decl));
+     }
+     else {
+       /* Do not print compiler generated function defs.
+          Fix Me: Find better way!  */
+       if (strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)), "_GLOBAL_", 8)) {
+         sprintf (&buf[0], "+%cm ", fn_type);
+         dump_symbol_info (buf, 
+                 IDENTIFIER_POINTER (DECL_NAME (decl)), 
+                 DECL_SOURCE_LINE (decl));
+      }
+    }
+  }
+  if (TYPE_CHECK (DECL_CLASS_CONTEXT (decl))) {
+    sprintf (&buf[0], "+%ci ", fn_type);
+    dump_symbol_info (buf,
+            IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (DECL_CLASS_CONTEXT (decl)))),
+            DECL_SOURCE_LINE (TYPE_NAME (DECL_CLASS_CONTEXT (decl))));
+  } else if (DECL_CONTEXT (decl)) {
+    /* This function does not belong to any class.
+       It may belong to a name space.  */
+    sprintf (&buf[0], "+%ci ", fn_type);
+    dump_symbol_info (buf,
+            IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (decl))),
+            DECL_SOURCE_LINE (DECL_CONTEXT (decl)));
+  }
+}     
+
+void
+gen_decl_index (declarator, declspecs)
+     tree declarator;
+     tree declspecs;
+{
+  switch (TREE_CODE (declarator))
+    {
+    case FUNCTION_DECL:
+      dump_symbol_info ("+fh ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+              DECL_SOURCE_LINE (declarator));
+      break;
+    case CONST_DECL:
+      dump_symbol_info ("+nh ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+              DECL_SOURCE_LINE (declarator)); 
+      break;    
+    case VAR_DECL:
+      if (DECL_CLASS_SCOPE_P (declarator))
+        {
+          dump_symbol_info ("+dm ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                  DECL_SOURCE_LINE (declarator));
+          if (TYPE_CHECK (DECL_CLASS_CONTEXT (declarator))) 
+            {
+              tree typename = TYPE_NAME (DECL_CLASS_CONTEXT (declarator));
+              dump_symbol_info ("+di ",
+                      IDENTIFIER_POINTER (DECL_NAME (typename)),
+                      DECL_SOURCE_LINE (TYPE_NAME (DECL_CLASS_CONTEXT (declarator))));
+            } 
+          else if (DECL_CONTEXT (declarator)) 
+            {
+              dump_symbol_info ("+di ",
+                      IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (declarator))),
+                      DECL_SOURCE_LINE (DECL_CONTEXT (declarator)));
+            }
+        }
+      else
+        dump_symbol_info ("+vm ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                DECL_SOURCE_LINE (declarator));
+      break;
+    case TYPE_DECL:
       // Do not print compiler generated function defs :Fix Me: Find better way 
       if (strncmp (IDENTIFIER_POINTER (DECL_NAME (declarator)), "_Trivial", 8))
         if (strncmp (IDENTIFIER_POINTER (DECL_NAME (declarator)), "_Is_POD", 7))
-          printf ("+th %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+          dump_symbol_info ("+th ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
                   DECL_SOURCE_LINE (declarator));
       break;
     default:
@@ -7530,6 +7646,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 
   if (flag_dump_symbols)
     dump_decl (decl, declspecs);
+  if (flag_gen_index)
+    gen_decl_index (decl, declspecs);
 
   /* Don't lose if destructors must be executed at file-level.  */
   if (! processing_template_decl && TREE_STATIC (decl)
@@ -8532,12 +8650,9 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
 
 	     Except for the fact that setting TREE_SIDE_EFFECTS here
 	     will break any future attempt to pass DECL as a default
-	     parameter.  For now, we've added EXPRESSION_HAS_SIDE_EFFECTS_P
-	     in ".../apple/openstep.h" which checks for DECL_INITIAL
-	     being a CONSTRUCTOR.  I'm doubtful anyway, and it'll be
-	     interesting to see whether in fact this is still required.
-
-	     We should consider adding a separate TREE_MAY_BE_WRITTEN flag.  */
+	     parameter.  For now, we've added a separate 
+	     TREE_MAY_BE_WRITTEN flag which can be checked in the
+	     SELECT_SECTION macro.  */
 
 	  if (DECL_INITIAL (decl)) 
 	    {
@@ -8545,7 +8660,7 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
 	      /* Constructor initialization is always a side effect
 		 just like a function call.  */
 	      if (TREE_CODE (exp) == CONSTRUCTOR)
-		TREE_SIDE_EFFECTS (decl) = 1;
+		DECL_TREE_MAY_BE_WRITTEN (decl) = 1;
 	    }
 #endif
 	  rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
@@ -13795,6 +13910,8 @@ build_enumerator (name, value, type)
 
   if (flag_dump_symbols)
     printf ("+vm %s %u\n", IDENTIFIER_POINTER (name), lineno);
+  if (flag_gen_index)
+    dump_symbol_info ("+vm ", IDENTIFIER_POINTER (name), lineno);
 
   result = saveable_tree_cons (name, decl, NULL_TREE);
   return result;
@@ -13968,6 +14085,8 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
   announce_function (decl1);
   if (flag_dump_symbols)
     dump_function_def (decl1);
+  if (flag_gen_index)
+    gen_function_def_index (decl1);
 
   /* Set up current_class_type, and enter the scope of the class, if
      appropriate.  */
@@ -14554,8 +14673,24 @@ finish_function (lineno, flags, nested)
                || DECL_CONSTRUCTOR_P (fndecl) 
                || DECL_DESTRUCTOR_P (fndecl))
         ch = '-';
- 
-      printf ("-%cm %u\n", ch, lineno);
+      printf ("-%cm %u\n", ch, lineno); 
+    }
+
+  if (flag_gen_index
+     && !(DECL_ARTIFICIAL (fndecl))
+     && !(processing_template_decl)
+     && !(DECL_USE_TEMPLATE (fndecl)))
+    {
+      char buf[5]; 
+      char ch = 'f';
+      if (DECL_STATIC_FUNCTION_P (fndecl))
+        ch = '+';
+      else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fndecl) 
+               || DECL_CONSTRUCTOR_P (fndecl) 
+               || DECL_DESTRUCTOR_P (fndecl))
+        ch = '-';
+      sprintf (&buf[0], "-%cm ", ch);
+      dump_symbol_info (buf, NULL, lineno);
     }
 
   if (function_depth > 1)
@@ -15631,10 +15766,22 @@ in_function_p ()
 
 #ifdef NEXT_SEMANTICS
 
-#ifdef OBJCPLUS
-#define builtin_function(NAME, TYPE, CODE, LIBNAME) \
-  define_function (NAME, TYPE, CODE, (void (*)())pushdecl, LIBNAME)
-#endif
+char *
+apple_should_inline_func_p (fndecl)
+     tree fndecl;
+{
+  rtx insn;
+
+  if (DECL_DESTRUCTOR_P (fndecl))
+    for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))  
+      {  
+	if (insn && GET_CODE (insn) == NOTE  
+	    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG)  
+	  return ("complex destructor cannot be inline (EH/inliner bug, sorry)");  
+      }
+
+  return 0;
+}
 
 int
 call_destructor_dynamically (dfndecl)

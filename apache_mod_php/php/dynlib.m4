@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
 #  | PHP version 4.0                                                      |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2001 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -14,7 +14,7 @@
 #  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: dynlib.m4,v 1.3 2001/01/25 07:05:17 wsanchez Exp $ 
+# $Id: dynlib.m4,v 1.4 2001/07/19 00:47:33 zarzycki Exp $ 
 #
 
 

@@ -20,80 +20,94 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 31, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDNotifierCancel(SCDSessionRef session)
+Boolean
+SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	SCDStatus		scd_status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	int				sc_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierCancel:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyCancel:"));
 
-	if (session == NULL) {
-		return SCD_NOSESSION;		/* you can't do anything without a session */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	if (sessionPrivate->notifyStatus == NotifierNotRegistered) {
-		/* nothing to do, no notifications have been registered */
-		return SCD_OK;
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
 	}
 
-	/*  if SCDNotifierInformViaCallback() active, stop the background thread  */
-	if (sessionPrivate->callbackFunction != NULL) {
+	switch (storePrivate->notifyStatus) {
+		case NotifierNotRegistered :
+			/* if no notifications have been registered */
+			return TRUE;
+		case Using_NotifierInformViaRunLoop :
+			/* once activated, a RunLoop notifier cannot be cancelled */
+			_SCErrorSet(kSCStatusNotifierActive);
+			return FALSE;
+		case Using_NotifierInformViaCallback :
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  cancel callback runloop source"));
 
-		if (SCDOptionGet(session, kSCDOptionUseCFRunLoop)) {
-			SCDLog(LOG_DEBUG, CFSTR("  cancel callback runloop source"));
-
-			/* XXX invalidating the port is not sufficient, remove the run loop source */
-			CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-					      sessionPrivate->callbackRunLoopSource,
+			/* remove the run loop source */
+			CFRunLoopRemoveSource(storePrivate->callbackRunLoop,
+					      storePrivate->callbackRunLoopSource,
 					      kCFRunLoopDefaultMode);
-			CFRelease(sessionPrivate->callbackRunLoopSource);
+			CFRelease(storePrivate->callbackRunLoopSource);
 
 			/* invalidate port */
-			CFMachPortInvalidate(sessionPrivate->callbackPort);
-			CFRelease(sessionPrivate->callbackPort);
-		} else {
-			int		ts;
+			CFMachPortInvalidate(storePrivate->callbackPort);
+			CFRelease(storePrivate->callbackPort);
 
-			SCDLog(LOG_DEBUG, CFSTR("  cancel callback thread"));
-			ts = pthread_cancel(sessionPrivate->callbackHelper);
-			if (ts != 0) {
-				SCDLog(LOG_DEBUG, CFSTR("  pthread_cancel(): %s"), strerror(ts));
-			}
-		}
-
-		sessionPrivate->callbackFunction	= NULL;
-		sessionPrivate->callbackArgument	= NULL;
-		sessionPrivate->callbackPort		= NULL;
-		sessionPrivate->callbackRunLoopSource	= NULL;	/* XXX */
-		sessionPrivate->callbackHelper		= NULL;
+			storePrivate->callbackArgument		= NULL;
+			storePrivate->callbackFunction		= NULL;
+			storePrivate->callbackRunLoop		= NULL;
+			storePrivate->callbackRunLoopSource	= NULL;
+			storePrivate->callbackPort		= NULL;
+			break;
+		default :
+			break;
 	}
 
-	if (sessionPrivate->server == MACH_PORT_NULL) {
-		return SCD_NOSESSION;		/* you must have an open session to play */
-	}
-
-	status = notifycancel(sessionPrivate->server, (int *)&scd_status);
+	status = notifycancel(storePrivate->server, (int *)&sc_status);
 
 	/* set notifier inactive */
-	sessionPrivate->notifyStatus = NotifierNotRegistered;
+	storePrivate->notifyStatus = NotifierNotRegistered;
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("notifycancel(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifycancel(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-	return scd_status;
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
+	}
+
+	return TRUE;
 }

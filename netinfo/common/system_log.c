@@ -10,6 +10,7 @@ static syslock *log_lock = NULL;
 static FILE *log_fp = NULL;
 static char *log_title = NULL;
 static int log_facility = -1;
+static int log_max_priority = LOG_NOTICE;
 
 int
 log_name_to_facility(char *name)
@@ -132,9 +133,26 @@ system_log_set_logfile(FILE *fp)
 }
 
 void
+system_log_set_max_priority(int p)
+{
+	if (log_lock == NULL) log_lock = syslock_new(0);
+	syslock_lock(log_lock);
+	log_max_priority = p;
+	syslock_unlock(log_lock);
+}
+
+int
+system_log_max_priority(void)
+{
+	return log_max_priority;
+}
+
+void
 system_log(int priority, char *str, ...)
 {
 	va_list ap;
+
+	if (priority > log_max_priority) return;
 
 	if (log_lock == NULL) log_lock = syslock_new(0);
 	syslock_lock(log_lock);

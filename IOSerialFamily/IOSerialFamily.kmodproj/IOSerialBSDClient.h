@@ -46,6 +46,8 @@ public:
     //
     // IOService overrides
     //
+    virtual void free();
+
     virtual bool start(IOService *provider);
     virtual void stop(IOService *provider);
     virtual bool matchPropertyTable(OSDictionary *table);
@@ -103,6 +105,9 @@ protected:
     /*
      * TTY glue layer private routines
      */
+    virtual int open(dev_t dev, int flags, int devtype, struct proc *p);
+    virtual void close(dev_t dev, int flags, int devtype, struct proc *p);
+
     virtual bool createDevNodes();
     virtual bool setBaseTypeForDev();
     virtual void initState();
@@ -135,7 +140,7 @@ private:
     static int  iossclose(dev_t dev, int flags, int devtype, struct proc *p);
     static int  iossread(dev_t dev, struct uio *uio, int ioflag);
     static int  iosswrite(dev_t dev, struct uio *uio, int ioflag);
-    static int  iossselect(dev_t dev, int which, struct proc *p);
+    static int  iossselect(dev_t dev, int which, void *wql, struct proc *p);
     static int  iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
                             struct proc *p);
     static int  iossstop(struct tty *tp, int rw);

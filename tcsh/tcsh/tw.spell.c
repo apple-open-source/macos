@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.spell.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.spell.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
 /*
  * tw.spell.c: Spell check words
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.spell.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $")
+RCSID("$Id: tw.spell.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $")
 
 #include "tw.h"
 

@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _COMMANDS_H
 #define _COMMANDS_H
 
@@ -31,17 +41,19 @@ typedef struct {
 	int	maxArgs;
 	void	(*func)();
 	int	group;
+	int	ctype;	/* 0==normal, 1==limited, 2==private */
 	char	*usage;
 } cmdInfo;
 
 extern const cmdInfo	commands[];
 extern const int	nCommands;
+extern Boolean		enablePrivateAPI;
 
 __BEGIN_DECLS
 
-void	do_command		__P((int argc, char **argv));
-void	do_help			__P((int argc, char **argv));
-void	do_readFile		__P((int argc, char **argv));
+void	do_command		(int argc, char **argv);
+void	do_help			(int argc, char **argv);
+void	do_readFile		(int argc, char **argv);
 
 __END_DECLS
 

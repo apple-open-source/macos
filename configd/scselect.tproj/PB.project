@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        FRAMEWORKS = (SystemConfiguration.framework); 
+        FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework); 
         H_FILES = (); 
         OTHER_LINKED = (scselect.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, m.template, h.template); 
@@ -13,6 +13,7 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_COMPILEROPTIONS = "-DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS"; 
     NEXTSTEP_INSTALLDIR = /usr/sbin; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

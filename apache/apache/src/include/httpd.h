@@ -1,58 +1,59 @@
 /* ====================================================================
- * Copyright (c) 1995-1999 The Apache Group.  All rights reserved.
+ * The Apache Software License, Version 1.1
+ *
+ * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
+ *    notice, this list of conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
  *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
+ * 3. The end-user documentation included with the redistribution,
+ *    if any, must include the following acknowledgment:
+ *       "This product includes software developed by the
+ *        Apache Software Foundation (http://www.apache.org/)."
+ *    Alternately, this acknowledgment may appear in the software itself,
+ *    if and wherever such third-party acknowledgments normally appear.
  *
- * 4. The names "Apache Server" and "Apache Group" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    apache@apache.org.
+ * 4. The names "Apache" and "Apache Software Foundation" must
+ *    not be used to endorse or promote products derived from this
+ *    software without prior written permission. For written
+ *    permission, please contact apache@apache.org.
  *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
+ * 5. Products derived from this software may not be called "Apache",
+ *    nor may "Apache" appear in their name, without prior written
+ *    permission of the Apache Software Foundation.
  *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
- *
- * THIS SOFTWARE IS PROVIDED BY THE APACHE GROUP ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE APACHE GROUP OR
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
  * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  * ====================================================================
  *
  * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Group and was originally based
- * on public domain software written at the National Center for
- * Supercomputing Applications, University of Illinois, Urbana-Champaign.
- * For more information on the Apache Group and the Apache HTTP server
- * project, please see <http://www.apache.org/>.
+ * individuals on behalf of the Apache Software Foundation.  For more
+ * information on the Apache Software Foundation, please see
+ * <http://www.apache.org/>.
  *
+ * Portions of this software are based upon public domain software
+ * originally written at the National Center for Supercomputing Applications,
+ * University of Illinois, Urbana-Champaign.
  */
 
 #ifndef APACHE_HTTPD_H
@@ -85,7 +86,7 @@ extern "C" {
 #elif defined(WIN32)
 /* Set default for Windows file system */
 #define HTTPD_ROOT "/apache"
-#elif defined(BEOS)
+#elif defined(BEOS) || defined(BONE)
 #define HTTPD_ROOT "/boot/home/apache"
 #elif defined(NETWARE)
 #define HTTPD_ROOT "sys:/apache"
@@ -312,6 +313,8 @@ extern "C" {
 #ifndef HARD_SERVER_LIMIT
 #ifdef WIN32
 #define HARD_SERVER_LIMIT 1024
+#elif defined(NETWARE)
+#define HARD_SERVER_LIMIT 2048
 #else
 #define HARD_SERVER_LIMIT 256
 #endif
@@ -429,7 +432,7 @@ extern "C" {
 
 #define SERVER_BASEVENDOR   "Apache Group"
 #define SERVER_BASEPRODUCT  "Apache"
-#define SERVER_BASEREVISION "1.3.14"
+#define SERVER_BASEREVISION "1.3.20"
 #define SERVER_BASEVERSION  SERVER_BASEPRODUCT "/" SERVER_BASEREVISION
 
 #define SERVER_PRODUCT  SERVER_BASEPRODUCT
@@ -450,7 +453,7 @@ API_EXPORT(const char *) ap_get_server_built(void);
  * Always increases along the same track as the source branch.
  * For example, Apache 1.4.2 would be '10402100', 2.5b7 would be '20500007'.
  */
-#define APACHE_RELEASE 10314100
+#define APACHE_RELEASE 10320100
 
 #define SERVER_PROTOCOL "HTTP/1.1"
 #ifndef SERVER_SUPPORT
@@ -615,7 +618,7 @@ API_EXPORT(const char *) ap_get_server_built(void);
 #define CRLF "\015\012"
 #define OS_ASC(c) (c)
 #else /* CHARSET_EBCDIC */
-#include "ebcdic.h"
+#include "ap_ebcdic.h"
 /* OSD_POSIX uses the EBCDIC charset. The transition ASCII->EBCDIC is done in
  * the buff package (bread/bputs/bwrite), so everywhere else, we use
  * "native EBCDIC" CR and NL characters. These are therefore defined as
@@ -831,6 +834,17 @@ struct request_rec {
      * happy.
      */
     char *case_preserved_filename;
+
+#ifdef CHARSET_EBCDIC
+    /* We don't want subrequests to modify our current conversion flags.
+     * These flags save the state of the conversion flags when subrequests
+     * are run.
+     */
+    struct {
+        unsigned conv_in:1;    /* convert ASCII->EBCDIC when read()ing? */
+        unsigned conv_out:1;   /* convert EBCDIC->ASCII when write()ing? */
+    } ebcdic;
+#endif
 
 /* Things placed at the end of the record to avoid breaking binary
  * compatibility.  It would be nice to remember to reorder the entire
@@ -1111,17 +1125,15 @@ API_EXPORT(char *) ap_os_systemcase_filename(pool *pPool, const char *szFile);
 API_EXPORT(char *) ap_os_case_canonical_filename(pool *pPool, const char *szFile);
 API_EXPORT(char *) ap_os_systemcase_filename(pool *pPool, const char *szFile);
 #else
-/* XXX: This makes little sense for NETWARE ... NETWARE is case insensitive?
- */
 #define ap_os_case_canonical_filename(p,f) ap_os_canonical_filename(p,f)
 #define ap_os_systemcase_filename(p,f) ap_os_canonical_filename(p,f)
 #endif
 #endif
 
-#ifdef _OSD_POSIX
-extern const char *os_set_account(pool *p, const char *account);
-extern int os_init_job_environment(server_rec *s, const char *user_name, int one_process);
-#endif /* _OSD_POSIX */
+#ifdef CHARSET_EBCDIC
+API_EXPORT(int)    ap_checkconv(struct request_rec *r);    /* for downloads */
+API_EXPORT(int)    ap_checkconv_in(struct request_rec *r); /* for uploads */
+#endif /*#ifdef CHARSET_EBCDIC*/
 
 char *ap_get_local_host(pool *);
 unsigned long ap_get_virthost_addr(char *hostname, unsigned short *port);

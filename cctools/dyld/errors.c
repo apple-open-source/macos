@@ -40,6 +40,7 @@
 #import "errors.h"
 #import "debug.h"
 #import "lock.h"
+#import "dyld_init.h"
 
 /*
  * This used to print the error codes as symbolic values and is set to TRUE in
@@ -112,6 +113,7 @@ check_and_report_undefineds(
 void)
 {
     struct symbol_list *undefined;
+    struct image *primary_image;
 
 	if(undefined_list.next == &undefined_list)
 	    return(TRUE);
@@ -139,7 +141,49 @@ void)
 	for(undefined = undefined_list.next;
 	    undefined != &undefined_list;
 	    undefined = undefined->next){
-	    add_error_string("%s\n", undefined->name);
+	    if(undefined->image != NULL && undefined->symbol != NULL &&
+	       force_flat_namespace == FALSE &&
+	       (undefined->image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+		if(undefined->image->umbrella_name != NULL)
+		    add_error_string("%.*s undefined reference to %s expected "
+			"to be defined in ",
+			(int)undefined->image->name_size,
+			undefined->image->umbrella_name, undefined->name);
+		else
+		    add_error_string("%s undefined reference to %s expected "
+			"to be defined in ", undefined->image->name,
+			undefined->name);
+		if(GET_LIBRARY_ORDINAL(undefined->symbol->n_desc) ==
+		   EXECUTABLE_ORDINAL)
+		    add_error_string("the executable\n");
+		else if(GET_LIBRARY_ORDINAL(undefined->symbol->n_desc) ==
+			SELF_LIBRARY_ORDINAL){
+		    if(undefined->image->umbrella_name != NULL)
+			add_error_string("%.*s\n",
+			    (int)undefined->image->name_size,
+			    undefined->image->umbrella_name);
+		    else
+			add_error_string("%s\n", undefined->image->name);
+		}
+		else{
+		    /* could make this check
+		    if(GET_LIBRARY_ORDINAL(undefined->symbol->n_desc) - 1 >
+		       image.ndependent_images)
+			<<< bad LIBRARY_ORDINAL in object file >>>
+		    */
+		    primary_image = undefined->image->dependent_images[
+			    GET_LIBRARY_ORDINAL(undefined->symbol->n_desc) - 1];
+		    if(primary_image->umbrella_name != NULL)
+			add_error_string("%.*s\n",
+			    (int)primary_image->name_size,
+			    primary_image->umbrella_name);
+		    else
+			add_error_string("%s\n", primary_image->name);
+		}
+	    }
+	    else{
+		add_error_string("%s\n", undefined->name);
+	    }
 	}
 
 	/*
@@ -211,7 +255,7 @@ char *prev_module_name)
 		symbol_value = new_symbol->n_value;
 		if((new_symbol->n_type & N_TYPE) != N_ABS)
 		    symbol_value += new_image->vmaddr_slide;
-		change_symbol_pointers_in_images(symbol_name, symbol_value,
+		change_symbol_pointers_in_flat_images(symbol_name, symbol_value,
 						 FALSE);
 	    }
 	    return;
@@ -315,6 +359,11 @@ char *file_name)
 	    error_class = DYLD_MACH_RESOURCE;
 	    if(return_on_error == TRUE)
 		recoverable = TRUE;
+	}
+	if(error_class == DYLD_OTHER_ERROR &&
+	   error_number == DYLD_INVALID_ARGS &&
+	   return_on_error == TRUE){
+	    recoverable = TRUE;
 	}
 
 	/*

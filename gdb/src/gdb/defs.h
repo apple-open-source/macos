@@ -1240,6 +1240,17 @@ extern void (*stack_changed_hook) PARAMS ((void));
 /* called when command line input is needed */
 extern char * (*command_line_input_hook) PARAMS ((char *, int, char *));
 
+/* these <command>_hooks are called after the command has processed its arguments 
+   and just before it calls out to do the work of the command */
+/* called when a stepping command (step, next, stepi, nexti) is issued */
+extern void (*stepping_command_hook) PARAMS ((void));
+
+/* called when the continue command is issued */
+extern void (*continue_command_hook) PARAMS ((void));
+
+/* called when the run command is issued; return 1 means do the run; 0 means do not */
+extern int (*run_command_hook) PARAMS ((void));
+
 /* Inhibit window interface if non-zero. */
 
 extern int use_windows;

@@ -40,35 +40,24 @@
 #define BOOTER_ADDR         0x003000    // start of booter code
 #define BOOTER_LEN          0x00B000
 #define STACK_ADDR          0x00FFF0
-#define BOOTSTRUCT_ADDR     0x011000
-#define BOOTSTRUCT_LEN      0x00F000    // it's slightly smaller
-#define EISA_CONFIG_ADDR    0x020000
-#define EISA_CONFIG_LEN     0x010000
-#define RLD_ADDR            0x030000
+#define BOOTSTRUCT_ADDR     0x011000    // it's slightly smaller
+#define BOOTSTRUCT_LEN      0x00F000
+#define RLD_ADDR            0x030000    // not used
 #define RLD_LEN             0x070000
 #define VIDEO_ADDR          0x0A0000    // unusable space
 #define VIDEO_LEN           0x060000
-#define KERNEL_ADDR         0x100000
-#define KERNEL_LEN          0x400000
-#define RLD_MEM_ADDR        0x500000
-#define RLD_MEM_LEN         0x100000
-#define ZALLOC_ADDR         0x600000
+#define KERNEL_ADDR         0x100000    // 14Mb kernel + drivers
+#define KERNEL_LEN          0xe00000
+#define ZALLOC_ADDR         0xf00000    // 1Mb for zalloc
 #define ZALLOC_LEN          0x100000
-#define MODULE_ADDR         0x700000    // to be used for compression..
-#define MODULE_LEN          0x080000
-#define KSYM_ADDR           0x780000
-#define KSYM_LEN            0x080000    // 512k
-#define TFTP_ADDR           0x800000    // 8MB
-#define TFTP_LEN            0x400000    // 4MB buffer size
+#define TFTP_ADDR           0x1000000   // 8Mb download buffer
+#define TFTP_LEN            0x800000
 
-/* these are physical values */
+/* These are physical values */
 
-#define CONVENTIONAL_LEN    0x0A0000    // 640k
-#define EXTENDED_ADDR       0x100000    // 1024k
-#define KERNEL_BOOT_ADDR    KERNEL_ADDR /* load at 1Mb */
-
-#define SAIO_TABLE_POINTER      (BOOTER_ADDR + SAIO_TABLE_PTR_OFFSET)
-#define SAIO_TABLE_PTR_OFFSET   0x30
+#define CONVENTIONAL_LEN    0x0A0000      // 640k
+#define EXTENDED_ADDR       0x100000      // 1024k
+#define KERNEL_BOOT_ADDR    KERNEL_ADDR   // load at 1Mb
 
 #define ptov(paddr) ((paddr) - MEMBASE)
 #define vtop(vaddr) ((vaddr) + MEMBASE)
@@ -77,7 +66,9 @@
  * Limits to the size of various things...
  */
 
-/* We need a minimum of 12Mb of system memory. */
-#define MIN_SYS_MEM_KB  (12 * 1024)
+/*
+ * We need a minimum of 24Mb of system memory.
+ */
+#define MIN_SYS_MEM_KB  (24 * 1024)
 
 #endif /* !__BOOT_MEMORY_H */

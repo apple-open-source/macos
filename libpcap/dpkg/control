@@ -1,0 +1,7 @@
+Package: libpcap
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: tcpdump.org
+Version: 0.6.2
+URL: http://www.tcpdump.org
+Build-Depends: build-base, flex, yacc
+Description: 

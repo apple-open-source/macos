@@ -20,6 +20,7 @@ CFG=TSRM - Win32 Debug_TS
 !MESSAGE "TSRM - Win32 Debug_TS" (based on "Win32 (x86) Static Library")
 !MESSAGE "TSRM - Win32 Release_TS" (based on "Win32 (x86) Static Library")
 !MESSAGE "TSRM - Win32 Release_TS_inline" (based on "Win32 (x86) Static Library")
+!MESSAGE "TSRM - Win32 Release_TSDbg" (based on "Win32 (x86) Static Library")
 !MESSAGE 
 
 # Begin Project
@@ -98,6 +99,29 @@ LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
+!ELSEIF  "$(CFG)" == "TSRM - Win32 Release_TSDbg"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "TSRM___Win32_Release_TSDbg"
+# PROP BASE Intermediate_Dir "TSRM___Win32_Release_TSDbg"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "Release_TSDbg"
+# PROP Intermediate_Dir "Release_TSDbg"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "." /D "NDEBUG" /D "ZTS" /D "_LIB" /D "TSRM_EXPORTS" /D "WIN32" /D "_MBCS" /D TSRM_DEBUG=0 /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /Zi /Od /I "." /D "NDEBUG" /D "ZTS" /D "_LIB" /D "TSRM_EXPORTS" /D "WIN32" /D "_MBCS" /D TSRM_DEBUG=0 /YX /FD /c
+# ADD BASE RSC /l 0x40d /d "NDEBUG"
+# ADD RSC /l 0x40d /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+
 !ENDIF 
 
 # Begin Target
@@ -105,6 +129,7 @@ LIB32=link.exe -lib
 # Name "TSRM - Win32 Debug_TS"
 # Name "TSRM - Win32 Release_TS"
 # Name "TSRM - Win32 Release_TS_inline"
+# Name "TSRM - Win32 Release_TSDbg"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
@@ -120,10 +145,18 @@ SOURCE=.\tsrm_strtok_r.c
 
 SOURCE=.\tsrm_virtual_cwd.c
 # End Source File
+# Begin Source File
+
+SOURCE=.\tsrm_win32.c
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\readdir.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\TSRM.h
@@ -143,6 +176,10 @@ SOURCE=.\tsrm_strtok_r.h
 # Begin Source File
 
 SOURCE=.\tsrm_virtual_cwd.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tsrm_win32.h
 # End Source File
 # End Group
 # End Target

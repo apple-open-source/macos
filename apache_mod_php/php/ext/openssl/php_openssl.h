@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_openssl.h,v 1.1.1.1 2001/01/25 04:59:46 wsanchez Exp $ */
+/* $Id: php_openssl.h,v 1.1.1.2 2001/07/19 00:19:42 zarzycki Exp $ */
 
 #ifndef PHP_OPENSSL_H
 #define PHP_OPENSSL_H
@@ -31,15 +31,25 @@ PHP_MINFO_FUNCTION(openssl);
 PHP_FUNCTION(openssl_get_privatekey);
 PHP_FUNCTION(openssl_get_publickey);
 PHP_FUNCTION(openssl_free_key);
-#if 0
-PHP_FUNCTION(openssl_read_publickey);
-PHP_FUNCTION(openssl_read_x509);
-PHP_FUNCTION(openssl_free_x509);
-#endif
+PHP_FUNCTION(openssl_x509_read);
+PHP_FUNCTION(openssl_x509_free);
 PHP_FUNCTION(openssl_sign);
 PHP_FUNCTION(openssl_verify);
 PHP_FUNCTION(openssl_seal);
 PHP_FUNCTION(openssl_open);
+PHP_FUNCTION(openssl_private_encrypt);
+PHP_FUNCTION(openssl_private_decrypt);
+PHP_FUNCTION(openssl_public_encrypt);
+PHP_FUNCTION(openssl_public_decrypt);
+
+PHP_FUNCTION(openssl_pkcs7_verify);
+PHP_FUNCTION(openssl_pkcs7_decrypt);
+PHP_FUNCTION(openssl_pkcs7_sign);
+PHP_FUNCTION(openssl_pkcs7_encrypt);
+
+PHP_FUNCTION(openssl_error_string);
+PHP_FUNCTION(openssl_x509_parse);
+PHP_FUNCTION(openssl_x509_checkpurpose);
 
 #else
 

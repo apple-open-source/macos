@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>DHCPAcceptsBOOTP</key>
+	<false/>
+	<key>DHCPRequestedParameterList</key>
+	<array>
+		<integer>1</integer>
+		<integer>3</integer>
+		<integer>6</integer>
+		<integer>15</integer>
+		<integer>112</integer>
+		<integer>113</integer>
+		<integer>78</integer>
+		<integer>79</integer>
+	</array>
+	<key>GatherTimeSeconds</key>
+	<integer>2</integer>
+	<key>LinkInactiveWaitTimeSeconds</key>
+	<integer>4</integer>
+	<key>MustBroadcast</key>
+	<false/>
+	<key>RetryCount</key>
+	<integer>2</integer>
+	<key>Verbose</key>
+	<false/>
+</dict>
+</plist>

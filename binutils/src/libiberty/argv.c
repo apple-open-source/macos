@@ -207,7 +207,7 @@ NOTES
 */
 
 char **buildargv (input)
-char *input;
+const char *input;
 {
   char *arg;
   char *copybuf;

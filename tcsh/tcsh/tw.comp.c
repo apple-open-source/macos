@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.comp.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.comp.c,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $ */
 /*
  * tw.comp.c: File completion builtin
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.comp.c,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $")
+RCSID("$Id: tw.comp.c,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $")
 
 #include "tw.h"
 #include "ed.h"
@@ -265,7 +265,7 @@ tw_match(str, pat)
     xprintf("%s, ", short2str(pat));
     xprintf("%s) = %d [%d]\n", short2str(estr), rv, estr - str);
 #endif /* TDEBUG */
-    return (rv ? estr - str : -1);
+    return (int) (rv ? estr - str : -1);
 }
 
 

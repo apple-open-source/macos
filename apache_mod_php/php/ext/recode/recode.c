@@ -16,9 +16,13 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: recode.c,v 1.1.1.2 2000/09/07 00:05:56 wsanchez Exp $ */
+/* $Id: recode.c,v 1.1.1.3 2001/07/19 00:19:56 zarzycki Exp $ */
 
 /* {{{ includes & prototypes */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_recode.h"
@@ -96,7 +100,7 @@ PHP_MINFO_FUNCTION(recode)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Recode Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.2 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.3 $");
 	php_info_print_table_end();
 
 }
@@ -111,6 +115,7 @@ PHP_FUNCTION(recode_string)
 	pval **str;
 	pval **req;
 	bool success;
+	int r_len=0, r_alen =0;
 	
 	ReSLS_FETCH();
 	if (ZEND_NUM_ARGS() != 2
@@ -132,13 +137,13 @@ PHP_FUNCTION(recode_string)
 		goto error_exit;
 	}
 	
-	r = recode_string(request, (*str)->value.str.val);
+	recode_buffer_to_buffer(request, Z_STRVAL_PP(str), Z_STRLEN_PP(str), &r, &r_len, &r_alen);
 	if (!r) {
 		php_error(E_WARNING, "Recoding failed.");
 		goto error_exit;
 	}
 	
-	RETVAL_STRING(r, 1);
+	RETVAL_STRINGL(r, r_len, 1);
 	free(r);
 	/* FALLTHROUGH */
 

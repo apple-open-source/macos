@@ -4,9 +4,7 @@
 # So just uncomment all the lines marked QNX.
 
 PACKAGE = fetchmail
-VERSION = 5.1.0
-
-SUBDIRS = @INTLSUB@ @POSUB@  
+VERSION = 5.8.17
 
 # Ultrix 2.2 make doesn't expand the value of VPATH.
 srcdir = @srcdir@
@@ -18,29 +16,32 @@ CC = @CC@
 CFLAGS = @CFLAGS@
 # CFLAGS =  -g2 -5	# QNX
 LDFLAGS = @LDFLAGS@
-# LDFLAGS =  -g2 -5	# QNX
+# LDFLAGS =  -g2 -5 -N64k	# QNX
 LEX = @LEX@
 LEXFLAGS=
 YACC = @YACC@
 # YACC = yacc
-YACCFLAGS = -dt
+YACCFLAGS = -d # -t
 
 CEFLAGS = @CEFLAGS@
 CPFLAGS = @CPFLAGS@
 LDEFLAGS = @LDEFLAGS@
+
+# for gettext (used by fetchmail.c, NOT by GNU gettext)
+localedir = $(datadir)/locale
 
 # How to invoke ranlib.  This is only used by the `glob' subdirectory.
 RANLIB = @RANLIB@
 
 # NeXT 1.0a uses an old version of GCC, which required -D__inline=inline.
 # See also `config.h'.
-DEFS = @DEFS@ @EXTRADEFS@
+DEFS = @DEFS@ @EXTRADEFS@ -DLOCALEDIR=\"$(localedir)\"
 # DEFS = -DQNX -DHAVE_CONFIG_H -DHAVE_UNISTD_H -DHAVE_STDARG_H -DSTDC_HEADERS	# QNX
 defines = $(DEFS)
 
 # If your system needs extra libraries loaded in, define them here.
 # In particular, add -lresolv if you are running bind 4.9.5
-LOADLIBS = @LIBS@ @LEXLIB@ @INTLLIBS@
+LOADLIBS = @LIBS@ @INTLLIBS@ @LEXLIB@
 # LOADLIBS = -lsocket3r -lunix3r	# QNX
 
 # Any extra object files your system needs.
@@ -49,8 +50,10 @@ extras = @LIBOBJS@
 # Extra sources/objects for library functions not provided on the host system.
 EXTRASRC = @EXTRASRC@
 # EXTRASRC = $(srcdir)/strcasecmp.c $(srcdir)/getopt.c $(srcdir)/getopt1.c $(srcdir)/alloca.c	# QNX
-EXTRAOBJ = @EXTRAOBJ@
+EXTRAOBJ = @EXTRAOBJ@ @INTLOBJS@
 # EXTRAOBJ = strcasecmp.o getopt.o getopt1.o alloca.o
+
+DESTDIR = 
 
 # Common prefix for machine-independent installed files.
 prefix = @prefix@
@@ -61,10 +64,17 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 # Directory to install the Info files in.
 infodir = @infodir@
+# Directory to install data files.
+datadir = @datadir@
 # Number to put on the man page filename.
 manext = 1
 # Directory to install the man page in.
-mandir = @mandir@
+mandir = @mandir@/man$(manext)
+mandirext = $(mandir)/man$(manext)
+
+# Toplevel build directory
+top_builddir = .
+top_srcdir = @top_srcdir@
 
 # Program to install `make'.
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -83,24 +93,27 @@ ETAGS = etags
 CTAGS = ctags
 
 protobjs = rcfile_y.o rcfile_l.o socket.o getpass.o pop2.o pop3.o imap.o \
-       etrn.o fetchmail.o env.o options.o daemon.o driver.o sink.o \
-       rfc822.o smtp.o xmalloc.o uid.o mxget.o md5c.o md5ify.o rpa.o \
-       interface.o netrc.o base64.o error.o unmime.o conf.o checkalias.o \
-       smbdes.o smbencrypt.o smbmd4.o smbutil.o
+       etrn.o odmr.o fetchmail.o idle.o env.o options.o daemon.o driver.o \
+       transact.o sink.o rfc822.o smtp.o xmalloc.o uid.o mxget.o md5ify.o \
+       cram.o kerberos.o gssapi.o opie.o rpa.o interface.o netrc.o base64.o \
+       error.o unmime.o conf.o checkalias.o smbdes.o smbencrypt.o smbmd4.o \
+       smbutil.o ipv6-connect.o lock.o
 
 objs = $(protobjs) $(extras) $(EXTRAOBJ)
 
 srcs = $(srcdir)/socket.c $(srcdir)/getpass.c $(srcdir)/pop2.c 		\
        $(srcdir)/pop3.c $(srcdir)/imap.c $(srcdir)/etrn.c 		\
-       $(srcdir)/fetchmail.c $(srcdir)/env.c				\
-       $(srcdir)/options.c $(srcdir)/daemon.c $(srcdir)/driver.c	\
-       $(srcdir)/sink.c $(srcdir)/rfc822.c $(srcdir)/smtp.c		\
-       $(srcdir)/xmalloc.c $(srcdir)/uid.c $(srcdir)/mxget.c 		\
-       $(srcdir)/md5c.c $(srcdir)/md5ify.c $(srcdir)/rpa.c	  	\
-       $(srcdir)/interface.c $(srcdir)/netrc.c $(srcdir)/base64.c	\
-       $(srcdir)/error.c $(srcdir)/unmime.c $(srcdir)/conf.c		\
-       $(srcdir)/checkalias.c $(srcdir)/smbdes.c $(srcdir)/smbencrypt.c \
-       $(srcdir)/smbmd4.c $(srcdir)/smbutil.c
+       $(srcdir)/odmr.c $(srcdir)/fetchmail.c $(srcdir)/env.c 		\
+       $(srcdir)/idle.c	$(srcdir)/options.c $(srcdir)/daemon.c 		\
+       $(srcdir)/driver.c $(srcdir)/transact.c $(srcdir)/sink.c 	\
+       $(srcdir)/rfc822.c $(srcdir)/smtp.c $(srcdir)/xmalloc.c 		\
+       $(srcdir)/uid.c $(srcdir)/mxget.c $(srcdir)/md5ify.c   		\
+       $(srcdir)/cram.c $(srcdir)/kerberos.c $(srcdir)/gssapi.c 	\
+       $(srcdir)/opie.c $(srcdir)/rpa.c $(srcdir)/interface.c 		\
+       $(srcdir)/netrc.c $(srcdir)/base64.c $(srcdir)/error.c 		\
+       $(srcdir)/unmime.c $(srcdir)/conf.c $(srcdir)/checkalias.c 	\
+       $(srcdir)/smbdes.c $(srcdir)/smbencrypt.c $(srcdir)/smbmd4.c 	\
+       $(srcdir)/smbutil.c $(srcdir)/ipv6-connect.c $(srcdir)/lock.c
 
 .SUFFIXES:
 .SUFFIXES: .o .c .h .y .l .ps .dvi .info .texi
@@ -110,11 +123,15 @@ all: fetchmail po
 # Some makes apparently use .PHONY as the default goal if it is before `all'.
 .PHONY: all
 
-fetchmail: $(objs)
+fetchmail: $(objs) @INTLDEPS@
 	$(CC) $(LDEFLAGS) $(LDFLAGS) $(objs) $(LOADLIBS) -o fetchmail
 
+intl:
+@INTLDEPS@:	dummy
+	cd intl; $(MAKE)
+
 po:	dummy
-	@POMAKE@
+	cd po; $(MAKE)
 
 dummy:
 
@@ -132,11 +149,11 @@ netrc: netrc.c xmalloc.o error.o
 	$(CC) -DSTANDALONE -DHAVE_CONFIG_H -I. -g -o $@ $^
 
 .c.o:
-	$(CC) $(defines) -c $(CPFLAGS) -I$(srcdir) -I. $(CEFLAGS) $(CFLAGS) $<
+	$(CC) $(defines) -c $(CPFLAGS) -I. -I$(srcdir) -I$(top_builddir)/intl -I$(top_srcdir)/intl $(CEFLAGS) $(CFLAGS) $<
 
 # For some losing Unix makes.
 SHELL = /bin/sh
-MAKE = make
+@SET_MAKE@
 
 tagsrcs = $(srcs) rcfile_l.c rcfile_y.c
 TAGS: $(tagsrcs)
@@ -147,61 +164,79 @@ tags: $(tagsrcs)
 .PHONY: install install-strip uninstall
 install:
 	@echo "Creating installation directories..." 
-	$(SHELL) ${srcdir}/mkinstalldirs $(bindir) $(mandir)/man$(manext)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(bindir) $(DESTDIR)$(mandirext)
 	@echo "Installing fetchmail binary..."
-	$(INSTALL_PROGRAM) ./fetchmail $(bindir)/fetchmail
-	#@echo "Installing fetchmail configurator..."
-	#$(INSTALL_PROGRAM) ${srcdir}/fetchmailconf $(bindir)/fetchmailconf
+	$(INSTALL_PROGRAM) ./fetchmail $(DESTDIR)$(bindir)/fetchmail
+	@echo "Installing fetchmail configurator..."
+	$(INSTALL_PROGRAM) ${srcdir}/fetchmailconf $(DESTDIR)$(bindir)/fetchmailconf
 	@echo "Installing manual page..."
-	$(INSTALL_DATA) $(srcdir)/fetchmail.man $(mandir)/man$(manext)/fetchmail.$(manext)
-	#rm -f $(mandir)/man$(manext)/fetchmailconf.$(manext)
-	#ln -s $(mandir)/man$(manext)/fetchmail.$(manext) $(mandir)/man$(manext)/fetchmailconf.$(manext)
+	$(INSTALL_DATA) $(srcdir)/fetchmail.man $(DESTDIR)$(mandirext)/fetchmail.$(manext)
+	rm -f $(DESTDIR)$(mandirext)/fetchmailconf.$(manext)
+	cd $(DESTDIR)$(mandirext) && ln -s fetchmail.$(manext) fetchmailconf.$(manext)
 	@echo "Installing language catalogs..."
-	@POMAKE@ install
+	-cd intl; $(MAKE) install
+	cd po; $(MAKE) install
 
 install-strip:
 	$(MAKE) install INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s'
 
 uninstall:
-	rm -f $(bindir)/fetchmail $(bindir)/fetchmailconf
-	rm -f $(mandir)/man$(manext)/fetchmail.$(manext) $(mandir)/man$(manext)/fetchmailconf.$(manext)
-	@POMAKE@ uninstall
+	rm -f $(DESTDIR)$(bindir)/fetchmail $(DESTDIR)$(bindir)/fetchmailconf
+	rm -f $(DESTDIR)$(mandir)/fetchmail.$(manext) $(DESTDIR)$(mandir)/fetchmailconf.$(manext)
+	-cd intl; $(MAKE) uninstall
+	cd po; $(MAKE) uninstall
 
 .PHONY: clean realclean distclean mostlyclean
 clean: 
-	@POMAKE@ clean
+	-cd intl; $(MAKE) clean
+	#work around braindamage in GNU gettext
+	-rm -f $(top_builddir)/libintl.h
+	-cd po; $(MAKE) clean
 	-rm -f fetchmail *.o core fetchmail.dvi \
 	       rcfile_l.c rcfile_y.h rcfile_y.c \
 	       fetchmail.tar fetchmail.tar.gz \
 	       netrc rfc822 unmime fetchmail-man.html
 
 distclean: clean 
-	@POMAKE@ distclean
-	-rm -f Makefile config.h TAGS tags
-	-rm -f config.cache config.status config.log stamp-config
+	-cd intl; $(MAKE) distclean
+	-cd po; $(MAKE) distclean
+	-rm -f TAGS tags
+	# Can't do these, it messes up RPM build
+	#-rm -f config.h config.cache config.status config.log stamp-config
 
 realclean: distclean
-	@POMAKE@ clean
 	-rm -f FAQ FEATURES NOTES MANIFEST 
 	-rm -f config.cache config.log Makefile
 	-rm -f fetchmail-*.tar.gz fetchmail-*.i386.rpm 
 
 mostlyclean: clean
 
-config.status: configure Makefile.in
-	$(srcdir)/configure
+# These magic rules are copied from the autoconf documentation
+# except that Harry McGavran says the autoheader call in the third
+# one below is unnecessary and causes problems with cross-platform builds.
 
-config.h: config.status config.h.in
-	sh config.status; touch config.h
+${srcdir}/configure: configure.in aclocal.m4
+	cd ${srcdir} && @AUTOCONF@
+     
+# autoheader might not change config.h.in, so touch a stamp file.
+config.h.in: stamp-h.in
 
-Makefile: config.status
-	sh config.status
+stamp-h.in: configure.in aclocal.m4 acconfig.h # config.h.top config.h.bot
+	cd ${srcdir} # && @AUTOHEADER@
+	echo timestamp> stamp-h.in
+     
+config.h: stamp-h
+stamp-h: config.h.in config.status
+	./config.status
+     
+Makefile: Makefile.in config.status
+	./config.status
+     
+config.status: configure
+	./config.status --recheck
 
-configure: configure.in
-	autoconf $(ACFLAGS)
-
-config.h.in: acconfig.h configure.in
-	autoheader $(ACFLAGS); touch config.h.in
+$(srcdir)/aclocal.m4: configure.in
+	cd $(srcdir) && @ACLOCAL@
 
 # This tells versions [3.59,3.63) of GNU make not to export all variables.
 .NOEXPORT:
@@ -209,7 +244,8 @@ config.h.in: acconfig.h configure.in
 # Special dependencies, not easily handled portably without explicit rules
 rcfile_l.c rcfile_l.h: $(srcdir)/rcfile_l.l
 	$(LEX) $(LEXFLAGS) $(srcdir)/rcfile_l.l
-	mv lex.yy.c rcfile_l.c
+	sed <lex.yy.c >rcfile_l.c -e "/lex\\.yy\\.c/s//rcfile_l.c/"
+	rm -f lex.yy.c
 rcfile_y.c rcfile_y.h: $(srcdir)/rcfile_y.y
 	@echo "expect conflicts:  2 shift/reduce"
 	$(YACC) $(YACCFLAGS) $(srcdir)/rcfile_y.y
@@ -218,35 +254,39 @@ rcfile_y.c rcfile_y.h: $(srcdir)/rcfile_y.y
 
 # These must be explicit, because the .c files often don't exist at
 # makefile build time. 
-rcfile_l.o: rcfile_y.c rcfile_y.h config.h fetchmail.h
-rcfile_y.o: rcfile_y.c rcfile_y.h config.h fetchmail.h
+rcfile_l.o: rcfile_l.c config.h fetchmail.h
+rcfile_y.o: rcfile_y.c config.h fetchmail.h
 
 parser = $(srcdir)/rcfile_l.l $(srcdir)/rcfile_y.y
 headers = $(srcdir)/fetchmail.h $(srcdir)/socket.h $(srcdir)/smtp.h \
 	$(srcdir)/mx.h $(srcdir)/md5.h $(srcdir)/md5global.h \
 	$(srcdir)/netrc.h $(srcdir)/tunable.h $(srcdir)/i18n.h \
-	$(srcdir)/aclocal.m4 $(srcdir)/ntlm.h $(srcdir)/smb.h \
+	$(srcdir)/ntlm.h $(srcdir)/smb.h $(srcdir)/kerberos.h \
 	$(srcdir)/smbbyteorder.h $(srcdir)/smbdes.h $(srcdir)/smbencrypt.h \
 	$(srcdir)/smbmd4.h
 extra = $(srcdir)/alloca.c $(srcdir)/getopt.[ch] $(srcdir)/getopt1.c \
-	$(srcdir)/strcasecmp.c $(srcdir)/strstr.c $(srcdir)/memmove.c
+	$(srcdir)/strcasecmp.c $(srcdir)/strstr.c $(srcdir)/memmove.c \
+	$(srcdir)/md5c.c
 docs = $(srcdir)/COPYING $(srcdir)/FEATURES $(srcdir)/fetchmail-features.html \
 	$(srcdir)/design-notes.html $(srcdir)/NOTES \
-	$(srcdir)/INSTALL $(srcdir)/NEWS $(srcdir)/README \
-	$(srcdir)/README.NTLM $(srcdir)/fetchmail.lsm $(srcdir)/sample.rcfile \
+	$(srcdir)/todo.html $(srcdir)/TODO \
+	$(srcdir)/INSTALL $(srcdir)/README $(srcdir)/README.SSL \
+	$(srcdir)/README.NTLM $(srcdir)/fetchmail.lsm $(srcdir)/NEWS \
 	$(srcdir)/*.man	$(srcdir)/FAQ $(srcdir)/fetchmail-FAQ.html
 config = $(srcdir)/Makefile.in $(srcdir)/configure.in $(srcdir)/configure \
 	$(srcdir)/config.guess $(srcdir)/config.h.in $(srcdir)/config.sub \
-	$(srcdir)/acconfig.h
-scripts = $(srcdir)/install.sh $(srcdir)/mkinstalldirs \
+	$(srcdir)/acconfig.h $(srcdir)/aclocal.m4
+scripts = $(srcdir)/install-sh $(srcdir)/missing $(srcdir)/mkinstalldirs \
 	$(srcdir)/specgen.sh $(srcdir)/lsmgen.sh $(srcdir)/fetchmailconf
 all = $(docs) $(config) $(srcs) $(parser) $(headers) $(extra) $(scripts) \
-	$(srcdir)/rh-config/* $(srcdir)/debian/* $(srcdir)/contrib/*[A-Za-uw-z] \
-	$(srcdir)/intl/* $(srcdir)/po/* ABOUT-NLS $(srcdir)/MANIFEST
+	$(srcdir)/rh-config/* $(srcdir)/contrib/*[A-Za-uw-z] \
+	$(srcdir)/po/* $(srcdir)/intl $(srcdir)/beos/* ABOUT-NLS $(srcdir)/MANIFEST
 
 MANIFEST: $(srcdir) Makefile.in
 	@echo $(all) | tr "[ \t]" '\n' | sed -e '/^\.\//s///' | sort >MANIFEST
 	@wc -l MANIFEST
+
+distdocs: FAQ FEATURES NOTES fetchmail-man.html
 
 FAQ: fetchmail-FAQ.html
 	echo "   (This document was generated from fetchmail-FAQ.html)" >FAQ
@@ -258,19 +298,21 @@ FEATURES: fetchmail-features.html
 
 NOTES: design-notes.html
 	echo "   (This document was generated from design-notes.html)" >NOTES
-	lynx -dump -nolist design-notes.html | grep -v "Back to " >NOTES
+	lynx -dump -nolist design-notes.html | grep -v "Back to " >>NOTES
 
-# man2html chokes and dies on this man page
+TODO: todo.html
+	echo "   (This document was generated from todo.html)" >TODO
+	lynx -dump -nolist todo.html | grep -v "Back to " >>TODO
+
+# man2html no longer chokes and dies on this man page,
+# but manServer.pl does a much better job. 
 fetchmail-man.html: fetchmail.man
-	echo "<pre>"                               >fetchmail-man.html
-	groff -man -Tascii -P-b -P-u fetchmail.man >>fetchmail-man.html
-	echo "</pre>"                              >>fetchmail-man.html
+	manServer.pl fetchmail.man >fetchmail-man.html
 
 # Make distribution, update LSM with proper size, remake distribution
 # (Making fetchmail-man.html is a kluge to ensure that it will be
 # available when I upload the distribution.)
-dist: Makefile.in fetchmail-man.html
-	rm -f MANIFEST; make MANIFEST;
+dist: distclean MANIFEST Makefile.in distdocs
 	touch fetchmail.lsm
 	make fetchmail-$(VERSION).tar.gz 
 	lsmgen.sh $(VERSION) `wc -c fetchmail-$(VERSION).tar.gz` >fetchmail.lsm
@@ -278,9 +320,11 @@ dist: Makefile.in fetchmail-man.html
 	ls -l fetchmail-$(VERSION).tar.gz
 	@echo "Don't forget to build RPMs from root!"
 
+# Firewall against the lossage in autoconf that keeps breaking our build.
+EX = --exclude "fetchmail-$(VERSION)/intl/libintl.h"
 fetchmail-$(VERSION).tar.gz: $(all)
 	(cd ..; ln -sf fetchmail fetchmail-$(VERSION))
-	(cd ..; tar -czf fetchmail-$(VERSION).tar.gz `sed <fetchmail-$(VERSION)/MANIFEST s:^:fetchmail-$(VERSION)/:`)
+	(cd ..; tar $(EX) -czf fetchmail-$(VERSION).tar.gz `sed <fetchmail-$(VERSION)/MANIFEST s:^:fetchmail-$(VERSION)/:`)
 	mv -f ../fetchmail-$(VERSION).tar.gz .
 	rm ../fetchmail-$(VERSION)
 
@@ -292,8 +336,8 @@ rpm: dist
 	cp fetchmail-$(VERSION).tar.gz fetchmail.xpm $(RPMROOT)/SOURCES;
 	$(srcdir)/specgen.sh $(VERSION) >$(RPMROOT)/SPECS/fetchmail.spec
 	cd $(RPMROOT)/SPECS; $(RPM) $(RPMFLAGS) fetchmail.spec	
-	cp $(RPMROOT)/RPMS/`arch|sed 's/i[4-9]86/i386/'`/fetchmail-$(VERSION)*.rpm $(srcdir)
-	cp $(RPMROOT)/SRPMS/fetchmail-$(VERSION)*.src.rpm $(srcdir)
+	cp $(RPMROOT)/RPMS/`arch|sed 's/i[4-9]86/i386/'`/fetchmail*-$(VERSION)*.rpm $(srcdir)
+	cp $(RPMROOT)/SRPMS/fetchmail*-$(VERSION)*.src.rpm $(srcdir)
 
 # The following sets edit modes for GNU EMACS.
 # Local Variables:

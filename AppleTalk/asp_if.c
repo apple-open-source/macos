@@ -59,43 +59,10 @@
 #include <netat/asp.h>
 #include <netat/atp.h>
 
-#include "at_rwlock.h"
 #include <AppleTalk/at_proto.h>
 
 extern int ATsocket(int protocol);
 	/* Used to create an old-style (pre-BSD) AppleTalk socket */
-
-/* Note that the rwlock functions have been commented out using
-   "#ifdef ASP_LOCKS".  As such time as the rwlock routines are
-   converted to use pthreads and the AppleTalk ASP routines can be
-   tested with the AppleFileServer, this code should be restored.
-*/
-
-#ifndef ASP_LOCKS
-
-/* dummy routines to replace at_rwl_* routines */
-int at_rwl_init(int *lock)
-{
-	return 0;
-}
-
-void at_rwl_writelock(int *lock)
-{
-}
-
-void at_rwl_writeunlock(int *lock)
-{
-}
-
-void at_rwl_readlock(int *lock)
-{
-}
-
-void at_rwl_readunlock(int *lock)
-{
-}
-
-#endif /* ASP_LOCKS */
 
 #define	SET_ERRNO(e) errno = e
 
@@ -188,9 +155,7 @@ static unsigned short DefTickleInterval = ASP_TICKLE_INT;
 static at_retry_t CmdRetry = {1, 10, 1};
 
 /*
- * Per-session state. Acquire read version of RWLock for all operations
- * for a session, unless destroying the state of session, in which case
- * acquire the write version of the lock. No lock acquisition is needed when
+ * Per-session state. No lock acquisition is needed when
  * creating a session, since the session ID is actually a socket descriptor
  * returned by the kernel, and these will be unique per-thread, per-socket
  * call.
@@ -200,11 +165,6 @@ typedef struct {
 	char		UserType;	/* Session User Type 
 					   0 for server; 1 for client */
 	int		Quantum;	/* Session Quantum size */
-#ifdef ASP_LOCKS
-	at_rwlock_t	RWLock;		/* for synchronizing reads/writes */
-#else
-	int		RWLock;
-#endif
 	asp_fspkt_t	SessFSPkt;
 	u_short		FSRangeErr;
 	u_short 	NewReqRefNum;
@@ -216,9 +176,9 @@ typedef struct {
 /*
  * List of per-session state. See above comment for session_t definition.
  */
-static session_t *Session[ASPDEF_DefMaxDescr];
+static session_t **Session;
 
-static char FSStatusBlk[sizeof(asp_fspkt_t)+ASPDEF_QuantumSize];
+static char *FSStatusBlk;
 static int FSStatusLen = 0;
 static int FSQuantumSize = 0;
 static unsigned short FSRequestID = 0;
@@ -232,8 +192,8 @@ typedef struct {
   unsigned short IN_port;	/* TCP port */
 } listener_t;
 
-static listener_t Listener[ASPDEF_MaxNumOfSLS];
-
+static listener_t *Listener;
+
 /* 
 	These routines need to know about the structure of the
 	Session and/or the Listener arrays.
@@ -247,7 +207,6 @@ initSess(sp)
 {
 	if (sp) {
 		(void)memset(sp, 0, sizeof(session_t));
-		(void)at_rwl_init(&(sp->RWLock));
 	}
 }
 
@@ -263,7 +222,7 @@ findSess(fd, SPError)
 
 	if ((fd < 0) || (fd >= ASPDEF_DefMaxDescr))
 		*SPError = ASPERR_ParamErr;
-	else if (!(sp = Session[fd]))
+	else if (!Session || !(sp = Session[fd]))
 		*SPError = ASPERR_NoSuchDevice;
 	else
 		*SPError = ASPERR_NoError;
@@ -272,8 +231,6 @@ findSess(fd, SPError)
 
 /*	createSess() returns a pointer to the Session data matching
         fd, allocating one if necessary.
-
-	Upon successful completion the writelock is held.
 */
 static session_t *
 createSess(fd, SPError)
@@ -282,17 +239,15 @@ createSess(fd, SPError)
 {
 	session_t *sp = (session_t *)NULL;
 
-	if ((sp = findSess(fd, SPError)))
-	    at_rwl_writelock(&(sp->RWLock));
-	else {
-	    if (*SPError != ASPERR_ParamErr)
-		if ((sp = malloc(sizeof(session_t)))) {
-			*SPError = ASPERR_NoError;
-			Session[fd] = sp;
-			initSess(sp);
-			at_rwl_writelock(&(sp->RWLock));
-		} else
-			*SPError = ASPERR_NoMoreSessions;
+	if (!(sp = findSess(fd, SPError))) {
+	    if (*SPError != ASPERR_ParamErr) {
+			if (Session && (sp = malloc(sizeof(session_t)))) {
+				*SPError = ASPERR_NoError;
+				Session[fd] = sp;
+				initSess(sp);
+			} else 
+				*SPError = ASPERR_NoMoreSessions;
+		}
 	}
 	return(sp);
 }
@@ -311,7 +266,7 @@ deleteSess(fd)
 		initSess(sp); /* or instead, we could deallocate */
 }
 
-/*	readSess() - Upon successful completion the readlock is held.
+/*	readSess()
 */
 static session_t *
 readSess(fd, SPError)
@@ -320,12 +275,10 @@ readSess(fd, SPError)
 {
 	session_t *sp = findSess(fd, SPError);
 
-	if (sp)
-		at_rwl_readlock(&(sp->RWLock));
 	return(sp);
 }
 
-/*	writeSess() - Upon successful completion the writelock is held.
+/*	writeSess()
 */
 static session_t *
 writeSess(fd, SPError)
@@ -334,8 +287,6 @@ writeSess(fd, SPError)
 {
 	session_t *sp = findSess(fd, SPError);
 
-	if (sp)
-		at_rwl_writelock(&(sp->RWLock));
 	return(sp);
 }
 
@@ -345,9 +296,11 @@ find_SLS(refNum)
 {
 	int i;
 
-	for (i = 0; i < ASPDEF_MaxNumOfSLS; i++) {
-		if (Listener[i].SLSRefNum == refNum)
-			return(&Listener[i]);
+	if (Listener) {
+		for (i = 0; i < ASPDEF_MaxNumOfSLS; i++) {
+			if (Listener[i].SLSRefNum == refNum)
+				return(&Listener[i]);
+		}
 	}
 	return((listener_t *)NULL);
 }
@@ -358,9 +311,11 @@ find_lsock(socket)
 {
 	int i;
 
-	for (i = 0; i < ASPDEF_MaxNumOfSLS; i++) {
-		if (Listener[i].AT_addr.socket == socket)
-			return(&Listener[i]);
+	if (Listener) {
+		for (i = 0; i < ASPDEF_MaxNumOfSLS; i++) {
+			if (Listener[i].AT_addr.socket == socket)
+				return(&Listener[i]);
+		}
 	}
 	return((listener_t *)NULL);
 }
@@ -373,18 +328,25 @@ asp_init(void)
 
 	if (ASP_init_done++)
 		return;
-
-	for (i = 0; i < ASPDEF_DefMaxDescr; i++) {
-		Session[i] = (session_t *)NULL;
+	
+	if (!Session) {
+		if (Session = malloc(sizeof(session_t *)*ASPDEF_DefMaxDescr)) {
+			for (i = 0; i < ASPDEF_DefMaxDescr; i++) {
+				Session[i] = (session_t *)NULL;
+			}
+		}
 	}
-	for (i = 0; i < ASPDEF_MaxNumOfSLS; i++) {
-		Listener[i].SLSRefNum = 0;
-		Listener[i].IN_descr = 0;
+	
+	if (!Listener) {
+		if (Listener = malloc(sizeof(listener_t)*ASPDEF_MaxNumOfSLS)) {
+			bzero(Listener, sizeof(listener_t)*ASPDEF_MaxNumOfSLS);
+		}
 	}
+	
 }
 
 /* End of routines with knowlege of the Session array structure. */
-
+
 /* 
  * Name: SPAttention (server only)
  */
@@ -436,7 +398,6 @@ SPAttention(int SessRefNum,
 			memcpy(sp->NewReqBuf, tmpBuf, sizeof(tmpBuf));
 			sp->NewReqType = rval;
 			sp->NewReqRefNum = CmdResult;
-			at_rwl_writeunlock(&(sp->RWLock));
 		}
 		if ((rval = SPGetReply(SessRefNum, 0, 0, &CmdResult, 0, 
 				       SPError)))
@@ -475,7 +436,6 @@ SPCloseSession(int SessRefNum,
 	 */
 	close(SessRefNum);
 
-	at_rwl_writeunlock(&(sp->RWLock));
 	deleteSess(SessRefNum);
 
 	LOG_MSG(rn, SessRefNum);
@@ -527,7 +487,6 @@ SPCmdReply(int SessRefNum,
 		if (CmdReplyDataSize > quantumSize) {
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_SizeErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -548,7 +507,6 @@ SPCmdReply(int SessRefNum,
 		iov[1].iov_len = CmdReplyDataSize;
 		if (writev(SessRefNum, iov, 2) == -1) {
 			*SPError = (errno == EINVAL) ? ASPERR_ParamErr : ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -561,7 +519,6 @@ SPCmdReply(int SessRefNum,
 		if (CmdReplyDataSize > ASPDEF_QuantumSize) {
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_SizeErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -584,14 +541,12 @@ SPCmdReply(int SessRefNum,
 				*SPError = ASPERR_ProtoErr;
 			else
 				*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
 	}
 
 	*SPError = ASPERR_NoError;
-	at_rwl_readunlock(&(sp->RWLock));
 	LOG_MSG(rn, SessRefNum);
 	return 0;
 } /* SPCmdReply */
@@ -626,7 +581,6 @@ SPGetParms(int *MaxCmdSize,
 			*QuantumSize = sp->Quantum;
 		else
 			*QuantumSize = GetQuantumSize();
-	at_rwl_readunlock(&(sp->RWLock));
 } /* SPGetParms */
 
 /*
@@ -670,7 +624,6 @@ SPGetRequest(int SessRefNum,
 		*ActRcvdReqLen = sp->NewReqLen;
 		sp->NewReqType = 0;
 		*SPError = ASPERR_NoError;
-		at_rwl_readunlock(&(sp->RWLock));
 		LOG_MSG(rn, SessRefNum);
 		return 0;
 	}
@@ -683,7 +636,6 @@ SPGetRequest(int SessRefNum,
 			while (1) {
 				if (recv(SessRefNum, (char *)fspkt, sizeof(*fspkt), 0) != sizeof(*fspkt)) {
 					*SPError = ASPERR_SessClosed;
-					at_rwl_readunlock(&(sp->RWLock));
 					LOG_ERR(rn);
 					return -1;
 				}
@@ -705,7 +657,6 @@ SPGetRequest(int SessRefNum,
 			sp->FSRangeErr = 1;
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_BufTooSmall;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -716,7 +667,6 @@ SPGetRequest(int SessRefNum,
 		}
 		if (len_left) {
 			*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -725,7 +675,6 @@ SPGetRequest(int SessRefNum,
 			*ReqRefNum = fspkt->ErrorCode;
 			SET_ERRNO(EPROTOTYPE);
 			*SPError = ASPERR_CmdReply;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return 1;
 		}
@@ -749,7 +698,6 @@ SPGetRequest(int SessRefNum,
 				*SPError = ASPERR_ParamErr;
 			else
 				*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -761,7 +709,6 @@ SPGetRequest(int SessRefNum,
 		if (rval & MOREDATA) {
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_BufTooSmall;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -773,7 +720,6 @@ SPGetRequest(int SessRefNum,
 		if (ctrl.len == 0) {
 			SET_ERRNO(ENOTCONN);
 			*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			return -1;
 		}
 
@@ -789,13 +735,11 @@ SPGetRequest(int SessRefNum,
 				*ReqRefNum = primitives->CmdReplyInd.CmdResult;
 				SET_ERRNO(EPROTOTYPE);
 				*SPError = ASPERR_CmdReply;
-				at_rwl_readunlock(&(sp->RWLock));
 				return 1;	/* XXX should be -1 ?? */
 			} else {
 				SET_ERRNO(EPROTOTYPE);
 				*SPError = ASPERR_ProtoErr;
 			}
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -807,7 +751,6 @@ SPGetRequest(int SessRefNum,
 	}
 
 	*SPError = ASPERR_NoError;
-	at_rwl_readunlock(&(sp->RWLock));
 	LOG_MSG(rn, SessRefNum);
 	return 0;
 } /* SPGetRequest */
@@ -1011,7 +954,6 @@ l_cmdDone:
 		goto l_error;
 	}
 	sp->SessType = descr_type;
-	at_rwl_writeunlock(&(sp->RWLock));
 
 	*SessRefNum = descr;
 	*SPError = ASPERR_NoError;
@@ -1051,6 +993,16 @@ SPInit(at_inet_t *SLSEntityIdentifier,
 	*SLSRefNum = lp->SLSRefNum;
 
 	LOG_MSG(rn, *SLSRefNum);
+	
+	if (!FSStatusBlk) {
+		if (!(FSStatusBlk = malloc(sizeof(asp_fspkt_t)+ASPDEF_QuantumSize))) {
+			SET_ERRNO(ENOMEM);
+			*SPError = ASPERR_SystemErr;
+			LOG_ERR(rn);
+			return -1;
+		}
+	}
+	
 	return SPNewStatus(*SLSRefNum, ServiceStatusBlock,
 		ServiceStatusBlockSize, SPError);
 }
@@ -1190,7 +1142,6 @@ SPWrtContinue(int SessRefNum,
 		}
 		if (len_left) {
 			*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1203,7 +1154,6 @@ SPWrtContinue(int SessRefNum,
 		}
 		*ActLenRcvd = sum;
 		*SPError = ASPERR_NoError;
-		at_rwl_readunlock(&(sp->RWLock));
 		return 0;
 	} else {
 
@@ -1215,7 +1165,6 @@ SPWrtContinue(int SessRefNum,
 		 */
 		if (SendCommand(SessRefNum,
 			CmdBlock, CmdBlockSize, SPError, ASPFUNC_WriteContinue) == -1) {
-				at_rwl_readunlock(&(sp->RWLock));
 				return -1;
 		}
 
@@ -1224,14 +1173,12 @@ SPWrtContinue(int SessRefNum,
 		 */
 		if (NoWait) {
 			*SPError = ASPERR_NoError;
-			at_rwl_readunlock(&(sp->RWLock));
 			return 0;
 		}
 
 		/*
 		 * get the response
 		 */
-		at_rwl_readunlock(&(sp->RWLock));
 		return SPGetReply(SessRefNum, Buff,
 			BuffSize, &CmdResult, ActLenRcvd, SPError);
 	}
@@ -1294,7 +1241,6 @@ SPGetReply(int SessRefNum,
 		} else {
 			if (recv(SessRefNum, (char *)fspkt, sizeof(*fspkt), 0) != sizeof(*fspkt)) {
 				*SPError = ASPERR_SessClosed;
-				at_rwl_readunlock(&(sp->RWLock));
 				LOG_ERR(rn);
 				return -1;
 			}
@@ -1317,7 +1263,6 @@ SPGetReply(int SessRefNum,
 			}
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_BufTooSmall;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1328,7 +1273,6 @@ SPGetReply(int SessRefNum,
 		}
 		if (len_left) {
 			*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1336,7 +1280,6 @@ SPGetReply(int SessRefNum,
 			SET_ERRNO(EPROTOTYPE);
 			*SPError = ASPERR_CmdRequest;
 			*CmdResult = (int)fspkt->RequestID;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return (int)fspkt->Command;
 		}
@@ -1359,21 +1302,18 @@ SPGetReply(int SessRefNum,
 				*SPError = ASPERR_ParamErr;
 			else
 				*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
 		if (rval & MOREDATA) {
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_BufTooSmall;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
 		if (ctrl.len == 0) {
 			SET_ERRNO(ENOTCONN);
 			*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1384,13 +1324,11 @@ SPGetReply(int SessRefNum,
 				SET_ERRNO(EPROTOTYPE);
 				*SPError = ASPERR_CmdRequest;
 				*CmdResult = (int)primitives->CommandInd.ReqRefNum;
-				at_rwl_readunlock(&(sp->RWLock));
 				return (int)primitives->CommandInd.ReqType;
 			} else {
 				SET_ERRNO(EPROTOTYPE);
 				*SPError = ASPERR_ProtoErr;
 			}
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1402,7 +1340,6 @@ SPGetReply(int SessRefNum,
 		}
 	}
 
-	at_rwl_readunlock(&(sp->RWLock));
 	*SPError = ASPERR_NoError;
 	LOG_MSG(rn, SessRefNum);
 	return 0;
@@ -1447,7 +1384,6 @@ SPLook(int SessRefNum,
 					else
 						*SPError = ASPERR_SessClosed;
 				}
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1477,11 +1413,9 @@ SPLook(int SessRefNum,
 			 * when handling the tickle, return -1 to indicate
 			 * to the caller that no user data is available.
 			 */
-			at_rwl_readunlock(&(sp->RWLock));
 			return -1;
 		}
 		rval = (fspkt->Flags & ASPFS_Reply) ? 0 : 1;
-		at_rwl_readunlock(&(sp->RWLock));
 		return rval;
 	} else {
 
@@ -1495,10 +1429,8 @@ SPLook(int SessRefNum,
 			else
 				*SPError = ASPERR_SessClosed;
 			LOG_ERR(rn);
-			at_rwl_readunlock(&(sp->RWLock));
 			return -1;
 		}
-		at_rwl_readunlock(&(sp->RWLock));
 		return rval;
 	}
 }
@@ -1599,7 +1531,7 @@ SPRegister(at_entity_t *SLSEntity,
 #endif
     /* find unused listener entry */
     if (!(lp = find_lsock(0))) {
-            *SPError = ASPERR_NoMoreSessions;
+        *SPError = ASPERR_NoMoreSessions;
         goto l_error;
     }
 
@@ -1625,7 +1557,6 @@ SPRegister(at_entity_t *SLSEntity,
         goto l_error;
     }
     sp->SessType = ASPDT_ATP_AS;
-    at_rwl_writeunlock(&(sp->RWLock));
     lp->AT_addr = *SLSEntityIdentifier;
     lp->SLSRefNum = descr;
     if (fs_conn_descr != -1) {
@@ -1637,7 +1568,6 @@ SPRegister(at_entity_t *SLSEntity,
             goto l_error;
         }
         sp->SessType = ASPDT_TCP_FS;
-        at_rwl_writeunlock(&(sp->RWLock));
     }
 
     *SPError = ASPERR_NoError;
@@ -1773,7 +1703,6 @@ SPRegisterWithTCPPossibility(at_entity_t *SLSEntity,
 		goto l_error;
 	}
 	sp->SessType = ASPDT_ATP_AS;
-	at_rwl_writeunlock(&(sp->RWLock));
 	lp->AT_addr = *SLSEntityIdentifier;
 	lp->SLSRefNum = descr;
 	if (fs_conn_descr != -1) {
@@ -1785,7 +1714,6 @@ SPRegisterWithTCPPossibility(at_entity_t *SLSEntity,
 			goto l_error;
 		}
 		sp->SessType = ASPDT_TCP_FS;
-		at_rwl_writeunlock(&(sp->RWLock));
 	}
 
 	*SPError = ASPERR_NoError;
@@ -1883,7 +1811,6 @@ SPGetLocEntity(int SessRefNum,
 
 		if (getsockname(SessRefNum, (void *)&in_addr, &in_addrlen) == -1) {
 			*SPError = ASPERR_SystemErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1897,13 +1824,11 @@ SPGetLocEntity(int SessRefNum,
 					*SPError = ASPERR_ParamErr;
 				else
 					*SPError = ASPERR_SystemErr;
-				at_rwl_readunlock(&(sp->RWLock));
 				LOG_ERR(rn);
 				return -1;
 		}
 	}
 
-	at_rwl_readunlock(&(sp->RWLock));
 	*SPError = ASPERR_NoError;
 	LOG_MSG(rn, SessRefNum);
 	return 0;
@@ -1933,7 +1858,6 @@ SPGetRemEntity(int SessRefNum,
 
 		if (getpeername(SessRefNum, (void *)&in_addr, &in_addrlen) == -1) {
 			*SPError = ASPERR_SystemErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -1947,13 +1871,11 @@ SPGetRemEntity(int SessRefNum,
 				*SPError = ASPERR_ParamErr;
 			else
 				*SPError = ASPERR_SystemErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
 	}
 
-	at_rwl_readunlock(&(sp->RWLock));
 	*SPError = ASPERR_NoError;
 	LOG_MSG(rn, SessRefNum);
 	return 0;
@@ -2065,13 +1987,11 @@ SPSetPid(int SessRefNum,
 				*SPError = ASPERR_ParamErr;
 			else
 				*SPError = ASPERR_SystemErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
 	}
 
-	at_rwl_readunlock(&(sp->RWLock));
 	*SPError = ASPERR_NoError;
 	LOG_MSG(rn, SessRefNum);
 	return 0;
@@ -2098,7 +2018,6 @@ SPGetProtoFamily(int SessRefNum,
 
 	*ProtoFamily = (sp->SessType == ASPDT_TCP_FS) ?
 		PF_INET : PF_APPLETALK;
-	at_rwl_readunlock(&(sp->RWLock));
 
 	*SPError = ASPERR_NoError;
 	LOG_MSG(rn, SessRefNum);
@@ -2137,7 +2056,6 @@ SendCommand(int SessRefNum,
 		if (CmdBlockSize > ASPDEF_MaxCmdSize) {
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_SizeErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -2159,7 +2077,6 @@ SendCommand(int SessRefNum,
 			    CmdBlockSize,MSG_EOR) != CmdBlockSize)) ) {
 			*SPError = (errno == EINVAL) ? 
 			  ASPERR_ParamErr : ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -2168,7 +2085,6 @@ SendCommand(int SessRefNum,
 		if (CmdBlockSize > ASPDEF_MaxCmdSize) {
 			SET_ERRNO(ERANGE);
 			*SPError = ASPERR_SizeErr;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
@@ -2188,14 +2104,12 @@ SendCommand(int SessRefNum,
 				*SPError = ASPERR_ProtoErr;
 			else
 				*SPError = ASPERR_SessClosed;
-			at_rwl_readunlock(&(sp->RWLock));
 			LOG_ERR(rn);
 			return -1;
 		}
 	}
 
 	*SPError = ASPERR_NoError;
-	at_rwl_readunlock(&(sp->RWLock));
 	LOG_MSG(rn, SessRefNum);
 	return 0;
 } /* SendCommand */

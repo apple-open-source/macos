@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.1.1.3 2001/01/25 05:00:04 wsanchez Exp $ */
+/* $Id: exec.c,v 1.1.1.4 2001/07/19 00:20:12 zarzycki Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -23,12 +23,16 @@
 #include "php_string.h"
 #include "safe_mode.h"
 #include "ext/standard/head.h"
+#include "ext/standard/file.h"
 #include "exec.h"
 #include "php_globals.h"
 #include "SAPI.h"
 
 #if HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
+#if HAVE_SIGNAL_H
+#include <signal.h>
 #endif
 
 /*
@@ -38,15 +42,20 @@
  * If type==3, output will be printed binary, no lines will be saved or returned (passthru)
  *
  */
-static int _Exec(int type, char *cmd, pval *array, pval *return_value)
+int php_Exec(int type, char *cmd, pval *array, pval *return_value)
 {
 	FILE *fp;
 	char *buf, *tmp=NULL;
 	int buflen = 0;
-	int t, l, ret, output=1;
+	int t, l, output=1;
 	int overflow_limit, lcmd, ldir;
+	int rsrc_id;
 	char *b, *c, *d=NULL;
+#if PHP_SIGCHILD
+	void (*sig_handler)();
+#endif
 	PLS_FETCH();
+	FLS_FETCH();
 
 	buf = (char*) emalloc(EXEC_INPUT_BUF);
     if (!buf) {
@@ -70,7 +79,7 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 		d = emalloc(l);
 		strcpy(d, PG(safe_mode_exec_dir));
 		overflow_limit -= ldir;
-		b = strrchr(cmd, '/');
+		b = strrchr(cmd, PHP_DIR_SEPARATOR);
 		if (b) {
 			strcat(d, b);
 			overflow_limit -= strlen(b);
@@ -86,26 +95,38 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 		tmp = php_escape_shell_cmd(d);
 		efree(d);
 		d = tmp;
+#if PHP_SIGCHILD
+		sig_handler = signal (SIGCHLD, SIG_DFL);
+#endif
 #ifdef PHP_WIN32
-		fp = V_POPEN(d, "rb");
+		fp = VCWD_POPEN(d, "rb");
 #else
-		fp = V_POPEN(d, "r");
+		fp = VCWD_POPEN(d, "r");
 #endif
 		if (!fp) {
 			php_error(E_WARNING, "Unable to fork [%s]", d);
 			efree(d);
 			efree(buf);
+#if PHP_SIGCHILD
+			signal (SIGCHLD, sig_handler);
+#endif
 			return -1;
 		}
 	} else { /* not safe_mode */
+#if PHP_SIGCHILD
+		sig_handler = signal (SIGCHLD, SIG_DFL);
+#endif
 #ifdef PHP_WIN32
-		fp = V_POPEN(cmd, "rb");
+		fp = VCWD_POPEN(cmd, "rb");
 #else
-		fp = V_POPEN(cmd, "r");
+		fp = VCWD_POPEN(cmd, "r");
 #endif
 		if (!fp) {
 			php_error(E_WARNING, "Unable to fork [%s]", cmd);
 			efree(buf);
+#if PHP_SIGCHILD
+			signal (SIGCHLD, sig_handler);
+#endif
 			return -1;
 		}
 	}
@@ -116,6 +137,13 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 			array_init(array);
 		}
 	}
+
+	/* we register the resource so that case of an aborted connection the 
+	 * fd gets pclosed
+	 */
+
+	rsrc_id = ZEND_REGISTER_RESOURCE(NULL, fp, php_file_le_popen());
+
 	if (type != 3) {
 		l=0;
 		while ( !feof(fp) || l != 0 ) {
@@ -127,6 +155,9 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 					if ( buf == NULL ) {
 						php_error(E_WARNING, "Unable to erealloc %d bytes for exec buffer", 
 								buflen + EXEC_INPUT_BUF);
+#if PHP_SIGCHILD
+						signal (SIGCHLD, sig_handler);
+#endif
 						return -1;
 					}
 					buflen += EXEC_INPUT_BUF;
@@ -163,8 +194,10 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 		/* strip trailing spaces */
 		l = strlen(buf);
 		t = l;
-		while (l && isspace((int)buf[--l]));
-		if (l < t) buf[l + 1] = '\0';
+		while (l && isspace((int)buf[l - 1])) {
+			l--;
+		}
+		if (l < t) buf[l] = '\0';
 
 		/* Return last line from the shell command */
 		if (PG(magic_quotes_runtime)) {
@@ -173,7 +206,7 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 			tmp = php_addslashes(buf, 0, &len, 0);
 			RETVAL_STRINGL(tmp,len,0);
 		} else {
-			RETVAL_STRINGL(buf,l?l+1:0,1);
+			RETVAL_STRINGL(buf,l,1);
 		}
 	} else {
 		int b, i;
@@ -183,20 +216,26 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 				if (output) (void)PUTC(buf[i]);
 		}
 	}
-	
-	ret = pclose(fp);
+
+	/* the zend_list_delete will pclose our popen'ed process */
+	zend_list_delete(rsrc_id); 
+
 #if HAVE_SYS_WAIT_H
-	if (WIFEXITED(ret)) {
-		ret = WEXITSTATUS(ret);
+	if (WIFEXITED(FG(pclose_ret))) {
+		FG(pclose_ret) = WEXITSTATUS(FG(pclose_ret));
 	}
 #endif
-
-	if (d) efree(d);
+#if PHP_SIGCHILD
+	signal (SIGCHLD, sig_handler);
+#endif
+	if (d) {
+		efree(d);
+	}
 	efree(buf);
-	return ret;
+	return FG(pclose_ret);
 }
 
-/* {{{ proto int exec(string command [, array output [, int return_value]])
+/* {{{ proto string exec(string command [, array output [, int return_value]])
    Execute an external program */
 PHP_FUNCTION(exec)
 {
@@ -209,13 +248,13 @@ PHP_FUNCTION(exec)
 	}
 	switch (arg_count) {
 		case 1:
-			ret = _Exec(0, Z_STRVAL_PP(arg1), NULL,return_value);
+			ret = php_Exec(0, Z_STRVAL_PP(arg1), NULL,return_value);
 			break;
 		case 2:
 			if (!ParameterPassedByReference(ht,2)) {
 				php_error(E_WARNING,"Array argument to exec() not passed by reference");
 			}
-			ret = _Exec(2, Z_STRVAL_PP(arg1),*arg2,return_value);
+			ret = php_Exec(2, Z_STRVAL_PP(arg1),*arg2,return_value);
 			break;
 		case 3:
 			if (!ParameterPassedByReference(ht,2)) {
@@ -224,7 +263,7 @@ PHP_FUNCTION(exec)
 			if (!ParameterPassedByReference(ht,3)) {
 				php_error(E_WARNING,"return_status argument to exec() not passed by reference");
 			}
-			ret = _Exec(2,Z_STRVAL_PP(arg1),*arg2,return_value);
+			ret = php_Exec(2,Z_STRVAL_PP(arg1),*arg2,return_value);
 			Z_TYPE_PP(arg3) = IS_LONG;
 			Z_LVAL_PP(arg3)=ret;
 			break;
@@ -246,13 +285,13 @@ PHP_FUNCTION(system)
 	}
 	switch (arg_count) {
 		case 1:
-			ret = _Exec(1, Z_STRVAL_PP(arg1), NULL,return_value);
+			ret = php_Exec(1, Z_STRVAL_PP(arg1), NULL,return_value);
 			break;
 		case 2:
 			if (!ParameterPassedByReference(ht,2)) {
 				php_error(E_WARNING,"return_status argument to system() not passed by reference");
 			}
-			ret = _Exec(1, Z_STRVAL_PP(arg1), NULL,return_value);
+			ret = php_Exec(1, Z_STRVAL_PP(arg1), NULL,return_value);
 			Z_TYPE_PP(arg2) = IS_LONG;
 			Z_LVAL_PP(arg2)=ret;
 			break;
@@ -273,13 +312,13 @@ PHP_FUNCTION(passthru)
 	}
 	switch (arg_count) {
 		case 1:
-			ret = _Exec(3, Z_STRVAL_PP(arg1), NULL,return_value);
+			ret = php_Exec(3, Z_STRVAL_PP(arg1), NULL,return_value);
 			break;
 		case 2:
 			if (!ParameterPassedByReference(ht,2)) {
 				php_error(E_WARNING,"return_status argument to system() not passed by reference");
 			}
-			ret = _Exec(3, Z_STRVAL_PP(arg1), NULL,return_value);
+			ret = php_Exec(3, Z_STRVAL_PP(arg1), NULL,return_value);
 			Z_TYPE_PP(arg2) = IS_LONG;
 			Z_LVAL_PP(arg2)=ret;
 			break;
@@ -412,9 +451,9 @@ PHP_FUNCTION(shell_exec)
 
 	convert_to_string_ex(cmd);
 #ifdef PHP_WIN32
-	if ((in=V_POPEN(Z_STRVAL_PP(cmd),"rt"))==NULL) {
+	if ((in=VCWD_POPEN(Z_STRVAL_PP(cmd),"rt"))==NULL) {
 #else
-	if ((in=V_POPEN(Z_STRVAL_PP(cmd),"r"))==NULL) {
+	if ((in=VCWD_POPEN(Z_STRVAL_PP(cmd),"r"))==NULL) {
 #endif
 		php_error(E_WARNING,"Unable to execute '%s'",Z_STRVAL_PP(cmd));
 	}

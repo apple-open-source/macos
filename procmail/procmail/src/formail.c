@@ -3,14 +3,16 @@
  *									*
  *	Seems to be relatively bug free.				*
  *									*
- *	Copyright (c) 1990-1999, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1990-2000, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
+ *							of America	*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: formail.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: formail.c,v 1.1.1.2 2001/07/20 19:38:16 bbraun Exp $";
 #endif
-static /*const*/char rcsdate[]="$Date: 1999/09/23 17:30:07 $";
+static /*const*/char rcsdate[]="$Date: 2001/07/20 19:38:16 $";
 #include "includes.h"
 #include <ctype.h>		/* iscntrl() */
 #include "formail.h"
@@ -36,6 +38,7 @@ static const char
  x_[]=			"X-",				/* general extension */
  old_[]=		OLD_PREFIX,			     /* my extension */
  xloop[]=		"X-Loop:",				/* ditto ... */
+ Resent_[]=		"Resent-",	   /* for tweaking reply preferences */
  mdaemon[]="<>",unknown[]=UNKNOWN,re[]=" Re:",fmusage[]=FM_USAGE;
 
 static const struct {const char*hedr;int lnr;}cdigest[]=
@@ -48,22 +51,26 @@ static const struct {const char*hedr;int lnr;}cdigest[]=
 /*
  *	sender determination fields in order of importance/reliability
  *	reply-address determination fields (wrepl specifies the weight
- *	for regular replies, wtrepl specifies the weight for trusted users)
+ *	for header replies and wrrepl specifies the weight for header
+ *	replies where Resent- header are used, while the position in the
+ *	table index specifies the weight for envelope replies and From_
+ *	line creation.
  *
- *	I bet this is the first time you see a bar graph in C-source-code :-)
+ *	I bet this is the first time you've seen a bar graph in
+ *	C-source-code :-)
  */
-static const struct {const char*head;int len,wrepl,wtrepl;}sest[]=
-{ sslbar(replyto	,"******"	,"********"	),
-  sslbar(Fromm		,"*"		,"*******"	),
-  sslbar(retreceiptto	,"********"	,"*****"	),
-  sslbar(sender		,"*****"	,"******"	),
-  sslbar(res_replyto	,"***********"	,"***********"	),
-  sslbar(res_from	,"***foo***"	,"***bar****"	),
-  sslbar(res_sender	,"**********"	,"*********"	),
-  sslbar(errorsto	,"*******"	,"****"		),
+static const struct {const char*head;int len,wrepl,wrrepl;}sest[]=
+{ sslbar(replyto	,"*********"	,"********"	),
+  sslbar(Fromm		,"**foo***"	,"**bar**"	),
+  sslbar(sender		,"*******"	,"******"	),
+  sslbar(res_replyto	,"*"		,"***********"	),
+  sslbar(res_from	,"*"		,"**********"	),
+  sslbar(res_sender	,"*"		,"*********"	),
   sslbar(path		,"**"		,"*"		),
-  sslbar(returnpath	,"***"		,"***"		),
-  sslbar(From_		,"****"		,"**"		)
+  sslbar(retreceiptto	,"***"		,"**"		),
+  sslbar(errorsto	,"****"		,"***"		),
+  sslbar(returnpath	,"******"	,"*****"	),
+  sslbar(From_		,"*****"	,"****"		),
 };
 
 static struct saved rex[]=
@@ -189,9 +196,11 @@ static int digheadr P((void))
 { char*chp;int i;size_t j;struct field*fp;
   for(fp=rdheader;fp->fld_next;fp=fp->fld_next);	 /* skip to the last */
   i=maxindex(cdigest);chp=fp->fld_text;j=fp->id_len;
-  while((cdigest[i].lnr!=j||strnIcmp(cdigest[i].hedr,chp,j))&&i--);
-  return i>=0||j>STRLEN(old_)&&!strnIcmp(old_,chp,STRLEN(old_))||
-   j>STRLEN(x_)&&!strnIcmp(x_,chp,STRLEN(x_));
+  while(chp[j-2]==' '||chp[j-2]=='\t')	     /* whitespace before the colon? */
+     j--;
+  while((cdigest[i].lnr!=j||strncasecmp(cdigest[i].hedr,chp,j-1))&&i--);
+  return i>=0||j>STRLEN(old_)&&!strncasecmp(old_,chp,STRLEN(old_))||
+   j>STRLEN(x_)&&!strncasecmp(x_,chp,STRLEN(x_));
 }
 
 static int artheadr P((void))	     /* could it be the start of an article? */
@@ -202,19 +211,19 @@ static int artheadr P((void))	     /* could it be the start of an article? */
   return 0;
 }
 			     /* lifted out of main() to reduce main()'s size */
-static char*getsender(namep,fldp,trust)char*namep;struct field*fldp;
- const int trust;
+static char*getsender(namep,fldp,headreply)char*namep;struct field*fldp;
+ const int headreply;
 { char*chp;int i,nowm;size_t j;static int lastm;
   chp=fldp->fld_text;j=fldp->id_len;i=maxindex(sest);
-  while((sest[i].len!=j||strnIcmp(sest[i].head,chp,j))&&i--);
+  while((sest[i].len!=j||strncasecmp(sest[i].head,chp,j))&&i--);
   if(i>=0&&(i!=maxindex(sest)||fldp==rdheader))		  /* found anything? */
    { char*saddr;char*tmp;			     /* determine the weight */
-     nowm=trust?sest[i].wtrepl:areply?sest[i].wrepl:i;chp+=j;
+     nowm=areply&&headreply?headreply==1?sest[i].wrepl:sest[i].wrrepl:i;chp+=j;
      tmp=malloc(j=fldp->Tot_len-j);tmemmove(tmp,chp,j);(chp=tmp)[j-1]='\0';
      if(sest[i].head==From_)
       { char*pastad;
-	if(trust||!(saddr=strchr(chp,'\n')))	     /* skip the first line? */
-	   saddr=chp;						  /* no need */
+	if(strchr(saddr=chp,'\n'))		     /* multiple From_ lines */
+	   nowm-=2;				    /* aren't as trustworthy */
 	if(*saddr=='\n'&&(pastad=strchr(saddr,' ')))
 	   saddr=pastad+1;			/* reposition at the address */
 	chp=saddr;
@@ -295,7 +304,7 @@ pnewname:  lastm=nowm;saddr=strcpy(malloc(strlen(saddr)+1),saddr);
 }
 			     /* lifted out of main() to reduce main()'s size */
 static void elimdups(namep,idcache,maxlen,split)const char*const namep;
- FILE*idcache;const off_t maxlen;const int split;
+ FILE*idcache;const long maxlen;const int split;
 { int dupid=0;char*key,*oldnewl;
   key=(char*)namep;		  /* not to worry, no change will be noticed */
   if(!areply)
@@ -304,7 +313,7 @@ static void elimdups(namep,idcache,maxlen,split)const char*const namep;
 	*(oldnewl=(key=msid->rexp)+msid->rexl-1)='\0';
    }						/* wipe out trailing newline */
   if(key)
-   { off_t insoffs=maxlen;
+   { long insoffs=maxlen;
      while(*key==' ')				     /* strip leading spaces */
 	key++;
      do
@@ -341,7 +350,7 @@ noluck:
      fseek(idcache,insoffs,SEEK_SET);fwrite(key,1,strlen(key)+1,idcache);
      putc('\0',idcache);			   /* mark new end of buffer */
 dupfound:
-     fseek(idcache,(off_t)0,SEEK_SET);		 /* rewind, for any next run */
+     fseek(idcache,(long)0,SEEK_SET);		 /* rewind, for any next run */
      if(!areply)
 	*oldnewl='\n';				      /* restore the newline */
    }
@@ -353,11 +362,11 @@ dupfound:
 
 static PROGID;
 
-main(lastm,argv)int lastm;const char*const argv[];
-{ int i,split=0,force=0,bogus=1,every=0,trust=0,digest=0,nowait=0,keepb=0,
+int main(lastm,argv)int lastm;const char*const argv[];
+{ int i,split=0,force=0,bogus=1,every=0,headreply=0,digest=0,nowait=0,keepb=0,
    minfields=(char*)progid-(char*)progid,conctenate=0,babyl=0,babylstart,
    berkeley=0,forgetclen;
-  off_t maxlen,ctlength;FILE*idcache=0;pid_t thepid;
+  long maxlen,ctlength;FILE*idcache=0;pid_t thepid;
   size_t j,lnl,escaplen;char*chp,*namep,*escap=ESCAP;
   struct field*fldp,*fp2,**afldp,*fdate,*fcntlength,*fsubject,*fFrom_;
   if(lastm)			       /* sanity check, any argument at all? */
@@ -369,7 +378,7 @@ main(lastm,argv)int lastm;const char*const argv[];
 	   goto usg;
 	for(;;)
 	 { switch(lastm= *chp++)
-	    { case FM_TRUST:trust=1;
+	    { case FM_TRUST:headreply|=1;
 		 continue;
 	      case FM_REPLY:areply=1;
 		 continue;
@@ -440,9 +449,17 @@ number:		 if(*chp-'0'>(unsigned)9)	    /* the number is not >=0 */
 	      case FM_FIRST_UNIQ:case FM_LAST_UNIQ:case FM_ReNAME:Qnext_arg();
 		 i=breakfield(chp,lnl=strlen(chp));
 		 switch(lastm)
-		  { default:
+		  { case FM_ADD_IFNOT:
+		       if(i>0)
+			  break;
+		       if(i!=-STRLEN(Resent_)||-i!=lnl|| /* the only partial */
+			strncasecmp(chp,Resent_,STRLEN(Resent_)+1)) /* field */
+			  goto invfield;       /* allowed with -a is Resent- */
+		       headreply|=2;
+		       goto nextarg;		    /* don't add to the list */
+		    default:
 		       if(-i!=lnl)	  /* it is not an early ending field */
-		    case FM_ADD_IFNOT:case FM_ADD_ALWAYS:
+		    case FM_ADD_ALWAYS:
 			  if(i<=0)	      /* and it is not a valid field */
 			     goto invfield;			 /* complain */
 		    case FM_ReNAME:;		       /* everything allowed */
@@ -473,8 +490,9 @@ number:		 if(*chp-'0'>(unsigned)9)	    /* the number is not >=0 */
 		       tmemmove((char*)fldp->fld_text+lnl,chp,i),copied=1;
 		    else if(namep>chp||				 /* garbage? */
 			    !(chp=(char*)*++argv)||	 /* look at next arg */
-			    !(i=breakfield(chp,strlen(chp)))||	/* fieldish? */
-			    i<0&&(i= -i,lastm>0))  /* impossible combination */
+			    (!(i=breakfield(chp,strlen(chp)))&& /* fieldish? */
+			     *chp)||			   /* but "" is fine */
+			    i<=0&&(i= -i,lastm>0)) /* impossible combination */
 invfield:	     { nlog("Invalid field-name:");logqnl(chp?chp:"");
 		       goto usg;
 		     }
@@ -538,6 +556,10 @@ usg:						     /* options sanity check */
 xusg:
      return EX_USAGE;
    }
+  if(headreply==2)				/* -aResent- is only allowed */
+   { chp=(char*)Resent_;		  /* as a modifier to header replies */
+     goto invfield;
+   }
   buf=malloc(buflen=Bsize);Totallen=0;i=maxindex(rex); /* prime some buffers */
   do rex[i].rexp=malloc(1);
   while(i--);
@@ -567,6 +589,7 @@ xusg:
   else
 startover:
      while(readhead());				 /* read in the whole header */
+  cleanheader();
   ;{ size_t lenparkedbuf;void*parkedbuf;int wasafrom_;
      if(rdheader)
       { char*tmp,*tmp2;
@@ -602,9 +625,9 @@ startover:
 	 }
 	if(conctenate)
 	   concatenate(fldp);		    /* save fields for later perusal */
-	namep=getsender(namep,fldp,trust);i=maxindex(rex);chp=fldp->fld_text;
-	j=fldp->id_len;
-	while((rex[i].lenr!=j||strnIcmp(rex[i].headr,chp,j))&&i--);
+	namep=getsender(namep,fldp,headreply);
+	i=maxindex(rex);chp=fldp->fld_text;j=fldp->id_len;
+	while((rex[i].lenr!=j||strncasecmp(rex[i].headr,chp,j))&&i--);
 	chp+=j;
 	if(i>=0&&(j=fldp->Tot_len-j)>1)			  /* found anything? */
 	 { tmemmove(rex[i].rexp=realloc(rex[i].rexp,(rex[i].rexl=j)+1),chp,j);
@@ -636,7 +659,7 @@ startover:
 	loadchar('\n');addbuf();		       /* add it to rdheader */
 	if(subj->rexl)				      /* any Subject: found? */
 	 { loadbuf(subject,STRLEN(subject));	  /* sure, check for leading */
-	   if(strnIcmp(skpspace(chp=subj->rexp),Re,STRLEN(Re)))	      /* Re: */
+	   if(strncasecmp(skpspace(chp=subj->rexp),Re,STRLEN(Re)))    /* Re: */
 	      loadbuf(re,STRLEN(re));	       /* no Re: , add one ourselves */
 	   loadsaved(subj);addbuf();
 	 }
@@ -680,9 +703,10 @@ startover:
 	if(!findf(fldp,&rdheader))	       /* only add what didn't exist */
 	   if(fldp->id_len+1>=fldp->Tot_len&&		  /* field name only */
 	      (fldp->id_len==STRLEN(messageid)&&
-	       !strnIcmp(fldp->fld_text,messageid,STRLEN(messageid))||
+	       !strncasecmp(fldp->fld_text,messageid,STRLEN(messageid))||
 	       fldp->id_len==STRLEN(res_messageid)&&
-	       !strnIcmp(fldp->fld_text,res_messageid,STRLEN(res_messageid))))
+	       !strncasecmp(fldp->fld_text,res_messageid,STRLEN(res_messageid))
+	      ))
 	    { char*p;const char*name;unsigned long h1,h2,h3;
 	      static unsigned long h4; /* conjure up a `unique' msg-id field */
 	      h1=time((time_t*)0);h2=thepid;h3=rhash;
@@ -822,7 +846,11 @@ putsp:	lputcs(' ');
 	    { fp2=fldp->fld_next;chp=fldp->fld_text;
 	      do
 	       { lputssn(escap,escaplen);
-		 lputssn(chp,(p=strchr(chp,'\n')+1)-chp);
+		 if(p=memchr(chp,'\n',fldp->Tot_len))
+		    p++;
+		 else
+		    p=(char*)fldp->fld_text+fldp->Tot_len;
+		 lputssn(chp,p-chp);
 	       }
 	      while((chp=p)<(char*)fldp->fld_text+fldp->Tot_len);
 	      free(fldp);					/* delete it */
@@ -864,15 +892,26 @@ int eqFrom_(a)const char*const a;
 
 int breakfield(line,len)const char*const line;size_t len;  /* look where the */
 { const char*p=line;			   /* fieldname ends (RFC 822 specs) */
-  if(eqFrom_(p))				      /* special case, From_ */
-     return STRLEN(From_);
-  while(len&&!iscntrl(*p))		    /* no control characters allowed */
-   { switch(*p++)
+  while(len)
+   { switch(*p)
       { default:len--;
+	   if(iscntrl(*p))		    /* no control characters allowed */
+	      break;
+	   p++;
 	   continue;
-	case HEAD_DELIMITER:len=p-line;
-	   return len==1?0:len;					  /* eureka! */
-	case ' ':p--;					/* no spaces allowed */
+	case HEAD_DELIMITER:
+	   len=p-line;
+	   return len?len+1:0;					  /* eureka! */
+	case ' ':case '\t':	/* whitespace is okay right before the colon */
+	   if(p>line)	    /* but only if we've seen something else already */
+	    { const char*q=++p;
+	      while(--len&&(*q==' '||*q=='\t'))		     /* skip forward */
+		 q++;
+	      if(len&&*q==HEAD_DELIMITER)			/* it's okay */
+		 return q-line+1;
+	      if(eqFrom_(line))			      /* special case, From_ */
+		 return STRLEN(From_);
+	    }					   /* it was bogus after all */
       }
      break;
    }

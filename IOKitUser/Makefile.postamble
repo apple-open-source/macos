@@ -12,8 +12,5 @@ iokitmig_c.h:	iokitmig.defs
 after_install::
 
 after_installhdrs::
-	-mkdir -p $(KERNEL_HEADERS)/graphics
-	-rm -f $(KERNEL_HEADERS)/graphics/IOGraphicsInterfaceTypes.h
-	cp graphics.subproj/IOGraphicsInterfaceTypes.h $(KERNEL_HEADERS)/graphics/IOGraphicsInterfaceTypes.h
-	chmod og-w $(KERNEL_HEADERS)/graphics/IOGraphicsInterfaceTypes.h
+
 

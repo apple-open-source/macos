@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,12 +17,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.1.1.3 2001/01/25 05:00:03 wsanchez Exp $ */
+/* $Id: dir.c,v 1.1.1.4 2001/07/19 00:20:11 zarzycki Exp $ */
 
 /* {{{ includes/startup/misc */
 
 #include "php.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 
 #include "php_dir.h"
 
@@ -128,6 +128,7 @@ PHP_RINIT_FUNCTION(dir)
 
 PHP_MINIT_FUNCTION(dir)
 {
+	static char tmpstr[2];
 	zend_class_entry dir_class_entry;
 
 	le_dirp = zend_register_list_destructors_ex(_dir_dtor, NULL, "dir", module_number);
@@ -138,6 +139,9 @@ PHP_MINIT_FUNCTION(dir)
 #ifdef ZTS
 	dir_globals_id = ts_allocate_id(sizeof(php_dir_globals), NULL, NULL);
 #endif
+	tmpstr[0] = DEFAULT_SLASH;
+	tmpstr[1] = '\0';
+	REGISTER_STRING_CONSTANT("DIRECTORY_SEPARATOR", tmpstr, CONST_CS|CONST_PERSISTENT);
 
 	return SUCCESS;
 }
@@ -162,9 +166,16 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 	
 	dirp = emalloc(sizeof(php_dir));
 
-	dirp->dir = V_OPENDIR((*arg)->value.str.val);
-	
-	if (! dirp->dir) {
+	dirp->dir = VCWD_OPENDIR((*arg)->value.str.val);
+
+#ifdef PHP_WIN32
+	if (!dirp->dir || dirp->dir->finished) {
+		if (dirp->dir) {
+			closedir(dirp->dir);
+		}
+#else
+	if (!dirp->dir) {
+#endif
 		efree(dirp);
 		php_error(E_WARNING, "OpenDir: %s (errno %d)", strerror(errno), errno);
 		RETURN_FALSE;
@@ -222,10 +233,12 @@ PHP_FUNCTION(closedir)
 }
 
 /* }}} */
-/* {{{ proto int chdir(string directory)
-   Change the current directory */
 
-PHP_FUNCTION(chdir)
+#if defined(HAVE_CHROOT) && !defined(ZTS)
+/* {{{ proto int chroot(string directory)
+   Change root directory */
+
+PHP_FUNCTION(chroot)
 {
 	pval **arg;
 	int ret;
@@ -235,7 +248,44 @@ PHP_FUNCTION(chdir)
 	}
 	convert_to_string_ex(arg);
 
-	ret = V_CHDIR((*arg)->value.str.val);
+	ret = chroot((*arg)->value.str.val);
+	
+	if (ret != 0) {
+		php_error(E_WARNING, "chroot: %s (errno %d)", strerror(errno), errno);
+		RETURN_FALSE;
+	}
+
+	ret = chdir("/");
+	
+	if (ret != 0) {
+		php_error(E_WARNING, "chdir: %s (errno %d)", strerror(errno), errno);
+		RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
+}
+
+/* }}} */
+#endif
+
+/* {{{ proto int chdir(string directory)
+   Change the current directory */
+
+PHP_FUNCTION(chdir)
+{
+	pval **arg;
+	int ret;
+	PLS_FETCH();
+	
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_string_ex(arg);
+
+	if (PG(safe_mode) && !php_checkuid((*arg)->value.str.val, NULL, CHECKUID_ALLOW_ONLY_DIR)) {
+		RETURN_FALSE;
+	}
+	ret = VCWD_CHDIR((*arg)->value.str.val);
 	
 	if (ret != 0) {
 		php_error(E_WARNING, "ChDir: %s (errno %d)", strerror(errno), errno);
@@ -259,9 +309,9 @@ PHP_FUNCTION(getcwd)
 	}
 
 #if HAVE_GETCWD
-	ret = V_GETCWD(path,MAXPATHLEN-1);
+	ret = VCWD_GETCWD(path, MAXPATHLEN);
 #elif HAVE_GETWD
-	ret = V_GETWD(path);
+	ret = VCWD_GETWD(path);
 /*
  * #warning is not ANSI C
  * #else
@@ -318,4 +368,6 @@ PHP_NAMED_FUNCTION(php_if_readdir)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

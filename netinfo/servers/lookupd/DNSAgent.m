@@ -180,9 +180,7 @@ reverse_ipv6(char *v6)
 	DNSAgent *agent;
 
 	agent = [super alloc];
-
 	system_log(LOG_DEBUG, "Allocated DNSAgent 0x%08x\n", (int)agent);
-
 	return agent;
 }
 
@@ -403,7 +401,7 @@ precsize_ntoa(u_int8_t prec)
 	return buf;
 }
 
-- (DNSAgent *)init
+- (LUAgent *)initWithArg:(char *)arg
 {
 	LUDictionary *config;
 	char *dn;
@@ -411,24 +409,24 @@ precsize_ntoa(u_int8_t prec)
 	unsigned long r;
 	char str[256];
 
-	[super init];
+	[super initWithArg:arg];
 
 	t.tv_sec = 0; 
 	t.tv_usec = 0;
 
-	config = [configManager configGlobal];
+	config = [configManager configGlobal:configurationArray];
 	t.tv_sec = [configManager intForKey:"Timeout" dict:config default:DefaultTimeout];
-	if (config != nil) [config release];
 
-	config = [configManager configForAgent:"DNSAgent"];
+	config = [configManager configForAgent:"DNSAgent" fromConfig:configurationArray];
 	t.tv_sec = [configManager intForKey:"Timeout" dict:config default:t.tv_sec];
 	dn = [configManager stringForKey:"Domain" dict:config default:NULL];
 	r = [configManager intForKey:"Retries" dict:config default:2];
 	allHostsEnabled =  [configManager boolForKey:"AllHostsEnabled" dict:config default:NO];
-	if (config != nil) [config release];
 
 	syslock_lock(rpcLock);
-	dns = dns_open(dn);
+	dns = NULL;
+	if (arg == NULL) dns = dns_open(dn);
+	else dns = dns_open(arg);
 	syslock_unlock(rpcLock);
 
 	freeString(dn);
@@ -439,6 +437,7 @@ precsize_ntoa(u_int8_t prec)
 		return nil;
 	}
 
+	
 	dns_set_server_retries(dns, r);
 
 	if (t.tv_sec == 0) t.tv_sec = 1;
@@ -447,15 +446,15 @@ precsize_ntoa(u_int8_t prec)
 	stats = nil;
 	[self resetStatistics];
 
-	sprintf(str, "DNSAgent %s", dns->domain);
+	sprintf(str, "DNSAgent (%s)", dns->domain);
 	[self setBanner:str];
 
 	return self;
 }
 
-- (const char *)serviceName
+- (DNSAgent *)init
 {
-	return "Domain Name System";
+	return (DNSAgent *)[self initWithArg:NULL];
 }
 
 - (const char *)shortName
@@ -467,9 +466,7 @@ precsize_ntoa(u_int8_t prec)
 {
 	if (stats != nil) [stats release];
 	dns_free(dns);
-
 	system_log(LOG_DEBUG, "Deallocated DNSAgent 0x%08x\n", (int)self);
-
 	[super dealloc];
 }
 
@@ -518,6 +515,7 @@ precsize_ntoa(u_int8_t prec)
 	time_t bestBefore;
 
 	if (item == nil) return NO;
+	if ([self isStale]) return NO;
 
 	bestBefore = [item unsignedLongForKey:"_lookup_DNS_timestamp"];
 	ttl = [item unsignedLongForKey:"_lookup_DNS_time_to_live"];
@@ -689,7 +687,11 @@ precsize_ntoa(u_int8_t prec)
  	for (i = 0; i < r->header->ancount; i++)
 	{
 		item = [self dictForDNSResouceRecord:r->answer[i]];
-		if  (item != nil) [list addObject:item];
+		if  (item != nil)
+		{
+			[list addObject:item];
+			[item release];
+		}
 	}
 	
 	return list;

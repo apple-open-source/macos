@@ -1,4 +1,4 @@
-This extension is going to provide read access to ZIP files
+This extension provides read access to ZIP files
 using the zziplib library (similar to the zlib extension for
 gzip'ped files).
 

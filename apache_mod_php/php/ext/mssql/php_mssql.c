@@ -1,8 +1,8 @@
 /*
-  +----------------------------------------------------------------------+
+   +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,14 +12,18 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
+   | Authors: Frank M. Kromann frank@frontbase.com>                       |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.1.1.2 2001/01/25 04:59:30 wsanchez Exp $ */
+/* $Id: php_mssql.c,v 1.1.1.3 2001/07/19 00:19:25 zarzycki Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
+#endif
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
 
 #include "php.h"
@@ -59,12 +63,14 @@ function_entry mssql_functions[] = {
 	PHP_FE(mssql_data_seek,				NULL)
 	PHP_FE(mssql_field_seek,			NULL)
 	PHP_FE(mssql_result,				NULL)
+	PHP_FE(mssql_next_result,			NULL)
 	PHP_FE(mssql_min_error_severity,	NULL)
 	PHP_FE(mssql_min_message_severity,	NULL)
 	{NULL, NULL, NULL}
 };
 
-zend_module_entry mssql_module_entry = {
+zend_module_entry mssql_module_entry = 
+{
 	"mssql", 
 	mssql_functions, 
 	PHP_MINIT(mssql), 
@@ -150,9 +156,8 @@ static int _clean_invalid_results(list_entry *le)
 	return 0;
 }
 
-static void _free_mssql_result(zend_rsrc_list_entry *rsrc)
+static void _free_result(mssql_result *result, int free_fields) 
 {
-	mssql_result *result = (mssql_result *)rsrc->ptr;
 	int i,j;
 
 	if (result->data) {
@@ -165,15 +170,23 @@ static void _free_mssql_result(zend_rsrc_list_entry *rsrc)
 			}
 		}
 		efree(result->data);
+		result->data = NULL;
+		result->blocks_initialized = 0;
 	}
 	
-	if (result->fields) {
+	if (free_fields && result->fields) {
 		for (i=0; i<result->num_fields; i++) {
 			STR_FREE(result->fields[i].name);
 			STR_FREE(result->fields[i].column_source);
 		}
 		efree(result->fields);
 	}
+}
+
+static void _free_mssql_result(zend_rsrc_list_entry *rsrc)
+{
+	mssql_result *result = (mssql_result *)rsrc->ptr;
+	_free_result(result, 1);
 	efree(result);
 }
 
@@ -217,11 +230,15 @@ static void _close_mssql_plink(zend_rsrc_list_entry *rsrc)
 
 static void php_mssql_init_globals(zend_mssql_globals *mssql_globals)
 {
+	long compatability_mode;
+
 	MS_SQL_G(num_persistent) = 0;
-	if (MS_SQL_G(compatability_mode)) {
-		MS_SQL_G(get_column_content) = php_mssql_get_column_content_with_type;
-	} else {
-		MS_SQL_G(get_column_content) = php_mssql_get_column_content_without_type;	
+	if (cfg_get_long("mssql.compatability_mode", &compatability_mode) == SUCCESS) {
+		if (compatability_mode) {
+			MS_SQL_G(get_column_content) = php_mssql_get_column_content_without_type;	
+		} else {
+			MS_SQL_G(get_column_content) = php_mssql_get_column_content_with_type;
+		}
 	}
 }
 
@@ -230,6 +247,7 @@ PHP_MINIT_FUNCTION(mssql)
 	ZEND_INIT_MODULE_GLOBALS(mssql, php_mssql_init_globals, NULL);
 
 	REGISTER_INI_ENTRIES();
+
 	le_result = zend_register_list_destructors_ex(_free_mssql_result, NULL, "mssql result", module_number);
 	le_link = zend_register_list_destructors_ex(_close_mssql_link, NULL, "mssql link", module_number);
 	le_plink = zend_register_list_destructors_ex(NULL, _close_mssql_plink, "mssql link persistent", module_number);
@@ -238,6 +256,7 @@ PHP_MINIT_FUNCTION(mssql)
 	if (dbinit()==FAIL) {
 		return FAILURE;
 	}
+
 	dberrhandle((DBERRHANDLE_PROC) php_mssql_error_handler);
 	dbmsghandle((DBMSGHANDLE_PROC) php_mssql_message_handler);
 
@@ -720,20 +739,35 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			result->type = IS_DOUBLE;
 			break;
 		}
+		case SQLVARBINARY:
+		case SQLBINARY:
+		case SQLIMAGE: {
+			DBBINARY *bin;
+			unsigned char *res_buf;
+			int res_length = dbdatlen(mssql_ptr->link, offset);
+
+			res_buf = (unsigned char *) emalloc(res_length + 1);
+			bin = ((DBBINARY *)dbdata(mssql_ptr->link, offset));
+			memcpy(res_buf,bin,res_length);
+			res_buf[res_length] = '\0';
+			result->value.str.len = res_length;
+			result->value.str.val = res_buf;
+			result->type = IS_STRING;
+			}
+			break;
 		case SQLNUMERIC:
 		default: {
 			if (dbwillconvert(column_type,SQLCHAR)) {
 				char *res_buf;
-				int res_length = dbdatlen(mssql_ptr->link,offset) + 1;
+				int res_length = dbdatlen(mssql_ptr->link,offset);
 				if (column_type == SQLDATETIM4) res_length += 14;
 				if (column_type == SQLDATETIME) res_length += 10;
 			
-				res_buf = (char *) emalloc(res_length);
-				memset(res_buf, 0, res_length);
-				dbconvert(NULL,column_type,dbdata(mssql_ptr->link,offset), res_length,SQLCHAR,res_buf,-1);
-		
-				result->value.str.len = res_length;
+				res_buf = (char *) emalloc(res_length + 1);
+				res_length = dbconvert(NULL,column_type,dbdata(mssql_ptr->link,offset), res_length,SQLCHAR,res_buf,-1);
+
 				result->value.str.val = res_buf;
+				result->value.str.len = res_length;
 				result->type = IS_STRING;
 			} else {
 				php_error(E_WARNING,"MS SQL:  column %d has unknown data type (%d)", offset, coltype(offset));
@@ -750,16 +784,32 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 		return;
 	}
 
-	if (dbwillconvert(coltype(offset),SQLCHAR)) {
+	if (column_type == SQLVARBINARY ||
+		column_type == SQLBINARY ||
+		column_type == SQLIMAGE) {
+		DBBINARY *bin;
+		unsigned char *res_buf;
+		int res_length = dbdatlen(mssql_ptr->link, offset);
+
+		res_buf = (unsigned char *) emalloc(res_length + 1);
+		bin = ((DBBINARY *)dbdata(mssql_ptr->link, offset));
+		memcpy(res_buf, bin, res_length);
+		res_buf[res_length] = '\0';
+		result->value.str.len = res_length;
+		result->value.str.val = res_buf;
+		result->type = IS_STRING;
+	}
+	else if  (dbwillconvert(coltype(offset),SQLCHAR)) {
 		unsigned char *res_buf;
 		int res_length = dbdatlen(mssql_ptr->link,offset);
+		if (column_type == SQLDATETIM4) res_length += 14;
+		if (column_type == SQLDATETIME) res_length += 10;
 		
-		res_buf = (unsigned char *) emalloc(res_length+1 + 19);
-		memset(res_buf, 0, res_length+1 + 10);
-		dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR,res_buf,-1);
-		
-		result->value.str.len = strlen(res_buf);
+		res_buf = (unsigned char *) emalloc(res_length + 1);
+		res_length = dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR,res_buf,-1);
+
 		result->value.str.val = res_buf;
+		result->value.str.len = res_length;
 		result->type = IS_STRING;
 	} else {
 		php_error(E_WARNING,"MS SQL:  column %d has unknown data type (%d)", offset, coltype(offset));
@@ -767,42 +817,90 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 	}
 }
 
-int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int retvalue, int *column_types) {
-	int i, j;
-	int blocks_initialized=1;
+int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int retvalue) 
+{
+	int i, j = 0;
+	int *column_types;
+	char computed_buf[16];
 	MSSQLLS_FETCH();
 
+	column_types = (int *) emalloc(sizeof(int) * result->num_fields);
+	for (i=0; i<result->num_fields; i++) {
+		char *fname = (char *)dbcolname(mssql_ptr->link,i+1);
+
+		if (*fname) {
+			result->fields[i].name = estrdup(fname);
+		} else {
+			if (j>0) {
+				snprintf(computed_buf,16,"computed%d",j);
+			} else {
+				strcpy(computed_buf,"computed");
+			}
+			result->fields[i].name = estrdup(computed_buf);
+			j++;
+		}
+		result->fields[i].max_length = dbcollen(mssql_ptr->link,i+1);
+		result->fields[i].column_source = estrdup(dbcolsource(mssql_ptr->link,i+1));
+		if (!result->fields[i].column_source) {
+			result->fields[i].column_source = empty_string;
+		}
+
+		column_types[i] = coltype(i+1);
+
+		result->fields[i].type = column_types[i];
+		/* set numeric flag */
+		switch (column_types[i]) {
+			case SQLINT1:
+			case SQLINT2:
+			case SQLINT4:
+			case SQLINTN:
+			case SQLFLT8:
+			case SQLNUMERIC:
+			case SQLDECIMAL:
+				result->fields[i].numeric = 1;
+				break;
+			case SQLCHAR:
+			case SQLVARCHAR:
+			case SQLTEXT:
+			default:
+				result->fields[i].numeric = 0;
+				break;
+		}
+	}
+
 	i=0;
+	if (!result->data) {
+		result->data = (zval **) emalloc(sizeof(zval *)*MSSQL_ROWS_BLOCK*(++result->blocks_initialized));
+	}
 	while (retvalue!=FAIL && retvalue!=NO_MORE_ROWS) {
 		result->num_rows++;
-		if (result->num_rows > blocks_initialized*MSSQL_ROWS_BLOCK) {
-			result->data = (zval **) erealloc(result->data,sizeof(zval *)*MSSQL_ROWS_BLOCK*(++blocks_initialized));
+		if (result->num_rows > result->blocks_initialized*MSSQL_ROWS_BLOCK) {
+			result->data = (zval **) erealloc(result->data,sizeof(zval *)*MSSQL_ROWS_BLOCK*(++result->blocks_initialized));
 		}
 		result->data[i] = (zval *) emalloc(sizeof(zval)*result->num_fields);
-		for (j=1; j<=result->num_fields; j++) {
-			INIT_PZVAL(&result->data[i][j-1]);
-			MS_SQL_G(get_column_content(mssql_ptr, j, &result->data[i][j-1], column_types[j-1]));
+		for (j=0; j<result->num_fields; j++) {
+			INIT_ZVAL(result->data[i][j]);
+			MS_SQL_G(get_column_content(mssql_ptr, j+1, &result->data[i][j], column_types[j]));
 		}
 		if (i<result->batchsize || result->batchsize==0) {
 			i++;
+			dbclrbuf(mssql_ptr->link,DBLASTROW(mssql_ptr->link)); 
 			retvalue=dbnextrow(mssql_ptr->link);
-			dbclrbuf(mssql_ptr->link,DBLASTROW(mssql_ptr->link)-1); 
 		}
 		else
 			break;
 		result->lastresult = retvalue;
 	}
+	efree(column_types);
 	return i;
 }
 
 /* {{{ proto int mssql_fetch_batch(string result_index)
-	returns the next batch of records*/
+   Returns the next batch of records */
 PHP_FUNCTION(mssql_fetch_batch) {
 	zval **mssql_result_index;
 	mssql_result *result;
 	mssql_link *mssql_ptr;
-	int i,j;
-	int *column_types;
 	MSSQLLS_FETCH();
 
 	
@@ -816,27 +914,14 @@ PHP_FUNCTION(mssql_fetch_batch) {
 
 	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);
 	mssql_ptr = result->mssql_ptr;
-	if (result->data) {
-		for (i=0; i<result->num_rows; i++) {
-			for (j=0; j<result->num_fields; j++) {
-				zval_dtor(&result->data[i][j]);
-			}
-			efree(result->data[i]);
-			result->data[i] = NULL;
-		}
-	}
-	column_types = (int *) emalloc(sizeof(int) * result->num_fields);
-	for (i=0; i<result->num_fields; i++) {
-		column_types[i] = coltype(i+1);
-	}
+	_free_result(result, 0);
 	result->cur_row=result->num_rows=0;
-	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, result->lastresult, column_types);
-	efree(column_types);
+	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, result->lastresult);
 	RETURN_LONG(result->num_rows);
 }
 /* }}} */
 
-/* {{{ proto int mssql_query(string query [, int conn_id [, int batch_size = 0]])
+/* {{{ proto int mssql_query(string query [, int conn_id [, int batch_size]])
    Perform an SQL query on a MS-SQL server database */
 PHP_FUNCTION(mssql_query)
 {
@@ -844,10 +929,7 @@ PHP_FUNCTION(mssql_query)
 	int retvalue;
 	mssql_link *mssql_ptr;
 	mssql_result *result;
-	int id;
-	int num_fields;
-	int i,j;
-	int *column_types;
+	int id, num_fields;
 	int batchsize;
 	MSSQLLS_FETCH();
 
@@ -903,73 +985,29 @@ PHP_FUNCTION(mssql_query)
 		RETURN_FALSE;
 	}
 
-	num_fields = dbnumcols(mssql_ptr->link);
-	if (num_fields <= 0) {
-		RETURN_FALSE;
+	if ((num_fields = dbnumcols(mssql_ptr->link)) <= 0) {
+		RETURN_TRUE;
 	}
 
 	result = (mssql_result *) emalloc(sizeof(mssql_result));
-	column_types = (int *) emalloc(sizeof(int) * num_fields);
-	for (i=0; i<num_fields; i++) {
-		column_types[i] = coltype(i+1);
-	}
+	result->num_fields = num_fields;
+	result->blocks_initialized = 1;
 	
 	result->batchsize = batchsize;
-	result->data = (zval **) emalloc(sizeof(zval *)*MSSQL_ROWS_BLOCK);
+	result->data = NULL;
+	result->blocks_initialized = 0;
 	result->mssql_ptr = mssql_ptr;
 	result->cur_field=result->cur_row=result->num_rows=0;
-	result->num_fields = num_fields;
 
-	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue, column_types);
+	result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*result->num_fields);
+	result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue);
 	
-	result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*num_fields);
-	j=0;
-	for (i=0; i<num_fields; i++) {
-		char *fname = (char *)dbcolname(mssql_ptr->link,i+1);
-		char computed_buf[16];
-		
-		if (*fname) {
-			result->fields[i].name = estrdup(fname);
-		} else {
-			if (j>0) {
-				snprintf(computed_buf,16,"computed%d",j);
-			} else {
-				strcpy(computed_buf,"computed");
-			}
-			result->fields[i].name = estrdup(computed_buf);
-			j++;
-		}
-		result->fields[i].max_length = dbcollen(mssql_ptr->link,i+1);
-		result->fields[i].column_source = estrdup(dbcolsource(mssql_ptr->link,i+1));
-		if (!result->fields[i].column_source) {
-			result->fields[i].column_source = empty_string;
-		}
-		result->fields[i].type = column_types[i];
-		/* set numeric flag */
-		switch (column_types[i]) {
-			case SQLINT1:
-			case SQLINT2:
-			case SQLINT4:
-			case SQLFLT8:
-			case SQLNUMERIC:
-			case SQLDECIMAL:
-				result->fields[i].numeric = 1;
-				break;
-			case SQLCHAR:
-			case SQLVARCHAR:
-			case SQLTEXT:
-			default:
-				result->fields[i].numeric = 0;
-				break;
-		}
-	}
-	efree(column_types);
 	ZEND_REGISTER_RESOURCE(return_value, result, le_result);
 }
 /* }}} */
 
 /* {{{ proto int mssql_rows_affected(int conn_id)
-	returns the number of records affected by the query*/
+   Returns the number of records affected by the query */
 PHP_FUNCTION(mssql_rows_affected) {
 	zval **mssql_link_index;
 	mssql_link *mssql_ptr;
@@ -1163,7 +1201,6 @@ PHP_FUNCTION(mssql_fetch_array)
 PHP_FUNCTION(mssql_data_seek)
 {
 	zval **mssql_result_index, **offset;
-	int type,id;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1172,14 +1209,7 @@ PHP_FUNCTION(mssql_data_seek)
 		WRONG_PARAM_COUNT;
 	}
 	
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 
 	convert_to_long_ex(offset);
 	if ((*offset)->value.lval<0 || (*offset)->value.lval>=result->num_rows) {
@@ -1248,7 +1278,7 @@ static char *php_mssql_get_field_name(int type)
 PHP_FUNCTION(mssql_fetch_field)
 {
 	zval **mssql_result_index, **offset;
-	int type,id,field_offset;
+	int field_offset;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1272,14 +1302,7 @@ PHP_FUNCTION(mssql_fetch_field)
 			break;
 	}
 	
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 	
 	if (field_offset==-1) {
 		field_offset = result->cur_field;
@@ -1310,7 +1333,7 @@ PHP_FUNCTION(mssql_fetch_field)
 PHP_FUNCTION(mssql_field_length)
 {
 	zval **mssql_result_index, **offset;
-	int type,id,field_offset;
+	int field_offset;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1334,14 +1357,7 @@ PHP_FUNCTION(mssql_field_length)
 			break;
 	}
 	
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 	
 	if (field_offset==-1) {
 		field_offset = result->cur_field;
@@ -1366,7 +1382,7 @@ PHP_FUNCTION(mssql_field_length)
 PHP_FUNCTION(mssql_field_name)
 {
 	zval **mssql_result_index, **offset;
-	int type,id,field_offset;
+	int field_offset;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1390,14 +1406,7 @@ PHP_FUNCTION(mssql_field_name)
 			break;
 	}
 	
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 	
 	if (field_offset==-1) {
 		field_offset = result->cur_field;
@@ -1423,7 +1432,7 @@ PHP_FUNCTION(mssql_field_name)
 PHP_FUNCTION(mssql_field_type)
 {
 	zval **mssql_result_index, **offset;
-	int type,id,field_offset;
+	int field_offset;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1447,14 +1456,7 @@ PHP_FUNCTION(mssql_field_type)
 			break;
 	}
 	
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 	
 	if (field_offset==-1) {
 		field_offset = result->cur_field;
@@ -1480,7 +1482,7 @@ PHP_FUNCTION(mssql_field_type)
 PHP_FUNCTION(mssql_field_seek)
 {
 	zval **mssql_result_index, **offset;
-	int type,id,field_offset;
+	int field_offset;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1489,14 +1491,7 @@ PHP_FUNCTION(mssql_field_seek)
 		WRONG_PARAM_COUNT;
 	}
 	
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 	
 	convert_to_long_ex(offset);
 	field_offset = (*offset)->value.lval;
@@ -1517,7 +1512,7 @@ PHP_FUNCTION(mssql_field_seek)
 PHP_FUNCTION(mssql_result)
 {
 	zval **row, **field, **mssql_result_index;
-	int id,type,field_offset=0;
+	int field_offset=0;
 	mssql_result *result;
 	MSSQLLS_FETCH();
 
@@ -1526,14 +1521,7 @@ PHP_FUNCTION(mssql_result)
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(mssql_result_index);
-	id = (*mssql_result_index)->value.lval;
-	
-	result = (mssql_result *) zend_list_find(id,&type);
-	if (type!=le_result) {
-		php_error(E_WARNING,"%d is not a MS SQL result index",id);
-		RETURN_FALSE;
-	}
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
 	
 	convert_to_long_ex(row);
 	if ((*row)->value.lval < 0 || (*row)->value.lval >= result->num_rows) {
@@ -1570,8 +1558,45 @@ PHP_FUNCTION(mssql_result)
 	*return_value = result->data[(*row)->value.lval][field_offset];
 	ZVAL_COPY_CTOR(return_value);
 }
-
 /* }}} */
+
+/* {{{ proto string mssql_next_result(int result_id)
+   Move the internal result pointer to the next result */
+PHP_FUNCTION(mssql_next_result)
+{
+	zval **mssql_result_index;
+	int retvalue;
+	mssql_result *result;
+	mssql_link *mssql_ptr;
+	MSSQLLS_FETCH();
+
+
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &mssql_result_index)==FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(result, mssql_result *, mssql_result_index, -1, "MS SQL-result", le_result);	
+
+	mssql_ptr = result->mssql_ptr;
+	retvalue = dbresults(mssql_ptr->link);
+	if (retvalue == FAIL || retvalue == NO_MORE_RESULTS || retvalue == NO_MORE_RPC_RESULTS) {
+		RETURN_FALSE;
+	}
+	else {
+		_free_result(result, 1);
+		result->cur_row=result->num_fields=result->num_rows=0;
+		dbclrbuf(mssql_ptr->link,DBLASTROW(mssql_ptr->link));
+		retvalue = dbnextrow(mssql_ptr->link);
+
+		result->num_fields = dbnumcols(mssql_ptr->link);
+		result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*result->num_fields);
+		result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue);
+		RETURN_TRUE;
+	}
+
+}
+/* }}} */
+
 
 /* {{{ proto void mssql_min_error_severity(int severity)
    Sets the lower error severity */

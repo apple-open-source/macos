@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -52,7 +52,7 @@ ZEND_API extern void (*zend_execute)(zend_op_array *op_array ELS_DC);
 
 void init_executor(CLS_D ELS_DC);
 void shutdown_executor(ELS_D);
-void execute(zend_op_array *op_array ELS_DC);
+ZEND_API void execute(zend_op_array *op_array ELS_DC);
 ZEND_API int zend_is_true(zval *op);
 static inline void safe_free_zval_ptr(zval *p)
 {

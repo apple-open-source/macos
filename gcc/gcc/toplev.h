@@ -111,6 +111,16 @@ extern void fnotice			PROTO ((FILE *, const char *, ...))
   ATTRIBUTE_PRINTF_2;
 #endif
 
+typedef enum c_language_kind
+{
+  clk_c,                    /* A dialect of C: K&R C, ANSI/ISO C89, 
+                              C2000, etc */
+  clk_cplusplus,            /* ANSI/ISO C++ */
+  clk_objective_c,          /* Objective C */
+  clk_objective_cplusplus   /* Objective C++ */
+}c_language_kind;
+
+int c_language;
 #undef trim_filename
 extern const char *trim_filename	PROTO ((const char *));
 extern int wrapup_global_declarations   PROTO ((union tree_node **, int));

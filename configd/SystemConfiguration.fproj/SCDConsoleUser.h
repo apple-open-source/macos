@@ -23,74 +23,15 @@
 #ifndef _SCDCONSOLEUSER_H
 #define _SCDCONSOLEUSER_H
 
-#include <sys/cdefs.h>
-
-/*!
-	@header SCDConsoleUser.h
-	The SystemConfiguration framework provides access to the data used
-		to configure a running system.
-
-	Specifically, the SCDConsoleUserXXX() API's allow an application
-		to determine (or set) the login/user currently using the
-		console.
-
-	The APIs provided by this framework communicate with the "configd"
-		daemon to obtain information regarding the systems current
-		configuration.
- */
-
-
-__BEGIN_DECLS
-
-/*!
-	@function SCDKeyCreateConsoleUser
-	@discussion Creates a key which can be used by the SCDNotifierAdd()
-		function to receive notifications when the current "Console"
-		user changes.
-	@result A notification string for the current "Console" user.
-*/
-CFStringRef	SCDKeyCreateConsoleUser	();
-
-/*!
-	@function SCDConsoleUserGet
-	@discussion Gets the name, user ID, and group ID of the currently
-		logged in user.
-	@param user A pointer to a character buffer of at least size
-		userlen. The returned name is null-terminated unless
-		in-sufficient space is provided.If NULL, this value
-		will not be returned.
-	@param userlen Pass an integer specifying the maximum size of the
-		user buffer.
-	@param uid A pointer to memory which will be filled with the user ID
-		of the current "Console" user. If NULL, this value will not
-		be returned.
-	@param gid A pointer to memory which will be filled with the group ID
-		of the current "Console" user. If NULL, this value will not be
-		returned.
-	@result A constant of type SCDStatus indicating the success (or failure) of
-		the call.
- */
-SCDStatus	SCDConsoleUserGet	(char		*user,
-					 int		userlen,
-					 uid_t		*uid,
-					 gid_t		*gid);
-
-/*!
-	@function SCDConsoleUserSet
-	@discussion Sets the name, user ID, and group ID of the currently
-		logged in user.
-	@param user A pointer to a character buffer containing the name of
-		the current "Console" user. If NULL, any current "Console"
-		user information will be reset.
-	@param uid The user ID of the current "Console" user.
-	@param gid The group ID of the current "Console" user.
-	@result A constant of type SCDStatus indicating the success (or failure) of
-	 the call.
- */
-SCDStatus	SCDConsoleUserSet	(const char	*user,
-					 uid_t		uid,
-					 gid_t		gid);
-
-__END_DECLS
+#ifndef _SYSTEMCONFIGURATION_H
+#warning Your code has directly included the (old) <SystemConfiguration/SCDConsoleUser.h>
+#warning header file.  Please dont do that.  Use the top-level header file:
+#warning
+#warning   <SystemConfiguration/SystemConfiguration.h>
+#warning
+#warning Note: the console user access APIs have been moved out of
+#warning       the SCDConsoleUser.h header file.
+#include <SystemConfiguration/SystemConfiguration.h>    /* ...and try to keep everyone happy */
+#endif
 
 #endif /* _SCDCONSOLEUSER_H */

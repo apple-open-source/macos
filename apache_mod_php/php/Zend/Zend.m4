@@ -19,7 +19,7 @@ AC_DEFUN(LIBZEND_BASIC_CHECKS,[
 AC_REQUIRE([AC_PROG_YACC])
 AC_REQUIRE([AC_PROG_CC])
 AC_REQUIRE([AC_PROG_CC_C_O])
-AC_REQUIRE([AM_PROG_LEX])
+AC_REQUIRE([AC_PROG_LEX])
 AC_REQUIRE([AC_HEADER_STDC])
 
 LIBZEND_BISON_CHECK
@@ -62,7 +62,7 @@ dnl Checks for library functions.
 AC_FUNC_VPRINTF
 AC_FUNC_MEMCMP
 AC_FUNC_ALLOCA
-AC_CHECK_FUNCS(memcpy strdup getpid kill strtod strtol finite)
+AC_CHECK_FUNCS(memcpy strdup getpid kill strtod strtol finite fpclass)
 AC_ZEND_BROKEN_SPRINTF
 
 AC_CHECK_FUNCS(finite isfinite isinf isnan)
@@ -169,7 +169,7 @@ fi
 
 changequote({,})
 if test -n "$GCC" && test "$ZEND_INLINE_OPTIMIZATION" != "yes"; then
-  INLINE_CFLAGS=`echo $ac_n "$CFLAGS $ac_c" | sed s/-O[0-9]*//`
+  INLINE_CFLAGS=`echo $ac_n "$CFLAGS $ac_c" | sed s/-O[0-9s]*//`
 else
   INLINE_CFLAGS="$CFLAGS"
 fi

@@ -247,6 +247,7 @@ nitods(ni_object *n)
 		
 		odata = int32_to_dsdata(pn);
 		dsattribute_insert(orderlist, odata, where);
+		dsdata_release(odata);
 	}
 
 	r->count = n->nio_props.ni_proplist_len - r->meta_count;
@@ -442,6 +443,7 @@ _convert_read(FILE *f)
 
 		odata = int32_to_dsdata(i);
 		dsattribute_insert(orderlist, odata, where);	
+		dsdata_release(odata);
 
 #ifdef DEBUG
 		fprintf(stderr, "        %s:", s);
@@ -743,7 +745,7 @@ ni_status
 file_idalloc(void *hdl, ni_id *idp)
 {
 	if (hdl == NULL) return NI_SYSTEMERR;
-	idp->nii_object = dsstore_create_dsid(STORE(hdl));
+	idp->nii_object = -1;
 	idp->nii_instance = -1;
 	return NI_OK;
 }
@@ -827,7 +829,12 @@ file_write(void *hdl, ni_object *obj)
 	r = nitods(obj);
 	if (r == NULL) return NI_NODIR;
 	status = dsstore_save(STORE(hdl), r);
-	if (status == DSStatusOK) obj->nio_id.nii_instance = r->serial;
+	if (status == DSStatusOK)
+	{
+		obj->nio_id.nii_object = r->dsid;
+		obj->nio_id.nii_instance = r->serial;
+	}
+
 	dsrecord_release(r);
 
 	return dstonistatus(status);

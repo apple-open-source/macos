@@ -405,12 +405,13 @@ static int get_client_master_key(SSL *s)
 	/* bad decrypt */
 #if 1
 	/* If a bad decrypt, continue with protocol but with a
-	 * dud master secret */
+	 * random master secret (Bleichenbacher attack) */
 	if ((i < 0) ||
 		((!is_export && (i != EVP_CIPHER_key_length(c)))
 		|| (is_export && ((i != ek) || (s->s2->tmp.clear+i !=
 			EVP_CIPHER_key_length(c))))))
 		{
+		ERR_clear_error();
 		if (is_export)
 			i=ek;
 		else
@@ -898,7 +899,7 @@ static int request_certificate(SSL *s)
 		EVP_VerifyUpdate(&ctx,ccd,SSL2_MIN_CERT_CHALLENGE_LENGTH);
 
 		i=i2d_X509(s->cert->pkeys[SSL_PKEY_RSA_ENC].x509,NULL);
-		buf2=Malloc((unsigned int)i);
+		buf2=OPENSSL_malloc((unsigned int)i);
 		if (buf2 == NULL)
 			{
 			SSLerr(SSL_F_REQUEST_CERTIFICATE,ERR_R_MALLOC_FAILURE);
@@ -907,7 +908,7 @@ static int request_certificate(SSL *s)
 		p2=buf2;
 		i=i2d_X509(s->cert->pkeys[SSL_PKEY_RSA_ENC].x509,&p2);
 		EVP_VerifyUpdate(&ctx,buf2,(unsigned int)i);
-		Free(buf2);
+		OPENSSL_free(buf2);
 
 		pkey=X509_get_pubkey(x509);
 		if (pkey == NULL) goto end;

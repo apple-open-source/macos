@@ -1,4 +1,4 @@
 #include "symtab.h"
 
-bfd *mach_o_inferior_bfd
-PARAMS ((CORE_ADDR addr, CORE_ADDR offset));
+bfd *
+inferior_bfd (const char *name, CORE_ADDR addr, CORE_ADDR offset, CORE_ADDR len);

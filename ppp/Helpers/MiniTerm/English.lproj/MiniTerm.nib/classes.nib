@@ -1,7 +1,7 @@
 {
     IBClasses = (
         {
-            ACTIONS = {showHelp = id; }; 
+            ACTIONS = {initialFirstResponder = id; showHelp = id; }; 
             CLASS = FirstResponder; 
             LANGUAGE = ObjC; 
             SUPERCLASS = NSObject; 

@@ -93,6 +93,16 @@ __private_extern__ struct merged_sub_umbrella *merged_sub_umbrellas;
 __private_extern__ unsigned long create_sub_umbrella_commands(
     void);
 
+struct merged_sub_library {
+    struct sub_library_command
+	*sub;			/* The load command for the output file */
+};
+/* the pointer to the merged sub_library commands if any */
+__private_extern__ struct merged_sub_library *merged_sub_librarys;
+
+__private_extern__ unsigned long create_sub_library_commands(
+    void);
+
 struct merged_sub_client {
     struct sub_client_command
 	*sub;			/* The load command for the output file */

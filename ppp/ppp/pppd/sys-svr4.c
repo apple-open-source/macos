@@ -1,6 +1,23 @@
 /*
  * System-dependent procedures for pppd under Solaris 2.
  *
+ * Parts re-written by Adi Masputra <adi.masputra@sun.com>, based on 
+ * the original sys-svr4.c
+ *
+ * Copyright (c) 2000 by Sun Microsystems, Inc.
+ * All rights reserved.
+ *
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation is hereby granted, provided that the above copyright
+ * notice appears in all copies.  
+ *
+ * SUN MAKES NO REPRESENTATION OR WARRANTIES ABOUT THE SUITABILITY OF
+ * THE SOFTWARE, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+ * TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT.  SUN SHALL NOT BE LIABLE FOR
+ * ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR
+ * DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES
+ *
  * Copyright (c) 1994 The Australian National University.
  * All rights reserved.
  *
@@ -25,7 +42,7 @@
  * OR MODIFICATIONS.
  */
 
-#define RCSID	"$Id: sys-svr4.c,v 1.3 2001/01/20 03:35:48 callie Exp $"
+#define RCSID	"$Id: sys-svr4.c,v 1.4 2001/05/09 17:52:32 callie Exp $"
 
 #include <limits.h>
 #include <stdio.h>
@@ -67,6 +84,10 @@
 #endif
 
 #include "pppd.h"
+#include "fsm.h"
+#include "lcp.h"
+#include "ipcp.h"
+#include "ccp.h"
 
 #if !defined(PPP_DEV_NAME)
 #define PPP_DEV_NAME	"/dev/ppp"
@@ -134,6 +155,13 @@ static int	if6_is_up = 0;	/* IPv6 interface has been marked up */
 #define IN6_LLTOKEN_FROM_EUI64(l, s, eui64) \
     _IN6_LLX_FROM_EUI64(l, s, eui64, 0)
 
+#endif /* defined(INET6) && defined(SOL2) */
+
+#if defined(INET6) && defined(SOL2)
+static char	first_ether_name[LIFNAMSIZ];	/* Solaris 8 and above */
+#else
+static char	first_ether_name[IFNAMSIZ];	/* Before Solaris 8 */
+#define MAXIFS		256			/* Max # of interfaces */
 #endif /* defined(INET6) && defined(SOL2) */
 
 static int	restore_term;
@@ -204,47 +232,13 @@ sifppa(fd, ppa)
 
 #if defined(SOL2) && defined(INET6)
 /*
- * slifname - Sets interface ppa and flags
+ * get_first_ethernet - returns the first Ethernet interface name found in 
+ * the system, or NULL if none is found
  *
- * in addition to the comments stated in sifppa(), IFF_IPV6 bit must
- * be set in order to declare this as an IPv6 interface
+ * NOTE: This is the lifreq version (Solaris 8 and above)
  */
-static int
-slifname(fd, ppa)
-    int fd;
-    int ppa;
-{
-    struct  lifreq lifr;
-    int	    ret;
-
-    memset(&lifr, 0, sizeof(lifr));
-    ret = ioctl(fd, SIOCGLIFFLAGS, &lifr);
-    if (ret < 0)
-	goto slifname_done;
-
-    lifr.lifr_flags |= IFF_IPV6;
-    lifr.lifr_flags &= ~(IFF_BROADCAST | IFF_IPV4);
-    lifr.lifr_ppa = ppa;
-    strlcpy(lifr.lifr_name, ifname, sizeof(lifr.lifr_name));
-
-    ret = ioctl(fd, SIOCSLIFNAME, &lifr);
-
-slifname_done:
-    return ret;
-
-
-}
-
-/*
- * ether_to_eui64 - Convert 48-bit Ethernet address into 64-bit EUI
- *
- * walks the list of valid ethernet interfaces, and convert the first
- * found 48-bit MAC address into EUI 64. caller also assumes that
- * the system has a properly configured Ethernet interface for this
- * function to return non-zero.
- */
-int
-ether_to_eui64(eui64_t *p_eui64)
+char *
+get_first_ethernet()
 {
     struct lifnum lifn;
     struct lifconf lifc;
@@ -253,8 +247,6 @@ ether_to_eui64(eui64_t *p_eui64)
     int	fd, num_ifs, i, found;
     uint_t fl, req_size;
     char *req;
-    struct sockaddr s_eth_addr;
-    struct ether_addr *eth_addr = (struct ether_addr *)&s_eth_addr.sa_data;
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
@@ -301,7 +293,7 @@ ether_to_eui64(eui64_t *p_eui64)
      */
     plifreq = lifc.lifc_req;
     found = 0;
-    for (i = lifc.lifc_len / sizeof(struct lifreq); i>0; i--, plifreq++) {
+    for (i = lifc.lifc_len / sizeof(struct lifreq); i > 0; i--, plifreq++) {
 
 	if (strchr(plifreq->lifr_name, ':') != NULL)
 	    continue;
@@ -326,7 +318,177 @@ ether_to_eui64(eui64_t *p_eui64)
     free(req);
     close(fd);
 
-    if (!found) {
+    if (found) {
+	strncpy(first_ether_name, lifr.lifr_name, sizeof(first_ether_name));
+	return (char *)first_ether_name;
+    } else
+	return NULL;
+}
+#else
+/*
+ * get_first_ethernet - returns the first Ethernet interface name found in 
+ * the system, or NULL if none is found
+ *
+ * NOTE: This is the ifreq version (before Solaris 8). 
+ */
+char *
+get_first_ethernet()
+{
+    struct ifconf ifc;
+    struct ifreq *pifreq;
+    struct ifreq ifr;
+    int	fd, num_ifs, i, found;
+    uint_t fl, req_size;
+    char *req;
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+	return 0;
+    }
+
+    /*
+     * Find out how many interfaces are running
+     */
+    if (ioctl(fd, SIOCGIFNUM, (char *)&num_ifs) < 0) {
+	num_ifs = MAXIFS;
+    }
+
+    req_size = num_ifs * sizeof(struct ifreq);
+    req = malloc(req_size);
+    if (req == NULL) {
+	close(fd);
+	error("out of memory");
+	return 0;
+    }
+
+    /*
+     * Get interface configuration info for all interfaces
+     */
+    ifc.ifc_len = req_size;
+    ifc.ifc_buf = req;
+    if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+	close(fd);
+	free(req);
+	error("SIOCGIFCONF: %m");
+	return 0;
+    }
+
+    /*
+     * And traverse each interface to look specifically for the first
+     * occurence of an Ethernet interface which has been marked up
+     */
+    pifreq = ifc.ifc_req;
+    found = 0;
+    for (i = ifc.ifc_len / sizeof(struct ifreq); i > 0; i--, pifreq++) {
+
+	if (strchr(pifreq->ifr_name, ':') != NULL)
+	    continue;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, pifreq->ifr_name, sizeof(ifr.ifr_name));
+	if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
+	    close(fd);
+	    free(req);
+	    error("SIOCGIFFLAGS: %m");
+	    return 0;
+	}
+	fl = ifr.ifr_flags;
+
+	if ((fl & (IFF_UP|IFF_BROADCAST|IFF_POINTOPOINT|IFF_LOOPBACK|IFF_NOARP))
+		!= (IFF_UP | IFF_BROADCAST))
+	    continue;
+
+	found = 1;
+	break;
+    }
+    free(req);
+    close(fd);
+
+    if (found) {
+	strncpy(first_ether_name, ifr.ifr_name, sizeof(first_ether_name));
+	return (char *)first_ether_name;
+    } else
+	return NULL;
+}
+#endif /* defined(SOL2) && defined(INET6) */
+
+#if defined(SOL2)
+/*
+ * get_if_hwaddr - get the hardware address for the specified
+ * network interface device.
+ */
+int
+get_if_hwaddr(u_char *addr, char *if_name)
+{
+    struct sockaddr s_eth_addr;
+    struct ether_addr *eth_addr = (struct ether_addr *)&s_eth_addr.sa_data;
+
+    if (if_name == NULL)
+	return -1;
+
+    /*
+     * Send DL_INFO_REQ to the driver to solicit its MAC address
+     */
+    if (!get_hw_addr_dlpi(if_name, &s_eth_addr)) {
+	error("could not obtain hardware address for %s", if_name);
+	return -1;
+    }
+
+    memcpy(addr, eth_addr->ether_addr_octet, 6);
+    return 1;
+}
+#endif /* SOL2 */
+
+#if defined(SOL2) && defined(INET6)
+/*
+ * slifname - Sets interface ppa and flags
+ *
+ * in addition to the comments stated in sifppa(), IFF_IPV6 bit must
+ * be set in order to declare this as an IPv6 interface
+ */
+static int
+slifname(fd, ppa)
+    int fd;
+    int ppa;
+{
+    struct  lifreq lifr;
+    int	    ret;
+
+    memset(&lifr, 0, sizeof(lifr));
+    ret = ioctl(fd, SIOCGLIFFLAGS, &lifr);
+    if (ret < 0)
+	goto slifname_done;
+
+    lifr.lifr_flags |= IFF_IPV6;
+    lifr.lifr_flags &= ~(IFF_BROADCAST | IFF_IPV4);
+    lifr.lifr_ppa = ppa;
+    strlcpy(lifr.lifr_name, ifname, sizeof(lifr.lifr_name));
+
+    ret = ioctl(fd, SIOCSLIFNAME, &lifr);
+
+slifname_done:
+    return ret;
+
+
+}
+
+
+/*
+ * ether_to_eui64 - Convert 48-bit Ethernet address into 64-bit EUI
+ *
+ * walks the list of valid ethernet interfaces, and convert the first
+ * found 48-bit MAC address into EUI 64. caller also assumes that
+ * the system has a properly configured Ethernet interface for this
+ * function to return non-zero.
+ */
+int
+ether_to_eui64(eui64_t *p_eui64)
+{
+    struct sockaddr s_eth_addr;
+    struct ether_addr *eth_addr = (struct ether_addr *)&s_eth_addr.sa_data;
+    char *if_name;
+
+    if ((if_name = get_first_ethernet()) == NULL) {
 	error("no persistent id can be found");
 	return 0;
     }
@@ -334,8 +496,8 @@ ether_to_eui64(eui64_t *p_eui64)
     /*
      * Send DL_INFO_REQ to the driver to solicit its MAC address
      */
-    if (!get_hw_addr_dlpi(plifreq->lifr_name, &s_eth_addr)) {
-	error("could not obtain hardware address for %s", plifreq->lifr_name);
+    if (!get_hw_addr_dlpi(if_name, &s_eth_addr)) {
+	error("could not obtain hardware address for %s", if_name);
 	return 0;
     }
 
@@ -688,6 +850,27 @@ ppp_available()
 }
 
 /*
+ * any_compressions - see if compression is enabled or not
+ *
+ * In the STREAMS implementation of kernel-portion pppd,
+ * the comp STREAMS module performs the ACFC, PFC, as well
+ * CCP and VJ compressions. However, if the user has explicitly
+ * declare to not enable them from the command line, there is
+ * no point of having the comp module be pushed on the stream.
+ */
+static int
+any_compressions()
+{
+    if ((!lcp_wantoptions[0].neg_accompression) &&
+	(!lcp_wantoptions[0].neg_pcompression) &&
+	(!ccp_protent.enabled_flag) &&
+	(!ipcp_wantoptions[0].neg_vj)) {
+	    return 0;
+    }
+    return 1;
+}
+
+/*
  * establish_ppp - Turn the serial port into a ppp interface.
  */
 int
@@ -718,12 +901,21 @@ establish_ppp(fd)
 	i = PPPDBG_LOG + PPPDBG_AHDLC;
 	strioctl(pppfd, PPPIO_DEBUG, &i, sizeof(int), 0);
     }
-    if (ioctl(fd, I_PUSH, COMP_MOD_NAME) < 0)
-	error("Couldn't push PPP compression module: %m");
-    else
-	++tty_npushed;
+    /*
+     * There's no need to push comp module if we don't intend
+     * to compress anything
+     */
+    if (any_compressions()) { 
+        if (ioctl(fd, I_PUSH, COMP_MOD_NAME) < 0)
+	    error("Couldn't push PPP compression module: %m");
+	else
+	    ++tty_npushed;
+    }
+
     if (kdebugflag & 2) {
-	i = PPPDBG_LOG + PPPDBG_COMP;
+	i = PPPDBG_LOG; 
+	if (any_compressions())
+	    i += PPPDBG_COMP;
 	strioctl(pppfd, PPPIO_DEBUG, &i, sizeof(int), 0);
     }
 
@@ -961,7 +1153,7 @@ set_up_tty(fd, local)
 
 #ifndef CRTSCTS
     termiox_ok = 1;
-    if (ioctl (fd, TCGETX, &tiox) < 0) {
+    if (!sync_serial && ioctl (fd, TCGETX, &tiox) < 0) {
 	termiox_ok = 0;
 	if (errno != ENOTTY)
 	    error("TCGETX: %m");
@@ -973,7 +1165,8 @@ set_up_tty(fd, local)
 #ifndef CRTSCTS
 	inittermiox = tiox;
 #endif
-	ioctl(fd, TIOCGWINSZ, &wsinfo);
+	if (!sync_serial)
+	    ioctl(fd, TIOCGWINSZ, &wsinfo);
     }
 
     tios.c_cflag &= ~(CSIZE | CSTOPB | PARENB | CLOCAL);
@@ -1017,7 +1210,7 @@ set_up_tty(fd, local)
 	 * We can't proceed if the serial port speed is 0,
 	 * since that implies that the serial port is disabled.
 	 */
-	if (speed == B0)
+	if ((speed == B0) && !sync_serial)
 	    fatal("Baud rate for %s is 0; need explicit baud rate", devnam);
     }
 
@@ -1025,13 +1218,14 @@ set_up_tty(fd, local)
 	fatal("tcsetattr: %m");
 
 #ifndef CRTSCTS
-    if (termiox_ok && ioctl (fd, TCSETXF, &tiox) < 0){
+    if (!sync_serial && termiox_ok && ioctl (fd, TCSETXF, &tiox) < 0){
 	error("TCSETXF: %m");
     }
 #endif
 
     baud_rate = inspeed = baud_rate_of(speed);
-    restore_term = 1;
+    if (!sync_serial)
+	restore_term = 1;
 }
 
 /*
@@ -1051,16 +1245,17 @@ restore_tty(fd)
 	     */
 	    inittermios.c_lflag &= ~(ECHO | ECHONL);
 	}
-	if (tcsetattr(fd, TCSAFLUSH, &inittermios) < 0)
+	if (!sync_serial && tcsetattr(fd, TCSAFLUSH, &inittermios) < 0)
 	    if (!hungup && errno != ENXIO)
 		warn("tcsetattr: %m");
 #ifndef CRTSCTS
-	if (ioctl (fd, TCSETXF, &inittermiox) < 0){
+	if (!sync_serial && ioctl (fd, TCSETXF, &inittermiox) < 0){
 	    if (!hungup && errno != ENXIO)
 		error("TCSETXF: %m");
 	}
 #endif
-	ioctl(fd, TIOCSWINSZ, &wsinfo);
+	if (!sync_serial)
+	    ioctl(fd, TIOCSWINSZ, &wsinfo);
 	restore_term = 0;
     }
 }
@@ -1284,13 +1479,15 @@ ppp_send_config(unit, mtu, asyncmap, pcomp, accomp)
 	error("Couldn't set MTU: %m");
     }
     if (fdmuxid >= 0) {
-	/* can't set these if we don't have a stream attached below /dev/ppp */
-	if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
-	    error("Couldn't set transmit ACCM: %m");
+	if (!sync_serial) {
+	    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
+		error("Couldn't set transmit ACCM: %m");
+	    }
 	}
 	cf[0] = (pcomp? COMP_PROT: 0) + (accomp? COMP_AC: 0);
 	cf[1] = COMP_PROT | COMP_AC;
-	if (strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
+	if (any_compressions() &&
+	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
 	    error("Couldn't set prot/AC compression: %m");
 	}
     }
@@ -1327,6 +1524,9 @@ ppp_set_xaccm(unit, accm)
     int unit;
     ext_accm accm;
 {
+    if (sync_serial)
+	return;
+
     if (fdmuxid >= 0
 	&& strioctl(pppfd, PPPIO_XACCM, accm, sizeof(ext_accm), 0) < 0) {
 	if (!hungup || errno != ENXIO)
@@ -1353,13 +1553,15 @@ ppp_recv_config(unit, mru, asyncmap, pcomp, accomp)
 	error("Couldn't set MRU: %m");
     }
     if (fdmuxid >= 0) {
-	/* can't set these if we don't have a stream attached below /dev/ppp */
-	if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
-	    error("Couldn't set receive ACCM: %m");
+	if (!sync_serial) {
+	    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
+		error("Couldn't set receive ACCM: %m");
+	    }
 	}
 	cf[0] = (pcomp? DECOMP_PROT: 0) + (accomp? DECOMP_AC: 0);
 	cf[1] = DECOMP_PROT | DECOMP_AC;
-	if (strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
+	if (any_compressions() &&
+	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
 	    error("Couldn't set prot/AC decompression: %m");
 	}
     }
@@ -1418,7 +1620,8 @@ get_ppp_stats(u, stats)
 {
     struct ppp_stats s;
 
-    if (strioctl(pppfd, PPPIO_GETSTAT, &s, 0, sizeof(s)) < 0) {
+    if (!sync_serial && 
+	strioctl(pppfd, PPPIO_GETSTAT, &s, 0, sizeof(s)) < 0) {
 	error("Couldn't get link statistics: %m");
 	return 0;
     }

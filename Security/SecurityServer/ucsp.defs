@@ -1,0 +1,226 @@
+//
+// ucsp.defs - Mach RPC interface between SecurityServer and its clients
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem ucsp 1000;
+serverprefix ucsp_server_;
+userprefix ucsp_client_;
+
+import "securityserver.h";
+import "ucsp_types.h";
+
+
+//
+// Data types
+//
+type Data = array [] of char;
+
+type KeyHandle = unsigned32;
+type KeyBlob = Data
+	ctype: Pointer;
+
+type DbHandle = unsigned32;
+type DbBlob = Data
+	ctype: Pointer;
+
+type AclEntryPrototypeBlob = Data
+	ctype: AclEntryPrototypePtr;
+type AclEntryPrototypePtr = unsigned32;
+
+type AclEntryInfoBlob = Data
+	ctype: AclEntryInfoPtr;
+type AclEntryInfoPtr = unsigned32;
+
+type AclOwnerPrototypeBlob = Data
+	ctype: AclOwnerPrototypePtr;
+type AclOwnerPrototypePtr = unsigned32;
+
+type AccessCredentialsBlob = Data
+	ctype: AccessCredentialsPtr;
+type AccessCredentialsPtr = unsigned32;
+
+type DLDbIdentBlob = Data
+    ctype: DLDbIdentPtr;
+type DLDbIdentPtr = unsigned32;
+
+type Context = struct [9] of unsigned32
+	ctype: CSSM_CONTEXT
+	intran: Context inTrans(CSSM_CONTEXT);
+type ContextAttributes = array [] of char
+	cservertype: ContextAttributesPointer;
+	
+type CssmKeyHeader = struct [23] of unsigned32;
+
+type CssmKey = struct [23+2] of unsigned32
+	ctype: CSSM_KEY
+	intran: CssmKey inTrans(CSSM_KEY)
+	outtran: CSSM_KEY outTrans(CssmKey);
+
+type DBParameters = struct [1] of unsigned32;
+
+type AuthorizationItemSetBlob = Data
+	ctype: AuthorizationItemSetPtr;
+type AuthorizationItemSetPtr = unsigned32;
+
+type AuthorizationBlob = struct [2] of unsigned32;				// 8 opaque bytes
+type AuthorizationExternalForm = struct [8] of unsigned32;		// 32 opaque bytes
+
+type CssmString = c_string[*:64+4];
+type AuthorizationString = c_string[*:1024];
+type CSSM_RETURN = int32;
+type CSSM_ALGORITHMS = unsigned32;
+type CSSM_ACL_EDIT_MODE = unsigned32;
+type CSSM_ACL_HANDLE = unsigned32;
+type AclKind = unsigned32;
+type uint32 = unsigned32;
+type SecuritySessionId = unsigned32;
+type SessionAttributeBits = unsigned32;
+type SessionCreationFlags = unsigned32;
+
+type Pointer = unsigned32;
+
+type ExecutablePath = c_string[*:2048];
+
+
+//
+// Common argument profiles
+//
+#define UCSP_PORTS	requestport sport: mach_port_t; \
+					replyport rport: mach_port_make_send_t; \
+                    serversectoken sourceSecurity: security_token_t; \
+					out rcode: CSSM_RETURN
+#define IN_CONTEXT	in context: Context; in contextBase: Pointer; in attrs: ContextAttributes
+#define IN_BLOB(name,type)	in name: type##Blob; in name##Base: type##Ptr
+#define OUT_BLOB(name,type)	out name: type##Blob; out name##Base: type##Ptr
+
+
+//
+// Management and administrative functions
+//
+routine setup(UCSP_PORTS; in tport: mach_port_t; in executablePath: ExecutablePath);
+routine teardown(UCSP_PORTS);
+
+
+//
+// Database management
+//
+routine createDb(UCSP_PORTS; out db: DbHandle; IN_BLOB(ident,DLDbIdent);
+    IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+    in params: DBParameters);
+routine decodeDb(UCSP_PORTS; out db: DbHandle; IN_BLOB(ident,DLDbIdent);
+    IN_BLOB(accessCredentials,AccessCredentials); in blob: DbBlob);
+routine encodeDb(UCSP_PORTS; in db: DbHandle; out blob: DbBlob);
+routine releaseDb(UCSP_PORTS; in db: DbHandle);
+routine authenticateDb(UCSP_PORTS; in db: DbHandle; IN_BLOB(accessCredentials,AccessCredentials));
+routine setDbParameters(UCSP_PORTS; in db: DbHandle; in params: DBParameters);
+routine getDbParameters(UCSP_PORTS; in db: DbHandle; out params: DBParameters);
+routine changePassphrase(UCSP_PORTS; in db: DbHandle; 
+	IN_BLOB(accessCredentials,AccessCredentials));
+routine lockDb(UCSP_PORTS; in db: DbHandle);
+routine unlockDb(UCSP_PORTS; in db: DbHandle);
+routine unlockDbWithPassphrase(UCSP_PORTS; in db: DbHandle; in passPhrase: Data);
+routine isLocked(UCSP_PORTS; in db: DbHandle; out locked: boolean_t);
+
+
+//
+// Key management
+//
+routine encodeKey(UCSP_PORTS; in key: KeyHandle; out blob: KeyBlob;
+    in wantUid: boolean_t; out uid: Data);
+routine decodeKey(UCSP_PORTS; out key: KeyHandle; out header: CssmKeyHeader;
+    in db: DbHandle; in blob: KeyBlob);
+routine releaseKey(UCSP_PORTS; in key: KeyHandle);
+
+
+//
+// Random numbers
+//
+routine generateRandom(UCSP_PORTS; in bytes: uint32; out data: Data);
+
+
+//
+// Cryptographic operations
+//
+routine generateSignature(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in data: Data; out signature: Data);
+routine verifySignature(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in data: Data; in signature: Data);
+routine generateMac(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in data: Data; out signature: Data);
+routine verifyMac(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in data: Data; in signature: Data);
+
+routine encrypt(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle; in clear: Data; out cipher: Data);
+routine decrypt(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle; in cipher: Data; out clear: Data);
+
+routine generateKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
+routine generateKeyPair(UCSP_PORTS; in db: DbHandle; IN_CONTEXT;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in pubUsage: uint32; in pubAttrs: uint32; in privUsage: uint32; in privAttrs: uint32;
+	out pubKey: KeyHandle; out pubHeader: CssmKeyHeader;
+    out privKey: KeyHandle; out privHeader: CssmKeyHeader);
+
+routine wrapKey(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+    IN_BLOB(accessCredentials,AccessCredentials); in keyToBeWrapped: KeyHandle;
+	in data: Data; out wrappedKey: CssmKey; out wrappedKeyData: Data);
+routine unwrapKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in key: KeyHandle;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in publicKey: KeyHandle; in wrappedKey: CssmKey; in wrappedKeyData: Data;
+	in usage: uint32; in attributes: uint32; out data: Data; 
+    out resultKey: KeyHandle; out header: CssmKeyHeader);
+
+
+//
+// ACL management
+//
+routine getOwner(UCSP_PORTS; in kind: AclKind; in key: KeyHandle;
+	out proto: AclOwnerPrototypeBlob; out protoBase: AclOwnerPrototypePtr);
+routine setOwner(UCSP_PORTS; in kind: AclKind; in key: KeyHandle;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclOwnerPrototype,AclOwnerPrototype));
+routine getAcl(UCSP_PORTS; in kind: AclKind; in key: KeyHandle;
+	in haveTag: boolean_t; in tag: CssmString;
+	out count: uint32; out acls: AclEntryInfoBlob; out aclsBase: AclEntryInfoPtr);
+routine changeAcl(UCSP_PORTS; in kind: AclKind; in key: KeyHandle;
+	IN_BLOB(accessCredentials,AccessCredentials);
+	in mode: CSSM_ACL_EDIT_MODE; in handle: CSSM_ACL_HANDLE;
+	IN_BLOB(aclEntryPrototype,AclEntryPrototype));
+
+
+//
+// Authorization subsystem
+//
+routine authorizationCreate(UCSP_PORTS; IN_BLOB(rights,AuthorizationItemSet);
+	in flags: uint32;
+	IN_BLOB(environment,AuthorizationItemSet);
+	out authorization: AuthorizationBlob);
+
+routine authorizationRelease(UCSP_PORTS; in authorization: AuthorizationBlob;
+	in flags: uint32);
+
+routine authorizationCopyRights(UCSP_PORTS; in authorization: AuthorizationBlob;
+	IN_BLOB(rights,AuthorizationItemSet); in flags: uint32;
+	IN_BLOB(environment,AuthorizationItemSet);
+	OUT_BLOB(result,AuthorizationItemSet));
+
+routine authorizationCopyInfo(UCSP_PORTS; in authorization: AuthorizationBlob;
+	in tag: AuthorizationString;
+	OUT_BLOB(info,AuthorizationItemSet));
+
+routine authorizationExternalize(UCSP_PORTS; in authorization: AuthorizationBlob;
+	out form: AuthorizationExternalForm);
+
+routine authorizationInternalize(UCSP_PORTS; in form: AuthorizationExternalForm;
+	out authorization: AuthorizationBlob);
+
+
+//
+// Session management subsystem
+//
+routine getSessionInfo(UCSP_PORTS; inout sessionId: SecuritySessionId;
+    out attrs: SessionAttributeBits);
+
+routine setupSession(UCSP_PORTS; in flags: SessionCreationFlags; in attrs: SessionAttributeBits);

@@ -77,9 +77,6 @@ extern char *nettoa(unsigned long);
 extern unsigned long sys_address(void);
 #define BUFSIZE 8192
 
-static YPAgent *_sharedYPAgent = nil;
-
-
 typedef char *domainname;
 typedef char *mapname;
 typedef struct {
@@ -328,7 +325,7 @@ _my_xdr_ypreq_key(xdrs, objp)
 
 - (YPAgent *)init
 {
-	char *dn;
+	char *dn, *str;
 	LUDictionary *config;
 	int status;
 
@@ -336,7 +333,7 @@ _my_xdr_ypreq_key(xdrs, objp)
 
 	[super init];
 
-	yp_get_default_domain(&dn);
+	yp_get_default_domain(&dn);	
 	if (dn == NULL)
 	{
 		[self release];
@@ -351,27 +348,25 @@ _my_xdr_ypreq_key(xdrs, objp)
 		return nil;
 	}
 
+	str = malloc(strlen(dn) + 16);
+	sprintf(str, "YPAgent (%s)", dn);
+	[self setBanner:str];
+	free(str);
+
 	domainName = copyString(dn);
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"YPAgent statistics"];
-	[stats setValue:"Network_Information_Service"
-		forKey:"information_system"];
-	[stats setValue:domainName forKey:"domain_name"];
-	[stats setValue:[self currentServerName] forKey:"current_server"];
 
 	mapValidationTable = [[LUDictionary alloc] init];
+	[mapValidationTable setBanner:"YP Map Validation Table"];
 
 	parser = [[FFParser alloc] init];
 
-	config = [configManager configGlobal];
+	config = [configManager configGlobal:configurationArray];
 	timeout = [configManager intForKey:"Timeout" dict:config default:30];
 	validationLatency = [configManager intForKey:"ValidationLatency"dict:config default:15];
-	if (config != nil) [config release];
 
-	config = [configManager configForAgent:"YPAgent"];
+	config = [configManager configForAgent:"YPAgent" fromConfig:configurationArray];
 	timeout = [configManager intForKey:"Timeout" dict:config default:timeout];
 	validationLatency = [configManager intForKey:"ValidationLatency" dict:config default:validationLatency];
-	if (config != nil) [config release];
 
 #ifdef _UNIX_BSD_44_
 	if (timeout != 0)
@@ -383,26 +378,18 @@ _my_xdr_ypreq_key(xdrs, objp)
 	return self;
 }
 
-+ (YPAgent *)alloc
+- (LUAgent *)initWithArg:(char *)arg
 {
-	if (_sharedYPAgent != nil)
-	{
-		[_sharedYPAgent retain];
-		return _sharedYPAgent;
-	}
-
-	_sharedYPAgent = [super alloc];
-	_sharedYPAgent = [_sharedYPAgent init];
-	if (_sharedYPAgent == nil) return nil;
-
-	system_log(LOG_DEBUG, "Allocated YPAgent 0x%08x\n", (int)_sharedYPAgent);
-
-	return _sharedYPAgent;
+	return [self init];
 }
 
-- (const char *)serviceName
++ (YPAgent *)alloc
 {
-	return "Network Information Service";
+	YPAgent *agent;
+
+	agent = [super alloc];
+	system_log(LOG_DEBUG, "Allocated YPAgent 0x%08x\n", (int)agent);
+	return agent;
 }
 
 - (const char *)shortName
@@ -418,31 +405,12 @@ _my_xdr_ypreq_key(xdrs, objp)
 	freeString(domainName);
 	domainName = NULL;
 
-	if (stats != nil) [stats release];
 	if (mapValidationTable != nil) [mapValidationTable release];
 	if (parser != nil) [parser release];
 
 	system_log(LOG_DEBUG, "Deallocated YPAgent 0x%08x\n", (int)self);
 
 	[super dealloc];
-
-	_sharedYPAgent = nil;
-}
-
-- (LUDictionary *)statistics
-{
-	[stats setValue:[self currentServerName] forKey:"current_server"];
-	return stats;
-}
-
-- (void)resetStatistics
-{
-	if (stats != nil) [stats release];
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"YPAgent statistics"];
-	[stats setValue:"Network_Information_Service"
-		forKey:"information_system"];
-	[stats setValue:domainName forKey:"domain_name"];
 }
 
 - (char *)orderNumberForMap:(char *)map
@@ -534,6 +502,7 @@ _my_xdr_ypreq_key(xdrs, objp)
 	BOOL ret;
 
 	if (item == nil) return NO;
+	if ([self isStale]) return NO;
 
 	mapName = [item valueForKey:"_lookup_NIS_map"];
 	if (mapName == NULL) return NO;
@@ -708,6 +677,8 @@ _my_xdr_ypreq_key(xdrs, objp)
 				freeString(order);
 				return anObject;
 			}
+
+			[anObject release];
 		}
 
 		lastkey = key;
@@ -839,191 +810,6 @@ _my_xdr_ypreq_key(xdrs, objp)
 	if (map == NULL) return nil;
 	
 	return [self allItemsInMap:map category:cat];
-}
-
-- (LUDictionary *)serviceWithName:(char *)name
-	protocol:(char *)prot
-{
-	LUArray *all;
-	LUDictionary *service;
-	char **vals;
-	int i, len;
-
-	all = [self allItemsInMap:"services.byname" category:LUCategoryService];
-	if (all == nil) return nil;
-
-	len = [all count];
-	for (i = 0; i < len; i++)
-	{
-		service = [all objectAtIndex:i];
-		vals = [service valuesForKey:"name"];
-		if (vals == NULL) continue;
-		if (listIndex(name, vals) == IndexNull) continue;
-
-		vals = [service valuesForKey:"protocol"];
-		if (vals == NULL) continue;
-		if (prot == NULL)
-		{
-			[service retain];
-			[all release];
-			return service;
-		}
-
-		if (listIndex(prot, vals) == IndexNull) continue;
-
-		[service retain];
-		[all release];
-		return service;
-	}
-
-	[all release];
-	return nil;
-}
-
-- (LUDictionary *)serviceWithNumber:(int *)number
-	protocol:(char *)prot
-{
-	LUArray *all;
-	LUDictionary *service;
-	char **vals;
-	char num[32];
-	int i, len;
-
-	all = [self allItemsInMap:"services.byname" category:LUCategoryService];
-	if (all == nil) return nil;
-
-	len = [all count];
-	if (len == 0) return nil;
-
-	sprintf(num, "%d", *number);
-
-	for (i = 0; i < len; i++)
-	{
-		service = [all objectAtIndex:i];
-		vals = [service valuesForKey:"port"];
-		if (vals == NULL) continue;
-		if (listIndex(num, vals) == IndexNull) continue;
-
-		vals = [service valuesForKey:"protocol"];
-		if (vals == NULL) continue;
-		if (prot == NULL)
-		{
-			[service retain];
-			[all release];
-			return service;
-		}
-
-		if (listIndex(prot, vals) == IndexNull) continue;
-
-		[service retain];
-		[all release];
-		return service;
-	}
-
-	[all release];
-	return nil;
-}
-
-- (LUArray *)allGroupsWithUser:(char *)name
-{
-	LUArray *allWithUser;
-	LUArray *all;
-	LUDictionary *user;
-	LUDictionary *group;
-	LUDictionary *vstamp;
-	char **vals;
-	int i, len, nvals;
-	char *curr;
-	char *uorder, *gorder;
-	char scratch[4096];
-
-	all = [self allItemsWithCategory:LUCategoryGroup];
-	if (all == nil) return nil;
-
-	len = [all count];
-	if (len == 0)
-	{
-		[all release];
-		return nil;
-	}
-
-	allWithUser = [[LUArray alloc] init];
-	sprintf(scratch, "YPAgent: allGroupsWithUser %s", name);
-	[allWithUser setBanner:scratch];
-
-	curr = [self currentServerName];
-	uorder = [self orderNumberForMap:"passwd.byname"];
-	gorder = [self orderNumberForMap:"group.byname"];
-
-	/* first get the user's default group(s) */
-	vstamp = [[LUDictionary alloc] init];
-	sprintf(scratch, "YPAgent validation %s %s %s", curr, "passwd.byname", uorder);
-	[vstamp setBanner:scratch];
-	[self stamp:vstamp map:"passwd.byname" server:curr order:uorder];
-	[allWithUser addValidationStamp:vstamp];
-	freeString(uorder);
-	[vstamp release];
-
-	user = [self itemWithKey:"name" value:name category:LUCategoryUser];
-	if (user != nil)
-	{
-		vals = [user valuesForKey:"gid"];
-		if (vals != NULL)
-		{
-			nvals = [user countForKey:"gid"];
-			if (nvals < 0) nvals = 0;
-
-			for (i = 0; i < nvals; i++)
-			{
-				group = [self itemWithKey:"gid" value:vals[i] category:LUCategoryGroup];
-
-				if (group == nil) continue;
-
-				if ([allWithUser containsObject:group])
-				{
-					[group release];
-					continue;
-				}
-				[allWithUser addObject:group];
-				[group release];
-			}
-		}
-		[user release];
-	}
-
-	/* get groups with this user as a member */
-	vstamp = [[LUDictionary alloc] init];
-	sprintf(scratch, "YPAgent validation %s %s %s", curr, "group.byname", gorder);
-	[vstamp setBanner:scratch];
-	[self stamp:vstamp map:"group.byname" server:curr order:gorder];
-	[allWithUser addValidationStamp:vstamp];
-	freeString(gorder);
-	[vstamp release];
-
-	for (i = 0; i < len; i ++)
-	{
-		group = [all objectAtIndex:i];
-		vals = [group valuesForKey:"users"];
-		if (vals == NULL) continue;
-		if (listIndex(name, vals) == IndexNull)
-			continue;
-
-		if ([allWithUser containsObject:group])
-			continue;
-
-		[allWithUser addObject:group];
-	}
-
-	[all release];
-
-	len = [allWithUser count];
-	if (len == 0)
-	{
-		[allWithUser release];
-		allWithUser = nil;
-	}
-
-	return allWithUser;
 }
 
 @end

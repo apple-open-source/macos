@@ -5,7 +5,7 @@
 # from a C++ header
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -53,8 +53,6 @@ my $debugging = 0;
 my $tracing = 0;
 my $outputExtension = ".html";
 my $tocFrameName = "toc.html";
-my $defaultFrameName = "index.html";
-my $compositePageName = "CompositePage.html";
 my $theTime = time();
 my ($sec, $min, $hour, $dom, $moy, $year, @rest);
 ($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
@@ -124,6 +122,8 @@ sub tocString {
     my @structs = $self->structs();
     my @enums = $self->enums();
     my @vars = $self->vars();
+	my $compositePageName = HeaderDoc::APIOwner->compositePageName();
+	my $defaultFrameName = HeaderDoc::APIOwner->defaultFrameName();
     
     my $tocString = "<h3><a href=\"$contentFrameName\" target =\"doc\">Introduction</a></h3>\n";
 
@@ -234,7 +234,7 @@ sub tocString {
 	    }
 	}
 	$tocString .= "<br><h4>Other Reference</h4><hr>\n";
-	$tocString .= "<nobr>&nbsp;<a href = \"../../index.html\" target =\"_top\">Header</a></nobr><br>\n";
+	$tocString .= "<nobr>&nbsp;<a href = \"../../$defaultFrameName\" target =\"_top\">Header</a></nobr><br>\n";
     $tocString .= "<br><hr><a href=\"$compositePageName\" target =\"_blank\">[Printable HTML Page]</a>\n";
     return $tocString;
 }
@@ -248,6 +248,22 @@ sub _getCompositePageString {
     my $compositePageString;
     my $contentString;
     
+    my $abstract = $self->abstract();
+    if (length($abstract)) {
+	    $compositePageString .= "<h2>Abstract</h2>\n";
+	    $compositePageString .= $abstract;
+    }
+
+    my $discussion = $self->discussion();
+    if (length($discussion)) {
+	    $compositePageString .= "<h2>Discussion</h2>\n";
+	    $compositePageString .= $discussion;
+    }
+    
+    if ((length($abstract)) || (length($discussion))) {
+	    $compositePageString .= "<hr><br>";
+    }
+
     $contentString= $self->_getFunctionDetailString();
     if (length($contentString)) {
 	    $compositePageString .= "<h2>Member Functions</h2>\n";
@@ -300,6 +316,7 @@ sub _getFunctionDetailString {
     my @funcObjs = $self->functions();
     my $className = $self->name();
     my $contentString;
+    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
 
     foreach my $obj (sort objName @funcObjs) {
         my $name = $obj->name();
@@ -313,7 +330,7 @@ sub _getFunctionDetailString {
 		if ($declaration !~ /#define/) { # not sure how to handle apple_refs with macros yet
 	        my $paramSignature = $self->getParamSignature($declarationRaw);
 	        my $methodType = $self->getMethodType($declarationRaw);
-        	$contentString .= "<a name=\"//apple_ref/cpp/$methodType/$className/$name/$paramSignature\"></a>\n";
+        	$contentString .= "<a name=\"//$apiUIDPrefix/cpp/$methodType/$className/$name/$paramSignature\"></a>\n";
         }
         $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
 	    if (length($abstract)) {
@@ -422,6 +439,13 @@ sub getMethodType {
 	return $methodType;
 }
 
+
+sub docNavigatorComment {
+    my $self = shift;
+    my $name = $self->name();
+    
+    return "<-- headerDoc=CPPClass; name=$name-->";
+}
 
 
 

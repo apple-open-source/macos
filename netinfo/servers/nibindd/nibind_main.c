@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <NetInfo/mm.h>
 #include <NetInfo/system_log.h>
+#include <NetInfo/rpc_extra.h>
 
 #ifndef LOG_NETINFO
 #define LOG_NETINFO LOG_DAEMON
@@ -33,6 +34,8 @@ extern int debug;
 
 /* getppid() should be in libc.h, but it isn't */
 extern int getppid(void);
+
+extern int svc_maxfd;
 
 #ifdef _UNIX_BSD_43_
 const char NETINFO_PROG[] = "/usr/etc/netinfod";
@@ -79,26 +82,30 @@ int
 main(int argc, char *argv[])
 {
 	SVCXPRT *utransp, *ttransp;
+	struct sockaddr_in addr;
 	DIR *dp;
 	struct direct *d;
 	ni_name tag = NULL;
 	ni_namelist nl;
 	ni_index i;
-	int pid, ni_debug;
+	int pid, localonly;
+	int log_pri = LOG_NOTICE;
 	struct rlimit rlim;
 	char *netinfod_argv[16]; /* XXX */
 	int netinfod_argc, x;
 	union wait wait_stat;
 	pid_t child_pid;
+	char *pri;
 #ifdef _UNIX_BSD_43_
 	int ttyfd;
 #endif
+
+	localonly = 1;
 
 	netinfod_argc = 0;
 	netinfod_argv[netinfod_argc++] = (char *)NETINFO_PROG;
 
 	debug = 0;
-	ni_debug = 0;
 
 	for (i = 1; i < argc; i++)
 	{
@@ -110,8 +117,15 @@ main(int argc, char *argv[])
 		if (!strcmp(argv[i], "-d"))
 		{
 			debug = 1;
+			log_pri = LOG_DEBUG;
 			if ((argc > (i+1)) && (argv[i+1][0] != '-'))
 				debug = atoi(argv[++i]);
+		}
+
+		if (!strcmp(argv[i], "-l"))
+		{
+			if ((argc > (i+1)) && (argv[i+1][0] != '-'))
+				log_pri = atoi(argv[++i]);
 		}
 
 		if (!strcmp(argv[i], "-D"))
@@ -120,12 +134,23 @@ main(int argc, char *argv[])
 
 			if ((argc > (i+1)) && (argv[i+1][0] != '-'))
 			{
-				ni_debug = atoi(argv[++i]);
+				netinfod_argv[netinfod_argc++] = argv[i];
+			}
+		}
+
+		if (!strcmp(argv[i], "-L"))
+		{
+			netinfod_argv[netinfod_argc++] = "-l";
+
+			if ((argc > (i+1)) && (argv[i+1][0] != '-'))
+			{
 				netinfod_argv[netinfod_argc++] = argv[i];
 			}
 			else
 			{
-				ni_debug = 1;
+				pri = malloc(sizeof("999"));
+				sprintf(pri, "%d", LOG_DEBUG);
+				netinfod_argv[netinfod_argc++] = pri;
 			}
 		}
 	}
@@ -133,13 +158,14 @@ main(int argc, char *argv[])
 	if (debug == 1)
 	{
 		system_log_open("nibindd", LOG_NDELAY | LOG_PID, LOG_NETINFO, stderr);
-		system_log(LOG_DEBUG, "version %s - debug mode\n",
-			_PROJECT_VERSION_);
+		system_log_set_max_priority(log_pri);
+		system_log(LOG_DEBUG, "version %s - debug mode\n", _PROJECT_VERSION_);
 	}
 	else
 	{
 		closeall();
 		system_log_open("nibindd", LOG_NDELAY | LOG_PID, LOG_NETINFO, NULL);
+		system_log_set_max_priority(log_pri);
 		system_log(LOG_DEBUG, "version %s - starting\n", _PROJECT_VERSION_);
 
 		child_pid = fork();
@@ -209,6 +235,7 @@ main(int argc, char *argv[])
 			{
 				system_log(LOG_DEBUG, "found database: %s", tag);
 				ni_namelist_insert(&nl, tag, NI_INDEX_NULL);
+				if (strcmp(tag, "local")) localonly = 0;
 			} 
 			ni_name_free(&tag);
 		}
@@ -232,16 +259,19 @@ main(int argc, char *argv[])
 	/*
 	 * Register as a SUNRPC service
 	 */
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	if (localonly == 1) addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
 	pmap_unset(NIBIND_PROG, NIBIND_VERS);
-	utransp = svcudp_create(RPC_ANYSOCK);
+	utransp = svcudp_bind(RPC_ANYSOCK, addr);
 	if (utransp == NULL)
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot start udp service");
 	}
 
-	if (!svc_register(utransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1,
-			  IPPROTO_UDP))
+	if (!svc_register(utransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1, IPPROTO_UDP))
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot register udp service");
@@ -249,15 +279,14 @@ main(int argc, char *argv[])
 
 	udp_sock = utransp->xp_sock;
 
-	ttransp = svctcp_create(RPC_ANYSOCK, 0, 0);
+	ttransp = svctcp_bind(RPC_ANYSOCK, addr, 0, 0);
 	if (ttransp == NULL)
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot start tcp service");
 	}
 
-	if (!svc_register(ttransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1,
-			  IPPROTO_TCP))
+	if (!svc_register(ttransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1, IPPROTO_TCP))
 	{
 		killparent();
 		system_log(LOG_ALERT, "cannot register tcp service");
@@ -272,8 +301,9 @@ main(int argc, char *argv[])
 		system_log(LOG_DEBUG, "starting netinfod %s", nl.ninl_val[i]);
 		system_log(LOG_DEBUG, "execv debug 0: %s", NETINFO_PROG);
 		for (x = 0; netinfod_argv[x] != NULL; x++)
-			system_log(LOG_DEBUG, "execv debug %d: %s",
-				x, netinfod_argv[x]);
+		{
+			system_log(LOG_DEBUG, "execv debug %d: %s", x, netinfod_argv[x]);
+		}
 
 		pid = fork();
 		if (pid == 0)
@@ -294,13 +324,12 @@ main(int argc, char *argv[])
 		}
 		else
 		{
-			system_log(LOG_ERR,
-				"server for tag %s failed to start", nl.ninl_val[i]);
+			system_log(LOG_ERR, "server for tag %s failed to start", nl.ninl_val[i]);
 		}
 	}
 
 	ni_namelist_free(&nl);
-
+		
 	/*
 	 * Detach from controlling tty.
 	 * Do this AFTER starting netinfod so "type c to continue..." works.
@@ -376,13 +405,11 @@ void
 nibind_svc_run(void)
 {
 	fd_set readfds;
-	int maxfds;
 
-	maxfds = getdtablesize();
 	for (;;)
 	{
 		readfds = svc_fdset;
-		switch (select(maxfds, &readfds, NULL, NULL, NULL))
+		switch (select(svc_maxfd+1, &readfds, NULL, NULL, NULL))
 		{
 			case -1:
 				if (errno != EINTR)

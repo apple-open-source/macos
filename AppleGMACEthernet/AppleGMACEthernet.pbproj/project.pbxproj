@@ -1,0 +1,399 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 33;
+	objects = {
+		013905A7FFB1ECE711CA2B4D = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		013905A8FFB1ECE711CA2B4D = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		016FA200FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnet.cpp;
+			refType = 4;
+		};
+		016FA201FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnet.h;
+			refType = 4;
+		};
+		016FA202FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnetHW.cpp;
+			refType = 4;
+		};
+		016FA203FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnetMII.cpp;
+			refType = 4;
+		};
+		016FA204FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnetMII.h;
+			refType = 4;
+		};
+		016FA207FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnetRegisters.h;
+			refType = 4;
+		};
+		016FA208FFB1F76211CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNPowerSaver.cpp;
+			refType = 4;
+		};
+		016FA209FFB1F76211CA2B4D = {
+			fileRef = 016FA201FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		016FA20AFFB1F76211CA2B4D = {
+			fileRef = 016FA204FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		016FA20CFFB1F76211CA2B4D = {
+			fileRef = 016FA207FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		016FA20DFFB1F76211CA2B4D = {
+			fileRef = 016FA200FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		016FA20EFFB1F76211CA2B4D = {
+			fileRef = 016FA202FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		016FA20FFFB1F76211CA2B4D = {
+			fileRef = 016FA203FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		016FA211FFB1F76211CA2B4D = {
+			fileRef = 016FA208FFB1F76211CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				013905A7FFB1ECE711CA2B4D,
+				013905A8FFB1ECE711CA2B4D,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleGMACEthernet;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
+				MODULE_VERSION = 1.1;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleGMACEthernet;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-fpermissive -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleGMACEthernet;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleGMACEthernet;
+			productReference = 1356D0DFFFDF1FA211CA2B4D;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleGMACEthernet</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.AppleGMACEthernet</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleGMACEthernet</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PCI Matching</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AppleGMACEthernet</string>
+			<key>IOClass</key>
+			<string>UniNEnet</string>
+			<key>IOMatchCategory</key>
+			<string>IODefaultMatchCategory</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>gmac</string>
+				<string>SUNW,pci-gem</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.1</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Network-Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				016FA209FFB1F76211CA2B4D,
+				016FA20AFFB1F76211CA2B4D,
+				016FA20CFFB1F76211CA2B4D,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				016FA20DFFB1F76211CA2B4D,
+				016FA20EFFB1F76211CA2B4D,
+				016FA20FFFB1F76211CA2B4D,
+				016FA211FFB1F76211CA2B4D,
+				175EBB21FFB2331C11CA2B4D,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//130
+//131
+//132
+//133
+//134
+		1356D0DFFFDF1FA211CA2B4D = {
+			isa = PBXBundleReference;
+			path = AppleGMACEthernet.kext;
+			refType = 3;
+		};
+//130
+//131
+//132
+//133
+//134
+//170
+//171
+//172
+//173
+//174
+		175EBB20FFB2331C11CA2B4D = {
+			isa = PBXFileReference;
+			path = UniNEnetPrivate.cpp;
+			refType = 4;
+		};
+		175EBB21FFB2331C11CA2B4D = {
+			fileRef = 175EBB20FFB2331C11CA2B4D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+//170
+//171
+//172
+//173
+//174
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				1356D0DFFFDF1FA211CA2B4D,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				016FA200FFB1F76211CA2B4D,
+				016FA201FFB1F76211CA2B4D,
+				016FA202FFB1F76211CA2B4D,
+				016FA203FFB1F76211CA2B4D,
+				016FA204FFB1F76211CA2B4D,
+				016FA207FFB1F76211CA2B4D,
+				016FA208FFB1F76211CA2B4D,
+				175EBB20FFB2331C11CA2B4D,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.bind.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.bind.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
 /*
  * tc.bind.c: Key binding functions
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.bind.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $")
+RCSID("$Id: tc.bind.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $")
 
 #include "ed.h"
 #include "ed.defns.h"
@@ -285,18 +285,18 @@ parsebind(s, str)
     if (Iscntrl(*s)) {
 	*b++ = *s;
 	*b = '\0';
-	str->len = b - str->buf;
+	str->len = (int) (b - str->buf);
 	return str;
     }
 
     switch (*s) {
     case '^':
 	s++;
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	*b++ = (*s == '?') ? '\177' : ((*s & CHAR) & 0237);
-#else /*_OSD_POSIX*/
+#else
 	*b++ = (*s == '?') ? CTL_ESC('\177') : _toebcdic[_toascii[*s & CHAR] & 0237];
-#endif /*_OSD_POSIX*/
+#endif
 	*b = '\0';
 	break;
 
@@ -304,9 +304,9 @@ parsebind(s, str)
     case 'M':
     case 'X':
     case 'C':
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     case 'N':
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	if (s[1] != '-' || s[2] == '\0') {
 	    bad_spec(s);
 	    return NULL;
@@ -321,20 +321,20 @@ parsebind(s, str)
 	    break;
 
 	case 'C': case 'c':	/* Turn into ^c */
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	    *b++ = (*s == '?') ? '\177' : ((*s & CHAR) & 0237);
-#else /*_OSD_POSIX*/
+#else
 	    *b++ = (*s == '?') ? CTL_ESC('\177') : _toebcdic[_toascii[*s & CHAR] & 0237];
-#endif /*_OSD_POSIX*/
+#endif
 	    *b = '\0';
 	    break;
 
 	case 'X' : case 'x':	/* Turn into ^Xc */
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	    *b++ = 'X' & 0237;
-#else /*_OSD_POSIX*/
+#else
 	    *b++ = _toebcdic[_toascii['X'] & 0237];
-#endif /*_OSD_POSIX*/
+#endif
 	    *b++ = *s;
 	    *b = '\0';
 	    break;
@@ -346,64 +346,29 @@ parsebind(s, str)
 	    	*b++ = *s;
 	    } else {
 #endif /* DSPMBYTE */
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	    *b++ = *s | 0x80;
-#else /*_OSD_POSIX*/
+#else
 	    *b++ = _toebcdic[_toascii[*s] | 0x80];
-#endif /*_OSD_POSIX*/
+#endif
 #ifdef DSPMBYTE
 	    }
 #endif /* DSPMBYTE */
 	    *b = '\0';
 	    break;
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	case 'N' : case 'n':	/* NT */
 		{
-			extern int lstricmp(char*,char*);
-			char *str = short2str(s);
-			short fkey;
-			fkey = atoi(str);
-			if (fkey !=0) {
-				*b++ = 255+fkey;
-				*b = '\0';
-			}
-			else {
-				if (!lstrcmpi("pgup",str)) {
-					*b++ = 255+24+1;
-				}
-				else if (!lstrcmpi("pgdn",str)) {
-					*b++ = 255+24+2;
-				}
-				else if (!lstrcmpi("end",str)) {
-					*b++ = 255+24+3;
-				}
-				else if (!lstrcmpi("home",str)) {
-					*b++ = 255+24+4;
-				}
-				else if (!lstrcmpi("left",str)) {
-					*b++ = 255+24+5;
-				}
-				else if (!lstrcmpi("up",str)) {
-					*b++ = 255+24+6;
-				}
-				else if (!lstrcmpi("right",str)) {
-					*b++ = 255+24+7;
-				}
-				else if (!lstrcmpi("down",str)) {
-					*b++ = 255+24+8;
-				}
-				else if (!lstrcmpi("ins",str)) {
-					*b++ = 255+24+9;
-				}
-				else if (!lstrcmpi("del",str)) {
-					*b++ = 255+24+10;
-				}
-				else
-					bad_spec(s);
-			}
+			Char bnt;
+
+			bnt = nt_translate_bindkey(s);
+			if (bnt != 0)
+				*b++ = bnt;
+			else
+				bad_spec(s);
 		}
 	    break;
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
 	default:
 	    abort();
@@ -417,7 +382,7 @@ parsebind(s, str)
 	return NULL;
     }
 
-    str->len = b - str->buf;
+    str->len = (int) (b - str->buf);
     return str;
 }
 
@@ -448,7 +413,7 @@ parsestring(str, buf)
 	    *b++ = *p & CHAR;
     }
     *b = 0;
-    buf->len = b - buf->buf;
+    buf->len = (int) (b - buf->buf);
     return buf;
 }
 
@@ -611,9 +576,10 @@ tocontrol(c)
     if (c == '?')
 	c = CTL_ESC('\177');
     else
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	c &= 037;
-#else /* EBCDIC: simulate ASCII-behavior by transforming to ASCII and back */
+#else
+	/* EBCDIC: simulate ASCII-behavior by transforming to ASCII and back */
 	c  = _toebcdic[_toascii[c] & 037];
 #endif
     return (c);
@@ -656,7 +622,7 @@ unparsekey(c)			/* 'c' -> "c", '^C' -> "^" + "C" */
     case '\t':
 	(void) strcpy(cp, "Tab");
 	return (tmp);
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
     case '\033':
 	(void) strcpy(cp, "Esc");
 	return (tmp);
@@ -673,7 +639,7 @@ unparsekey(c)			/* 'c' -> "c", '^C' -> "^" + "C" */
 	}
 	*cp = '\0';
 	return (tmp);
-#else /*_OSD_POSIX*/
+#else /* IS_ASCII */
     default:
         if (*cp == CTL_ESC('\033')) {
 	    (void) strcpy(cp, "Esc");
@@ -692,7 +658,7 @@ unparsekey(c)			/* 'c' -> "c", '^C' -> "^" + "C" */
 	    xsnprintf(cp, 3, "\\%3.3o", c);
 	    cp += 4;
 	}
-#endif /*_OSD_POSIX*/
+#endif /* IS_ASCII */
     }
 }
 
@@ -933,7 +899,7 @@ dobind(v, dummy)
 			if (i != CTL_ESC('\033') && (CcKeyMap[i] == F_XKEY ||
 					 CcAltMap[i] == F_XKEY)) {
 			    p = buf;
-#ifndef _OSD_POSIX /* this is only for ASCII, not for EBCDIC */
+#ifdef IS_ASCII
 			    if (i > 0177) {
 				*p++ = 033;
 				*p++ = i & ASCII;
@@ -941,9 +907,9 @@ dobind(v, dummy)
 			    else {
 				*p++ = (Char) i;
 			    }
-#else /*_OSD_POSIX*/
+#else
 			    *p++ = (Char) i;
-#endif /*_OSD_POSIX*/
+#endif
 			    for (l = s; *l != 0; l++) {
 				*p++ = *l;
 			    }

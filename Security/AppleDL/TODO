@@ -1,0 +1,49 @@
+* Make the pAttributeInfo and pIndexInfo arguments to CSSM_DL_CreateRelation optional.
+
+* Enhance POD wrappers and use them everywhere (DONE for insert still needs work for get).
+
+* Implement Indexes
+
+* Implement unique index checks for dataInsert and dataModify
+
+* Add unique index info to UNIQUE_RECORD structures.
+
+* Implement KEY items (AppleCSPDL).
+
+* Clean up usage of ReadSection::at(uint32) vs. ReadSection::operator[](uint32)
+
+* Fix AtomicFile for NFS and ASIP (Use alternative locking mechanism).
+
+* Implement ACL evaluation for Db access.
+
+* Implement ACL APIs.
+
+* Make DbModifier thread safe again.
+
+* Cleanup Query objects when DbContext is destroyed (register them with the context).
+
+* What if we open a DB that is being created?  Currently we get back DL_DATABASE_CORRUPT
+  should this become DL_DATABASE_DOES_NOT_EXIST?
+
+* When using CssmOid attribute names make sure to deep copy the CssmOids data (DONE).
+
+* Implement SelectionPredicates completely
+  To make DataGetFirst and DataGetNext actually work (DONE).
+
+* Implement CreateRelation (DONE)
+
+* Implement DataModify (DONE, now with correct semantics -- CB)
+
+* In DataModify, check that RecordType matches that in the UniqueRecordId.
+
+* Store index data when creating tables and databases.
+
+* Add write buffering in AtomicFile to increase performance; flush buffer before seek.
+
+* Make sure that automatically-assigned attribute ids don't shadow ones passed in explicitly.
+
+* Performance: Avoid reconstructing DbVersion after a write (w/o a schema change) when we
+  could derive it from the DbModifier. Only if version is as expected (i.e. no other writes
+  in the meantime)
+
+* Add fsync() to make sure AtomicFile is written before rename.

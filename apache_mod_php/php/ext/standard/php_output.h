@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,25 +16,29 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_output.h,v 1.1.1.3 2001/01/25 05:00:11 wsanchez Exp $ */
+/* $Id: php_output.h,v 1.1.1.4 2001/07/19 00:20:20 zarzycki Exp $ */
 
 #ifndef PHP_OUTPUT_H
 #define PHP_OUTPUT_H
 
 #include "php.h"
 
+typedef void (*php_output_handler_func_t)(char *output, uint output_len, char **handled_output, uint *handled_output_len, int mode);
+
 PHPAPI void php_output_startup(void);
+void php_output_register_constants(void);
 PHPAPI int  php_body_write(const char *str, uint str_length);
 PHPAPI int  php_header_write(const char *str, uint str_length);
-PHPAPI int php_start_ob_buffer(zval *output_handler, int chunk_size);
-PHPAPI void php_end_ob_buffer(int send_buffer);
-PHPAPI void php_end_ob_buffers(int send_buffer);
+PHPAPI int php_start_ob_buffer(zval *output_handler, uint chunk_size);
+PHPAPI void php_end_ob_buffer(zend_bool send_buffer, zend_bool just_flush);
+PHPAPI void php_end_ob_buffers(zend_bool send_buffer);
 PHPAPI int php_ob_get_buffer(pval *p);
 PHPAPI int php_ob_get_length(pval *p);
 PHPAPI void php_start_implicit_flush(void);
 PHPAPI void php_end_implicit_flush(void);
 PHPAPI char *php_get_output_start_filename(void);
 PHPAPI int php_get_output_start_lineno(void);
+PHPAPI void php_ob_set_internal_handler(php_output_handler_func_t internal_output_handler, uint buffer_size);
 
 PHP_FUNCTION(ob_start);
 PHP_FUNCTION(ob_end_flush);
@@ -50,8 +54,12 @@ typedef struct _php_ob_buffer {
 	uint size;
 	uint text_length;
 	int block_size;
+	uint chunk_size;
+	int status;
 	zval *output_handler;
-	int chunk_size;
+	php_output_handler_func_t internal_output_handler;
+	char *internal_output_handler_buffer;
+	uint internal_output_handler_buffer_size;
 } php_ob_buffer;
 
 typedef struct _php_output_globals {
@@ -81,5 +89,8 @@ ZEND_API extern int output_globals_id;
 ZEND_API extern php_output_globals output_globals;
 #endif
 
+#define PHP_OUTPUT_HANDLER_START		(1<<0)
+#define PHP_OUTPUT_HANDLER_CONT			(1<<1)
+#define PHP_OUTPUT_HANDLER_END			(1<<2)
 
 #endif /* PHP_OUTPUT_H */

@@ -212,6 +212,15 @@ __private_extern__ enum undefined_check_level undefined_flag = UNDEFINED_ERROR;
 static enum bool undefined_flag_specified = FALSE;
 #endif
 
+/* The checking for (twolevel namespace) multiply defined symbols */
+__private_extern__ enum multiply_defined_check_level multiply_defined_flag =
+    MULTIPLY_DEFINED_WARNING;
+/* the -nomultidefs option */
+__private_extern__ enum bool nomultidefs = FALSE;
+#ifndef RLD
+static enum bool multiply_defined_flag_specified = FALSE;
+#endif
+
 /* The checking for read only relocs */
 __private_extern__ enum read_only_reloc_check_level
     read_only_reloc_flag = READ_ONLY_RELOC_ERROR;
@@ -221,6 +230,7 @@ __private_extern__ enum read_only_reloc_check_level
 static enum bool prebinding_flag_specified = FALSE;
 #endif
 __private_extern__ enum bool prebinding = FALSE;
+__private_extern__ enum bool prebind_allow_overlap = FALSE;
 #ifndef RLD
 static enum bool read_only_reloc_flag_specified = FALSE;
 #endif
@@ -298,8 +308,20 @@ __private_extern__ unsigned long nallowable_clients = 0;
 __private_extern__ char **sub_umbrellas = NULL;
 __private_extern__ unsigned long nsub_umbrellas = 0;
 
+/* The list of sub_library dynamic libraries */
+__private_extern__ char **sub_librarys = NULL;
+__private_extern__ unsigned long nsub_librarys = 0;
+
 /* The dylinker information */
 __private_extern__ char *dylinker_install_name = NULL;
+
+#ifndef RLD
+/* set to the -bundle_loader argument if specified */
+static char *bundle_loader = NULL;
+#endif
+
+/* set to TRUE if -private_bundle is specified */
+__private_extern__ enum bool private_bundle = FALSE;
 
 /* The value of the environment variable NEXT_ROOT */
 __private_extern__ char *next_root = NULL;
@@ -318,8 +340,21 @@ __private_extern__ char *final_output = NULL;
 
 /* The variables to support namespace options */
 __private_extern__ enum bool namespace_specified = FALSE;
-__private_extern__ enum bool twolevel_namespace = FALSE;
+__private_extern__ enum bool twolevel_namespace = TRUE;
 __private_extern__ enum bool force_flat_namespace = FALSE;
+
+/*
+ * Because the MacOS X 10.0 code in libSystem for the NSObjectFileImage*() APIs
+ * does not ignore unknown load commands if MH_BUNDLE files are built with
+ * two-level namespace hints the LC_TWOLEVEL_HINTS load command will produce a
+ * "malformed object" errors.  So to make the MacOS X 10.1 ld(1) produce
+ * MH_BUNDLE files that will work on MacOS X 10.0 the hints table is not
+ * produced by default for MH_BUNDLE files.
+ */
+#ifndef RLD
+static enum bool twolevel_namespace_hints_specified = FALSE;
+#endif
+__private_extern__ enum bool twolevel_namespace_hints = TRUE;
 
 #ifdef DEBUG
 __private_extern__ unsigned long debug = 0;	/* link-editor debugging */
@@ -369,6 +404,7 @@ char *envp[])
     kern_return_t r;
     const struct arch_flag *family_arch_flag;
     enum undefined_check_level new_undefined_flag;
+    enum multiply_defined_check_level new_multiply_defined_flag;
     enum read_only_reloc_check_level new_read_only_reloc_flag;
     enum bool is_framework;
     char *has_suffix;
@@ -485,6 +521,12 @@ char *envp[])
 			prebinding_flag_specified = TRUE;
 			prebinding = TRUE;
 		    }
+		    else if(strcmp(p, "prebind_allow_overlap") == 0){
+			prebind_allow_overlap = TRUE;
+		    }
+		    else if(strcmp(p, "private_bundle") == 0){
+			private_bundle = TRUE;
+		    }
 		    else
 			goto unknown_flag;
 		    break;
@@ -529,6 +571,7 @@ char *envp[])
 			    fatal("can't specify both -force_flat_namespace "
 				  "and -twolevel_namespace");
 			force_flat_namespace = TRUE;
+		        twolevel_namespace = FALSE;
 		    }
 		    else if(strcmp(p, "final_output") == 0){
 			if(i + 1 >= argc)
@@ -722,6 +765,9 @@ char *envp[])
 			prebinding_flag_specified = TRUE;
 			prebinding = FALSE;
 		    }
+		    else if(strcmp(p, "nomultidefs") == 0){
+			nomultidefs = TRUE;
+		    }
 		    else
 			goto unknown_flag;
 		    break;
@@ -736,6 +782,14 @@ char *envp[])
 		    }
 		    else if(strcmp(p, "bind_at_load") == 0){
 			bind_at_load = TRUE;
+		    }
+		    else if(strcmp(p, "bundle_loader") == 0){
+			if(i + 1 >= argc)
+			    fatal("-bundle_loader: argument missing");
+			if(bundle_loader != NULL)
+			    fatal("-bundle_loader multiply specified");
+			bundle_loader = argv[i + 1];
+			i += 1;
 		    }
 		    /* Strip the base file symbols (the -A argument's symbols)*/
 		    else if(p[1] == '\0')
@@ -786,6 +840,7 @@ char *envp[])
 				  "specified");
 			dynamic = FALSE;
 			static_specified = TRUE;
+		        twolevel_namespace = FALSE;
 		    }
 		    /*
 		     * Flags for specifing information about sections.
@@ -1089,6 +1144,16 @@ char *envp[])
 			sub_umbrellas[nsub_umbrellas++] = argv[i+1];
 			i += 1;
 		    }
+		    /* specify a sub_library 
+		       -sub_library <name> */
+		    else if(strcmp(p, "sub_library") == 0){
+			if(i + 1 >= argc)
+			    fatal("%s: argument missing", argv[i]);
+			sub_librarys = reallocate(sub_librarys,
+					(nsub_librarys + 1) * sizeof(char *));
+			sub_librarys[nsub_librarys++] = argv[i+1];
+			i += 1;
+		    }
 		    else
 			goto unknown_flag;
 		    break;
@@ -1102,6 +1167,13 @@ char *envp[])
 				  "-flatname_space");
 			namespace_specified = TRUE;
 			twolevel_namespace = TRUE;
+		    }
+		    else if(strcmp(p, "twolevel_namespace_hints") == 0){
+			if(namespace_specified == TRUE &&
+			   twolevel_namespace == FALSE)
+			    fatal("can't specify both -twolevel_namespace_hints"
+				  " and -flatname_space");
+			twolevel_namespace_hints_specified = TRUE;
 		    }
 		    else if(p[1] == '\0')
 			trace = TRUE;
@@ -1216,6 +1288,28 @@ char *envp[])
 		    break;
 
 		case 'm':
+		    if(strcmp(p, "multiply_defined") == 0){
+			if(++i >= argc)
+			    fatal("-multiply_defined: argument missing");
+			if(strcmp(argv[i], "error") == 0)
+			    new_multiply_defined_flag = MULTIPLY_DEFINED_ERROR;
+			else if(strcmp(argv[i], "warning") == 0)
+			    new_multiply_defined_flag =MULTIPLY_DEFINED_WARNING;
+			else if(strcmp(argv[i], "suppress") == 0)
+			    new_multiply_defined_flag=MULTIPLY_DEFINED_SUPPRESS;
+			else{
+			    fatal("-multiply_defined: unknown argument: %s",
+				  argv[i]);
+			    new_multiply_defined_flag =MULTIPLY_DEFINED_WARNING;
+			}
+			if(multiply_defined_flag_specified == TRUE &&
+			   new_multiply_defined_flag != multiply_defined_flag)
+			    fatal("more than one value specified for "
+				  "-multiply_defined");
+			multiply_defined_flag_specified = TRUE;
+			multiply_defined_flag = new_multiply_defined_flag;
+			break;
+		    }
 		    /* treat multiply defined symbols as a warning not a
 		       hard error */
 		    if(p[1] != '\0')
@@ -1430,8 +1524,8 @@ unknown_flag:
 	    }
 	}
 	/*
-         * Test to see if the environment variables RC_TRACE_ARCHIVES,
-	 * RC_TRACE_DYLIBS or RC_TRACE_PREBINDING_DISABLED are set.
+         * Test to see if the various RC_* or XBS_* environment variables
+	 * are set.
          */
         if(getenv("RC_TRACE_ARCHIVES") != NULL)
 	    rc_trace_archives = TRUE;
@@ -1439,6 +1533,10 @@ unknown_flag:
 	    rc_trace_dylibs = TRUE;
         if(getenv("RC_TRACE_PREBINDING_DISABLED") != NULL)
 	    rc_trace_prebinding_disabled = TRUE;
+        if(getenv("XBS_TRACE_BUNDLE_LOADER") != NULL &&
+	   bundle_loader != NULL)
+	    print("[Logging for XBS] Referenced bundle loader: %s\n",
+		  bundle_loader);
 
 	/*
 	 * The -prebind flag can also be specified with the LD_PREBIND
@@ -1457,6 +1555,20 @@ unknown_flag:
 		prebinding_flag_specified = TRUE;
 		prebinding = TRUE;
 	    }
+	}
+	if(getenv("LD_PREBIND_ALLOW_OVERLAP") != NULL)
+	    prebind_allow_overlap = TRUE;
+
+	/*
+	 * The -twolevel_namespace flag can also be specified with the
+	 * LD_TWOLEVEL_NAMESPACE environment variable.  We quitely ignore this
+	 * when -flat_namespace or -static is specified.
+	 */
+	if(getenv("LD_TWOLEVEL_NAMESPACE") != NULL &&
+	   namespace_specified == FALSE &&
+	   static_specified == FALSE){
+		namespace_specified = TRUE;
+		twolevel_namespace = TRUE;
 	}
 
 	/*
@@ -1689,9 +1801,10 @@ unknown_flag:
 	    }
 	    /*
 	     * If this is not a subframework then if it has an install name
-	     * then guess its implied unbrella framework name from the
+	     * then guess its implied umbrella framework name from the
 	     * install name.  Then if its install name is a framework name use
-	     * that as the unbrella framework name.  Otherwise it is not		     * considered an unbrella framework.
+	     * that as the umbrella framework name.  Otherwise it is not
+	     * considered an umbrella framework.
 	     */
 	    if(sub_framework == FALSE && dylib_install_name != NULL){
 		umbrella_framework_name = guess_short_name(dylib_install_name,
@@ -1720,6 +1833,9 @@ unknown_flag:
 		      "is also specified", umbrella_framework_name);
 	    if(nsub_umbrellas != 0)
 		fatal("-sub_umbrella flags can only be used when -dylib "
+		      "is also specified");
+	    if(nsub_librarys != 0)
+		fatal("-sub_library flags can only be used when -dylib "
 		      "is also specified");
 	    if(nallowable_clients != 0)
 		fatal("-allowable_client flags can only be used when -dylib "
@@ -1754,11 +1870,21 @@ unknown_flag:
 		    warning("-prebind has no effect with -bundle");
 		prebinding = FALSE;
 	    }
+	    if(private_bundle == TRUE && twolevel_namespace == TRUE)
+		warning("-private_bundle has no effect when "
+			"-twolevel_namespace is in effect");
+	    if(twolevel_namespace_hints_specified != TRUE)
+		twolevel_namespace_hints = FALSE;
 	}
 	else{
 	    if(client_name != NULL)
 		fatal("-client_name %s flag can only be used with -bundle",
 		      client_name);
+	    if(bundle_loader != NULL)
+		fatal("-bundle_loader %s flag can only be used with -bundle",
+		      bundle_loader);
+	    if(private_bundle == TRUE)
+		fatal("-private_bundle flag can only be used with -bundle");
 	}
 	if(filetype != MH_DYLINKER){
 	    if(dylinker_install_name != NULL)
@@ -1782,6 +1908,16 @@ unknown_flag:
 	if(twolevel_namespace == TRUE && undefined_flag != UNDEFINED_ERROR){
 	    fatal("-undefined error must be used when -twolevel_namespace is "
 		  "in effect");
+	}
+	if(twolevel_namespace == TRUE && nundef_syms != 0){
+	    fatal("can't use -U flags when -twolevel_namespace is in effect");
+	}
+	if(nomultidefs == TRUE){
+	    if(multiply_defined_flag_specified == TRUE &&
+	       multiply_defined_flag != MULTIPLY_DEFINED_ERROR)
+		fatal("-multiply_defined error must be used when -nomultidefs "
+		      "is specified");
+	   multiply_defined_flag = MULTIPLY_DEFINED_ERROR;
 	}
 	if(prebinding == TRUE && undefined_flag == UNDEFINED_SUPPRESS){
 	    if(prebinding_flag_specified == TRUE)
@@ -1885,24 +2021,44 @@ unknown_flag:
 	symbols_created = 0;
 	objects_specified = 0;
 	sections_created = 0;
+	/*
+	 * If a -bundle_loader is specified and this is a flat_namespace
+	 * output force the bundle_loader to be loaded first.
+	 */
+	if(bundle_loader != NULL && twolevel_namespace == FALSE){
+	    pass1(bundle_loader, FALSE, FALSE, FALSE, TRUE);
+	}
 	for(i = 1 ; i < argc ; i++){
 	    if(*argv[i] != '-'){
 		/* just a normal object file name */
-		pass1(argv[i], FALSE, FALSE, FALSE);
+		pass1(argv[i], FALSE, FALSE, FALSE, FALSE);
 		objects_specified++;
 	    }
 	    else{
 		p = &(argv[i][1]);
 		switch(*p){
+		case 'b':
+		    if(strcmp(p, "bundle_loader") == 0){
+			/*
+			 * If a -bundle_loader was specified and this is a
+			 * flat_namespace output force the bundle_loader was
+			 * loaded first above.
+			 */
+			if(twolevel_namespace == TRUE)
+			    pass1(argv[i+1], FALSE, FALSE, FALSE, TRUE);
+			i++;
+			break;
+		    }
+		    break;
 		case 'l':
 		    /* path searched abbrevated file name */
-		    pass1(argv[i], TRUE, FALSE, FALSE);
+		    pass1(argv[i], TRUE, FALSE, FALSE, FALSE);
 		    objects_specified++;
 		    break;
 		case 'A':
 		    if(base_obj != NULL)
-			fatal("only -A argument can be specified");
-		    pass1(argv[++i], FALSE, TRUE, FALSE);
+			fatal("only one -A argument can be specified");
+		    pass1(argv[++i], FALSE, TRUE, FALSE, FALSE);
 		    objects_specified++;
 		    break;
 		case 'f':
@@ -1910,7 +2066,7 @@ unknown_flag:
 			if(dynamic == FALSE)
 			    fatal("incompatible flag -framework used (must "
 				  "specify \"-dynamic\" to be used)");
-			pass1(argv[++i], FALSE, FALSE, TRUE);
+			pass1(argv[++i], FALSE, FALSE, TRUE, FALSE);
 			objects_specified++;
 		    }
 		    if(strcmp(p, "filelist") == 0){
@@ -1951,7 +2107,7 @@ unknown_flag:
 				    file_name = mkstr(dirname, "/",
 						      file_name, NULL);
 				}
-				pass1(file_name, FALSE, FALSE, FALSE);
+				pass1(file_name, FALSE, FALSE, FALSE, FALSE);
 				objects_specified++;
 				file_name = addr + j + 1;
 			    }
@@ -1959,6 +2115,12 @@ unknown_flag:
 		    }
 		    if(strcmp(p, "final_output") == 0)
 			i++;
+		    break;
+		case 'm':
+		    if(strcmp(p, "multiply_defined") == 0){
+			i++;
+			break;
+		    }
 		    break;
 		case 'u':
 		    if(strcmp(p, "undefined") == 0 ||
@@ -2026,7 +2188,8 @@ unknown_flag:
 			    strcmp(p, "segs_read_only_addr") == 0 ||
 			    strcmp(p, "segs_read_write_addr") == 0 ||
 			    strcmp(p, "seg_addr_table") == 0 ||
-			    strcmp(p, "sub_umbrella") == 0)
+			    strcmp(p, "sub_umbrella") == 0 ||
+			    strcmp(p, "sub_library") == 0)
 			i++;
 		    break;
 		case 'r':
@@ -2391,6 +2554,24 @@ unsigned long size)
 	if((p = realloc(p, size)) == NULL)
 	    system_fatal("virtual memory exhausted (realloc failed)");
 	return(p);
+}
+
+/*
+ * savestr() malloc's space for the string passed to it, copys the string into
+ * the space and returns a pointer to that space.
+ */
+__private_extern__
+char *
+savestr(
+const char *s)
+{
+    long len;
+    char *r;
+
+	len = strlen(s) + 1;
+	r = (char *)allocate(len);
+	strcpy(r, s);
+	return(r);
 }
 
 /*

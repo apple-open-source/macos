@@ -14,9 +14,11 @@ in real-time.
 .Nm fs_usage
 presents an ongoing display of system call usage
 information pertaining to filesystem activity.  By default
-this includes all system processes.  The information, however,
-may  be limited to include or exclude a specified list 
-of processes.
+this includes all system processes except the running
+fs_usage process,
+Terminal, telnetd, sshd, rlogind, tcsh, csh and sh.
+These defaluts can be overridden such that output is limited to
+include or exclude a list of processes specified by the user.
 .Pp
 The output presented by
 .Nm fs_usage

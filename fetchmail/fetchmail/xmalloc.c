@@ -57,4 +57,14 @@ char *xstrdup(const char *s)
     return p;
 }
 
+#if !defined(HAVE_STRDUP)
+char *strdup(const char *s)
+{
+    char *p;
+    p = (char *) malloc(strlen(s)+1);
+    strcpy(p,s);
+    return p;
+}
+#endif /* !HAVE_STRDUP */
+
 /* xmalloc.c ends here */

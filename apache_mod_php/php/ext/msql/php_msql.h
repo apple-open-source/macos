@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_msql.h,v 1.1.1.2 2000/09/07 00:05:37 wsanchez Exp $ */
+/* $Id: php_msql.h,v 1.1.1.3 2001/07/19 00:19:24 zarzycki Exp $ */
 
 #ifndef PHP_MSQL_H
 #define PHP_MSQL_H
@@ -27,39 +27,39 @@ extern zend_module_entry msql_module_entry;
 #define msql_module_ptr &msql_module_entry
 
 /* mSQL functions */
-DLEXPORT PHP_MINIT_FUNCTION(msql);
-DLEXPORT PHP_RINIT_FUNCTION(msql);
-DLEXPORT PHP_MSHUTDOWN_FUNCTION(msql);
-DLEXPORT PHP_MINFO_FUNCTION(msql);
+PHP_MINIT_FUNCTION(msql);
+PHP_RINIT_FUNCTION(msql);
+PHP_MSHUTDOWN_FUNCTION(msql);
+PHP_MINFO_FUNCTION(msql);
 
-DLEXPORT PHP_FUNCTION(msql_connect);
-DLEXPORT PHP_FUNCTION(msql_pconnect);
-DLEXPORT PHP_FUNCTION(msql_close);
-DLEXPORT PHP_FUNCTION(msql_select_db);
-DLEXPORT PHP_FUNCTION(msql_create_db);
-DLEXPORT PHP_FUNCTION(msql_drop_db);
-DLEXPORT PHP_FUNCTION(msql_list_dbs);
-DLEXPORT PHP_FUNCTION(msql_list_tables);
-DLEXPORT PHP_FUNCTION(msql_list_fields);
-DLEXPORT PHP_FUNCTION(msql_error);
-DLEXPORT PHP_FUNCTION(msql_affected_rows);
-DLEXPORT PHP_FUNCTION(msql_query);
-DLEXPORT PHP_FUNCTION(msql_db_query);
-DLEXPORT PHP_FUNCTION(msql_result);
-DLEXPORT PHP_FUNCTION(msql_num_rows);
-DLEXPORT PHP_FUNCTION(msql_num_fields);
-DLEXPORT PHP_FUNCTION(msql_fetch_row);
-DLEXPORT PHP_FUNCTION(msql_data_seek);
-DLEXPORT PHP_FUNCTION(msql_fetch_field);
-DLEXPORT PHP_FUNCTION(msql_field_seek);
-DLEXPORT PHP_FUNCTION(msql_free_result);
-DLEXPORT PHP_FUNCTION(msql_field_name);
-DLEXPORT PHP_FUNCTION(msql_field_table);
-DLEXPORT PHP_FUNCTION(msql_field_len);
-DLEXPORT PHP_FUNCTION(msql_field_type);
-DLEXPORT PHP_FUNCTION(msql_field_flags);
-DLEXPORT PHP_FUNCTION(msql_fetch_array);
-DLEXPORT PHP_FUNCTION(msql_fetch_object);
+PHP_FUNCTION(msql_connect);
+PHP_FUNCTION(msql_pconnect);
+PHP_FUNCTION(msql_close);
+PHP_FUNCTION(msql_select_db);
+PHP_FUNCTION(msql_create_db);
+PHP_FUNCTION(msql_drop_db);
+PHP_FUNCTION(msql_list_dbs);
+PHP_FUNCTION(msql_list_tables);
+PHP_FUNCTION(msql_list_fields);
+PHP_FUNCTION(msql_error);
+PHP_FUNCTION(msql_affected_rows);
+PHP_FUNCTION(msql_query);
+PHP_FUNCTION(msql_db_query);
+PHP_FUNCTION(msql_result);
+PHP_FUNCTION(msql_num_rows);
+PHP_FUNCTION(msql_num_fields);
+PHP_FUNCTION(msql_fetch_row);
+PHP_FUNCTION(msql_data_seek);
+PHP_FUNCTION(msql_fetch_field);
+PHP_FUNCTION(msql_field_seek);
+PHP_FUNCTION(msql_free_result);
+PHP_FUNCTION(msql_field_name);
+PHP_FUNCTION(msql_field_table);
+PHP_FUNCTION(msql_field_len);
+PHP_FUNCTION(msql_field_type);
+PHP_FUNCTION(msql_field_flags);
+PHP_FUNCTION(msql_fetch_array);
+PHP_FUNCTION(msql_fetch_object);
 
 typedef struct {
 	long default_link;

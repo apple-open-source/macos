@@ -20,126 +20,135 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SCP.h>
-#include "SCPPrivate.h"
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCPreferencesInternal.h"
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/errno.h>
 
-
-SCPStatus
-SCPLock(SCPSessionRef session, boolean_t wait)
+Boolean
+SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 {
-	SCPStatus		scp_status;
-	SCDStatus		scd_status;
-	SCPSessionPrivateRef	sessionPrivate;
-	SCDHandleRef		handle = NULL;
-	CFDateRef		value;
 	CFArrayRef		changes;
+	CFDataRef		currentSignature	= NULL;
+	Boolean			haveLock		= FALSE;
+	SCPreferencesPrivateRef	sessionPrivate		= (SCPreferencesPrivateRef)session;
 	struct stat		statBuf;
-	CFDataRef		currentSignature;
+	CFDateRef		value			= NULL;
 
-	if (session == NULL) {
-		return SCP_FAILED;           /* you can't do anything with a closed session */
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesLock:"));
+
+	if (sessionPrivate->locked) {
+		/* sorry, you already have the lock */
+		_SCErrorSet(kSCStatusLocked);
+		return FALSE;
 	}
-	sessionPrivate = (SCPSessionPrivateRef)session;
 
 	if (!sessionPrivate->isRoot) {
-		/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
-		goto notRoot;
+		if (!sessionPrivate->perUser) {
+			_SCErrorSet(kSCStatusAccessError);
+			return FALSE;
+		} else {
+			/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
+			goto perUser;
+		}
 	}
 
 	if (sessionPrivate->session == NULL) {
 		/* open a session */
-		scd_status = SCDOpen(&sessionPrivate->session, sessionPrivate->name);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_INFO, CFSTR("SCDOpen() failed: %s"), SCDError(scd_status));
-			return SCP_FAILED;
+		sessionPrivate->session = SCDynamicStoreCreate(NULL,
+							       CFSTR("SCPreferencesLock"),
+							       NULL,
+							       NULL);
+		if (!sessionPrivate->session) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+			return FALSE;
 		}
 	}
 
 	if (sessionPrivate->sessionKeyLock == NULL) {
 		/* create the session "lock" key */
-		sessionPrivate->sessionKeyLock = _SCPNotificationKey(sessionPrivate->prefsID,
+		sessionPrivate->sessionKeyLock = _SCPNotificationKey(NULL,
+								     sessionPrivate->prefsID,
 								     sessionPrivate->perUser,
 								     sessionPrivate->user,
-								     kSCPKeyLock);
+								     kSCPreferencesKeyLock);
 	}
 
-	scd_status = SCDNotifierAdd(sessionPrivate->session,
-				    sessionPrivate->sessionKeyLock,
-				    0);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDNotifierAdd() failed: %s"), SCDError(scd_status));
-		scp_status = SCP_FAILED;
+	if (!SCDynamicStoreAddWatchedKey(sessionPrivate->session,
+					 sessionPrivate->sessionKeyLock,
+					 FALSE)) {
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreAddWatchedKey() failed"));
 		goto error;
 	}
 
-	handle = SCDHandleInit();
 	value  = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-	SCDHandleSetData(handle, value);
-	CFRelease(value);
 
 	while (TRUE) {
+		CFArrayRef	changedKeys;
+
 		/*
 		 * Attempt to acquire the lock
 		 */
-		scd_status = SCDAddSession(sessionPrivate->session,
-					   sessionPrivate->sessionKeyLock,
-					   handle);
-		switch (scd_status) {
-			case SCD_OK :
-				scp_status = SCP_OK;
-				goto done;
-			case SCD_EXISTS :
-				if (!wait) {
-					scp_status = SCP_BUSY;
-					goto error;
-				}
-				break;
-			default :
-				SCDLog(LOG_INFO, CFSTR("SCDAddSession() failed: %s"), SCDError(scd_status));
-				scp_status = SCP_FAILED;
+		if (SCDynamicStoreAddTemporaryValue(sessionPrivate->session,
+						    sessionPrivate->sessionKeyLock,
+						    value)) {
+			haveLock = TRUE;
+			goto done;
+		} else {
+			if (!wait) {
+				_SCErrorSet(kSCStatusPrefsBusy);
 				goto error;
+			}
 		}
 
 		/*
 		 * Wait for the lock to be released
 		 */
-		scd_status = SCDNotifierWait(sessionPrivate->session);
-		if (scd_status != SCD_OK) {
-			SCDLog(LOG_INFO, CFSTR("SCDAddSession() failed: %s"), SCDError(scd_status));
-			scp_status = SCP_FAILED;
+		if (!SCDynamicStoreNotifyWait(sessionPrivate->session)) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreNotifyWait() failed"));
 			goto error;
 		}
+		changedKeys = SCDynamicStoreCopyNotifiedKeys(sessionPrivate->session);
+		if (!changedKeys) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCopyNotifiedKeys() failed"));
+			goto error;
+		}
+		CFRelease(changedKeys);
 	}
 
     done :
 
-	SCDHandleRelease(handle);
-	handle = NULL;
+	CFRelease(value);
+	value = NULL;
 
-	scd_status = SCDNotifierRemove(sessionPrivate->session,
-				       sessionPrivate->sessionKeyLock,
-				       0);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDNotifierRemove() failed: %s"), SCDError(scd_status));
-		scp_status = SCP_FAILED;
+	if (!SCDynamicStoreRemoveWatchedKey(sessionPrivate->session,
+					    sessionPrivate->sessionKeyLock,
+					    0)) {
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreRemoveWatchedKey() failed"));
 		goto error;
 	}
 
-	scd_status = SCDNotifierGetChanges(sessionPrivate->session, &changes);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_INFO, CFSTR("SCDNotifierGetChanges() failed: %s"), SCDError(scd_status));
-		scp_status = SCP_FAILED;
+	changes = SCDynamicStoreCopyNotifiedKeys(sessionPrivate->session);
+	if (!changes) {
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCopyNotifiedKeys() failed"));
 		goto error;
 	}
 	CFRelease(changes);
 
-    notRoot:
+    perUser:
 
 	/*
 	 * Check the signature
@@ -148,25 +157,65 @@ SCPLock(SCPSessionRef session, boolean_t wait)
 		if (errno == ENOENT) {
 			bzero(&statBuf, sizeof(statBuf));
 		} else {
-			SCDLog(LOG_DEBUG, CFSTR("stat() failed: %s"), strerror(errno));
-			scp_status = SCP_STALE;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("stat() failed: %s"), strerror(errno));
+			_SCErrorSet(kSCStatusStale);
 			goto error;
 		}
 	}
 
-	currentSignature = _SCPSignatureFromStatbuf(&statBuf);
+	currentSignature = __SCPSignatureFromStatbuf(&statBuf);
 	if (!CFEqual(sessionPrivate->signature, currentSignature)) {
-		CFRelease(currentSignature);
-		scp_status = SCP_STALE;
-		goto error;
+		if (sessionPrivate->accessed) {
+			/*
+			 * the preferences have been accessed since the
+			 * session was created so we've got no choice
+			 * but to deny the lock request.
+			 */
+			_SCErrorSet(kSCStatusStale);
+			goto error;
+		} else {
+			/*
+			 * the file contents have changed but since we
+			 * haven't accessed any of the preferences we
+			 * don't need to return an error.  Simply reload
+			 * the stored data and proceed.
+			 */
+			SCPreferencesRef	newPrefs;
+			SCPreferencesPrivateRef	newPrivate;
+
+			newPrefs = __SCPreferencesCreate(NULL,
+							 sessionPrivate->name,
+							 sessionPrivate->prefsID,
+							 sessionPrivate->perUser,
+							 sessionPrivate->user);
+			if (!newPrefs) {
+				/* if updated preferences could not be loaded */
+				_SCErrorSet(kSCStatusStale);
+				goto error;
+			}
+
+			/* synchronize this sessions prefs/signature */
+			newPrivate = (SCPreferencesPrivateRef)newPrefs;
+			CFRelease(sessionPrivate->prefs);
+			sessionPrivate->prefs = CFRetain(newPrivate->prefs);
+			CFRelease(sessionPrivate->signature);
+			sessionPrivate->signature = CFRetain(newPrivate->signature);
+			CFRelease(newPrefs);
+		}
 	}
 	CFRelease(currentSignature);
 
 	sessionPrivate->locked = TRUE;
-	return SCD_OK;
+	return TRUE;
 
     error :
 
-	if (handle)	SCDHandleRelease(handle);
-	return scp_status;
+	if (haveLock) {
+		SCDynamicStoreRemoveValue(sessionPrivate->session,
+					  sessionPrivate->sessionKeyLock);
+	}
+	if (currentSignature)	CFRelease(currentSignature);
+	if (value)		CFRelease(value);
+
+	return FALSE;
 }

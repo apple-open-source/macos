@@ -39,76 +39,58 @@ includes
 definitions
 ----------------------------------------------------------------------------- */
 
-struct client 		*clients[MAX_CLIENT];
-
+TAILQ_HEAD(, client) 	client_head;
 
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 u_long client_init_all ()
 {
-    u_long	i;
 
-    for (i = 0; i < MAX_CLIENT; i++)
-        clients[i] = 0;
+    TAILQ_INIT(&client_head);
     return 0;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long client_new (CFSocketRef ref)
+struct client *client_new (CFSocketRef ref)
 {
-    u_short		i;
     struct client	*client;
     
-    for (i = 0; i < MAX_CLIENT; i++) {
-        if (!clients[i]) 
-            break;
-    }
-
-    if (i == MAX_CLIENT) {
-        return 1;  // too many clients...
-    }
-
     client = malloc(sizeof(struct client));
     if (!client)
-        return 2;	// very bad...
+        return 0;	// very bad...
 
     bzero(client, sizeof(struct client));
 
+    client->ref = ref;
     TAILQ_INIT(&client->opts_head);
 
-    clients[i] = client;
-    client->ref = ref;
+    TAILQ_INSERT_TAIL(&client_head, client, next);
 
-    return 0;
+    return client;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long client_dispose (u_short id)
+void client_dispose (struct client *client)
 {
-
     struct client_opts	*opts;
     
-    if (clients[id]) {
+    TAILQ_REMOVE(&client_head, client, next);
 
-        while (opts = TAILQ_FIRST(&(clients[id]->opts_head))) {
-            
-            TAILQ_REMOVE(&(clients[id]->opts_head), opts, next);
-            free(opts);
-        }
-
-        free(clients[id]);
-        clients[id] = 0;
+    while (opts = TAILQ_FIRST(&(client->opts_head))) {
+        
+        TAILQ_REMOVE(&(client->opts_head), opts, next);
+        free(opts);
     }
 
-    return 0;
+    free(client);
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-struct options *client_newoptset (u_short id, u_long link)
+struct options *client_newoptset (struct client *client, u_long link)
 {
     struct client_opts	*opts;
 
@@ -118,26 +100,21 @@ struct options *client_newoptset (u_short id, u_long link)
 
     bzero(opts, sizeof(struct client_opts));
 
-    TAILQ_INSERT_TAIL(&(clients[id]->opts_head), opts, next);
-
     opts->link = link;
+    TAILQ_INSERT_TAIL(&(client->opts_head), opts, next);
 
     return &opts->opts;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-struct options *client_findoptset (u_short id, u_long link)
+struct options *client_findoptset (struct client *client, u_long link)
 {
     struct client_opts	*opts;
     
-    if (id < MAX_CLIENT) {
-        TAILQ_FOREACH(opts, &(clients[id]->opts_head), next) {
-            
-            if (opts->link == link)
-                return &opts->opts;
-        }
-    }
+    TAILQ_FOREACH(opts, &(client->opts_head), next) 
+        if (opts->link == link)
+            return &opts->opts;
     
     return 0;
 }
@@ -146,17 +123,15 @@ struct options *client_findoptset (u_short id, u_long link)
 ----------------------------------------------------------------------------- */
 u_long client_notify (u_long link, u_long state, u_long error)
 {
-    u_long		i;
     struct ppp_msg_hdr	msg;
+    struct client	*client;
 
-    // broadcast the new state to all the listening socket
-    for (i = 0; i < MAX_CLIENT; i++) {
-        if (clients[i]
-            && (clients[i]->notify == 1)
-            && ((clients[i]->notify_link == link)			// exact same link
-                || ((clients[i]->notify_link >> 16) == 0xFFFF)		// all kind of links
-                || (((clients[i]->notify_link >> 16) == (link >> 16))	// all links of that kind
-                    && ((clients[i]->notify_link >> 16) == 0xFFFF)))) {
+    TAILQ_FOREACH(client, &client_head, next) {
+        if (client->notify
+            && ((client->notify_link == link)			// exact same link
+                || ((client->notify_link >> 16) == 0xFFFF)		// all kind of links
+                || (((client->notify_link >> 16) == (link >> 16))	// all links of that kind
+                    && ((client->notify_link >> 16) == 0xFFFF)))) {
             
             bzero(&msg, sizeof(msg));
             msg.m_type = PPP_EVENT;
@@ -164,10 +139,22 @@ u_long client_notify (u_long link, u_long state, u_long error)
             msg.m_result = state;
             msg.m_cookie = error;
 
-            if (write(CFSocketGetNative(clients[i]->ref), &msg, sizeof(msg)) != sizeof(msg))
+            if (write(CFSocketGetNative(client->ref), &msg, sizeof(msg)) != sizeof(msg))
                 continue;
         }
     }
+    return 0;
+}
 
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+struct client *client_findbysocketref(CFSocketRef ref)
+{
+    struct client	*client;
+
+    TAILQ_FOREACH(client, &client_head, next)
+        if (client->ref == ref)
+            return client;
+            
     return 0;
 }

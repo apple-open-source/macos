@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_dbm.c,v 1.1.1.2 2000/09/07 00:05:22 wsanchez Exp $ */
+/* $Id: dba_dbm.c,v 1.1.1.3 2001/07/19 00:19:03 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -44,14 +44,10 @@
 #define DBM_DATA dba_dbm_data *dba = info->dbf
 #define DBM_GKEY datum gkey; gkey.dptr = (char *) key; gkey.dsize = keylen
 
-#ifndef PATH_MAX
-#define PATH_MAX 255
-#endif
-
 #define TRUNC_IT(extension, mode) \
-	snprintf(buf, PATH_MAX, "%s" extension, info->path); \
-	buf[PATH_MAX] = '\0'; \
-	if((fd = V_OPEN((buf, O_CREAT | mode | O_WRONLY, filemode))) == -1) \
+	snprintf(buf, MAXPATHLEN, "%s" extension, info->path); \
+	buf[MAXPATHLEN-1] = '\0'; \
+	if((fd = VCWD_OPEN((buf, O_CREAT | mode | O_WRONLY, filemode))) == -1) \
 		return FAILURE; \
 	close(fd);
 
@@ -71,7 +67,7 @@ DBA_OPEN_FUNC(dbm)
 	}
 	
 	if(info->mode == DBA_TRUNC) {
-		char buf[PATH_MAX + 1];
+		char buf[MAXPATHLEN];
 
 		/* dbm/ndbm original */
 		TRUNC_IT(".pag", O_TRUNC);
@@ -79,7 +75,7 @@ DBA_OPEN_FUNC(dbm)
 	}
 
 	if(info->mode == DBA_CREAT) {
-		char buf[PATH_MAX + 1];
+		char buf[MAXPATHLEN];
 
 		TRUNC_IT(".pag", 0);
 		TRUNC_IT(".dir", 0);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -32,7 +32,6 @@ typedef struct _zend_rsrc_list_entry {
 	void *ptr;
 	int type;
 	int refcount;
-	zend_bool valid;
 } zend_rsrc_list_entry;
 
 typedef void (*rsrc_dtor_func_t)(zend_rsrc_list_entry *rsrc);
@@ -71,17 +70,13 @@ int zend_init_rsrc_list(ELS_D);
 int zend_init_rsrc_plist(ELS_D);
 void zend_destroy_rsrc_list(ELS_D);
 void zend_destroy_rsrc_plist(ELS_D);
-int zend_init_rsrc_list_dtors();
-void zend_destroy_rsrc_list_dtors();
+int zend_init_rsrc_list_dtors(void);
+void zend_destroy_rsrc_list_dtors(void);
 
 ZEND_API int zend_list_insert(void *ptr, int type);
-ZEND_API int zend_plist_insert(void *ptr, int type);
 ZEND_API int zend_list_addref(int id);
 ZEND_API int zend_list_delete(int id);
-ZEND_API int zend_plist_delete(int id);
-ZEND_API int zend_list_convert_to_number(int id);
 ZEND_API void *zend_list_find(int id, int *type);
-ZEND_API void *zend_plist_find(int id, int *type);
 
 ZEND_API int zend_register_resource(zval *rsrc_result, void *rsrc_pointer, int rsrc_type);
 ZEND_API void *zend_fetch_resource(zval **passed_id, int default_id, char *resource_type_name, int *found_resource_type, int num_resource_types, ...);

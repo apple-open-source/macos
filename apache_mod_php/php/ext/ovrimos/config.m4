@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/01/25 04:59:47 wsanchez Exp $
+dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:43 zarzycki Exp $
 dnl config.m4 for extension ovrimos
 dnl don't forget to call PHP_EXTENSION(ovrimos)
 
@@ -17,11 +17,11 @@ if test "$PHP_OVRIMOS" != "no"; then
     AC_MSG_ERROR(Please reinstall Ovrimos' libsqlcli - I cannot find sqlcli.h)
   fi
 
-  AC_ADD_INCLUDE($OVRIMOS_DIR/include)
+  PHP_ADD_INCLUDE($OVRIMOS_DIR/include)
   PHP_SUBST(OVRIMOS_SHARED_LIBADD)
   LDFLAGS="$LDFLAGS $ld_runpath_switch$OVRIMOS_DIR/lib -L$OVRIMOS_DIR/lib"
   AC_CHECK_LIB(sqlcli, main)
-  AC_ADD_LIBRARY_WITH_PATH(sqlcli, $OVRIMOS_DIR/lib, OVRIMOS_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(sqlcli, $OVRIMOS_DIR/lib, OVRIMOS_SHARED_LIBADD)
   AC_DEFINE(HAVE_LIBSQLCLI,1,[ ])
 
   PHP_EXTENSION(ovrimos, $ext_shared)

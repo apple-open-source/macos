@@ -1,0 +1,792 @@
+c++/asn-any.o: src/asn-any.cpp inc/asn-incl.h inc/asn-config.h \
+ /usr/include/ctype.h /usr/include/runetype.h \
+ /usr/include/machine/ansi.h /usr/include/ppc/ansi.h \
+ /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-int.h \
+ inc/asn-bool.h inc/asn-real.h inc/asn-oid.h inc/asn-octs.h \
+ inc/asn-bits.h inc/str-stk.h inc/asn-enum.h inc/asn-null.h \
+ inc/asn-any.h inc/hash.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/threading.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utilities.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssm.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmconfig.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/ConditionalMacros.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/MacTypes.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/emmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapi.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmerr.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapple.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utility_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../assert.h \
+ /usr/include/gcc/darwin/2.95.2/g++/exception \
+ /usr/include/gcc/darwin/2.95.2/g++/new \
+ /usr/include/gcc/darwin/2.95.2/g++/string \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cstddef \
+ /usr/include/gcc/darwin/2.95.2/g++/std/straits.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cctype \
+ /usr/include/gcc/darwin/2.95.2/g++/cstring \
+ /usr/include/gcc/darwin/2.95.2/g++/alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iterator \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_relops.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_iterator.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cassert \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.cc \
+ /usr/include/errno.h /usr/include/sys/errno.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread_impl.h \
+ /System/Library/Frameworks/System.framework/Headers/sched.h \
+ /usr/include/time.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../machine/limits.h \
+ /usr/include/ppc/limits.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/mach_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/host_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_statistics.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/time_value.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/memory_object_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/port.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/exception_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/policy.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/clock_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_attributes.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_inherit.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_behavior.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_prot.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_sync.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_region.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/prof_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kmod.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/std_types.h \
+ /usr/include/limits.h /usr/include/sys/syslimits.h \
+ /usr/include/sys/time.h inc/asn-useful.h inc/print.h \
+ inc/sm_vdasnacc.h
+c++/asn-bits.o: src/asn-bits.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-bits.h \
+ inc/str-stk.h
+c++/asn-bool.o: src/asn-bool.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-bool.h
+c++/asn-enum.o: src/asn-enum.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-int.h \
+ inc/asn-enum.h
+c++/asn-int.o: src/asn-int.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-int.h
+c++/asn-len.o: src/asn-len.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h
+c++/asn-list.o: src/asn-list.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-list.h
+c++/asn-null.o: src/asn-null.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-null.h
+c++/asn-octs.o: src/asn-octs.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-bits.h \
+ inc/str-stk.h inc/asn-octs.h
+c++/asn-oid.o: src/asn-oid.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/strstream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/strfile.h inc/asn-len.h \
+ inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-oid.h \
+ inc/print.h
+c++/asn-real.o: src/asn-real.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-real.h
+c++/asn-tag.o: src/asn-tag.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h
+c++/asn-type.o: src/asn-type.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h
+c++/hash.o: src/hash.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/hash.h
+c++/meta.o: src/meta.cpp inc/asn-incl.h inc/asn-config.h \
+ /usr/include/ctype.h /usr/include/runetype.h \
+ /usr/include/machine/ansi.h /usr/include/ppc/ansi.h \
+ /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-int.h \
+ inc/asn-bool.h inc/asn-real.h inc/asn-oid.h inc/asn-octs.h \
+ inc/asn-bits.h inc/str-stk.h inc/asn-enum.h inc/asn-null.h \
+ inc/asn-any.h inc/hash.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/threading.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utilities.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssm.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmconfig.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/ConditionalMacros.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/MacTypes.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/emmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapi.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmerr.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapple.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utility_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../assert.h \
+ /usr/include/gcc/darwin/2.95.2/g++/exception \
+ /usr/include/gcc/darwin/2.95.2/g++/new \
+ /usr/include/gcc/darwin/2.95.2/g++/string \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cstddef \
+ /usr/include/gcc/darwin/2.95.2/g++/std/straits.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cctype \
+ /usr/include/gcc/darwin/2.95.2/g++/cstring \
+ /usr/include/gcc/darwin/2.95.2/g++/alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iterator \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_relops.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_iterator.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cassert \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.cc \
+ /usr/include/errno.h /usr/include/sys/errno.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread_impl.h \
+ /System/Library/Frameworks/System.framework/Headers/sched.h \
+ /usr/include/time.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../machine/limits.h \
+ /usr/include/ppc/limits.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/mach_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/host_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_statistics.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/time_value.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/memory_object_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/port.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/exception_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/policy.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/clock_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_attributes.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_inherit.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_behavior.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_prot.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_sync.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_region.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/prof_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kmod.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/std_types.h \
+ /usr/include/limits.h /usr/include/sys/syslimits.h \
+ /usr/include/sys/time.h inc/asn-useful.h inc/print.h
+c++/print.o: src/print.cpp inc/asn-incl.h inc/asn-config.h \
+ /usr/include/ctype.h /usr/include/runetype.h \
+ /usr/include/machine/ansi.h /usr/include/ppc/ansi.h \
+ /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-int.h \
+ inc/asn-bool.h inc/asn-real.h inc/asn-oid.h inc/asn-octs.h \
+ inc/asn-bits.h inc/str-stk.h inc/asn-enum.h inc/asn-null.h \
+ inc/asn-any.h inc/hash.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/threading.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utilities.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssm.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmconfig.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/ConditionalMacros.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/MacTypes.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/emmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapi.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmerr.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapple.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utility_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../assert.h \
+ /usr/include/gcc/darwin/2.95.2/g++/exception \
+ /usr/include/gcc/darwin/2.95.2/g++/new \
+ /usr/include/gcc/darwin/2.95.2/g++/string \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cstddef \
+ /usr/include/gcc/darwin/2.95.2/g++/std/straits.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cctype \
+ /usr/include/gcc/darwin/2.95.2/g++/cstring \
+ /usr/include/gcc/darwin/2.95.2/g++/alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iterator \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_relops.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_iterator.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cassert \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.cc \
+ /usr/include/errno.h /usr/include/sys/errno.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread_impl.h \
+ /System/Library/Frameworks/System.framework/Headers/sched.h \
+ /usr/include/time.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../machine/limits.h \
+ /usr/include/ppc/limits.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/mach_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/host_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_statistics.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/time_value.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/memory_object_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/port.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/exception_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/policy.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/clock_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_attributes.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_inherit.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_behavior.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_prot.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_sync.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_region.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/prof_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kmod.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/std_types.h \
+ /usr/include/limits.h /usr/include/sys/syslimits.h \
+ /usr/include/sys/time.h inc/asn-useful.h inc/print.h
+c++/tcl-if.o: src/tcl-if.cpp /usr/include/fcntl.h /usr/include/sys/fcntl.h \
+ /usr/include/sys/types.h /usr/include/sys/cdefs.h \
+ /usr/include/machine/types.h /usr/include/ppc/types.h \
+ /usr/include/machine/ansi.h /usr/include/ppc/ansi.h \
+ /usr/include/machine/endian.h /usr/include/ppc/endian.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../assert.h /usr/include/unistd.h \
+ /usr/include/sys/unistd.h /usr/include/signal.h \
+ /usr/include/sys/signal.h /usr/include/machine/signal.h \
+ /usr/include/ppc/signal.h /usr/include/stdlib.h \
+ /usr/include/gcc/darwin/2.95.2/g++/strstream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h /usr/include/stddef.h \
+ /usr/include/stdio.h /usr/include/gcc/darwin/2.95.2/g++/strfile.h \
+ /usr/include/gcc/darwin/2.95.2/g++/fstream.h /usr/include/string.h \
+ inc/asn-incl.h inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/memory.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/math.h inc/snacc.h inc/config.h inc/policy.h \
+ inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h inc/asn-int.h inc/asn-bool.h inc/asn-real.h inc/asn-oid.h \
+ inc/asn-octs.h inc/asn-bits.h inc/str-stk.h inc/asn-enum.h \
+ inc/asn-null.h inc/asn-any.h inc/hash.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/threading.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utilities.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssm.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmconfig.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/ConditionalMacros.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/MacTypes.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/emmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapi.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmerr.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapple.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utility_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/exception \
+ /usr/include/gcc/darwin/2.95.2/g++/new \
+ /usr/include/gcc/darwin/2.95.2/g++/string \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cstddef \
+ /usr/include/gcc/darwin/2.95.2/g++/std/straits.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cctype \
+ /usr/include/gcc/darwin/2.95.2/g++/cstring \
+ /usr/include/gcc/darwin/2.95.2/g++/alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iterator \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_relops.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_iterator.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cassert \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.cc \
+ /usr/include/errno.h /usr/include/sys/errno.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread_impl.h \
+ /System/Library/Frameworks/System.framework/Headers/sched.h \
+ /usr/include/time.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../machine/limits.h \
+ /usr/include/ppc/limits.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/mach_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/host_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_statistics.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/time_value.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/memory_object_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/port.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/exception_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/policy.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/clock_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_attributes.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_inherit.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_behavior.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_prot.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_sync.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_region.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/prof_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kmod.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/std_types.h \
+ /usr/include/limits.h /usr/include/sys/syslimits.h \
+ /usr/include/sys/time.h inc/asn-useful.h inc/print.h inc/tcl-if.h \
+ inc/init.h
+c++/str-stk.o: src/str-stk.cpp inc/asn-config.h /usr/include/ctype.h \
+ /usr/include/runetype.h /usr/include/machine/ansi.h \
+ /usr/include/ppc/ansi.h /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/str-stk.h
+tkAppInit.o : 
+c++/asn-useful.o: src/asn-useful.cpp inc/asn-incl.h inc/asn-config.h \
+ /usr/include/ctype.h /usr/include/runetype.h \
+ /usr/include/machine/ansi.h /usr/include/ppc/ansi.h \
+ /usr/include/sys/cdefs.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iostream.h \
+ /usr/include/gcc/darwin/2.95.2/g++/streambuf.h \
+ /usr/include/gcc/darwin/2.95.2/g++/libio.h \
+ /usr/include/gcc/darwin/2.95.2/g++/_G_config.h \
+ /usr/include/sys/types.h /usr/include/machine/types.h \
+ /usr/include/ppc/types.h /usr/include/machine/endian.h \
+ /usr/include/ppc/endian.h /usr/include/stddef.h /usr/include/stdio.h \
+ /usr/include/memory.h /usr/include/string.h /usr/include/setjmp.h \
+ /usr/include/machine/setjmp.h /usr/include/ppc/setjmp.h \
+ /usr/include/machine/signal.h /usr/include/ppc/signal.h \
+ /usr/include/math.h inc/snacc.h inc/config.h /usr/include/stdlib.h \
+ inc/policy.h inc/asn-buf.h inc/asn-len.h inc/asn-tag.h inc/asn-type.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tcl.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../stdarg.h \
+ /System/Library/Frameworks/Tcl.framework/Headers/tclDecls.h \
+ inc/meta.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+ /usr/include/signal.h /usr/include/sys/signal.h inc/asn-int.h \
+ inc/asn-bool.h inc/asn-real.h inc/asn-oid.h inc/asn-octs.h \
+ inc/asn-bits.h inc/str-stk.h inc/asn-enum.h inc/asn-null.h \
+ inc/asn-any.h inc/hash.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/threading.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utilities.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssm.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmconfig.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/ConditionalMacros.h \
+ /System/Library/Frameworks/CarbonCore.framework/Headers/MacTypes.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/emmtype.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapi.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmerr.h \
+ /System/Library/PrivateFrameworks/cdsa.framework/Headers/cssmapple.h \
+ /System/Library/PrivateFrameworks/cdsa_utilities.framework/Headers/utility_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../assert.h \
+ /usr/include/gcc/darwin/2.95.2/g++/exception \
+ /usr/include/gcc/darwin/2.95.2/g++/new \
+ /usr/include/gcc/darwin/2.95.2/g++/string \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cstddef \
+ /usr/include/gcc/darwin/2.95.2/g++/std/straits.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cctype \
+ /usr/include/gcc/darwin/2.95.2/g++/cstring \
+ /usr/include/gcc/darwin/2.95.2/g++/alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_config.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_alloc.h \
+ /usr/include/gcc/darwin/2.95.2/g++/iterator \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_relops.h \
+ /usr/include/gcc/darwin/2.95.2/g++/stl_iterator.h \
+ /usr/include/gcc/darwin/2.95.2/g++/cassert \
+ /usr/include/gcc/darwin/2.95.2/g++/std/bastring.cc \
+ /usr/include/errno.h /usr/include/sys/errno.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread.h \
+ /System/Library/Frameworks/System.framework/Headers/pthread_impl.h \
+ /System/Library/Frameworks/System.framework/Headers/sched.h \
+ /usr/include/time.h \
+ /usr/include/gcc/darwin/2.95.2/g++/../machine/limits.h \
+ /usr/include/ppc/limits.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/mach_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/host_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_statistics.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/boolean.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/time_value.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/memory_object_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/port.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/exception_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_status.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/thread_state.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/exception.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/processor_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/policy.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/task_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_info.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/thread_special_ports.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/clock_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_attributes.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_inherit.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_behavior.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_prot.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_sync.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/vm_region.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/prof_types.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kmod.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/machine/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/ppc/kern_return.h \
+ /System/Library/Frameworks/System.framework/Headers/mach/std_types.h \
+ /usr/include/limits.h /usr/include/sys/syslimits.h \
+ /usr/include/sys/time.h inc/asn-useful.h inc/print.h

@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 
 #include "configd.h"
 #include "configd_server.h"
@@ -47,7 +57,7 @@ _notifyWatchers()
 		CFArrayRef		changes;
 		CFMutableArrayRef	newChanges;
 
-		dict = CFDictionaryGetValue(cacheData, (CFStringRef)keys[keyCnt]);
+		dict = CFDictionaryGetValue(storeData, (CFStringRef)keys[keyCnt]);
 		if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDWatchers) == FALSE)) {
 			/* key doesn't exist or nobody cares if it changed */
 			continue;
@@ -110,7 +120,7 @@ _notifyWatchers()
 
 	/*
 	 * The list of changed keys have been updated for any sessions
-	 * monitoring changes to the "cache". The next step, handled by
+	 * monitoring changes to the "store". The next step, handled by
 	 * the "configd" server, is to push out any needed notifications.
 	 */
 	CFSetRemoveAllValues(changedKeys);
@@ -137,7 +147,7 @@ _processDeferredRemovals()
 	CFAllocatorDeallocate(NULL, keys);
 
 	/*
-	 * All regex keys associated with removed cache dictionary keys have
+	 * All regex keys associated with removed store dictionary keys have
 	 * been removed. Start the list fresh again.
 	 */
 	CFSetRemoveAllValues(deferredRemovals);
@@ -215,35 +225,41 @@ _cleanupRemovedSessionKeys(const void *value, void *context)
 }
 
 
-SCDStatus
-_SCDUnlock(SCDSessionRef session)
+int
+__SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	serverSessionRef	mySession;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	serverSessionRef		mySession;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDUnlock:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreUnlock:"));
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;		/* you must have an open session to play */
 	}
 
-	if (!SCDOptionGet(NULL, kSCDOptionIsLocked) || !SCDOptionGet(session, kSCDOptionIsLocked)) {
-		return SCD_NEEDLOCK;	/* sorry, you don't have the lock */
+	if ((storeLocked == 0) || !storePrivate->locked) {
+		return kSCStatusNeedLock;		/* sorry, you don't have the lock */
+	}
+
+	if ((storeLocked > 1) && recursive) {
+		/* if the lock is being held for a recursive (internal) request */
+		storeLocked--;
+		return kSCStatusOK;
 	}
 
 	/*
-	 * all of the changes can be committed to the (real) cache.
+	 * all of the changes can be committed to the (real) store.
 	 */
-	CFDictionaryRemoveAllValues(cacheData_s);
+	CFDictionaryRemoveAllValues(storeData_s);
 	CFSetRemoveAllValues       (changedKeys_s);
 	CFSetRemoveAllValues       (deferredRemovals_s);
 	CFSetRemoveAllValues       (removedSessionKeys_s);
 
 #ifdef	DEBUG
-	SCDLog(LOG_DEBUG, CFSTR("keys I changed           = %@"), changedKeys);
-	SCDLog(LOG_DEBUG, CFSTR("keys flagged for removal = %@"), deferredRemovals);
-	SCDLog(LOG_DEBUG, CFSTR("keys I'm watching        = %@"), sessionPrivate->keys);
-	SCDLog(LOG_DEBUG, CFSTR("regex keys I'm watching  = %@"), sessionPrivate->reKeys);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys I changed           = %@"), changedKeys);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys flagged for removal = %@"), deferredRemovals);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys I'm watching        = %@"), storePrivate->keys);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regex keys I'm watching  = %@"), storePrivate->reKeys);
 #endif	/* DEBUG */
 
 	/*
@@ -264,31 +280,31 @@ _SCDUnlock(SCDSessionRef session)
 	CFSetRemoveAllValues(removedSessionKeys);
 
 #ifdef	DEBUG
-	SCDLog(LOG_DEBUG, CFSTR("sessions to notify = %@"), needsNotification);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("sessions to notify = %@"), needsNotification);
 #endif	/* DEBUG */
 
 	/* Remove the "locked" run loop source for this port */
-	mySession = getSession(sessionPrivate->server);
+	mySession = getSession(storePrivate->server);
 	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), mySession->serverRunLoopSource, CFSTR("locked"));
 
-	SCDOptionSet(NULL,    kSCDOptionIsLocked, FALSE);	/* global lock flag */
-	SCDOptionSet(session, kSCDOptionIsLocked, FALSE);	/* per-session lock flag */
+	storeLocked          = 0;	/* global lock flag */
+	storePrivate->locked = FALSE;	/* per-session lock flag */
 
-	return SCD_OK;
+	return kSCStatusOK;
 }
 
 
 kern_return_t
-_configunlock(mach_port_t server, int *scd_status)
+_configunlock(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCDLog(LOG_DEBUG, CFSTR("Unlock configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Unlock configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
-	*scd_status = _SCDUnlock(mySession->session);
-	if (*scd_status != SCD_OK) {
-		SCDLog(LOG_DEBUG, CFSTR("  _SCDUnlock(): %s"), SCDError(*scd_status));
+	*sc_status = __SCDynamicStoreUnlock(mySession->store, FALSE);
+	if (*sc_status != kSCStatusOK) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreUnlock(): %s"), SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
 

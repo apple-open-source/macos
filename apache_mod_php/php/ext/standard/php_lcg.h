@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_lcg.h,v 1.1.1.2 2000/09/07 00:06:08 wsanchez Exp $ */
+/* $Id: php_lcg.h,v 1.1.1.3 2001/07/19 00:20:19 zarzycki Exp $ */
 
 #ifndef PHP_LCG_H
 #define PHP_LCG_H
@@ -28,13 +28,14 @@ typedef struct {
 
 double php_combined_lcg(void);
 PHP_FUNCTION(lcg_value);
-PHP_MINIT_FUNCTION(lcg);
 
 #ifdef ZTS
+PHP_MINIT_FUNCTION(lcg);
 #define LCGLS_D php_lcg_globals *lcg_globals
 #define LCG(v) (lcg_globals->v)
 #define LCGLS_FETCH() php_lcg_globals *lcg_globals = ts_resource(lcg_globals_id)
 #else
+PHP_RINIT_FUNCTION(lcg);
 #define LCGLS_D void
 #define LCG(v) (lcg_globals.v)
 #define LCGLS_FETCH()

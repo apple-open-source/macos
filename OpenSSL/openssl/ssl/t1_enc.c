@@ -178,7 +178,7 @@ int tls1_change_cipher_state(SSL *s, int which)
 		{
 		if ((s->enc_read_ctx == NULL) &&
 			((s->enc_read_ctx=(EVP_CIPHER_CTX *)
-			Malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
+			OPENSSL_malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
 			goto err;
 		dd= s->enc_read_ctx;
 		s->read_hash=m;
@@ -197,7 +197,7 @@ int tls1_change_cipher_state(SSL *s, int which)
 				}
 			if (s->s3->rrec.comp == NULL)
 				s->s3->rrec.comp=(unsigned char *)
-					Malloc(SSL3_RT_MAX_ENCRYPTED_LENGTH);
+					OPENSSL_malloc(SSL3_RT_MAX_ENCRYPTED_LENGTH);
 			if (s->s3->rrec.comp == NULL)
 				goto err;
 			}
@@ -208,7 +208,7 @@ int tls1_change_cipher_state(SSL *s, int which)
 		{
 		if ((s->enc_write_ctx == NULL) &&
 			((s->enc_write_ctx=(EVP_CIPHER_CTX *)
-			Malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
+			OPENSSL_malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
 			goto err;
 		dd= s->enc_write_ctx;
 		s->write_hash=m;
@@ -355,9 +355,9 @@ int tls1_setup_key_block(SSL *s)
 
 	ssl3_cleanup_key_block(s);
 
-	if ((p1=(unsigned char *)Malloc(num)) == NULL)
+	if ((p1=(unsigned char *)OPENSSL_malloc(num)) == NULL)
 		goto err;
-	if ((p2=(unsigned char *)Malloc(num)) == NULL)
+	if ((p2=(unsigned char *)OPENSSL_malloc(num)) == NULL)
 		goto err;
 
 	s->s3->tmp.key_block_length=num;
@@ -374,7 +374,7 @@ printf("pre-master\n");
 #endif
 	tls1_generate_key_block(s,p1,p2,num);
 	memset(p2,0,num);
-	Free(p2);
+	OPENSSL_free(p2);
 #ifdef TLS_DEBUG
 printf("\nkey block\n");
 { int z; for (z=0; z<num; z++) printf("%02X%c",p1[z],((z+1)%16)?' ':'\n'); }
@@ -420,7 +420,7 @@ int tls1_enc(SSL *s, int send)
 	if ((s->session == NULL) || (ds == NULL) ||
 		(enc == NULL))
 		{
-		memcpy(rec->data,rec->input,rec->length);
+		memmove(rec->data,rec->input,rec->length);
 		rec->input=rec->data;
 		}
 	else
@@ -447,11 +447,21 @@ int tls1_enc(SSL *s, int send)
 			rec->length+=i;
 			}
 
+		if (!send)
+			{
+			if (l == 0 || l%bs != 0)
+				{
+				SSLerr(SSL_F_TLS1_ENC,SSL_R_BLOCK_CIPHER_PAD_IS_WRONG);
+				ssl3_send_alert(s,SSL3_AL_FATAL,SSL_AD_DECRYPT_ERROR);
+				return(0);
+				}
+			}
+		
 		EVP_Cipher(ds,rec->data,rec->input,l);
 
 		if ((bs != 1) && !send)
 			{
-			ii=i=rec->data[l-1];
+			ii=i=rec->data[l-1]; /* padding_length */
 			i++;
 			if (s->options&SSL_OP_TLS_BLOCK_PADDING_BUG)
 				{
@@ -462,6 +472,8 @@ int tls1_enc(SSL *s, int send)
 				if (s->s3->flags & TLS1_FLAGS_TLS_PADDING_BUG)
 					i--;
 				}
+			/* TLS 1.0 does not bound the number of padding bytes by the block size.
+			 * All of them must have value 'padding_length'. */
 			if (i > (int)rec->length)
 				{
 				SSLerr(SSL_F_TLS1_ENC,SSL_R_BLOCK_CIPHER_PAD_IS_WRONG);
@@ -572,7 +584,10 @@ printf("rec=");
 #endif
 
 	for (i=7; i>=0; i--)
-		if (++seq[i]) break; 
+		{
+		++seq[i];
+		if (seq[i] != 0) break; 
+		}
 
 #ifdef TLS_DEBUG
 {unsigned int z; for (z=0; z<md_size; z++) printf("%02X ",md[z]); printf("\n"); }

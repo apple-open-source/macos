@@ -20,47 +20,45 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include "configd.h"
 #include "session.h"
 
-SCDStatus
-_SCDGet(SCDSessionRef session, CFStringRef key, SCDHandleRef *handle)
+int
+__SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef *value)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	CFDictionaryRef		dict;
-	CFNumberRef		num;
-	int			dictInstance;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	CFDictionaryRef			dict;
 
-	SCDLog(LOG_DEBUG, CFSTR("_SCDGet:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key      = %@"), key);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreCopyValue:"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key      = %@"), key);
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
-	dict = CFDictionaryGetValue(cacheData, key);
+	dict = CFDictionaryGetValue(storeData, key);
 	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDData) == FALSE)) {
 		/* key doesn't exist (or data never defined) */
-		return SCD_NOKEY;
+		return kSCStatusNoKey;
 	}
 
-	/* Create a new handle associated with the cached data */
-	*handle = SCDHandleInit();
-
 	/* Return the data associated with the key */
-	SCDHandleSetData(*handle, CFDictionaryGetValue(dict, kSCDData));
+	*value = CFRetain(CFDictionaryGetValue(dict, kSCDData));
 
-	/* Return the instance number associated with the key */
-	num = CFDictionaryGetValue(dict, kSCDInstance);
-	(void) CFNumberGetValue(num, kCFNumberIntType, &dictInstance);
-	_SCDHandleSetInstance(*handle, dictInstance);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  value    = %@"), *value);
 
-	SCDLog(LOG_DEBUG, CFSTR("  data     = %@"), SCDHandleGetData(*handle));
-	SCDLog(LOG_DEBUG, CFSTR("  instance = %d"), SCDHandleGetInstance(*handle));
-
-	return SCD_OK;
+	return kSCStatusOK;
 }
-
 
 kern_return_t
 _configget(mach_port_t			server,
@@ -69,7 +67,7 @@ _configget(mach_port_t			server,
 	   xmlDataOut_t			*dataRef,	/* raw XML bytes */
 	   mach_msg_type_number_t	*dataLen,
 	   int				*newInstance,
-	   int				*scd_status
+	   int				*sc_status
 )
 {
 	kern_return_t		status;
@@ -77,17 +75,17 @@ _configget(mach_port_t			server,
 	CFDataRef		xmlKey;		/* key  (XML serialized) */
 	CFStringRef		key;		/* key  (un-serialized) */
 	CFDataRef		xmlData;	/* data (XML serialized) */
-	SCDHandleRef		handle;
+	CFPropertyListRef	value;
 	CFStringRef		xmlError;
 
-	SCDLog(LOG_DEBUG, CFSTR("Get key from configuration database."));
-	SCDLog(LOG_DEBUG, CFSTR("  server = %d"), server);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Get key from configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/* un-serialize the key */
 	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
 		/* non-fatal???, proceed */
 	}
 	key = CFPropertyListCreateFromXMLData(NULL,
@@ -95,15 +93,23 @@ _configget(mach_port_t			server,
 					      kCFPropertyListImmutable,
 					      &xmlError);
 	CFRelease(xmlKey);
-	if (xmlError) {
-		SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() key: %s"), xmlError);
-		*scd_status = SCD_FAILED;
+	if (!key) {
+		if (xmlError) {
+			SCLog(_configd_verbose, LOG_DEBUG,
+			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
+			       xmlError);
+			CFRelease(xmlError);
+		}
+		*sc_status = kSCStatusFailed;
+		return KERN_SUCCESS;
+	} else if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
 
-	*scd_status = _SCDGet(mySession->session, key, &handle);
+	*sc_status = __SCDynamicStoreCopyValue(mySession->store, key, &value);
 	CFRelease(key);
-	if (*scd_status != SCD_OK) {
+	if (*sc_status != kSCStatusOK) {
 		*dataRef = NULL;
 		*dataLen = 0;
 		return KERN_SUCCESS;
@@ -113,12 +119,13 @@ _configget(mach_port_t			server,
 	 * serialize the data, copy it into an allocated buffer which will be
 	 * released when it is returned as part of a Mach message.
 	 */
-	xmlData = CFPropertyListCreateXMLData(NULL, SCDHandleGetData(handle));
+	xmlData = CFPropertyListCreateXMLData(NULL, value);
+	CFRelease(value);
 	*dataLen = CFDataGetLength(xmlData);
 	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
-		*scd_status = SCD_FAILED;
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
+		*sc_status = kSCStatusFailed;
 		CFRelease(xmlData);
 		*dataRef = NULL;
 		*dataLen = 0;
@@ -131,9 +138,194 @@ _configget(mach_port_t			server,
 	/*
 	 * return the instance number associated with the returned data.
 	 */
-	*newInstance = SCDHandleGetInstance(handle);
+	*newInstance = 1;
 
-	SCDHandleRelease(handle);
+	return KERN_SUCCESS;
+}
+
+/*
+ * "context" argument for addSpecificKey() and addSpecificPattern()
+ */
+typedef struct {
+	SCDynamicStoreRef	store;
+	CFMutableDictionaryRef	dict;
+} addSpecific, *addSpecificRef;
+
+static void
+addSpecificKey(const void *value, void *context)
+{
+	CFStringRef		key		= (CFStringRef)value;
+	addSpecificRef		myContextRef	= (addSpecificRef)context;
+	int			sc_status;
+	CFPropertyListRef	data;
+
+	if (!isA_CFString(key)) {
+		return;
+	}
+
+	sc_status = __SCDynamicStoreCopyValue(myContextRef->store, key, &data);
+	if (sc_status == kSCStatusOK) {
+		CFDictionaryAddValue(myContextRef->dict, key, data);
+		CFRelease(data);
+	}
+
+	return;
+}
+
+static void
+addSpecificPattern(const void *value, void *context)
+{
+	CFStringRef		pattern		= (CFStringRef)value;
+	addSpecificRef		myContextRef	= (addSpecificRef)context;
+	int			sc_status;
+	CFArrayRef		keys;
+
+	if (!isA_CFString(pattern)) {
+		return;
+	}
+
+	sc_status = __SCDynamicStoreCopyKeyList(myContextRef->store, pattern, TRUE, &keys);
+	if (sc_status == kSCStatusOK) {
+		CFArrayApplyFunction(keys,
+				     CFRangeMake(0, CFArrayGetCount(keys)),
+				     addSpecificKey,
+				     context);
+		CFRelease(keys);
+	}
+
+	return;
+}
+
+kern_return_t
+_configget_m(mach_port_t		server,
+	     xmlData_t			keysRef,
+	     mach_msg_type_number_t	keysLen,
+	     xmlData_t			patternsRef,
+	     mach_msg_type_number_t	patternsLen,
+	     xmlDataOut_t		*dataRef,
+	     mach_msg_type_number_t	*dataLen,
+	     int			*sc_status)
+{
+	kern_return_t		status;
+	serverSessionRef	mySession = getSession(server);
+	CFArrayRef		keys		= NULL;	/* keys (un-serialized) */
+	CFArrayRef		patterns	= NULL;	/* patterns (un-serialized) */
+	CFDataRef		xmlData;		/* data (XML serialized) */
+	addSpecific		myContext;
+
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Get key from configuration database."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+
+	*sc_status = kSCStatusOK;
+
+	if (keysRef && (keysLen > 0)) {
+		CFDataRef	xmlKeys;		/* keys (XML serialized) */
+		CFStringRef	xmlError;
+
+		/* un-serialize the keys */
+		xmlKeys = CFDataCreate(NULL, keysRef, keysLen);
+		status = vm_deallocate(mach_task_self(), (vm_address_t)keysRef, keysLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+		keys = CFPropertyListCreateFromXMLData(NULL,
+						       xmlKeys,
+						       kCFPropertyListImmutable,
+						       &xmlError);
+		CFRelease(xmlKeys);
+		if (!keys) {
+			if (xmlError) {
+				SCLog(_configd_verbose, LOG_DEBUG,
+				       CFSTR("CFPropertyListCreateFromXMLData() keys: %@"),
+				       xmlError);
+				CFRelease(xmlError);
+			}
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFArray(keys)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (patternsRef && (patternsLen > 0)) {
+		CFDataRef	xmlPatterns;		/* patterns (XML serialized) */
+		CFStringRef	xmlError;
+
+		/* un-serialize the patterns */
+		xmlPatterns = CFDataCreate(NULL, patternsRef, patternsLen);
+		status = vm_deallocate(mach_task_self(), (vm_address_t)patternsRef, patternsLen);
+		if (status != KERN_SUCCESS) {
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			/* non-fatal???, proceed */
+		}
+		patterns = CFPropertyListCreateFromXMLData(NULL,
+							   xmlPatterns,
+							   kCFPropertyListImmutable,
+							   &xmlError);
+		CFRelease(xmlPatterns);
+		if (!patterns) {
+			if (xmlError) {
+				SCLog(_configd_verbose, LOG_DEBUG,
+				       CFSTR("CFPropertyListCreateFromXMLData() patterns: %@"),
+				       xmlError);
+				CFRelease(xmlError);
+			}
+			*sc_status = kSCStatusFailed;
+		} else if (!isA_CFArray(patterns)) {
+			*sc_status = kSCStatusInvalidArgument;
+		}
+	}
+
+	if (*sc_status != kSCStatusOK) {
+		if (keys)	CFRelease(keys);
+		if (patterns)	CFRelease(patterns);
+		*dataRef = NULL;
+		*dataLen = 0;
+		return KERN_SUCCESS;
+	}
+
+	myContext.store = mySession->store;
+	myContext.dict  = CFDictionaryCreateMutable(NULL,
+						    0,
+						    &kCFTypeDictionaryKeyCallBacks,
+						    &kCFTypeDictionaryValueCallBacks);
+
+	if (keys) {
+		CFArrayApplyFunction(keys,
+				     CFRangeMake(0, CFArrayGetCount(keys)),
+				     addSpecificKey,
+				     &myContext);
+		CFRelease(keys);
+	}
+
+	if (patterns) {
+		CFArrayApplyFunction(patterns,
+				     CFRangeMake(0, CFArrayGetCount(patterns)),
+				     addSpecificPattern,
+				     &myContext);
+		CFRelease(patterns);
+	}
+
+	/*
+	 * serialize the dictionary of matching keys/patterns, copy it into an
+	 * allocated buffer which will be released when it is returned as part
+	 * of a Mach message.
+	 */
+	xmlData = CFPropertyListCreateXMLData(NULL, myContext.dict);
+	CFRelease(myContext.dict);
+	*dataLen = CFDataGetLength(xmlData);
+	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+	if (status != KERN_SUCCESS) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
+		*sc_status = kSCStatusFailed;
+		CFRelease(xmlData);
+		*dataRef = NULL;
+		*dataLen = 0;
+		return KERN_SUCCESS;
+	}
+
+	bcopy((char *)CFDataGetBytePtr(xmlData), *dataRef, *dataLen);
+	CFRelease(xmlData);
 
 	return KERN_SUCCESS;
 }

@@ -723,7 +723,7 @@ int  len;
 	buf[i] = devrandom ? fgetc(devrandom) : random();
 
     if (devrandom)
-	fclose(devrandom);
+	fclose(devrandom);	/* should be safe, file mode was "r" */
 
     if (outlevel >= O_DEBUG)
     {

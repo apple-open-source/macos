@@ -1,4 +1,4 @@
-.TH LIBTOOL 1 "November 7, 2000" "Apple Computer, Inc."
+.TH LIBTOOL 1 "July 26, 2001" "Apple Computer, Inc."
 .SH NAME
 libtool \- create libraries
 .br
@@ -263,6 +263,7 @@ flags are accepted and passed through:
 .B \-umbrella,
 .B \-allowable_client,
 .B \-sub_umbrella,
+.B \-sub_library,
 .B \-F,
 .B \-U,
 .B \-Y,
@@ -275,7 +276,12 @@ flags are accepted and passed through:
 .B \-arch_errors_fatal,
 .B \-dylib_file,
 .B \-run_init_lazily,
-.B \-final_output.
+.B \-final_output,
+.B \-multiply_defined,
+.B \-twolevel_namespace,
+.B \-twolevel_namespace_hints,
+.B \-flat_namespace,
+.B \-nomultidefs.
 See the
 .IR ld (1)
 man page for details on these flags.
@@ -304,7 +310,18 @@ is specified then it is prepended to each name in the list file.
 .BI \-arch_only " arch_type"
 This option causes libtool to build a library only for the specified
 .I arch_type
-and ignores all other architectures in the input files.
+and ignores all other architectures in the input files.  When building a
+dynamic library, if this is specified with a specific cpusubtype other than the
+family cpusubtype then libtool it does not use the
+.IR ld (1)
+.B \-force_cpusubtype_ALL
+flag and passes the
+.B \-arch_only
+argument to
+.IR ld (1)
+as the
+.B \-arch
+flag so that the output is tagged with that cpusubtype.
 .PP 
 The following options pertain to the table of contents for an archive library,
 and apply to both

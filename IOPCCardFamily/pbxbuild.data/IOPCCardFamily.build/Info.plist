@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOPCCardFamily</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOPCCardFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOPCCardFamily</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOPCCardFamily</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOPCCardFamily</string>
+			<key>Configuration Settings</key>
+			<dict>
+				<key>PowerBook</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						/gAAAP4A//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAK////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook1,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						/gAAAP4A//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						8gAAAPIAD/8=
+						</data>
+						<data>
+						8gAgAPIA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,2</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						8gAAAPIAj/8=
+						</data>
+						<data>
+						8gCgAPIA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,3</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						8gAAAPIAj/8=
+						</data>
+						<data>
+						8gCgAPIA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>Test Machine</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						/gAQAP4A//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>X86PC</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAABAAAABP8=
+						</data>
+						<data>
+						AAAIAAAACP8=
+						</data>
+						<data>
+						AAAMAAAADP8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						AAwAAAAP//8=
+						</data>
+						<data>
+						oAAAAKD///8=
+						</data>
+						<data>
+						YAAAAGD///8=
+						</data>
+					</array>
+				</dict>
+			</dict>
+			<key>Debug Settings</key>
+			<dict>
+				<key>Card Bus</key>
+				<integer>3</integer>
+				<key>Card Services</key>
+				<integer>3</integer>
+				<key>Driver Services</key>
+				<integer>4</integer>
+				<key>i82365</key>
+				<integer>2</integer>
+			</dict>
+			<key>IOClass</key>
+			<string>IOPCCardBridge</string>
+			<key>IOKitDebug</key>
+			<integer>0</integer>
+			<key>IOPCIClassMatch</key>
+			<string>0x06070000</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.1.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1.0</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1.0</string>
+	</dict>
+</dict>
+</plist>

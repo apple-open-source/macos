@@ -59,11 +59,24 @@ enum bool processor_has_vec = FALSE;
 #endif
 
 /*
- * If the executable has the MH_BINDATLOAD flag set then this is set to TRUE and
- * both non-lazy and lazy undefined references are placed on the undefined list
- * as all modules get bound.
+ * If the executable has the MH_BINDATLOAD flag set then executable_bind_at_load
+ * is set to TRUE and both non-lazy and lazy undefined references are placed on
+ * the undefined list as all modules get bound.  This will also be set to TRUE
+ * if the dyld environment variable DYLD_BIND_AT_LAUNCH is set.  If the
+ * environment variable is set then dyld_bind_at_launch gets set to TRUE.
  */
 enum bool executable_bind_at_load = FALSE;
+static enum bool dyld_bind_at_launch = FALSE;
+
+/*
+ * If the executable has the MH_FORCE_FLAT flag set then force_flat_namespace i
+ * set to TRUE and the program and all its images are bound with a flat
+ * namespace.  This will also be set to TRUE if the dyld environment variable
+ * DYLD_FORCE_FLAT_NAMESPACE is set.  If the environment variable is set then
+ * dyld_force_flat_namespace gets set to TRUE.
+ */
+enum bool force_flat_namespace = FALSE;
+static enum bool dyld_force_flat_namespace = FALSE;
 
 /*
  * The string home points at the enviroment variable HOME.  It is use in setting
@@ -112,11 +125,12 @@ char *dyld_insert_libraries = NULL;
 enum bool dyld_print_libraries = FALSE;
 enum bool dyld_mem_protect = FALSE;
 enum bool dyld_ebadexec_only = FALSE;
-enum bool dyld_bind_at_launch = FALSE;
 enum bool dyld_dead_lock_hang = FALSE;
 unsigned long dyld_prebind_debug = 0;
+unsigned long dyld_hints_debug = 0;
 unsigned long dyld_sample_debug = 0;
 enum bool dyld_executable_path_debug = FALSE;
+enum bool dyld_two_level_debug = FALSE;
 enum bool dyld_abort_multiple_inits = FALSE;
 enum bool dyld_new_local_shared_regions = FALSE;
 
@@ -256,6 +270,9 @@ char **envp)
 	 * libraries the executable uses and the libraries those libraries use
 	 * to the list of library images that make up the program.
 	 */
+	if((mh->flags & MH_FORCE_FLAT) != 0 ||
+	   dyld_force_flat_namespace == TRUE)
+	    force_flat_namespace = TRUE;
 	executable_prebound = (mh->flags & MH_PREBOUND) == MH_PREBOUND;
 	load_executable_image(argv[0], mh, &entry_point);
 
@@ -268,7 +285,11 @@ char **envp)
 	    /*
 	     * The executable is not prebound but if the libraries are setup
 	     * for prebinding and the executable when built had no undefined
-	     * symbols then try to use the prebound libraries.
+	     * symbols then try to use the prebound libraries.  This is for
+	     * the flat namespace case (and only some sub cases, see the
+	     * comments in try_to_use_prebound_libraries()).  If this fails
+	     * then the two-level namespace cases are handled by the routine
+	     * find_twolevel_prebound_lib_subtrees() which is called below.
 	     */
 	    if(prebinding == TRUE){
 		if((mh->flags & MH_NOUNDEFS) == MH_NOUNDEFS){
@@ -287,6 +308,14 @@ char **envp)
 	    set_images_to_prebound();
 	}
 	if(prebinding == FALSE){
+	    /*
+	     * The program was not fully prebound but it we are not forcing
+	     * flat namespace semantics we can still use any sub trees of
+	     * libraries that are all two-level namespace and prebound.
+	     */
+	    if(force_flat_namespace == FALSE)
+		find_twolevel_prebound_lib_subtrees();
+
 	    /*
 	     * First undo any images that were prebound.
 	     */
@@ -472,6 +501,10 @@ char *envp[])
 		                sizeof("DYLD_BIND_AT_LAUNCH=") - 1) == 0){
 		    dyld_bind_at_launch = TRUE;
 		}
+		else if(strncmp(*p, "DYLD_FORCE_FLAT_NAMESPACE=",
+		                sizeof("DYLD_FORCE_FLAT_NAMESPACE=") - 1) == 0){
+		    dyld_force_flat_namespace = TRUE;
+		}
 		else if(strncmp(*p, "DYLD_DEAD_LOCK_HANG=",
 		                sizeof("DYLD_DEAD_LOCK_HANG=") - 1) == 0){
 		    dyld_dead_lock_hang = TRUE;
@@ -486,10 +519,20 @@ char *envp[])
 		}
 		else if(strncmp(*p, "DYLD_PREBIND_DEBUG=",
 		                sizeof("DYLD_PREBIND_DEBUG") - 1) == 0){
-		    if(strcmp("2", *p + sizeof("DYLD_PREBIND_DEBUG=") - 1) == 0)
+		    if(strcmp("3", *p + sizeof("DYLD_PREBIND_DEBUG=") - 1) == 0)
+			dyld_prebind_debug = 3;
+		    else if(strcmp("2",
+			    *p + sizeof("DYLD_PREBIND_DEBUG=") - 1) == 0)
 			dyld_prebind_debug = 2;
 		    else
 			dyld_prebind_debug = 1;
+		}
+		else if(strncmp(*p, "DYLD_HINTS_DEBUG=",
+		                sizeof("DYLD_HINTS_DEBUG") - 1) == 0){
+		    if(strcmp("2", *p + sizeof("DYLD_HINTS_DEBUG=") - 1) == 0)
+			dyld_hints_debug = 2;
+		    else
+			dyld_hints_debug = 1;
 		}
 		else if(strncmp(*p, "DYLD_SAMPLE_DEBUG=",
 		                sizeof("DYLD_SAMPLE_DEBUG") - 1) == 0){
@@ -501,6 +544,10 @@ char *envp[])
 		else if(strncmp(*p, "DYLD_EXECUTABLE_PATH_DEBUG=",
 			    sizeof("DYLD_EXECUTABLE_PATH_DEBUG=") - 1) == 0){
 		    dyld_executable_path_debug = TRUE;
+		}
+		else if(strncmp(*p, "DYLD_TWO_LEVEL_DEBUG=",
+			    sizeof("DYLD_TWO_LEVEL_DEBUG=") - 1) == 0){
+		    dyld_two_level_debug = TRUE;
 		}
 	    }
 	    else if(**p == 'H' && strncmp(*p, "HOME=", sizeof("HOME=")-1) == 0){

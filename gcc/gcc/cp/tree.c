@@ -733,6 +733,10 @@ layout_basetypes (rec, max)
 	}
     }
 
+#ifdef APPLE_ALIGN_CHECK
+  /* Adjust the OSX1 size by the same amount we just adjusted CONST_SIZE.  */
+  TYPE_OSX1_SIZE (rec) += const_size - nonvirtual_const_size;
+#endif
   return max;
 }
 

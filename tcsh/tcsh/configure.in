@@ -8,45 +8,30 @@ dnl
 dnl Written by Kaveh Ghazi (ghazi@caip.rutgers.edu) 5/11/96.
 dnl
 
-AC_PREREQ(2.12)dnl Minimum Autoconf version required.
+AC_PREREQ(2.13)dnl Minimum Autoconf version required.
 AC_INIT(tc.vers.c)
 
-tcsh_configure_args="$@"
-# Shift out arguments leaving the optional platform name.
-while test -n "$1" ; do
- case "$1" in
-  -*) shift ;;
-  *) break ;;
- esac
-done
+AC_CANONICAL_HOST
 
-AC_MSG_CHECKING(for the canonical name of this system)
-if test "$1" = '' ; then
-  PATH=$srcdir:$PATH # Prefer the tcsh source directory, it might be there.
-  export PATH
-  new_canonical=`(config.guess) 2>/dev/null` || new_canonical=unknown
+dnl We don't use AC_VALIDATE_CACHED_SYSTEM_TUPLE here because we only
+dnl care about the HOST value, not the HOST/BUILD/TARGET triplet.
+AC_MSG_CHECKING([cached host tuple])
+if { test x"${ac_cv_host_system_type+set}" = x"set" &&
+     test x"$ac_cv_host_system_type" != x"$host"; }; then
+  AC_MSG_RESULT([different])
+  AC_MSG_ERROR([remove config.cache and re-run configure])
 else
-  new_canonical="$1"
+  AC_MSG_RESULT(ok)
 fi
-AC_CACHE_VAL(tcsh_cv_canonical, tcsh_cv_canonical=${new_canonical})
-AC_MSG_RESULT($tcsh_cv_canonical)
+ac_cv_host_system_type="$host"
 
-if test  "$tcsh_cv_canonical" != "$new_canonical"
-then
-  AC_MSG_WARN([Cache configured for \`${tcsh_cv_canonical}'.])
-  AC_MSG_WARN([This system is \`${new_canonical}'.])
-  AC_MSG_WARN([Assuming invalid cache - removing \`${cache_file}'.])
-  AC_MSG_WARN([Restarting...])
-  rm -f "$cache_file"
-  exec ${CONFIG_SHELL-/bin/sh} $0 "$tcsh_configure_args"
-fi
 
 changequote(, )dnl
 
-case "${tcsh_cv_canonical}" in
+case "${host}" in
 
   ## Alpha (DEC) machines.
-  alpha-dec-osf* )
+  alpha*-dec-osf* )
     tcsh_config_file=decosf1
   ;;
 
@@ -70,13 +55,26 @@ case "${tcsh_cv_canonical}" in
   *-hp-hpux[89]* )
     tcsh_config_file=hpux8
   ;;
-  *-hp-hpux10* )
+  *-hp-hpux1[0-9]* )
     tcsh_config_file=hpux8
   ;;
 
   ## IBM AIX systems
   *-ibm-aix*)
     tcsh_config_file=aix
+  ;;
+
+  ## SX-4
+  sx4-nec-*)
+    CC='cc -h0,ansi,novector,float0'
+    LDFLAGS='-Gsmall'
+    tcsh_config_file=superux8
+  ;;
+
+  ## IBM OS/390 systems
+  *-ibm-os390*)
+    CC='c89'
+    tcsh_config_file=os390
   ;;
 
   ## Linux
@@ -115,23 +113,28 @@ case "${tcsh_cv_canonical}" in
   ## Mac OS X Server
   *-*-rhapsody* )
     tcsh_config_file=bsd4.4
+    DFLAGS="$DFLAGS -DRHAPSODY"
   ;;
 
   ## Darwin
-  *-*-darwin* | *-*-macos* )
+  *-*-darwin*)
     tcsh_config_file=bsd4.4
+    DFLAGS="$DFLAGS -DDARWIN"
   ;;
 
   ## Silicon Graphics machines
   *-sgi-iri* )
-    tcsh_config_file=sgi
-    NON_GNU_DFLAGS='-D__STDC__'
-    case "${tcsh_cv_canonical}" in
-      *-irix[34]*)
+    tcsh_config_file=irix
+    case "${host_os}" in
+      irix[34]*) # Irix-3.x - Irix 4.x
+        NON_GNU_DFLAGS='-D__STDC__'
         LIBS='-lsun -lbsd -lc_s'
       ;;
-      *-irix[56]*)
-        LIBS='-lsun -lbsd'
+      irix5* | irix6.[01]*) # Irix 5.x, Irix 6.0 - 6.1
+        LIBS='-lbsd'
+      ;;
+      irix6.[2-9]*) # Irix 6.2 and later
+	tcsh_config_file=irix62
       ;;
     esac
   ;;
@@ -161,7 +164,7 @@ case "${tcsh_cv_canonical}" in
   *-*-solaris2.[45]* ) # Should handle sparc, x86 and powerpc
     tcsh_config_file=sol24
   ;;
-  *-*-solaris2.6* ) # Should handle sparc, x86 and powerpc
+  *-*-solaris2.* ) # Should handle sparc, x86 and powerpc
     tcsh_config_file=sol26
   ;;
 
@@ -196,19 +199,35 @@ case "${tcsh_cv_canonical}" in
     tcsh_config_file=sco32v2
   ;;
 
-  ## Siemens Nixdorf BS2000
-  bs2000-sni-posix)
+  ## Siemens BS2000 Mainframe
+  bs2000-siemens-posix)
     tcsh_config_file=bs2000
   ;;
+
+  ## Convex
+  *-convex*)
+    tcsh_config_file=convex
+  ;;
+
   ## Cray
   *-cray-unicos*)
     tcsh_config_file=cray
   ;;
 
+  ## Cygnus GNU Win32
+  *-cygwin)
+    tcsh_config_file=cygwin32
+  ;;
+
+  ## mips-compaq-nonstopux
+  *-*-nonstopux)
+    tcsh_config_file=sysv4
+  ;;
+
   * )
   changequote([, ])dnl
   AC_MSG_ERROR([Tcsh can't guess the configuration file name
-for \`${tcsh_cv_canonical}' systems.
+for \`${host}' systems.
 Check tcsh's \`Ported' file for manual configuration instructions.])
   changequote(, )dnl
   ;;
@@ -228,25 +247,80 @@ if test $ac_cv_prog_gcc = no ; then
   CFLAGS="$CFLAGS $NON_GNU_CFLAGS"
 fi
 
-AC_CHECK_FUNC(crypt)
-if test $ac_cv_func_crypt = no; then
-  AC_CHECK_LIB(crypt, crypt)
-fi
-AC_CHECK_LIB(termlib, tgetent)
-if test $ac_cv_lib_termlib_tgetent = no ; then
-  AC_CHECK_LIB(curses, tgetent)
-  if test $ac_cv_lib_curses_tgetent = no ; then
-    AC_CHECK_LIB(termcap, tgetent)
+case "${host}" in
+  ## Cygnus GNU Win32
+  *-cygwin)
+    CFLAGS="$CFLAGS -mno-win32"
+  ;;
+esac
+
+AC_SEARCH_LIBS(crypt, crypt)
+AC_SEARCH_LIBS(tgetent, termlib curses termcap)
+AC_SEARCH_LIBS(gethostbyname, nsl)
+AC_SEARCH_LIBS(connect, socket)
+
+dnl This is not good enough; we need sockaddr_storage too.
+dnl See whether we can use IPv6 related functions
+dnl AC_DEFUN(IPv6_CHECK_FUNC, [
+dnl changequote(, )dnl
+dnl ac_tr_lib=HAVE_`echo $1 | sed -e 's/[^a-zA-Z0-9_]/_/g' \
+dnl   -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`
+dnl changequote([, ])dnl
+dnl AC_CHECK_FUNC($1, [dnl
+dnl   AC_DEFINE_UNQUOTED($ac_tr_lib)
+dnl   ac_cv_lib_inet6_$1=no], [dnl
+dnl   AC_MSG_CHECKING([whether your system has IPv6 directory])
+dnl   AC_CACHE_VAL(ipv6_cv_dir, [dnl
+dnl     for ipv6_cv_dir in /usr/local/v6 /usr/inet6 no; do
+dnl       if test $ipv6_cv_dir = no -o -d $ipv6_cv_dir; then
+dnl 	break
+dnl       fi
+dnl     done])dnl
+dnl   AC_MSG_RESULT($ipv6_cv_dir)
+dnl   if test $ipv6_cv_dir = no; then
+dnl     ac_cv_lib_inet6_$1=no
+dnl   else
+dnl     if test x$ipv6_libinet6 = x; then
+dnl       ipv6_libinet6=no
+dnl       SAVELDFLAGS="$LDFLAGS"
+dnl       LDFLAGS="-L$ipv6_cv_dir/lib"
+dnl     fi
+dnl     AC_CHECK_LIB(inet6, $1, [dnl
+dnl       AC_DEFINE_UNQUOTED($ac_tr_lib)
+dnl       if test $ipv6_libinet6 = no; then
+dnl 	ipv6_libinet6=yes
+dnl 	LIBS="$LIBS -linet6"
+dnl       fi],)dnl
+dnl     if test $ipv6_libinet6 = no; then
+dnl       LDFLAGS="$SAVELDFLAGS"
+dnl     fi
+dnl   fi])dnl
+dnl if test $ac_cv_func_$1 = yes -o $ac_cv_lib_inet6_$1 = yes
+dnl then
+dnl   ipv6_cv_$1=yes
+dnl   ifelse([$2], , :, [$2])
+dnl else
+dnl   ipv6_cv_$1=no
+dnl   ifelse([$3], , :, [$3])
+dnl fi])
+dnl IPv6_CHECK_FUNC(getaddrinfo, DFLAGS="$DFLAGS -DINET6")
+
+AC_SUBST(DFLAGS)
+
+AC_ARG_WITH(hesiod,
+  [  --with-hesiod=PREFIX    Use Hesiod lookup for ~ expansion],
+  [hesiod="$withval"], [hesiod=no])
+if test "$hesiod" != no; then
+  HESLIB="-lhesiod"
+  AC_CHECK_FUNC(res_send, :,
+    AC_CHECK_LIB(resolv, res_send, HESLIB="$HESLIB -lresolv"))
+  HESDEF=-DHESIOD
+  if test "$hesiod" != yes; then
+    HESDEF="$HESDEF -I$hesiod/include"
+    HESLIB="-L$hesiod/lib $HESLIB"
   fi
 fi
-AC_CHECK_FUNC(gethostbyname)
-if test $ac_cv_func_gethostbyname = no; then
-      AC_CHECK_LIB(nsl, gethostbyname)
-fi
-AC_CHECK_FUNC(connect)
-if test $ac_cv_func_connect = no; then
-  AC_CHECK_LIB(socket, connect)
-fi
-AC_SUBST(DFLAGS)
+AC_SUBST(HESDEF)
+AC_SUBST(HESLIB)
 
 AC_OUTPUT(Makefile)

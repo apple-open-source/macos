@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
 <HTML>
  <HEAD>
-  <META NAME="ContentType" CONTENT="text/html; charset=iso-8859-2">
+  <META HTTP-Equiv="Content-Type" CONTENT="text/html; charset=iso-8859-2">
   <TITLE>Testovací stránka instalace web serveru Apache</TITLE>
  </HEAD>
 <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
@@ -17,26 +17,26 @@
   </H1>
   <P>
   Pokud vidíte tuto zprávu, správce tohoto počítače právě úspěšně
-  nainstaloval <A HREF="http://www.apache.org/">Apache web server</A>.
+  nainstaloval Apache web server.
   Teď ještě musí doplnit obsah a nahradit tuto standardní uvítací
   stránku, nebo přesměrovat server na skutečnou domovskou stránku.
   </P>
   <HR>
   <BLOCKQUOTE>
    Pokud vidíte tuto zprávu místo očekávané domovské stránky, 
-   <STRONG>kontaktujte, prosím, správce příslušného web
-   serveru.</STRONG> (Zkuste poslat e-mail na adresu
+   <strong>kontaktujte, prosím, správce příslušného web
+   serveru.</strong> (Zkuste poslat e-mail na adresu
    <SAMP>&lt;Webmaster@<EM>domain</EM>&gt;</SAMP>.) 
    Přestože tento server používá program Apache, téměř jistě nemá nic
    společného s Apache Group, proto prosím neposílejte e-maily o tomto
    serveru nebo jeho obsahu autorům Apache. Pokud to uděláte, budeme
-   vaše zprávy <STRONG><BIG>ignorovat</BIG></STRONG>.
+   vaše zprávy <strong><BIG>ignorovat</BIG></strong>.
   </BLOCKQUOTE>
   <HR>
   <P>
   Zde najdete
   <A
-   HREF="manual/index.html"
+   HREF="manual/"
   >dokumentaci</A>
   Apache (anglicky) obsaženou v této distribuci.
   </P>

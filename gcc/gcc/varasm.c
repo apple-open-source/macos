@@ -274,6 +274,10 @@ named_section (decl, name, reloc)
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
+#ifdef FIXUP_SECTION_NAME_FOR_DECL
+  FIXUP_SECTION_NAME_FOR_DECL (decl, name);
+#endif
+
   if (in_section != in_named || strcmp (name, in_named_name))
     {
 #ifdef ASM_OUTPUT_SECTION_NAME
@@ -972,7 +976,7 @@ assemble_start_function (decl, fnname)
 {
   int align;
 #ifdef HAVE_COALESCED_SYMBOLS
-/* We need to turn off writing idebug info for COALESCED functions until
+/* We need to turn off writing debug info for COALESCED functions until
    after the function's label appears.  */
   int original_write_symbols = write_symbols;
   if (write_symbols == DBX_DEBUG && DECL_COALESCED (decl))
@@ -1264,8 +1268,12 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
      since assemble_external is called by the language-specific code
      when a declaration is first seen.  */
 
-  if (DECL_EXTERNAL (decl))
-    return;
+#ifdef HAVE_COALESCED_SYMBOLS
+  /* If it's a coalesced symbol, we MUST write it out.  */
+  if (! DECL_COALESCED (decl))
+#endif
+     if (DECL_EXTERNAL (decl))
+       return;
 
   /* Output no assembler code for a function declaration.
      Only definitions of functions output anything.  */

@@ -132,6 +132,8 @@ static FILE *STDOUT = stdout;
   ((struct ifreq *) ((char *) (ifr) + sizeof(*(ifr)) + \
       MAX(0, (int) (ifr)->ifr_addr.sa_len - (int) sizeof((ifr)->ifr_addr))))
 		
+#define MAX_IF		16
+
 int main(argc, argv)
      int	argc;
      char	*argv[];
@@ -436,20 +438,35 @@ int main(argc, argv)
 		if (s_option & (!(global_state.flags & AT_ST_ROUTER)))
 			print_routerid(&cfg);  
 	      } else {
-	        /* for each interface that is configured for Appletalk */
-		struct ifconf ifc;
-		struct ifreq ifrbuf[30], *ifr;
+			/* for each interface that is configured for Appletalk */
+			struct ifconf	ifc;
+			struct ifreq	*ifrbuf = NULL, *ifr;
+			int				size = sizeof(struct ifreq) * MAX_IF;
+			
+			while (1) {
+				if (ifrbuf != NULL)
+					ifrbuf = (struct ifreq *)realloc(ifrbuf, size);
+				else
+					ifrbuf = (struct ifreq *)malloc(size);
+					
+				ifc.ifc_req = ifrbuf;
+				ifc.ifc_len = size;
 
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-	        ifc.ifc_len = sizeof (ifrbuf);
-		if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+				if (ioctl(fd, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len <= 0) {
 #ifdef APPLETALK_DEBUG
-			fprintf(stderr, "%s: error calling SIOCGIFCONF", 
-				progname);
+					fprintf(stderr, "%s: error calling SIOCGIFCONF", progname);
 #endif
-			(void)close(fd);
-			exit(AT_CMD_SYSTEM_ERROR);
-		}
+					(void)close(fd);
+					if ( ifrbuf )
+						free( ifrbuf );
+					exit(AT_CMD_SYSTEM_ERROR);
+				}
+		
+				if ((ifc.ifc_len + sizeof(struct ifreq)) < size)
+					break;
+					
+				size *= 2;
+			}
 
 		for (ifr = (struct ifreq *) ifc.ifc_buf;
 		     (char *) ifr < &ifc.ifc_buf[ifc.ifc_len];
@@ -527,18 +544,34 @@ int main(argc, argv)
 		}
 	}
 	if (p_option) {
-		struct ifconf ifc;
-		struct ifreq ifrbuf[30], *ifr;
-
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-	        ifc.ifc_len = sizeof (ifrbuf);
-		if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+		/* for each interface that is configured for Appletalk */
+		struct ifconf	ifc;
+		struct ifreq	*ifrbuf = NULL, *ifr;
+		int				size = sizeof(struct ifreq) * MAX_IF;
+		
+		while (1) {
+			if (ifrbuf != NULL)
+				ifrbuf = (struct ifreq *)realloc(ifrbuf, size);
+			else
+				ifrbuf = (struct ifreq *)malloc(size);
+				
+			ifc.ifc_req = ifrbuf;
+			ifc.ifc_len = size;
+	
+			if (ioctl(fd, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len <= 0) {
 #ifdef APPLETALK_DEBUG
-			fprintf(stderr, "%s: error calling SIOCGIFCONF", 
-				progname);
+				fprintf(stderr, "%s: error calling SIOCGIFCONF", progname);
 #endif
-			(void)close(fd);
-			exit(AT_CMD_SYSTEM_ERROR);
+				(void)close(fd);
+				if (ifrbuf)
+					free(ifrbuf);
+				exit(AT_CMD_SYSTEM_ERROR);
+			}
+	
+			if ((ifc.ifc_len + sizeof(struct ifreq)) < size)
+				break;
+				
+			size *= 2;
 		}
 
 		for (ifr = (struct ifreq *) ifc.ifc_buf;
@@ -762,13 +795,76 @@ and not %d as asked in our configuration\n",
 	return(0);
 } /* routerStartup */
 
+static int
+get_if_flags(int s, char * ifname, short * flags)
+{
+    	struct ifreq	ifr;
+	int		ret;
+
+	bzero(&ifr, sizeof(ifr));
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
+	if (ret < 0) {
+	    perror("SIOCGIFFLAGS");
+	    return (ret);
+	}
+	*flags = ifr.ifr_flags;
+	return (0);
+}
+
+static int
+set_if_flags(int s, char * ifname, short flags)
+{
+    	struct ifreq	ifr;
+	int		ret;
+
+	bzero(&ifr, sizeof(ifr));
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ifr.ifr_flags = flags;
+	ret = ioctl(s, SIOCSIFFLAGS, (caddr_t)&ifr);
+	if (ret < 0) {
+	    perror("SIOCSIFFLAGS");
+	    return (ret);
+	}
+	return (0);
+}
+
+static int
+mark_interface_up(char * ifname)
+{
+    	short	flags = 0;
+	int	ret = FALSE;
+	int	s = -1;
+	
+	if ((s = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0) {
+	    perror("socket");
+	    goto error;
+	}
+	if (get_if_flags(s, ifname, &flags) != 0) {
+	    goto error;
+	}
+	if (flags & IFF_UP)
+	    ;
+	else {
+	    flags |= IFF_UP;
+	    if (set_if_flags(s, ifname, flags) != 0) {
+		goto error;
+	    }
+	}
+	ret = TRUE;
+ error:
+	if (s >= 0) {
+	    close(s);
+	}
+	return (ret);
+}
+
 /* do_init() returns exit code */
 int do_init()
 {
 	int i, s, ret = 1;
 	char *p;
 	struct ifreq ifr;
-	char ifname[128];
  	int flag = 0;		/* used on AIOCSTOPATALK to force shutdown */
 
 	/* get the device information:
@@ -844,10 +940,10 @@ int do_init()
 		}
 
 		/* do an ifconfig on the interface name */
-		sprintf(ifname, "%s %s up", IFCONFIG_CMD, elapcfg[i].ifr_name);
-		if (0 != (system(ifname))) {
+		if (mark_interface_up(elapcfg[i].ifr_name) == FALSE) {
 #ifdef APPLETALK_DEBUG
-			fprintf(stderr, "%s: '%s' failed\n", progname, ifname);
+			fprintf(stderr, "%s: mark_interface_up(%s) failed\n", 
+				progname, elapcfg[i].ifr_name);
 #endif
 			ret = AT_CMD_INTERFACE_ERROR;
 			goto error;
@@ -1120,7 +1216,7 @@ static void displayZoneDef(fd, cfg)
      int fd;
      at_if_cfg_t *cfg;
 {
-#define DISPLAY_ZONES 10
+#define DISPLAY_ZONES 100
 	at_nvestr_t *zp;
 	at_def_zone_t defzone;
 	u_char buf[ATP_DATA_SIZE+1];

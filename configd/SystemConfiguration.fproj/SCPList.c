@@ -20,51 +20,39 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SCP.h>
-#include "SCPPrivate.h"
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCPreferencesInternal.h"
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/errno.h>
-
-
-static CFComparisonResult
-sort_keys(const void *p1, const void *p2, void *context) {
-	CFStringRef key1 = (CFStringRef)p1;
-	CFStringRef key2 = (CFStringRef)p2;
-	return CFStringCompare(key1, key2, 0);
-}
-
-
-SCPStatus
-SCPList(SCPSessionRef session, CFArrayRef *keys)
+CFArrayRef
+SCPreferencesCopyKeyList(SCPreferencesRef session)
 {
-	SCPSessionPrivateRef	sessionPrivate;
+	CFAllocatorRef		allocator	= CFGetAllocator(session);
+	CFArrayRef		keys;
+	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
 	CFIndex			prefsCnt;
 	void			**prefsKeys;
-	CFArrayRef		allKeys;
-	CFMutableArrayRef	sortedKeys;
 
-	if (session == NULL) {
-		return SCP_FAILED;           /* you can't do anything with a closed session */
-	}
-	sessionPrivate = (SCPSessionPrivateRef)session;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesCopyKeyList:"));
 
 	prefsCnt  = CFDictionaryGetCount(sessionPrivate->prefs);
-	prefsKeys = CFAllocatorAllocate(NULL, prefsCnt * sizeof(CFStringRef), 0);
+	prefsKeys = CFAllocatorAllocate(allocator, prefsCnt * sizeof(CFStringRef), 0);
 	CFDictionaryGetKeysAndValues(sessionPrivate->prefs, prefsKeys, NULL);
-	allKeys = CFArrayCreate(NULL, prefsKeys, prefsCnt, &kCFTypeArrayCallBacks);
-	CFAllocatorDeallocate(NULL, prefsKeys);
+	keys = CFArrayCreate(allocator, prefsKeys, prefsCnt, &kCFTypeArrayCallBacks);
+	CFAllocatorDeallocate(allocator, prefsKeys);
 
-	sortedKeys = CFArrayCreateMutableCopy(NULL, prefsCnt, allKeys);
-	CFRelease(allKeys);
-	CFArraySortValues(sortedKeys,
-			  CFRangeMake(0, prefsCnt),
-			  sort_keys,
-			  NULL);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keys = %@"), keys);
 
-	*keys = sortedKeys;
-	return SCP_OK;
+	sessionPrivate->accessed = TRUE;
+	return keys;
 }

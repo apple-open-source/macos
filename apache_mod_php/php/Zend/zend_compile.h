@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -28,7 +28,7 @@
 #endif
 
 #ifdef __cplusplus
-#include <istream.h>
+#include <iostream.h>
 #endif
 
 #include "zend_llist.h"
@@ -212,6 +212,7 @@ BEGIN_EXTERN_C()
 
 void init_compiler(CLS_D ELS_DC);
 void shutdown_compiler(CLS_D);
+void zend_init_compiler_data_structures(CLS_D);
 
 extern ZEND_API zend_op_array *(*zend_compile_file)(zend_file_handle *file_handle, int type CLS_DC);
 

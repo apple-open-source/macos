@@ -1,0 +1,4 @@
+Package: appleusbprokeyboard
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: Apple USB ProKeyboard Driver
+Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, text-cmds, shell-cmds, system-cmds, grep, jam, xnu, iohidsystem, iographics, iousbfamily

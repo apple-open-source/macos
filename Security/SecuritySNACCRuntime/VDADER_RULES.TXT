@@ -1,0 +1,24 @@
+
+This is an interim release of the VDA Enchanced version of the SNACC 1.3.  To 
+enable the use of DER encoding you need to use the "-D" command line option.  
+The DER rules enchancements have been made to the C++ side only so don't 
+forget the "-C" (C++) option.
+
+At this time this modified version is closely tied to the VDA developed SFL
+library.  If you use the "-D" it's assumed that you are also using the SFL
+in which case there is no problem.  However, if you want to use this version
+of SNACC standalone you will need to acquire the sm_vdasnacc.h and 
+sm_vdasnacc.cpp files from the SFL distribution.  This situation is temporary.
+As we fix/add features into SNACC we will most likely move those files into
+our enchanced SNACC distribution.
+
+Also..  The file comments have not been updated yet.  However, I did include
+the SCCS (SunOS 4.1.3 SCCS) files so that the changes we made can be reviewed
+by those wishing to do so.  We will merge the comments from the SCCS history 
+into each modified file when modifications are complete.
+
+For more information on the SFL try http://www.jgvandyke.com
+
+Pierce Leonberger
+Systems Engineer
+J.G. Van Dyke & Associates (VDA)

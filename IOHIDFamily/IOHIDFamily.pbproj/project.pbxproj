@@ -94,6 +94,7 @@
 				02CE16E8FFFAC28A11CA2CF6,
 				02CE16E9FFFAC28A11CA2CF6,
 				014C794B00027ECC11CA2CF6,
+				B963F4B700BC660708CA29FD,
 			);
 			isa = PBXGroup;
 			path = IOHIDLib;
@@ -493,7 +494,7 @@
 			);
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
 				09CF03A9FFC4B24911CA285C,
@@ -530,7 +531,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.0.0b1;
+				MODULE_VERSION = 1.1;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -572,11 +573,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0b1</string>
+	<string>1.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOHIDLibUserClient</key>
@@ -603,10 +604,12 @@
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.iokit.IOHIDSystem</key>
+		<string>1.1</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 	</dict>
 </dict>
 </plist>
@@ -681,7 +684,7 @@
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/IOHIDFamily\"";
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle -undefined suppress";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOHIDLib;
 				SECTORDER_FLAGS = "";
@@ -779,6 +782,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				014C794C00027ECC11CA2CF6,
+				B963F4B800BC660708CA29FD,
 			);
 			isa = PBXFrameworksBuildPhase;
 			name = "Frameworks & Libraries";
@@ -848,6 +852,18 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+		};
+		B963F4B700BC660708CA29FD = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		B963F4B800BC660708CA29FD = {
+			fileRef = B963F4B700BC660708CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

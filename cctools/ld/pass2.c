@@ -231,6 +231,8 @@ pass2(void)
 		}
 		if(cur_obj->dylib)
 		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
 		if(cur_obj->dylinker)
 		    continue;
 		if(cur_obj != base_obj){
@@ -537,6 +539,15 @@ setup_output_flush(void)
 			 output_symtab_info.symtab_command.nsyms *
 							sizeof(struct nlist);
 	    }
+	}
+	if(output_for_dyld && twolevel_namespace == TRUE &&
+	   twolevel_namespace_hints == TRUE){
+	    output_flush(offset,
+			 output_hints_info.twolevel_hints_command.offset -
+			 offset);
+	    offset = output_hints_info.twolevel_hints_command.offset +
+		     output_hints_info.twolevel_hints_command.nhints *
+		     sizeof(struct twolevel_hint);
 	}
 	if(output_dysymtab_info.dysymtab_command.nextrel != 0){
 	    output_flush(offset,
@@ -1090,6 +1101,13 @@ output_headers(void)
 	    header_offset += merged_sub_umbrellas[i].sub->cmdsize;
 	}
 
+	/* next the sub library load commands */
+	for(i = 0; i < nsub_librarys ; i++){
+	    memcpy(output_addr + header_offset, merged_sub_librarys[i].sub,
+		   merged_sub_librarys[i].sub->cmdsize);
+	    header_offset += merged_sub_librarys[i].sub->cmdsize;
+	}
+
 	/* next the sub client load commands */
 	for(i = 0; i < nallowable_clients ; i++){
 	    memcpy(output_addr + header_offset, merged_sub_clients[i].sub,
@@ -1123,6 +1141,15 @@ output_headers(void)
 		   &(output_dysymtab_info.dysymtab_command),
 		   output_dysymtab_info.dysymtab_command.cmdsize);
 	    header_offset += output_dysymtab_info.dysymtab_command.cmdsize;
+	}
+
+	/* next the two-level namespace hints load command */
+	if(output_for_dyld && twolevel_namespace == TRUE &&
+	   twolevel_namespace_hints == TRUE){
+	    memcpy(output_addr + header_offset,
+	    	   &(output_hints_info.twolevel_hints_command),
+		   output_hints_info.twolevel_hints_command.cmdsize);
+	    header_offset += output_hints_info.twolevel_hints_command.cmdsize;
 	}
 
 	/* next the thread command if the output file has one */

@@ -23,13 +23,15 @@ OTP-enabled.  To test this, telnet to the server port and give it
 a valid USER id.  If the OK response includes the string "otp-",
 you should install OPIE.  You need version 2.32 or better.
 
-The OPIE library sources are available at ftp://ftp.inner.net/pub/opie.
+The OPIE library sources are available at http://www.inner.net/pub/opie/
 You can also find OPIE and IPV6-capable servers there.
 
-Building in IPv6 support or the IPsec patches REQUIRES that Craig
-Metz's inet6-apps kit be installed; the IPsec patches require that the
-kit be built with network security API support enabled. The kit can be
-gotten from ftp.ipv6.inner.net:/pub/ipv6 (via IPv6) or ftp.inner.net
+Building in IPv6 support *requires* glibc 2.1.1 (or newer) or 
+that Craig Metz's inet6-apps kit be installed.
+The IPsec patches *requires* inet6-apps kit.;
+the IPsec patches require that the kit be built with network
+security API support enabled. The kit can be gotten from
+ftp.ipv6.inner.net:/pub/ipv6 (via IPv6) or ftp.inner.net
 /pub/ipv6 (via IPv4).
 
 2. CONFIGURE
@@ -56,11 +58,19 @@ Support for CompuServe's RPA authentication method (rather similar to
 APOP) is available but also not included in the standard build.  You
 can compile it in with `configure --enable-RPA'.
 
+Support for Microsoft's NTLM authentication method is also available
+but also not included in the standard build.  You can compile it in
+with `configure --enable-NTLM'.
+
 Support for authentication using RFC1731 GSSAPI is available
 but also not included by default.  You can compile it in with
 `configure --with-gssapi', which looks for GSSAPI support in standard
 locations (/usr, /usr/local).  If you set --with-GSSAPI=DIR
 you can direct the build to look for GSSAPI support under DIR.
+
+Hooks for the OpenSSL library (see http://www.openssl.org/) are
+included in the distribution.  To enable these, configure with
+--with-ssl; they are not included in the standard build.
 
 If you want to build for debugging, 
 
@@ -68,9 +78,13 @@ If you want to build for debugging,
 
 will do that.
 
-To enable multilingual support using GNU gettext, 
+To specify a fallback MUA in case local port 25 doesn't respond, do one of:
 
-	configure --enable-nls
+	configure --enable-fallback=procmail
+	configure --enable-fallback=sendmail
+
+A disadvantage of using procmail is that local alias expansion
+according to /etc/aliases won't get done if we fall back to it.
 
 Advanced configuration:
 
@@ -128,14 +142,14 @@ configuration steps that may be necessary.
 
 5. SET UP A RUN CONTROL FILE
 
-See the man page and the file sample.rcfile for a description of how to
-configure your individual preferences.
+See the man page for a description of how to configure your individual
+preferences.
 
 If you're upgrading from popclient, see question F4 in the FAQ file.
 
 6. TEST
 
-I strongly recommend that your first fetchmail run use the -v and -k
+I strongly recommend that your first fetchmail run use the -v, -a and -k
 options, in case there is something not quite right with your server,
 your local delivery configuration or your port 25 listener.  Also,
 beware of aliases that direct your local mail back to the server host!
@@ -143,10 +157,14 @@ beware of aliases that direct your local mail back to the server host!
 This software is known to work with the qpop/popper series of freeware
 POP3 servers; also with the IMAP2bis and IMAP4 servers that are
 distributed with Pine from the University of Washington; also with the
-Cyrus IMAP server from CMU.  This covers all the servers normally
-hosted on Linux and *BSD systems.  It also works with Microsoft Exchange,
-despite the fact that Microsoft Exchange is extremely broken (returns
-incorrect message lengths in LIST responses).
+Cyrus IMAP server from CMU.  This covers all the servers commonly
+hosted on Linux and *BSD systems.  It also works with the IMAP service
+of Microsoft Exchange, despite the fact that Microsoft Exchange is
+extremely broken (returns incorrect message lengths in LIST
+responses).  
+
+See the FAQ, section S, for detailed advice on running with various
+servers.
 
 7. REPORTING BUGS
 

@@ -1358,6 +1358,8 @@ set_input_radix_1 (int from_tty, unsigned radix)
 	     radix);
     }
   input_radix = radix;
+  set_internalvar (lookup_internalvar ("input_radix"),
+		   value_from_longest (builtin_type_int, (LONGEST) radix));
   if (from_tty)
     {
       printf_filtered ("Input radix now set to decimal %u, hex %x, octal %o.\n",
@@ -1393,6 +1395,8 @@ set_output_radix_1 (int from_tty, unsigned radix)
 	     radix);
     }
   output_radix = radix;
+  set_internalvar (lookup_internalvar ("output_radix"),
+		   value_from_longest (builtin_type_int, (LONGEST) radix));
   if (from_tty)
     {
       printf_filtered ("Output radix now set to decimal %u, hex %x, octal %o.\n",

@@ -38,7 +38,7 @@
  */
 
 /*
- * $Id: bsd-comp.c,v 1.3 2001/01/20 03:35:54 callie Exp $
+ * $Id: bsd-comp.c,v 1.4 2001/05/09 17:52:38 callie Exp $
  */
 
 #include <sys/types.h>

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.parse.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.parse.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.parse.c: Interpret a list of tokens
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.parse.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.parse.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
 
 /*
  * C shell

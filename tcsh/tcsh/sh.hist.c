@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.hist.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.hist.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
 /*
  * sh.hist.c: Shell history expansions and substitutions
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.hist.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.hist.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
 
 #include "tc.h"
 
@@ -85,13 +85,13 @@ savehist(sp, mflg)
 	    histlen = histlen * 10 + *p++ - '0';
 	}
     }
+    if (sp)
+	(void) enthist(++eventno, sp, 1, mflg);
     for (hp = &Histlist; (np = hp->Hnext) != NULL;)
 	if (eventno - np->Href >= histlen || histlen == 0)
 	    hp->Hnext = np->Hnext, hfree(np);
 	else
 	    hp = np;
-    if (sp)
-	(void) enthist(++eventno, sp, 1, mflg);
 }
 
 static bool
@@ -133,7 +133,9 @@ enthist(event, lp, docopy, mflg)
 	    for (p = pp; (px = p, p = p->Hnext) != NULL;)
 		if (heq(lp, &(p->Hlex))){
 		    px->Hnext = p->Hnext;
-		    n = p->Hnum + 1;
+		    if (Htime != 0 && p->Htime > Htime)
+			Htime = p->Htime;
+		    n = p->Href;
 		    hfree(p);
 		    for (p = px->Hnext; p != NULL; p = p->Hnext)
 			p->Href = n--;
@@ -302,7 +304,6 @@ dohist1(hp, np, hflg)
 
     for (; hp != 0; hp = hp->Hnext) {
 	(*np)--;
-	hp->Href++;
 	if ((hflg & HIST_REV) == 0) {
 	    dohist1(hp->Hnext, np, hflg);
 	    if (print)
@@ -375,7 +376,7 @@ fmthist(fmt, ptr, buf, bufsiz)
 	else {
 	    Char ibuf[INBUFSIZE], *ip;
 	    char *p;
-	    (void) sprlex(ibuf, sizeof(ibuf), &hp->Hlex);
+	    (void) sprlex(ibuf, sizeof(ibuf) / sizeof(Char), &hp->Hlex);
 	    for (p = buf, ip = ibuf; (*p++ = (CHAR & *ip++)) != '\0'; )
 		continue;
 	}

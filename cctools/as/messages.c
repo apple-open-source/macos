@@ -19,7 +19,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <stdarg.h>
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 #include <streams/streams.h>
+#endif
 #include "make.h"
 #include <stdlib.h>
 #include <string.h>
@@ -69,6 +71,7 @@ int bad_error = 0;
  */
 int arch_multiple = 0;
 
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 /*
  * This is for the ProjectBuilder (formally MakeApp) interface.
  */
@@ -138,6 +141,7 @@ int eventType) /* 0 error, 1 warning, -1 doing */
 #endif
 	NXSeek(ProjectBuilder_stream, 0, NX_FROMSTART);
 }
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 
 /*
  * architecture_banner() returns the string to say what target we are assembling
@@ -182,8 +186,10 @@ print_architecture_banner(void)
 
 	if(arch_multiple && !printed){
 	    printf(architecture_banner());
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 	    if(talking_to_ProjectBuilder)
 		NXPrintf(ProjectBuilder_stream, architecture_banner());
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	    printed = 1;
 	}
 }
@@ -209,11 +215,13 @@ const char *format,
 	    va_start(ap, format);
 	    vfprintf(stderr, format, ap);
 	    fprintf(stderr, "\n");
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 	    if(talking_to_ProjectBuilder){
 		NXVPrintf(ProjectBuilder_stream, format, ap);
 		NXPrintf(ProjectBuilder_stream, "\n");
 		tell_ProjectBuilder(1 /* warning */);
 	    }
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	    va_end(ap);
 	}
 }
@@ -235,11 +243,13 @@ const char *format,
 	    va_start(ap, format);
 	    vfprintf(stderr, format, ap);
 	    fprintf(stderr, "\n");
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 	    if(talking_to_ProjectBuilder){
 		NXVPrintf(ProjectBuilder_stream, format, ap);
 		NXPrintf(ProjectBuilder_stream, "\n");
 		tell_ProjectBuilder(1 /* warning */);
 	    }
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	    va_end(ap);
 	}
 }
@@ -266,11 +276,13 @@ const char *format,
 	va_start(ap, format);
 	vfprintf(stderr, format, ap);
 	fprintf(stderr, "\n");
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 	if(talking_to_ProjectBuilder){
 	    NXVPrintf(ProjectBuilder_stream, format, ap);
 	    NXPrintf(ProjectBuilder_stream, "\n");
 	    tell_ProjectBuilder(0 /* error */);
 	}
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	va_end(ap);
 }
 
@@ -296,12 +308,14 @@ const char *format,
 	fprintf (stderr, "FATAL:");
 	vfprintf(stderr, format, ap);
 	fprintf(stderr, "\n");
+#ifdef OLD_PROJECTBUILDER_INTERFACE
 	if(talking_to_ProjectBuilder){
 	    NXPrintf(ProjectBuilder_stream, "FATAL:");
 	    NXVPrintf(ProjectBuilder_stream, format, ap);
 	    NXPrintf(ProjectBuilder_stream, "\n");
 	    tell_ProjectBuilder(0 /* error */);
 	}
+#endif /* OLD_PROJECTBUILDER_INTERFACE */
 	va_end(ap);
 	exit(1);
 }

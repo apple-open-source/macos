@@ -144,7 +144,6 @@ typedef struct lookup_request_msg {
 @interface Controller : Root
 {
 	syslock *serverLock;
-	LUArray *lookupOrder[NCATEGORIES];
 	LUDictionary *globalDict;
 	LUDictionary *configDict[NCATEGORIES];
 	LUArray *serverList;
@@ -171,6 +170,7 @@ typedef struct lookup_request_msg {
 
 - (void)setLoginUser:(int)uid;
 - (void)flushCache;
+- (void)reset;
 - (void)suspend;
 
 - (char *)portName;
@@ -178,5 +178,7 @@ typedef struct lookup_request_msg {
 
 - (void)serverLoop;
 - (void)lookupdMessage;
+
+- (id)agentClassNamed:(char *)name;
 
 @end

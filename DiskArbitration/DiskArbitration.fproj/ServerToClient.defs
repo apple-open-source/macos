@@ -100,19 +100,6 @@ simpleroutine DiskArbBlueBoxBootVolumeUpdated_async_rpc(
 				dest: mach_port_t;
 			in	seqno: int);
 
-/*
--- Unknown filesystem inserted ... 
-*/
-
-simpleroutine DiskArbUnknownFileSystemInserted_rpc(
-				dest: mach_port_t;
-			in	diskIdentifier: DiskArbDiskIdentifier;
-			in	fsType: DiskArbGenericString;
-			in	deviceType: DiskArbGenericString;
-			in	isWritable: int;
-			in	isRemovable: int;
-			in	isWhole: int);
-
 /* 
 -- Disk Information Changed
 */
@@ -123,6 +110,19 @@ simpleroutine DiskArbDiskChanged_rpc(
 			in	newVolumeName: DiskArbMountpoint;
 			in	flags: unsigned;
 			in	success: int);
+
+simpleroutine DiskArbPreviousCallFailed_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	failedCallType: int;
+			in	err: int);
+
+simpleroutine DiskArbDiskWillBeChecked_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	flags: unsigned;
+			in	ioContent: DiskArbIOContent);
+
 
 /* 
 -- "That's all for now" message
@@ -155,3 +155,41 @@ simpleroutine DiskArbPrinter_FinalRelease_rpc (
 				dest: mach_port_t;
 			in	locationID: int);
 
+/* -- Image/Device Arbitration -- */
+
+simpleroutine DiskArbWillClientRelinquish_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	toClientPid: int);
+
+simpleroutine DiskArbDeviceReservationStatus_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	status: int;
+			in	pid: int);
+
+/* -- Uninitialized Disk/Unrecognized Disk Arbitration -- */
+
+simpleroutine DiskArbWillClientHandleUnrecognizedDisk_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	diskType: int;
+			in	fsType: DiskArbGenericString;
+			in	deviceType: DiskArbGenericString;
+			in	isWritable: int;
+			in	isRemovable: int;
+			in	isWhole: int);
+
+
+/*
+-- Unknown filesystem inserted ... 
+*/
+
+simpleroutine DiskArbUnknownFileSystemInserted_rpc(
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	fsType: DiskArbGenericString;
+			in	deviceType: DiskArbGenericString;
+			in	isWritable: int;
+			in	isRemovable: int;
+			in	isWhole: int);

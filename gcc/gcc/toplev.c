@@ -490,6 +490,10 @@ int flag_check_mem = 0;
 
 /* Nonzero if we should generate dave-style indirections. */
 int flag_dave_indirect = 0;
+
+/* Function pointer to determine whether to inline a function.  */
+
+char *(*maybe_inline_func_p) PROTO ((tree)) = 0; 
 #endif /* NEXT_SEMANTICS */
 
 /* Nonzero if structures and unions should be returned in memory.
@@ -639,7 +643,20 @@ int flag_syntax_only = 0;
 
 /* Nonzero means dump symbol records from the parser to stdout.  */
 
+/* Flag to indicate, if indexing information needs to be generated */
 int flag_dump_symbols = 0;
+int flag_gen_index = 0;
+/* Socket is used to put indexing information.  */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+int index_socket_fd = -1;
+static char *index_host_name = 0;       /* Hostname, used for indexing */
+static char *index_port_string = 0;     /* Port, used for indexing */
+static unsigned index_port_number = 0;  /* Port, used for indexing */
+void dump_symbol_info PROTO((char *, char *, int));
+int connect_to_socket PROTO((char *, unsigned));
+
 
 /* Nonzero means perform global cse.  */
 
@@ -702,18 +719,32 @@ int flag_pic;
 /* Turn off DBX output for coalesced symbols as gdb is broken.  $$$  */
 static int old_write_symbols = NO_DEBUG;
 
-/* Nonzero if we're coalescing appropriate symbols.  We coalesce
-   template functions and synthesised/artificial methods by default.  */
+/* Nonzero if we're allowing coalescing of appropriate code/data.  */
 
-int flag_coalesced = 1;
+int flag_coalescing_enabled = 1;
 
-/* Nonzero if we're coalescing RTTI functions.  Off by default (see
-   openstep.h" for detailed discussion.)  */
+/* We coalesce template functions/methods by default.  */
 
-int flag_coalesce_rtti = 0;
+int flag_coalesce_templates = 1;
 
-/* If 1: Mark coalesced items (except RTTI stuff) as private_extern. 
-   If 2: Mark *every* coalesced item (inc. RTTI stuff) as private_extern.  */
+/* We coalesce static vtables by default.  */
+
+int flag_coalesce_static_vtables = 1;
+
+/* Nonzero if we want to coalesce out-of-line non-external copies of
+   inline functions declared in header files.  */
+
+int flag_coalesce_out_of_line_inlines = 1;
+
+/* Nonzero if we should avoid outputting unreferenced static aggregates.  */
+
+int flag_ignore_unused_static_aggregates = 1;
+
+/* Nonzero if we're coalescing static RTTI functions/data.   */
+
+int flag_coalesce_rtti = 1;
+
+/* Nonzero to mark coalesced items as private_extern.  */
 
 int flag_privatize_coalesced = 1;
 
@@ -723,7 +754,18 @@ int flag_privatize_coalesced = 1;
 
 int flag_force_coalesced = 0;
 
+/* Nonzero means we try to instantiate "pending" templates even if they
+   haven't been referenced.  This should never be needed, it's just an
+   escape route for turly's hackery -- sorry :-)  */
+
+int flag_instantiate_unreferenced_templates = 0;
+
 #endif /* HAVE_COALESCED_SYMBOLS */
+
+/* Nonzero if we attempt to put compiler-generated EH cleanup code in
+   a separate "__TEXT __eh_cleanup" section.  */
+
+int flag_separate_eh_cleanup_section = 1;
 
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
@@ -1008,17 +1050,26 @@ lang_independent_options f_options[] =
    "Generate position independent code, if possible"},
   {"PIC", &flag_pic, 2, ""},
 #ifdef HAVE_COALESCED_SYMBOLS
-  {"coalesce", &flag_coalesced, 1,
+  {"coalesce", &flag_coalescing_enabled, 1,
+   "Enavble coalescing of certain functions and data"},
+  {"coalesce-templates", &flag_coalesce_templates, 1,
    "Coalesce C++ template functions"},
-  {"coalesce-rtti", &flag_coalesce_rtti, 1,
-   "Coalesce C++ RTTI stuff"},
   {"privatize-coalesced", &flag_privatize_coalesced, 1,
-   "Mark coalesced symbols as private_extern (except RTTI vars)"},
-  {"privatize-coalesced-all", &flag_privatize_coalesced, 2,
-   "Mark ALL coalesced symbols (inc. RTTI) as private_extern"},
-  {"privatize-all-coalesced", &flag_privatize_coalesced, 2,
-   "Mark ALL coalesced symbols (inc. RTTI) as private_extern"},
+   "Mark coalesced symbols as private_extern"},
+  {"coalesce-rtti", &flag_coalesce_rtti, 1,
+   "[EXPERIMENTAL] (defaults on)"},
+  {"coalesce-static-vtables", &flag_coalesce_static_vtables, 1,
+   "[EXPERIMENTAL] (defaults on)"},
+  {"coalesce-out-of-line-inlines", &flag_coalesce_out_of_line_inlines, 1,
+   "[EXPERIMENTAL] (defaults on)"},
+  {"ignore-unused-static-aggregates", &flag_ignore_unused_static_aggregates, 1,
+   "[EXPERIMENTAL] (defaults on)"},
+  {"instantiate-unreferenced-templates",
+    &flag_instantiate_unreferenced_templates, 1, "instantiate pending "
+    "template decls even\n\t\t\t\t\tif it looks like they're unreferenced"},
 #endif
+  {"eh-cleanup-section", &flag_separate_eh_cleanup_section, 1,
+   "emit compiler-generated exception cleanup code in a separate section"},
   {"exceptions", &flag_exceptions, 1,
    "Enable exception handling" },
   {"new-exceptions", &flag_new_exceptions, 1,
@@ -1395,14 +1446,32 @@ int warn_inline;
 
 int warn_aggregate_return;
 
+/* Nonzero to warn about "poor" field alignment.  */
+int warn_poor_field_align = 0;
+
+#ifdef APPLE_ALIGN_CHECK
+/* warn_osx1_size_align - one of
+    1: warn about struct field size changes
+    2: (1) + warn about field alignment changes and struct size changes  */
+
+int warn_osx1_size_align = 0;
+#endif
+
 /* Likewise for -W.  */
 
 lang_independent_options W_options[] =
 {
 #ifdef NEXT_CPP_PRECOMP
-  {"precomp", NULL, 1, "$$$ what's -precomp do?"},
+  {"precomp", NULL, 1, "$$$ what's -Wprecomp do?"},
 #endif
-
+#ifdef APPLE_ALIGN_CHECK
+  {"field-size-changed-macosx1", &warn_osx1_size_align, 1,
+   "Warn about struct fields whose sizes have changed due to the new post-OS X 10.0 gcc alignment rules"},
+  {"align-changed-macosx1", &warn_osx1_size_align, 2,
+   "Warn about structs and fields whose sizes or alignments have changed from the OS X 10.0 gcc"},
+#endif
+  {"poor-field-align", &warn_poor_field_align, 1,
+   "Warn about poor struct field alignment (e.g., badly aligned doubles)" },
   {"unused", &warn_unused, 1, "Warn when a variable is unused" },
   {"error", &warnings_are_errors, 1, ""},
   {"shadow", &warn_shadow, 1, "Warn when one local variable shadows another" },
@@ -3067,6 +3136,10 @@ wrapup_global_declarations (vec, len)
 	    {
 	      reconsider = 1;
 	      temporary_allocation ();
+
+#ifdef HAVE_COALESCED_SYMBOLS
+	      MARK_OUT_OF_INLINE_FUNCTION_COALESCED (decl);
+#endif
 	      output_inline_function (decl);
 	      permanent_allocation (1);
 	    }
@@ -3186,6 +3259,68 @@ check_global_declarations (vec, len)
     }
 }
 
+/* Establish socket connection to put the indexing information.  */
+int 
+connect_to_socket (hostname, port_number)
+    char *hostname;
+    unsigned port_number;
+{
+    int socket_fd;
+    struct sockaddr_in addr;
+   
+    bzero ((char *)&addr, sizeof (addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = (hostname == NULL) ? 
+                           INADDR_LOOPBACK : 
+                           inet_addr (hostname);
+    addr.sin_port = htons (port_number);
+    
+    socket_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (socket_fd < 0)
+      {
+         warning("Can not create socket: %s", strerror (errno));
+         return -1;
+      }
+    if (connect (socket_fd, (struct sockaddr *)&addr, sizeof (addr)) < 0)
+      {
+         warning("Can not connect to socket: %s", strerror (errno));
+         return -1;
+      }
+    return socket_fd;
+}
+
+/* Dump the indexing information using already established socket connection.  */
+void 
+dump_symbol_info (info, name, number)
+    char *info; /* symbol information */
+    char *name; /* name of the symbol */
+    int  number; /* line number */
+{
+    char buf[25];
+
+    if (info)
+      {
+        write (index_socket_fd, (void *) info, strlen(info));
+        sprintf(&buf[0],"%d ",c_language); 
+        write (index_socket_fd, (void *) buf, strlen(buf));
+      }
+
+    if (!name && number == -1)
+      return;
+
+    if (name)
+      write (index_socket_fd, (void *) name, strlen(name));
+
+    if (!info && number == -1)
+      return;
+
+    if (number != -1)
+      sprintf(&buf[0]," %u\n",number); /* Max buf length is 25 */
+    else
+      sprintf(&buf[0],"\n"); 
+    write (index_socket_fd, (void *) buf, strlen (buf));
+}
+
 /* Compile an entire file of output from cpp, named NAME.
    Write a file of assembly output and various debugging dumps.  */
 
@@ -3195,8 +3330,10 @@ compile_file (name)
 {
   tree globals;
   int start_time;
-
   int name_specified = name != 0;
+#ifdef DWARF2_UNWIND_INFO
+  int dwarf2_framing;
+#endif
 
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
@@ -3434,9 +3571,39 @@ compile_file (name)
   if (main_input_filename == 0)
     main_input_filename = name;
 
+  if (flag_gen_index)
+  {
+    /* open the socket */
+    index_socket_fd = connect_to_socket(index_host_name, index_port_number);
+    if (index_socket_fd == -1)
+     {
+       /* can not open the socket */
+       warning ("Indexing information is not produced.");
+     }
+    else
+      {   
+        char *buf = NULL;
+        int length;
+        if (main_input_filename)
+          length = strlen (main_input_filename);
+        else
+          length = 1;
+        buf = (char *) malloc (sizeof (char) * (40 + length));
+        /* Put the index begin marker */
+        /* 2, 2 = 2nd Part of 2-part info */
+        sprintf (buf, "pbxindex-begin v1.1 0x%08lX %02u/%02u %s\n",
+                (unsigned long) getppid(), 2, 2, main_input_filename);
+        write (index_socket_fd, buf, strlen (buf));
+        free (buf);
+      }
+  }
+
   if (flag_dump_symbols)
     /* Print file resume record.  */
     printf ("<Fm %s\n", main_input_filename);
+  if (flag_gen_index)
+    /* Print file resume record.  */
+    dump_symbol_info ("<Fm ", main_input_filename, -1);
 
   if (flag_syntax_only)
     {
@@ -3538,7 +3705,8 @@ compile_file (name)
     TIMEVAR (symout_time, dwarfout_init (asm_out_file, main_input_filename));
 #endif
 #ifdef DWARF2_UNWIND_INFO
-  if (dwarf2out_do_frame ())
+  dwarf2_framing = dwarf2out_do_frame ();
+  if (dwarf2_framing)
     dwarf2out_frame_init ();
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
@@ -3604,6 +3772,9 @@ compile_file (name)
   if (flag_dump_symbols)
     /* Write out file end record.  */
     printf ("-Fm %s\n", main_input_filename);
+  if (flag_gen_index)
+    /* Write out file end record.  */
+    dump_symbol_info ("-Fm ", main_input_filename, -1);
   parse_time += get_run_time () - start_time;
 
   parse_time -= integration_time;
@@ -3670,7 +3841,7 @@ compile_file (name)
 #endif
 
 #ifdef DWARF2_UNWIND_INFO
-  if (dwarf2out_do_frame ())
+  if (dwarf2_framing)
     dwarf2out_frame_finish ();
 #endif
 
@@ -4715,6 +4886,7 @@ rest_of_compilation (decl)
     old_write_symbols = write_symbols;
     if (DECL_COALESCED (decl))
       write_symbols = NO_DEBUG;
+
 #endif
 
   /* Now turn the rtl into assembler code.  */
@@ -4723,6 +4895,7 @@ rest_of_compilation (decl)
 	   {
 	     rtx x;
 	     char *fnname;
+	     int jumpto;
 
 	     /* Get the function's name, as described by its RTL.
 		This may be different from the DECL_NAME name used
@@ -4736,10 +4909,12 @@ rest_of_compilation (decl)
 	       abort ();
 	     fnname = XSTR (x, 0);
 
+	     jumpto = look_for_jumpto_pattern(insns, optimize);
+
 	     assemble_start_function (decl, fnname);
-	     final_start_function (insns, asm_out_file, optimize);
-	     final (insns, asm_out_file, optimize, 0);
-	     final_end_function (insns, asm_out_file, optimize);
+	     final_start_function (insns, asm_out_file, optimize, jumpto);
+	     final (insns, asm_out_file, optimize, 0, jumpto);
+	     final_end_function (insns, asm_out_file, optimize, jumpto);
 	     assemble_end_function (decl, fnname);
 	     if (! quiet_flag)
 	       fflush (asm_out_file);
@@ -5758,6 +5933,27 @@ main (argc, argv)
 	filename = argv[i];
     }
 
+  /* Check the environment variable for indexing */
+  if (!flag_gen_index)
+  {     
+     index_port_string = getenv ("PB_INDEX_SOCKET_PORT");
+     if (index_port_string && *index_port_string)
+       {
+           index_port_number = atoi (index_port_string);
+           flag_gen_index  = 1;
+   
+           index_host_name = getenv ("PB_INDEX_SOCKET_HOSTNAME");
+           if (index_host_name && *index_host_name)
+             {  /* keep the host name */ } 
+           else
+             {
+                index_host_name = NULL;
+             }
+       } 
+       else
+         flag_gen_index = 0; 
+  }     
+
   /* Checker uses the frame pointer.  */
   if (flag_check_memory_usage)
     flag_omit_frame_pointer = 0;
@@ -5845,6 +6041,19 @@ main (argc, argv)
     }
 
   compile_file (filename);
+  if (flag_gen_index)
+  {   
+    char buf[16] = "pbxindex-end ?\n";
+    /* Put the index end marker */
+    write (index_socket_fd, &buf[0], strlen (&buf[0]));
+
+    /* close named pipe */
+    if (close (index_socket_fd) < 0)
+      {
+        warning ("Can not close the socket used to put indexing information");
+      }
+  }       
+
 
 #if !defined(OS2) && !defined(VMS) && (!defined(_WIN32) || defined (__CYGWIN__)) && !defined(__INTERIX)
   if (flag_print_mem)
@@ -6137,6 +6346,10 @@ debug_start_source_file (filename)
     /* Print out file resume record.
        (cpp has already begun and suspended records for file.)  */
     printf ("<Fm %s\n", filename);
+  if (flag_gen_index)
+    /* Print out file resume record.
+       (cpp has already begun and suspended records for file.)  */
+    dump_symbol_info ("<Fm ", filename, -1);
 #ifdef DBX_DEBUGGING_INFO
   if (write_symbols == DBX_DEBUG)
     dbxout_start_new_source_file (filename);
@@ -6166,6 +6379,8 @@ debug_end_source_file (lineno)
 {
   if (flag_dump_symbols)
      printf ("-Fm %u\n", lineno);
+  if (flag_gen_index)
+     dump_symbol_info ("-Fm ", NULL, lineno);
 #ifdef DBX_DEBUGGING_INFO
   if (write_symbols == DBX_DEBUG)
     dbxout_resume_previous_source_file ();

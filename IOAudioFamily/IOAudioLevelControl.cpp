@@ -27,15 +27,33 @@
 #define super IOAudioControl
 
 OSDefineMetaClassAndStructors(IOAudioLevelControl, IOAudioControl)
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 0);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 1);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 2);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 3);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 4);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 5);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 6);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 7);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 8);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 9);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 10);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 11);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 12);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 13);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 14);
+OSMetaClassDefineReservedUnused(IOAudioLevelControl, 15);
 
-IOAudioLevelControl *IOAudioLevelControl::create(UInt32 initialValue,
-                                                 UInt32 minValue,
-                                                 UInt32 maxValue,
+IOAudioLevelControl *IOAudioLevelControl::create(SInt32 initialValue,
+                                                 SInt32 minValue,
+                                                 SInt32 maxValue,
                                                  IOFixed minDB,
                                                  IOFixed maxDB,
                                                  UInt32 channelID,
                                                  const char *channelName,
-                                                 UInt32 cntrlID)
+                                                 UInt32 cntrlID,
+                                                 UInt32 subType,
+                                                 UInt32 usage)
 {
     IOAudioLevelControl *control;
 
@@ -49,7 +67,9 @@ IOAudioLevelControl *IOAudioLevelControl::create(UInt32 initialValue,
                            maxDB,
                            channelID,
                            channelName,
-                           cntrlID)) {
+                           cntrlID,
+                           subType,
+                           usage)) {
             control->release();
             control = 0;
         }
@@ -58,18 +78,52 @@ IOAudioLevelControl *IOAudioLevelControl::create(UInt32 initialValue,
     return control;
 }
 
-bool IOAudioLevelControl::init(UInt32 initialValue,
-                               UInt32 minValue,
-                               UInt32 maxValue,
+IOAudioLevelControl *IOAudioLevelControl::createVolumeControl(SInt32 initialValue,
+                                                                SInt32 minValue,
+                                                                SInt32 maxValue,
+                                                                IOFixed minDB,
+                                                                IOFixed maxDB,
+                                                                UInt32 channelID,
+                                                                const char *channelName,
+                                                                UInt32 cntrlID,
+                                                                UInt32 usage)
+{
+    return IOAudioLevelControl::create(initialValue,
+                                        minValue,
+                                        maxValue,
+                                        minDB,
+                                        maxDB,
+                                        channelID,
+                                        channelName,
+                                        cntrlID,
+                                        kIOAudioLevelControlSubTypeVolume,
+                                        usage);
+}
+
+bool IOAudioLevelControl::init(SInt32 initialValue,
+                               SInt32 minValue,
+                               SInt32 maxValue,
                                IOFixed minDB,
                                IOFixed maxDB,
                                UInt32 channelID,
                                const char *channelName,
                                UInt32 cntrlID,
+                               UInt32 subType,
+                               UInt32 usage,
                                OSDictionary *properties)
 {
-    if (!super::init(IOAUDIOCONTROL_TYPE_LEVEL, initialValue, channelID, channelName, cntrlID, properties)) {
-        return false;
+    bool result = true;
+    OSNumber *number;
+    
+    if (subType == NULL) {
+        subType = kIOAudioLevelControlSubTypeVolume;
+    }
+    
+    number = OSNumber::withNumber(initialValue, sizeof(SInt32)*8);
+    
+    if ((number == NULL) || !super::init(kIOAudioControlTypeLevel, number, channelID, channelName, cntrlID, subType, usage, properties)) {
+        result = false;
+        goto Done;
     }
 
     setMinValue(minValue);
@@ -77,29 +131,42 @@ bool IOAudioLevelControl::init(UInt32 initialValue,
     setMinDB(minDB);
     setMaxDB(maxDB);
 
-    master = false;
+Done:
+    if (number) {
+        number->release();
+    }
+            
+    return result;
+}
 
-    return true;
+void IOAudioLevelControl::free()
+{
+    if (ranges) {
+        ranges->release();
+        ranges = NULL;
+    }
+    
+    super::free();
 }
                    
-void IOAudioLevelControl::setMinValue(UInt32 newMinValue)
+void IOAudioLevelControl::setMinValue(SInt32 newMinValue)
 {
     minValue = newMinValue;
-    setProperty(IOAUDIOCONTROL_MIN_VALUE_KEY, newMinValue, sizeof(UInt32)*8);
+    setProperty(kIOAudioLevelControlMinValueKey, newMinValue, sizeof(SInt32)*8);
 }
 
-UInt32 IOAudioLevelControl::getMinValue()
+SInt32 IOAudioLevelControl::getMinValue()
 {
     return minValue;
 }
     
-void IOAudioLevelControl::setMaxValue(UInt32 newMaxValue)
+void IOAudioLevelControl::setMaxValue(SInt32 newMaxValue)
 {
     maxValue = newMaxValue;
-    setProperty(IOAUDIOCONTROL_MAX_VALUE_KEY, newMaxValue, sizeof(UInt32)*8);
+    setProperty(kIOAudioLevelControlMaxValueKey, newMaxValue, sizeof(SInt32)*8);
 }
 
-UInt32 IOAudioLevelControl::getMaxValue()
+SInt32 IOAudioLevelControl::getMaxValue()
 {
     return maxValue;
 }
@@ -107,7 +174,7 @@ UInt32 IOAudioLevelControl::getMaxValue()
 void IOAudioLevelControl::setMinDB(IOFixed newMinDB)
 {
     minDB = newMinDB;
-    setProperty(IOAUDIOCONTROL_MIN_DB_KEY, newMinDB, sizeof(IOFixed)*8);
+    setProperty(kIOAudioLevelControlMinDBKey, newMinDB, sizeof(IOFixed)*8);
 }
 
 IOFixed IOAudioLevelControl::getMinDB()
@@ -117,7 +184,7 @@ IOFixed IOAudioLevelControl::getMinDB()
     
 void IOAudioLevelControl::setMaxDB(IOFixed newMaxDB)
 {
-    setProperty(IOAUDIOCONTROL_MAX_DB_KEY, newMaxDB, sizeof(IOFixed)*8);
+    setProperty(kIOAudioLevelControlMaxDBKey, newMaxDB, sizeof(IOFixed)*8);
 }
 
 IOFixed IOAudioLevelControl::getMaxDB()
@@ -125,15 +192,84 @@ IOFixed IOAudioLevelControl::getMaxDB()
     return maxDB;
 }
 
-void IOAudioLevelControl::setMaster(bool isMaster)
+// Should only be done during init time - this is not thread safe
+IOReturn IOAudioLevelControl::addRange(SInt32 minRangeValue, 
+                                        SInt32 maxRangeValue, 
+                                        IOFixed minRangeDB, 
+                                        IOFixed maxRangeDB)
 {
-    master = isMaster;
-    //setProperty(IOAUDIOCONTROL_MASTER_KEY, isMaster, 8);
+    IOReturn result = kIOReturnSuccess;
+    
+    // We should verify the new range doesn't overlap any others here
+    
+    if (ranges == NULL) {
+        ranges = OSArray::withCapacity(1);
+        if (ranges) {
+            setProperty(kIOAudioLevelControlRangesKey, ranges);
+        }
+    }
+    
+    if (ranges) {
+        OSDictionary *newRange;
+        
+        newRange = OSDictionary::withCapacity(4);
+        if (newRange) {
+            OSNumber *number;
+            
+            number = OSNumber::withNumber(minRangeValue, sizeof(SInt32)*8);
+            newRange->setObject(kIOAudioLevelControlMinValueKey, number);
+            number->release();
+            
+            number = OSNumber::withNumber(maxRangeValue, sizeof(SInt32)*8);
+            newRange->setObject(kIOAudioLevelControlMaxValueKey, number);
+            number->release();
+            
+            number = OSNumber::withNumber(minRangeDB, sizeof(IOFixed)*8);
+            newRange->setObject(kIOAudioLevelControlMinDBKey, number);
+            number->release();
+            
+            number = OSNumber::withNumber(maxRangeDB, sizeof(IOFixed)*8);
+            newRange->setObject(kIOAudioLevelControlMaxDBKey, number);
+            number->release();
+            
+            ranges->setObject(newRange);
+            
+            newRange->release();
+        } else {
+            result = kIOReturnError;
+        }
+    } else {
+        result = kIOReturnError;
+    }
+    
+    return result;
 }
 
-bool IOAudioLevelControl::isMaster()
+IOReturn IOAudioLevelControl::addNegativeInfinity(SInt32 negativeInfinityValue)
 {
-    return master;
+    return addRange(negativeInfinityValue, negativeInfinityValue, kIOAudioLevelControlNegativeInfinity, kIOAudioLevelControlNegativeInfinity);
+}
+
+IOReturn IOAudioLevelControl::validateValue(OSObject *newValue)
+{
+    IOReturn result = kIOReturnBadArgument;
+    OSNumber *number;
+    
+    number = OSDynamicCast(OSNumber, newValue);
+    
+    if (number) {
+        SInt32 newIntValue;
+        
+        newIntValue = (SInt32)number->unsigned32BitValue();
+        
+        if ((newIntValue >= minValue) && (newIntValue <= maxValue)) {
+            result = kIOReturnSuccess;
+        } else {
+            result = kIOReturnError;
+        }
+    }
+    
+    return result;
 }
 
 

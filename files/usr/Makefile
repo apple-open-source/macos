@@ -4,7 +4,7 @@ Destination = $(DSTROOT)/usr
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Subdirectories with their own makefiles
-SubDirs = share
+SubDirs = libexec share
 
 install::
 	$(_v) for subdir in $(SubDirs); do						\

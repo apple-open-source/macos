@@ -33,14 +33,17 @@
 /*
  * #defines
  */
+
 #define CONNECTION_CHECK 1	/* turns on connection security checking */
 
 #define NI_RECVSIZE 512
 #define NI_SENDSIZE 1024
 
 #ifdef _UNIX_BSD_43_
+#define VAR_DIR "/tmp"
 #define CONFIG_FILE_NAME "/etc/netinfo/niconfig_%s.xml"
 #else
+#define VAR_DIR "/var/run"
 #define CONFIG_FILE_NAME "/var/run/niconfig_%s.xml"
 #endif
 
@@ -155,5 +158,4 @@ extern bool_t reading_all;
 extern fd_set clnt_fdset;
 
 /* Keep track of current parent binding... */
-extern int latestParentStatus;	/* this should really be an ni_status but... */
 extern char *latestParentInfo;	/* xxx.xxx.xxx.xxx/tag of parent */

@@ -39,3 +39,4 @@ Summary of what SmartList provides:
 	  encoding of well known (and unknown) file formats)
 	+ The archive server can send arbitrarily long (even binary) files
 	  in MIME-multipart mails
+	+ Provides rfc2369-compliant List- headers

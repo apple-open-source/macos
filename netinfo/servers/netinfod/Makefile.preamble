@@ -18,9 +18,6 @@
 
 # Flags passed to compiler (in addition to -g, -O, etc)
 OTHER_CFLAGS =
-
-OTHER_CFLAGS +=	-I/AppleInternal/Developer/Headers/ipconfig
-ALL_MIGFLAGS += -I/AppleInternal/Developer/Headers -DMOSX
  
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS =	
@@ -71,7 +68,7 @@ OTHER_RESOURCES =
 BUILD_OFILES_LIST_ONLY = 
 
 # Additional relocatables to be linked into this project
-OTHER_OFILES = ni_prot_svc.o bootparam_prot_xdr.o ipconfigUser.o
+OTHER_OFILES = ni_prot_svc.o
 # Additional libraries to link against
 OTHER_LIBS =
 # To include a version string, project source must exist in a directory named 
@@ -111,11 +108,11 @@ CLEAN_ALL_SUBPROJECTS = YES
 # .msg files that should have msgwrap run on them
 MSGFILES = 
 # .defs files that should have mig run on them
-DEFSFILES = ipconfig.defs
+DEFSFILES = 
 # .mig files (no .defs files) that should have mig run on them
 MIGFILES = 
 # .x files that should have rpcgen run on them
-RPCFILES = nibind_prot.x ni_prot.x bootparam_prot.x
+RPCFILES = nibind_prot.x ni_prot.x
 
 ## Add additional Help directories here (add them to the project as "Other 
 ## Resources" in Project Builder) so that they will be compressed into .store

@@ -2014,7 +2014,9 @@ find_line_pc_range (struct symtab_and_line sal, CORE_ADDR *startptr,
       close (fd);
     }
 
-  if (sal.symtab->linetable->lines_are_chars)
+  if (!sal.symtab->linetable)
+      return 0;
+  else if (sal.symtab->linetable->lines_are_chars)
     line = sal.symtab->line_charpos[sal.line - 1];
   else
     line = sal.line;
@@ -3329,7 +3331,22 @@ in_prologue (CORE_ADDR pc, CORE_ADDR func_start)
          scanning code.  */
       CORE_ADDR prologue_end = SKIP_PROLOGUE (func_addr);
 
-      return func_addr <= pc && pc < prologue_end;
+      if (func_addr <= pc && pc < prologue_end)
+        return 1;
+        
+      /* Okay, we will try one more thing here.  I have seen cases,
+         when we have little symbolic information, where the func_addr
+         is from way back up in the executable, and bears no relation
+         to the current function.  So let's see if we recognize the pc
+         as the beginning of a prologue.  In many cases we call
+         in_prologue to see if we have arrived at the start of the
+         prologue, so this is a reasonable thing to do. */
+         
+      prologue_end = SKIP_PROLOGUE (pc);
+      if (prologue_end > pc + 4)
+        return 1;
+      else
+        return 0;
     }
 
   /* We have line number info, and it looks good.  */

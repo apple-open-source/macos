@@ -58,6 +58,14 @@ struct dysymtab_info {
 __private_extern__ struct dysymtab_info output_dysymtab_info;
 
 /*
+ * The output file's two level hints load command.
+ */
+struct hints_info {
+    struct twolevel_hints_command twolevel_hints_command;
+};
+__private_extern__ struct hints_info output_hints_info;
+
+/*
  * The output file's thread load command and the machine specific information
  * for it.
  */

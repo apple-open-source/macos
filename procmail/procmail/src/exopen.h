@@ -1,20 +1,17 @@
-/*$Id: exopen.h,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: exopen.h,v 1.1.1.2 2001/07/20 19:38:15 bbraun Exp $*/
 
 int
- unique Q((const char*const full,char*p,const mode_t mode,const verbos,
-  const chownit)),
+ unique Q((const char*const full,char*p,const size_t len,const mode_t mode,
+  const int verbos,const int flags)),
  myrename P((const char*const old,const char*const newn)),
  rlink P((const char*const old,const char*const newn,struct stat*st)),
  hlink P((const char*const old,const char*const newn));
 
-#define charsSERIAL	4
-#define UNIQnamelen	(1+charsSERIAL+1+HOSTNAMElen+1)
-#define bitsSERIAL	(6*charsSERIAL)
-#define maskSERIAL	((1L<<bitsSERIAL)-1)
-#define rotbSERIAL	2
-#define irotbSERIAL	(1L<<bitsSERIAL-rotbSERIAL)
-#define mrotbSERIAL	((maskSERIAL&irotbSERIAL-1)+irotbSERIAL)
+#define UNIQnamelen	30	 /* require how much space as a first guess? */
+#define MINnamelen	14		      /* cut to this on ENAMETOOLONG */
 
 #define doCHOWN		1
 #define doCHECK		2
 #define doLOCK		4
+#define doFD		8
+#define doMAILDIR	16

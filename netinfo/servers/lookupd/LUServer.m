@@ -38,6 +38,7 @@
 #import "LUCachedDictionary.h"
 #import "LUPrivate.h"
 #import "Controller.h"
+#import "Config.h"
 #import <NetInfo/dsutil.h>
 #import <string.h>
 #import <stdlib.h>
@@ -84,32 +85,31 @@ milliseconds_since(struct timeval t)
 	return s;
 }
 
+- (char **)lookupOrderForCategory:(LUCategory)cat
+{
+	LUDictionary *cdict;
+	char **order;
+
+	cdict = [configManager configForCategory:cat fromConfig:configurationArray];
+	if (cdict != nil)
+	{
+		order = [cdict valuesForKey:"LookupOrder"];
+		if (order != NULL) return order;
+	}
+
+	cdict = [configManager configGlobal:configurationArray];
+	if (cdict == nil) return NULL;
+
+	order = [cdict valuesForKey:"LookupOrder"];
+	return order;
+}
+
 - (LUServer *)init
 {
-	int i;
-	char str[128];
-
 	[super init];
-
-	agentClassList = [[LUArray alloc] init];
-	[agentClassList setBanner:"LUServer agent class list"];
 
 	agentList = [[LUArray alloc] init];
 	[agentList setBanner:"LUServer agent list"];
-
-	for (i = 0; i < NCATEGORIES; i++)
-	{
-		order[i] = [[LUArray alloc] init];
-		sprintf(str, "Lookup order for category %s", [LUAgent categoryName:i]);
-		[order[i] setBanner:str];
-	}
-
-	[agentClassList addObject:[CacheAgent class]];
-	[agentList addObject:cacheAgent];
-
-	system_log(LOG_DEBUG, "LUServer 0x%08x added agent 0x%08x (%s) retain count = %d",
-		(int)self, (int)cacheAgent, [cacheAgent shortName],
-		[cacheAgent retainCount]);
 
 	ooBufferSize = 0;
 	ooBufferOffset = 0;
@@ -171,98 +171,82 @@ milliseconds_since(struct timeval t)
 	}
 }
 
-- (LUAgent *)agentForSystem:(id)systemClass
+- (LUAgent *)agentNamed:(char *)name
 {
+	id agentClass;
+	char *arg, *colon, *cname, *cserv;
 	int i, len;
-	LUAgent *agent;
+	id agent;
 
-	len = [agentClassList count];
-	for (i = 0; i < len; i++)
+	if (name == NULL) return nil;
+
+	arg = NULL;
+	colon = strchr(name, ':');
+	if (colon != NULL)
 	{
-		if ([agentClassList objectAtIndex:i] == systemClass)
+		*colon = '\0';
+		arg = colon + 1;
+	}
+
+	cname = NULL;
+	len = strlen(name);
+	if (len > 5)
+	{
+		if (streq(name + (len - 5), "Agent"))
 		{
-			return [[agentList objectAtIndex:i] retain];
+			cname = copyString(name);
 		}
 	}
 
-	agent = [[systemClass alloc] init];
+	if (cname == NULL)
+	{
+		cname = malloc(len + 6);
+		sprintf(cname, "%sAgent", name);
+	}
+
+	if (colon != NULL) *colon = ':';
+
+	cserv = NULL;
+	if (arg == NULL)
+	{
+		cserv = copyString(cname);
+	}
+	else 
+	{
+		cserv = malloc(strlen(cname) + strlen(arg) + 2);
+		sprintf(cserv, "%s:%s", cname, arg);
+	}
+
+	len = [agentList count];
+	for (i = 0; i < len; i++)
+	{
+		agent = [agentList objectAtIndex:i];
+		if (streq([agent serviceName], cserv))
+		{
+			free(cname);
+			free(cserv);
+			return agent;
+		}
+	}
+
+	agentClass = [controller agentClassNamed:cname];
+	free(cname);
+	free(cserv);
+	if (agentClass == NULL) return nil;
+
+	agent = nil;
+	if (arg == NULL) agent = [[agentClass alloc] init];
+	else agent = [[agentClass alloc] initWithArg:arg];
 	if (agent == nil) return nil;
 
-	[agentClassList addObject:systemClass];
 	[agentList addObject:agent];
+	[agent release];
 
-	system_log(LOG_DEBUG, "LUServer 0x%08x added agent 0x%08x (%s) retain count = %d",
-		(int)self, (int)agent, [agent shortName], [agent retainCount]);
+	system_log(LOG_DEBUG, "LUServer 0x%08x added agent 0x%08x (%s)",
+		(int)self, (int)agent, [agent serviceName]);
 
 	return agent;
 }
-
-/*
- * luOrder must be an array of Class objects
- */
-- (void)setLookupOrder:(LUArray *)luOrder
-{
-	int i, j, len;
-	LUAgent *agent;
-	BOOL enabled;
-
-	for (i = 0; i < NCATEGORIES; i++) [order[i] releaseObjects];
-
-	if (luOrder == nil)
-	{
-		for (i = 0; i < NCATEGORIES; i++)
-			[cacheAgent setCacheIsEnabled:NO forCategory:(LUCategory)i];
-		return;
-	}
-
-	len = [luOrder count];
-	enabled = NO;
-
-	for (i = 0; i < len; i++)
-	{
-		agent = [self agentForSystem:[luOrder objectAtIndex:i]];
-		if (agent != nil)
-		{
-			for (j = 0; j < NCATEGORIES; j++) [order[j] addObject:agent];
-			if ([agent isMemberOf:[CacheAgent class]]) enabled = YES;
-			[agent release];
-		}
-	}
-
-	for (i = 0; i < NCATEGORIES; i++)
-		[cacheAgent setCacheIsEnabled:enabled forCategory:(LUCategory)i];
-}
-
-- (void)setLookupOrder:(LUArray *)luOrder forCategory:(LUCategory)cat
-{
-	int i, len, n;
-	LUAgent *agent;
-	BOOL enabled;
-
-	n = (unsigned int)cat;
-	[order[n] releaseObjects];
-
-	if (luOrder == nil)
-	{
-		[cacheAgent setCacheIsEnabled:NO forCategory:cat];
-		return;
-	}
-
-	len = [luOrder count];
-	enabled = NO;
-	for (i = 0; i < len; i++)
-	{
-		agent = [self agentForSystem:[luOrder objectAtIndex:i]];
-		if (agent != nil)
-		{
-			[order[n] addObject:agent];
-			if ([agent isMemberOf:[CacheAgent class]]) enabled = YES;
-			[agent release];
-		}
-	}
-
-	[cacheAgent setCacheIsEnabled:enabled forCategory:cat];
-} 
 
 - (void)copyToOOBuffer:(char *)src size:(unsigned long)len
 {
@@ -305,20 +289,13 @@ milliseconds_since(struct timeval t)
 	int i, len;
 	LUAgent *agent;
 
-	for (i = 0; i < NCATEGORIES; i++)
-	{
-		if (order[i] != nil) [order[i] release];
-	}
-
-	if (agentClassList != nil) [agentClassList release];
-
 	if (agentList != nil)
 	{
 		len = [agentList count];
 		for (i = len - 1; i >= 0; i--)
 		{
 			agent = [agentList objectAtIndex:i];
-			system_log(LOG_DEBUG, "%d: server 0x%08x releasing agent 0x%08x (%s) with retain count = %d", i, (int)self, (int)agent, [agent shortName], [agent retainCount]);
+			system_log(LOG_DEBUG, "%d: server 0x%08x released agent 0x%08x (%s)", i, (int)self, (int)agent, [agent serviceName]);
 			[agentList removeObject:agent];
 		}
 
@@ -523,7 +500,7 @@ appendDomainName(char *h, char *d)
 
 - (LUArray *)allItemsWithCategory:(LUCategory)cat
 {
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUArray *all;
 	LUArray *sub;
 	LUAgent *agent;
@@ -568,12 +545,13 @@ appendDomainName(char *h, char *d)
 
 	all = [[LUArray alloc] init];
 
-	lookupOrder = order[(unsigned int)cat];
-	len = [lookupOrder count];
+	lookupOrder = [self lookupOrderForCategory:cat];
+	len = listLength(lookupOrder);
 	agent = nil;
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
 		if (streq([agent shortName], "Cache")) continue;
 
 		gettimeofday(&sysStart, (struct timezone *)NULL);
@@ -632,7 +610,7 @@ appendDomainName(char *h, char *d)
 
 - (LUArray *)query:(LUDictionary *)pattern
 {
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUArray *all, *list;
 	LUArray *sub;
 	LUAgent *agent;
@@ -694,12 +672,13 @@ appendDomainName(char *h, char *d)
 
 	all = [[LUArray alloc] init];
 
-	lookupOrder = order[(unsigned int)cat];
-	len = [lookupOrder count];
+	lookupOrder = [self lookupOrderForCategory:cat];
+	len = listLength(lookupOrder);
 	agent = nil;
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
 		if (streq([agent shortName], "Cache")) continue;
 		if ((pagent != NULL) && strcmp([agent shortName], pagent)) continue;
 
@@ -744,12 +723,9 @@ appendDomainName(char *h, char *d)
 	return all;
 }
 
-/*
- * Data lookup done here!
- */
 - (LUArray *)allGroupsWithUser:(char *)name
 {
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUArray *all;
 	LUArray *sub;
 	LUAgent *agent;
@@ -800,12 +776,13 @@ appendDomainName(char *h, char *d)
 
 	all = [[LUArray alloc] init];
 
-	lookupOrder = order[(unsigned int)LUCategoryUser];
-	len = [lookupOrder count];
+	lookupOrder = [self lookupOrderForCategory:LUCategoryUser];
+	len = listLength(lookupOrder);
 	agent = nil;
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
 		if (streq([agent shortName], "Cache")) continue;
 
 		gettimeofday(&sysStart, (struct timezone *)NULL);
@@ -859,13 +836,10 @@ appendDomainName(char *h, char *d)
 	return all;
 }
 
-/*
- * Data lookup done here!
- */
 - (LUArray *)allNetgroupsWithName:(char *)name
 {
 	LUArray *all;
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, len;
@@ -885,8 +859,8 @@ appendDomainName(char *h, char *d)
 		return nil;
 	}
 
-	lookupOrder = order[(unsigned int)LUCategoryNetgroup];
-	len = [lookupOrder count];
+	lookupOrder = [self lookupOrderForCategory:LUCategoryNetgroup];
+	len = listLength(lookupOrder);
 	if (len == 0)
 	{
 		currentCall = NULL;
@@ -899,7 +873,9 @@ appendDomainName(char *h, char *d)
 
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
+
 		gettimeofday(&sysStart, (struct timezone *)NULL);
 		currentAgent = agent;
 		state = ServerStateQuerying;
@@ -939,7 +915,7 @@ appendDomainName(char *h, char *d)
 - (LUDictionary *)groupWithKey:(char *)key value:(char *)val
 {
 	LUArray *all;
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUDictionary *item;
 	int i, len;
 	char scratch[256];
@@ -957,9 +933,9 @@ appendDomainName(char *h, char *d)
 	sprintf(str, "%s %s", [LUAgent categoryName:LUCategoryGroup], key);
 	currentCall = str;
 
-	lookupOrder = order[(unsigned int)LUCategoryGroup];
+	lookupOrder = [self lookupOrderForCategory:LUCategoryGroup];
 	item = nil;
-	len = [lookupOrder count];
+	len = listLength(lookupOrder);
 
 	gettimeofday(&allStart, (struct timezone *)NULL);
 
@@ -1047,7 +1023,7 @@ appendDomainName(char *h, char *d)
 	value:(char *)val
 	category:(LUCategory)cat
 {
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, j, len, nether;
@@ -1062,9 +1038,9 @@ appendDomainName(char *h, char *d)
 	sprintf(str, "%s %s", [LUAgent categoryName:cat], key);
 	currentCall = str;
 
-	lookupOrder = order[(unsigned int)cat];
+	lookupOrder = [self lookupOrderForCategory:cat];
 	item = nil;
-	len = [lookupOrder count];
+	len = listLength(lookupOrder);
 	tryRealName = NO;
 	if ((cat == LUCategoryUser) && (streq(key, "name"))) tryRealName = YES;
 
@@ -1075,7 +1051,8 @@ appendDomainName(char *h, char *d)
 
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
 
 		gettimeofday(&sysStart, (struct timezone *)NULL);
 
@@ -1097,7 +1074,7 @@ appendDomainName(char *h, char *d)
 		else
 		{
 			item = [agent itemWithKey:key value:val category:cat];
-			if (tryRealName && (item == nil))
+			if (tryRealName && (item == nil) && strcmp([agent shortName], "NI"))
 			{
 				item = [agent itemWithKey:"realname" value:val category:cat];
 			}
@@ -1217,10 +1194,6 @@ appendDomainName(char *h, char *d)
 	return item;
 }
 
-/*
- ****************  Lookup routines (API) start here  ****************
- */
-
 - (BOOL)inNetgroup:(char *)group
 	host:(char *)host
 	user:(char *)user
@@ -1313,13 +1286,10 @@ appendDomainName(char *h, char *d)
 	return NO;
 }
 
-/*
- * Data lookup done here!
- */
 - (LUDictionary *)serviceWithName:(char *)name
 	protocol:(char *)prot
 {
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, len;
@@ -1339,12 +1309,15 @@ appendDomainName(char *h, char *d)
 	}
 
 	gettimeofday(&allStart, (struct timezone *)NULL);
-	lookupOrder = order[(unsigned int)LUCategoryService];
+
+	lookupOrder = [self lookupOrderForCategory:LUCategoryService];
 	item = nil;
-	len = [lookupOrder count];
+	len = listLength(lookupOrder);
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
+
 		gettimeofday(&sysStart, (struct timezone *)NULL);
 		currentAgent = agent;
 		state = ServerStateQuerying;
@@ -1371,13 +1344,10 @@ appendDomainName(char *h, char *d)
 	return nil;
 }
 
-/*
- * Data lookup done here!
- */
 - (LUDictionary *)serviceWithNumber:(int *)number
 	protocol:(char *)prot
 {
-	LUArray *lookupOrder;
+	char **lookupOrder;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, len;
@@ -1397,12 +1367,15 @@ appendDomainName(char *h, char *d)
 	}
 
 	gettimeofday(&allStart, (struct timezone *)NULL);
-	lookupOrder = order[(unsigned int)LUCategoryService];
+
+	lookupOrder = [self lookupOrderForCategory:LUCategoryService];
 	item = nil;
-	len = [lookupOrder count];
+	len = listLength(lookupOrder);
 	for (i = 0; i < len; i++)
 	{
-		agent = [lookupOrder objectAtIndex:i];
+		agent = [self agentNamed:lookupOrder[i]];
+		if (agent == nil) continue;
+
 		gettimeofday(&sysStart, (struct timezone *)NULL);
 		currentAgent = agent;
 		state = ServerStateQuerying;
@@ -1429,36 +1402,20 @@ appendDomainName(char *h, char *d)
 	return nil;
 }
 
-/*
- * Custom lookups 
- *
- * Data lookup done here!
- */
 - (BOOL)isSecurityEnabledForOption:(char *)option
 {
-	BOOL status;
 	NIAgent *ni;
 
-	ni = (NIAgent *)[self agentForSystem:[NIAgent class]];
-	status = [ni isSecurityEnabledForOption:option];
-	[ni release];
+	ni = (NIAgent *)[self agentNamed:"NIAgent"];
+	if (ni == nil) return NO;
 
-	return status;
+	/* XXX */
+	return [ni isSecurityEnabledForOption:option];
 }
 
-/*
- * Data lookup done here!
- */
 - (BOOL)isNetwareEnabled
 {
-	BOOL status;
-	NIAgent *ni;
-
-	ni = (NIAgent *)[self agentForSystem:[NIAgent class]];
-	status = [ni isNetwareEnabled];
-	[ni release];
-
-	return status;
+	return NO;
 }
 
 @end

@@ -13,11 +13,9 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
 HFILES = IOGraphicsLibPrivate.h IOGraphicsLib.h\
-         IOGraphicsInterface.h IOGraphicsInterfaceTypes.h\
          IOAccelSurfaceControl.h
 
-CFILES = IOAccelSurfaceControl.c IOGraphicsLib.c IODisplayLib.c\
-         IOGraphicsM64.c 
+CFILES = IOAccelSurfaceControl.c IOGraphicsLib.c IODisplayLib.c
 
 OTHERSRCS = Makefile.preamble Makefile
 
@@ -32,7 +30,7 @@ PROF_LIBS = $(LIBS)
 
 
 PUBLIC_HEADERS = IOGraphicsLib.h\
-                 IOAccelSurfaceControl.h IOGraphicsInterface.h IOGraphicsInterfaceTypes.h
+                 IOAccelSurfaceControl.h
 
 PROJECT_HEADERS = IOGraphicsLib.h
 

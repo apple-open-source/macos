@@ -1,0 +1,8 @@
+# $Id: Makefile.in,v 1.1.1.1 2001/07/19 00:19:01 zarzycki Exp $
+
+LTLIBRARY_NAME        = libcybermut.la
+LTLIBRARY_SOURCES     = cybermut.c
+LTLIBRARY_SHARED_NAME = cybermut.la
+LTLIBRARY_SHARED_LIBADD  = $(CYBERMUT_SHARED_LIBADD)
+
+include $(top_srcdir)/build/dynlib.mk

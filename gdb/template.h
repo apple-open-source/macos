@@ -1,6 +1,8 @@
 #ifndef @FILEGUARD@
 #define @FILEGUARD@
 
+#include <mach/mach.h>
+
 #if defined (__MACH30__) && defined (__ppc__)
 #include "powerpc-apple-macos10--powerpc-apple-macos10/@file@"
 #elif defined (__MACH30__) && defined (__i386__)

@@ -1,0 +1,673 @@
+-- file: .../asn1specs/asn1module.asn1
+--
+-- This module describes the data structure used to reprsent the
+-- compiled ASN.1.
+-- Using ASN.1 for the internal data structure allows writing
+-- (encoding) to disk for storage (not done yet due to recursive
+--  refs back to the module)
+--
+-- Mike Sample 91/08/29
+-- Modifed 92/05  MS
+--
+-- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/asn1specs/asn1module.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+-- $Log: asn1module.asn1,v $
+-- Revision 1.1.1.1  2001/05/18 23:14:05  mb
+-- Move from private repository to open source repository
+--
+-- Revision 1.1.1.1  1999/03/16 18:05:55  aram
+-- Originals from SMIME Free Library.
+--
+-- Revision 1.3  1995/07/25 20:04:04  rj
+-- data structures added for idl backend.
+--
+-- Revision 1.2  1994/08/28  09:54:16  rj
+-- comment leader fixed.
+--
+-- Revision 1.1  1994/08/28  09:51:11  rj
+-- first check-in.
+
+Asn1Module DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+
+-- exports everything
+-- imports nothing
+
+
+Modules ::= [APPLICATION 0] IMPLICIT SEQUENCE
+{
+    creationTime INTEGER,
+    modules ModuleList
+}
+
+ModuleList ::= SEQUENCE OF Module
+
+
+Module ::= SEQUENCE
+{
+    status ENUMERATED { mod-ok(0), mod-not-linked(1), mod-error(2) },
+    modId      ModuleId,
+    tagDefault ENUMERATED { explicit-tags(0), implicit-tags(1) },
+    exportStatus  ENUMERATED { exports-all(0), exports-nothing(1),
+                               exports-some(2) },
+    imports    ImportModuleList,
+    typeDefs   TypeDefList,
+    valueDefs  ValueDefList,
+    hasAnys    BOOLEAN,
+
+    asn1SrcFileName MyString,
+    cHdrFileName    MyString,
+    cSrcFileName    MyString,
+    cxxHdrFileName  MyString,
+    cxxSrcFileName  MyString,
+
+    dbHdrFileName       MyString, -- IBM-ENC
+    dbSrcFileName       MyString, -- IBM-ENC
+
+    cxxname             MyString, -- META
+
+    idlFileName         MyString, -- IDL
+    idlname             MyString -- IDL
+}
+
+
+ModuleId ::= SEQUENCE
+{
+    name MyString,
+    oid  OBJECT IDENTIFIER OPTIONAL --snacc cTypeName:"OID" isPtr:"TRUE"
+}
+
+
+ImportModuleList ::= SEQUENCE OF ImportModule
+
+
+ImportModule ::= SEQUENCE
+{
+    modId       ModuleId,
+    importElmts ImportElmtList,
+    moduleRef   Module, --snacc isEncDec:"FALSE"
+    lineNo INTEGER
+}
+
+
+ImportElmtList ::= SEQUENCE OF ImportElmt
+
+
+ImportElmt ::= SEQUENCE
+{
+    resolvedRef CHOICE
+    {
+        type  [0] TypeDef,  -- not encoded
+        value [1] ValueDef  -- not encoded
+     } OPTIONAL,
+    name MyString,
+    privateScope BOOLEAN, -- true if from MODNAME.TYPE ref
+    lineNo INTEGER
+}
+
+TypeDefList ::= SEQUENCE OF TypeDef
+
+OidOrInt ::= CHOICE
+{
+    oid OBJECT IDENTIFIER,
+    intId INTEGER
+}
+
+AnyRef ::= SEQUENCE
+{
+    anyIdName MyString,
+    id OidOrInt
+}
+
+AnyRefList ::= SEQUENCE OF AnyRef
+
+TypeDef ::= SEQUENCE
+{
+    exported     BOOLEAN,
+    recursive    BOOLEAN,
+    isPdu    BOOLEAN,
+    localRefCount  INTEGER,
+    importRefCount INTEGER,
+    tmpRefCount    INTEGER,
+    visited      BOOLEAN,
+    definedName  MyString,
+    type         Type,
+    cTypeDefInfo CTDI,
+    cxxTypeDefInfo CxxTDI,
+    attrList     AttributeList,
+    refList      TypeDefList,
+    anyRefs      AnyRefList
+}
+
+
+Tag ::= SEQUENCE
+{
+    tclass INTEGER, -- swap this for the BER_CLASS enum from basetypes.h
+    form  INTEGER,  -- swap this for the BER_FORM enum
+    code  INTEGER,
+    explicit BOOLEAN,
+    valueRef Value
+}
+
+Type ::= SEQUENCE
+{
+    optional   BOOLEAN,
+    implicit   BOOLEAN,
+    tags       TagList,
+    defaultVal [0] IMPLICIT NamedValue OPTIONAL,
+    subtypes   [1] Subtype OPTIONAL,
+    basicType  [2] BasicType,
+    lineNo     INTEGER,
+    cTypeRefInfo CTRI,
+    cxxTypeRefInfo CxxTRI,
+    attrList   AttributeList
+}
+
+TagList ::= SEQUENCE OF Tag
+
+AttributeList ::= SEQUENCE OF MyString
+
+NamedNumberList ::= ValueDefList
+
+
+-- BasicTypes with NULL need no more info that which type it is
+-- (this is known from the choice id)
+
+BasicType ::= CHOICE
+{
+    unknown         [0]  IMPLICIT NULL,
+    boolean         [1]  IMPLICIT NULL,
+    integer         [2]  IMPLICIT NamedNumberList,
+    bitString       [3]  IMPLICIT NamedNumberList,
+    octetString     [4]  IMPLICIT NULL,
+    null            [5]  IMPLICIT NULL,
+    oid             [6]  IMPLICIT NULL,
+    real            [7]  IMPLICIT NULL,
+    enumerated      [8]  IMPLICIT NamedNumberList,
+    sequence        [9]  IMPLICIT NamedTypeList,
+    sequenceOf      [10] IMPLICIT Type,
+    set             [11] IMPLICIT NamedTypeList,
+    setOf           [12] IMPLICIT Type,
+    choice          [13] IMPLICIT NamedTypeList,
+    selection       [14] IMPLICIT SelectionType,
+    componentsOf    [15] IMPLICIT Type, --  [Resolved](local/import) type ref
+    any             [16] IMPLICIT NULL,
+    anyDefinedBy    [17] IMPLICIT AnyDefinedByType,
+    localTypeRef    [19] IMPLICIT TypeRef,
+    importTypeRef   [20] IMPLICIT TypeRef,
+    macroType       [21] MacroType,
+    macroDef        [22] IMPLICIT MacroDef --snacc isPtr:"FALSE"
+}
+
+MacroDef ::= MyString -- just keep the text for now
+
+MacroType ::= CHOICE
+{
+    rosOperation    [0] IMPLICIT RosOperationMacroType,
+    rosError        [1] IMPLICIT RosErrorMacroType,
+    rosBind         [2] IMPLICIT RosBindMacroType,
+    rosUnbind       [3] IMPLICIT RosBindMacroType,
+    rosAse          [4] IMPLICIT RosAseMacroType,
+    rosAc           [5] IMPLICIT RosAcMacroType,
+    mtsasExtension  [6] IMPLICIT MtsasExtensionMacroType,
+    mtsasExtensions [7] IMPLICIT MtsasExtensionsMacroType,
+    mtsasExtensionAttribute [8] IMPLICIT MtsasExtensionAttributeMacroType,
+    mtsasToken      [9] IMPLICIT MtsasTokenMacroType,
+    mtsasTokenData [10] IMPLICIT MtsasTokenDataMacroType,
+    mtsasSecurityCategory [11] IMPLICIT MtsasSecurityCategoryMacroType,
+    asnObject       [12] IMPLICIT AsnObjectMacroType,
+    asnPort         [13] IMPLICIT AsnPortMacroType,
+    asnRefine       [14] IMPLICIT AsnRefineMacroType,
+    asnAbstractBind      [15] IMPLICIT AsnAbstractBindMacroType,
+    asnAbstractUnbind    [16] IMPLICIT AsnAbstractBindMacroType,
+    asnAbstractOperation [17] IMPLICIT RosOperationMacroType,
+    asnAbstractError     [18] IMPLICIT RosErrorMacroType,
+    afAlgorithm     [19] IMPLICIT Type,
+    afEncrypted     [20] IMPLICIT Type,
+    afProtected     [21] IMPLICIT Type,
+    afSignature     [22] IMPLICIT Type,
+    afSigned        [23] IMPLICIT Type,
+    snmpObjectType  [24] IMPLICIT SnmpObjectTypeMacroType
+}
+
+
+AnyDefinedByType ::= SEQUENCE
+{
+    fieldName MyString,   -- name of field that its defined by
+    link NamedType OPTIONAL  -- REFERENCE not encoded
+}
+
+
+SelectionType ::= SEQUENCE
+{
+    fieldName MyString,   -- name of field in choice
+    typeRef   Type,      -- [Resolved](local/import) type ref
+    link NamedType OPTIONAL -- REFERENCE not encoded
+}
+
+NamedTypeList ::= SEQUENCE OF NamedType
+
+NamedType ::= SEQUENCE
+{
+    fieldName  MyString, -- may be empty or NULL str
+    type       Type
+}
+
+
+TypeRef ::= SEQUENCE
+{
+    typeName    MyString,
+    moduleName  MyString, -- used for "modname.type" refs(may be null)
+    module      Module,   --snacc isEncDec:"FALSE"
+    link        TypeDef   --snacc isEncDec:"FALSE"
+}
+
+
+
+RosOperationMacroType ::= SEQUENCE
+{
+    arguments NamedType,
+    result    NamedType,
+    errors    [0] IMPLICIT TypeOrValueList OPTIONAL,
+    linkedOps [1] IMPLICIT TypeOrValueList OPTIONAL
+}
+
+ValueList ::= SEQUENCE OF Value
+
+TypeOrValueList ::= SEQUENCE OF TypeOrValue
+
+TypeOrValue ::= CHOICE
+{
+    type  [0] IMPLICIT Type,
+    value [1] IMPLICIT Value
+}
+
+OidList ::= SEQUENCE OF OBJECT IDENTIFIER
+
+
+RosErrorMacroType ::= SEQUENCE
+{
+    parameter NamedType
+}
+
+RosBindMacroType ::= SEQUENCE
+{
+    argument NamedType,
+    result   NamedType,
+    error    NamedType
+}
+
+
+RosAseMacroType  ::= SEQUENCE
+{
+    operations       ValueList,
+    consumerInvokes  ValueList,
+    supplierInvokes  ValueList
+}
+
+RosAcMacroType ::= SEQUENCE
+{
+    nonRoElements       ValueList,
+    bindMacroType       Type,
+    unbindMacroType     Type,
+    remoteOperations    Value,
+    operationsOf        ValueList,
+    initiatorConsumerOf ValueList,
+    responderConsumerOf ValueList,
+    abstractSyntaxes    OidList
+}
+
+
+MtsasExtensionMacroType ::=  SEQUENCE
+{
+    elmtType              [0] IMPLICIT NamedType OPTIONAL,
+    defaultValue          [1] IMPLICIT Value    OPTIONAL,
+    criticalForSubmission [2] IMPLICIT BOOLEAN  OPTIONAL,
+    criticalForTransfer   [3] IMPLICIT BOOLEAN  OPTIONAL,
+    criticalForDelivery   [4] IMPLICIT BOOLEAN  OPTIONAL
+}
+
+
+MtsasExtensionsMacroType ::= SEQUENCE
+{
+    extensions ValueList
+}
+
+MtsasExtensionAttributeMacroType ::= SEQUENCE
+{
+    type Type OPTIONAL
+}
+
+MtsasTokenMacroType ::= SEQUENCE
+{
+    type Type OPTIONAL
+}
+
+MtsasTokenDataMacroType ::= SEQUENCE
+{
+    type Type OPTIONAL
+}
+
+MtsasSecurityCategoryMacroType ::= SEQUENCE
+{
+    type Type OPTIONAL
+}
+
+AsnObjectMacroType ::= SEQUENCE
+{
+   ports  AsnPortList OPTIONAL
+}
+
+AsnPortList ::= SEQUENCE OF AsnPort
+
+AsnPort ::= SEQUENCE
+{
+    portValue Value,
+    portType  ENUMERATED
+    {
+         consumer-port(0),
+         supplier-port(1),
+         symmetric-port(2)
+    }
+}
+
+
+AsnPortMacroType ::= SEQUENCE
+{
+    abstractOps     [0] IMPLICIT TypeOrValueList OPTIONAL,
+    consumerInvokes [1] IMPLICIT TypeOrValueList OPTIONAL,
+    supplierInvokes [2] IMPLICIT TypeOrValueList OPTIONAL
+}
+
+
+AsnRefineMacroType ::= INTEGER
+
+AsnAbstractBindMacroType ::= SEQUENCE
+{
+    ports [0] IMPLICIT AsnPortList OPTIONAL,
+    type  [1] IMPLICIT Type OPTIONAL
+}
+
+
+SnmpObjectTypeMacroType ::= SEQUENCE
+{
+   syntax Type,
+   access ENUMERATED
+       { snmp-read-only(0), snmp-read-write(1),
+         snmp-write-only(2), snmp-not-accessible(3)},
+   status ENUMERATED
+       { snmp-mandatory(0), snmp-optional(1),
+         snmp-obsolete(2), snmp-deprecated(3)},
+   description [0] IMPLICIT Value OPTIONAL,
+   reference   [1] IMPLICIT Value OPTIONAL,
+   index       [2] IMPLICIT TypeOrValueList OPTIONAL,
+   defVal      [3] IMPLICIT Value OPTIONAL
+}
+
+
+Subtype ::= CHOICE
+{
+    single [0] SubtypeValue,
+    and    [1] IMPLICIT SubtypeList,
+    or     [2] IMPLICIT SubtypeList,
+    not    [3] Subtype
+}
+
+SubtypeList ::= SEQUENCE OF Subtype
+
+SubtypeValue ::= CHOICE
+{
+    singleValue       [0] IMPLICIT Value,
+    contained         [1] IMPLICIT Type,
+    valueRange        [2] IMPLICIT ValueRangeSubtype,
+    permittedAlphabet [3] Subtype, -- only valuerange or singleval
+    sizeConstraint    [4] Subtype, -- only single value ints or val range
+    innerSubtype      [5] IMPLICIT InnerSubtype
+}
+
+
+ValueRangeSubtype ::= SEQUENCE
+{
+    lowerEndInclusive BOOLEAN,
+    upperEndInclusive BOOLEAN,
+    lowerEndValue Value,
+    upperEndValue Value
+}
+
+
+InnerSubtype ::= SEQUENCE
+{
+    constraintType ENUMERATED { full-ct(0), partial-ct(1), single-ct(2) },
+    constraints ConstraintList
+}
+
+ConstraintList ::= SEQUENCE OF Constraint
+
+Constraint ::= SEQUENCE
+{
+    fieldRef MyString,  -- not used if in single-ct, may be null
+    presenceConstraint ENUMERATED
+    {
+        present-ct(0),
+        absent-ct(1),
+        empty-ct(2),
+        optional-ct(3)
+    },
+    valueConstraints Subtype
+}
+
+
+ValueDefList ::= SEQUENCE OF ValueDef
+
+
+ValueDef ::= SEQUENCE
+{
+   exported    BOOLEAN,
+   definedName MyString,
+   value       Value
+}
+
+Value ::= SEQUENCE
+{
+    type    Type OPTIONAL,
+    valueType  INTEGER,  -- holds one of choiceId's def'd for BasicType
+    basicValue BasicValue,
+    lineNo     INTEGER
+}
+
+BasicValue ::= CHOICE
+{
+    unknown          [0]  IMPLICIT NULL,
+    empty            [1]  IMPLICIT NULL,
+    integer          [2]  IMPLICIT INTEGER,
+    specialInteger   [3]  IMPLICIT SpecialIntegerValue,
+    longInteger      [4]  IMPLICIT INTEGER,  -- put LONG before INTGEGER
+    boolean          [5]  IMPLICIT BOOLEAN,
+    real             [6]  IMPLICIT REAL,
+    specialReal      [7]  IMPLICIT SpecialRealValue,
+    asciiText        [8]  IMPLICIT OCTET STRING,
+    asciiHex         [9]  IMPLICIT OCTET STRING,
+    asciiBitString   [10] IMPLICIT OCTET STRING,
+    oid              [11] IMPLICIT OBJECT IDENTIFIER,
+    linkedOid        [12] IMPLICIT OBJECT IDENTIFIER, --snacc cTypeName:"OID"
+    berValue         [13] IMPLICIT OCTET STRING,
+    perValue         [14] IMPLICIT OCTET STRING,
+    namedValue       [15] IMPLICIT NamedValue,
+    null             [16] IMPLICIT NULL,
+    localValueRef    [17] IMPLICIT ValueRef,
+    importValueRef   [18] IMPLICIT ValueRef,
+    valueNotation    [19] IMPLICIT OCTET STRING
+}
+
+
+
+SpecialIntegerValue ::= ENUMERATED { min-int(0), max-int(1) }
+SpecialRealValue ::= ENUMERATED { minus-infinity-real(0), plus-infinity-real(1) }
+
+
+ValueRef ::= SEQUENCE
+{
+    valueName  MyString,
+    moduleName MyString, -- used for "modname.value" refs (may be null)
+    link       ValueDef, --snacc isEncDec:"FALSE"
+    module     Module    --snacc isEncDec:"FALSE"
+}
+
+NamedValue ::= SEQUENCE
+{
+   fieldName MyString, -- may be null
+   value     Value
+}
+
+NamedValueList ::= SEQUENCE OF NamedValue
+
+CTypeId  ::= ENUMERATED { c-choice(0), c-list(1), c-any(2), c-anydefinedby(3),
+                          c-lib(4), c-struct(5), c-typeref(6), c-no-type(7),
+                         c-typedef(8) }
+
+-- C Type Def Info - info used for routine naming
+-- and referencing from other types
+CTDI ::= SEQUENCE
+{
+    asn1TypeId         INTEGER, --snacc cTypeName:"enum BasicTypeChoiceId"
+    cTypeId            CTypeId,
+    cTypeName          MyString,
+    isPdu              BOOLEAN,
+    isEncDec           BOOLEAN, -- if false, no routines are gen
+                                -- and not included in encodings
+    isPtrForTypeDef    BOOLEAN,
+    isPtrForTypeRef    BOOLEAN,
+    isPtrInChoice      BOOLEAN,
+    isPtrForOpt        BOOLEAN,
+
+               -- defines these names, used by references
+    optTestRoutineName MyString, -- routine/macro to check whether
+                                 -- opt type is present
+    defaultFieldName   MyString, -- base for generating field names
+
+    printRoutineName   MyString,
+    encodeRoutineName  MyString,
+    decodeRoutineName  MyString,
+    freeRoutineName    MyString,
+
+    genPrintRoutine    BOOLEAN,
+    genEncodeRoutine   BOOLEAN,
+    genDecodeRoutine   BOOLEAN,
+    genFreeRoutine     BOOLEAN,
+    genTypeDef         BOOLEAN
+}
+
+
+--
+-- CTRI (C Type Ref Info) is used for generating C typedefinitions
+-- from the ASN.1 types info
+CTRI ::= SEQUENCE
+{
+    cTypeId CTypeId,
+    cFieldName MyString,
+    cTypeName  MyString,
+    isPtr BOOLEAN,
+--    isEndCType BOOLEAN,        false for struct/union def --
+    cNamedElmts CNamedElmts OPTIONAL,      -- for C_LIB bits/int/enums
+    choiceIdValue INTEGER,     -- enum value of this c field
+    choiceIdSymbol MyString,   -- this fields sym in choiceId enum
+    choiceIdEnumName MyString,
+    choiceIdEnumFieldName MyString,
+    optTestRoutineName MyString, -- these names are gained from refd type def
+    printRoutineName   MyString,   -- or are over-ridden snacc attribute comment
+    encodeRoutineName  MyString,
+    decodeRoutineName  MyString,
+    freeRoutineName    MyString,
+    isEncDec           BOOLEAN -- whether part of enc value
+}
+
+CNamedElmts ::= SEQUENCE OF CNamedElmt
+
+CNamedElmt ::= SEQUENCE
+{
+    name MyString,
+    value INTEGER
+}
+
+
+CxxTDI ::= SEQUENCE
+{
+    asn1TypeId         INTEGER, --snacc cTypeName:"enum BasicTypeChoiceId"
+    className          MyString,
+    isPdu              BOOLEAN,
+    isEnc              BOOLEAN,
+    isPtrForTypeDef    BOOLEAN,
+    isPtrForOpt        BOOLEAN,
+    isPtrInChoice      BOOLEAN,
+    isPtrInSetAndSeq   BOOLEAN,
+    isPtrInList        BOOLEAN,
+    optTestRoutineName MyString,
+    defaultFieldName   MyString -- base for generating field names
+}
+
+
+
+CxxTRI ::= SEQUENCE
+{
+    isEnc BOOLEAN,
+    className MyString,
+    fieldName MyString,
+    isPtr BOOLEAN,
+    namedElmts CNamedElmts,
+    choiceIdSymbol MyString,
+    choiceIdValue INTEGER,
+    optTestRoutineName MyString
+}
+
+IDLTDI ::= SEQUENCE
+{
+    asn1TypeId         INTEGER, --snacc cTypeName:"enum BasicTypeChoiceId"
+    typeName           MyString,
+    isPdu              BOOLEAN,
+    isEnc              BOOLEAN,
+    isPtrForTypeDef    BOOLEAN,
+    isPtrForOpt        BOOLEAN,
+    isPtrInChoice      BOOLEAN,
+    isPtrInSetAndSeq   BOOLEAN,
+    isPtrInList        BOOLEAN,
+    optTestRoutineName MyString,
+    defaultFieldName   MyString -- base for generating field names
+}
+
+IDLTRI ::= SEQUENCE
+{
+    isEnc BOOLEAN,
+    typeName MyString,
+    fieldName MyString,
+    isPtr BOOLEAN,
+    namedElmts CNamedElmts,
+    choiceIdSymbol MyString,
+    choiceIdValue INTEGER,
+    optTestRoutineName MyString
+}
+
+-- use snacc compiler directives to overide the builtin types.
+--
+-- All strings used in module data struct are null terminated so
+-- can just use a char*
+-- Note the snacc comments before the PrintableString
+-- bind with the MyString TypeDef and the ones after PrintableString
+-- bind with the PrintableString Type ref.
+
+
+MyString ::= --snacc isPtrForTypeDef:"FALSE"
+             --snacc isPtrForTypeRef:"FALSE"
+             --snacc isPtrInChoice:"FALSE"
+             --snacc isPtrForOpt:"FALSE"
+             --snacc optTestRoutineName:"MYSTRING_NON_NULL"
+             --snacc genPrintRoutine:"FALSE"
+             --snacc genEncodeRoutine:"FALSE"
+             --snacc genDecodeRoutine:"FALSE"
+             --snacc genFreeRoutine:"FALSE"
+             --snacc printRoutineName:"printMyString"
+             --snacc encodeRoutineName:"EncMyString"
+             --snacc decodeRoutineName:"DecMyString"
+             --snacc freeRoutineName:"FreeMyString"
+             PrintableString --snacc cTypeName:"char*"
+
+END

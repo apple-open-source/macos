@@ -355,6 +355,7 @@ static int trap_expected;
 /* Nonzero if we want to give control to the user when we're notified
    of shared library events by the dynamic linker.  */
 static int stop_on_solib_events;
+static struct breakpoint *solib_step_bp;
 #endif
 
 #ifdef HP_OS_BUG
@@ -1094,6 +1095,7 @@ breakpoints and/or watchpoints.\n");
     {
       wait_for_inferior ();
       normal_stop ();
+      /* Why doesn't normal_stop set target_executing to 0? */
       target_executing = 0;
     }
 }
@@ -1366,11 +1368,25 @@ fetch_inferior_event (void *client_data)
 	 function. Let the continuations for the commands do the rest,
 	 if there are any. */
       do_exec_cleanups (old_cleanups);
+      /* FIXME: Because proceed is asynchronous, I need to unset
+	 metrowerks_stepping here.  I tried to do it with an exec
+	 cleanup, but it turns out that the old_cleanups is set
+	 in handle_inferior_event, so anything you put on the
+	 exec_cleanups chain BEFORE you get the first inferior
+	 event never gets run. */
+
+      if (metrowerks_stepping)
+	metrowerks_stepping = 0;
+
       normal_stop ();
       if (step_multi && stop_step)
 	inferior_event_handler (INF_EXEC_CONTINUE, NULL);
       else
-	inferior_event_handler (INF_EXEC_COMPLETE, NULL);
+        {
+          /* Why doesn't normal_stop set target_executing to 0? */
+          target_executing = 0;
+	  inferior_event_handler (INF_EXEC_COMPLETE, NULL);
+        }
     }
 }
 
@@ -2496,6 +2512,8 @@ handle_inferior_event (struct execution_control_state *ecs)
 	case BPSTAT_WHAT_CHECK_SHLIBS_RESUME_FROM_HOOK:
 #ifdef SOLIB_ADD
 	  {
+	    int solib_changed = 0;
+
 	    /* Remove breakpoints, we eventually want to step over the
 	       shlib event breakpoint, and SOLIB_ADD might adjust
 	       breakpoint addresses via breakpoint_re_set.  */
@@ -2515,7 +2533,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 		*/
 		int was_sync_execution = sync_execution;
 		target_terminal_ours_for_output ();
-		SOLIB_ADD (NULL, 0, NULL);
+		solib_changed = SOLIB_ADD (NULL, 0, NULL);
 		if (was_sync_execution && !sync_execution)
 		  {
 		    async_disable_stdin();
@@ -2531,9 +2549,25 @@ handle_inferior_event (struct execution_control_state *ecs)
 	       gdb of events.  This allows the user to get control
 	       and place breakpoints in initializer routines for
 	       dynamically loaded objects (among other things).  */
-	    if (stop_on_solib_events)
+	    if (stop_on_solib_events && solib_changed)
 	      {
 		stop_stepping (ecs);
+		if (step_resume_breakpoint != NULL)
+		  {
+		    struct symtab_and_line fsr_sal;
+
+		    INIT_SAL (&fsr_sal);
+
+		    fsr_sal.symtab = NULL;
+		    fsr_sal.line = 0;
+		    fsr_sal.pc = step_resume_breakpoint->address;
+
+		    solib_step_bp = set_breakpoint_sal (fsr_sal);
+		    solib_step_bp->disposition = del;
+		    solib_step_bp->frame = step_resume_breakpoint->frame;
+		    if (breakpoints_inserted)
+		      insert_breakpoints ();
+		  }
 		return;
 	      }
 
@@ -2677,6 +2711,22 @@ handle_inferior_event (struct execution_control_state *ecs)
 	/* We might be doing a BPSTAT_WHAT_SINGLE and getting a signal.
 	   So definately need to check for sigtramp here.  */
 	check_sigtramp2 (ecs);
+
+	/* Here is a subtle point.  If you start stepping IN a prologue,
+	   you will record the step_frame_address BEFORE it has been set
+	   for the frame.  Then when you go to set a step resume breakpoint,
+	   you will put the step_frame_address into it.  This won't match
+	   the current frame's address till you return to your frame's caller
+	   so you won't remove the step_resume_breakpoint.  Since 
+	   step_resume_breakpoint shortcuts the check for stepping_range,
+	   you won't ever stop... */
+
+        if (metrowerks_stepping)
+	  {
+	    CORE_ADDR current_frame_addr = FRAME_FP (get_current_frame ());
+	    if (current_frame_addr != step_frame_address)
+	      step_frame_address = current_frame_addr;
+	  }
 	keep_going (ecs);
 	return;
       }
@@ -2820,6 +2870,22 @@ handle_inferior_event (struct execution_control_state *ecs)
 	print_stop_reason (END_STEPPING_RANGE, 0);
 	stop_stepping (ecs);
 	return;
+      }
+
+    /* We have reached the end of the stepping range.  It would be
+       great if we could let the rest of the following code handle
+       this right now, but it fails if we have no symbols available.  
+       Then we end up in the "stepped into a function" code 'cause
+       ecs->stop_func_name is NULL.  But step_over_function is never
+       the right thing to do here... */
+
+    if (metrowerks_stepping && stop_pc == step_range_end)
+      {
+	stop_step = 1;
+	print_stop_reason (END_STEPPING_RANGE, 0);
+	stop_stepping (ecs);
+	return;
+      
       }
 
     if (stop_pc == ecs->stop_func_start		/* Quick test */
@@ -3646,11 +3712,6 @@ and/or watchpoints.\n");
     }
   breakpoints_inserted = 0;
 
-  /* Delete the breakpoint we stopped at, if it wants to be deleted.
-     Delete any breakpoint that is to be deleted at the next stop.  */
-
-  breakpoint_auto_delete (stop_bpstat);
-
   /* If an auto-display called a function and that got a signal,
      delete that auto-display to avoid an infinite recursion.  */
 
@@ -3697,31 +3758,56 @@ and/or watchpoints.\n");
 	  && selected_frame)
 	{
 	  int bpstat_ret;
+	  int solib_step_bpstat_p = 0;
 	  int source_flag;
 	  int do_frame_printing = 1;
 
-	  bpstat_ret = bpstat_print (stop_bpstat);
-	  switch (bpstat_ret)
+#ifdef SOLIB_ADD
+	  if (stop_on_solib_events 
+	      && solib_step_bp != NULL)
 	    {
-	    case PRINT_UNKNOWN:
-	      if (stop_step
-		  && step_frame_address == FRAME_FP (get_current_frame ())
-		  && step_start_function == find_pc_function (stop_pc))
-		source_flag = SRC_LINE;   /* finished step, just print source line */
-	      else
-		source_flag = SRC_AND_LOC;    /* print location and source line */
-	      break;
-	    case PRINT_SRC_AND_LOC:
-	      source_flag = SRC_AND_LOC;    /* print location and source line */
-	      break;
-	    case PRINT_SRC_ONLY:
-	      source_flag = SRC_LINE;
-	      break;
-	    case PRINT_NOTHING:
-	      do_frame_printing = 0;
-	      break;
-	    default:
-	      internal_error ("Unknown value.");
+	      bpstat bs = stop_bpstat;
+	      int num = bpstat_num (&bs);
+	      if (num != 0)
+		{
+		  int nother = bpstat_num (&bs);
+	      
+		  if (nother == 0 
+		      && num == solib_step_bp->number)
+		  {
+		    solib_step_bpstat_p = 1;
+		    print_stop_reason (END_STEPPING_RANGE, 0);
+		    solib_step_bp = NULL;
+		  }
+		}
+	    }
+
+#endif /* SOLIB_ADD */
+	  if (!solib_step_bpstat_p)
+	    {
+	      bpstat_ret = bpstat_print (stop_bpstat);
+	      switch (bpstat_ret)
+		{
+		case PRINT_UNKNOWN:
+		  if (stop_step
+		      && step_frame_address == FRAME_FP (get_current_frame ())
+		      && step_start_function == find_pc_function (stop_pc))
+		    source_flag = SRC_LINE;   /* finished step, just print source line */
+		  else
+		    source_flag = SRC_AND_LOC;    /* print location and source line */
+		  break;
+		case PRINT_SRC_AND_LOC:
+		  source_flag = SRC_AND_LOC;    /* print location and source line */
+		  break;
+		case PRINT_SRC_ONLY:
+		  source_flag = SRC_LINE;
+		  break;
+		case PRINT_NOTHING:
+		  do_frame_printing = 0;
+		  break;
+		default:
+		  internal_error ("Unknown value.");
+		}
 	    }
 #ifdef UI_OUT
 	  /* For mi, have the same behavior every time we stop:
@@ -3772,6 +3858,13 @@ and/or watchpoints.\n");
   TUIDO (((TuiOpaqueFuncPtr) tui_vCheckDataValues, selected_frame));
 
 done:
+
+  /* Delete the breakpoint we stopped at, if it wants to be deleted.
+     Delete any breakpoint that is to be deleted at the next stop.  */
+  
+  breakpoint_auto_delete (stop_bpstat);
+
+
   annotate_stopped ();
   if (!stop_stack_dummy)
     {

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.const.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.const.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
 /*
  * sh.const.c: String constants for tcsh.
  */
@@ -36,12 +36,15 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.const.c,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $")
+RCSID("$Id: tc.const.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $")
 
 Char STRlogout[]	= { 'l', 'o', 'g', 'o', 'u', 't', '\0' };
 Char STRautologout[]	= { 'a', 'u', 't', 'o', 'l', 'o', 'g', 'o', 'u', 't', 
 			    '\0' };
 Char STRdefautologout[] = { '6', '0', '\0' };
+#ifdef convex
+Char STRrootdefautologout[] = { '1', '5', '\0' };
+#endif
 Char STRautomatic[]	= { 'a', 'u', 't', 'o', 'm', 'a', 't', 'i', 'c',
 			    '\0' };
 Char STRhangup[]	= { 'h', 'a', 'n', 'g', 'u', 'p', '\0' };
@@ -57,6 +60,7 @@ Char STRminus1[]	= { '-', '1', '\0' };
 Char STRmaxint[]	= { '0', 'x', '7', 'f', 'f', 'f', 'f', 'f', 'f', 'f',
 			    '\0' };
 Char STRcolon[]		= { ':', '\0' };
+Char STR_[]		= { '_', '\0' };
 Char STRNULL[]		= { '\0' };
 Char STRtcsh[]		= { 't', 'c', 's', 'h', '\0' };
 Char STRhome[]		= { 'h', 'o', 'm', 'e', '\0' };
@@ -111,12 +115,14 @@ Char STRmerge[]		= { 'm', 'e', 'r', 'g', 'e', '\0' };
 Char STRtildothist[]	= { '~', '/', '.', 'h', 'i', 's', 't', 'o', 'r', 
 			    'y', '\0' };
 
+#ifdef NLS_CATALOGS
+Char STRcatalog[]	= { 'c', 'a', 't', 'a', 'l', 'o', 'g', '\0' };
+#endif /* NLS_CATALOGS */
 #ifdef KANJI
 Char STRnokanji[]	= { 'n', 'o', 'k', 'a', 'n', 'j', 'i', '\0' };
 # ifdef DSPMBYTE
 Char STRdspmbyte[]	= { 'd', 's', 'p', 'm', 'b', 'y', 't', 'e', '\0' };
-# endif
-# if defined(DSPMBYTE)
+Char STRmmliteral[]	= { '-', '-', 'l', 'i', 't', 'e', 'r', 'a', 'l', '\0' };
 Char STRKEUC[]		= { 'e', 'u', 'c', '\0' };
 Char STRKSJIS[]		= { 's', 'j', 'i', 's', '\0' };
 #  ifdef MBYTEDEBUG	/* Sorry, use for beta testing */
@@ -124,34 +130,63 @@ Char STRmbytemap[]	= { 'm', 'b', 'y', 't', 'e', 'm', 'a', 'p', '\0' };
 #  endif /* MBYTEMAP */
 /* PATCH IDEA FROM Issei.Suzuki VERY THANKS */
 /* dspmbyte autoset trap */
-/* STRLANGEUC,STRLANGEUCB = EUC Trap */
+/* STRLANGEUCJP,STRLANGEUCJPB = EUCJP Trap */
+/* STRLANGEUCKR,STRLANGEUCKRB = EUCKR Trap */
 /* STRLANGSJIS,STRLANGSJISB = SJIS Trap */
-#  if defined(__FreeBSD__) || defined(__uxps__) || defined(linux) || defined(sgi) /* linux? */
-Char STRLANGEUC[]	= { 'j', 'a', '_', 'J', 'P', '.', 'E', 'U', 'C', '\0' };
+#  if defined(__FreeBSD__) || defined(__uxps__) || defined(sgi)  || defined(aix) || defined(__CYGWIN__) || defined(linux)
+Char STRLANGEUCJP[]	= { 'j', 'a', '_', 'J', 'P', '.', 'E', 'U', 'C', '\0' };
+Char STRLANGEUCKR[]	= { 'k', 'o', '_', 'K', 'R', '.', 'E', 'U', 'C', '\0' };
 #   if defined(__uxps__)
-Char STRLANGEUCB[]	= { 'j', 'a', 'p', 'a', 'n', '\0' };
+Char STRLANGEUCJPB[]	= { 'j', 'a', 'p', 'a', 'n', '\0' };
+Char STRLANGEUCKRB[]	= { 'k', 'o', 'r', 'e', 'a', '\0' };
 #   elif defined(linux)
-Char STRLANGEUCB[]	= { 'j', 'a', '_', 'J', 'P', '.', 'u', 'j', 'i', 's',
+Char STRLANGEUCJPB[]	= { 'j', 'a', '_', 'J', 'P', '.', 'u', 'j', 'i', 's',
 			    '\0' };
+Char STRLANGEUCKRB[]	= { 'k', 'o', '_', 'K', 'R', '.', 'e', 'u', 'c', '\0' };
+#   elif defined(aix)
+Char STRLANGEUCJPB[]	= { 'j', 'a', '_', 'J', 'P', '\0' };
+Char STRLANGEUCKRB[]	= { 'k', 'o', '_', 'K', 'R', '\0' };
 #   else
-Char STRLANGEUCB[]	= { '\0' };
+Char STRLANGEUCJPB[]	= { '\0' };
+Char STRLANGEUCKRB[]	= { '\0' };
 #   endif
 Char STRLANGSJIS[]	= { 'j', 'a', '_', 'J', 'P', '.', 'S', 'J', 'I', 'S',
 			    '\0' };
 Char STRLANGSJISB[]	= { '\0' };
+#  elif defined(linux)
+Char STRLANGEUC[]	= { 'j', 'a', '_', 'J', 'P', '.', 'e', 'u', 'c', 'J',
+			    'P', '\0' };
+Char STRLANGEUCB[]	= { 'j', 'a', '_', 'J', 'P', '.', 'u', 'j', 'i', 's',
+			    '\0' };
+Char STRLANGSJIS[]	= { 'j', 'a', '_', 'J', 'P', '.', 'S', 'J', 'I', 'S',
+			    '\0' };
+Char STRLANGSJISB[]	= { '\0' };
 #  elif defined(__uxpm__)
-Char STRLANGEUC[]	= { 'j', 'a', 'p', 'a', 'n', '\0' };
-Char STRLANGEUCB[]	= { '\0' };
+Char STRLANGEUCJP[]	= { 'j', 'a', 'p', 'a', 'n', '\0' };
+Char STRLANGEUCKR[]	= { 'k', 'o', 'r', 'e', 'a', '\0' };
+Char STRLANGEUCJPB[]	= { '\0' };
+Char STRLANGEUCKRB[]	= { '\0' };
 Char STRLANGSJIS[]	= { '\0' };
 Char STRLANGSJISB[]	= { '\0' };
 #  elif defined(SOLARIS2)
-Char STRLANGEUC[]	= { 'j', 'a', '\0' };
-Char STRLANGEUCB[]	= { 'j', 'a', 'p', 'a', 'n', 'e', 's', 'e', '\0' };
+Char STRLANGEUCJP[]	= { 'j', 'a', '\0' };
+Char STRLANGEUCKR[]	= { 'k', 'o', '\0' };
+Char STRLANGEUCJPB[]	= { 'j', 'a', 'p', 'a', 'n', 'e', 's', 'e', '\0' };
+Char STRLANGEUCKRB[]	= { 'k', 'o', 'r', 'e', 'a', 'n', '\0' };
+Char STRLANGSJIS[]	= { '\0' };
+Char STRLANGSJISB[]	= { '\0' };
+#  elif defined(hpux)
+Char STRLANGEUCJP[]	= { 'j', 'a', '_', 'J', 'P', '.', 'e', 'u', 'c', 'J', 'P' };
+Char STRLANGEUCKR[]	= { 'k', 'o', '_', 'K', 'R', '.', 'e', 'u', 'c', 'K', 'R' };
+Char STRLANGEUCJPB[]	= { '\0' };
+Char STRLANGEUCKRB[]	= { '\0' };
 Char STRLANGSJIS[]	= { '\0' };
 Char STRLANGSJISB[]	= { '\0' };
 #  else
-Char STRLANGEUC[]	= { '\0' };
-Char STRLANGEUCB[]	= { '\0' };
+Char STRLANGEUCJP[]	= { '\0' };
+Char STRLANGEUCKR[]	= { '\0' };
+Char STRLANGEUCJPB[]	= { '\0' };
+Char STRLANGEUCKRB[]	= { '\0' };
 Char STRLANGSJIS[]	= { '\0' };
 Char STRLANGSJISB[]	= { '\0' };
 #  endif
@@ -179,6 +214,7 @@ Char STRKCORRECT[]	= { 'C', 'O', 'R', 'R', 'E', 'C', 'T', '>', '%', 'R',
 Char STRunalias[]	= { 'u', 'n', 'a', 'l', 'i', 'a', 's', '\0' };
 Char STRalias[]		= { 'a', 'l', 'i', 'a', 's', '\0' };
 Char STRprecmd[]	= { 'p', 'r', 'e', 'c', 'm', 'd', '\0' };
+Char STRpostcmd[]	= { 'p', 'o', 's', 't', 'c', 'm', 'd', '\0' };
 Char STRcwdcmd[]	= { 'c', 'w', 'd', 'c', 'm', 'd', '\0' };
 Char STRperiodic[]	= { 'p', 'e', 'r', 'i', 'o', 'd', 'i', 'c', '\0' };
 Char STRtperiod[]	= { 't', 'p', 'e', 'r', 'i', 'o', 'd', '\0' };
@@ -372,19 +408,25 @@ Char STRsys53[] 	= { 's', 'y', 's', '5', '.', '3', '\0' };
 Char STRver[]		= { 'v', 'e', 'r', '\0' };
 #endif /* apollo */
 
-#ifdef _OSD_POSIX
+#ifndef IS_ASCII
 Char STRwarnebcdic[]    = { 'w', 'a', 'r', 'n', 'e', 'b', 'c', 'd', 'i', 'c', '\0' };
 #endif
 
 #ifdef COLOR_LS_F
-Char STRls[]		= { 'l', 's', '\0' };
 Char STRlsmF[]		= { 'l', 's', '-', 'F', '\0' };
 Char STRcolor[]		= { 'c', 'o', 'l', 'o', 'r', '\0' };
 Char STRmmcolormauto[]	= {'-', '-', 'c', 'o', 'l', 'o', 'r', '=', 'a', 'u', 't', 'o', '\0' };
 Char STRLS_COLORS[]	= { 'L', 'S', '_', 'C', 'O', 'L', 'O', 'R', 'S', '\0' };
 #endif /* COLOR_LS_F */
 
+Char STRls[]		= { 'l', 's', '\0' };
+
 Char STRup[]		= { 'u', 'p', '\0' };
 Char STRdown[]		= { 'd', 'o', 'w', 'n', '\0' };
 Char STRleft[]		= { 'l', 'e', 'f', 't', '\0' };
 Char STRright[]		= { 'r', 'i', 'g', 'h', 't', '\0' };
+Char STRend[]           = { 'e', 'n', 'd', '\0' };
+
+#ifdef COLORCAT
+Char STRcolorcat[]	= { 'c', 'o', 'l', 'o', 'r', 'c', 'a', 't', '\0' };
+#endif

@@ -17,7 +17,7 @@
 
 static int pound_arg, equal_arg;
 
-int pop2_ok (int sock, char *argbuf)
+static int pop2_ok (int sock, char *argbuf)
 /* parse POP2 command response */
 {
     int ok;
@@ -51,12 +51,16 @@ int pop2_ok (int sock, char *argbuf)
     return(ok);
 }
 
-int pop2_getauth(int sock, struct query *ctl, char *buf)
+static int pop2_getauth(int sock, struct query *ctl, char *buf)
 /* apply for connection authorization */
 {
-    return(gen_transact(sock,
+    int status;
+
+    strcpy(shroud, ctl->password);
+    status = gen_transact(sock,
 		  "HELO %s %s",
-		  ctl->remotename, ctl->password));
+		  ctl->remotename, ctl->password);
+    shroud[0] = '\0';
 }
 
 static int pop2_getrange(int sock, struct query *ctl, const char *folder, 
@@ -124,15 +128,16 @@ static int pop2_logout(int sock, struct query *ctl)
 const static struct method pop2 =
 {
     "POP2",				/* Post Office Protocol v2 */
-#if INET6
-    "pop2",				/* standard POP3 port */
-#else /* INET6 */
+#if INET6_ENABLE
+    "pop2",				/* standard POP2 port */
+    "pop2",				/* ssl POP2 port */
+#else /* INET6_ENABLE */
     109,				/* standard POP2 port */
-#endif /* INET6 */
+    109,				/* ssl POP2 port - not */
+#endif /* INET6_ENABLE */
     FALSE,				/* this is not a tagged protocol */
     FALSE,				/* does not use message delimiter */
     pop2_ok,				/* parse command response */
-    NULL,				/* no password canonicalization */
     pop2_getauth,			/* get authorization */
     pop2_getrange,			/* query range of messages */
     NULL,				/* no way to get sizes */

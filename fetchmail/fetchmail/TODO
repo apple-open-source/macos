@@ -1,0 +1,53 @@
+   (This document was generated from todo.html)
+
+     _________________________________________________________________
+
+                       Fetchmail Bugs and To-Do Items
+
+   I  try to respond to urgent bug reports in a timely way. But fetchmail
+   is  now  pretty  mature  and  I  have  many other projects, so I don't
+   personally  chase obscure or marginal problems. Help with any of these
+   will be cheerfully accepted.
+
+   Using  LMTP  alias  with  a  local  name that is not a full name fails
+   horribly (the LMTP port never gets stripped off the name).
+
+   The  UIDL  code  seems rather broken. It's a nasty swamp. Somebody who
+   actually  uses  it  should  fix  it -- every time I try I seem to make
+   things worse....
+
+   POP3  can't  presently  distinguish  a  wedged  or down server from an
+   authentication  failure.  Possible  fix: after issuing a PASS command.
+   wait 300 (xx) seconds for a "-ERR" or a "+OK" . If nothing comes back,
+   retry at the next poll event and generate no errors. If we get an -ERR
+   then log an authentication failure.
+
+   SMTP  authentication  a  la  RFC  2554 ought to be supported. The Exim
+   reference has a whole chapter on this topic.
+
+   It  has been reported that multidrop name matching fails when the name
+   to  be matched contains a Latin-1 umlaut. Dollars to doughnuts this is
+   some  kind  of character sign-extension problem. Trouble is, it's very
+   likely in the BIND libraries. Someone should go in with a debugger and
+   check this.
+
+   In  the  SSL  support,  add authentication of Certifying Authority (Is
+   this a Certifying Authority we recognize?).
+
+   Laszlo  Vecsey  writes:  "I  believe qmail uses a technique of writing
+   temporary files to nfs, and then moving them into place to ensure that
+   they're written. Actually a hardlink is made to the temporary file and
+   the  destination  name  in  a  new  directory,  then  the first one is
+   unlinked..  maybe  a  combination of this will help with the fetchmail
+   lock file."
+
+   Move  everything to using service strings rather that port numbers, so
+   we  can  get rid of ENABLE_INET6 everywhere but in SockOpen (this will
+   get rid of the kluge in rcfile_y.y).
+
+   The Debian bug-tracking page for fetchmail lists other bug reports.
+     _________________________________________________________________
+
+
+
+    Eric S. Raymond <esr@thyrsus.com>

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -41,9 +41,7 @@ ZEND_API int sub_function(zval *result, zval *op1, zval *op2);
 ZEND_API int mul_function(zval *result, zval *op1, zval *op2);
 ZEND_API int div_function(zval *result, zval *op1, zval *op2);
 ZEND_API int mod_function(zval *result, zval *op1, zval *op2);
-ZEND_API int boolean_or_function(zval *result, zval *op1, zval *op2);
 ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2);
-ZEND_API int boolean_and_function(zval *result, zval *op1, zval *op2);
 ZEND_API int boolean_not_function(zval *result, zval *op1);
 ZEND_API int bitwise_not_function(zval *result, zval *op1);
 ZEND_API int bitwise_or_function(zval *result, zval *op1, zval *op2);
@@ -64,18 +62,27 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 	long local_lval;
 	double local_dval;
 	char *end_ptr;
+	int conv_base=10;
 
 	if (!length) {
 		return 0;
 	}
 	
+	/* handle hex numbers */
+	if (length>=2 && str[0]=='0' && (str[1]=='x' || str[1]=='X')) {
+		conv_base=16;
+	}
 	errno=0;
-	local_lval = strtol(str, &end_ptr, 10);
+	local_lval = strtol(str, &end_ptr, conv_base);
 	if (errno!=ERANGE && end_ptr == str+length) { /* integer string */
 		if (lval) {
 			*lval = local_lval;
 		}
 		return IS_LONG;
+	}
+
+	if (conv_base==16) { /* hex string, under UNIX strtod() messes it up */
+		return 0;
 	}
 
 	errno=0;
@@ -93,7 +100,7 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 		if (length>16) {
 			register char *ptr=str, *end=str+length;
 			
-			while(ptr<end) {
+			while (ptr<end) {
 				switch(*ptr++) {
 					case 'e':
 					case 'E':

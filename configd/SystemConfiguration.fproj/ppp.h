@@ -23,11 +23,9 @@
 #ifndef _PPP_H
 #define _PPP_H
 
-
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include "ppp_msg.h"
-
 
 __BEGIN_DECLS
 
@@ -42,6 +40,20 @@ int		PPPExec			(int			ref,
 					 u_long			requestLen,
 					 void			**reply,
 					 u_long			*replyLen);
+
+#ifdef	NOT_NEEDED
+int		PPPConnect		(int			ref,
+					 u_long			link);
+
+int		PPPDisconnect		(int			ref,
+					 u_long			link);
+
+int		PPPListen		(int			ref,
+					 u_long			link);
+
+int		PPPApply		(int			ref,
+					 u_long			link);
+#endif	/* NOT_NEEDED */
 
 int		PPPGetNumberOfLinks	(int			ref,
 					 u_long			*nLinks);
@@ -59,6 +71,14 @@ int		PPPGetOption		(int			ref,
 					 u_long			option,
 					 void			**data,
 					 u_long			*dataLen);
+
+#ifdef	NOT_NEEDED
+int		PPPSetOption		(int			ref,
+					 u_long			link,
+					 u_long			option,
+					 void			*data,
+					 u_long			dataLen);
+#endif	/* NOT_NEEDED */
 
 int		PPPStatus		(int			ref,
 					 u_long			link,

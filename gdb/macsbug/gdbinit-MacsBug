@@ -56,34 +56,83 @@
 # compatible with the version of gdb on that system).  As such these are not as
 # portable as the pure script version on which this implementation is based.
 
-# Revision history
+# Revision history:
 #
+#                                              Version 1.0
+#                                              -----------
 #	12-Dec-2000	ILR	Took the original gdbinit-MacsBug-without-plugin
 #				  script as the starting point for this script.
 #				  However this script is a shadow of its former
 #				  self!  Most of the commands are now written using
 #				  the Apple gdb plugin architecture.  Also a
 #				  MacsBug-like UI is implemented.
-#	3-Jan-2001	ILR	Override the LIST command to make listing contiguous
-#				  when the MacsBug screen is off.
-#	9-Jan-2001	ILR	Removed G command and made it a plugin to get around
+#	 3-Jan-2001	ILR	Override the L[IST] command to make listing
+#				  contiguous when the MacsBug screen is off.
+#	 9-Jan-2001	ILR	Removed G command and made it a plugin to get around
 #				  gdb bug involving executing commands assoicated
 #				  with a breakpoint initiated from a CONTINUE
 #				  executed withing a DEFINE command.
 #				Added RA (run again) command.
 #				Fixed some capitalization errors in help commands.
 #
+#                                              Version 1.1
+#                                              -----------
+#	 9-Feb-2001	ILR	Removed MQ and MSR from sidebar reg display.  Min
+#				  vertical screen size now 44 instead of 46.
+#	17-Feb-2001	ILR	Renamed MacsBug plugin to MacsBug_plugin and changed
+#				  all related documentation.
+#				Removed the install_MacsBug script.
+#	24-Feb-2001	ILR	Fixed LOG command to handle '~'s in the pathname.
+#	17-Mar-2001	ILR	Fixed plugin code to more gracefully coexist with
+#				  ProjectBuilder. There were redirection interactions
+#				  between PB and the plugin.
+#				Added istty() tests in key points to prevent MacsBug
+#				  from doing xterm operations when not talking to a
+#				  terminal as in the case with ProjectBuilder.
+#				Fixed a bug in the TD command which had a format
+#				  error displaying the XER SOC bits.
+#				Enhanced gdb API to allow DOCUMENT help with option-
+#				   space formatting to be replaced with real spaces
+#				   to display correctly in Project Builder.
+#	 31-Mar-2001	ILR	Recognize all the abbreviations for the LIST command
+#				  to allow these to produce contiguous listings when
+#				  the MacsBug screen is off.
+#				Override N[EXT], S[TEP], NEXTI, STEPI so that these
+#				   also produce contiguous listings when the MacsBug
+#				   screen is off.
+#				Suppress attempts to make listings contiguous if such
+#				  commands are run from scripts.
+#	 4-Apr-2001	ILR	Enhanced WH to display file/line info and the source
+#				  line if possible.
+#	 3-May-2001	ILR	Changed WH so that it always defaults to WH $pc when
+#				  the argument is omitted.
+#				Fixed bug in register display to adjust the stack
+#				  display to account for a changed window size.
+#				Fixed scroll mode disassembly displays to wrap lines
+#				  instead of being chopped off by register sidebar.
+#	17-May-2001	ILR	Changed WH again to act something like gdb's INFO
+#				  LINE command. Now takes same syntax for argument.
+#	 2-Jun-2001	ILR	Changed TF to plugin and made it more MacsBug-like.
+#				  TV finially implemented!
+#	 8-Jun-2001	ILR	Converted BRD, BRC, SO, and T to plugins.  Only ES
+#				  now remains as a DEFINE (not counting mb-notes).
+#				Fixed WH to show context around target line.
+#				Fixed bug in error recovery for temporarily
+#				  reclassifying HELP classes.
+#				Added SET mb-sidebar to enable/disable the side-
+#				  bar register display when ID, IL, IP, SO, or SI
+#				  are done in scroll (normal gdb) mode. 
+#
 ###################################################################################
 ###################################################################################
 #
 # TO DO:
-#  1. Fix TV to display AltiVec regs when OS gives them to gdb and gdb to me.
-#  2. Fix the TF display.
+#    I cannot think of a thing more I want to do with this :-)
 #
 ###################################################################################
 ###################################################################################
 
-# Current highest command identifier value for $__lastcmd__ is 44
+# Current highest command identifier value for $__lastcmd__ is 48
 # 19, 20 are available.
 
 # In each command assign $__lastcmd__ to a unique command number for each new
@@ -201,41 +250,6 @@ end
 # for them with "HELP macsbug" along with all other MacsBug commands.             #
 ###################################################################################
 #
-# BRC [addr]
-#
-define BRC
-    if ($argc == 0)
-	delete
-    else
-	clear $arg0
-    end
-    
-    set $__lastcmd__ = 1
-end
-document BRC
-BRC [addr] -- Clear all breakpoints or one breakpoint at addr.
-See also gdb's DELETE command (clears breakpoints by number), and DISABLE.
-end
-
-###################################################################################
-#
-# BRD [n]
-#
-define BRD
-    if ($argc == 0)
-    	info breakpoints
-    else
-    	info breakpoints $arg0
-    end
-    
-    set $__lastcmd__ = 2
-end
-document BRD
-BRD -- Show all breakpoints (or breakpoint n).
-end
-
-###################################################################################
-#
 # ES
 #
 define ES
@@ -247,159 +261,6 @@ ES -- exit to shell (unconditionally quit gdb).
 end
 
 ###################################################################################
-#
-# MR
-#
-define MR
-    if ($argc != 0)
-    	__error Only the parameterless form of MR is supported.
-    else
-	finish
-    end
-    
-    set $__lastcmd__ = 15
-end
-document MR
-MR -- Return from current frame.
-Ê
-Macsbug features not supported: offset and addr arguments
-end
-
-###################################################################################
-#
-# T [n] [m]
-#
-define T
-    __is_running The program is not running.
-    
-    if ($__argc == 0)
-	SO
-    else
-    	if ($__argc == 1)
-	    SO $__arg0
-	else
-	    SO $__arg0 $__arg1
-	end
-    end
-    
-    #set $__lastcmd__ = 25
-end
-document T
-T [n] [m] -- Same as SO.
-end
-
-###################################################################################
-#
-# TF
-#
-#PowerPC FPU Registers
-#                                                  S S
-#          F           N I I Z I                   O Q C
-# FPSCR  F E V O U Z X A S D D M V F F             F R V V O U Z X N
-#        X X X X X X X N I I Z Z C R I C < > = ?   T T I E E E E E I RN
-#        1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 00
-#  
-# FPR0  = FFF 8000082004000     -NAN(000) 
-# FPR1  = 408 4700000000000      6.540000000000000e+2 
-# - - -
-# FPR30 = 000 0000000000000      0.000000000000000e+0 
-# FPR31 = 000 0000000000000      0.000000000000000e+0
-#
-# There's no way to display the floating regs in hex like this.  So we'll
-# just have to settle with what info registers $fN produces.  It's a
-# pretty good approximation so it isn't too bad.
-#
-define TF
-    # Following causes an appropriate error message if regs are unabailable.
-    set $accessible = $f0
-    
-    printf "PowerPC Vector Registers\n"
-    printf "                                                  S S\n"
-    printf "          F           N I I Z I                   O Q C\n"
-    printf " FPSCR  F E V O U Z X A S D D M V F F             F R V V O U Z X N\n"
-    printf "        X X X X X X X N I I Z Z C R I C < > = ?   T T I E E E E E I RN\n"
-    
-    printf "        "
-    set $i = 0
-    set $r = $fpscr
-    while ($i++ < 32)
-    	printf "%1d", ($r >> (32-$i)) & 1
-    	if ($i < 31)
-    	    printf " "
-    	end
-    end
-    printf "\n\n"
-    
-    info registers $f0
-    info registers $f1
-    info registers $f2
-    info registers $f3
-    info registers $f4
-    info registers $f5
-    info registers $f6
-    info registers $f7
-    info registers $f8
-    info registers $f9
-    info registers $f10
-    info registers $f11
-    info registers $f12
-    info registers $f13
-    info registers $f14
-    info registers $f15
-    info registers $f16
-    info registers $f17
-    info registers $f18
-    info registers $f19
-    info registers $f20
-    info registers $f21
-    info registers $f22
-    info registers $f23
-    info registers $f24
-    info registers $f25
-    info registers $f26
-    info registers $f27
-    info registers $f28
-    info registers $f29
-    info registers $f30
-    info registers $f31
-    
-    set $__lastcmd__ = 27
-end
-document TF
-TF -- Display the floating point registers.
-end
-
-###################################################################################
-#
-# TV
-#
-#PowerPC Vector Registers
-#                                                                      S
-# VRsave = 00000000                    N                               A
-#                                      J                               T
-# VSCR = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-#   
-# V0  = 00000000 00000000 00000000 00000000   0.0000e+0   0.0000e+0   0.0000e+0   0.0000e+0 
-# V1  = 53706F74 20636865 636B206F 66207472   1.0327e+12  1.9262e-19  4.3373e+21  1.8943e+23 
-# - - -
-# V30 = 7FFFDEAD 7FFFDEAD 7FFFDEAD 7FFFDEAD   NAN(222)    NAN(222)    NAN(222)    NAN(222) 
-# V31 = 7FFFDEAD 7FFFDEAD 7FFFDEAD 7FFFDEAD   NAN(222)    NAN(222)    NAN(222)    NAN(222)
-#
-define TV
-    printf "PowerPC Vector Registers\n"
-    printf "%c[31m", 0x1B
-    printf " Not available - can't get or manipulate the vector registers yet! Sorry. Sigh :-(\n"
-    printf "\n"
-    printf "%c[0m\n", 0x1B
-    info registers
-    
-    set $__lastcmd__ = 28
-end
-document TV
-TV -- Display the vector registers (not yet supported).
-end
-
-###################################################################################
 ###################################################################################
 
-load-plugin /usr/libexec/gdb/plugins/MacsBug/MacsBug_plugins
+load-plugin /usr/libexec/gdb/plugins/MacsBug/MacsBug_plugin

@@ -123,7 +123,7 @@ int mach_init_doit(int forkchild)
 		_atfork_child_routine = mach_atfork_child_routine;
                 _pthread_set_self(0);
                 cthread_set_self(0);
- 	}
+	}
 
 	/*
 	 *	Initialize the single mig reply port
@@ -209,7 +209,7 @@ int fork_mach_init()
 mach_port_t
 mach_task_self()
 {
-	return(mach_task_self_);
+	return(task_self_trap());
 }
 
 mach_port_t

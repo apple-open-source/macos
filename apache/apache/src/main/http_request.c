@@ -1,5 +1,8 @@
 /* ====================================================================
- * Copyright (c) 1995-1999 The Apache Group.  All rights reserved.
+ * The Apache Software License, Version 1.1
+ *
+ * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,46 +16,44 @@
  *    the documentation and/or other materials provided with the
  *    distribution.
  *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
+ * 3. The end-user documentation included with the redistribution,
+ *    if any, must include the following acknowledgment:
+ *       "This product includes software developed by the
+ *        Apache Software Foundation (http://www.apache.org/)."
+ *    Alternately, this acknowledgment may appear in the software itself,
+ *    if and wherever such third-party acknowledgments normally appear.
  *
- * 4. The names "Apache Server" and "Apache Group" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    apache@apache.org.
+ * 4. The names "Apache" and "Apache Software Foundation" must
+ *    not be used to endorse or promote products derived from this
+ *    software without prior written permission. For written
+ *    permission, please contact apache@apache.org.
  *
- * 5. Products derived from this software may not be called "Apache"
- *    nor may "Apache" appear in their names without prior written
- *    permission of the Apache Group.
+ * 5. Products derived from this software may not be called "Apache",
+ *    nor may "Apache" appear in their name, without prior written
+ *    permission of the Apache Software Foundation.
  *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the Apache Group
- *    for use in the Apache HTTP server project (http://www.apache.org/)."
- *
- * THIS SOFTWARE IS PROVIDED BY THE APACHE GROUP ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE APACHE GROUP OR
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
  * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  * ====================================================================
  *
  * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Group and was originally based
- * on public domain software written at the National Center for
- * Supercomputing Applications, University of Illinois, Urbana-Champaign.
- * For more information on the Apache Group and the Apache HTTP server
- * project, please see <http://www.apache.org/>.
+ * individuals on behalf of the Apache Software Foundation.  For more
+ * information on the Apache Software Foundation, please see
+ * <http://www.apache.org/>.
  *
+ * Portions of this software are based upon public domain software
+ * originally written at the National Center for Supercomputing Applications,
+ * University of Illinois, Urbana-Champaign.
  */
 
 /*
@@ -246,6 +247,9 @@ static int get_path_info(request_rec *r)
         else {
             errno = 0;
             rv = stat(path, &r->finfo);
+#ifdef OS2
+            r->finfo.st_ino = 0;
+#endif
         }
 
         if (cp != end)
@@ -778,6 +782,11 @@ static request_rec *make_sub_request(const request_rec *r)
     request_rec *rr = ap_pcalloc(rrp, sizeof(request_rec));
 
     rr->pool = rrp;
+#ifdef CHARSET_EBCDIC
+    /* Assume virgin state (like after reading the request_line): */
+    ap_bsetflag(r->connection->client, B_ASCII2EBCDIC, rr->ebcdic.conv_in  = 1);
+    ap_bsetflag(r->connection->client, B_EBCDIC2ASCII, rr->ebcdic.conv_out = 1);
+#endif   
     return rr;
 }
 
@@ -903,6 +912,23 @@ API_EXPORT(request_rec *) ap_sub_req_lookup_file(const char *new_file,
         ap_parse_uri(rnew, rnew->uri);    /* fill in parsed_uri values */
         if (stat(rnew->filename, &rnew->finfo) < 0) {
             rnew->finfo.st_mode = 0;
+#ifdef ENAMETOOLONG
+            /* Special case for filenames which exceed the maximum limit
+	     * imposed by the operating system (~1024). These should
+	     * NOT be treated like "file not found", because there is
+	     * a difference between "the file is not there" and
+	     * "the file exists, but you tried to access it using a
+	     * path which exceeds the path length limit".
+	     * The idea here is to handle DoS attacks with long
+	     * runs of //////'s in a graceful and secure manner.
+	     */
+            if (errno == ENAMETOOLONG) {
+                ap_log_rerror(APLOG_MARK, APLOG_CRIT, r,
+                              "Possible DoS attempt? URL=%s", r->filename);
+                rnew->status = HTTP_FORBIDDEN;
+                return rnew;
+            }
+#endif
         }
 
         if ((res = check_safe_file(rnew))) {
@@ -986,20 +1012,19 @@ API_EXPORT(request_rec *) ap_sub_req_lookup_file(const char *new_file,
 
 API_EXPORT(int) ap_run_sub_req(request_rec *r)
 {
-#ifndef CHARSET_EBCDIC
     int retval = ap_invoke_handler(r);
-#else /*CHARSET_EBCDIC*/
-    /* Save the EBCDIC conversion setting of the caller across subrequests */
-    int convert = ap_bgetflag(r->connection->client, B_EBCDIC2ASCII);
-    int retval  = ap_invoke_handler(r);
-    ap_bsetflag(r->connection->client, B_EBCDIC2ASCII, convert);
-#endif /*CHARSET_EBCDIC*/
     ap_finalize_sub_req_protocol(r);
     return retval;
 }
 
 API_EXPORT(void) ap_destroy_sub_req(request_rec *r)
 {
+#ifdef CHARSET_EBCDIC
+    if (r->main) {
+        ap_bsetflag(r->connection->client, B_ASCII2EBCDIC, r->main->ebcdic.conv_in);
+        ap_bsetflag(r->connection->client, B_EBCDIC2ASCII, r->main->ebcdic.conv_out);
+    }
+#endif   
     /* Reclaim the space */
     ap_destroy_pool(r->pool);
 }
@@ -1383,6 +1408,10 @@ static request_rec *internal_internal_redirect(const char *new_uri, request_rec 
     new->no_local_copy   = r->no_local_copy;
     new->read_length     = r->read_length;     /* We can only read it once */
     new->vlist_validator = r->vlist_validator;
+#ifdef CHARSET_EBCDIC /* @@@ Is this correct? When is it used? */
+    new->ebcdic.conv_out= r->ebcdic.conv_out;
+    new->ebcdic.conv_in = r->ebcdic.conv_in;
+#endif
 
     ap_table_setn(new->subprocess_env, "REDIRECT_STATUS",
 	ap_psprintf(r->pool, "%d", r->status));

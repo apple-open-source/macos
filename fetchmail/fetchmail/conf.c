@@ -94,7 +94,7 @@ static void listdump(const char *name, struct idlist *list)
     fprintf(stdout, "\"%s\":", name);
 
     if (!list)
-	fputs("None,\n", stdout);
+	fputs("[],\n", stdout);
     else
     {
 	struct idlist *idp;
@@ -126,7 +126,12 @@ void dump_config(struct runctl *runp, struct query *querylist)
 
     indent_level = 0;
 
-    fputs("from Tkinter import TRUE, FALSE\n\n", stdout);
+    /*
+     * These had better match the values fetchmailconf is expecting!
+     * (We don't want to import them from Tkinter because the user
+     * might not have it installed.)
+     */
+    fputs("TRUE=1; FALSE=0\n\n", stdout);
 
     /*
      * We need this in order to know whether `interface' and `monitor'
@@ -155,11 +160,11 @@ void dump_config(struct runctl *runp, struct query *querylist)
     printf("'imap',");
 #endif /* IMAP_ENABLE */
 #ifdef GSSAPI
-    printf("'imap-gss',");
+    printf("'gssapi',");
 #endif /* GSSAPI */
-#if defined(IMAP4) && defined(KERBEROS_V4)
-    printf("'imap-k4',");
-#endif /* defined(IMAP4) && defined(KERBEROS_V4) */
+#if defined(KERBEROS_V4)
+    printf("'kerberos',");
+#endif /* defined(IMAP4) */
 #ifdef RPA_ENABLE
     printf("'rpa',");
 #endif /* RPA_ENABLE */
@@ -169,12 +174,18 @@ void dump_config(struct runctl *runp, struct query *querylist)
 #ifdef ETRN_ENABLE
     printf("'etrn',");
 #endif /* ETRN_ENABLE */
-#if OPIE
+#ifdef ODMR_ENABLE
+    printf("'odmr',");
+#endif /* ODMR_ENABLE */
+#ifdef SSL_ENABLE
+    printf("'ssl',");
+#endif /* SSL_ENABLE */
+#if OPIE_ENABLE
     printf("'opie',");
-#endif /* OPIE */
-#if INET6
+#endif /* OPIE_ENABLE */
+#if INET6_ENABLE
     printf("'inet6',");
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 #if NET_SECURITY
     printf("'netsec',");
 #endif /* NET_SECURITY */
@@ -189,8 +200,10 @@ void dump_config(struct runctl *runp, struct query *querylist)
     stringdump("idfile", runp->idfile);
     stringdump("postmaster", runp->postmaster);
     booldump("bouncemail", runp->bouncemail);
+    booldump("spambounce", runp->spambounce);
     stringdump("properties", runp->properties);
     booldump("invisible", runp->invisible);
+    booldump("showdots", runp->showdots);
     booldump("syslog", runp->use_syslog);
 
     if (!querylist)
@@ -234,22 +247,22 @@ void dump_config(struct runctl *runp, struct query *querylist)
 
 	    using_kpop =
 		(ctl->server.protocol == P_POP3 &&
-#if !INET6
+#if !INET6_ENABLE
 		 ctl->server.port == KPOP_PORT &&
 #else
-		 0 == strcmp( ctl->server.service, KPOP_PORT ) &&
+		 ctl->server.service && !strcmp(ctl->server.service, KPOP_PORT ) &&
 #endif
-		 ctl->server.preauthenticate == A_KERBEROS_V4);
+		 ctl->server.authenticate == A_KERBEROS_V4);
 
 	    stringdump("pollname", ctl->server.pollname); 
 	    booldump("active", !ctl->server.skip); 
 	    stringdump("via", ctl->server.via); 
 	    stringdump("protocol", 
 		       using_kpop ? "KPOP" : showproto(ctl->server.protocol));
-#if !INET6
+#ifndef INET6_ENABLE
 	    numdump("port",  ctl->server.port);
 #else
-	    stringdump("service", ctl->server.service); 
+	    stringdump("port",  ctl->server.service);
 #endif
 	    numdump("timeout",  ctl->server.timeout);
 	    numdump("interval", ctl->server.interval);
@@ -263,12 +276,24 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	    numdump("envskip", ctl->server.envskip);
 	    stringdump("qvirtual", ctl->server.qvirtual);
  
-	    if (ctl->server.preauthenticate == A_KERBEROS_V4)
-		stringdump("preauth", "kerberos_v4");
-	    else if (ctl->server.preauthenticate == A_KERBEROS_V5)
-		stringdump("preauth", "kerberos_v5");
-	    else
-		stringdump("preauth", "password");
+	    if (ctl->server.authenticate == A_ANY)
+		stringdump("auth", "any");
+	    else if (ctl->server.authenticate == A_PASSWORD)
+		stringdump("auth", "password");
+	    else if (ctl->server.authenticate == A_OTP)
+		stringdump("auth", "otp");
+	    else if (ctl->server.authenticate == A_NTLM)
+		stringdump("auth", "ntlm");
+	    else if (ctl->server.authenticate == A_CRAM_MD5)
+		stringdump("auth", "cram-md5");
+	    else if (ctl->server.authenticate == A_GSSAPI)
+		stringdump("auth", "gssapi");
+	    else if (ctl->server.authenticate == A_KERBEROS_V4)
+		stringdump("auth", "kerberos_v4");
+	    else if (ctl->server.authenticate == A_KERBEROS_V5)
+		stringdump("auth", "kerberos_v5");
+	    else if (ctl->server.authenticate == A_SSH)
+		stringdump("auth", "ssh");
 
 #if defined(HAVE_GETHOSTBYNAME) && defined(HAVE_RES_SEARCH)
 	    booldump("dns", ctl->server.dns);
@@ -285,6 +310,8 @@ void dump_config(struct runctl *runp, struct query *querylist)
 
 	    stringdump("plugin", ctl->server.plugin);
 	    stringdump("plugout", ctl->server.plugout);
+	    stringdump("principal", ctl->server.principal);
+	    booldump("tracepolls", ctl->tracepolls);
 
 	    indent(0);
 	    fputs("'users': ", stdout);
@@ -323,7 +350,9 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	booldump("forcecr", ctl->forcecr);
 	booldump("pass8bits", ctl->pass8bits);
 	booldump("dropstatus", ctl->dropstatus);
+	booldump("dropdelivered", ctl->dropdelivered);
 	booldump("mimedecode", ctl->mimedecode);
+	booldump("idle", ctl->idle);
 
 	stringdump("mda", ctl->mda);
 	stringdump("bsmtp", ctl->bsmtp);
@@ -333,19 +362,30 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	else
 	    fputs("'lmtp':FALSE,\n", stdout);
 	    
-#ifdef INET6
+#ifdef INET6_ENABLE
 	stringdump("netsec", ctl->server.netsec);
-#endif /* INET6 */
+#endif /* INET6_ENABLE */
 	stringdump("preconnect", ctl->preconnect);
 	stringdump("postconnect", ctl->postconnect);
 	numdump("limit", ctl->limit);
 	numdump("warnings", ctl->warnings);
 	numdump("fetchlimit", ctl->fetchlimit);
 	numdump("batchlimit", ctl->batchlimit);
+#ifdef SSL_ENABLE
+	booldump("ssl", ctl->use_ssl);
+	stringdump("sslkey", ctl->sslkey);
+	stringdump("sslcert", ctl->sslcert);
+	stringdump("sslproto", ctl->sslproto);
+	booldump("sslcertck", ctl->sslcertck);
+	stringdump("sslcertpath", ctl->sslcertpath);
+	stringdump("sslfingerprint", ctl->sslfingerprint);
+#endif /* SSL_ENABLE */
 	numdump("expunge", ctl->expunge);
 	stringdump("properties", ctl->properties);
 	listdump("smtphunt", ctl->smtphunt);
+	listdump("fetchdomains", ctl->domainlist);
 	stringdump("smtpaddress", ctl->smtpaddress);
+	stringdump("smtpname", ctl->smtpname);
 
 	indent('\0');
 	fprintf(stdout, "'antispam':'");

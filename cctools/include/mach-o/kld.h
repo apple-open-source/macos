@@ -32,6 +32,9 @@
  * These API's are in libkld.  Both kmodload(8) and /mach_kernel should
  * link with -lkld and then ld(1) will expand -lkld to libkld.dylib or
  * libkld.a depending on if -dynamic or -static is in effect.
+ *
+ * Note: we are using the __DYNAMIC__ flag to indicate user space kernel
+ * linking and __STATIC__ as a synonym of KERNEL.
  */
 
 /*
@@ -41,17 +44,29 @@
 extern void kld_error_vprintf(const char *format, va_list ap);
 
 /*
- * This two are only in libkld.dylib for use by kmodload(8) (user code compiled
+ * These two are only in libkld.dylib for use by kmodload(8) (user code compiled
  * with the default -dynamic).
  */
 #ifdef __DYNAMIC__
 __private_extern__ long kld_load_basefile(
     const char *base_filename);
 
+__private_extern__ long kld_load_basefile_from_memory(
+    const char *base_filename,
+    char *base_addr,
+    long base_size);
+
 /* Note: this takes only one object file name */
 __private_extern__ long kld_load(
     struct mach_header **header_addr,
     const char *object_filename,
+    const char *output_filename);
+
+__private_extern__ long kld_load_from_memory(
+    struct mach_header **header_addr,
+    const char *object_name,
+    char *object_addr,
+    long object_size,
     const char *output_filename);
 #endif /* __DYNAMIC__ */
 

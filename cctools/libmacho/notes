@@ -1,3 +1,20 @@
+Changes for the 5.9 release (the cctools-367 release):
+- Added swap_sub_library_command() to swap.c.  Radar bug #2697458.
+- Added swap_twolevel_hint(), swap_twolevel_hints_command() and the missing
+  swap_routines_command() to swap.c.  Radar bug #2558069.
+
+Changes for the 5.9 release (the cctools-364 release):
+- Changed NXCombineCpuSubtypes() in arch.c (as well as cpusubtype_combine()
+  in libstuff) for the ppc to select the highest subtype when there is not
+  an exact match and neither is a 601.
+- Changed NXFindBestFatArch() in arch.c (as well as cpusubtype_findbestarch()
+  in libstuff) which had a problem with selecting the ppc cpusubtype when an
+  exact match could not be found.  See Radar bug #2678019 against exec(2).
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes for the 5.8 release (the cctools-357 release):
 - Added support for the CPU_SUBTYPE_POWERPC_7450 in arch.c . Radar bug #2599869.
 

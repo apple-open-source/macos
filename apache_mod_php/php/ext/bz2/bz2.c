@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,15 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <Sterling.Hughes@pentap.net>                |
+   | Authors: Sterling Hughes <sterling@php.net>                          |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: bz2.c,v 1.1.1.1 2001/01/25 04:59:06 wsanchez Exp $ */
+/* $Id: bz2.c,v 1.1.1.2 2001/07/19 00:18:56 zarzycki Exp $ */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
  
 #include "php.h"
 #include "php_bz2.h"
@@ -28,11 +31,19 @@
 #include "ext/standard/file.h"
 #include "ext/standard/info.h"
 
-/* Std includes */
+/* for fileno() */
 #include <stdio.h>
 
 /* Bzip2 includes */
 #include <bzlib.h>
+
+/* Internal error constants */
+#define PHP_BZ_ERRNO   0
+#define PHP_BZ_ERRSTR  1
+#define PHP_BZ_ERRBOTH 2
+
+/* Blocksize of the decompression buffer */
+#define PHP_BZ_DECOMPRESS_SIZE 4096
 
 function_entry bz2_functions[] = {
 	PHP_FE(bzopen,       NULL)
@@ -53,7 +64,7 @@ zend_module_entry bz2_module_entry = {
 	bz2_functions,
 	PHP_MINIT(bz2),
 	NULL,
-	NULL,	
+	NULL,
 	NULL,
 	PHP_MINFO(bz2),
 	STANDARD_MODULE_PROPERTIES
@@ -63,14 +74,16 @@ zend_module_entry bz2_module_entry = {
 ZEND_GET_MODULE(bz2)
 #endif
 
-static void   _php_bz2_close_handle(zend_rsrc_list_entry *rsrc);
-static void   _php_bz2_error_machine(INTERNAL_FUNCTION_PARAMETERS, int);
+static int  le_bz2;
 
-static int le_bz2;
+static void php_bz2_close(zend_rsrc_list_entry *);
+static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int);
 
 PHP_MINIT_FUNCTION(bz2)
 {
-	le_bz2 = zend_register_list_destructors_ex(_php_bz2_close_handle, NULL, "bzip2", module_number);
+	/* Register the resource, with destructor (arg 1) and text description (arg 3), the 
+	   other arguments are just standard placeholders */
+	le_bz2 = zend_register_list_destructors_ex(php_bz2_close, NULL, "BZip2", module_number);
 
 	return SUCCESS;
 }
@@ -78,35 +91,40 @@ PHP_MINIT_FUNCTION(bz2)
 PHP_MINFO_FUNCTION(bz2)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "BZip2 support", "enabled");
-	php_info_print_table_row(2, "BZip2 Version", (char *)BZ2_bzlibVersion());
+	php_info_print_table_row(2, "BZip2 Support", "Enabled");
+	php_info_print_table_row(2, "BZip2 Version", (char *) BZ2_bzlibVersion());
 	php_info_print_table_end();
-
 }
 
 /* {{{ proto int bzopen(string|int file|fp, string mode)
    Open a new BZip2 stream */
 PHP_FUNCTION(bzopen)
 {
-	zval **File,
-	     **Mode;
-	BZFILE *bz;
+	zval    **file,   /* The file to open */
+	        **mode;   /* The mode to open the stream with */
+	BZFILE   *bz;     /* The compressed file stream */
+	FILE     *fp;     /* If filepointer is given, its placed in here */
 	
 	if (ZEND_NUM_ARGS() != 2 ||
-	    zend_get_parameters_ex(2, &File, &Mode) == FAILURE) {
+	    zend_get_parameters_ex(2, &file, &mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string_ex(Mode);
+	convert_to_string_ex(mode);
 	
-	if (Z_TYPE_PP(File) != IS_RESOURCE) {
-		convert_to_string_ex(File);
-		
-		bz = BZ2_bzopen(Z_STRVAL_PP(File), Z_STRVAL_PP(Mode));
-	} else {
-		FILE *fp;
-		ZEND_FETCH_RESOURCE(fp, FILE *, File, -1, "File-Handle", php_file_le_fopen());
-		
-		bz = BZ2_bzdopen(fileno(fp), Z_STRVAL_PP(Mode));
+	/* If it's not a resource its a string containing the filename to open */
+	if (Z_TYPE_PP(file) != IS_RESOURCE) {
+		convert_to_string_ex(file);
+		bz = BZ2_bzopen(Z_STRVAL_PP(file), Z_STRVAL_PP(mode));
+	} 
+	/* If it is a resource, than its a 'FILE *' resource */
+	else {
+		ZEND_FETCH_RESOURCE(fp, FILE *, file, -1, "File Handle", php_file_le_fopen());
+		bz = BZ2_bzdopen(fileno(fp), Z_STRVAL_PP(mode));
+	}
+
+	if (bz == NULL) {
+		php_error(E_WARNING, "bzopen(): Unable to open file");
+		RETURN_FALSE;
 	}
 	
 	ZEND_REGISTER_RESOURCE(return_value, bz, le_bz2);
@@ -117,30 +135,35 @@ PHP_FUNCTION(bzopen)
    Read len bytes from the BZip2 stream given by bz */
 PHP_FUNCTION(bzread)
 {
-	zval **Bz,
-	     **Len;
-	BZFILE *bz;
-	void *buf = NULL;
-	int ret,
-	    len  = 1024,
-		argc = ZEND_NUM_ARGS();
-	
+	zval      **bzp,                       /* BZip2 Resource Pointer */
+	          **zlen;                      /* The (optional) length to read */
+	BZFILE     *bz;                        /* BZip2 File pointer */
+	void       *buf;                       /* Buffer to read data into */
+	int         len  = 1024,               /* Length to read, passed to the BZ2_bzread function */
+			    argc = ZEND_NUM_ARGS();    /* Argument count */
+
 	if (argc < 1 || argc > 2 ||
-	    zend_get_parameters_ex(argc, &Bz, &Len) == FAILURE) {
+	    zend_get_parameters_ex(argc, &bzp, &zlen) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	
-	ZEND_FETCH_RESOURCE(bz, BZFILE *, Bz, -1, "BZFile", le_bz2);
-	
+
+	ZEND_FETCH_RESOURCE(bz, BZFILE *, bzp, -1, "BZip2 File Handle", le_bz2);
+
+	/* Optional second argument, the length to read, if not given, it 
+	   defaults to 1024 bytes (why not? :) */
 	if (argc > 1) {
-		convert_to_long_ex(Len);
-		len = Z_LVAL_PP(Len);
+		convert_to_long_ex(zlen);
+		len = Z_LVAL_PP(zlen);
 	}
-	
+
+	/* Allocate the buffer and read data into it */
 	buf = emalloc(len + 1);
 	BZ2_bzread(bz, buf, len);
+
+	RETVAL_STRINGL(buf, len, 1);
 	
-	RETURN_STRING((char *)buf, 1);
+	/* We copied the buffer, so now we can free it */
+	efree(buf);
 }
 /* }}} */
 
@@ -148,31 +171,35 @@ PHP_FUNCTION(bzread)
    Write data to the BZip2 stream given by bz */
 PHP_FUNCTION(bzwrite)
 {
-	zval **Bz,
-	     **Data,
-		 **Len;
-	BZFILE *bz;
-	int ret,
-	    len,
-		argc = ZEND_NUM_ARGS();
+	zval        **bzp,                        /* Bzip2 Resource Pointer */
+	            **data,                       /* The data to write */
+				**zlen;                       /* The (optional) length of the data to write */
+	BZFILE       *bz;                         /* BZip2 File pointer */
+	int           error,                      /* Error container */
+	              len,                        /* Length to read, passed to the BZ2_bzwrite function */
+				  argc = ZEND_NUM_ARGS();     /* Argument count */
 	
 	if (argc < 2 || argc > 3 ||
-	    zend_get_parameters_ex(argc, &Bz, &Data, &Len) == FAILURE) {
+	    zend_get_parameters_ex(argc, &bzp, &data, &zlen) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string_ex(Data);
-
-	ZEND_FETCH_RESOURCE(bz, BZFILE *, Bz, -1, "BZFile", le_bz2);
-
+	convert_to_string_ex(data);
+	
+	ZEND_FETCH_RESOURCE(bz, BZFILE *, bzp, -1, "BZip2 File Handle", le_bz2);
+	
+	/* If the length of the data is given, use that, otherwise, just use the
+	   data's string length */
 	if (argc > 2) {
-		convert_to_long_ex(Len);
-		len = Z_LVAL_PP(Len);
-	} else {
-		len = Z_STRLEN_PP(Data);
+		convert_to_long_ex(zlen);
+		len = Z_LVAL_PP(zlen);
+	}
+	else { 
+		len = Z_STRLEN_PP(data); 
 	}
 	
-	ret = BZ2_bzwrite(bz, (void *)Z_STRVAL_PP(Data), len);
-	RETURN_LONG(ret);
+	/* Write the data and return the error */
+	error = BZ2_bzwrite(bz, (void *) Z_STRVAL_PP(data), len);
+	RETURN_LONG(error);
 }
 /* }}} */
 
@@ -180,18 +207,18 @@ PHP_FUNCTION(bzwrite)
    Flush a BZip2 stream */
 PHP_FUNCTION(bzflush)
 {
-	zval **Bz;
-	BZFILE *bz;
-	int ret;
-	
+	zval      **bzp;    /* BZip2 Resource Pointer */
+	BZFILE     *bz;     /* BZip2 File pointer */
+	int         error;  /* Error container */
+
 	if (ZEND_NUM_ARGS() != 1 ||
-	    zend_get_parameters_ex(1, &Bz) == FAILURE) {
+	    zend_get_parameters_ex(1, &bzp) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	ZEND_FETCH_RESOURCE(bz, BZFILE *, Bz, -1, "BZFile", le_bz2);
-
-	ret = BZ2_bzflush(bz);
-	RETURN_LONG(ret);
+	ZEND_FETCH_RESOURCE(bz, BZFILE *, bzp, -1, "BZip2 File Handle", le_bz2);
+	
+	error = BZ2_bzflush(bz);
+	RETURN_LONG(error);
 }
 /* }}} */
 
@@ -199,16 +226,15 @@ PHP_FUNCTION(bzflush)
    Close a BZip2 stream */
 PHP_FUNCTION(bzclose)
 {
-	zval **Bz;
-	BZFILE *bz;
+	zval     **bzp=NULL;  /* BZip2 Resource Pointer */
+	BZFILE    *bz;        /* BZip2 File pointer */
 	
 	if (ZEND_NUM_ARGS() != 1 ||
-	    zend_get_parameters_ex(1, &Bz) == FAILURE) {
+	    zend_get_parameters_ex(1, &bzp) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	
-	ZEND_FETCH_RESOURCE(bz, BZFILE *, Bz, -1, "BZFile", le_bz2);
-	zend_list_delete(Z_LVAL_PP(Bz));
+	ZEND_FETCH_RESOURCE(bz, BZFILE *, bzp, -1, "BZip2 File Handle", le_bz2);
+	zend_list_delete(Z_RESVAL_PP(bzp));
 }
 /* }}} */
 
@@ -216,7 +242,7 @@ PHP_FUNCTION(bzclose)
    Return the error number */
 PHP_FUNCTION(bzerrno)
 {
-	_php_bz2_error_machine(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+	php_bz2_error(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_BZ_ERRNO);
 }
 /* }}} */
 
@@ -224,7 +250,7 @@ PHP_FUNCTION(bzerrno)
    Return the error string */
 PHP_FUNCTION(bzerrstr)
 {
-	_php_bz2_error_machine(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	php_bz2_error(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_BZ_ERRSTR);
 }
 /* }}} */
 
@@ -232,7 +258,7 @@ PHP_FUNCTION(bzerrstr)
    Return the error number and error string in an associative array */
 PHP_FUNCTION(bzerror)
 {
-	_php_bz2_error_machine(INTERNAL_FUNCTION_PARAM_PASSTHRU, 2);
+	php_bz2_error(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_BZ_ERRBOTH);
 }
 /* }}} */
 
@@ -240,143 +266,154 @@ PHP_FUNCTION(bzerror)
    Compress a string into BZip2 encoded data */
 PHP_FUNCTION(bzcompress)
 {
-	zval **Source,
-	     **BlockSize100k,
-		 **WorkFactor;
-	char *dest = NULL;
-	int ret,
-		iter = 1, 
-	    blockSize100k = 4, 
-		workFactor = 0, 
-		argc = ZEND_NUM_ARGS();
-	unsigned int size, 
-	             destLen, 
-				 sourceLen;
+	zval            **source,                            /* Source data to compress */
+	                **zblock_size,                       /* Optional block size to use */
+					**zwork_factor;                      /* Optional work factor to use */
+	char             *dest = NULL;                       /* Destination to place the compressed data into */
+	int               error,                             /* Error Container */
+	                  iter        = 1,                   /* Iteration count for the do {} while loop */
+					  block_size  = 4,                   /* Block size for compression algorithm */
+					  work_factor = 0,                   /* Work factor for compression algorithm */
+					  argc        = ZEND_NUM_ARGS();     /* Argument count */
+	unsigned int      size,                              /* The size to "realloc" if the initial buffer wasn't big enough */
+	                  source_len,                        /* Length of the source data */
+					  dest_len;                          /* Length of the destination buffer */ 
 	
-	if (argc < 1 || argc > 3 ||
-	    zend_get_parameters_ex(argc, &Source, &BlockSize100k, &WorkFactor) == FAILURE) {
+	if (argc < 1 || argc > 3 || 
+	    zend_get_parameters_ex(argc, &source, &zblock_size, &zwork_factor) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string_ex(Source);
-	sourceLen = destLen = Z_STRLEN_PP(Source);
-
-	dest = emalloc(destLen+1);
-
+	convert_to_string_ex(source);
+	
+	/* Assign them to easy to use variables, dest_len is initially the length of the data
+	   + .01 x length of data + 600 which is the largest size the results of the compression 
+	   could possibly be, at least that's what the libbz2 docs say (thanks to jeremy@nirvani.net 
+	   for pointing this out).  */
+	source_len = Z_STRLEN_PP(source);
+	dest_len   = Z_STRLEN_PP(source) + (0.01 * Z_STRLEN_PP(source)) + 600;
+	
+	/* Allocate the destination buffer */
+	dest = emalloc(dest_len + 1);
+	
+	/* Handle the optional arguments */
 	if (argc > 1) {
-		convert_to_long_ex(BlockSize100k);
-		blockSize100k = Z_LVAL_PP(BlockSize100k);
+		convert_to_long_ex(zblock_size);
+		block_size = Z_LVAL_PP(zblock_size);
 	}
 	
 	if (argc > 2) {
-		convert_to_long_ex(WorkFactor);
-		workFactor = Z_LVAL_PP(WorkFactor);
+		convert_to_long_ex(zwork_factor);
+		work_factor = Z_LVAL_PP(zwork_factor);
 	}
 
-	do {
-		size = destLen * iter;
-		if (iter > 1)
-			dest = erealloc(dest, size);
-		
-		ret = BZ2_bzBuffToBuffCompress(dest, &size, Z_STRVAL_PP(Source), sourceLen, blockSize100k, 0, workFactor);
-		iter++;
-	} while (ret == BZ_OUTBUFF_FULL);
-	
-	if (ret != BZ_OK) {
-		RETURN_LONG(ret);
+	error = BZ2_bzBuffToBuffCompress(dest, &size, Z_STRVAL_PP(source), source_len, block_size, 0, work_factor);
+	if (error != BZ_OK) {
+		RETVAL_LONG(error);
 	} else {
-		RETURN_STRINGL(dest, destLen, 1);
+		/* Copy the buffer, we have perhaps allocate alot more than we need,
+		   so we want to copy the correct amount and then free the in-exactly 
+		   allocated buffer */
+		RETVAL_STRINGL(dest, size, 1);
 	}
+	
+	/* Free the buffer */
+	efree(dest);
 }
 /* }}} */
-
-#define _PHP_BZ_DECOMPRESS_SIZE 4096
 
 /* {{{ proto string bzdecompress(string source[, int small])
    Decompress BZip2 compressed data */
 PHP_FUNCTION(bzdecompress)
 {
-	zval **Source,
-	     **Small;
-	char *dest = emalloc(_PHP_BZ_DECOMPRESS_SIZE),
-	     *source = NULL;
-	int ret,
-	    iter = 1,
-		size,
-	    destLen = _PHP_BZ_DECOMPRESS_SIZE,
-	    small = 0,
-		argc  = ZEND_NUM_ARGS();
+	zval    **source,                                     /* Source data to decompress */
+	        **zsmall;                                     /* (Optional) user specified small */
+	char     *dest   = emalloc(PHP_BZ_DECOMPRESS_SIZE);   /* Destination buffer, initially allocated */
+	int       error,                                      /* Error container */
+	          iter = 1,                                   /* Iteration count for the compression loop */
+			  size,                                       /* Current size to realloc the dest buffer to */
+			  dest_len = PHP_BZ_DECOMPRESS_SIZE,          /* Size of the destination length */
+			  small    = 0,                               /* The actual small */
+			  argc     = ZEND_NUM_ARGS();                 /* Argument count */
 	
 	if (argc < 1 || argc > 2 ||
-	    zend_get_parameters_ex(argc, &Source, &Small) == FAILURE) {
+	    zend_get_parameters_ex(argc, &source, &zsmall) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string_ex(Source);
-	source = estrndup(Z_STRVAL_PP(Source), Z_STRLEN_PP(Source));
+	convert_to_string_ex(source);
 	
+	/* optional small argument handling */
 	if (argc > 1) {
-		convert_to_long_ex(Small);
-		small = Z_LVAL_PP(Small);
+		convert_to_long_ex(zsmall);
+		small = Z_LVAL_PP(zsmall);
 	}
-
-
+	
+	/* (de)Compression Loop */	
 	do {
-		size = destLen * iter;
-		if (iter > 1)
+		/* Handle the (re)allocation of the buffer */
+		size = dest_len * iter;
+		if (iter > 1) {
 			dest = erealloc(dest, size);
-
-		ret = BZ2_bzBuffToBuffDecompress(dest, &size, source, Z_STRLEN_PP(Source), small, 0);
+		}
 		iter++;
-	} while (ret == BZ_OUTBUFF_FULL);
-
-	if (ret != BZ_OK) {
-		RETURN_LONG(ret);
+		
+		/* Perform the decompression */
+		error = BZ2_bzBuffToBuffDecompress(dest, &size, Z_STRVAL_PP(source), Z_STRLEN_PP(source), small, 0);
+	} while (error == BZ_OUTBUFF_FULL);
+	
+	if (error != BZ_OK) {
+		RETVAL_LONG(error);
 	} else {
-		RETURN_STRINGL(dest, size, 0);
+		/* we might have allocated a little to much, so copy the exact size and free the 
+		   in-exactly allocated buffer */
+		RETVAL_STRINGL(dest, size, 1);
 	}
+	
+	efree(dest);
 }
 /* }}} */
 
-/* {{{ _php_bz2_close_handle() */
-static void _php_bz2_close_handle(zend_rsrc_list_entry *rsrc)
+/* {{{ php_bz2_close() 
+   Closes a BZip2 file pointer */
+static void php_bz2_close(zend_rsrc_list_entry *rsrc)
 {
-	BZFILE *bz = (BZFILE *)rsrc->ptr;
+	BZFILE *bz = (BZFILE *) rsrc->ptr;  /* The BZip2 File pointer */
 	BZ2_bzclose(bz);
 }
 /* }}} */
 
-/* {{{ _php_bz2_error_machine() */
-static void _php_bz2_error_machine(INTERNAL_FUNCTION_PARAMETERS, int opt)
-{
-	zval **u_bz;
-	BZFILE *bz;
-	int errnum;
-	const char *errstr;
+/* {{{ php_bz2_error()
+   The central error handling interface, does the work for bzerrno, bzerrstr and bzerror */
+static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int opt)
+{ 
+	zval        **bzp;     /* BZip2 Resource Pointer */
+	BZFILE       *bz;      /* BZip2 File pointer */
+	const char   *errstr;  /* Error string */
+	int           errnum;  /* Error number */
 	
 	if (ZEND_NUM_ARGS() != 1 ||
-	    zend_get_parameters_ex(1, &u_bz) == FAILURE) {
+	    zend_get_parameters_ex(1, &bzp) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
+	ZEND_FETCH_RESOURCE(bz, BZFILE *, bzp, -1, "BZip2 File pointer", le_bz2);
 	
-	ZEND_FETCH_RESOURCE(bz, BZFILE *, u_bz, -1, "BZFile", le_bz2);
-	
+	/* Fetch the error information */
 	errstr = BZ2_bzerror(bz, &errnum);
 	
+	/* Determine what to return */
 	switch (opt) {
-		case 0:
-			RETURN_LONG(errnum);
-			break;
-		case 1:
-			RETURN_STRING((char *)errstr, 1);
-			break;
-		case 2:
-			if (array_init(return_value) == FAILURE) {
-				php_error(E_WARNING, "Cannot initialize return value from bzerror()");
-				RETURN_NULL();
-			}
-			
-			add_assoc_long(return_value, "errno", errnum);
-			add_assoc_string(return_value, "errstr", (char *)errstr, 1);
-			break;
+	case PHP_BZ_ERRNO:
+		RETURN_LONG(errnum);
+		break;
+	case PHP_BZ_ERRSTR:
+		RETURN_STRING(errstr, 1);
+		break;
+	case PHP_BZ_ERRBOTH:
+		array_init(return_value);
+		
+		add_assoc_long  (return_value, "errno",  errnum);
+		add_assoc_string(return_value, "errstr", errstr, 1);
+		
+		break;
 	}
 }
 /* }}} */
@@ -389,4 +426,5 @@ static void _php_bz2_error_machine(INTERNAL_FUNCTION_PARAMETERS, int opt)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim: sw=4 ts=4 tw=78
  */

@@ -22,10 +22,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define kUseExistingMount 	0x00000001
-#define kNoNewMount       	0x00000002
-#define kMountAtMountdir	0x00000004
-#define kMarkAutomounted	0x00000008
+#define kUseExistingMount         0x00000001
+#define kNoNewMount               0x00000002
+#define kMountAtMountdir          0x00000004
+#define kCreateNewSession         0x00000008
+#define kMarkAutomounted		      0x00000010
+#define kMountWithoutNotification 0x00000020
 
 #import "Controller.h"
 #import "automount.h"
@@ -33,6 +35,7 @@
 #import "AMString.h"
 #import "AMVnode.h"
 #import "FstabMap.h"
+#import "StaticMap.h"
 #import "FileMap.h"
 #import "NIMap.h"
 #import "log.h"
@@ -53,6 +56,7 @@
 #import <arpa/nameser.h>
 #import <netinfo/ni.h>
 #import <resolv.h>
+#import "systhread.h"
 #ifdef __APPLE__
 extern int mount(const char *, const char *, int, void *);
 extern int unmount(const char *, int);
@@ -72,24 +76,22 @@ extern int chdir(const char *);
 
 extern void nfs_program_2();
 
-int     afp_LLMount(const char* inFullURL, const char* inMountDir, size_t inMaxPath, char* outMountPoint, unsigned int inOptions);
+extern void select_loop(void *);
+extern int run_select_loop;
+extern int running_select_loop;
 
-static gid_t gidForGroup(char *grpName)
+int afp_LLMount(const char* inFullURL, const char* inMountDir, size_t inMaxPath, char* outMountPoint, unsigned int inOptions);
+
+static gid_t
+gidForGroup(char *name)
 {
-        struct group *namedGroup;
-        gid_t retVal = 0;
-        namedGroup = getgrnam(grpName);
-        if (namedGroup) {
-                retVal = namedGroup->gr_gid;
-        }
-        sys_msg(debug, LOG_DEBUG, "Got gid for name %s = %d",
-                                grpName, retVal);
+	struct group *g;
 
-        if (retVal == 0) {
-                sys_msg(debug, LOG_ERR, "Could not determine the gid for group = %s", grpName);
+	g = getgrnam(name);
+	if (g != NULL) return g->gr_gid;
 
-        }
-        return retVal;
+	sys_msg(debug, LOG_WARNING, "Can't get gid for group %s", name);
+	return 0;
 }
 
 @implementation Controller
@@ -119,7 +121,7 @@ static gid_t gidForGroup(char *grpName)
 	transp = svcudp_create(RPC_ANYSOCK);
 	if (transp == NULL)
 	{
-		sys_msg(debug, LOG_ERR, "Cannot create UDP service");
+		sys_msg(debug, LOG_ERR, "Can't create UDP service");
 		[self release];
 		return nil;
 	}
@@ -223,7 +225,7 @@ static gid_t gidForGroup(char *grpName)
 
 - (BOOL)createPath:(String *)path
 {
-    return [self createPath:path withUid:0];
+	return [self createPath:path withUid:0];
 }
 
 - (BOOL)createPath:(String *)path withUid:(int)uid
@@ -401,13 +403,12 @@ static gid_t gidForGroup(char *grpName)
 	sprintf(str, "automount %s [%d]", [src value], getpid());
 	args.hostname = str;
 
-	sys_msg(debug, LOG_DEBUG, "Mounting map %s on %s",
-		[src value], [dir value]);
+	sys_msg(debug, LOG_DEBUG, "Mounting map %s on %s", [src value], [dir value]);
 
 #ifdef __APPLE__
-        status = mount("nfs", [dir value], mntargs, &args);
+	status = mount("nfs", [dir value], mntargs | MNT_AUTOMOUNTED, &args);
 #else
-        status = mount(MOUNT_NFS, [dir value], mntargs, (caddr_t)&args);
+	status = mount(MOUNT_NFS, [dir value], mntargs | MNT_AUTOMOUNTED), (caddr_t)&args);
 #endif
 	if (status != 0)
 	{
@@ -415,6 +416,8 @@ static gid_t gidForGroup(char *grpName)
 			[src value], [dir value], strerror(errno));
 		return 1;
 	}
+
+	sys_msg(debug, LOG_DEBUG, "Mounted %s on %s", [src value], [dir value]);
 
 	[v setMounted:YES];
 #ifndef __APPLE__
@@ -498,23 +501,25 @@ static gid_t gidForGroup(char *grpName)
 	mountpt = [String uniqueString:t];
 	free(s);
 	p = [rootMap createVnodePath:parent from:root];
+
+	sys_msg(debug, LOG_DEBUG, "Initializing map \"%s\" parent \"%s\" mountpt \"%s\"", [mapname value], [parent value], [mountpt value]);
 	[parent release];
 
-	sys_msg(debug, LOG_DEBUG, "Initializing map \"%s\"", [mapname value]);
 	if (strcmp([mapname value], "-fstab") == 0)
 	{
-		map = [[FstabMap alloc]
-			initWithParent:p directory:mountpt from:mapname];
+		map = [[FstabMap alloc] initWithParent:p directory:mountpt from:mapname];
+	}
+	else if (strcmp([mapname value], "-static") == 0)
+	{
+		map = [[StaticMap alloc] initWithParent:p directory:mountpt from:mapname];
 	}
 	else if (strncmp([mapname value], "/", 1))
 	{
-		map = [[NIMap alloc]
-			initWithParent:p directory:mountpt from:mapname];
+		map = [[NIMap alloc] initWithParent:p directory:mountpt from:mapname];
 	}
 	else if ([self isFile:mapname])
 	{
-		map = [[FileMap alloc]
-			initWithParent:p directory:mountpt from:mapname];
+		map = [[FileMap alloc] initWithParent:p directory:mountpt from:mapname];
 	}
 	else if (strcmp([mapname value], "-null") == 0)
 	{
@@ -530,8 +535,7 @@ static gid_t gidForGroup(char *grpName)
 
 	if (map == nil)
 	{
-		sys_msg(debug, LOG_ERR, "Map \"%s\" failed to initialize",
-			[mapname value]);
+		sys_msg(debug, LOG_ERR, "Map \"%s\" failed to initialize", [mapname value]);
 		return 1;
 	}
 
@@ -543,6 +547,7 @@ static gid_t gidForGroup(char *grpName)
 	return rootMap;
 }
 
+
 - (unsigned int)nfsmount:(Vnode *)v withUid:(int)uid
 {
 	struct sockaddr_in sin;
@@ -553,9 +558,14 @@ static gid_t gidForGroup(char *grpName)
 	unsigned int status;
 	unsigned int vers, proto;
 	unsigned short port;
-        String *urlMountType;
+	String *urlMountType;
+	char path[1024];
+	char mountDir[1024];
+	char retString[1024];
+	uid_t effuid;
+	gid_t storedgid, storedegid;
 
-        urlMountType = [String uniqueString:"url"];
+	urlMountType = [String uniqueString:"url"];
 
 #ifndef __APPLE__
 	unsigned int fhsize;
@@ -585,15 +595,15 @@ static gid_t gidForGroup(char *grpName)
 
 	if (![v mountPathCreated])
 	{
-            if (![self createPath:[v link] withUid:uid])
+		if (![self createPath:[v link] withUid:uid])
 		{
 			sys_msg(debug, LOG_ERR, "Can't create mount point %s",
 				[[v link] value]);
 			[v setNfsStatus:NFSERR_IO];
 			return 1;
 		}
-		[v setMountPathCreated:YES];
 
+		[v setMountPathCreated:YES];
 	}
 
 	sprintf(str, "%s:%s", [[s name] value], [[v source] value]);
@@ -610,163 +620,167 @@ static gid_t gidForGroup(char *grpName)
 	vers = [v forcedNFSVersion];
 	proto = [v forcedProtocol];
 
-        if ([[v vfsType] equal:urlMountType]) { // afp or http
-            char path[1024];
-            char mountDir[1024];
-            char retString[1024];
-            uid_t effuid = geteuid();
-            gid_t storedgid = getgid();
-            gid_t storedegid = getegid();
+	if ([[v vfsType] equal:urlMountType])
+	{ 
+		/* afp or http */
+		effuid = geteuid();
+		storedgid = getgid();
+		storedegid = getegid();
 
-            // system("/Volumes/MacOS9/HomeDir/Projects/afpLoad/afpLoad");
+		if (!afpLoaded)
+		{
+			system("/System/Library/Filesystems/AppleShare/afpLoad");
+			afpLoaded++;
+		}
 
-            sprintf(path, "%s", [[v urlString] value]);
-            sprintf(mountDir, "/private/%s", [[[v path] presuffix:'/'] value]);
+		sprintf(path, "%s", [[v urlString] value]);
+		sprintf(mountDir, "/private/%s", [[[v path] presuffix:'/'] value]);
 
-            // chown the path to the passed in UID
-            chown([[v link] value], uid, gidForGroup("nobody"));
+		/* chown the path to the passed in UID */
+		chown([[v link] value], uid, gidForGroup("nobody"));
 
-            sys_msg(debug_mount, LOG_DEBUG, "Attempting to automount url: \n\tpath = %s, \n\tmount name = %s, \n\tmountdir = %s\n\tuid = %d", path, [[v source] value], mountDir, uid);
+		sys_msg(debug_mount, LOG_DEBUG, "Attempting to automount url: \n\tpath = %s, \n\tmount name = %s, \n\tmountdir = %s\n\tuid = %d", path, [[v source] value], mountDir, uid);
 
-            setreuid(getuid(), uid);
-            setgid(gidForGroup("unknown"));  // unknown
-            setegid(gidForGroup("unknown"));  // unknown
-            status = afp_LLMount(path, [[v link] value], 1024, retString, 0x000003C);
-            setreuid(getuid(), effuid);
-            setgid(storedgid);
-            setegid(storedegid);
-            
-            if (status) {
-                sys_msg(debug_mount, LOG_DEBUG, "Recieved status = %d from afp_LLMount", status);
-            }
-        } else { // nfs
+		setreuid(getuid(), uid);
+		setgid(gidForGroup("unknown"));  // unknown
+		setegid(gidForGroup("unknown"));  // unknown
+		status = afp_LLMount(path, [[v link] value], 1024, retString, kMountAtMountdir | kMarkAutomounted);
+		setreuid(getuid(), effuid);
+		setgid(storedgid);
+		setegid(storedegid);
+			
+		if (status)
+		{
+			sys_msg(debug_mount, LOG_DEBUG, "Recieved status = %d from afp_LLMount", status);
+		}
+	}
+	else
+	{
+		/* nfs */
 
-            status = 1;
+		status = 1;
 
-            if ((vers == 3) || (vers == 0))
-            {
-                    /* Try NFS Version 3 */
-                    args.flags |= NFSMNT_NFSV3;
+		if ((vers == 3) || (vers == 0))
+		{
+			/* Try NFS Version 3 */
+			args.flags |= NFSMNT_NFSV3;
 
-                    if ((proto == IPPROTO_UDP) || (proto == 0))
-                    {
-                            /* Try UDP */
-                            args.proto = IPPROTO_UDP;
-                            args.sotype = SOCK_DGRAM;
+			if ((proto == IPPROTO_UDP) || (proto == 0))
+			{
+				/* Try UDP */
+				args.proto = IPPROTO_UDP;
+				args.sotype = SOCK_DGRAM;
 
-                            sys_msg(debug_mount, LOG_DEBUG,
-                                    "Fetching NFS_V3/UDP filehandle for %s", str);
+				sys_msg(debug_mount, LOG_DEBUG, "Fetching NFS_V3/UDP filehandle for %s", str);
 
-                            status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:3 protocol:IPPROTO_UDP];
-                            if ((status != 0) && (vers == 3) && (proto != 0))
-                            {
-                                    [v setNfsStatus:status];
-                                    return 1;
-                            }
-                    }
+				status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:3 protocol:IPPROTO_UDP];
+				if ((status != 0) && (vers == 3) && (proto != 0))
+				{
+					[v setNfsStatus:status];
+					return 1;
+				}
+			}
 
-                    if ((status != 0) && ((proto == IPPROTO_TCP) || (proto == 0)))
-                    {
-                            /* Try TCP */
-                            args.proto = IPPROTO_TCP;
-                            args.sotype = SOCK_STREAM;
+			if ((status != 0) && ((proto == IPPROTO_TCP) || (proto == 0)))
+			{
+				/* Try TCP */
+				args.proto = IPPROTO_TCP;
+				args.sotype = SOCK_STREAM;
 
-                            sys_msg(debug_mount, LOG_DEBUG,
-                                    "Fetching NFS_V3/TCP filehandle for %s", str);
+				sys_msg(debug_mount, LOG_DEBUG, "Fetching NFS_V3/TCP filehandle for %s", str);
 
-                            status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:3 protocol:IPPROTO_TCP];
-                            if ((status != 0) && (vers == 3))
-                            {
-                                    [v setNfsStatus:status];
-                                    return 1;
-                            }
-                    }
-            }
+				status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:3 protocol:IPPROTO_TCP];
+				if ((status != 0) && (vers == 3))
+				{
+					[v setNfsStatus:status];
+					return 1;
+				}
+			}
+		}
 
-            if (status != 0)
-            {
-                    /* Try NFS Version 2 */
-                    args.flags &= (~NFSMNT_NFSV3);
+		if (status != 0)
+		{
+			/* Try NFS Version 2 */
+			args.flags &= (~NFSMNT_NFSV3);
 
-                    if ((proto == IPPROTO_UDP) || (proto == 0))
-                    {
-                            /* Try UDP */
-                            args.proto = IPPROTO_UDP;
-                            args.sotype = SOCK_DGRAM;
+			if ((proto == IPPROTO_UDP) || (proto == 0))
+			{
+				/* Try UDP */
+				args.proto = IPPROTO_UDP;
+				args.sotype = SOCK_DGRAM;
 
-                            sys_msg(debug_mount, LOG_DEBUG,
-                                    "Fetching NFS_V2/UDP filehandle for %s", str);
+				sys_msg(debug_mount, LOG_DEBUG, "Fetching NFS_V2/UDP filehandle for %s", str);
 
-                            status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:2 protocol:IPPROTO_UDP];
-                            if ((status != 0) && (proto != 0))
-                            {
-                                    [v setNfsStatus:status];
-                                    return 1;
-                            }
-                    }
+				status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:2 protocol:IPPROTO_UDP];
+				if ((status != 0) && (proto != 0))
+				{
+					[v setNfsStatus:status];
+					return 1;
+				}
+			}
 
-                    if ((status != 0) && ((proto == IPPROTO_TCP) || (proto == 0)))
-                    {
-                            /* Try TCP */
-                            args.proto = IPPROTO_TCP;
-                            args.sotype = SOCK_STREAM;
+			if ((status != 0) && ((proto == IPPROTO_TCP) || (proto == 0)))
+			{
+				/* Try TCP */
+				args.proto = IPPROTO_TCP;
+				args.sotype = SOCK_STREAM;
 
-                            sys_msg(debug_mount, LOG_DEBUG,
-                                    "Fetching NFS_V2/TCP filehandle for %s", str);
+				sys_msg(debug_mount, LOG_DEBUG, "Fetching NFS_V2/TCP filehandle for %s", str);
 
-                            status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:2 protocol:IPPROTO_TCP];
-                    }
-            }
+				status = [s getHandle:(nfs_fh *)&fh size:&args.fhsize port:&port forFile:[v source] version:2 protocol:IPPROTO_TCP];
+			}
+		}
 
-            if (status != 0)
-            {
-                    [v setNfsStatus:status];
-                    return 1;
-            }
+		if (status != 0)
+		{
+			[v setNfsStatus:status];
+			return 1;
+		}
 
-            args.fh = (u_char *)&fh;
-            proto = args.proto;
+		args.fh = (u_char *)&fh;
+		proto = args.proto;
 
-            vers = 2;
-            if (args.flags & NFSMNT_NFSV3) vers = 3;
+		vers = 2;
+		if (args.flags & NFSMNT_NFSV3) vers = 3;
 
-            bzero(&sin, sizeof(struct sockaddr_in));
-            sin.sin_family = AF_INET;
-            sin.sin_port = htons(port);
-            sin.sin_addr.s_addr = [s address];
-            args.addr = (struct sockaddr *)&sin;
+		bzero(&sin, sizeof(struct sockaddr_in));
+		sin.sin_family = AF_INET;
+		sin.sin_port = htons(port);
+		sin.sin_addr.s_addr = [s address];
+		args.addr = (struct sockaddr *)&sin;
 
-            status = mount("nfs", [[v link] value], [v mntArgs], &args);
-        }
+		status = mount("nfs", [[v link] value], [v mntArgs] | MNT_AUTOMOUNTED, &args);
+	}
 #else
-        if ([[v vfsType] equal:urlMountType] ) {
-            status = 1;  // fail
-        } else {
+	if ([[v vfsType] equal:urlMountType])
+	{
+		status = 1;  // fail
+	}
+	else
+	{
+		vers = 2;
+		proto = IPPROTO_UDP;
+		args.flags &= (~NFSMNT_NFSV3);
 
-            vers = 2;
-            proto = IPPROTO_UDP;
-            args.flags &= (~NFSMNT_NFSV3);
+		sys_msg(debug_mount, LOG_DEBUG, "Fetching filehandle for %s", str);
 
-            sys_msg(debug_mount, LOG_DEBUG,
-                    "Fetching filehandle for %s", str);
+		status = [s getHandle:(nfs_fh *)&fh size:&fhsize port:&port forFile:[v source] version:vers protocol:proto];
 
-            status = [s getHandle:(nfs_fh *)&fh size:&fhsize port:&port forFile:[v source] version:vers protocol:proto];
+		if (status != 0)
+		{
+			[v setNfsStatus:status];
+			return 1;
+		}
 
-            if (status != 0)
-            {
-                    [v setNfsStatus:status];
-                    return 1;
-            }
+		args.fh = (u_char *)&fh;
 
-            args.fh = (u_char *)&fh;
-
-            bzero(&sin, sizeof(struct sockaddr_in));
-            sin.sin_family = AF_INET;
-            sin.sin_port = port;
-            sin.sin_addr.s_addr = [s address];
-            args.addr = (struct sockaddr_in *)&sin;
-            status = mount(MOUNT_NFS, [[v link] value], [v mntArgs], (caddr_t)&args);
-        }
+		bzero(&sin, sizeof(struct sockaddr_in));
+		sin.sin_family = AF_INET;
+		sin.sin_port = port;
+		sin.sin_addr.s_addr = [s address];
+		args.addr = (struct sockaddr_in *)&sin;
+		status = mount(MOUNT_NFS, [[v link] value], [v mntArgs] | MNT_AUTOMOUNTED, (caddr_t)&args);
+	}
 #endif
 
 	if (status != 0)
@@ -786,7 +800,7 @@ static gid_t gidForGroup(char *grpName)
 #ifndef __APPLE__
 	[self mtabUpdate:v];
 #endif
-        [urlMountType release];
+	[urlMountType release];
 
 	return 0;
 }
@@ -837,33 +851,37 @@ static gid_t gidForGroup(char *grpName)
 	Vnode *v;
 
 	v = node_table[n].node;
+	if (v == nil) return;
+
 	msg[0] = '\0';
 
-	sprintf(msg, "%4d", n);
-	strcat(msg, ": ");
-	strcat(msg, [[v name] value]);
-	if ([v type] == NFLNK)
-	{
-		if ([v mounted]) strcat(msg, " <-- ");
-		else strcat(msg, " ... ");
+	sprintf(msg, "%4d %1d %s %s", n, [v type],
+		[v mounted] ? "M" : " ",
+		[v fakeMount] ? "F" : " ");
+	
+	strcat(msg, "name=");
+	if ([v name] == nil) strcat(msg, "-nil-");
+	else strcat(msg, [[v name] value]);
 
-		strcat(msg, [[[v server] name] value]);
-		strcat(msg, ":");
-		strcat(msg, [[v source] value]);
-	}
+	strcat(msg, " source=");
+	if ([v source] == nil) strcat(msg, "-nil-");
+	else strcat(msg, [[v source] value]);
+
+	strcat(msg, " server=");
+	if ([v server] == nil) strcat(msg, "-nil-");
+	else if ([[v server] isLocalHost]) strcat(msg, "-local-");
+	else strcat(msg, [[[v server] name] value]);
 
 	sys_msg(debug, LOG_DEBUG, "%s", msg);
 }
 
-- (void)reInit
-{
-}
-
-- (void)dealloc
+- (void)unmountAutomounts:(int)use_force
 {
 	int i;
 	int status;
 	Vnode *v;
+
+	sys_msg(debug, LOG_DEBUG, "Unmounting automounts");
 
 	chdir("/");
 
@@ -872,17 +890,18 @@ static gid_t gidForGroup(char *grpName)
 	{
 		v = node_table[i].node;
 
+		if ([v fakeMount]) continue;
 		if ([v server] == nil) continue;
 		if ([v source] == nil) [v setMounted:NO];
-		if ([v fakeMount]) [v setMounted:NO];
 		if ([[v server] isLocalHost]) [v setMounted:NO];
 
 		if (![v mounted]) continue;
 
 #ifdef __APPLE__
 		status = unmount([[v link] value], 0);
-		if (status != 0)
+		if ((status != 0) && (use_force != 0))
 		{
+			sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
 			status = unmount([[v link] value], MNT_FORCE);
 		}
 #else
@@ -903,6 +922,14 @@ static gid_t gidForGroup(char *grpName)
 				[[v link] value], strerror(errno));
 		}
 	}
+}
+
+- (void)unmountMaps:(int)use_force
+{
+	int i, status;
+	Vnode *v;
+
+	sys_msg(debug, LOG_DEBUG, "Unmounting maps");
 	
 	/* unmount automounter */
 	for (i = node_table_count - 1; i >= 0; i--)
@@ -915,9 +942,11 @@ static gid_t gidForGroup(char *grpName)
 		if ([v link] == nil) continue;
 
 #ifdef __APPLE__
+		sys_msg(debug, LOG_DEBUG, "Unmounting %s", [[v link] value]);
 		status = unmount([[v link] value], 0);
-		if (status != 0)
+		if ((status != 0) && (use_force != 0))
 		{
+			sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
 			status = unmount([[v link] value], MNT_FORCE);
 		}
 #else
@@ -937,27 +966,134 @@ static gid_t gidForGroup(char *grpName)
 				[[v link] value], strerror(errno));
 		}
 	}
-	
-	for (i = 0; i < map_table_count; i++)
-	{
-		[map_table[i].name release];
-		[map_table[i].dir release];
-		[map_table[i].map release];
-	}
-	free(map_table);
+}
+
+- (void)reInit
+{
+	int i, status;
+	String *mapname, *mountpt;
+	Map *map;
+	Vnode *p, *maproot;
+	systhread *rpcLoop;
+
+	[self unmountAutomounts:0];
+	[self unmountMaps:0];
 
 	for (i = 0; i < node_table_count; i++)
 	{
 		[node_table[i].node release];
 	}
+
+	node_table_count = 0;
 	free(node_table);
+	node_table = NULL;
 
 	for (i = 0; i < server_table_count; i++)
 	{
 		[server_table[i].name release];
 		[server_table[i].server release];
 	}
+
+	server_table_count = 0;
 	free(server_table);
+	server_table = NULL;
+
+	run_select_loop = 1;
+	rpcLoop = systhread_new();
+	systhread_run(rpcLoop, select_loop, NULL);
+	systhread_yield();
+
+	for (i = 0; i < map_table_count; i++)
+	{
+		mapname = map_table[i].name;
+		maproot = [map_table[i].map root];
+
+		p = [maproot parent];
+		mountpt = [[maproot name] retain];
+
+		[map_table[i].map release];
+		map = nil;
+
+		sys_msg(debug, LOG_DEBUG, "Initializing map \"%s\"", [mapname value]);
+
+		if (strcmp([mapname value], "-fstab") == 0)
+		{
+			map = [[FstabMap alloc] initWithParent:p directory:mountpt from:mapname];
+		}
+		else if (strcmp([mapname value], "-static") == 0)
+		{
+			map = [[StaticMap alloc] initWithParent:p directory:mountpt from:mapname];
+		}
+		else if (strncmp([mapname value], "/", 1))
+		{
+			map = [[NIMap alloc] initWithParent:p directory:mountpt from:mapname];
+		}
+		else if ([self isFile:mapname])
+		{
+			map = [[FileMap alloc] initWithParent:p directory:mountpt from:mapname];
+		}
+		else if (strcmp([mapname value], "-null") == 0)
+		{
+			map = [[Map alloc] initWithParent:p directory:mountpt];
+		}
+
+		[mountpt release];
+
+		map_table[i].map = map;
+		maproot = [map_table[i].map root];
+		[maproot setSource:mapname];
+		[maproot setLink:map_table[i].dir];
+		[maproot setMounted:YES];
+		status = [self automount:maproot directory:map_table[i].dir args:[map mountArgs]];
+		status = [map didAutoMount];
+	}
+
+	run_select_loop = 0;
+
+	while (running_select_loop)
+	{
+		systhread_yield();
+	}
+
+	sys_msg(debug, LOG_DEBUG, "Reset complete");
+}
+
+- (void)dealloc
+{
+	int i;
+
+	[self unmountAutomounts:1];
+	[self unmountMaps:1];
+
+	for (i = 0; i < node_table_count; i++)
+	{
+		[node_table[i].node release];
+	}
+
+	node_table_count = 0;
+	free(node_table);
+	node_table = NULL;
+
+	for (i = 0; i < server_table_count; i++)
+	{
+		[server_table[i].name release];
+		[server_table[i].server release];
+	}
+
+	server_table_count = 0;
+	free(server_table);
+	server_table = NULL;
+
+	for (i = 0; i < map_table_count; i++)
+	{
+		[map_table[i].name release];
+		[map_table[i].dir release];
+		[map_table[i].map release];
+	}
+
+	map_table_count = 0;
+	free(map_table);
+	map_table = NULL;
 
 	if (hostName != nil) [hostName release];
 	if (hostDNSDomain != nil) [hostDNSDomain release];
@@ -1012,13 +1148,28 @@ static gid_t gidForGroup(char *grpName)
 - (void)printTree
 {
 	int i;
-
+	
+	sys_msg(debug, LOG_DEBUG, "********** Map Table **********");
 	for (i = 0; i < map_table_count; i++)
 	{
-		sys_msg(debug, LOG_DEBUG, "Map %s   Directory %s",
-			[map_table[i].name value], [map_table[i].dir value]);
+		sys_msg(debug, LOG_DEBUG, "Map %s   Directory %s (%s+%s)",
+			[map_table[i].name value], [map_table[i].dir value],
+			[[[[map_table[i].map root] parent] path] value],
+			[[[map_table[i].map root] name] value]);
 
 		[self printNode:[map_table[i].map root] level:0];
+	}
+
+	sys_msg(debug, LOG_DEBUG, "********** Node Table **********");
+	for (i = 0; i < node_table_count; i++)
+	{
+		[self showNode:i];
+	}
+
+	sys_msg(debug, LOG_DEBUG, "********** Server Table **********");
+	for (i = 0; i < server_table_count; i++)
+	{
+		sys_msg(debug, LOG_DEBUG, "%d: %s", i, [server_table[i].name value]);
 	}
 }
 
@@ -1027,6 +1178,7 @@ static gid_t gidForGroup(char *grpName)
 	unsigned int i, len;
 	Array *kids;
 	char msg[1024];
+	Server *s;
 
 	if (v == nil) return;
 
@@ -1042,7 +1194,9 @@ static gid_t gidForGroup(char *grpName)
 		if ([v mounted]) strcat(msg, " <-- ");
 		else strcat(msg, " ... ");
 
-		strcat(msg, [[[v server] name] value]);
+		s = [v server];
+		if (s == nil)	strcat(msg, "-unknown_server-");
+		else strcat(msg, [[[v server] name] value]);
 		if ([v source] != nil)
 		{
 			strcat(msg, ":");

@@ -20,6 +20,19 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 11, 2001		Allan Nathanson <ajn@apple.com>
+ * - start using CFBundle code
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * May 26, 2000			Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach-o/dyld.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -29,27 +42,17 @@
 #include <NSSystemDirectories.h>
 
 #include "configd.h"
+#include <SystemConfiguration/SCDPlugin.h>
 
 
 /*
- * Information maintained for each to-be-kicked registration.
+ * path components, extensions, entry points, ...
  */
-typedef struct {
-	/*
-	 * bundle paths
-	 */
-	char				bundle[MAXNAMLEN + 1];	/* bundle name */
-	char				path  [MAXPATHLEN];	/* bundle path */
+#define	BUNDLE_DIRECTORY	"/SystemConfiguration"	/* [/System/Library]/... */
+#define	BUNDLE_DIR_EXTENSION	".bundle"
 
-	/*
-	 * entry points for initialization code.
-	 */
-	SCDBundleStartRoutine_t		start;	/* address of start() routine */
-	SCDBundlePrimeRoutine_t		prime;	/* address of prime() routine */
 
-} plugin, *pluginRef;
-
-CFMutableArrayRef	plugins;
+static	CFMutableArrayRef	allBundles	= NULL;
 
 
 /* exception handling functions */
@@ -166,262 +169,296 @@ catch_exception_raise_state_identity(mach_port_t		exception_port,
 }
 
 
-static boolean_t
-bundleLoad(pluginRef info)
+static CFStringRef
+shortBundleIdentifier(CFStringRef bundleID)
 {
-	int				len;
-	NSObjectFileImage		image;
-	NSObjectFileImageReturnCode	status;
-	NSModule			module;
-	NSSymbol			symbol;
-	unsigned long			options;
-	char				*bundleExe;	/* full path of bundle executable */
-	struct stat			sb;
+	CFIndex         len	= CFStringGetLength(bundleID);
+	CFRange         range;
+	CFStringRef	shortID	= NULL;
 
-	/*
-	 * allocate enough space for the bundle directory path, a "/" separator,
-	 * the bundle name, and the (optional) "_debug" extension.
-	 */
-
-	len =  strlen(info->path);		/* path */
-	len += sizeof(BUNDLE_NEW_SUBDIR) - 1;	/* "/" or "/Contents/MacOS/" */
-	len += strlen(info->bundle);		/* bundle name */
-	len += sizeof(BUNDLE_DEBUG_EXTENSION);	/* "_debug" (and NUL) */
-	bundleExe = CFAllocatorAllocate(NULL, len, 0);
-
-	/* check for the (old layout) bundle executable path */
-	strcpy(bundleExe, info->path);
-	strcat(bundleExe, BUNDLE_OLD_SUBDIR);
-	strcat(bundleExe, info->bundle);
-	if (stat(bundleExe, &sb) == 0) {
-		goto load;
+	if (CFStringFindWithOptions(bundleID,
+				    CFSTR("."),
+				    CFRangeMake(0, len),
+				    kCFCompareBackwards,
+				    &range)) {
+		range.location = range.location + range.length;
+		range.length   = len - range.location;
+		shortID = CFStringCreateWithSubstring(NULL, bundleID, range);
 	}
 
-	/* check for the "_debug" version */
-	strcat(bundleExe, BUNDLE_DEBUG_EXTENSION);
-	if (stat(bundleExe, &sb) == 0) {
-		goto load;
-	}
+	return shortID;
+}
 
-	/* check for the (new layout) bundle executable path */
-	strcpy(bundleExe, info->path);
-	strcat(bundleExe, BUNDLE_NEW_SUBDIR);
-	strcat(bundleExe, info->bundle);
-	if (stat(bundleExe, &sb) == 0) {
-		goto load;
-	}
 
-	/* check for the "_debug" version */
-	strcat(bundleExe, BUNDLE_DEBUG_EXTENSION);
-	if (stat(bundleExe, &sb) == 0) {
-		goto load;
-	}
+static void
+loadBundle(const void *value, void *context) {
+	CFBundleRef				bundle		= (CFBundleRef)value;
+	CFStringRef				bundleID	= CFBundleGetIdentifier(bundle);
+	Boolean					bundleExclude	= FALSE;
+	Boolean					bundleVerbose	= FALSE;
+	CFDictionaryRef				dict;
+	void					*func;
+	SCDynamicStoreBundleLoadFunction	load;
+	Boolean					loaded;
+	CFIndex					*nLoaded	= (CFIndex *)context;
 
-	SCDLog(LOG_ERR,
-	       CFSTR("bundleLoad() failed, no executable for %s in %s"),
-	       info->bundle,
-	       info->path);
-	CFAllocatorDeallocate(NULL, bundleExe);
-	return FALSE;
+	SCLog(TRUE, LOG_DEBUG, CFSTR("loading %@"), bundleID);
 
-    load :
+	bundleExclude = CFSetContainsValue(_plugins_exclude, bundleID);
+	if (!bundleExclude) {
+		CFStringRef	shortID	= shortBundleIdentifier(bundleID);
 
-	/* load the bundle */
-	SCDLog(LOG_DEBUG, CFSTR("loading %s"), bundleExe);
-	status = NSCreateObjectFileImageFromFile(bundleExe, &image);
-	if (status != NSObjectFileImageSuccess) {
-		char	*err;
-
-		switch (status) {
-			case NSObjectFileImageFailure :
-				err = "NSObjectFileImageFailure";
-				break;
-			case NSObjectFileImageInappropriateFile :
-				err = "NSObjectFileImageInappropriateFile";
-				break;
-			case NSObjectFileImageArch :
-				err = "NSObjectFileImageArch";
-				break;
-			case NSObjectFileImageFormat :
-				err = "NSObjectFileImageFormat";
-				break;
-			case NSObjectFileImageAccess :
-				err = "NSObjectFileImageAccess";
-				break;
-			default :
-				err = "Unknown";
-				break;
+		if (shortID) {
+			bundleExclude = CFSetContainsValue(_plugins_exclude, shortID);
+			CFRelease(shortID);
 		}
-		SCDLog(LOG_ERR, CFSTR("NSCreateObjectFileImageFromFile() failed"));
-		SCDLog(LOG_ERR, CFSTR("  executable path = %s"), bundleExe);
-		SCDLog(LOG_ERR, CFSTR("  error status    = %s"), err);
-		CFAllocatorDeallocate(NULL, bundleExe);
-		return FALSE;
 	}
 
-	options =  NSLINKMODULE_OPTION_BINDNOW;
-	options |= NSLINKMODULE_OPTION_PRIVATE;
-	options |= NSLINKMODULE_OPTION_RETURN_ON_ERROR;
-	module = NSLinkModule(image, bundleExe, options);
-
-	if (module == NULL) {
-		NSLinkEditErrors	c;
-		int			errorNumber;
-		const char		*fileName;
-		const char		*errorString;
-
-		SCDLog(LOG_ERR, CFSTR("NSLinkModule() failed"));
-		SCDLog(LOG_ERR, CFSTR("  executable path = %s"), bundleExe);
-
-		/* collect and report the details */
-		NSLinkEditError(&c, &errorNumber, &fileName, &errorString);
-		SCDLog(LOG_ERR, CFSTR("  NSLinkEditErrors = %d"), (int)c);
-		SCDLog(LOG_ERR, CFSTR("  errorNumber      = %d"), errorNumber);
-		if((fileName != NULL) && (*fileName != '\0'))
-			SCDLog(LOG_ERR, CFSTR("  fileName         = %s"), fileName);
-		if((errorString != NULL) && (*errorString != '\0'))
-			SCDLog(LOG_ERR, CFSTR("  errorString      = %s"), errorString);
-
-		CFAllocatorDeallocate(NULL, bundleExe);
-		return FALSE;
+	if (bundleExclude) {
+		SCLog(TRUE,
+		      LOG_DEBUG,
+		      CFSTR("%@ load skipped"),
+		      bundleID);
+		return;
 	}
 
-	CFAllocatorDeallocate(NULL, bundleExe);
-
-	/* identify the initialization functions */
-
-	symbol = NSLookupSymbolInModule(module, BUNDLE_ENTRY_POINT);
-	if (symbol) {
-		info->start = NSAddressOfSymbol(symbol);
+	loaded = CFBundleLoadExecutable(bundle);
+	if (!loaded) {
+		SCLog(TRUE,
+		      LOG_NOTICE,
+		      CFSTR("%@ load failed"),
+		      bundleID);
+		return;
 	}
 
-	symbol = NSLookupSymbolInModule(module, BUNDLE_ENTRY_POINT2);
-	if (symbol) {
-		info->prime = NSAddressOfSymbol(symbol);
+	if (!CFBundleIsExecutableLoaded(bundle)) {
+		SCLog(TRUE,
+		      LOG_NOTICE,
+		      CFSTR("%@ executable not loaded"),
+		      bundleID);
+		return;
 	}
 
-	if ((info->start == NULL) && (info->prime == NULL)) {
-		SCDLog(LOG_DEBUG, CFSTR("  no entry points"));
-		return FALSE;
-	}
+	/* bump the count of loaded bundles */
+	*nLoaded = *nLoaded + 1;
 
 	/* identify any exception handling functions */
 
-	symbol = NSLookupSymbolInModule(module, "_catch_exception_raise");
-	if (symbol) {
-		catch_exception_raise_func = NSAddressOfSymbol(symbol);
+	func = CFBundleGetFunctionPointerForName(bundle, CFSTR("catch_exception_raise"));
+	if (func) {
+		catch_exception_raise_func = func;
 	}
 
-	symbol = NSLookupSymbolInModule(module, "_catch_exception_raise_state");
-	if (symbol) {
-		catch_exception_raise_state_func = NSAddressOfSymbol(symbol);
+	func = CFBundleGetFunctionPointerForName(bundle, CFSTR("catch_exception_raise_state"));
+	if (func) {
+		catch_exception_raise_state_func = func;
 	}
 
-	symbol = NSLookupSymbolInModule(module, "_catch_exception_raise_identity");
-	if (symbol) {
-		catch_exception_raise_identity_func = NSAddressOfSymbol(symbol);
+	func = CFBundleGetFunctionPointerForName(bundle, CFSTR("catch_exception_raise_identity"));
+	if (func) {
+		catch_exception_raise_identity_func = func;
 	}
 
-	return TRUE;
+	/* if defined, call the bundles load() function */
+
+	load = CFBundleGetFunctionPointerForName(bundle, CFSTR("load"));
+	if (!load) {
+		return;
+	}
+
+	bundleVerbose = CFSetContainsValue(_plugins_verbose, bundleID);
+	if (!bundleVerbose) {
+		CFStringRef	shortID	= shortBundleIdentifier(bundleID);
+
+		if (shortID) {
+			bundleVerbose = CFSetContainsValue(_plugins_verbose, shortID);
+			CFRelease(shortID);
+		}
+	}
+
+	if (!bundleVerbose) {
+	dict = CFBundleGetInfoDictionary(bundle);
+	if (isA_CFDictionary(dict)) {
+		CFBooleanRef	bool;
+
+			bool = CFDictionaryGetValue(dict, kSCBundleVerbose);
+		if (isA_CFBoolean(bool) && CFBooleanGetValue(bool)) {
+				bundleVerbose = TRUE;
+			}
+		}
+	}
+
+	(*load)(bundle, bundleVerbose);
+	return;
 }
 
 
 static void
-bundleStart(const void *value, void *context)
-{
-	CFDataRef	data = (CFDataRef)value;
-	pluginRef	info;
+startBundle(const void *value, void *context) {
+	CFBundleRef				bundle		= (CFBundleRef)value;
+	CFURLRef				bundleURL;
+	char					bundleName[MAXNAMLEN + 1];
+	char					bundlePath[MAXPATHLEN];
+	char					*cp;
+	CFDictionaryRef				dict;
+	int					len;
+	Boolean					ok;
+	SCDynamicStoreBundleStartFunction	start;
 
-	info = (pluginRef)CFDataGetBytePtr(data);
-	if (info->start) {
-		(*info->start)(info->bundle, info->path);
+	if (!CFBundleIsExecutableLoaded(bundle)) {
+		return;
 	}
-}
 
-
-static void
-bundlePrime(const void *value, void *context)
-{
-	CFDataRef	data = (CFDataRef)value;
-	pluginRef	info;
-
-	info = (pluginRef)CFDataGetBytePtr(data);
-	if (info->prime) {
-		(*info->prime)(info->bundle, info->path);
+	start = CFBundleGetFunctionPointerForName(bundle, CFSTR("start"));
+	if (!start) {
+		return;
 	}
-}
 
+	dict = isA_CFDictionary(CFBundleGetInfoDictionary(bundle));
+	if (!dict) {
+		return;
+	}
 
-static void
-loadOne(const char *bundleDir, const char *bundleName)
-{
-	CFMutableDataRef	info;
-	pluginRef		pluginInfo;
-	int			len;
+	bundleURL = CFBundleCopyBundleURL(bundle);
+	if (!bundleURL) {
+		return;
+	}
+
+	ok = CFURLGetFileSystemRepresentation(bundleURL,
+					      TRUE,
+					      (UInt8 *)&bundlePath,
+					      sizeof(bundlePath));
+	CFRelease(bundleURL);
+	if (!ok) {
+		return;
+	}
+
+	cp = strrchr(bundlePath, '/');
+	if (cp) {
+		cp++;
+	} else {
+		cp = bundlePath;
+	}
 
 	/* check if this directory entry is a valid bundle name */
-	len = strlen(bundleName);
+	len = strlen(cp);
 	if (len <= sizeof(BUNDLE_DIR_EXTENSION)) {
 		/* if entry name isn't long enough */
 		return;
 	}
 
 	len -= sizeof(BUNDLE_DIR_EXTENSION) - 1;
-	if (strcmp(&bundleName[len], BUNDLE_DIR_EXTENSION) != 0) {
+	if (strcmp(&cp[len], BUNDLE_DIR_EXTENSION) != 0) {
 		/* if entry name doesn end with ".bundle" */
 		return;
 	}
 
-	info = CFDataCreateMutable(NULL, sizeof(plugin));
-	pluginInfo = (pluginRef)CFDataGetBytePtr(info);
-	pluginInfo->start = NULL;
-	pluginInfo->prime = NULL;
-
 	/* get (just) the bundle's name */
-	pluginInfo->bundle[0] = '\0';
-	(void) strncat(pluginInfo->bundle, bundleName, len);
+	bundleName[0] = '\0';
+	(void) strncat(bundleName, cp, len);
 
-	/* get the bundle directory path */
-	(void) sprintf(pluginInfo->path, "%s/%s", bundleDir, bundleName);
-
-	/* load the bundle */
-	if (bundleLoad(pluginInfo)) {
-		SCDLog(LOG_INFO, CFSTR("%s loaded"), bundleName);
-		CFArrayAppendValue(plugins, info);
-	} else {
-		SCDLog(LOG_ERR,  CFSTR("load of \"%s\" failed"), bundleName);
-	}
-	CFRelease(info);
-
+	(*start)(bundleName, bundlePath);
 	return;
 }
 
 
 static void
-loadAll(const char *bundleDir)
-{
-	DIR			*dirp;
-	struct dirent		*dp;
+primeBundle(const void *value, void *context) {
+	CFBundleRef				bundle		= (CFBundleRef)value;
+	SCDynamicStoreBundlePrimeFunction	prime;
 
-	dirp = opendir(bundleDir);
-	if (dirp == NULL) {
-		/* if no plugin directory */
+	if (!CFBundleIsExecutableLoaded(bundle)) {
 		return;
 	}
 
-	while ((dp = readdir(dirp)) != NULL) {
-		loadOne(bundleDir, dp->d_name);
+	prime = CFBundleGetFunctionPointerForName(bundle, CFSTR("prime"));
+	if (!prime) {
+		return;
 	}
 
-	closedir(dirp);
+	(*prime)();
 	return;
 }
 
 
-void
+static void
 timerCallback(CFRunLoopTimerRef timer, void *info)
 {
-	SCDLog(LOG_INFO, CFSTR("the CFRunLoop is waiting for something to happen...."));
+	SCLog(_configd_verbose,
+	      LOG_INFO,
+	      CFSTR("the CFRunLoop is waiting for something to happen...."));
+	return;
+}
+
+
+static void
+sortBundles(CFMutableArrayRef orig)
+{
+	CFMutableArrayRef   new;
+
+	new = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	while (CFArrayGetCount(orig) > 0) {
+		int	i;
+		Boolean	inserted = FALSE;
+
+		for (i = 0; i < CFArrayGetCount(orig); i++) {
+			CFBundleRef	bundle1	  = CFArrayGetValueAtIndex(orig, i);
+			CFStringRef	bundleID1 = CFBundleGetIdentifier(bundle1);
+			int		count;
+			CFDictionaryRef	dict;
+			int		j;
+			CFArrayRef	requires  = NULL;
+
+			dict = isA_CFDictionary(CFBundleGetInfoDictionary(bundle1));
+			if (dict) {
+				requires = CFDictionaryGetValue(dict, kSCBundleRequires);
+				requires = isA_CFArray(requires);
+			}
+			if (bundleID1 == NULL || requires == NULL) {
+				CFArrayInsertValueAtIndex(new, 0, bundle1);
+				CFArrayRemoveValueAtIndex(orig, i);
+				inserted = TRUE;
+				break;
+			}
+			count = CFArrayGetCount(requires);
+			for (j = 0; j < CFArrayGetCount(requires); j++) {
+				int		k;
+				CFStringRef	r	= CFArrayGetValueAtIndex(requires, j);
+
+				for (k = 0; k < CFArrayGetCount(new); k++) {
+					CFBundleRef	bundle2	  = CFArrayGetValueAtIndex(new, k);
+					CFStringRef	bundleID2 = CFBundleGetIdentifier(bundle2);
+
+					if (bundleID2 && CFEqual(bundleID2, r)) {
+						count--;
+					}
+				}
+			}
+			if (count == 0) {
+				/* all dependencies are met, append */
+				CFArrayAppendValue(new, bundle1);
+				CFArrayRemoveValueAtIndex(orig, i);
+				inserted = TRUE;
+				break;
+			}
+		}
+
+		if (inserted == FALSE) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("Bundles have circular dependency!!!"));
+			break;
+		}
+	}
+	if (CFArrayGetCount(orig) > 0) {
+		/* we have a circular dependency, append remaining items on new array */
+		CFArrayAppendArray(new, orig, CFRangeMake(0, CFArrayGetCount(orig)));
+	}
+	else {
+		/* new one is a sorted version of original */
+	}
+
+	CFArrayRemoveAllValues(orig);
+	CFArrayAppendArray(orig, new, CFRangeMake(0, CFArrayGetCount(new)));
+	CFRelease(new);
 	return;
 }
 
@@ -429,66 +466,113 @@ timerCallback(CFRunLoopTimerRef timer, void *info)
 void *
 plugin_exec(void *arg)
 {
-	NSSearchPathEnumerationState    state;
-	char                            path[MAXPATHLEN];
+	CFIndex			nLoaded		= 0;
 
-	/* keep track of loaded plugins */
-	plugins = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	/* keep track of bundles */
+	allBundles = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 	if (arg == NULL) {
+		char				path[MAXPATHLEN];
+		NSSearchPathEnumerationState	state;
+
 		/*
-		 * identify and load all plugins
+		 * identify and load all bundles
 		 */
 		state = NSStartSearchPathEnumeration(NSLibraryDirectory,
 						     NSLocalDomainMask|NSSystemDomainMask);
 		while ((state = NSGetNextSearchPathEnumeration(state, path))) {
-			/* load any available plugins */
+			CFArrayRef	bundles;
+			CFURLRef	url;
+
+			/* load any available bundle */
 			strcat(path, BUNDLE_DIRECTORY);
-			SCDLog(LOG_DEBUG, CFSTR("searching for plugins in \"%s\""), path);
-			loadAll(path);
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("searching for bundles in \".\""));
+			url = CFURLCreateFromFileSystemRepresentation(NULL,
+								      path,
+								      strlen(path),
+								      TRUE);
+			bundles = CFBundleCreateBundlesFromDirectory(NULL, url, CFSTR(".bundle"));
+			CFRelease(url);
+
+			if (bundles) {
+				CFArrayAppendArray(allBundles,
+						   bundles,
+						   CFRangeMake(0, CFArrayGetCount(bundles)));
+				CFRelease(bundles);
+			}
 		}
 
-		if (SCDOptionGet(NULL, kSCDOptionDebug)) {
-			SCDLog(LOG_DEBUG, CFSTR("searching for plugins in \".\""));
-			loadAll(".");
-		}
+		sortBundles(allBundles);
 	} else {
+		CFBundleRef	bundle;
+		CFURLRef	url;
+
 		/*
-		 * load the plugin specified on the command line
+		 * load (only) the specified bundle
 		 */
-		char	*bn, *bd;
-
-		if ((bn = strrchr((char *)arg, '/')) != NULL) {
-			int	len;
-
-			/* plug-in directory */
-			len = bn - (char *)arg;
-			if (len == 0)
-				len++;		/* if plugin is in the root directory */
-
-			bd = CFAllocatorAllocate(NULL, len + 1, 0);
-			bd[0] = '\0';
-			(void) strncat(bd, (char *)arg, len);
-
-			/* plug-in name */
-			bn++;		/* name starts just after trailing path separator */
-		} else {
-			/* plug-in (in current) directory */
-			bd = CFAllocatorAllocate(NULL, sizeof("."), 0);
-			(void) strcpy(bd, ".");
-
-			/* plug-in name */
-			bn = (char *)arg;	/* no path separators */
+		url = CFURLCreateFromFileSystemRepresentation(NULL,
+							      (char *)arg,
+							      strlen((char *)arg),
+							      TRUE);
+		bundle = CFBundleCreate(NULL, url);
+		if (bundle) {
+			CFArrayAppendValue(allBundles, bundle);
+			CFRelease(bundle);
 		}
+		CFRelease(url);
+	}
 
-		loadOne(bd, bn);
+	/*
+	 * load each bundle and, if defined, call its load() function.  This
+	 * function (or the start() function) should initialize any variables,
+	 * open any sessions with "configd", and register any needed notifications.
+	 *
+	 * Note: Establishing initial information in the store should be
+	 *       deferred until the prime() initialization function so that
+	 *       any bundles which want to receive a notification that the
+	 *       data has changed will have an opportunity to install a
+	 *       notification handler.
+	 */
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle load() functions"));
+	CFArrayApplyFunction(allBundles,
+			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+			     loadBundle,
+			     &nLoaded);
 
-		CFAllocatorDeallocate(NULL, bd);
+	/*
+	 * If defined, call each bundles start() function.  This function is
+	 * called after the bundle has been loaded and its load() function has
+	 * been called.  It should initialize any variables, open any sessions
+	 * with "configd", and register any needed notifications.
+	 *
+	 * Note: Establishing initial information in the store should be
+	 *       deferred until the prime() initialization function so that
+	 *       any bundles which want to receive a notification that the
+	 *       data has changed will have an opportunity to install a
+	 *       notification handler.
+	 */
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle start() functions"));
+	CFArrayApplyFunction(allBundles,
+			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+			     startBundle,
+			     NULL);
+
+	/*
+	 * If defined, call each bundles prime() function.  This function is
+	 * called after the bundle has been loaded and its load() and start()
+	 * functions have been called.  It should initialize any configuration
+	 * information and/or state in the store.
+	 */
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle prime() functions"));
+	CFArrayApplyFunction(allBundles,
+			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+			     primeBundle,
+			     NULL);
+
+	if (arg == NULL && (nLoaded > 0)) {
+		CFRunLoopTimerRef	timer;
 
 		/* allocate a periodic event (to help show we're not blocking) */
-		if (CFArrayGetCount(plugins)) {
-			CFRunLoopTimerRef	timer;
-
 			timer = CFRunLoopTimerCreate(NULL,				/* allocator */
 						     CFAbsoluteTimeGetCurrent() + 1.0,	/* fireDate */
 						     60.0,				/* interval */
@@ -499,40 +583,10 @@ plugin_exec(void *arg)
 			CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
 			CFRelease(timer);
 		}
-	}
 
-	/*
-	 * execute each plugins start() function which should initialize any
-	 * variables, open any sessions with "configd", and register any needed
-	 * notifications. Establishing initial information in the cache should
-	 * be deferred until the prime() initialization function so that any
-	 * plug-ins which want to receive a notification that the data has
-	 * changed will have an opportunity to install a notification handler.
-	 */
-	SCDLog(LOG_DEBUG, CFSTR("calling plugin start() functions"));
-	CFArrayApplyFunction(plugins,
-			     CFRangeMake(0, CFArrayGetCount(plugins)),
-			     bundleStart,
-			     NULL);
-
-	/*
-	 * execute each plugins prime() function which should initialize any
-	 * configuration information and/or state in the cache.
-	 */
-	SCDLog(LOG_DEBUG, CFSTR("calling plugin prime() functions"));
-	CFArrayApplyFunction(plugins,
-			     CFRangeMake(0, CFArrayGetCount(plugins)),
-			     bundlePrime,
-			     NULL);
-
-	/*
-	 * all plugins have been loaded and started.
-	 */
-	CFRelease(plugins);
-
-	if (!SCDOptionGet(NULL, kSCDOptionDebug) && (arg == NULL)) {
-	    /* synchronize with parent process */
-	    kill(getppid(), SIGTERM);
+	if (_configd_fork) {
+		/* synchronize with parent process */
+		kill(getppid(), SIGTERM);
 	}
 
 	/*
@@ -542,9 +596,9 @@ plugin_exec(void *arg)
 	 * needs to wait and/or block at any time it should do so only in its a
 	 * private thread.
 	 */
-	SCDLog(LOG_DEBUG, CFSTR("starting plugin CFRunLoop"));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("starting plugin CFRunLoop"));
 	CFRunLoopRun();
-	SCDLog(LOG_INFO, CFSTR("what, no more work for the \"configd\" plugins?"));
+	SCLog(_configd_verbose, LOG_INFO, CFSTR("what, no more work for the \"configd\" bundles?"));
 	return NULL;
 }
 
@@ -555,14 +609,14 @@ plugin_init()
 	pthread_attr_t	tattr;
 	pthread_t	tid;
 
-	SCDLog(LOG_DEBUG, CFSTR("Starting thread for plug-ins..."));
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Starting thread for plug-ins..."));
 	pthread_attr_init(&tattr);
 	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
 	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
 //      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
 	pthread_create(&tid, &tattr, plugin_exec, NULL);
 	pthread_attr_destroy(&tattr);
-	SCDLog(LOG_DEBUG, CFSTR("  thread id=0x%08x"), tid);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  thread id=0x%08x"), tid);
 
 	return;
 }

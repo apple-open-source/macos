@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.1.1.3 2001/01/25 04:59:30 wsanchez Exp $ */
+/* $Id: php_mysql.h,v 1.1.1.4 2001/07/19 00:19:25 zarzycki Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -41,6 +41,7 @@ extern zend_module_entry mysql_module_entry;
 extern PHP_MINIT_FUNCTION(mysql);
 extern PHP_RINIT_FUNCTION(mysql);
 extern PHP_MSHUTDOWN_FUNCTION(mysql);
+extern PHP_RSHUTDOWN_FUNCTION(mysql);
 PHP_MINFO_FUNCTION(mysql);
 
 PHP_FUNCTION(mysql_connect);
@@ -50,6 +51,7 @@ PHP_FUNCTION(mysql_select_db);
 PHP_FUNCTION(mysql_create_db);
 PHP_FUNCTION(mysql_drop_db);
 PHP_FUNCTION(mysql_query);
+PHP_FUNCTION(mysql_unbuffered_query);
 PHP_FUNCTION(mysql_db_query);
 PHP_FUNCTION(mysql_list_dbs);
 PHP_FUNCTION(mysql_list_tables);
@@ -76,6 +78,10 @@ PHP_FUNCTION(mysql_field_len);
 PHP_FUNCTION(mysql_field_type);
 PHP_FUNCTION(mysql_field_flags);
 PHP_FUNCTION(mysql_escape_string);
+PHP_FUNCTION(mysql_get_client_info);
+PHP_FUNCTION(mysql_get_host_info);
+PHP_FUNCTION(mysql_get_proto_info);
+PHP_FUNCTION(mysql_get_server_info);
 
 ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_link;
@@ -85,6 +91,8 @@ ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_port;
 	char *default_host, *default_user, *default_password;
 	char *default_socket;
+	char *connect_error;
+	long connect_errno;
 ZEND_END_MODULE_GLOBALS(mysql)
 
 #ifdef ZTS

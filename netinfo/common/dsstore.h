@@ -52,6 +52,9 @@
 typedef struct
 {
 	char *dsname;
+	int store_lock;
+	u_int32_t last_sec;
+	u_int32_t last_nsec;
 	u_int32_t flags;
 	u_int32_t max_vers;
 	u_int32_t nichecksum;
@@ -70,6 +73,7 @@ void dsstore_print_index(dsstore *s, FILE *);
 dsstatus dsstore_new(dsstore **s, char *, u_int32_t);
 dsstatus dsstore_open(dsstore **s, char *, u_int32_t);
 dsstatus dsstore_close(dsstore *s);
+
 dsstatus dsstore_authenticate(dsstore *s, dsdata *user, dsdata *password);
 
 dsrecord *dsstore_fetch(dsstore *s, u_int32_t);
@@ -86,7 +90,6 @@ dsstatus dsstore_remove(dsstore *s, u_int32_t);
 
 dsstatus dsstore_match(dsstore *s, u_int32_t, dsdata *, dsdata *, u_int32_t, u_int32_t *);
 
-u_int32_t dsstore_create_dsid(dsstore *s);
 u_int32_t dsstore_max_id(dsstore *s);
 
 u_int32_t dsstore_record_version(dsstore *s, u_int32_t dsid);

@@ -25,7 +25,6 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-FRAMEWORKS = -framework IOKit
 
 HEADER_PATHS =\
                -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders

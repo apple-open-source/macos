@@ -502,7 +502,7 @@ forget_saved_protocol_qualifiers ()
   while (i-- > 0)
     {
       tmp = nth_token (i);
-      if (tmp->yychar == TYPE_QUAL
+      if (tmp->yychar == CV_QUALIFIER
 	  && TREE_CODE (tmp->yylval.ttype) == IDENTIFIER_NODE)
 	{
 	  char *name = IDENTIFIER_POINTER (tmp->yylval.ttype);

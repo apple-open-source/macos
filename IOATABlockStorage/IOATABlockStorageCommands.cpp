@@ -1,0 +1,1349 @@
+/*
+ * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*
+ * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved. 
+ *
+ * IOATABlockStorageCommands.cpp - Performs ATA command processing.
+ *
+ * HISTORY
+ * 09/28/2000	CJS  	Started IOATABlockStorageCommands.cpp (ported from
+ *						IOATAHDDriveCommand.cpp)
+ */
+
+#include <IOKit/assert.h>
+#include <IOKit/IOSyncer.h>
+#include "IOATABlockStorageDriver.h"
+
+
+#if ( ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL >= 1 )
+#define PANIC_NOW(x)			IOPanic x
+#else
+#define PANIC_NOW(x)
+#endif
+
+#if ( ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL >= 2 )
+#define ERROR_LOG(x)			IOLog x
+#else
+#define ERROR_LOG(x)
+#endif
+
+#if ( ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL >= 3 )
+#define STATUS_LOG(x)			IOLog x
+#else
+#define STATUS_LOG(x)
+#endif
+
+#if ( ATA_BLOCK_STORAGE_DRIVER_PM_DEBUGGING_LEVEL >= 1 )
+#define SERIAL_STATUS_LOG(x) 	kprintf x
+#else
+#define SERIAL_STATUS_LOG(x)
+#endif
+
+
+// Configuration state machine
+enum
+{
+	kPIOTransferModeSetup	= 1,
+	kPIOTransferModeDone	= 2,
+	kDMATransferModeDone	= 3,
+	kReadAheadEnableDone	= 4,
+	kWriteCacheEnableDone	= 5
+};
+
+struct ATAConfigData
+{
+	IOATABlockStorageDriver *	self;
+	UInt32						state;
+	IOSyncer *					syncer;
+};
+typedef struct ATAConfigData ATAConfigData;
+
+
+//--------------------------------------------------------------------------------------
+//	е identifyATADevice	-	Sends a device identify request to the device
+//							and uses it to configure the drive speeds
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::identifyATADevice ( void )
+{
+
+	IOReturn			status 		= kIOReturnSuccess;
+	IOATACommand *		cmd			= NULL;
+	ATAClientData *		clientData	= NULL;
+		
+	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyATADevice entering.\n" ) );
+		
+	// Get a new command object
+	cmd = getATACommandObject ( );
+	assert ( cmd != NULL );
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	// Zero the command object
+	cmd->zeroCommand ( );
+	
+	// Start filling in the command
+	cmd->setUnit ( fATAUnitID );
+	
+	sSetCommandBuffers ( cmd, fDeviceIdentifyBuffer, 0, 1 ); 
+	
+	cmd->setCommand ( kATAcmdDriveIdentify );
+	cmd->setFlags ( mATAFlagIORead ); 
+	cmd->setOpcode ( kATAFnExecIO );
+	// set the device head to the correct unit
+	cmd->setDevice_Head ( fATAUnitID << 4 );
+	cmd->setRegMask ( ( ataRegMask ) ( mATAErrFeaturesValid | mATAStatusCmdValid ) );
+
+	// Save state data
+	clientData->command	= kATAcmdDriveIdentify;
+	clientData->flags	= mATAFlagIORead;
+	clientData->opCode	= kATAFnExecIO;
+	clientData->regMask	= ( ataRegMask ) ( mATAErrFeaturesValid | mATAStatusCmdValid );
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyATADevice executing identify command.\n" ) );
+	
+	status = syncExecute ( cmd, kATATimeout10Seconds );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		ERROR_LOG ( ( "IOATABlockStorageDriver::identifyATADevice result = %ld.\n", ( UInt32 ) cmd->getResult ( ) ) );
+		return status;
+	
+	}
+		
+	#if defined(__BIG_ENDIAN__)
+		// The identify device info needs to be byte-swapped on big-endian (ppc) 
+		// systems becuase it is data that is produced by the drive, read across a 
+		// 16-bit little-endian PCI interface, directly into a big-endian system.
+		// Regular data doesn't need to be byte-swapped because it is written and 
+		// read from the host and is intrinsically byte-order correct.	
+		sSwapBytes16 ( ( UInt8 * ) fDeviceIdentifyData, 512 );
+	#endif
+
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyATADevice exiting with status = %ld.\n", ( UInt32 ) status ) );
+	
+	return status;
+		
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е setupReadWriteTaskFile	-	Setup the command's taskfile registers based on
+//									parameters given
+//	block - Initial transfer block
+//	nblks - Number of blocks to transfer
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::setupReadWriteTaskFile (
+							IOATACommand *			cmd,
+							IOMemoryDescriptor *	buffer,
+							UInt32					block,
+							UInt32					nblks )
+{
+	
+	ATAClientData *	clientData;
+	UInt32			flags		= mATAFlagUseConfigSpeed;
+	UInt8			command		= 0;
+	bool			isWrite		= ( buffer->getDirection ( ) == kIODirectionOut );
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setupReadWriteTaskFile entering.\n" ) );
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	// Zero the command
+	cmd->zeroCommand ( );
+	
+	// Check if we are capable of DMA for the I/O
+	if ( fUltraDMAMode || fDMAMode )
+	{
+		
+		command = ( isWrite ) ? kATAcmdWriteDMA : kATAcmdReadDMA;
+		flags |= mATAFlagUseDMA;
+		
+	}
+	
+	else
+	{
+		
+		command = ( isWrite ) ? kATAcmdWrite : kATAcmdRead;
+		
+	}
+	
+	flags |= ( isWrite ) ? mATAFlagIOWrite : mATAFlagIORead;
+	
+	// Set the ATA Command
+	cmd->setCommand ( command );
+	cmd->setSectorCount ( ( nblks == kIOATAMaxBlocksPerXfer ) ? 0 : nblks );
+	
+	if ( fUseLBAAddressing )
+	{
+		
+		STATUS_LOG ( ( "IOATABlockStorageDriver::setupReadWriteTaskFile block = %lx.\n",  block ) );
+
+		// 28bit LBA addressing supported
+		cmd->setLBA28 ( block, fATAUnitID );
+				
+		clientData->sectorNumber 	= ( block & 0xFF );
+		clientData->cylLow			= ( ( block & 0xFF00 ) >> 8 );
+		clientData->cylHigh			= ( ( block & 0x00FF0000 ) >> 16 );
+		
+	}
+	
+	else
+	{
+	
+		UInt32	heads 	= 0;
+		UInt32	sectors = 0;
+		
+		heads 	= fDeviceIdentifyData[kATAIdentifyLogicalHeadCount];
+		sectors	= fDeviceIdentifyData[kATAIdentifySectorsPerTrack];
+		
+		// Not LBA, so use CHS addressing model
+		sConvertBlockToCHSAddress ( cmd, block, heads, sectors, fATAUnitID );
+		
+	}
+	
+	sSetCommandBuffers ( cmd, buffer, 0, nblks ); 
+	
+	cmd->setUnit ( fATAUnitID );
+	
+	cmd->setFlags ( flags );
+	cmd->setOpcode ( kATAFnExecIO );
+	
+	clientData->command			= command;
+	clientData->opCode			= kATAFnExecIO;
+	clientData->flags			= flags;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setupReadWriteTaskFile exiting.\n" ) );
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е ataCommandReadWrite	-	Setup the command for a read/write operation
+//
+//	buffer	- IOMemoryDescriptor object describing this transfer.
+//	block	- Initial transfer block.
+//	nblks	- Number of blocks to transfer.
+//--------------------------------------------------------------------------------------
+
+IOATACommand *
+IOATABlockStorageDriver::ataCommandReadWrite (
+							IOMemoryDescriptor * 	buffer,
+							UInt32					block,
+							UInt32			   		nblks )
+{
+	
+	IOATACommand * 		cmd 				= NULL;
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandReadWrite entering.\n" ) );
+	
+	assert ( buffer != NULL );
+	
+	cmd = getATACommandObject ( );
+	
+	if ( cmd == NULL )
+		return NULL;
+	
+	// Setup the taskfile structure with the size and direction of the
+	// transfer. This structure will be written to the actual taskfile
+	// registers when this command is processed.
+	setupReadWriteTaskFile ( cmd, buffer, block, nblks );
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandReadWrite exiting.\n" ) );
+
+	return cmd;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е ataCommandSetFeatures	-	Setup the command for a set features operation
+//
+//	features		- contents of the Features register
+//	sectorCount		- contents of Sector Count register
+//	sectorNumber	- contents of Sector Number register
+//	cylinderLow		- contents of the Cylinder Low register
+//	cylinderHigh	- contents of the Cylinder High register
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::ataCommandSetFeatures (
+									UInt8 features,
+									UInt8 sectorCount,
+									UInt8 sectorNumber,
+									UInt8 cylinderLow,
+									UInt8 cylinderHigh,
+									UInt32 flags,
+									bool forceSync )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandSetFeatures entering.\n" ) );
+		
+	// Zero the command
+	fConfigurationCommand->zeroCommand ( );
+	
+	fConfigurationCommand->setUnit ( fATAUnitID );	
+	fConfigurationCommand->setFeatures ( features );
+	fConfigurationCommand->setSectorCount ( sectorCount );
+	fConfigurationCommand->setSectorNumber ( sectorNumber );
+	fConfigurationCommand->setOpcode ( kATAFnExecIO );
+	fConfigurationCommand->setCommand ( kATAcmdSetFeatures );
+	fConfigurationCommand->setDevice_Head ( fATAUnitID << 4 );
+	fConfigurationCommand->setCylHi ( cylinderHigh );
+	fConfigurationCommand->setCylLo ( cylinderLow );
+	fConfigurationCommand->setFlags ( flags );
+	fConfigurationCommand->setTimeoutMS ( kATATimeout10Seconds );
+	
+	if ( forceSync )
+	{
+		fConfigurationCommand->setCallbackPtr ( &IOATABlockStorageDriver::sATAVoidCallback );
+	}
+	
+	else
+	{
+		fConfigurationCommand->setCallbackPtr ( &IOATABlockStorageDriver::sATAConfigStateMachine );
+	}
+	
+	
+	status = fATADevice->executeCommand ( fConfigurationCommand );
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandSetFeatures exiting.\n" ) );
+	
+	return status;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е ataCommandFlushCache	-	Setup the command for a flush cache operation
+//--------------------------------------------------------------------------------------
+
+IOATACommand *
+IOATABlockStorageDriver::ataCommandFlushCache ( void )
+{
+	
+	IOATACommand * 		cmd 		= NULL;
+	ATAClientData *		clientData	= NULL;
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandFlushCache entering.\n" ) );
+
+	cmd = getATACommandObject ( );
+	
+	if ( cmd == NULL )
+		return NULL;
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	// Zero the command
+	cmd->zeroCommand ( );
+	
+	cmd->setOpcode ( kATAFnExecIO );
+	cmd->setCommand ( 0xE7 );
+	cmd->setDevice_Head ( fATAUnitID << 4 );
+	cmd->setUnit ( fATAUnitID );	
+	
+	clientData->command	= 0xE7;
+	clientData->opCode	= kATAFnExecIO;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::ataCommandFlushCache exiting.\n" ) );
+	
+	return cmd;
+	
+}
+
+
+//---------------------------------------------------------------------------
+// Issue a synchronous ATA command.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::syncExecute (
+						IOATACommand *			cmd,
+						UInt32					timeout,
+						UInt8					retries )
+{
+	
+	ATAClientData * 	clientData 			= NULL;
+	IOReturn			status				= kIOReturnSuccess;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::syncExecute entering.\n" ) );
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	assert ( clientData != NULL );
+	
+	cmd->setTimeoutMS ( timeout );
+	cmd->setCallbackPtr ( &IOATABlockStorageDriver::sHandleCommandCompletion );
+		
+	// Set up for synchronous transaction
+	clientData->completion.syncLock = IOSyncer::create ( );
+	assert ( clientData->completion.syncLock != NULL );
+	
+	if ( clientData->completion.syncLock == NULL )
+	{
+		returnATACommandObject ( cmd );
+		return kIOReturnNoResources;
+	}
+	
+	// set up any client data necessary for the command
+	clientData->isSync 		= true;
+	clientData->self 		= this;
+	clientData->maxRetries 	= retries;
+	clientData->timeout		= timeout;
+	
+	// save the state data in case we need to issue retries
+	sSaveStateData ( cmd );
+	
+	fATADevice->executeCommand ( cmd );
+	
+	// Block client thread on lock until the completion handler
+	// receives an indication that the processing is complete
+	clientData->completion.syncLock->wait ( );
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::syncExecute exiting.\n" ) );
+	
+	// Pull the error from the clientData
+	status = clientData->returnCode;
+		
+	// Re-enqueue the command object since we're done with it
+	returnATACommandObject ( cmd );
+	
+	return status;
+	
+}
+
+
+//---------------------------------------------------------------------------
+// Issue an asynchronous ATA command.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::asyncExecute (
+							IOATACommand *	  		cmd,
+							IOStorageCompletion 	completion,
+							UInt32			  		timeout,
+							UInt8					retries )
+{
+	
+	ATAClientData * 	clientData 			= NULL;
+	IOReturn			status				= kIOReturnSuccess;
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::asyncExecute entering.\n" ) );
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	assert ( clientData != NULL );
+		
+	// Set timeout and register the completion handler.
+	cmd->setTimeoutMS ( timeout );
+	cmd->setCallbackPtr ( &IOATABlockStorageDriver::sHandleCommandCompletion );
+		
+	// Set up for an asynchronous transaction
+	clientData->isSync				= false;
+	clientData->self 				= this;
+	clientData->maxRetries 			= retries;
+	clientData->completion.async 	= completion;
+	clientData->timeout				= timeout;
+
+	// save the state data in case we need to issue retries
+	sSaveStateData ( cmd );
+	
+	// Execute the command
+	status = fATADevice->executeCommand ( cmd );
+	if ( status != kATANoErr )
+	{
+	
+		ERROR_LOG ( ( "IOATABlockStorageDriver::asyncExecute executeCommand returned error = %ld.\n", ( UInt32 ) status ) );
+	
+	}
+	
+	return status;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е allocateATACommandObjects	-	allocates ATA command objects
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::allocateATACommandObjects ( void )
+{
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::allocateATACommandObjects entering\n" ) );
+	
+	IOATACommand *			cmd 		= NULL;
+	ATAClientData *			clientData 	= NULL;
+	IOSyncer *				syncer		= NULL;
+	ATAConfigData *			configData	= NULL;
+			
+	for ( UInt32 index = 0; index < fNumCommandObjects; index++ )
+	{
+		
+		// Allocate the command
+		cmd = fATADevice->allocCommand ( );
+		assert ( cmd != NULL );
+		
+		// Allocate the command clientData
+		clientData = ( ATAClientData * ) IOMalloc ( sizeof ( ATAClientData ) );
+		assert ( clientData != NULL );
+		bzero ( clientData, sizeof ( ATAClientData ) );
+				
+		// set the back pointers to each other
+		cmd->refCon 	= ( void * ) clientData;
+		clientData->cmd	= cmd;
+		
+		STATUS_LOG ( ( "adding command to pool\n" ) );
+		
+		// Enqueue the command in the free list
+		fCommandPool->returnCommand ( cmd );
+		
+	}
+	
+	// Allocate the command
+	fResetCommand 			= fATADevice->allocCommand ( );
+	fPowerManagementCommand	= fATADevice->allocCommand ( );
+	fConfigurationCommand	= fATADevice->allocCommand ( );
+	
+	assert ( fResetCommand != NULL );
+	assert ( fPowerManagementCommand != NULL );
+	assert ( fConfigurationCommand != NULL );
+	
+	syncer = IOSyncer::create ( );
+	assert ( syncer != NULL );
+	fPowerManagementCommand->refCon = ( void * ) syncer;
+	
+	configData = ( ATAConfigData * ) IOMalloc ( sizeof ( ATAConfigData ) );
+	assert ( configData != NULL );
+	bzero ( configData, sizeof ( ATAConfigData ) );
+	configData->syncer = IOSyncer::create ( );
+	assert ( configData->syncer != NULL );
+	fConfigurationCommand->refCon = ( void * ) configData;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::allocateATACommandObjects exiting\n" ) );
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е dellocateATACommandObjects	-	deallocates ATA command objects
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::deallocateATACommandObjects ( void )
+{
+
+	STATUS_LOG ( ( "IOATABlockStorageDriver::dellocateATACommandObjects entering\n" ) );	
+	
+	IOATACommand *		cmd 		= NULL;
+	ATAClientData *		clientData 	= NULL;
+	IOSyncer *			syncer		= NULL;
+	ATAConfigData *		configData	= NULL;
+	
+	cmd = ( IOATACommand * ) fCommandPool->getCommand ( false );
+	assert ( cmd != NULL );
+
+	//еее Walk the in-use queue and abort the commands (potential memory leak right now)
+	
+	
+	// This handles walking the free command queue
+	while ( cmd != NULL )
+	{
+		
+		clientData = ( ATAClientData * ) cmd->refCon;
+		assert ( clientData != NULL );
+		
+		IOFree ( clientData, sizeof ( ATAClientData ) );
+		clientData = NULL;
+		
+		fATADevice->freeCommand ( cmd );
+		
+		cmd = ( IOATACommand * ) fCommandPool->getCommand ( false );
+		
+	}
+	
+	syncer = ( IOSyncer * ) fPowerManagementCommand->refCon;
+	syncer->release ( );
+		
+	configData = ( ATAConfigData * ) fConfigurationCommand->refCon;
+	configData->syncer->release ( );
+	IOFree ( configData, sizeof ( ATAConfigData ) );
+	
+	fATADevice->freeCommand ( fResetCommand );
+	fATADevice->freeCommand ( fPowerManagementCommand );
+	fATADevice->freeCommand ( fConfigurationCommand );
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::dellocateATACommandObjects exiting.\n" ) );	
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е getATACommandObject	-	Gets the first non-busy ata command object
+//								If they are all busy, it returns NULL
+//--------------------------------------------------------------------------------------
+
+IOATACommand *
+IOATABlockStorageDriver::getATACommandObject ( bool blockForCommand )
+{
+	
+	IOATACommand *	cmd = NULL;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::getATACommandObject entering.\n" ) );
+	
+	cmd = ( IOATACommand * ) fCommandPool->getCommand ( blockForCommand );
+	assert ( cmd != NULL );
+	
+	return cmd;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е returnATACommandObject	-	returns the ATA command object to the pool
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::returnATACommandObject ( IOATACommand * cmd )
+{
+	
+	ATAClientData *		clientData;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::returnATACommandObject entering.\n" ) );
+
+	assert ( cmd != NULL );
+	clientData = ( ATAClientData * ) cmd->refCon;
+	assert ( clientData != NULL );
+	
+	// Clear out the clientData, so we don't reuse any variables
+	bzero ( clientData, sizeof ( ATAClientData ) );
+	
+	// set the back pointers to each other
+	cmd->refCon 	= ( void * ) clientData;
+	clientData->cmd	= cmd;
+	
+	// Finally, re-enqueue the command
+	fCommandPool->returnCommand ( cmd );
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е identifyAndConfigureATADevice	-	Sends a device identify request to the device
+//										and uses it to configure the drive speeds
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::identifyAndConfigureATADevice ( void )
+{
+	
+	IOReturn			status				= kIOReturnSuccess;
+	IOATABusInfo *		busInfoPtr			= NULL;
+	IOATADevConfig *	deviceConfigPtr		= NULL;
+	
+	// Get some info about the ATA bus
+	busInfoPtr = IOATABusInfo::atabusinfo ( );
+	assert ( busInfoPtr != NULL );
+	
+	// Zero the data, and then get the information from the ATA controller
+	busInfoPtr->zeroData ( );
+	status = fATADevice->provideBusInfo ( busInfoPtr );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		ERROR_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice provide bus info failed thErr = %ld.\n", ( UInt32 ) status ) );
+		goto ReleaseBusInfoAndBail;
+		
+	}
+	
+	// Get the socket type
+	fATASocketType = busInfoPtr->getSocketType ( );
+	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice socket type = %d.\n", ( UInt8 ) fATASocketType ) );
+	
+	// Execute an ATA device identify
+	status = identifyATADevice ( );
+	if ( status != kIOReturnSuccess )
+	{
+		goto ReleaseBusInfoAndBail;		
+	}
+	
+	deviceConfigPtr = IOATADevConfig::atadevconfig ( );
+	assert ( deviceConfigPtr != NULL );
+	
+	// Get the device config from ATA Controller
+	status = fATADevice->provideConfig ( deviceConfigPtr );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		ERROR_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice provideConfig returned an error = %ld.\n", ( UInt32 ) status ) );
+		goto ReleaseBusInfoAndBail;
+		
+	}
+	
+	// Pass the bus information and device identify info to have ATA Controller choose
+	// the best config for this device (if it can)
+	status = deviceConfigPtr->initWithBestSelection ( fDeviceIdentifyData, busInfoPtr );
+	if ( status != kIOReturnSuccess )
+	{
+		goto ReleaseBusInfoAndBail;		
+	}
+	
+	// Select the config it gives us
+	status = fATADevice->selectConfig ( deviceConfigPtr );
+	if ( status != kIOReturnSuccess )
+	{
+		
+		ERROR_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice selectConfig returned error = %ld.\n", ( UInt32 ) status ) );
+	
+	}
+	
+	// Store the PIOModes, DMAModes and UltraDMAModes supported
+	fPIOMode 		= deviceConfigPtr->getPIOMode ( );
+	fDMAMode		= deviceConfigPtr->getDMAMode ( );
+	fUltraDMAMode 	= deviceConfigPtr->getUltraMode ( );
+	
+	// Add any more configuration info we need (write cache enable, power management, etc.)
+	status = configureATADevice ( );
+	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice configureATADevice returned status = %ld.\n", ( UInt32 ) status ) );
+	
+	
+ReleaseBusInfoAndBail:
+	
+	
+	if ( busInfoPtr != NULL )
+	{
+		
+		STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice releasing bus info.\n" ) );
+		busInfoPtr->release ( );
+		busInfoPtr = NULL;
+		
+	}
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice returning status = %ld.\n", ( UInt32 ) status ) );
+	
+	return status;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е configureATADevice	-	Configures the ATA Device
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::configureATADevice ( void )
+{
+	
+	ATAConfigData *		configData;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::configureATADevice entering.\n" ) );
+	
+	configData = ( ATAConfigData * ) fConfigurationCommand->refCon;
+	
+	configData->self 		= this;
+	configData->state 		= kPIOTransferModeSetup;
+		
+	sATAConfigStateMachine ( fConfigurationCommand );
+	
+	configData->syncer->reinit ( );
+	configData->syncer->wait ( false );
+	
+	return kIOReturnSuccess;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е reconfigureATADevice	-	Reconfigures the ATA Device
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::reconfigureATADevice ( void )
+{
+		
+	// There is a window here on a machine with both device0 and device1 ATA
+	// devices where if a device is not ready and a bus reset occurs, and the
+	// other driver hasn't allocated resources yet but is instantiated, it
+	// could cause a panic. We check to make sure the fConfigurationCommand
+	// instance variable is not NULL to make sure all resources necessary
+	// for reconfiguration have been allocated before proceeding with
+	// the reconfiguration.
+	
+	if ( fConfigurationCommand != NULL )
+	{
+	
+		// We are on a callout from the ATA controller and need to execute
+		// all of these commands synchronously.	
+		setPIOTransferMode ( true );
+		setDMATransferMode ( true );
+		setAdvancedPowerManagementLevel ( fAPMLevel, true );
+		
+		ataCommandSetFeatures ( kATAEnableReadAhead,
+								0,
+								0,
+								0,
+								0,
+								mATAFlagImmediate,
+								true );
+		
+		ataCommandSetFeatures ( kATAEnableWriteCache,
+								0,
+								0,
+								0,
+								0,
+								mATAFlagImmediate,
+								true );
+		
+	}
+		
+	return kIOReturnSuccess;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е setPIOTransferMode	-	Configures the ATA Device's PIO Transfer mode
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::setPIOTransferMode ( bool forceSync )
+{
+	
+	IOReturn		status 		= kIOReturnSuccess;
+	UInt8			mode		= 0;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setPIOTransferMode entering.\n" ) );
+	
+	// Always set to highest transfer mode
+	mode = sConvertHighestBitToNumber ( fPIOMode );
+	
+	// PIO transfer mode is capped at 4 for now in the ATA-5 spec. If a device supports
+	// more than mode 4 it has to at least support mode 4. We might not get the best
+	// performance out of the drive, but it will work until we update to latest spec.
+	if ( mode > 4 )
+	{
+		
+		STATUS_LOG ( ( "IOATABlockStorageDriver::setPIOTransferMode mode > 4 = %ld.\n", ( UInt32 ) mode ) );
+		mode = 4;
+		
+	}
+	
+	status = ataCommandSetFeatures ( kATASetTransferMode,
+									 ( kATAEnablePIOModeMask | mode ),
+									 0,
+									 0,
+									 0,
+									 mATAFlagImmediate,
+									 forceSync );
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setPIOTransferMode exiting with error = %ld.\n", ( UInt32 ) status ) );
+	
+	return status;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е setDMATransferMode	-	Configures the ATA Device's DMA Transfer mode
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::setDMATransferMode ( bool forceSync )
+{
+	
+	IOReturn		status 			= kIOReturnSuccess;
+	UInt8			mode			= 0;
+	UInt8 			sectorCount		= 0;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::SetDMATransferMode entering.\n" ) );
+	
+	// Always set to highest transfer mode
+	if ( fUltraDMAMode )
+	{
+		
+		// Device supports UltraDMA
+		STATUS_LOG ( ( "IOATABlockStorageDriver::SetDMATransferMode choosing UltraDMA.\n" ) );
+		mode = sConvertHighestBitToNumber ( fUltraDMAMode );
+		
+		// Ultra DMA is capped at 8 for now in the ATA-5 spec. If a device supports
+		// more than mode 8 it MUST at least support mode 8.
+		if ( mode > 8 )
+			mode = 8;
+		
+		sectorCount = ( kATAEnableUltraDMAModeMask | mode );
+		
+	}
+	
+	else
+	{
+		
+		STATUS_LOG ( ( "IOATABlockStorageDriver::SetDMATransferMode choosing DMA.\n" ) );
+		mode = sConvertHighestBitToNumber ( fDMAMode );
+		
+		// MultiWord DMA is capped at 2 for now in the ATA-5 spec. If a device supports
+		// more than mode 2 it MUST at least support mode 2. We might not get the best
+		// performance out of the drive, but it will work until we update to latest spec.
+		if ( mode > 2 )
+			mode = 2;
+		
+		sectorCount	= ( kATAEnableMultiWordDMAModeMask | mode );
+		
+	}
+	
+	status = ataCommandSetFeatures ( kATASetTransferMode,
+									 sectorCount,
+									 0,
+									 0,
+									 0,
+									 mATAFlagImmediate,
+									 forceSync );
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::SetDMATransferMode exiting with error = %ld.\n", ( UInt32 ) status ) );
+	
+	return status;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е setAdvancedPowerManagementLevel	-	Configures the ATA Device's APM Level mode
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::setAdvancedPowerManagementLevel ( UInt8 level, bool forceSync )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setAdvancedPowerManagementLevel entering.\n" ) );
+	
+	fAPMLevel = level;
+	
+	// First, see if we need to do the operation at all
+	if ( ( fSupportedFeatures & kIOATAFeatureAdvancedPowerManagement ) == 0 )
+		return status;
+	
+	status = ataCommandSetFeatures ( 0x05,
+									 fAPMLevel,
+									 0,
+									 0,
+									 0,
+									 mATAFlagImmediate,
+									 forceSync );
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::setAdvancedPowerManagementLevel exiting with error = %ld.\n", ( UInt32 ) status ) );
+	
+	return status;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е sATAVoidCallback	-	callback that does nothing
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sATAVoidCallback ( IOATACommand * cmd )
+{
+	return;
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е sATAConfigStateMachine	-	state machine for configuration commands
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sATAConfigStateMachine ( IOATACommand * cmd )
+{
+	
+	ATAConfigData *					configData;
+	IOATABlockStorageDriver *		driver;
+		
+	STATUS_LOG ( ( "IOATABlockStorageDriver::sATAConfigStateMachine entering\n" ) );	
+	
+	configData 	= ( ATAConfigData * ) cmd->refCon;
+	driver		= configData->self;
+	
+	switch ( configData->state )
+	{
+		
+		case kPIOTransferModeSetup:
+			configData->state = kPIOTransferModeDone;
+			driver->setPIOTransferMode ( false );
+			break;
+			
+		case kPIOTransferModeDone:
+			if ( ( driver->fUltraDMAMode != 0 ) || ( driver->fDMAMode != 0 ) )
+			{
+				configData->state = kDMATransferModeDone;
+				driver->setDMATransferMode ( false );
+				break;
+			}			
+		
+		// Intentional fall through in case there is no DMA mode available
+		
+		case kDMATransferModeDone:
+		{
+			configData->state = kReadAheadEnableDone;
+			driver->ataCommandSetFeatures ( kATAEnableReadAhead,
+											0,
+											0,
+											0,
+											0,
+											mATAFlagImmediate,
+											false );
+		}	
+			break;
+			
+		case kReadAheadEnableDone:
+		{
+			configData->state = kWriteCacheEnableDone;
+			driver->ataCommandSetFeatures ( kATAEnableWriteCache,
+											0,
+											0,
+											0,
+											0,
+											mATAFlagImmediate,
+											false );
+		}	
+			break;
+			
+		case kWriteCacheEnableDone:
+			// we're done with configuration
+			configData->syncer->signal ( kIOReturnSuccess, false );
+			break;
+			
+		default:
+			PANIC_NOW ( ( "sATAPIConfigStateMachine unexpected state\n" ) );
+			break;
+		
+	}
+		
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е resetATADevice	-	Sends a device reset command to the device
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::resetATADevice ( void )
+{
+	
+	IOReturn		status		= kIOReturnSuccess;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::resetATADevice entering.\n" ) );
+	SERIAL_STATUS_LOG ( ( "IOATABlockStorageDriver::resetATADevice executing reset.\n" ) );
+	
+	if ( fResetInProgress )
+		return kIOReturnNotPermitted;
+	
+	fResetInProgress = true;
+	
+	// Zero the command object
+	fResetCommand->zeroCommand ( );
+	
+	// Start filling in the command
+	fResetCommand->setUnit ( fATAUnitID );	
+	fResetCommand->setTimeoutMS ( kATATimeout45Seconds );
+	fResetCommand->setOpcode ( kATAFnBusReset );
+	fResetCommand->setFlags ( mATAFlagImmediate );
+	fResetCommand->setCallbackPtr ( &IOATABlockStorageDriver::sHandleReset );
+	
+	fResetCommand->refCon = ( void * ) this;
+	
+	status = fATADevice->executeCommand ( fResetCommand );
+	
+	fResetInProgress = false;
+	
+	return status;
+	
+}
+
+
+#pragma mark -
+#pragma mark Static Routines
+
+
+//--------------------------------------------------------------------------------------
+//	е sHandleCommandCompletion		-	This routine is called by our provider when a
+//										command processing has completed
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sHandleCommandCompletion ( IOATACommand * cmd )
+{
+	
+	ATAClientData *		clientData 	= NULL;
+	UInt32				result		= kATANoErr;
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion entering.\n" ) );
+	
+	assert ( cmd != NULL );
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	assert ( clientData != NULL );
+	
+	result = cmd->getResult ( );
+	
+	// Return IOReturn for sync commands.
+	switch ( result )
+	{
+		
+		case kATANoErr:
+			STATUS_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion actual xfer = %ld.\n", ( UInt32 ) cmd->getActualTransfer ( ) ) );
+			clientData->returnCode = kIOReturnSuccess;
+			break;
+			
+		case kATATimeoutErr:
+		case kATAErrDevBusy:
+			
+			// Reset the device because the device is hung
+			clientData->self->resetATADevice ( );			
+			
+			// Intentional fall through
+		
+		case kATADeviceError:
+			
+			ERROR_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion result = %d.\n", result ) );
+			
+			// Reissue the command if the max number of retries is greater
+			// than zero, else return an error
+			if ( clientData->maxRetries > 0 )
+			{
+				sReissueCommandFromClientData ( cmd );
+				return;
+			}				
+			break;
+			
+		default:
+			break;
+		
+	}
+	
+	clientData->self->fNumCommandsOutstanding--;
+	
+	if ( clientData->isSync )
+	{
+		
+		clientData->returnCode = result;
+		// For sync commands, unblock the client thread.
+		assert ( clientData->completion.syncLock );
+		clientData->completion.syncLock->signal ( );
+		
+	}
+	
+	else
+	{
+		
+		// Signal the completion routine that the request has been completed.
+		IOStorage::complete ( clientData->completion.async,
+							  result,
+							  ( UInt64 ) cmd->getActualTransfer ( ) );
+		
+		// Async command processing is complete, re-enqueue command
+		clientData->self->returnATACommandObject ( cmd );
+		
+	}
+	
+	STATUS_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion exiting.\n" ) );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// е sHandleSimpleSyncTransaction - callback routine for simple synchronous
+//									commands
+//---------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sHandleSimpleSyncTransaction ( IOATACommand * cmd )
+{
+	
+	IOReturn		status;
+	IOSyncer *		syncer;
+		
+	syncer	= ( IOSyncer * ) cmd->refCon;
+	status	= cmd->getResult ( );
+		
+	syncer->signal ( status, false );
+		
+}
+
+
+//---------------------------------------------------------------------------
+// е sHandleReset - callback routine for reset commands
+//---------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sHandleReset ( IOATACommand * cmd )
+{
+	
+	IOATABlockStorageDriver *	self;
+	
+	if ( cmd->getResult ( ) == kATANoErr )
+	{
+		
+		self = ( IOATABlockStorageDriver * ) cmd->refCon;
+		self->fWakeUpResetOccurred = true;
+		
+	}
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е sConvertBlockToCHSAddress	-	Converts a block to a valid CHS address and stuffs
+//									it into the command
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sConvertBlockToCHSAddress ( IOATACommand *	cmd,
+													 UInt32 		block,
+													 UInt32 		heads,
+													 UInt32 		sectors,
+													 ataUnitID 		unitID )
+{
+
+	ATAClientData *		clientData;
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	UInt16	startingCylinder 	= block / ( sectors * heads );
+	UInt16	whichHead			= ( block / sectors ) % heads;
+	
+	cmd->setSectorNumber ( ( block % sectors ) + 1 );	// Sectors range from 1╔n
+	cmd->setCylLo ( ( UInt8 ) startingCylinder );
+	cmd->setCylHi ( ( UInt8 ) ( startingCylinder >> 8 ) );
+	cmd->setDevice_Head ( ( ( ( UInt8 ) unitID ) << 4 ) | ( whichHead & mATAHeadNumber ) );
+	
+	// Save extra state data
+	clientData->sectorNumber 	= ( block % sectors ) + 1;
+	clientData->cylLow			= ( UInt8 ) startingCylinder;
+	clientData->cylHigh			= ( UInt8 ) ( startingCylinder >> 8 );
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е sReissueCommandFromClientData	-	Reissue a transaction
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sReissueCommandFromClientData ( IOATACommand * cmd )
+{
+	
+	ATAClientData *		clientData;
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	if ( clientData == NULL )
+	{
+		
+		PANIC_NOW ( ( "No client data associated with this command.\n" ) );
+		return;
+		
+	}
+	
+	clientData->maxRetries--;
+	
+	// Zero the command
+	cmd->zeroCommand ( );
+	
+	// Rebuild the ATA command based on saved register state
+	cmd->setOpcode 				( clientData->opCode );
+	cmd->setFlags 				( clientData->flags );
+	cmd->setUnit 				( clientData->self->fATAUnitID );
+	cmd->setTimeoutMS 			( clientData->timeout );
+	cmd->setCallbackPtr			( &IOATABlockStorageDriver::sHandleCommandCompletion );
+	cmd->setRegMask				( clientData->regMask );
+	cmd->setBuffer 				( clientData->buffer );
+	cmd->setPosition 			( clientData->bufferOffset );
+	cmd->setByteCount 			( clientData->numberOfBlocks * kATADefaultSectorSize );
+	cmd->setTransferChunkSize 	( kATADefaultSectorSize );
+	cmd->setFeatures 			( clientData->featuresReg );
+	cmd->setSectorCount 		( clientData->sectorCount );	
+	cmd->setSectorNumber 		( clientData->sectorNumber );	
+	cmd->setCylLo 				( clientData->cylLow );
+	cmd->setCylHi 				( clientData->cylHigh );
+	cmd->setDevice_Head			( clientData->sdhReg );
+	cmd->setCommand 			( clientData->command );
+	
+	clientData->self->fATADevice->executeCommand ( cmd );
+
+	STATUS_LOG ( ( "%ssReissueCommandFromClientData%s\n", "\033[33m", "\033[0m" ) );
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е sSetCommandBuffers	-	Builds an ATA command based on passed in arguments
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sSetCommandBuffers ( IOATACommand *		cmd,
+											  IOMemoryDescriptor * 	buffer,
+											  IOByteCount			offset,
+											  IOByteCount			numBlocks )
+{
+	
+	ATAClientData *		clientData;
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	cmd->setBuffer 				( buffer );
+	cmd->setPosition 			( offset );
+	cmd->setByteCount 			( numBlocks * kATADefaultSectorSize );
+	cmd->setTransferChunkSize 	( kATADefaultSectorSize );
+	
+	clientData->buffer 			= buffer;
+	clientData->bufferOffset 	= offset;
+	clientData->numberOfBlocks 	= numBlocks;
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	е sSaveStateData	-	Saves state data for executing commands
+//--------------------------------------------------------------------------------------
+
+void
+IOATABlockStorageDriver::sSaveStateData ( IOATACommand * cmd )
+{
+	
+	ATAClientData *		clientData;
+	
+	clientData = ( ATAClientData * ) cmd->refCon;
+	
+	clientData->sectorCount		= cmd->getSectorCount ( );
+	clientData->sectorNumber	= cmd->getSectorNumber ( );
+	clientData->cylHigh			= cmd->getCylHi ( );
+	clientData->cylLow			= cmd->getCylLo ( );
+	clientData->sdhReg			= cmd->getDevice_Head ( );
+	
+}

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.dir.h,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.dir.h,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
 /*
  * sh.dir.h: Directory data structures and globals
  */

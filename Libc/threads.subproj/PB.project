@@ -2,7 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         H_FILES = (cthread_internals.h, cthreads.h); 
-        OTHER_LINKED = (cprocs.c, cthreads.c, lu_utils.c, mig_support.c, threads_data.c); 
+        OTHER_LINKED = (cprocs.c, cthreads.c, lu_utils.c, mig_support.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
         PROJECT_HEADERS = (cthread_internals.h, cthreads.h); 
         SUBPROJECTS = (i386.subproj, ppc.subproj); 

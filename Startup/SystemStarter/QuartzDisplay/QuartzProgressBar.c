@@ -2,7 +2,7 @@
  * QuartzProgressBar.c - Quartz Progress Bar
  * $Apple$
  **
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

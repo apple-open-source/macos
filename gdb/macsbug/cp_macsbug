@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if [ "$1" == "" ]; then
+    echo "Specify directory you want to create to hold MacsBug stuff."
+else 
+    mkdir -p "$1"
+    cp ~ira/tools/macsbug/*.[ch]            "$1"
+    cp ~ira/tools/macsbug/MacsBug_testing.i "$1"
+    cp ~ira/tools/macsbug/README.*          "$1"
+    cp ~ira/tools/macsbug/Makefile          "$1"
+    cp ~ira/tools/macsbug/gdbinit-MacsBug   "$1"
+    cp ~ira/tools/macsbug/gdbinit-MacsBug-without-plugin "$1"
+
+    mkdir -p "$1"/gdb_plugin_support
+    cp ~ira/tools/macsbug/gdb_plugin_support/*.[ch]        "$1"/gdb_plugin_support
+    cp ~ira/tools/macsbug/gdb_plugin_support/gdb_testing.i "$1"/gdb_plugin_support
+    cp ~ira/tools/macsbug/gdb_plugin_support/Makefile      "$1"/gdb_plugin_support
+fi

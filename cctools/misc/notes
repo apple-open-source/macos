@@ -2,11 +2,125 @@ To Do:
 - Change to Doug's approach to relayout, namely something like reserving the
   last 10% of the load region for new dylibs and then evenly spacing the
   existing dylibs in the other 90% (for split libs).  See email of 11/6/2000.
-- Change strip to not strip any global coalesced symbols by default.
+- Change strip to strip static coalesced symbols that are not used with an
+  indirect symbol table entry by default.  See Radar bug #2689894.
 - Have cmpdylib check Objc info Tracker bug #78124.
 - Fix a bug in strip on line 1105 where it uses missing_reloc_symbols when it
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
+
+Changes for the 5.9 release (the cctools-380 release):
+- Added the -twolevel_namespace_hints option to libtool.  Radar bug #2735266.
+
+Changes for the 5.9 release (the cctools-379 release):
+- Fixed pagestuff(1) to know about the hints table.
+
+Changes for the 5.9 release (the cctools-372 release):
+- Picked up the changes to seg_addr_table(1) for the new -update_overlaps
+  option.
+
+Changes for the 5.9 release (the cctools-371 release):
+- Fixed "uptodate" to be "up to date" in redo_prebinding.c.  Radar bug #2711451.
+- Fixed a bug in redo_prebinding(1) that was not testing the value of arch_hints
+  for NULL before using it in build_new_symbol_table() in redo_prebinding.c
+  before using it.  So for images without hints it would crash.
+
+Changes for the 5.9 release (the cctools-370 release):
+- Added support for updating the hints table to redo_prebinding.
+
+  Changed swap_arch_for_output() for swapping hints on output.
+
+  Change build_new_symbol_table() in redo_prebinding.c to also update
+  the hints table with its call to lookup_symbol().  Changed the various
+  lookup_symbol*() routines to take a pointer to a isub_image and itoc to
+  fill in if not NULL.
+
+  Changed build_new_symbol_table() to account for hints in the sym_info_size.
+
+  Added variables arch_hints and arch_nhints to redo_prebinding.c and cleared
+  them in reset_statics() and set and swapped them in setup_symbolic_info().
+
+- Changed strip_object() in strip.c to set the object's output_hints field and
+  to reset the object's hints_cmd->offset field.  Also to adjust the
+  input_sym_info_size and output_sym_info_size fields with the size of the
+  hints.
+- Changed build_new_symbol_table() in redo_prebinding.c to know about the
+  hints table as in strip above.
+- Changed translate_dylib() in indr.c to know about INDIRECT_SYMBOL_LOCAL and
+  INDIRECT_SYMBOL_ABS.  And to know about prebound undefined symbols (N_PBUD).
+  Also made the same changes as in strip noted above for hints.
+
+Changes for the 5.9 release (the cctools-369.3 release):
+- Fixed a bug in check_symbolic_info_tables() in redo_prebinding.c in its
+  checking for bad LIBRARY_ORDINAL that needed to make sure the symbol was not
+  a N_STAB before checking it.
+
+Changes for the 5.9 release (the cctools-369 release):
+- Fixed redo_prebinding which had the same problem as dyld that was fixed in
+  cctools-366 with undefined symbol references from two-level images where
+  the definition of the symbol is in a sub-framework of a flat namespace
+  umbrella framework that would come up undefined.   The fixes were in
+  load_archs_libraries() and load_dependent_libraries() for counting the
+  dependent libraries no longer being conditional on the image being
+  MH_TWOLEVEL.  And in load_dependent_libraries() so the call to
+  setup_sub_images() is also longer conditional on if the image is MH_TWOLEVEL.
+
+Changes for the 5.9 release (the cctools-367 release):
+- Added support for sub-libraries like sub-umbrellas to redo_prebinding.
+  Radar bug #2697458.
+
+  Added the following field to the lib struct:
+    char *library_name; 
+  and changed the of the following field from umbrella_name_size to:
+    unsigned long name_size;    
+  for use both by umbrella_name and library_name.  The code was changed to use
+  the new field name.
+
+  Changed load_archs_libraries() and load_library() to set the library_name
+  field from the return value of guess_short_name().
+
+  Changed print_two_level_info() to print the library_name in the various lists.
+
+  Changed setup_sub_images()'s header comments to include sub-libraries and
+  added code to deal with sub-libraries like sub-umbrellas.
+- Added the -sub_library flag to libtool.  Radar bug #2697458.
+
+Changes for the 5.9 release (the cctools-363 release):
+- Changed libtool so that if -arch_only is specified with a specific cpusubtype
+  other than the family cpusubtype it does not use -force_cpusubtype_ALL and
+  passes the -arch_only argument to ld(1) as the -arch flag so that the output
+  is to be tagged with that cpusubtype.
+
+Changes for the 5.9 release (the cctools-362 release):
+- Fixed a bug in redo_prebinding.c in main() where the mask it uses to get
+  the mode from the stat mode should be 07777 not 06777 so the sticky bit
+  gets set.
+- Added progname to file.c as the changes to libstuff needs it (this is the
+  Openstep version of file).
+- Fixed the same bug in load_dependent_libraries() as in dyld in
+  redo_prebinding.c that was only calling setup_umbrella_images() if the library
+  was a MH_TWOLEVEL.  This needed to call setup_umbrella_images() for all
+  libraries as it is possible that a sub-framework of an umbrella library is
+  flat and the umbrella library is two-level.  In that case other images could
+  have two-level namespace references recorded to the umbrella library for
+  symbols defined in the flat sub-framework.
+
+Changes for the 5.9 release (the cctools-360 release):
+- Added the -e option to redo_prebinding(1) to take the executable_path.
+- Changed the code in redo_prebinding to be ifdef'ed with LIBRARY_API for the
+  API in Radar bug #2604014.
+
+Changes for the 5.9 release (the cctools-359 release):
+- Changed libtool(1) to pass -multiply_defined <treatment> to the linker.
+- Made a great number of changes to redo_prebinding(1) so it would support
+  two-level namespace images.
+- Fixed a bug in redo_prebinding(1) that would overwrite the output_file with
+  a partially written file if the filesystem fills up.  Radar bug #2639352.
+- Added code in nm.c to deal with the library ordinal being EXECUTABLE_ORDINAL.
+- Changed checksyms(1) to open the default segment address table if none is
+  specified via a -seg_addr_table argument.
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
 
 Changes for the 5.8 release (the cctools-357 release):
 - Added support for the CPU_SUBTYPE_POWERPC_7450 in lipo.c. Radar bug #2599869.
@@ -348,8 +462,8 @@ Changes for the 5.3 release, MacOS X bring up (the cctools-282 release):
   translate_input() in indr.c so it would compile with the MetroWerks compiler.
 
 Changes for the 5.2 release (the cctools-281 release):
-- Changed redo_prebinding to exit with a error code of 3 if the dependent libraries are
-  out of date.  Radar bug #2259447.
+- Changed redo_prebinding to exit with a error code of 3 if the dependent
+  libraries are out of date.  Radar bug #2259447.
 
 Changes for the 5.2 release (the cctools-280 release):
 - Changed libtool to pass the -F and -L flags to objcunique.  Radar bug #2257931.

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -66,6 +66,15 @@ ZEND_API void zend_html_puts(char *s, uint len)
 	register char *ptr=s, *end=s+len;
 	
 	while (ptr<end) {
+		if (*ptr==' '
+			&& len>1
+			&& !(((ptr+1)>=end) || (*(ptr+1)==' ')) /* next is not a space */
+			&& !((ptr==s) || (*(ptr-1)==' '))) /* last is not a space */ {
+			char c = *ptr++;
+
+			ZEND_PUTC(c);
+			continue;
+		}
 		zend_html_putc(*ptr++);
 	}
 }
@@ -149,6 +158,7 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 				case T_OPEN_TAG_WITH_ECHO:
 				case T_CLOSE_TAG:
 				case T_WHITESPACE:
+				case T_COMMENT:
 					break;
 				default:
 					efree(token.value.str.val);

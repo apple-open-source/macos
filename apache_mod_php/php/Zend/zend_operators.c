@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <limits.h>
 #include <ctype.h>
 #include <math.h>
 
@@ -108,58 +107,77 @@ ZEND_API double zend_string_to_double(const char *number, zend_uint length)
 
 ZEND_API void convert_scalar_to_number(zval *op)
 {
-	char *strval;
+	switch (op->type) {
+		case IS_STRING:
+			{
+				char *strval;
 
-	if (op->type == IS_STRING) {
-		strval = op->value.str.val;
-		switch ((op->type=is_numeric_string(strval, op->value.str.len, &op->value.lval, &op->value.dval))) {
-			case IS_DOUBLE:
-			case IS_LONG:
-				break;
-#if 0&&WITH_BCMATH
-			case FLAG_IS_BC:
-				op->type = IS_DOUBLE; /* may have lost significant digits */
-				break;
+				strval = op->value.str.val;
+				switch ((op->type=is_numeric_string(strval, op->value.str.len, &op->value.lval, &op->value.dval))) {
+					case IS_DOUBLE:
+					case IS_LONG:
+						break;
+#if 0 && WITH_BCMATH
+					case FLAG_IS_BC:
+						op->type = IS_DOUBLE; /* may have lost significant digits */
+						break;
 #endif
-			default:
-				op->value.lval = strtol(op->value.str.val, NULL, 10);
-				op->type = IS_LONG;
+					default:
+						op->value.lval = strtol(op->value.str.val, NULL, 10);
+						op->type = IS_LONG;
+						break;
+				}
+				STR_FREE(strval);
 				break;
-		}
-		STR_FREE(strval);
-	} else if (op->type==IS_BOOL || op->type==IS_RESOURCE) {
-		op->type = IS_LONG;
-	} else if (op->type==IS_NULL) {
-		op->type = IS_LONG;
-		op->value.lval = 0;
+			}
+		case IS_BOOL:
+			op->type = IS_LONG;
+			break;
+		case IS_RESOURCE:
+			zend_list_delete(op->value.lval);
+			op->type = IS_LONG;
+			break;
+		case IS_NULL:
+			op->type = IS_LONG;
+			op->value.lval = 0;
+			break;
 	}
 }
 
 #define zendi_convert_scalar_to_number(op, holder, result)			\
 	if (op==result) {												\
 		convert_scalar_to_number(op);								\
-	} else if ((op)->type == IS_STRING) {							\
-		switch (((holder).type=is_numeric_string((op)->value.str.val, (op)->value.str.len, &(holder).value.lval, &(holder).value.dval))) {	\
-			case IS_DOUBLE:											\
-			case IS_LONG:											\
-				break;												\
-			case FLAG_IS_BC:												\
-				(holder).type = IS_DOUBLE; /* may have lost significant digits */	\
-				break;												\
-			default:												\
-				(holder).value.lval = strtol((op)->value.str.val, NULL, 10);		\
-				(holder).type = IS_LONG;							\
-				break;												\
-		}															\
-		(op) = &(holder);											\
-	} else if ((op)->type==IS_BOOL || (op)->type==IS_RESOURCE) {	\
-		(holder).value.lval = (op)->value.lval;						\
-		(holder).type = IS_LONG;									\
-		(op) = &(holder);											\
-	} else if ((op)->type==IS_NULL) {								\
-		(holder).value.lval = 0;									\
-		(holder).type = IS_LONG;									\
-		(op) = &(holder);											\
+	} else {														\
+		switch ((op)->type) {										\
+			case IS_STRING:											\
+				{													\
+					switch (((holder).type=is_numeric_string((op)->value.str.val, (op)->value.str.len, &(holder).value.lval, &(holder).value.dval))) {	\
+						case IS_DOUBLE:															\
+						case IS_LONG:															\
+							break;																\
+						case FLAG_IS_BC:														\
+							(holder).type = IS_DOUBLE; /* may have lost significant digits */	\
+							break;																\
+						default:																\
+							(holder).value.lval = strtol((op)->value.str.val, NULL, 10);		\
+							(holder).type = IS_LONG;						\
+							break;											\
+					}														\
+					(op) = &(holder);										\
+					break;													\
+				}															\
+			case IS_BOOL:													\
+			case IS_RESOURCE:												\
+				(holder).value.lval = (op)->value.lval;						\
+				(holder).type = IS_LONG;									\
+				(op) = &(holder);											\
+				break;														\
+			case IS_NULL:													\
+				(holder).value.lval = 0;									\
+				(holder).type = IS_LONG;									\
+				(op) = &(holder);											\
+				break;														\
+		}																	\
 	}
 
 
@@ -167,10 +185,6 @@ ZEND_API void convert_scalar_to_number(zval *op)
 #define zendi_convert_to_long(op, holder, result)					\
 	if (op==result) {												\
 		convert_to_long(op);										\
-	} else if ((op)->type==IS_BOOL || (op)->type==IS_RESOURCE) {	\
-		(holder).value.lval = (op)->value.lval;						\
-		(holder).type = IS_LONG;									\
-		(op) = &(holder);											\
 	} else if ((op)->type != IS_LONG) {								\
 		switch ((op)->type) {										\
 			case IS_NULL:											\
@@ -180,16 +194,20 @@ ZEND_API void convert_scalar_to_number(zval *op)
 				(holder).value.lval = (long) (op)->value.dval;		\
 				break;												\
 			case IS_STRING:											\
-				(holder).value.lval = strtol((op)->value.str.val, NULL, 10);		\
+				(holder).value.lval = strtol((op)->value.str.val, NULL, 10);					\
 				break;												\
 			case IS_ARRAY:											\
-				(holder).value.lval = (zend_hash_num_elements((op)->value.ht)?1:0);	\
+				(holder).value.lval = (zend_hash_num_elements((op)->value.ht)?1:0);				\
 				break;												\
 			case IS_OBJECT:											\
 				(holder).value.lval = (zend_hash_num_elements((op)->value.obj.properties)?1:0);	\
 				break;												\
+			case IS_BOOL:											\
+			case IS_RESOURCE:										\
+				(holder).value.lval = (op)->value.lval;				\
+				break;												\
 			default:												\
-				zend_error(E_WARNING, "Cannot convert to ordinal value");			\
+				zend_error(E_WARNING, "Cannot convert to ordinal value");						\
 				(holder).value.lval = 0;							\
 				break;												\
 		}															\
@@ -252,6 +270,8 @@ ZEND_API void convert_to_long_base(zval *op, int base)
 			op->value.lval = 0;
 			break;
 		case IS_RESOURCE:
+			zend_list_delete(op->value.lval);
+			/* break missing intentionally */
 		case IS_BOOL:
 		case IS_LONG:
 			break;
@@ -294,6 +314,8 @@ ZEND_API void convert_to_double(zval *op)
 			op->value.dval = 0.0;
 			break;
 		case IS_RESOURCE:
+			zend_list_delete(op->value.lval);
+			/* break missing intentionally */
 		case IS_BOOL:
 		case IS_LONG:
 			op->value.dval = (double) op->value.lval;
@@ -345,6 +367,8 @@ ZEND_API void convert_to_boolean(zval *op)
 			op->value.lval = 0;
 			break;
 		case IS_RESOURCE:
+			zend_list_delete(op->value.lval);
+			/* break missing intentionally */
 		case IS_LONG:
 			op->value.lval = (op->value.lval ? 1 : 0);
 			break;
@@ -405,6 +429,8 @@ ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC)
 			break;
 		case IS_RESOURCE: {
 			long tmp = op->value.lval;
+
+			zend_list_delete(op->value.lval);
 			op->value.str.val = (char *) emalloc(sizeof("Resource id #")-1 + MAX_LENGTH_OF_LONG);
 			op->value.str.len = sprintf(op->value.str.val, "Resource id #%ld", tmp);
 			break;
@@ -426,11 +452,13 @@ ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC)
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Array",sizeof("Array")-1);
 			op->value.str.len = sizeof("Array")-1;
+			zend_error(E_NOTICE, "Array to string conversion");
 			break;
 		case IS_OBJECT:
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Object",sizeof("Object")-1);
 			op->value.str.len = sizeof("Object")-1;
+			zend_error(E_NOTICE, "Object to string conversion");
 			break;
 		default:
 			zval_dtor(op);
@@ -740,47 +768,6 @@ ZEND_API int mod_function(zval *result, zval *op1, zval *op2)
 	return SUCCESS;
 }
 
-
-ZEND_API int boolean_or_function(zval *result, zval *op1, zval *op2)
-{
-	zval op1_copy, op2_copy;
-	
-	result->type = IS_BOOL;
-
-	zendi_convert_to_boolean(op1, op1_copy, result);
-	if (op1->value.lval) {
-		result->value.lval = 1;
-		return SUCCESS;
-	}
-	zendi_convert_to_boolean(op2, op2_copy, result);
-	if (op2->value.lval) {
-		result->value.lval = 1;
-		return SUCCESS;
-	}
-	result->value.lval = 0;
-	return SUCCESS;
-}
-
-
-ZEND_API int boolean_and_function(zval *result, zval *op1, zval *op2)
-{
-	zval op1_copy, op2_copy;
-	
-	result->type = IS_BOOL;
-
-	zendi_convert_to_boolean(op1, op1_copy, result);
-	if (!op1->value.lval) {
-		result->value.lval = 0;
-		return SUCCESS;
-	}
-	zendi_convert_to_boolean(op2, op2_copy, result);
-	if (!op2->value.lval) {
-		result->value.lval = 0;
-		return SUCCESS;
-	}
-	result->value.lval = 1;
-	return SUCCESS;
-}
 
 
 ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2)
@@ -1137,7 +1124,7 @@ ZEND_API int compare_function(zval *result, zval *op1, zval *op2)
 
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
 		result->type = IS_LONG;
-		result->value.lval = ZEND_NORMALIZE_BOOL(op1->value.lval-op2->value.lval);
+		result->value.lval = op1->value.lval>op2->value.lval?1:(op1->value.lval<op2->value.lval?-1:0);
 		return SUCCESS;
 	}
 	if ((op1->type == IS_DOUBLE || op1->type == IS_LONG)
@@ -1370,7 +1357,7 @@ static void increment_string(zval *str)
 		return;
 	}
 
-	while(pos >= 0) {
+	while (pos >= 0) {
         ch = s[pos];
         if (ch >= 'a' && ch <= 'z') {
             if (ch == 'z') {
@@ -1444,8 +1431,32 @@ ZEND_API int increment_function(zval *op1)
 			op1->value.lval = 1;
 			op1->type = IS_LONG;
 			break;
-		case IS_STRING: /* Perl style string increment */
-			increment_string(op1);
+		case IS_STRING: {
+				long lval;
+				double dval;
+				char *strval = op1->value.str.val;
+
+				switch (is_numeric_string(strval, op1->value.str.len, &lval, &dval)) {
+					case IS_LONG:
+						op1->value.lval = lval+1;
+						op1->type = IS_LONG;
+						efree(strval);
+						break;
+					case IS_DOUBLE:
+						op1->value.dval = dval+1;
+						op1->type = IS_DOUBLE;
+						efree(strval);
+						break;
+#if 0
+					case FLAG_IS_BC:
+						/* Not implemented */
+#endif
+					default:
+						/* Perl style string increment */
+						increment_string(op1);
+						break;
+				}
+			}
 			break;
 		default:
 			return FAILURE;

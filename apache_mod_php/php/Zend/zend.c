@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,11 +20,12 @@
 
 #include "zend.h"
 #include "zend_extensions.h"
-#include "modules.h"
+#include "zend_modules.h"
 #include "zend_constants.h"
 #include "zend_list.h"
 #include "zend_API.h"
 #include "zend_builtin_functions.h"
+#include "zend_ini.h"
 
 #ifdef ZTS
 #	define GLOBAL_FUNCTION_TABLE	global_function_table
@@ -51,7 +52,7 @@ ZEND_API void (*zend_ticks_function)(int ticks);
 ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 
 static void (*zend_message_dispatcher_p)(long message, void *data);
-static int (*zend_get_ini_entry_p)(char *name, uint name_length, zval *contents);
+static int (*zend_get_configuration_directive_p)(char *name, uint name_length, zval *contents);
 
 
 #ifdef ZTS
@@ -70,7 +71,7 @@ ZEND_API zval zval_used_for_init; /* True global variable */
 /* version information */
 static char *zend_version_info;
 static uint zend_version_info_length;
-#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2000 Zend Technologies\n"
+#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2001 Zend Technologies\n"
 
 
 #define PRINT_ZVAL_INDENT 4
@@ -79,7 +80,8 @@ static void print_hash(HashTable *ht, int indent)
 {
 	zval **tmp;
 	char *string_key;
-	unsigned long num_key;
+	HashPosition iterator;
+	unsigned long num_key, str_len;
 	int i;
 
 	for (i=0; i<indent; i++) {
@@ -87,16 +89,15 @@ static void print_hash(HashTable *ht, int indent)
 	}
 	ZEND_PUTS("(\n");
 	indent += PRINT_ZVAL_INDENT;
-	zend_hash_internal_pointer_reset(ht);
-	while (zend_hash_get_current_data(ht, (void **) &tmp) == SUCCESS) {
+	zend_hash_internal_pointer_reset_ex(ht, &iterator);
+	while (zend_hash_get_current_data_ex(ht, (void **) &tmp, &iterator) == SUCCESS) {
 		for (i=0; i<indent; i++) {
 			ZEND_PUTS(" ");
 		}
 		ZEND_PUTS("[");
-		switch (zend_hash_get_current_key(ht, &string_key, &num_key)) {
+		switch (zend_hash_get_current_key_ex(ht, &string_key, &str_len, &num_key, 0, &iterator)) {
 			case HASH_KEY_IS_STRING:
 				ZEND_PUTS(string_key);
-				efree(string_key);
 				break;
 			case HASH_KEY_IS_LONG:
 				zend_printf("%ld",num_key);
@@ -105,7 +106,7 @@ static void print_hash(HashTable *ht, int indent)
 		ZEND_PUTS("] => ");
 		zend_print_zval_r(*tmp, indent+PRINT_ZVAL_INDENT);
 		ZEND_PUTS("\n");
-		zend_hash_move_forward(ht);
+		zend_hash_move_forward_ex(ht, &iterator);
 	}
 	indent -= PRINT_ZVAL_INDENT;
 	for (i=0; i<indent; i++) {
@@ -300,6 +301,10 @@ static void executor_globals_ctor(zend_executor_globals *executor_globals)
 	}
 	zend_init_rsrc_plist(ELS_C);
 	EG(lambda_count)=0;
+	EG(user_error_handler) = NULL;
+#if SUPPORT_INTERACTIVE
+	EG(interactive) = 0;
+#endif
 }
 
 
@@ -307,6 +312,7 @@ static void executor_globals_dtor(zend_executor_globals *executor_globals)
 {
 	zend_shutdown_constants(ELS_C);
 	zend_destroy_rsrc_plist(ELS_C);
+	zend_ini_shutdown(ELS_C);
 }
 
 
@@ -322,6 +328,17 @@ static void alloc_globals_ctor(zend_alloc_globals *alloc_globals)
 #include <floatingpoint.h>
 #endif
 
+#ifdef ZTS
+static void zend_new_thread_end_handler(THREAD_T thread_id)
+{
+	ELS_FETCH();
+
+	zend_copy_ini_directives(ELS_C);
+	zend_ini_refresh_caches(ZEND_INI_STAGE_STARTUP ELS_CC);
+}
+#endif
+
+
 int zend_startup(zend_utility_functions *utility_functions, char **extensions, int start_builtin_functions)
 {
 #ifdef ZTS
@@ -334,18 +351,8 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 #endif
 
 #ifdef __FreeBSD__
-	{
-		/* FreeBSD floating point precision fix */
-#ifdef HAVE_FP_EXCEPT
-		fp_except
-#else
-		fp_except_t
-#endif
-		mask;
-
-		mask = fpgetmask();
-		fpsetmask(mask & ~FP_X_IMP);
-	} 
+	/* FreeBSD floating point precision fix */
+	fpsetmask(0);
 #endif
 
 	zend_startup_extensions_mechanism();
@@ -361,7 +368,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_message_dispatcher_p = utility_functions->message_handler;
 	zend_block_interruptions = utility_functions->block_interruptions;
 	zend_unblock_interruptions = utility_functions->unblock_interruptions;
-	zend_get_ini_entry_p = utility_functions->get_ini_entry;
+	zend_get_configuration_directive_p = utility_functions->get_configuration_directive;
 	zend_ticks_function = utility_functions->ticks_function;
 
 	zend_compile_file = compile_file;
@@ -398,6 +405,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 #else
 	zend_startup_constants();
 	zend_set_default_compile_time_values(CLS_C);
+	EG(user_error_handler) = NULL;
 #endif
 	zend_register_standard_constants(ELS_C);
 
@@ -408,6 +416,12 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	if (start_builtin_functions) {
 		zend_startup_builtin_functions();
 	}
+
+	zend_ini_startup(ELS_C);
+
+#ifdef ZTS
+	tsrm_set_new_thread_end_handler(zend_new_thread_end_handler);
+#endif
 
 	return SUCCESS;
 }
@@ -456,6 +470,7 @@ ZEND_API void zend_bailout()
 	ELS_FETCH();
 
 	CG(unclean_shutdown) = 1;
+	CG(in_compilation) = EG(in_execution) = 0;
 	longjmp(EG(bailout), FAILURE);
 }
 END_EXTERN_C()
@@ -527,6 +542,9 @@ void zend_deactivate(CLS_D ELS_DC)
 	if (setjmp(EG(bailout))==0) {
 		shutdown_compiler(CLS_C);
 	}
+	if (setjmp(EG(bailout))==0) {
+		zend_ini_deactivate(ELS_C);
+	}
 }
 
 
@@ -540,10 +558,10 @@ ZEND_API void zend_message_dispatcher(long message, void *data)
 END_EXTERN_C()
 
 
-ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents)
+ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval *contents)
 {
-	if (zend_get_ini_entry_p) {
-		return zend_get_ini_entry_p(name, name_length, contents);
+	if (zend_get_configuration_directive_p) {
+		return zend_get_configuration_directive_p(name, name_length, contents);
 	} else {
 		return FAILURE;
 	}
@@ -682,6 +700,10 @@ ZEND_API void zend_error(int type, const char *format, ...)
 	}
 
 	va_end(args);
+
+	if (type==E_PARSE) {
+		zend_init_compiler_data_structures(CLS_C);
+	}
 }
 
 
@@ -716,6 +738,7 @@ ZEND_API int zend_execute_scripts(int type CLS_DC ELS_DC, int file_count, ...)
 	va_list files;
 	int i;
 	zend_file_handle *file_handle;
+	zend_op_array *orig_op_array = EG(active_op_array);
 
 	va_start(files, file_count);
 	for (i=0; i<file_count; i++) {
@@ -734,10 +757,12 @@ ZEND_API int zend_execute_scripts(int type CLS_DC ELS_DC, int file_count, ...)
 			efree(EG(active_op_array));
 		} else if (type==ZEND_REQUIRE) {
 			va_end(files);
+			EG(active_op_array) = orig_op_array;
 			return FAILURE;
 		}
 	}
 	va_end(files);
+	EG(active_op_array) = orig_op_array;
 
 	return SUCCESS;
 }
@@ -768,3 +793,8 @@ ZEND_API char *zend_make_compiled_string_description(char *name)
 	return compiled_string_description;
 }
 
+
+void free_estring(char **str_p)
+{
+	efree(*str_p);
+}

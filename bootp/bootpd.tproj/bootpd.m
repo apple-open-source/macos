@@ -294,7 +294,6 @@ background()
 	    close(tt);
 	}
     }
-    writepid();
 }
 
 static __inline__ boolean_t
@@ -910,6 +909,8 @@ main(int argc, char * argv[])
 	alarm(15);
     }
 
+    writepid();
+
     if (debug)
 	logopt = LOG_PERROR;
 
@@ -1260,11 +1261,11 @@ bootp_request(interface_t * if_p, void * rxpkt, int rxpkt_len,
     static u_char	netinfo_options[] = {
 	dhcptag_subnet_mask_e, 
 	dhcptag_router_e, 
-	dhcptag_host_name_e,
 	dhcptag_netinfo_server_address_e,
 	dhcptag_netinfo_server_tag_e,
 	dhcptag_domain_name_server_e,
 	dhcptag_domain_name_e,
+	dhcptag_host_name_e,
     };
     static int		n_netinfo_options 
 	= sizeof(netinfo_options) / sizeof(netinfo_options[0]);
@@ -1703,7 +1704,7 @@ setarp(struct in_addr * ia, u_char * ha, int len)
     }
     else if (verbose)
 	syslog(LOG_INFO, "arp_get(%s) failed, %d", inet_ntoa(*ia), arp_ret);
-    arp_ret = arp_delete(S_rtsockfd, ia, FALSE);
+    arp_ret = arp_delete(S_rtsockfd, *ia, FALSE);
     if (arp_ret != 0 && verbose)
 	syslog(LOG_INFO, "arp_delete(%s) failed, %d", inet_ntoa(*ia), arp_ret);
     arp_ret = arp_set(S_rtsockfd, ia, (void *)ha, len, TRUE, FALSE);

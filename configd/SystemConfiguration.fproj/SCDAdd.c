@@ -20,38 +20,52 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#include <SystemConfiguration/SCD.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-#include "SCDPrivate.h"
 
-
-SCDStatus
-SCDAdd(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
+Boolean
+SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
-	SCDSessionPrivateRef	sessionPrivate = (SCDSessionPrivateRef)session;
-	kern_return_t		status;
-	CFDataRef		xmlKey;		/* serialized key */
-	xmlData_t		myKeyRef;
-	CFIndex			myKeyLen;
-	CFDataRef		xmlData;	/* serialized data */
-	xmlData_t		myDataRef;
-	CFIndex			myDataLen;
-	int			newInstance;
-	SCDStatus		scd_status;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t			status;
+	CFDataRef			xmlKey;		/* serialized key */
+	xmlData_t			myKeyRef;
+	CFIndex				myKeyLen;
+	CFDataRef			xmlData;	/* serialized data */
+	xmlData_t			myDataRef;
+	CFIndex				myDataLen;
+	int				newInstance;
+	int				sc_status;
 
-	SCDLog(LOG_DEBUG, CFSTR("SCDAdd:"));
-	SCDLog(LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCDLog(LOG_DEBUG, CFSTR("  data         = %@"), SCDHandleGetData(handle));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreAddValue:"));
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
 
-	if (key == NULL) {
-		return SCD_INVALIDARGUMENT;	/* no key specified */
+	if (!store) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
 	}
 
-	if ((session == NULL) || (sessionPrivate->server == MACH_PORT_NULL)) {
-		return SCD_NOSESSION;		/* you can't do anything with a closed session */
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
 	}
 
 	/* serialize the key and data */
@@ -59,18 +73,18 @@ SCDAdd(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
 	myKeyRef = (xmlData_t)CFDataGetBytePtr(xmlKey);
 	myKeyLen = CFDataGetLength(xmlKey);
 
-	xmlData = CFPropertyListCreateXMLData(NULL, SCDHandleGetData(handle));
+	xmlData = CFPropertyListCreateXMLData(NULL, value);
 	myDataRef = (xmlData_t)CFDataGetBytePtr(xmlData);
 	myDataLen = CFDataGetLength(xmlData);
 
 	/* send the key & data to the server */
-	status = configadd(sessionPrivate->server,
+	status = configadd(storePrivate->server,
 			   myKeyRef,
 			   myKeyLen,
 			   myDataRef,
 			   myDataLen,
 			   &newInstance,
-			   (int *)&scd_status);
+			   (int *)&sc_status);
 
 	/* clean up */
 	CFRelease(xmlKey);
@@ -78,17 +92,17 @@ SCDAdd(SCDSessionRef session, CFStringRef key, SCDHandleRef handle)
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
-			SCDLog(LOG_DEBUG, CFSTR("configadd(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), sessionPrivate->server);
-		sessionPrivate->server = MACH_PORT_NULL;
-		return SCD_NOSERVER;
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("configadd(): %s"), mach_error_string(status));
+		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		storePrivate->server = MACH_PORT_NULL;
+		_SCErrorSet(status);
+		return FALSE;
 	}
 
-	if (scd_status == SCD_OK) {
-		_SCDHandleSetInstance(handle, newInstance);
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
 	}
 
-	SCDLog(LOG_DEBUG, CFSTR("  new instance = %d"), SCDHandleGetInstance(handle));
-
-	return scd_status;
+	return TRUE;
 }

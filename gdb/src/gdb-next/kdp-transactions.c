@@ -53,7 +53,7 @@ kdp_return_t kdp_exception_wait
     memcpy (response, c->saved_exception, KDP_MAX_PACKET_SIZE);
     c->saved_exception_pending = 0;
     c->logger (KDP_LOG_DEBUG, "kdp_exception_wait: "
-	       "returning previously saved exception (sequence number is %d)"<
+	       "returning previously saved exception (sequence number is %d)",
 	       response->hdr.seq);
     return RR_SUCCESS;
   }
@@ -71,7 +71,7 @@ kdp_return_t kdp_exception_wait
     if (response->hdr.seq == c->exc_seqno) {
       c->exc_seqno = (c->exc_seqno + 1) % 256;
       c->logger (KDP_LOG_DEBUG, "kdp_exception_wait: "
-		 "returning previously saved exception (sequence number is %d)"<
+		 "returning previously saved exception (sequence number is %d)",
 		 response->hdr.seq);
       break;
     } else if (((response->hdr.seq + 1) % 256) == c->exc_seqno) {

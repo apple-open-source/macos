@@ -199,6 +199,7 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     kern_return_t kr;
     
     fService = inService;
+	IOObjectRetain(fService);
     res = IOServiceOpen(fService, mach_task_self(), 0, &fConnection);
     if (res != kIOReturnSuccess)
         return res;
@@ -374,7 +375,7 @@ IOReturn IOHIDDeviceClass::close()
     mach_msg_type_number_t len = 0;
     // kIOCDBUserClientClose,	kIOUCScalarIScalarO,	 0,  0
     (void) io_connect_method_scalarI_scalarO(fConnection,
-	kIOHIDLibUserClientClose, NULL, 0, NULL, &len);
+		kIOHIDLibUserClientClose, NULL, 0, NULL, &len);
 
     fIsOpen = false;
     fIsLUNZero = false;

@@ -362,6 +362,8 @@ initgroups(const char *name, int basegid)
 {
 	int res;
 
+	if (name == NULL) return -1;
+
 	if (_lu_running())
 	{
 		if ((res = lu_initgroups(name, basegid)))

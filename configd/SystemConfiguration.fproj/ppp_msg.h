@@ -26,7 +26,6 @@
 
 #include <sys/types.h>
 
-
 /* local socket path */
 #define PPP_PATH 	"/var/run/pppconfd\0"
 
@@ -118,7 +117,7 @@ enum {
 
     PPP_OPT_IPCP_USESERVERDNS,		// 4 bytes
     PPP_OPT_COMM_CONNECTSPEED,		// 4 bytes, actual connection speed
-    PPP_OPT_SERVICEID			// string, name of the associated service in the cache
+    PPP_OPT_SERVICEID			// string, name of the associated service in the store
 
 };
 

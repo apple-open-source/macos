@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,8 +17,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.1.1.2 2001/01/25 05:00:01 wsanchez Exp $ */
+/* $Id: sockets.c,v 1.1.1.3 2001/07/19 00:20:06 zarzycki Exp $ */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 
 
@@ -26,9 +30,18 @@
 
 /* This hopefully will fix some compile errors on other platforms --
  * the usage of msg_control/msg_controllen are X/Open Extended attributes,
- * or so it seems, by reading HP/UX 10.20 manual pages. */
+ * or so it seems, by reading HP/UX 10.20 manual pages.
+ *
+ * The second two defines are for Solaris 8 with the Sun WorkShop compiler.
+ */
 
 #define _XOPEN_SOURCE_EXTENDED
+#define _XPG4_2
+#define __EXTENSIONS__
+
+#ifndef __PRAGMA_REDEFINE_EXTNAME
+#define __PRAGMA_REDEFINE_EXTNAME
+#endif
 
 #include "ext/standard/info.h"
 #include "php_sockets.h"
@@ -64,6 +77,12 @@ php_sockets_globals sockets_globals;
 #else
 #define MSG_WAITALL 0x00000000
 #endif
+#endif
+
+/* Solaris 8 doesn't appear to define SUN_LEN in <sys/un.h> */
+#ifndef SUN_LEN
+#define SUN_LEN(su) \
+	(sizeof(*(su)) - sizeof((su)->sun_path) + strlen((su)->sun_path))
 #endif
 
 /* Use the read() wrapper, stopping at '\n', '\r', or '\0'. */
@@ -261,7 +280,7 @@ PHP_FUNCTION(fd_alloc)
 }
 /* }}} */
 
-/* {{{ proto bool fd_dealloc(void)
+/* {{{ proto bool fd_dealloc(int set)
    De-allocates a file descriptor set */
 PHP_FUNCTION(fd_dealloc)
 {
@@ -878,7 +897,8 @@ PHP_FUNCTION(getpeername)
 
 			Z_STRVAL_PP(addr) = tmp;
 			Z_STRLEN_PP(addr) = strlen(tmp);
-			Z_LVAL_PP(port)   = htons(sin->sin_port);
+			if (ZEND_NUM_ARGS() > 2)
+				Z_LVAL_PP(port)   = htons(sin->sin_port);
 
 			RETURN_LONG(ret);
 		}
@@ -1066,7 +1086,6 @@ PHP_FUNCTION(strerror)
 {
 	zval **error;
 	const char *buf;
-	char *obuf;
 
 	if (ZEND_NUM_ARGS() != 1 || 
 	    zend_get_parameters_ex(1, &error) == FAILURE) {
@@ -1074,9 +1093,20 @@ PHP_FUNCTION(strerror)
 	}
 	if (Z_LVAL_PP(error) < -10000) {
 		Z_LVAL_PP(error) += 10000;
-		buf = hstrerror(-(Z_LVAL_PP(error)));
+#ifdef HAVE_HSTRERROR
+		buf = hstrerror(-(Z_LVAL_PP(error))); 
+#else
+		{
+		static char buf[100];
+		sprintf (buf, "Host lookup error %d", -(Z_LVAL_PP(error)));
+		}
+#endif
 	} else {
 		buf = strerror(-(Z_LVAL_PP(error)));
+	}
+
+	if (!buf) {
+		RETURN_FALSE;
 	}
 	
 	RETURN_STRING((char *)buf, 1);
@@ -1119,6 +1149,7 @@ PHP_FUNCTION(bind)
 	if (sock_type->sa_family == AF_UNIX) {
 		struct sockaddr_un *sa = (struct sockaddr_un *) sock_type;
 		memset(sa, 0, sizeof(sa_storage)); /* This is safe -> sock_type = &sa_storage -> sa = sock_type */
+		sa->sun_family = AF_UNIX;
 		snprintf(sa->sun_path, 108, "%s", Z_STRVAL_PP(arg1));
 		ret = bind(Z_LVAL_PP(arg0), (struct sockaddr *) sa, SUN_LEN(sa));
 	} else if (sock_type->sa_family == AF_INET) {
@@ -1145,7 +1176,7 @@ PHP_FUNCTION(bind)
 			sa->sin_addr.s_addr = addr_buf.s_addr;
 		}
 
-		ret = bind(Z_LVAL_PP(arg0), (struct sockaddr *) sa, sizeof(sa_storage));
+		ret = bind(Z_LVAL_PP(arg0), (struct sockaddr *) sa, length);
 	} else {
 		RETURN_LONG(-EPROTONOSUPPORT);
 	}
@@ -1322,7 +1353,6 @@ PHP_FUNCTION(free_iovec)
 {
 	zval **iovec_id;
 	php_iovec_t *vector;
-	int pos;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &iovec_id) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -2017,9 +2047,8 @@ PHP_FUNCTION(setsockopt)
    Creates a pair of indistinguishable sockets and stores them in fds. */
 PHP_FUNCTION(socketpair)
 {
-	zval **domain, **type, **protocol, **fds, **fd;
+	zval **domain, **type, **protocol, **fds;
 	int ret, fds_ar[2];
-	HashTable *fd_ar;
 	
 	if (ZEND_NUM_ARGS() != 4 ||
 	    zend_get_parameters_ex(4, &domain, &type, &protocol, &fds) == FAILURE) {

@@ -59,7 +59,7 @@ extern void setCursorPosition(int x, int y);
 extern void initKernBootStruct(void);
 
 /* console.c */
-extern BOOL verbose_mode;
+extern BOOL gVerboseMode;
 extern void putchar(int ch);
 extern int  getchar(void);
 extern int  printf(const char *format, ...);

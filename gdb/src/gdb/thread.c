@@ -691,6 +691,13 @@ see the IDs of currently known threads.", num);
 #endif /* UI_OUT */
 
   print_stack_frame (selected_frame, selected_frame_level, 1);
+
+  /* Remember to run the context hook here - since this changes
+     thread context */
+
+  if (context_hook)
+    context_hook (pid_to_thread_id (inferior_pid));
+
   return GDB_RC_OK;
 }
 

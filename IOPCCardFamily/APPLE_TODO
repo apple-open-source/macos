@@ -1,0 +1,85 @@
+-------------------------------------------------------------------------------
+things that still need to be fixed
+-------------------------------------------------------------------------------
+
+write simple command line program to "eject" a card 
+	- override setProperties to get a user level eject working?
+
+write a sample pccard16 driver
+	- test different types of matching
+
+write a simple sram driver
+	- create a nub of type IOBlockStorageDevice, look at DiskImages
+	- ApplePCCardSRAMDevice -> IOBlockStorageDevice -> IOMedia
+
+write code to create MTD driver nubs using using JEDEC tuples for matching
+	- they would need to get loaded first
+	- the MTD is not fully hooked up yet, search for mtd_req
+		-it might be easier to ditch the MTD code?
+	- workaround: make MTD drivers part of regular memory driver
+
+write funky cis tuple code
+	- look for specific tuple and match against its data
+	- default enabler should check for card match and then
+	  patch cis data from info in the XML file
+	- it would be cool to be specify a specific configuration index 
+	  to use on a per card basis in the xml file
+	- the entry in xml wouldn't have to specify a class, 
+	  it could just do the patch (if that even works?)
+
+write and call a new macosx version of exit_pcmcia_cs()
+	- the pccard card family doesn't unload yet
+
+write code to hook up eject buttons on wallstreet
+
+update code base to pcmcia-cs-3.1.26 (currently pcmcia-cs-3.1.22)
+	- fix the cardbus code, it should delay the creation of the nub
+		- switch CS cardbus to pci "space" addressing instead of the nub
+		- make cardbus and 16 bit code more symetric
+
+fix rsrc_mgr.c it should be rewritten in terms of IOKit, ie IORangeAllocator
+	- validate_mem (could just skip)
+	- find_mem_region
+	- release_mem_region(u_long base, u_long num);
+	- find_io_region
+	- release_io_region(u_long base, u_long num); aka, release_region
+	- fix the PCI code to handle the returning of used address space
+        
+fix the Zoom Video code, it is not tested/complete.
+
+fix? cardbus2pci bridges are rumored to be broken on X
+	- need to add code to check for OF created nubs?
+	- need additional pci bridge scanning/setup code?
+
+fix intel need to be tested/debugged, known holes
+	- need way to allocate IRQs from system
+
+-------------------------------------------------------------------------------
+possible code enhancements - later (much later)
+-------------------------------------------------------------------------------
+
+write a ds style driver interface for the ds ioctls? can probably use
+IORegistry and get/setProperties() hook to catch things, or io_connect
+
+write code to support IO offset registers for 16 bit cards, needed for
+adding in two cards that have overlapping io space requirements?
+
+implement AddSocketServices
+	- to replace register_ss_entry()
+	- move i82365.c into a seperate kext
+
+should change socket services to load in card services, ... on card
+insert we could have a lite weight dummy driver that adds a flag to
+the registry on card detection, and then unloads itself, on the
+"rematching" the flag could be used for altering the match scores both
+probes (lite weight and real) could toggle the flag during matching
+
+fix IOPCCardBridge::getModuleParameters, it needs to be expanded to
+look at more configuration options, ie, most of what is currently
+MODULE_PARM()'ed.  These properties could be contained in different
+personalties depending on which controller/laptop we end up matching
+against. This might fit in well with breaking out socket services into
+a seperate kext.
+
+dma? not done on 9, should really do for X
+

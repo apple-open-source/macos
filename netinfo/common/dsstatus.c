@@ -36,6 +36,7 @@ char *dsstatus_message(dsstatus s)
 		case DSStatusInvalidUpdate: return "Invalid Update on Clone";
 		case DSStatusDuplicateRecord: return "Duplicate Record in Datastore";
 		case DSStatusNoRootRecord: return "No Root Record in Datastore";
+		case DSStatusLocked: return "Datastore Locked";
 		case DSStatusInvalidRecord: return "Invalid Record";
 		case DSStatusNoData: return "No Data";
 		case DSStatusInvalidRecordID: return "Invalid Record ID";

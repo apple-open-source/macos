@@ -4,7 +4,7 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/06/06 18:02:45 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -27,6 +27,8 @@ package HeaderDoc::Struct;
 use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
+use HeaderDoc::APIOwner;
+
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use vars qw($VERSION @ISA);
@@ -87,7 +89,7 @@ sub processStructComment {
             ($field =~ s/^field\s+//) && 
             do {
 				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s+(.*)/s;
+	            $field =~ /(\w*)\s*(.*)/s;
 	            my $fName = $1;
 	            my $fDesc = $2;
 	            my $fObj = HeaderDoc::MinorAPIElement->new();
@@ -118,6 +120,40 @@ sub setStructDeclaration {
     return $dec;
 }
 
+sub documentationBlock {
+    my $self = shift;
+    my $contentString;
+    my $name = $self->name();
+    my $abstract = $self->abstract();
+    my $desc = $self->discussion();
+    my $declaration = $self->declarationInHTML();
+    my @fields = $self->fields();
+    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
+
+    
+    $contentString .= "<a name=\"//$apiUIDPrefix/c/tag/$name\"></a>\n"; # apple_ref marker
+    $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
+    if (length($abstract)) {
+        $contentString .= "<b>Abstract:</b> $abstract\n";
+    }
+    $contentString .= "<blockquote>$declaration</blockquote>\n";
+    $contentString .= "<p>$desc</p>\n";
+    my $arrayLength = @fields;
+    if ($arrayLength > 0) {
+        $contentString .= "<h4>Fields</h4>\n";
+        $contentString .= "<blockquote>\n";
+        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
+        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
+        foreach my $element (@fields) {
+            my $fName = $element->name();
+            my $fDesc = $element->discussion();
+            $contentString .= "<tr><td align = \"center\"><tt>$fName</tt></td><td>$fDesc</td><tr>\n";
+        }
+        $contentString .= "</table>\n</blockquote>\n";
+    }
+    $contentString .= "<hr>\n";
+    return $contentString;
+}
 
 sub printObject {
     my $self = shift;

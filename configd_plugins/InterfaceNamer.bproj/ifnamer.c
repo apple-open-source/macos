@@ -21,6 +21,16 @@
  */
 
 /*
+ * Modification History
+ *
+ * June 23, 2001		Allan Nathanson <ajn@apple.com>
+ * - update to public SystemConfiguration.framework APIs
+ * 
+ * January 23, 2001		Dieter Siegmund <dieter@apple.com>
+ * - initial revision
+ */
+
+/*
  * ifnamer.c
  * - module that receives IOKit Network Interface messages
  *   and names any interface that currently does not have a name
@@ -42,10 +52,12 @@
 #include <net/if_types.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCDPlugin.h>
+#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
+#include <SystemConfiguration/SCValidation.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <IOKit/IOKitLib.h>
-#include <IOKit/network/IONetworkStack.h>
 
 #define MY_PLUGIN_NAME			"InterfaceNamer"
 
@@ -54,6 +66,8 @@
 #define kIOInterfaceType		"IOInterfaceType"
 #define kIOMACAddress			"IOMACAddress"
 #define kIOPrimaryInterface		"IOPrimaryInterface"
+#define kIONetworkStackUserCommand     "IONetworkStackUserCommand"
+#define kIORegisterOne                 1
 
 static boolean_t			S_debug = FALSE;
 static CFMutableArrayRef		S_dblist = NULL;
@@ -81,54 +95,6 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
     return (l);
 }
 
-static __inline__ CFTypeRef
-isA_CFType(CFTypeRef obj, CFTypeID type)
-{
-    if (obj == NULL)
-	return (NULL);
-
-    if (CFGetTypeID(obj) != type) {
-	return (NULL);
-    }
-    return (obj);
-}
-
-static __inline__ CFTypeRef
-isA_CFDictionary(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFDictionaryGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFArray(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFArrayGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFString(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFStringGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFBoolean(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFBooleanGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFNumber(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFNumberGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFData(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFDataGetTypeID()));
-}
-
 static __inline__ CFComparisonResult
 compareMacAddress(CFDataRef addr1, CFDataRef addr2)
 {
@@ -139,7 +105,7 @@ compareMacAddress(CFDataRef addr1, CFDataRef addr2)
 
     len1 = CFDataGetLength(addr1);
     len2 = CFDataGetLength(addr2);
-    
+
     if (len1 == len2) {
 	if (len1 == 0)
 	    return (kCFCompareEqualTo);
@@ -159,7 +125,7 @@ compareMacAddress(CFDataRef addr1, CFDataRef addr2)
     return (res);
 }
 
-static CFComparisonResult 
+static CFComparisonResult
 if_type_compare(const void *val1, const void *val2, void *context)
 {
     CFDataRef		addr1;
@@ -184,7 +150,7 @@ if_type_compare(const void *val1, const void *val2, void *context)
     return (res);
 }
 
-static CFComparisonResult 
+static CFComparisonResult
 if_unit_compare(const void *val1, const void *val2, void *context)
 {
     CFComparisonResult	res;
@@ -210,14 +176,14 @@ if_unit_compare(const void *val1, const void *val2, void *context)
 
 static boolean_t
 addCFStringProperty( CFMutableDictionaryRef dict,
-                     const char *           key,
-                     const char *           string )
+		     const char *           key,
+		     const char *           string )
 {
     boolean_t    ret = false;
     CFStringRef  valObj, keyObj;
 
     if ( (string == 0) || (key == 0) || (dict == 0) )
-        return false;
+	return false;
 
     keyObj = CFStringCreateWithCString(NULL,
 				       key,
@@ -240,15 +206,15 @@ addCFStringProperty( CFMutableDictionaryRef dict,
 
 static boolean_t
 addCFNumberProperty( CFMutableDictionaryRef dict,
-                     const char *           key,
-                     unsigned int           number )
+		     const char *           key,
+		     unsigned int           number )
 {
     boolean_t    ret = false;
     CFNumberRef  numObj;
     CFStringRef  keyObj;
 
     if ( (key == 0) || (dict == 0) )
-        return false;
+	return false;
 
     numObj = CFNumberCreate(NULL,
 			    kCFNumberLongType,
@@ -270,10 +236,10 @@ addCFNumberProperty( CFMutableDictionaryRef dict,
     return ret;
 }
 
-static void 
+static void
 CFStringShow(CFStringRef object)
 {
-    const char * c = CFStringGetCStringPtr(object, 
+    const char * c = CFStringGetCStringPtr(object,
 					   kCFStringEncodingMacRoman);
     if (c) {
 	printf("%s\n", c);
@@ -281,7 +247,7 @@ CFStringShow(CFStringRef object)
     else {
 	CFIndex bufferSize = CFStringGetLength(object) + 1;
 	char *  buffer     = (char *) malloc(bufferSize);
-	
+
 	if (buffer) {
 	    if (CFStringGetCString(object, buffer, bufferSize,
 				   kCFStringEncodingMacRoman)) {
@@ -316,8 +282,9 @@ read_file(char * filename, size_t * data_length)
 	goto done;
 
     if (read(fd, data, len) != len) {
-	SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME ": read %s failed, %s"), 
-	       filename, strerror(errno));
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": read %s failed, %s"),
+	      filename, strerror(errno));
 	goto done;
     }
  done:
@@ -338,14 +305,16 @@ write_file(char * filename, void * data, size_t data_length)
     snprintf(path, sizeof(path), "%s-", filename);
     fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
     if (fd < 0) {
-	SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME ": open(%s) failed, %s"),
-	       filename, strerror(errno));
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": open(%s) failed, %s"),
+	      filename, strerror(errno));
 	goto done;
     }
 
     if (write(fd, data, data_length) != data_length) {
-	SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME ": write %s failed, %s"), 
-	       filename, strerror(errno));
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": write %s failed, %s"),
+	      filename, strerror(errno));
 	goto done;
     }
     rename(path, filename);
@@ -356,7 +325,7 @@ write_file(char * filename, void * data, size_t data_length)
     return;
 }
 
-static CFPropertyListRef 
+static CFPropertyListRef
 readPropertyList(char * filename)
 {
     void *		buf;
@@ -374,13 +343,14 @@ readPropertyList(char * filename)
 	goto error;
     }
 
-    plist = CFPropertyListCreateFromXMLData(NULL, data, 
+    plist = CFPropertyListCreateFromXMLData(NULL, data,
 					    kCFPropertyListMutableContainers,
 					    &errorString);
     if (plist == NULL) {
 	if (errorString) {
-	    SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME ":%@"),
-		   errorString);
+	    SCLog(TRUE, LOG_INFO,
+		  CFSTR(MY_PLUGIN_NAME ":%@"),
+		  errorString);
 	    CFRelease(errorString);
 	}
     }
@@ -538,7 +508,7 @@ insertInterface(CFMutableArrayRef list, CFDictionaryRef if_dict)
 	res = CFNumberCompare(if_type, type, NULL);
 	if (res == kCFCompareLessThan
 	    || (res == kCFCompareEqualTo
-		&& (CFNumberCompare(if_unit, unit, NULL) 
+		&& (CFNumberCompare(if_unit, unit, NULL)
 		    == kCFCompareLessThan))) {
 	    CFArrayInsertValueAtIndex(list, i, if_dict);
 	    return;
@@ -554,7 +524,7 @@ replaceInterface(CFDictionaryRef if_dict)
     int where;
 
     if (S_dblist == NULL) {
-	S_dblist = CFArrayCreateMutable(NULL, 0, 
+	S_dblist = CFArrayCreateMutable(NULL, 0,
 					&kCFTypeArrayCallBacks);
     }
     /* remove any dict that has our type/addr */
@@ -586,7 +556,7 @@ getHighestUnitForType(CFNumberRef if_type)
 	if (CFEqual(type, if_type)) {
 	    unit = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceUnit));
 	    if (ret_unit == NULL
-		|| (CFNumberCompare(unit, ret_unit, NULL) 
+		|| (CFNumberCompare(unit, ret_unit, NULL)
 		    == kCFCompareGreaterThan)) {
 		ret_unit = unit;
 	    }
@@ -611,13 +581,13 @@ registerInterface(io_connect_t connect,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
     if (dict == NULL
-        || addCFNumberProperty(dict, kIONetworkStackUserCommand,
+	|| addCFNumberProperty(dict, kIONetworkStackUserCommand,
 			       kIORegisterOne) == FALSE)
 	;
     else {
 	CFDictionarySetValue(dict, CFSTR(kIOPathMatchKey), path);
 	CFDictionarySetValue(dict, CFSTR(kIOInterfaceUnit), unit);
-        kr = IOConnectSetCFProperties(connect, dict);
+	kr = IOConnectSetCFProperties(connect, dict);
     }
     if (dict) CFRelease( dict );
     return kr;
@@ -641,7 +611,7 @@ waitForQuiet(mach_port_t masterPort)
     return;
 }
 
-/* 
+/*
  * Function: createNetworkStackObject
  * Purpose:
  *   Get a reference to the single IONetworkStack object instance in
@@ -673,7 +643,7 @@ static void
 printMacAddress(CFDataRef data)
 {
     int i;
-    
+
     for (i = 0; i < CFDataGetLength(data); i++) {
 	if (i != 0) printf(":");
 	printf("%02x", CFDataGetBytePtr(data)[i]);
@@ -685,7 +655,7 @@ printMacAddress(CFDataRef data)
  * Function: getMacAddress
  *
  * Purpose:
- *   Given an interface object if_obj, return its associated mac address. 
+ *   Given an interface object if_obj, return its associated mac address.
  *   The mac address is stored in the parent, the network controller object.
  *
  * Returns:
@@ -702,9 +672,10 @@ getMacAddress(io_object_t if_obj)
     /* get the parent node */
     kr = IORegistryEntryGetParentEntry(if_obj, kIOServicePlane, &parent_obj);
     if (kr != KERN_SUCCESS) {
-	SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME 
-		     ": IORegistryEntryGetParentEntry returned 0x%x"), kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME
+		    ": IORegistryEntryGetParentEntry returned 0x%x"),
+	      kr);
 	goto failed;
     }
 
@@ -714,17 +685,17 @@ getMacAddress(io_object_t if_obj)
 					   NULL,
 					   kNilOptions );
     if (kr != KERN_SUCCESS) {
-        SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME 
-		     ": IORegistryEntryCreateCFProperties returned 0x%x"),
-	       kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME
+		    ": IORegistryEntryCreateCFProperties returned 0x%x"),
+	      kr);
 	goto failed;
     }
     data = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
     if (data) {
 	CFRetain(data);
     }
-    
+
  failed:
     if (dict)
 	CFRelease(dict);
@@ -749,9 +720,10 @@ getInterface(io_object_t if_obj)
 
     kr = IORegistryEntryGetPath(if_obj, kIOServicePlane, path);
     if (kr != KERN_SUCCESS) {
-        SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME 
-			       ": IORegistryEntryGetPath returned 0x%x"), 
-	       kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME
+		    ": IORegistryEntryGetPath returned 0x%x"),
+	      kr);
 	goto failed;
     }
     kr = IORegistryEntryCreateCFProperties(if_obj,
@@ -759,13 +731,13 @@ getInterface(io_object_t if_obj)
 					   NULL,
 					   kNilOptions);
     if (kr != KERN_SUCCESS) {
-        SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME 
-		     ": IORegistryEntryCreateCFProperties returned 0x%x"),
-	       kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME
+		    ": IORegistryEntryCreateCFProperties returned 0x%x"),
+	      kr);
 	goto failed;
     }
-    type = isA_CFNumber(CFDictionaryGetValue(reginfo_if, 
+    type = isA_CFNumber(CFDictionaryGetValue(reginfo_if,
 					     CFSTR(kIOInterfaceType)));
     if (type == NULL) {
 	goto failed;
@@ -774,7 +746,7 @@ getInterface(io_object_t if_obj)
     if (mac_address == NULL) {
 	goto failed;
     }
-    primary = isA_CFBoolean(CFDictionaryGetValue(reginfo_if, 
+    primary = isA_CFBoolean(CFDictionaryGetValue(reginfo_if,
 						 CFSTR(kIOPrimaryInterface)));
     new_if = CFDictionaryCreateMutable(NULL, 0,
 				       &kCFTypeDictionaryKeyCallBacks,
@@ -789,7 +761,7 @@ getInterface(io_object_t if_obj)
     }
     addCFStringProperty(new_if, kIOPathMatchKey, path);
 
-    unit = isA_CFNumber(CFDictionaryGetValue(reginfo_if, 
+    unit = isA_CFNumber(CFDictionaryGetValue(reginfo_if,
 					     CFSTR(kIOInterfaceUnit)));
     if (unit) {
 	CFDictionarySetValue(new_if, CFSTR(kIOInterfaceUnit), unit);
@@ -825,16 +797,17 @@ lookupIOKitPath(CFStringRef if_path)
 
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-        SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x\n"), kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x\n"),
+	      kr);
 	goto error;
     }
     cfstring_to_cstring(if_path, path, sizeof(path));
     entry = IORegistryEntryFromPath(masterPort, path);
     if (entry == MACH_PORT_NULL) {
-        SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME ": IORegistryEntryFromPath(%@) failed"),
-	       if_path);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": IORegistryEntryFromPath(%@) failed"),
+	      if_path);
 	goto error;
     }
     dict = getInterface(entry);
@@ -847,7 +820,7 @@ lookupIOKitPath(CFStringRef if_path)
 	IOObjectRelease(entry);
     }
     return (dict);
-    
+
 }
 
 static void
@@ -919,7 +892,7 @@ name_interfaces(CFArrayRef if_list)
 	    if (i != 0)
 		printf("\n");
 	}
-	    
+
 	if_dict = CFArrayGetValueAtIndex(if_list, i);
 	unit = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceUnit));
 	type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
@@ -951,7 +924,7 @@ name_interfaces(CFArrayRef if_list)
 		if (if_type == IFT_ETHER) { /* ethernet */
 		    CFBooleanRef	primary;
 
-		    primary = CFDictionaryGetValue(if_dict, 
+		    primary = CFDictionaryGetValue(if_dict,
 						   CFSTR(kIOPrimaryInterface));
 		    if (primary && CFBooleanGetValue(primary)) {
 			is_primary = TRUE;
@@ -965,7 +938,7 @@ name_interfaces(CFArrayRef if_list)
 		if (is_primary == FALSE) {
 		    unit = getHighestUnitForType(type);
 		    if (unit) {
-			CFNumberGetValue(unit, 
+			CFNumberGetValue(unit,
 					 kCFNumberIntType, &next_unit);
 			next_unit++;
 		    }
@@ -975,25 +948,26 @@ name_interfaces(CFArrayRef if_list)
 	    }
 	    if (S_debug) {
 		int u;
-		CFNumberGetValue(unit, 
+		CFNumberGetValue(unit,
 				 kCFNumberIntType, &u);
-		printf("Interface assigned unit %d %s\n", u, 
+		printf("Interface assigned unit %d %s\n", u,
 		       dbdict ? "(from database)" : "(next available)");
 	    }
 	    path = CFDictionaryGetValue(if_dict, CFSTR(kIOPathMatchKey));
 	    kr = registerInterface(S_connect, path, unit);
 	    if (kr != KERN_SUCCESS) {
-		SCDLog(LOG_INFO, 
-		       CFSTR(MY_PLUGIN_NAME 
-			     ": failed to name the interface 0x%x"), kr);
+		SCLog(TRUE, LOG_INFO,
+		      CFSTR(MY_PLUGIN_NAME
+			    ": failed to name the interface 0x%x"),
+		      kr);
 		if (S_debug) {
 		    displayInterface(if_dict);
 		}
 	    }
 	    else {
-		CFStringRef	path; 
+		CFStringRef	path;
 		CFDictionaryRef	new_dict;
-		
+
 		path = CFDictionaryGetValue(if_dict,
 					    CFSTR(kIOPathMatchKey));
 		new_dict = lookupIOKitPath(path);
@@ -1003,11 +977,11 @@ name_interfaces(CFArrayRef if_list)
 		    new_unit = CFDictionaryGetValue(new_dict,
 						    CFSTR(kIOInterfaceUnit));
 		    if (CFEqual(unit, new_unit) == FALSE) {
-			SCDLog(LOG_INFO,
-			       CFSTR(MY_PLUGIN_NAME
-				     ": interface type %@ assigned "
-				     "unit %@ instead of %@"),
-			       type, new_unit, unit);
+			SCLog(TRUE, LOG_INFO,
+			      CFSTR(MY_PLUGIN_NAME
+				    ": interface type %@ assigned "
+				    "unit %@ instead of %@"),
+			      type, new_unit, unit);
 		    }
 		    if (S_debug) {
 			displayInterface(new_dict);
@@ -1023,27 +997,27 @@ name_interfaces(CFArrayRef if_list)
     return;
 }
 
-static void 
-interfaceArrivalCallback( void * refcon, io_iterator_t iter ) 
+static void
+interfaceArrivalCallback( void * refcon, io_iterator_t iter )
 {
     CFMutableArrayRef	if_list = NULL;
     io_object_t  	obj;
-	
-    
+
+
     while ((obj = IOIteratorNext(iter))) {
 	CFDictionaryRef dict;
 
 	dict = getInterface(obj);
 	if (dict) {
 	    if (if_list == NULL) {
-		if_list = CFArrayCreateMutable(NULL, 0, 
+		if_list = CFArrayCreateMutable(NULL, 0,
 					       &kCFTypeArrayCallBacks);
 	    }
 	    if (if_list)
 		CFArrayAppendValue(if_list, dict);
 	    CFRelease(dict);
 	}
-        IOObjectRelease(obj);
+	IOObjectRelease(obj);
     }
     if (if_list) {
 	sort_interfaces_by_type(if_list);
@@ -1055,43 +1029,46 @@ interfaceArrivalCallback( void * refcon, io_iterator_t iter )
 
 
 void
-start(const char *bundleName, const char *bundleDir)
+load(CFBundleRef bundle, Boolean bundleVerbose)
 {
     kern_return_t	kr;
     mach_port_t		masterPort = MACH_PORT_NULL;
     io_object_t		stack = MACH_PORT_NULL;
 
-    if (SCDOptionGet(NULL, kSCDOptionDebug))
+    if (bundleVerbose) {
 	S_debug++;
+    }
 
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-        SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"), kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
+	      kr);
 	goto error;
     }
-    
+
     /* synchronize with any drivers that might be loading at boot time */
     waitForQuiet(masterPort);
 
     stack = createNetworkStackObject(masterPort);
     if (stack == NULL) {
-	SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME ": No network stack object"));
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": No network stack object"));
 	goto error;
     }
     kr = IOServiceOpen(stack, mach_task_self(), 0, &S_connect);
     if (kr != KERN_SUCCESS) {
-        printf(MY_PLUGIN_NAME ": IOServiceOpen returned 0x%x\n", kr);
+	printf(MY_PLUGIN_NAME ": IOServiceOpen returned 0x%x\n", kr);
 	goto error;
     }
 
     // Creates and returns a notification object for receiving IOKit
     // notifications of new devices or state changes.
-    
+
     S_notify = IONotificationPortCreate(masterPort);
     if (S_notify == NULL) {
-	SCDLog(LOG_INFO, 
-	       CFSTR(MY_PLUGIN_NAME ": IONotificationPortCreate failed"));
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": IONotificationPortCreate failed"));
 	goto error;
     }
     kr = IOServiceAddMatchingNotification(S_notify,
@@ -1102,8 +1079,10 @@ start(const char *bundleName, const char *bundleDir)
 					  &S_iter );         /* notification */
 
     if (kr != KERN_SUCCESS) {
-        SCDLog(LOG_INFO, CFSTR(MY_PLUGIN_NAME 
-	       ": IOServiceAddMatchingNotification returned 0x%x"), kr);
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME
+		    ": IOServiceAddMatchingNotification returned 0x%x"),
+	      kr);
 	goto error;
     }
 
@@ -1117,8 +1096,8 @@ start(const char *bundleName, const char *bundleDir)
     interfaceArrivalCallback((void *) S_notify, S_iter);
 
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                       IONotificationPortGetRunLoopSource(S_notify),
-                       kCFRunLoopDefaultMode);
+		       IONotificationPortGetRunLoopSource(S_notify),
+		       kCFRunLoopDefaultMode);
     if (stack != MACH_PORT_NULL) {
 	IOObjectRelease(stack);
     }
@@ -1153,9 +1132,8 @@ start(const char *bundleName, const char *bundleDir)
 int
 main(int argc, char ** argv)
 {
-    if (argc > 1)
-	S_debug++;
-    start(NULL, NULL);
+    load(CFBundleGetMainBundle(),
+	 (argc > 1) ? TRUE : FALSE);
     CFRunLoopRun();
     /* not reached */
     exit(0);

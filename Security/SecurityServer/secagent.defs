@@ -1,0 +1,98 @@
+//
+// secagent.defs - Client-side Mach RPC interface to SecurityAgent.
+//
+// Note: one additional message ID code (Client::cancelMessagePseudoID) is used
+// explicitly without showing up in this file.
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem secagent 1000;
+serverprefix secagent_server_;
+userprefix secagent_client_;
+
+import <Security/secagent_types.h>;
+
+
+//
+// Data types
+//
+type OSStatus = int32;
+type pid_t = int32;
+type AclAuthorization = unsigned32;
+type Reason = unsigned32;
+type String = c_string[*:2048];
+type ConstString = c_string[*:2048];
+type Username = c_string[*:80];
+type Choice = struct[2] of unsigned32;
+type MigBoolean = unsigned32;
+
+
+//
+// Common argument profiles
+//
+#define UCSP_PORTS	requestport sport: mach_port_t; \
+					replyport rport: mach_port_t; \
+					out status: OSStatus
+#define IN_BLOB(name)	in name: name##Blob; in name##Base: name##Ptr
+
+
+//
+// Staged query maintainance (common to all staged queries)
+//
+routine finishStagedQuery(UCSP_PORTS);
+routine cancelStagedQuery(UCSP_PORTS; in reason: Reason);
+
+
+//
+// Unlocking keychains by user input
+//
+routine unlockDatabase(UCSP_PORTS;
+	in requestor: ConstString; in requestPid: pid_t; in database: ConstString;
+	out stagePort: mach_port_copy_send_t; out passphrase: String);
+routine retryUnlockDatabase(UCSP_PORTS; in reason: Reason; out passphrase: String);
+
+//
+// Get a new passphrase for a database
+//
+routine queryNewPassphrase(UCSP_PORTS;
+	in requestor: ConstString; in requestPid: pid_t; in database: ConstString;
+    in reason: Reason;
+    out stagePort: mach_port_copy_send_t; out passphrase: String);
+routine retryNewPassphrase(UCSP_PORTS; in reason: Reason; out passphrase: String);
+
+//
+// "Rogue App" alert/confirm function
+//
+routine queryKeychainAccess(UCSP_PORTS; 
+	in requestor: ConstString; in requestPid: pid_t; in database: ConstString;
+	in item: ConstString; in operation: AclAuthorization;
+    out choice: Choice);
+    
+//
+// Generic new/old password prompt interface
+//
+routine queryNewGenericPassphrase(UCSP_PORTS;
+    in requestor: ConstString; in requestPid: pid_t; in prompt: ConstString;
+    in reason: Reason; out stagePort: mach_port_copy_send_t;
+    in showBox: MigBoolean; inout addBox: MigBoolean; out passphrase: String);
+routine retryNewGenericPassphrase(UCSP_PORTS; in reason: Reason;
+    out addBox: MigBoolean; out passphrase: String);
+
+routine queryOldGenericPassphrase(UCSP_PORTS;
+    in requestor: ConstString; in requestPid: pid_t; in prompt: ConstString;
+    out stagePort: mach_port_copy_send_t;
+    in showBox: MigBoolean; inout addBox: MigBoolean; out passphrase: String);
+routine retryOldGenericPassphrase(UCSP_PORTS; in reason: Reason;
+    out addBox: MigBoolean; out passphrase: String);
+
+//
+// Authorization subsystem authentication option
+//
+routine authorizationAuthenticate(UCSP_PORTS;
+	in requestor: ConstString; in requestPid: pid_t;
+	in neededGroup: ConstString; in candidateUser: ConstString;
+	out stagePort: mach_port_copy_send_t; 
+        out authenticatedUser: Username; out authenticatedPassword: String);
+routine retryAuthorizationAuthenticate(UCSP_PORTS; in reason: Reason;
+	out authenticatedUser: Username; out authenticatedPassword: String);

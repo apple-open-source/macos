@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,8 +20,12 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_db.c,v 1.1.1.2 2001/01/25 05:00:16 wsanchez Exp $ */
+/* $Id: php_sybase_db.c,v 1.1.1.3 2001/07/19 00:20:26 zarzycki Exp $ */
 
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_sybase_db.h"
@@ -56,6 +60,7 @@ function_entry sybase_functions[] = {
 	PHP_FE(sybase_fetch_field,		NULL)
 	PHP_FE(sybase_field_seek,		NULL)
 	PHP_FE(sybase_result,			NULL)
+	PHP_FE(sybase_affected_rows,		NULL)
 	PHP_FE(sybase_min_error_severity,	NULL)
 	PHP_FE(sybase_min_message_severity,	NULL)
 	PHP_FALIAS(mssql_connect,		sybase_connect,			NULL)
@@ -74,6 +79,7 @@ function_entry sybase_functions[] = {
 	PHP_FALIAS(mssql_fetch_field,	sybase_fetch_field,		NULL)
 	PHP_FALIAS(mssql_field_seek,	sybase_field_seek,		NULL)
 	PHP_FALIAS(mssql_result,		sybase_result,			NULL)
+	PHP_FALIAS(mssql_affected_rows,		sybase_affected_rows,			NULL)
 	PHP_FALIAS(mssql_min_error_severity,	sybase_min_error_severity,		NULL)
 	PHP_FALIAS(mssql_min_message_severity,	sybase_min_message_severity,	NULL)
 	{NULL, NULL, NULL}
@@ -379,7 +385,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				RETURN_FALSE;
 			}
 			/* create the link */
-			if ((sybase.link=dbopen(sybase.login,host))==FAIL) {
+			if ((sybase.link=PHP_SYBASE_DBOPEN(sybase.login,host))==FAIL) {
 				/*php_error(E_WARNING,"Sybase:  Unable to connect to server:  %s",sybase_error(sybase));*/
 				efree(hashed_details);
 				dbloginfree(sybase.login);
@@ -415,7 +421,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			sybase_ptr = (sybase_link *) le->ptr;
 			/* test that the link hasn't died */
 			if (DBDEAD(sybase_ptr->link)==TRUE) {
-				if ((sybase_ptr->link=dbopen(sybase_ptr->login,host))==FAIL) {
+				if ((sybase_ptr->link=PHP_SYBASE_DBOPEN(sybase_ptr->login,host))==FAIL) {
 					/*php_error(E_WARNING,"Sybase:  Link to server lost, unable to reconnect");*/
 					zend_hash_del(&EG(persistent_list), hashed_details, hashed_details_length+1);
 					efree(hashed_details);
@@ -462,7 +468,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			RETURN_FALSE;
 		}
 		
-		if ((sybase.link=dbopen(sybase.login,host))==NULL) {
+		if ((sybase.link=PHP_SYBASE_DBOPEN(sybase.login,host))==NULL) {
 			/*php_error(E_WARNING,"Sybase:  Unable to connect to server:  %s",sybase_error(sybase));*/
 			efree(hashed_details);
 			RETURN_FALSE;
@@ -1247,6 +1253,56 @@ PHP_FUNCTION(sybase_result)
 	pval_copy_constructor(return_value);
 }
 /* }}} */
+
+
+/* {{{ proto int sybase_affected_rows([int link_id])
+    Get number of affected rows in last query */
+PHP_FUNCTION(sybase_affected_rows)
+{
+   pval *sybase_link_index = NULL;
+   sybase_link *sybase_ptr = NULL;
+   int id                  = 0;
+   int type                = 0;
+
+   switch(ZEND_NUM_ARGS())
+   {
+      case 0:
+      {
+         id = php_sybase_module.default_link;
+      }
+      break;
+
+      case 1:
+      {
+         if (getParameters(ht, 1, &sybase_link_index)==FAILURE)
+         {
+            RETURN_FALSE;
+         }
+
+         convert_to_long(sybase_link_index);
+         id = sybase_link_index->value.lval;
+      }
+      break;
+
+      default:
+      {
+         WRONG_PARAM_COUNT;
+      }
+      break;
+   }
+	
+   sybase_ptr = (sybase_link *)zend_list_find(id, &type);
+
+   if(type!=php_sybase_module.le_link && type!=php_sybase_module.le_plink)
+   {
+      php_error(E_WARNING,"%d is not a Sybase link index",id);
+      RETURN_FALSE;
+   }
+
+   return_value->value.lval = DBCOUNT(sybase_ptr->link);
+   return_value->type       = IS_LONG;
+}
+ 
 
 PHP_MINFO_FUNCTION(sybase)
 {

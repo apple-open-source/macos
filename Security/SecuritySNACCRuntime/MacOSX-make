@@ -1,0 +1,12 @@
+#
+# dummy make file to launch MacOSX-Install
+#
+
+first all:
+	$(SRCROOT)/MacOSX-Install
+
+clean:
+	echo === Cleaning snacc source via Makefile ===
+	(cd $(SRCROOT); make clean srcdir=$(SRCROOT))
+
+# FIXME - install?

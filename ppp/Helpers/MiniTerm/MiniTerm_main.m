@@ -1,36 +1,35 @@
-//#import <AppKit/AppKit.h>
+/*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 #import <Cocoa/Cocoa.h>
 
+#include <fcntl.h>
+#include <unistd.h>
 
-
-/*************** Micro getopt() *********************************************/
-#define	OPTION(c,v)	(_O&2&&**v?*(*v)++:!c||_O&4?0:(!(_O&1)&& \
-                                (--c,++v),_O=4,c&&**v=='-'&&v[0][1]?*++*v=='-'\
-                                &&!v[0][1]?(--c,++v,0):(_O=2,*(*v)++):0))
-#define	OPTARG(c,v)	(_O&2?**v||(++v,--c)?(_O=1,--c,*v++): \
-                                (_O=4,(char*)0):(char*)0)
-#define	OPTONLYARG(c,v)	(_O&2&&**v?(_O=1,--c,*v++):(char*)0)
-#define	ARG(c,v)	(c?(--c,*v++):(char*)0)
-
-static int _O = 0;		/* Internal state */
-/*************** Micro getopt() *********************************************/
-
-u_long ppplink = 0xFFFF;
 
 int main(int argc, const char *argv[]) {
 
-    int option;
-    char *arg;
-
-    while ((option = OPTION(argc, argv)) != 0) {
-        switch (option) {
-        case 'l':
-            if ((arg = OPTARG(argc, argv)) != NULL)
-                ppplink = atoi(arg);
-
-            break;
-        }
-    }
+    close(2);
+    open("/dev/null", O_RDWR, 0);
 
     return NSApplicationMain(argc, argv);
 }

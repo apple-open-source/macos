@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [ $# -ne 3 ]; then
+  echo "usage: $0 script wish tcldir" 1>&2
+  exit 1
+fi
+
+set -e
+
+exec 1> "$1"
+
+echo "#!$2 -f"
+echo "set auto_path [linsert \$auto_path 0 $3]"
+echo "snacced"
+
+chmod +x "$1"

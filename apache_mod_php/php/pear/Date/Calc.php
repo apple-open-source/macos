@@ -24,7 +24,7 @@ define('DATE_CALC_BEGIN_WEEKDAY', 1);
  *
  * @access public
  *
- * @version 1.2.2
+ * @version 1.2.4
  * @author Monte Ohrt <monte@ispi.net>
  */
 
@@ -805,7 +805,19 @@ class Date_Calc {
         if(empty($month))
             $month = Date_Calc::dateNow("%m");
 
-        return ceil((Date_Calc::daysInMonth($month,$year)+Date_Calc::firstOfMonthWeekday($month,$year) - DATE_CALC_BEGIN_WEEKDAY)/7);
+	if(DATE_CALC_BEGIN_WEEKDAY == 1)
+	{
+
+		if(Date_Calc::firstOfMonthWeekday($month,$year) == 0)
+			$first_week_days = 1;
+		else
+			$first_week_days = 7 - (Date_Calc::firstOfMonthWeekday($month,$year) - 1);
+
+	}	
+	else
+		$first_week_days = 7 - Date_Calc::firstOfMonthWeekday($month,$year);
+
+        return ceil(((Date_Calc::daysInMonth($month,$year) - $first_week_days) / 7) + 1);
 
     } // end func weeksInMonth    
         
@@ -879,8 +891,21 @@ class Date_Calc {
 
         $this_weekday = Date_Calc::dayOfWeek($day,$month,$year);
 
-        $beginOfWeek = (Date_Calc::dateToDays($day,$month,$year)
-            - ($this_weekday - DATE_CALC_BEGIN_WEEKDAY));
+	if(DATE_CALC_BEGIN_WEEKDAY == 1)
+	{
+		if($this_weekday == 0)
+			$beginOfWeek = Date_Calc::dateToDays($day,$month,$year) - 6;
+		else
+			$beginOfWeek = Date_Calc::dateToDays($day,$month,$year)
+				- $this_weekday + 1;
+	}
+	else
+        	$beginOfWeek = (Date_Calc::dateToDays($day,$month,$year)
+            	- $this_weekday);
+		
+		
+       /*  $beginOfWeek = (Date_Calc::dateToDays($day,$month,$year)
+            - ($this_weekday - DATE_CALC_BEGIN_WEEKDAY)); */
 
         return(Date_Calc::daysToDate($beginOfWeek,$format));
 
@@ -1020,9 +1045,9 @@ class Date_Calc {
         $week_array = array();
 
         // date for the column of week
-        $curr_day = (Date_Calc::dateToDays($day,$month,$year)
-            - ((Date_Calc::dayOfWeek($day,$month,$year) - DATE_CALC_BEGIN_WEEKDAY)));
-        
+	
+        $curr_day = Date_Calc::beginOfWeek($day,$month,$year,"%E");
+
             for($counter=0; $counter <= 6; $counter++)
             {
                 $week_array[$counter] = Date_Calc::daysToDate($curr_day,$format);
@@ -1056,8 +1081,17 @@ class Date_Calc {
         $month_array = array();
         
         // date for the first row, first column of calendar month
-        $curr_day = (Date_Calc::dateToDays("01",$month,$year)
-            - Date_Calc::firstOfMonthWeekday($month,$year) + DATE_CALC_BEGIN_WEEKDAY);
+	if(DATE_CALC_BEGIN_WEEKDAY == 1)
+	{
+		if(Date_Calc::firstOfMonthWeekday($month,$year) == 0)
+			$curr_day = Date_Calc::dateToDays("01",$month,$year) - 6;
+		else
+			$curr_day = Date_Calc::dateToDays("01",$month,$year)
+				- Date_Calc::firstOfMonthWeekday($month,$year) + 1;
+	}
+	else
+        	$curr_day = (Date_Calc::dateToDays("01",$month,$year)
+            	- Date_Calc::firstOfMonthWeekday($month,$year));
         
         // number of days in this month
         $daysInMonth = Date_Calc::daysInMonth($month,$year);
@@ -1096,18 +1130,7 @@ class Date_Calc {
         $year_array = array();
 
         for($curr_month=0; $curr_month <=11; $curr_month++)
-        {
-            
             $year_array[$curr_month] = Date_Calc::getCalendarMonth(sprintf("%02d",$curr_month+1),$year,$format);
-            
-            /* for ($x=0; $x< count($year_array[$curr_month]); $x++)
-            {
-                 for($y=0; $y< count($year_array[$curr_month][$x]); $y++)
-                {
-                    echo "DEBUG: $x,$y:".$year_array[$curr_month][$x][$y]."<br>\n";
-                }
-            } */
-        }
         
         return $year_array;
     

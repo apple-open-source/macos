@@ -1,0 +1,3 @@
+Create a database called "test" like this:
+
+$ createdb test

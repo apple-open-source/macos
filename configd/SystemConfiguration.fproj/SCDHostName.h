@@ -23,47 +23,16 @@
 #ifndef _SCDHOSTNAME_H
 #define _SCDHOSTNAME_H
 
-#include <sys/cdefs.h>
+#ifndef _SYSTEMCONFIGURATION_H
+#warning Your code has directly included the (old) <SystemConfiguration/SCDHostName.h>
+#warning header file.  Please dont do that.  Use the top-level header file:
+#warning
+#warning   <SystemConfiguration/SystemConfiguration.h>
+#warning 
+#warning Note: the computer name access APIs have been moved out of
+#warning       the SCDHostName.h header file.
 
-/*!
-	@header SCDHostName.h
-	The SystemConfiguration framework provides access to the data used
-		to configure a running system.
-
-	Specifically, the SCDHostNameXXX() API's allow an application
-		to determine (or set) the login/user currently using the
-		console.
-
-	The APIs provided by this framework communicate with the "configd"
-		daemon to obtain information regarding the systems current
-		configuration.
- */
-
-
-__BEGIN_DECLS
-
-/*!
-	@function SCDKeyCreateHostName
-	@discussion Creates a key which can be used by the SCDNotifierAdd()
-		function to receive notifications when the current
-		computer/host name changes.
-	@result A notification string for the current computer/host name".
-*/
-CFStringRef	SCDKeyCreateHostName	();
-
-/*!
-	@function SCDHostNameGet
-	@discussion Gets the current computer/host name.
-	@param name A pointer to memory which will be filled with the current
-		computer/host name.
-	@param nameEncoding A pointer to memory which, if non-NULL, will be
-		filled with the encoding associated with the computer/host name.
-	@result A constant of type SCDStatus indicating the success (or failure) of
-		the call.
- */
-SCDStatus	SCDHostNameGet		(CFStringRef		*name,
-					 CFStringEncoding	*nameEncoding);
-
-__END_DECLS
+#include <SystemConfiguration/SystemConfiguration.h>    /* ...and try to keep everyone happy */
+#endif
 
 #endif /* _SCDHOSTNAME_H */

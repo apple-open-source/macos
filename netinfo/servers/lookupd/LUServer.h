@@ -45,9 +45,7 @@
 
 @interface LUServer : LUAgent
 {
-	LUArray *order[NCATEGORIES];
 	LUArray *agentList;
-	LUArray *agentClassList;
 	LUAgent *currentAgent;
 	char *currentCall;
 	Thread *myThread;
@@ -57,9 +55,6 @@
 	unsigned long ooBufferSize;
 	unsigned long ooBufferOffset;
 }
-
-- (void)setLookupOrder:(LUArray *)luOrder;
-- (void)setLookupOrder:(LUArray *)luOrder forCategory:(LUCategory)cat;
 
 - (BOOL)isIdle;
 - (void)setIsIdle:(BOOL)yn;

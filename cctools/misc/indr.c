@@ -926,8 +926,9 @@ struct object *object)
 		new_strsize += len;
 		new_ext_strsize += len;
 		new_nsyms++;
-		if((symbols[i].n_type & N_TYPE) == N_UNDF &&
-		   symbols[i].n_value == 0)
+		if(((symbols[i].n_type & N_TYPE) == N_UNDF &&
+		    symbols[i].n_value == 0) ||
+		    (symbols[i].n_type & N_TYPE) == N_PBUD)
 		    new_nundefsym++;
 		else
 		    new_nextdefsym++;
@@ -1034,7 +1035,8 @@ struct object *object)
 	}
 	for(i = 0; i < nsyms; i++){ /* loop for external defined symbols */
 	    if((symbols[i].n_type & N_EXT) == N_EXT &&
-	       (symbols[i].n_type & N_TYPE) != N_UNDF){
+	       ((symbols[i].n_type & N_TYPE) != N_UNDF &&
+	        (symbols[i].n_type & N_TYPE) != N_PBUD)){
 		new_symbols[inew_syms] = symbols[i];
 
 		if(symbols[i].n_un.n_strx != 0){
@@ -1096,7 +1098,8 @@ struct object *object)
 	}
 	for(i = 0; i < nsyms; i++){ /* loop for undefined symbols */
 	    if((symbols[i].n_type & N_EXT) == N_EXT &&
-	       (symbols[i].n_type & N_TYPE) == N_UNDF){
+	       ((symbols[i].n_type & N_TYPE) == N_UNDF ||
+	        (symbols[i].n_type & N_TYPE) == N_PBUD)){
 		undef_map[inew_undefsyms].symbol = symbols[i];
 		if(symbols[i].n_un.n_strx != 0){
 		    sp = lookup_symbol(strings + symbols[i].n_un.n_strx);
@@ -1229,10 +1232,13 @@ struct object *object)
 	 * Remap indexes into symbol table in the indirect symbol table.
 	 */
 	for(i = 0; i < object->dyst->nindirectsyms; i++){
-	    if(indirect_symtab[i] > nsyms)
-		fatal_arch(arch, NULL, "indirect symbol table entry %ld "
-		    "(past the end of the symbol table) in: ", i);
-	    indirect_symtab[i] = map[indirect_symtab[i]];
+	    if(indirect_symtab[i] != INDIRECT_SYMBOL_LOCAL &&
+	       indirect_symtab[i] != INDIRECT_SYMBOL_ABS){
+		if(indirect_symtab[i] > nsyms)
+		    fatal_arch(arch, NULL, "indirect symbol table entry %ld "
+			"(past the end of the symbol table) in: ", i);
+		indirect_symtab[i] = map[indirect_symtab[i]];
+	    }
 	}
 
 	/*
@@ -1259,6 +1265,14 @@ struct object *object)
 	    new_nmodtab * sizeof(struct dylib_module) +
 	    new_nextrefsyms * sizeof(struct dylib_reference);
 
+	if(object->hints_cmd != NULL){ 
+	    object->input_sym_info_size +=
+		object->hints_cmd->nhints * sizeof(struct twolevel_hint);
+	    object->output_sym_info_size +=
+		object->hints_cmd->nhints * sizeof(struct twolevel_hint);
+	}
+
+
 	if(object->seg_linkedit != NULL){
 	    object->seg_linkedit->filesize += object->output_sym_info_size -
 					      object->input_sym_info_size;
@@ -1279,6 +1293,10 @@ struct object *object)
 	    (object->object_addr + object->dyst->locreloff);
 	object->output_ext_relocs = ext_relocs;
 	object->output_indirect_symtab = indirect_symtab;
+	if(object->hints_cmd != NULL){
+	    object->output_hints = (struct twolevel_hint *)
+		(object->object_addr + object->hints_cmd->offset);
+	}
 
 	if(object->object_byte_sex != host_byte_sex){
 	    /* the symbol table gets swapped by writeout() */
@@ -1315,6 +1333,13 @@ struct object *object)
 	if(object->st->nsyms != 0){
 	    object->st->symoff = offset;
 	    offset += object->st->nsyms * sizeof(struct nlist);
+	}
+	if(object->hints_cmd != NULL){
+	    if(object->hints_cmd->nhints != 0){
+		object->hints_cmd->offset = offset;
+		offset += object->hints_cmd->nhints *
+			  sizeof(struct twolevel_hint);
+	    }
 	}
 	if(object->dyst->nextrel != 0){
 	    object->dyst->extreloff = offset;

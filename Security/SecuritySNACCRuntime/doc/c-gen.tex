@@ -1,0 +1,772 @@
+% file: .../doc/c-gen.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/c-gen.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: c-gen.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:51  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:33  rj
+% first check-in
+%
+
+\chapter{\label{c-code-gen-chapter}C Code Generation}
+\section{\label{intro-C-section}Introduction}
+Snacc was designed primarily to provide high-performance encoders and
+decoders.  Key areas to optimize are buffer and memory management.
+Buffers are used to hold encoded values and the memory management is
+used when building the internal representation of a value when decoding.
+
+C macros are used where possible to eliminate function call overhead
+for small, commonly used routines.  Using macros with constant
+expressions as parameters allows smarter C compilers to do some of the
+calculations at compile time.  In general, short-cuts that can be taken
+without sacrificing the robustness of code are used.
+
+The generated code can be quite large; large reductions of the size of
+the binaries can be achieved by using the optimizing options of your C
+compiler.
+
+We will use an example ASN.1 module, EX1, to help explain snacc's code
+generation.  The EX1 module uses some of the common built-in types and
+contains some simple values.  The field names have been left out
+to show snacc naming conventions.  The C generation code is in
+{\ufn \dots/compiler/back-ends/c-gen/} if you want to alter it.
+
+\begin{small}
+\begin{verbatim}
+EX1 DEFINITIONS ::=
+BEGIN
+
+anOidVal      OBJECT IDENTIFIER ::= { joint-iso-ccitt 40 foobar(29) }
+theSameOidVal OBJECT IDENTIFIER ::= { 2 40 29 }
+anIntVal      INTEGER ::= 1
+aBoolVal      BOOLEAN ::= TRUE
+
+T1 ::= SEQUENCE
+{
+   INTEGER OPTIONAL,
+   OCTET STRING OPTIONAL,
+   ENUMERATED { a(0), b(1), c(2) },
+   SEQUENCE OF INTEGER,
+   SEQUENCE { id OBJECT IDENTIFIER, value OCTET STRING },
+   CHOICE { INTEGER, OBJECT IDENTIFIER }
+}
+
+END
+\end{verbatim}
+\end{small}
+
+\noindent
+Use the following command to compile the EX1 ASN.1 module:
+
+\noindent
+{\ufn \%1 snacc -u \dots/asn1specs/asn-useful.asn1 \dots/asn1specs/ex1.asn1}
+\noindent
+
+This produces the files {\ufn ex1.h} and {\ufn ex1.c}.
+
+For each ASN.1 type an equivalent C data type, a BER encoding routine,
+a BER decoding routine, a printing routine and a freeing routine will
+be generated.  C values will also be generated from simple ASN.1
+values.  Each aspect of the C code generation will be discussed in the
+next sections.
+
+\section{\label{naming-C-section}ASN.1 to C Naming Conventions}
+
+For any given module, snacc may produce C type definitions, functions
+and {\C \#define}s.  We assume that all C {\C typedef},
+{\C struct}, {\C enum} and {\C union} tag, {\C enum} value,
+variable, {\C \#define} and function names share a single name space.
+
+The C type name for a type is the same as its ASN.1 type name (with
+any hyphens converted to underscores) unless there is a conflict.
+Since, unlike ASN.1, the C types for each ASN.1 module share the same
+name space, snacc makes sure the C typenames are unique amoung all the
+modules and that they do not conflict with C keywords.  The conflicts
+are resolved by appending digits to the conflicting name.  To avoid
+confusing numbered type names etc., you should edit the ASN.1 source
+and name them properly.
+
+Named numbers, ENUMERATED values and named bits are put in entirely in
+upper case to match the common C convention for {\C \#define} and
+{\C enum} values.
+
+Empty field names in SETs, SEQUENCEs, and CHOICEs will be filled.  The
+field name is derived from the type name for that field. The library
+types such as INTEGER have default field names defined by the compiler
+(see {\ufn \dots/compiler/back-ends/c-gen/rules.c} and
+{\ufn \dots/compiler/back-ends/c++-gen/rules.c}).  The first letter of the field
+name is in lower case.  Again, empty field names should be fixed
+properly by adding them to the ASN.1 source.
+
+New type definitions will be generated for SETs, SEQUENCEs, CHOICEs,
+ENUMERATED, INTEGERs with named numbers and BIT STRING with named bits
+whose definitions are embedded in other SET, SEQUENCE, SET OF,
+SEQUENCE OF, or CHOICE definitions.  The name of the new type is
+derived from the name of the type in which it was embedded.  Perhaps a
+better way would use the field name as well, if present.
+
+\section{\label{type-gen-C-section}ASN.1 to C Data Structure Translation}
+
+To handle the different scoping rules between ASN.1 and C, the names
+of some ASN.1 data structure elements such as ENUMERATED type symbols
+may be altered to avoid conflicts.  The T1 type in example ASN.1
+module EX1 has no field names so snacc will generate them.  It is
+recommended to provide field names in the ASN.1 source instead of
+relying on compiler generated names.  The following is the generated C
+data structure for the EX1 module from the {\ufn ex1.h} file (function
+prototypes have been removed):
+
+\begin{small}
+\begin{verbatim}
+
+typedef enum
+{
+    A = 0,
+    B = 1,
+    C = 2
+} T1Enum; /* ENUMERATED { A(0), B(1), C(2) }  */
+
+typedef struct T1Choice /* CHOICE */
+{
+    enum T1ChoiceChoiceId
+    {
+        T1CHOICE_INT1,
+        T1CHOICE_OID
+    } choiceId;
+    union T1ChoiceChoiceUnion
+    {
+        AsnInt int1; /* INTEGER */
+        AsnOid *oid; /* OBJECT IDENTIFIER */
+    } a;
+} T1Choice;
+
+typedef struct T1Seq /* SEQUENCE */
+{
+    AsnOid id; /* OBJECT IDENTIFIER */
+    AsnOcts value; /* OCTET STRING */
+} T1Seq;
+
+typedef AsnList T1SeqOf; /* SEQUENCE OF INTEGER */
+
+typedef struct T1 /* SEQUENCE */
+{
+    AsnInt *int1; /* INTEGER OPTIONAL */
+    AsnOcts octs; /* OCTET STRING OPTIONAL */
+    T1Enum t1Enum; /* T1Enum */
+    T1SeqOf *t1SeqOf; /* T1SeqOf */
+    struct T1Seq *t1Seq; /* T1Seq */
+    struct T1Choice *t1Choice; /* T1Choice */
+} T1;
+\end{verbatim}
+\end{small}
+
+Every ASN.1 type definition maps into a C {\C typedef}.  SETs and
+SEQUENCEs map into C structures and other simple types map into their
+obvious C counterpart.  SET OF and SEQUENCE OF types map into a
+generic list type which is doubly linked and NULL terminated.  The
+reverse link on the lists allows for simpler backwards encoding.  More
+information on the library types can be found in Chapter~\ref{lib-C-chapter}.
+
+Comments that contain a fragment of each type's ASN.1 definition are
+inserted in the header file to clarify cases where elements have been
+re-named.
+
+Aggregate types that are defined in other type definitions are moved
+to their own type definitions.  For example, notice how the SEQUENCE
+and CHOICE that are in type {\C T1} have been moved to the types
+{\C T1Seq} and {\C T1Choice} in the C code.  This simplifies code
+generation at the cost of introducing new types.
+
+Identifiers for named numbers from INTEGER and ENUMERATED types and
+named bits from the BIT STRING type are capitalized in the C
+representation.  The ENUMERATED type maps to a C {\C enum} and the INTEGER
+and BIT STRING named numbers/bits are handled with {\C \#define}
+statements.
+
+Most OPTIONAL elements of SEQUENCEs and SETs are referenced by
+pointer.  An element is considered present if its pointer is non-NULL\@.
+OCTET STRINGs, BIT STRINGs and OBJECT IDENTIFIERs are the exceptions,
+and are included by value even when they are OPTIONAL because they are
+small and contain an internal pointer that can be used to determine
+their presence.  For an example of this, look at the first two
+elements of type {\C T1}.  The INTEGER type is referenced by pointer
+because it is OPTIONAL, but the OCTET STRING type is included
+(non-pointer) in the {\C T1} type even though it is OPTIONAL\@.
+
+
+\section{\label{encode-gen-C-section}Encode Routines}
+
+Snacc generates two kinds of encoding routines. One is PDU oriented
+and encodes the type's tag, length and content and the other
+only encodes the type's content.  The generated encoders only call the
+content encoders, except in the case of ANY and ANY DEFINED BY types.
+Typically, you will only call the PDU oriented routines from your
+code.
+
+The content and PDU encoding routine interfaces are similar for all
+ASN.1 types.  They both take two parameters, one is a buffer pointer
+and the other is a pointer to the value to be encoded.  For example
+the {\C T1} type from module EX1 has the following prototypes for
+its encoding routines.
+
+\begin{verbatim}
+AsnLen BEncT1Content (BUF_TYPE b, T1 *v);
+AsnLen BEncT1 (BUF_TYPE b, T1 *v);
+\end{verbatim}
+
+{\C BEnc} is short for ``BER Encode''. The {\C BUF\_TYPE}
+parameter is the buffer to encode the value into and the {\C T1~*}
+parameter is a pointer to the instance of the {\C T1} type that is to be
+encoded.
+
+The {\C BEncT1Content} routine only encodes the content of a {\C T1}
+type and returns its encoded length; it does not encode its tag
+(UNIVERSAL (CONSTRUCTED) 16 for SEQUENCE) or length.  The job of
+encoding the tag and length is up to any type that encapsulates {\C T1}.
+This design allows decisions about implicit tagging to be made at code
+generation time instead of runtime, improving performance.  Also,
+different encoding rules may fit into this model more easily.
+
+The {\C BEncT1} routine encodes the tag (UNIVERSAL (CONSTRUCTED) 16
+for SEQUENCE), length and content of a {\C T1} type and returns its encoded
+length.  This is the PDU oriented routine and will only be generated
+if the user designates the type as a PDU type via a compiler directive
+or the type is used as
+the content of an ANY or ANY DEFINED BY type (as indicated by an
+OBJECT-TYPE macro).  A PDU type is a type that defines an entire PDU;
+the user will typically be calling the encode and decode routine for
+PDU types directly.  See Section~\ref{compiler-dir-C-section} for how to
+designate PDU types with compiler directives.
+
+The snacc encoders are somewhat strange; they encode a value starting
+from the end of its BER representation and work back to its beginning.
+This ``backwards'' encoding technique simplifies the use of definite
+lengths on constructed values.  Other encoders that encode forwards,
+such as those of CASN1, use an intermediate buffer format so that a
+buffer containing the encoded length of a constructed value can be
+inserted before its encoded content, after the content has been
+encoded.  Use of intermediate buffers hurts performance.  Other
+compilers' approaches have been to only encode indefinite lengths for
+constructed values, however, this will not support some encoding rules
+such as DER\@.  The drawback of encoding backwards is that BER values
+cannot be written to stream-oriented connections as they are encoded.
+
+Both definite and indefinite length encodings for constructed values'
+lengths are supported.  Currently the choice is made when compiling
+the generated code, via the {\C USE\_INDEF\_LEN} flag.  If both length
+forms, definite and indefinite, are required, it easy to modify the
+length encoding macros to check a global variable for the length
+form to use.  For most types, using definite lengths produces smaller
+encodings with little performance difference.
+
+After calling an encode routine you should always check the buffer
+you encoded into for a write error.  This is the only error reporting
+mechanism used for the encoders.  See the C buffer section (Section
+\ref{lib-buf-section}) for how to check a buffer for a write error.
+
+
+\section{\label{decode-gen-C-section}Decode Routines}
+
+Decoding routines are like the encoding routines in that there are two
+kinds, one that decodes the type's tag, length and content and one
+that only decodes the type's content.  As mentioned in the encoder
+section, the content style interface allows implicit tagging decisions
+to be made at compile time.
+
+Unlike the encoding routines, the PDU and content decoding routines
+take different arguments.  For the {\C T1} type the following would be
+produced:
+\begin{verbatim}
+void BDecT1Content (BUF_TYPE b, AsnTag tagId0, AsnLen elmtLen0, T1 *v, AsnLen *bytesDecoded, ENV_TYPE env);
+void BDecT1 (BUF_TYPE b, T1 *v, AsnLen *bytesDecoded, ENV_TYPE env);
+\end{verbatim}
+
+Notice that the content decoder, {\C BDecT1Content}, has tag and
+length parameters that the PDU decoder, {\C BDecT1}, does not have.
+Since the content decoder does not decode the tag and length on the
+value, it is necessary to pass them in as parameters. Only OCTET
+STRING and BIT STRING decoders will actually use the information
+in the tag parameter.
+
+The {\C BUF\_TYPE} parameter is the buffer that holds the BER value
+being decoded.
+
+The {\C tagId0} parameter is the last tag that was decoded on the
+content of the type that is about to be decoded.  In the case of type
+{\C T1}, {\C BDecT1Content} gets a tagId0 of UNIVERSAL (CONSTRUCTED) 16,
+unless it is implicitly tagged by another type.  Most content decoding
+routines ignore the tag information. OCTET STRING and BIT STRING
+decoders use the tag information to determine whether the contents are
+constructed or primitive.  CHOICE decoders use the tag information to
+determine which CHOICE element is present.  CHOICE values are treated
+differently, as will be explained shortly.
+
+The {\C elmtLen0} parameter is the length of the content of the type
+being decoded.  This is simply the length decoded from the buffer by
+the containing type's decoder just before calling this decode routine.
+
+The {\C v} parameter is a pointer to space allocated for the type
+being decoded.  This memory is not allocated by the decoding routine
+itself; this supports the cases where the type is enclosed in the
+struct of the parent (i.\,e.\  no extra allocation is necessary).  If
+the type to be decoded is referenced by pointer from its parent type,
+the parent type's decoding routine must allocate the type.
+
+The {\C bytesDecoded} parameter maintains the running total of the
+number of octets that have been decoded.  For example, if I call
+{\C BDecT1Content} with a {\C bytesDecoded} parameter that points
+to 20 and the encoded length of the {\C T1} value is 30 octets,
+{\C bytesDecoded} will point to 50 when {\C BDecT1Content}
+returns.  Maintaining the length is vital to determining the presence
+or absence of OPTIONAL elements in a SET or at the end of SEQUENCE\@.
+Local variables are used to hold the lengths; there is no global stack
+of lengths as with CASN1.
+
+The {\C env} parameter is used in conjunction with {\C longjmp}
+calls.  When an decoder encounters a fatal error such as a missing
+tag, it uses the {\C env} with a {\C longjmp} call to pop back to the
+initial decode call. Section~\ref{lib-err-C-section} has more error
+management details.
+
+CHOICEs are decoded a little differently from other types.  For all
+types except CHOICEs, all of the tag and length pairs on the content
+are decoded by the parent type, and the last pair a passed into to
+content decoding routine via the {\C tagId0} and {\C elmtLen0}
+parameters.  For CHOICEs, all of the tag and length pairs on the
+content are decoded and then the first tag and length pair in the
+CHOICE content is decoded by the parent and passed into the CHOICE
+content decoding routine.  The first tag in a CHOICE's content is the
+important tag by which the CHOICE determines which element is present.
+This technique simplifies the code for dealing with untagged CHOICEs
+embedded in other CHOICEs.  CHOICEs nested in this way mean that a
+single tag determines which element is present in more than one
+CHOICE\@.
+
+The decoding routines allocate memory to hold the decoded value.  By
+default snacc decoders use nibble memory (see Section
+\ref{lib-mem-C-section}) which is very efficient in allocation and
+virtually cost free for freeing.
+
+To save memory, decoders generated by some other tools build values
+that reference the data in the encoded PDU for types like OCTET
+STRING\@.  Snacc decoded values do not reference the BER data in any way
+for several reasons.  One, the encoded value may be held in some
+bizarre buffer making access to the value difficult.  Two, with more
+encoding rules being formalized, this technique may not always work
+since the encoded format may be different from the desired internal
+format.  Three, snacc decoders concatenate any constructed BIT and
+OCTET STRINGs values when decoding, to simplify processing in the
+application.
+
+Snacc decoders can detect a variety of errors which will be reported
+by {\C longjmp}.  Any tagging errors are reported. SETs must contain
+all non-OPTIONAL components and SEQUENCEs must be in order and contain
+all non-OPTIONAL components. Extra components in SETs and SEQUENCEs
+are considered an error.  Errors will also be reported if you attempt
+to decode values that exceed the limitations of the internal
+representation (e.\,g.\ an integer that is larger than a
+{\C long int} allows).
+
+\section{\label{print-gen-C-section}Print Routines}
+All of the generated print routines take similar parameters. For
+example the {\C T1} type's print routine prototype is:
+\begin{verbatim}
+void PrintT1 (FILE *f, T1 *v, unsigned short int indent);
+\end{verbatim}
+
+The print routine writes the given value, {\C v}, to the given {\C FILE~*},
+{\C f}.  The printed value is indented by {\C indent} spaces.  The
+values are printed in an ASN.1 value notation style.  {\C PrintT1}
+prints in the following style:
+\begin{small}
+\begin{verbatim}
+{ -- SEQUENCE --
+    17,
+    '436c696d6220617420537175616d697368'H  -- "Climb at Squamish" --,
+    0,
+    { -- SEQUENCE OF --
+        18,
+        19
+    },
+    { -- SEQUENCE --
+        id {2 40 29},
+        value '736f6d6520737472696e67'H  -- "some string" --
+    },
+    20
+}
+\end{verbatim}
+\end{small}
+
+OCTET STRINGs are printed in a hexadecimal notation, and any printable
+characters are included after the string in an ASN.1 comment.  Note
+that the enumerated type value, 0, did not print its symbol, ``A''
+from the ENUMERATED type.  It would be fairly easy to modify the C and
+C++ back ends to generate print routines that printed the ENUMERATED
+types' symbols instead of their values.
+
+\section{\label{free-gen-C-section}Free Routines}
+
+Snacc generates free routines of the form:
+\begin{verbatim}
+void FreeT1 (T1 *v);
+\end{verbatim}
+
+These routines will free all the components named type.
+For example the above {\C FreeT1} routine will free all the
+components of the given {\C T1} value, but not the {\C T1} value itself.  The
+passed in pointer is not freed because it may be embedded in another
+type which will be freed by another call to {\C Asn1Free}.  All the pieces
+of memory are freed using the {\C Asn1Free} macro defined in
+{\ufn asn-config.h}.  Each library type has its own free routine that
+may call {\C Asn1Free}. The values are typically allocated during
+decoding, using the {\C Asn1Alloc} macro.
+
+The memory management can be changed by editing the {\ufn asn-config.h}
+file to use you own memory management routines.  By default the memory
+manager uses the nibble memory system described in Section
+\ref{lib-mem-C-section}.  The nibble memory system does not need explicit
+frees of each component so the generated free routines are not needed.
+However, if you change the memory management to use something like
+{\C malloc} and {\C free}, you should use the generated free routines.
+
+
+\section{\label{val-gen-C-section}ASN.1 to C Value Translation}
+
+C values will be produced for INTEGER, BOOLEAN and OBJECT IDENTIFIER
+values.  C {\C extern} declarations for the value are put at the end
+of the header file (after all of the type definitions).  The value
+definitions are put at the beginning of the source file. For example,
+the following will be produced for the EX1 module (at the end of
+file ex1.h):
+
+\begin{small}
+\begin{verbatim}
+extern AsnOid anOidVal;
+extern AsnOid theSameOidVal;
+extern AsnInt anIntVal;
+extern AsnBool aBoolVal;
+extern AsnInt foobar;
+\end{verbatim}
+\end{small}
+
+(at the beginning of file ex1.c):
+
+\begin{small}
+\begin{verbatim}
+AsnOid anOidVal = { 2, "\170\35" };
+AsnOid theSameOidVal = { 2, "\170\35" };
+AsnInt anIntVal = 1;
+AsnBool aBoolVal = TRUE;
+AsnInt foobar = 29;
+\end{verbatim}
+\end{small}
+
+\section{\label{compiler-dir-C-section}Compiler Directives}
+
+Snacc allows the user to control some aspects of the generated code by
+inserting special comments in the ASN.1 source.  Warning! only the
+{\ASN isPdu} directive has been tested to any extent. Use the others
+very carefully and only if you really need to.  The compiler
+directives have the form:
+
+\begin{verbatim}
+--snacc <attribute>:"<value>"  <attribute>:"<value>" ...
+\end{verbatim}
+
+The {\ASN attribute} is the name of one of the accepted attributes and
+the {\ASN value} is what the {\ASN attribute}'s new value will be.
+The attribute value pairs can be listed in a single {\ASN --snacc}
+comment or spread out in a list of consecutive comments.
+
+Compiler directives are only accepted in certain places in the ASN.1
+code.  Depending on their location in the ASN.1 source, the compiler
+directives affect type definitions or type references.  The directives
+for type definitions and references are different.  Module level
+compiler directives to specify output file names and other information
+would be useful, but are not implemented.
+
+Here is an example to present some of the compiler directives and
+their uses.  Let's say your data structure always deals with
+{\C PrintableStrings} that are null terminated (internally, not in
+the encoding).  The default snacc string type is a structure that
+includes a length and {\C char~*} for the string octets.  To change
+the default type to a simple {\C char~*} the best way would be define
+your own string type, let's say {\ASN MyString} as follows:
+
+\begin{small}
+\begin{verbatim}
+Foo ::= SET
+{
+    s1 [0] MyString OPTIONAL,
+    s2 [1] MyString,
+    i1 [2] INTEGER
+}
+
+Bar ::= CHOICE
+{
+    s1 MyString,
+    i1 INTEGER
+}
+
+Bell ::= MyString
+
+MyString ::= --snacc isPtrForTypeDef:"FALSE"
+             --snacc isPtrForTypeRef:"FALSE"
+             --snacc isPtrInChoice:"FALSE"
+             --snacc isPtrForOpt:"FALSE"
+             --snacc optTestRoutineName:"MYSTRING_NON_NULL"
+             --snacc genPrintRoutine:"FALSE"
+             --snacc genEncodeRoutine:"FALSE"
+             --snacc genDecodeRoutine:"FALSE"
+             --snacc genFreeRoutine:"FALSE"
+             --snacc printRoutineName:"printMyString"
+             --snacc encodeRoutineName:"EncMyString"
+             --snacc decodeRoutineName:"DecMyString"
+             --snacc freeRoutineName:"FreeMyString"
+             PrintableString --snacc cTypeName:"char *"
+\end{verbatim}
+\end{small}
+
+All but the last {\ASN --snacc} comment bind with the {\ASN MyString} type
+definition. The last directive comment binds with the {\ASN PrintableString}
+type.  The C data structure resulting from the above ASN.1 and compiler
+directives is the following:
+\begin{small}
+\begin{verbatim}
+typedef char *MyString; /* PrintableString */
+
+typedef struct Foo /* SET */
+{
+    MyString s1; /* [0] MyString OPTIONAL */
+    MyString s2; /* [1] MyString */
+    AsnInt i1; /* [2] INTEGER */
+} Foo;
+
+typedef struct Bar /* CHOICE */
+{
+    enum BarChoiceId
+    {
+        BAR_S1,
+        BAR_I1
+    } choiceId;
+    union BarChoiceUnion
+    {
+        MyString s1; /* MyString */
+        AsnInt i1; /* INTEGER */
+    } a;
+} Bar;
+
+typedef MyString Bell; /* MyString */
+\end{verbatim}
+\end{small}
+
+The compiler directives used on the {\ASN MyString} type have some
+interesting effects.  Notice that {\ASN MyString} is not referenced by
+pointer in the CHOICE, SET, or type definition, {\ASN Bell}.
+
+The generated code for encoding field {\C s1} of {\C Foo} type
+will use the code\linebreak``{\C MYSTRING\_NON\_NULL (\&fooVal-->s1)}'' to check
+for the presence of the OPTIONAL {\C s1} field.  The code associated
+with MYSTRING\_NON\_NULL should return TRUE if the {\C s1} field
+value is present and might look like:
+\begin{verbatim}
+#define MYSTRING_NON_NULL(s) (*s != NULL)
+\end{verbatim}
+
+The argument to {\C optTestRoutine} routine will be a pointer to the
+field type's defining type.  Note that in the above example,
+{\ASN MyString} is a {\C char~*}, therefore the {\C MYSTRING\_NON\_NULL}
+macro's argument will be a {\C char~**}.
+
+Setting the {\ASN genPrintRoutine} etc. attributes to false makes
+snacc not define or generate any encode, decode, print, or free
+routines for the {\ASN MyString} type.  You must provide these
+yourself; the best approach is to take the normal {\ASN PrintableString}
+routines and modify them to handle your special string type.
+
+The names of the encode, decode, print and free routines used for the
+{\ASN MyString} type will be based on the ones given with the
+{\ASN printRoutineName} etc.\  attributes.  Snacc will prepend a
+``B'' (for BER) and append a ``Content'' to the encode and decode
+routines names, so you must provide the {\C BEncMyStringContent} and
+{\C BDecMyStringContent} routines.  You may also need the
+{\C BEncMyString} and {\C BDecMyString} routines if {\ASN MyString} is a
+PDU type or used in an ANY or ANY DEFINED type.
+
+The {\ASN PrintableString} type has its C type name changed to
+{\C char~*} by the last compiler directive.  Thus {\ASN MyString} is defined
+as a {\C char~*}.  This directive applies to the {\ASN PrintableString}
+type reference.  Note that these directives do not affect the tags or
+the encoded representation of the {\ASN MyString} type
+
+The location of the {\ASN --snacc} comment(s) is important.
+{\ASN --snacc} comment(s) between the {\ASN ::=} sign and the
+following type are associated with the type being defined. Any
+compiler directives after the type and before the next type or value
+definition are associated with the type.  Fields in SETs, SEQUENCEs
+and CHOICEs can be modified by putting the compiler directive after
+the comma that follows the field type that you wish to modify.  In the
+case of the last element of one of these types, where there is no
+comma, just place it after the field and before the closing bracket of
+the parent type.
+
+Attributes shadow the type attributes filled in during the target
+language type information generation pass of the compiler.  The type
+definition attributes are:
+
+\begin{description}
+\item[cTypeName] { this is the type name that the generated type will
+have. Its value can be any string that is valid as a C type name.}
+
+\item[isPdu]     { whether this is a PDU type.  A PDU type will have
+extra interfaces to the encode and decode routines generated. Its
+value can be ``TRUE'' or ``FALSE''}
+
+\item[isPtrForTypeDef] { TRUE if other types defined solely by this type
+definition are defined as a pointer to this type. Its
+value can be ``TRUE'' or ``FALSE''.}
+
+\item[isPtrForTypeRef]{ TRUE if type references to this type
+definition from a SET or SEQUENCE are by pointer. Its
+value can be ``TRUE'' or ``FALSE''.}
+
+\item[isPtrInChoice] {TRUE if type references to this type definition
+from a CHOICE are by pointer. Its value can be ``TRUE'' or ``FALSE''.}
+
+
+\item[isPtrForOpt]  { TRUE if OPTIONAL type references to this type
+definition from a SET or SEQUENCE are by pointer. Its value can be
+``TRUE'' or ``FALSE''.}
+
+\item[optTestRoutineName] {name of the routine to test whether an
+OPTIONAL element of this type in a SET or SEQUENCE is present. The
+routine should return TRUE if the element is present.  The value of
+this field is usually just the name of a C macro that tests for NON-NULL\@.
+The argument to the routine will be a pointer to the type definition's
+type.  The optTestRoutineName value can be any string value.}
+
+\item[defaultFieldName] { if this type is used in a SET, SEQUENCE or
+CHOICE without a field name then this value is used with a digit
+appended to it.  Its value can be any string that is a valid C field
+name in a struct or union.}
+\item[printRoutineName] { name of this type definition's printing
+routine.  Its value can be any string that is a C function or
+macro name.}
+\item[encodeRoutineName]{ name of this type definition's encoding
+routine. Its value can be any string that is a C function or
+macro name.}
+\item[decodeRoutineName]{ name of this type definition's decoding
+routine. Its value can be any string that is a C function or
+macro name.}
+\item[freeRoutineName]  { name of this type definition's freeing
+routine. Its value can be any string that is a C function or
+macro name.}
+
+\item[isEncDec] {If this type is used in a SET or SEQUENCE then it is not
+encoded or decoded.  Its value can be ``TRUE'' or ``FALSE''.  This is
+handy for adding your own types to a standard that are only for local
+use, and are not included in encoded values.}
+
+\item[genTypeDef] { TRUE if you want a C type to be generated for this
+type definition. Its values can be ``TRUE'' or ``FALSE''.}
+
+\item[genPrintRoutine] { TRUE if you want a printing routine to be
+generated for this type definition. Its values can be ``TRUE'' or
+``FALSE''.}
+\item[genEncodeRoutine] { TRUE if you want an encoding routine to be
+generated for this type definition. Its values can be ``TRUE'' or
+``FALSE''.}
+\item[genDecodeRoutine] { TRUE if you want a decoding routine to be
+generated for this type definition. Its values can be ``TRUE'' or
+``FALSE''.}
+\item[genFreeRoutine] { TRUE if you want a free routine to be
+generated for this type definition. Its values can be ``TRUE'' or
+``FALSE''.}
+\end{description}
+
+
+The type reference attributes are slightly different from the type
+definition attributes due to the semantic differences between a type
+definition and a type reference.  Type references will inherit some of
+their attributes from the referenced type definition.  The following
+are the valid type reference attributes:
+\begin{description}
+\item[cTypeName] { this is the type name that the generated type will
+have. Its value can be any string that is valid as a C type name.}
+
+\item[cFieldName] { if this is a field in a CHOICE, SET or SEQUENCE
+then this holds the C field name for this reference. Its value can be
+any string that is valid as a C field name.}
+
+\item[isPtr] { TRUE if this is a pointer to the type named by
+cTypeName.  This is usually determined from the referenced type
+definitions attributes. Its value can be ``TRUE'' or ``FALSE''.}
+
+\item[optTestRoutineName] {if this field is an OPTIONAL component then
+this is the name of the routine to test whether it is present.  The
+routine should return TRUE if the element is present.  The value of
+this is usually just the name of a C macro that tests for NULL\@. The
+argument to the routine will be a pointer to the type definition's
+type.  The optTestRoutineName value can be any string value.}
+
+\item[printRoutineName] { name of this type reference's printing
+routine.  This and the other routine name attributes are useful for
+special instances of the referenced type.  It is easier to modify the
+referenced type definition if you want every instance of this type to
+use a certain print etc.\  routine.  Its value can be any string that is
+a value C function or macro name.}
+
+\item[encodeRoutineName]{ name of this type reference's encoding
+routine. Its value can be any string that is a function or
+macro name.}
+
+\item[decodeRoutineName]{ name of this type reference's decoding
+routine. Its value can be any string that is a C function or
+macro name.}
+
+\item[freeRoutineName]  { name of this type reference's freeing
+routine. Its value can be any string that is a C function or
+macro name.}
+
+\item[isEncDec] { If this type is used in a SET or SEQUENCE then the
+field is not encoded or decoded.  Its value can be ``TRUE'' or
+``FALSE''.  This is handy for adding your own types to a standard that
+are only for local use, and are not included in encoded values.}
+
+\item[choiceIdSymbol] {if this is a component of a CHOICE, this string
+attribute will be the defined/enum symbol whose value in the choiceId
+field indicates the presence of this field.}
+\item[choiceIdValue]  {if this is a component of a CHOICE, this integer
+attribute will be the value associated with the symbol in choiceIdSymbol.}
+
+\end{description}
+
+
+
+
+\section{\label{compiling-gen-C-section}Compiling the Generated C Code}
+
+The generated C code (and libraries) can be compiled by both ANSI and K\&R C compilers.
+C function prototypes use the {\C PROTO} macro and C function declarations use the {\C PARAMS} macro.
+These macros are defined in {\ufn \dots/snacc.h} and their definitions depend on whether the {\C \_\_USE\_ANSI\_C\_\_} flag has been defined in {\ufn \dots/config.h}.
+
+When compiling the generated C code you will need:
+\begin{enumerate}
+\item
+  The include directory where the files from {\ufn \dots/c-lib/inc/} have been installed into in your include path so the C sources can include the library header files.
+  The header files should be included with statements like {\C \#include <snacc/c/asn-incl.h>} and your C compiler should be supplied with {\ufn -I/usr/local/include} in case snacc got installed under {\ufn /usr/local/}.
+\item
+  to link with the correct C ASN.1 runtime library, depending on the buffer type you choose.
+  In case snacc got installed under {\ufn /usr/local/}, your linker may need to be supplied with {\ufn -L/usr/local/lib} and one of {\ufn -lasn1cebuf}, {\ufn -lasn1cmbuf} or {\ufn -lasn1csbuf} as arguments.
+\item
+  to link with the math library ({\ufn -lm}), since the ASN.1 REAL type's encode and decode routine use some math routines.
+\end{enumerate}
+
+See the example in {\ufn \dots/c-examples/simple/} for a complete
+example. The makefile and main routines are probably the most
+important.  There are several other examples in the
+{\ufn \dots/c-examples/} directory.

@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -216,6 +216,10 @@ class Crypt_HCEMD5 {
      */
     function decodeMimeSelfRand($data)
     {
+        if (strpos($data, '#') === false) {
+            return false;
+        }
+        
         list($rand, $data_crypt) = explode('#', $data);
         if (isset($data_crypt)) {
             $rand = base64_decode($rand);

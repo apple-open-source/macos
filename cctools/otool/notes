@@ -3,6 +3,25 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.9 release (the cctools-370 release):
+- Added printing MH_NOMULTIDEFS in print_mach_header() in ofile_print.c .
+- Added code in main() in main.c and the routine print_hints() to ofile_print.c
+  to print the two-level namespace hints.
+
+Changes for the 5.9 release (the cctools-367 release):
+- Added code in print_loadcmds() in ofile_print.c to parse and print
+  LC_SUB_LIBRARY load commands.  Radar bug #2697458
+- Added code in print_loadcmds() in ofile_print.c to parse and print
+  LC_TWOLEVEL_HINTS load commands.  Radar bug #2558069.
+
+Changes for the 5.9 release (the cctools-360 release):
+- Picked up the changes to print_objc.c from Radar bug #2660421 (open source
+  submittion).
+
+Changes for the 5.9 release (the cctools-359 release):
+- Added -Wno-long-double to shutup the compiler for
+  <architecture/m88k/fp_regs.h>.
+
 Changes for the 5.8 release (the cctools-357 release):
 - Added support for the CPU_SUBTYPE_POWERPC_7450 in ofile_print.c . Radar bug
   #2599869.

@@ -79,8 +79,8 @@ pap_read(int fd, u_char *data, int len)
 	if (papp->pap_send_count == 0)
 	    papp->pap_send_count = 1;
 	*(u_short *)&puserdata[2] = papp->pap_send_count;
-	retry.interval = 2;
-	retry.retries = 5;
+	retry.interval = 15;
+	retry.retries = -1;		/* ATP_INFINITE_RETRIES */
 
 	for (i = 0; i < 8; i++) {
 		if (len > AT_PAP_DATA_SIZE) {

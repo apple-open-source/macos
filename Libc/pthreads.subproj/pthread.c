@@ -55,8 +55,10 @@ extern pthread_lock_t reply_port_lock;
  */
 
 size_t _pthread_stack_size = 0;
-int _spin_tries = 1;
+int _spin_tries = 0;
+#if !defined(__ppc__)
 int _cpu_has_altivec = 0;
+#endif
 
 /* This global should be used (carefully) by anyone needing to know if a pthread has been
 ** created.
@@ -104,14 +106,6 @@ extern mach_port_t thread_recycle_port;
 #define STACK_SELF(sp)		STACK_START(sp)
 
 #endif
-
-/* This is the struct used to recycle (or terminate) a thread */
-/* We stash the thread port into the reply port of the message */
-
-typedef struct {
-	mach_msg_header_t header;
-	mach_msg_trailer_t trailer;
-} recycle_msg_t;
 
 /* Set the base address to use as the stack pointer, before adjusting due to the ABI */
 
@@ -514,12 +508,6 @@ pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize)
     }
 }
 
-pthread_t _cachedThread = (pthread_t)0;
-
-void _clear_thread_cache(void) {
-    _cachedThread = (pthread_t)0;
-}
-
 /*
  * Create and start execution of a new thread.
  */
@@ -527,7 +515,6 @@ void _clear_thread_cache(void) {
 static void
 _pthread_body(pthread_t self)
 {
-    _clear_thread_cache();
     _pthread_set_self(self);
     pthread_exit((self->fun)(self->arg));
 }
@@ -721,9 +708,9 @@ pthread_detach(pthread_t thread)
 			thread->death = MACH_PORT_NULL;
 			UNLOCK(thread->lock);
 			if (num_joiners > 0)
-			{ /* Have to tell these guys this thread can't be joined with */
-				swtch_pri(0);
-				PTHREAD_MACH_CALL(semaphore_signal_all(thread->joiners), kern_res);
+			{
+				/* Wake up a joiner */
+				PTHREAD_MACH_CALL(semaphore_signal(thread->joiners), kern_res);
 			}
 			/* Destroy 'control' semaphores */
 			PTHREAD_MACH_CALL(semaphore_destroy(mach_task_self(),
@@ -731,6 +718,10 @@ pthread_detach(pthread_t thread)
 			PTHREAD_MACH_CALL(semaphore_destroy(mach_task_self(),
 						    death), kern_res);
 			return (ESUCCESS);
+		} else if (thread->detached == _PTHREAD_EXITED) {
+			UNLOCK(thread->lock);
+			pthread_join(thread, NULL);
+			return ESUCCESS;
 		} else
 		{
 			UNLOCK(thread->lock);
@@ -748,16 +739,20 @@ pthread_detach(pthread_t thread)
 /* terminated, it will be yanked out from under the mach_msg() call. */
 
 static void _pthread_become_available(pthread_t thread) {
-	recycle_msg_t msg = { { 0 } };
+	mach_msg_empty_rcv_t msg = { { 0 } };
 	kern_return_t ret;
 
+	if (thread->reply_port == MACH_PORT_NULL) {
+		thread->reply_port = mach_reply_port();
+	}
 	msg.header.msgh_size = sizeof msg - sizeof msg.trailer;
 	msg.header.msgh_remote_port = thread_recycle_port;
 	msg.header.msgh_local_port = MACH_PORT_NULL; 
 	msg.header.msgh_id = (int)thread;
 	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
-	ret = mach_msg(&msg.header, MACH_SEND_MSG, msg.header.msgh_size, 0,
-			MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE,
+	ret = mach_msg(&msg.header, MACH_SEND_MSG | MACH_RCV_MSG,
+			msg.header.msgh_size, sizeof msg,
+			thread->reply_port, MACH_MSG_TIMEOUT_NONE,
 			MACH_PORT_NULL);
 	while (1) {
 		ret = thread_suspend(thread->kernel_thread);
@@ -767,17 +762,17 @@ static void _pthread_become_available(pthread_t thread) {
 
 /* Check to see if any threads are available. Return immediately */
 
-static kern_return_t _pthread_check_for_available_threads(recycle_msg_t *msg) {
+static kern_return_t _pthread_check_for_available_threads(mach_msg_empty_rcv_t *msg) {
 	return mach_msg(&msg->header, MACH_RCV_MSG|MACH_RCV_TIMEOUT, 0,
-			sizeof(recycle_msg_t), thread_recycle_port, 0,
+			sizeof(mach_msg_empty_rcv_t), thread_recycle_port, 0,
 			MACH_PORT_NULL);
 }
 
 /* Terminate all available threads and deallocate their stacks */
 static void _pthread_reap_threads(void) {
 	kern_return_t ret;
-	recycle_msg_t msg = { { 0 } };
-	while(_pthread_check_for_available_threads(&msg) == KERN_SUCCESS) {
+	mach_msg_empty_rcv_t msg = { { 0 } };
+	while((ret = _pthread_check_for_available_threads(&msg)) == KERN_SUCCESS) {
 		pthread_t th = (pthread_t)msg.header.msgh_id;
 		mach_port_t kernel_thread = th->kernel_thread;
 		mach_port_t reply_port = th->reply_port; 
@@ -807,31 +802,14 @@ static void _pthread_reap_threads(void) {
 		}
 		free(th);
 	}
+	assert(ret == MACH_RCV_TIMED_OUT);
 }
 
-
-static void *
-stackAddress(void)
-{
-    unsigned dummy;
-    return (void *)((unsigned)&dummy & ~ (PTHREAD_STACK_MIN - 1));
-}
-
-extern pthread_t _pthread_self(void);
+/* For compatibility... */
 
 pthread_t
-pthread_self(void)
-{
-    void * myStack = (void *)0;
-    pthread_t cachedThread = _cachedThread;
-    if (cachedThread) {
-        myStack = stackAddress();
-        if ((void *)((unsigned)(cachedThread->stackaddr - 1) & ~ (PTHREAD_STACK_MIN - 1)) == myStack) {
-            return cachedThread;
-        }
-    }
-    _cachedThread = _pthread_self();
-    return _cachedThread;
+_pthread_self() {
+	return pthread_self();
 }
 
 /*
@@ -844,7 +822,6 @@ pthread_exit(void *value_ptr)
         struct _pthread_handler_rec *handler;
 	kern_return_t kern_res;
 	int num_joiners;
-    _clear_thread_cache();
 	while ((handler = self->cleanup_stack) != 0)
 	{
 		(handler->routine)(handler->arg);
@@ -860,10 +837,14 @@ pthread_exit(void *value_ptr)
 		UNLOCK(self->lock);
 		if (num_joiners > 0)
 		{
-			swtch_pri(0);
-			PTHREAD_MACH_CALL(semaphore_signal_all(self->joiners), kern_res);
+			/* POSIX says that multiple pthread_join() calls on */
+			/* the same thread are undefined so we just wake up */
+			/* the first one to join */
+			PTHREAD_MACH_CALL(semaphore_signal(self->joiners), kern_res);
 		}
-		PTHREAD_MACH_CALL(semaphore_wait(self->death), kern_res);
+		do {
+			PTHREAD_MACH_CALL(semaphore_wait(self->death), kern_res);
+		} while (kern_res == KERN_ABORTED);
 	} else
 		UNLOCK(self->lock);
 	/* Destroy thread & reclaim resources */
@@ -896,7 +877,9 @@ pthread_join(pthread_t thread,
 		{
 			thread->num_joiners++;
 			UNLOCK(thread->lock);
-			PTHREAD_MACH_CALL(semaphore_wait(thread->joiners), kern_res);
+			do {
+				PTHREAD_MACH_CALL(semaphore_wait(thread->joiners), kern_res);
+			 } while (kern_res == KERN_ABORTED);
 			LOCK(thread->lock);
 			thread->num_joiners--;
 		}
@@ -909,7 +892,6 @@ pthread_join(pthread_t thread,
 					*value_ptr = thread->exit_value;
 				}
 				UNLOCK(thread->lock);
-				swtch_pri(0);
 				PTHREAD_MACH_CALL(semaphore_signal(thread->death), kern_res);
 				return (ESUCCESS);
 			} else
@@ -1183,14 +1165,10 @@ pthread_init(void)
 	}
 	attrs = &_attr;
 	pthread_attr_init(attrs);
-    _clear_thread_cache();
-    _pthread_set_self(&_thread);
+	_pthread_set_self(&_thread);
 
         _pthread_create(&_thread, attrs, USRSTACK, mach_thread_self());
-        thread = (pthread_t)malloc(sizeof(struct _pthread));
-	memcpy(thread, &_thread, sizeof(struct _pthread));
-    _clear_thread_cache();
-        _pthread_set_self(thread);
+        thread = &_thread;
         thread->detached = _PTHREAD_CREATE_PARENT;
 
         /* See if we're on a multiprocessor and set _spin_tries if so.  */
@@ -1199,7 +1177,7 @@ pthread_init(void)
 	len = sizeof(numcpus);
 	if (sysctl(mib, 2, &numcpus, &len, NULL, 0) == 0) {
 		if (numcpus > 1) {
-			_spin_tries = SPIN_TRIES;
+			_spin_tries = MP_SPIN_TRIES;
 		}
 	} else {
 		count = HOST_BASIC_INFO_COUNT;
@@ -1210,7 +1188,7 @@ pthread_init(void)
 			printf("host_info failed (%d)\n", kr);
 		else {
 			if (basic_info.avail_cpus > 1)
-				_spin_tries = SPIN_TRIES;
+				_spin_tries = MP_SPIN_TRIES;
 			/* This is a crude test */
 			if (basic_info.cpu_subtype >= CPU_SUBTYPE_POWERPC_7400) 
 				_cpu_has_altivec = 1;

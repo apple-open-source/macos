@@ -51,6 +51,13 @@ enum undefined_check_level {
     UNDEFINED_SUPPRESS
 };
 
+/* The error level check for (twolevel namespace) multiply defined symbols */
+enum multiply_defined_check_level {
+    MULTIPLY_DEFINED_ERROR,
+    MULTIPLY_DEFINED_WARNING,
+    MULTIPLY_DEFINED_SUPPRESS
+};
+
 /* The error level check for read only relocs */
 enum read_only_reloc_check_level {
     READ_ONLY_RELOC_ERROR,
@@ -158,11 +165,17 @@ __private_extern__ unsigned long ndylib_files;
 /* The checking for undefined symbols */
 __private_extern__ enum undefined_check_level undefined_flag;
 
+/* The checking for (twolevel namespace) multiply defined symbols */
+__private_extern__ enum multiply_defined_check_level multiply_defined_flag;
+/* the -nomultidefs option */
+__private_extern__ enum bool nomultidefs;
+
 /* The checking for read only relocs */
 __private_extern__ enum read_only_reloc_check_level read_only_reloc_flag;
 
 /* The prebinding optimization */
 __private_extern__ enum bool prebinding;
+__private_extern__ enum bool prebind_allow_overlap;
 
 /* True if -m is specified to allow multiply symbols, as a warning */
 __private_extern__ enum bool allow_multiply_defined_symbols;
@@ -226,8 +239,15 @@ __private_extern__ unsigned long nallowable_clients;
 __private_extern__ char **sub_umbrellas;
 __private_extern__ unsigned long nsub_umbrellas;
 
+/* The list of sub_library dynamic libraries */
+__private_extern__ char **sub_librarys;
+__private_extern__ unsigned long nsub_librarys;
+
 /* The dylinker information */
 __private_extern__ char *dylinker_install_name;
+
+/* set to TRUE if -private_bundle is specified */
+__private_extern__ enum bool private_bundle;
 
 /* The value of the environment variable NEXT_ROOT */
 __private_extern__ char *next_root;
@@ -248,6 +268,8 @@ __private_extern__ char *final_output;
 __private_extern__ enum bool namespace_specified;
 __private_extern__ enum bool twolevel_namespace;
 __private_extern__ enum bool force_flat_namespace;
+
+__private_extern__ enum bool twolevel_namespace_hints;
 
 __private_extern__ void *allocate(
     unsigned long size);

@@ -61,6 +61,9 @@ int heads, spt, spc, cylinders;
 
 #define NODES 10
 
+#define TYPE_APPLE_BOOT 0xab
+#define TYPE_APPLE_UFS  0xa8
+
 #define HEAD(val) (((val) % spc) / spt)
 #define SECT(val) (((val % spt) + 1) | ((((val) / spc) >> 2) & 0xC0))
 #define CYL(val) (((val) / spc) & 0xFF)
@@ -80,6 +83,7 @@ static int zalloc_base;
 
 
 void		activateUFS();
+void		activateBooter();
 int	 	blk2meg(int x);
 void		cls();
 void		create_partition();
@@ -133,6 +137,7 @@ usage()
 	fprintf(stderr, "--------  Actions  --------\n");
 	fprintf(stderr, 
 	"-removePartitioning		(zero out bootsector)\n"
+	"-bootPlusUFS                   (repartition entire disk for booter plus UFS)\n"
 	"-dosPlusUFS <megsForDos>	(repartition entire disk for DOS plus UFS)\n"
 	"-setAvailableToUFS		(reserve all free space for UFS)\n");
 
@@ -435,17 +440,21 @@ create_partition()
 	printf("Create Partition\n");
 	printf("-----------------\n");
 	printf("1) Create an Apple UFS partition\n");
-	printf("2) Create a non-UFS partition\n");
-	printf("\nEnter 1 or 2: "); fflush(stdout);
+	printf("2) Create an Apple Booter partition\n");
+	printf("3) Create a non-UFS partition\n");
+	printf("\nEnter 1, 2, or 3: "); fflush(stdout);
 
 	choice = -1;
 	scanf("%d",&choice);
 	switch(choice)
 	{
 	case 1:
-		sysId = 0xA7;
+		sysId = TYPE_APPLE_UFS;
 		break;
 	case 2:
+		sysId = TYPE_APPLE_BOOT;
+		break;
+	case 3:
 		sysId = getSysId();
 		break;
 	default:
@@ -453,7 +462,7 @@ create_partition()
 		break;
 	}
 
-	if (sysId == 0xA7 && idExists(0xA7))
+	if (sysId == TYPE_APPLE_UFS && idExists(TYPE_APPLE_UFS))
 	{
 		printf("There can be only one UFS partition.\n");
 		sleep(2);
@@ -486,7 +495,7 @@ create_partition()
 		return;
 	}
 
-	if ((sysId == 0xA7) && (indexOfActive() == 0)) activateUFS();
+	if ((sysId == TYPE_APPLE_BOOT) && (indexOfActive() == 0)) activateBooter();
 }
 
 void
@@ -860,7 +869,9 @@ struct part_type
 	,{0x81, "Minix"}   
 	,{0x82, "Linux"}   
 	,{0xA5, "386BSD"} 
-	,{0xA7, "Apple UFS"}
+	,{0xA7, "NeXT UFS"}
+	,{0xA8, "Apple UFS"}
+	,{0xAB, "Apple Booter"}
 	,{0xB7, "BSDI"} 
 	,{0xB8, "BSDI swap"} 
 	,{0xFF, "Bad Block Table"}  
@@ -941,7 +952,7 @@ unsigned char getSysId()
 	printf("    07 - OS/2 HPFS or QNX\n");
 	printf("    82 - Linux\n");
 	printf("    A5 - 386BSD\n");
-	printf("    A7 - Apple UFS\n");
+	printf("    A8 - Apple UFS\n");
 	printf("However, any hexidecimal value may be used.\n\n");
 	printf("Enter the new partition's system identification ");
 	printf("value, or 0 to cancel: "); fflush(stdout);
@@ -980,7 +991,14 @@ void
 activateUFS()
 {
 	int ret;
-	if (ret = idExists(0xA7)) activateByIndex(ret-1);
+	if (ret = idExists(TYPE_APPLE_UFS)) activateByIndex(ret-1);
+}
+
+void
+activateBooter()
+{
+	int ret;
+	if (ret = idExists(TYPE_APPLE_BOOT)) activateByIndex(ret-1);
 }
 
 void
@@ -1080,6 +1098,7 @@ enum {
 	REPORTEXTENDEDSIZE,
 	REMOVEPARTITIONING,
 	DOSPLUSNEXT,
+	BOOTPLUSUFS,
 	SETAVAILABLETONEXT,
 	SETEXTANDAVAILTONEXT,
 	SETEXTTONEXT,
@@ -1161,6 +1180,11 @@ examineArgs(int argc, char *argv[])
 			interactive--;
 			whichAction = REMOVEPARTITIONING;
 		}
+		else if (!strcmp(argv[i],"-bootplusufs"))
+		{
+			interactive--;
+			whichAction = BOOTPLUSUFS;
+		}
 		else if (!strcmp(argv[i],"-dosplusufs"))
 		{
 			interactive--;
@@ -1208,7 +1232,7 @@ doActionOrInquiry()
 	switch(whichAction)
 	{
 	case LOOKFORNEXT:
-		if (idExists(0xA7)) printf("Yes\n");
+		if (idExists(TYPE_APPLE_UFS)) printf("Yes\n");
 		else printf("No\n");
 		break;
 	case LOOKFOREXTENDED:
@@ -1223,12 +1247,12 @@ doActionOrInquiry()
 		printf("%d\n", blk2meg(maxFreeBlocks()));
 		break;
 	case REPORTFREEWONEXT:
-		nukeID(0xa7);
+		nukeID(TYPE_APPLE_UFS);
 		printf("%d\n", blk2meg(maxFreeBlocks()));
 		break;
 	case REPORTFREEWOEXT:
 		nukeID(0x05);
-		nukeID(0xa7);
+		nukeID(TYPE_APPLE_UFS);
 		printf("%d\n", blk2meg(maxFreeBlocks()));
 		break;
 	case REPORTEXTENDEDSIZE:
@@ -1241,7 +1265,7 @@ doActionOrInquiry()
 		break;
 	case INSTALLSIZE:
 		if (!diskPartitioned())	printf("%d\n", blk2meg(diskSize));
-		else if (ret = idExists(0xa7))
+		else if (ret = idExists(TYPE_APPLE_UFS))
 			printf("%d\n", blk2meg(zalloced[ret-1].size));
 		else printf("0\n");
 		break;
@@ -1257,25 +1281,32 @@ doActionOrInquiry()
 	case DOSPLUSNEXT:
 		nukeAll();
 		zalloc(megsForDos * 2048, 0x06);
-		zalloc(maxFreeBlocks(), 0xA7);
+		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
 		activateUFS();
 		writeBoot = 1;
 		break;
+	case BOOTPLUSUFS:
+		nukeAll();
+		zalloc(8 * 2048, TYPE_APPLE_BOOT);
+		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
+		activateBooter();
+		writeBoot = 1;
+		break;
 	case SETAVAILABLETONEXT:
-		nukeID(0xa7);
-		zalloc(maxFreeBlocks(), 0xA7);
+		nukeID(TYPE_APPLE_UFS);
+		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
 		activateUFS();
 		writeBoot = 1;
 		break;
 	case SETEXTANDAVAILTONEXT:
 		nukeID(0x05);
-		nukeID(0xa7);
-		zalloc(maxFreeBlocks(), 0xA7);
+		nukeID(TYPE_APPLE_UFS);
+		zalloc(maxFreeBlocks(), TYPE_APPLE_UFS);
 		activateUFS();
 		writeBoot = 1;
 		break;
 	case SETEXTTONEXT:
-		if (ret = idExists(0x05)) zalloced[ret-1].ident = 0xA7;
+		if (ret = idExists(0x05)) zalloced[ret-1].ident = TYPE_APPLE_UFS;
 		activateUFS();
 		writeBoot = 1;
 		break;

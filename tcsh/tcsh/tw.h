@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.h,v 1.1.1.1 1999/04/23 01:59:58 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tw.h,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $ */
 /*
  * tw.h: TwENEX functions headers
  */
@@ -77,7 +77,7 @@
 #endif
 #define ON		1
 #define OFF		0
-#define FILSIZ		512	/* Max reasonable file name length */
+#define FILSIZ		BUFSIZE	/* Max reasonable file name length */
 #define ESC             CTL_ESC('\033')
 #define equal(a, b)	(strcmp(a, b) == 0)
 

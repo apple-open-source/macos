@@ -27,6 +27,9 @@ NULL=
 NULL=nul
 !ENDIF 
 
+CPP=cl.exe
+RSC=rc.exe
+
 !IF  "$(CFG)" == "htdigest - Win32 Release"
 
 OUTDIR=.\Release
@@ -49,51 +52,19 @@ CLEAN :
 	-@erase "$(INTDIR)\ap_cpystrn.obj"
 	-@erase "$(INTDIR)\ap_getpass.obj"
 	-@erase "$(INTDIR)\ap_md5c.obj"
+	-@erase "$(INTDIR)\htdigest.idb"
 	-@erase "$(INTDIR)\htdigest.obj"
-	-@erase "$(INTDIR)\vc50.idb"
 	-@erase "$(OUTDIR)\htdigest.exe"
 	-@erase "$(OUTDIR)\htdigest.map"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP=cl.exe
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "..\include" /I "..\os\win32" /D "WIN32" /D\
- "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MD /W3 /O2 /I "..\include" /I "..\os\win32" /D "WIN32" /D\
+ "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\htdigest" /FD\
+ /c 
 CPP_OBJS=.\Release/
 CPP_SBRS=.
-
-.c{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.c{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-RSC=rc.exe
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\htdigest.bsc" 
 BSC32_SBRS= \
@@ -135,9 +106,8 @@ CLEAN :
 	-@erase "$(INTDIR)\ap_cpystrn.obj"
 	-@erase "$(INTDIR)\ap_getpass.obj"
 	-@erase "$(INTDIR)\ap_md5c.obj"
+	-@erase "$(INTDIR)\htdigest.idb"
 	-@erase "$(INTDIR)\htdigest.obj"
-	-@erase "$(INTDIR)\vc50.idb"
-	-@erase "$(INTDIR)\vc50.pdb"
 	-@erase "$(OUTDIR)\htdigest.exe"
 	-@erase "$(OUTDIR)\htdigest.map"
 	-@erase "$(OUTDIR)\htdigest.pdb"
@@ -145,12 +115,31 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP=cl.exe
-CPP_PROJ=/nologo /MDd /W3 /Gm /GX /Zi /Od /I "..\include" /I "..\os\win32" /D\
- "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\"\
- /FD /c 
+CPP_PROJ=/nologo /MDd /W3 /GX /Zi /Od /I "..\include" /I "..\os\win32" /D\
+ "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /Fo"$(INTDIR)\\"\
+ /Fd"$(INTDIR)\htdigest" /FD /c 
 CPP_OBJS=.\Debug/
 CPP_SBRS=.
+BSC32=bscmake.exe
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\htdigest.bsc" 
+BSC32_SBRS= \
+	
+LINK32=link.exe
+LINK32_FLAGS=/nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)\htdigest.pdb" /map:"$(INTDIR)\htdigest.map" /debug\
+ /machine:I386 /out:"$(OUTDIR)\htdigest.exe" 
+LINK32_OBJS= \
+	"$(INTDIR)\ap_cpystrn.obj" \
+	"$(INTDIR)\ap_getpass.obj" \
+	"$(INTDIR)\ap_md5c.obj" \
+	"$(INTDIR)\htdigest.obj"
+
+"$(OUTDIR)\htdigest.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ENDIF 
 
 .c{$(CPP_OBJS)}.obj::
    $(CPP) @<<
@@ -182,28 +171,6 @@ CPP_SBRS=.
    $(CPP_PROJ) $< 
 <<
 
-RSC=rc.exe
-BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\htdigest.bsc" 
-BSC32_SBRS= \
-	
-LINK32=link.exe
-LINK32_FLAGS=/nologo /subsystem:console /incremental:no\
- /pdb:"$(OUTDIR)\htdigest.pdb" /map:"$(INTDIR)\htdigest.map" /debug\
- /machine:I386 /out:"$(OUTDIR)\htdigest.exe" /pdbtype:sept 
-LINK32_OBJS= \
-	"$(INTDIR)\ap_cpystrn.obj" \
-	"$(INTDIR)\ap_getpass.obj" \
-	"$(INTDIR)\ap_md5c.obj" \
-	"$(INTDIR)\htdigest.obj"
-
-"$(OUTDIR)\htdigest.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
-    $(LINK32) @<<
-  $(LINK32_FLAGS) $(LINK32_OBJS)
-<<
-
-!ENDIF 
-
 
 !IF "$(CFG)" == "htdigest - Win32 Release" || "$(CFG)" ==\
  "htdigest - Win32 Debug"
@@ -213,6 +180,7 @@ DEP_CPP_AP_CP=\
 	"..\include\ap_alloc.h"\
 	"..\include\ap_config.h"\
 	"..\include\ap_ctype.h"\
+	"..\include\ap_ebcdic.h"\
 	"..\include\ap_mmn.h"\
 	"..\include\buff.h"\
 	"..\include\hsregex.h"\
@@ -223,7 +191,6 @@ DEP_CPP_AP_CP=\
 	
 NODEP_CPP_AP_CP=\
 	"..\include\ap_config_auto.h"\
-	"..\include\ebcdic.h"\
 	"..\include\sfio.h"\
 	
 
@@ -253,13 +220,13 @@ DEP_CPP_AP_MD=\
 	"..\include\ap.h"\
 	"..\include\ap_config.h"\
 	"..\include\ap_ctype.h"\
+	"..\include\ap_ebcdic.h"\
 	"..\include\ap_md5.h"\
 	"..\include\ap_mmn.h"\
 	"..\include\hsregex.h"\
 	"..\os\win32\os.h"\
 	
 NODEP_CPP_AP_MD=\
-	"..\ap\ebcdic.h"\
 	"..\include\ap_config_auto.h"\
 	
 

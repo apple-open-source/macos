@@ -82,6 +82,10 @@ extern void swap_sub_umbrella_command(
     struct sub_umbrella_command *usub,
     enum NXByteOrder target_byte_sex);
 
+extern void swap_sub_library_command(
+    struct sub_library_command *lsub,
+    enum NXByteOrder target_byte_sex);
+
 extern void swap_sub_client_command(
     struct sub_client_command *csub,
     enum NXByteOrder target_byte_sex);
@@ -105,6 +109,19 @@ extern void swap_thread_command(
 extern void swap_ident_command(
     struct ident_command *ident,
     enum NXByteOrder target_byte_order);
+
+extern void swap_routines_command(
+    struct routines_command *r_cmd,
+    enum NXByteOrder target_byte_sex);
+
+extern void swap_twolevel_hints_command(
+    struct twolevel_hints_command *hints_cmd,
+    enum NXByteOrder target_byte_sex);
+
+extern void swap_twolevel_hint(
+    struct twolevel_hint *hints,
+    unsigned long nhints,
+    enum NXByteOrder target_byte_sex);
 
 extern void swap_nlist(
     struct nlist *symbols,

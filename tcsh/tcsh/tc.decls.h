@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.decls.h,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.decls.h,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
 /*
  * tc.decls.h: Function declarations from all the tcsh modules
  */
@@ -41,12 +41,12 @@
  * tc.alloc.c
  */
 #ifndef SYSMALLOC
-#ifndef WINNT
+#ifndef WINNT_NATIVE
 extern	void		  free		__P((ptr_t));
 extern	memalign_t	  malloc	__P((size_t));
 extern	memalign_t	  realloc	__P((ptr_t, size_t));
 extern	memalign_t	  calloc	__P((size_t, size_t));
-#endif /* !WINNT */
+#endif /* !WINNT_NATIVE */
 #else /* SYSMALLOC */
 extern	void		  sfree		__P((ptr_t));
 extern	memalign_t	  smalloc	__P((size_t));
@@ -81,7 +81,7 @@ extern	int		  resetdisc	__P((int));
 extern	Char		 *expand_lex	__P((Char *, size_t, struct wordent *, 
 					     int, int));
 extern	Char		 *sprlex	__P((Char *, size_t, struct wordent *));
-extern	void		  Itoa		__P((int, Char *));
+extern	Char		 *Itoa		__P((int, Char *, int, int));
 extern	void		  dolist	__P((Char **, struct command *));
 extern	void		  dotelltc	__P((Char **, struct command *));
 extern	void		  doechotc	__P((Char **, struct command *));
@@ -92,6 +92,7 @@ extern	struct process	 *find_stop_ed	__P((void));
 extern	void		  fg_proc_entry	__P((struct process *));
 extern	sigret_t	  alrmcatch	__P((int));
 extern	void		  precmd	__P((void));
+extern	void		  postcmd	__P((void));
 extern	void		  cwd_cmd	__P((void));
 extern	void		  beep_cmd	__P((void));
 extern	void		  period_cmd	__P((void));
@@ -271,7 +272,7 @@ extern	void 		  sigpause	__P((int));
 extern	sigret_t	(*xsignal	__P((int, sigret_t (*)(int)))) ();
 # define signal(a, b)	  xsignal(a, b)
 #endif /* NEEDsignal */
-#if defined(_SEQUENT_) || ((SYSVREL > 3 || defined(_DGUX_SOURCE)) && defined(POSIXSIGS)) || (defined(_AIX) && defined(POSIXSIGS)) || defined(WINNT)
+#if defined(_SEQUENT_) || ((SYSVREL > 3 || defined(_DGUX_SOURCE)) && defined(POSIXSIGS)) || ((defined(_AIX) || defined(__CYGWIN__)) && defined(POSIXSIGS)) || defined(WINNT_NATIVE)
 extern	sigmask_t	  sigsetmask	__P((sigmask_t));
 # if !defined(DGUX) || (defined(DGUX) && defined(__ix86))
 extern	sigmask_t	  sigblock	__P((sigmask_t));
@@ -328,6 +329,7 @@ extern	const char 	 *who_info	__P((ptr_t, int, char *, size_t));
 extern	void		  dolog		__P((Char **, struct command *));
 # ifdef UTHOST
 extern	char		 *utmphost	__P((void));
+extern	size_t		  utmphostsize	__P((void));
 # endif /* UTHOST */
 #endif /* HAVENOUTMP */
 

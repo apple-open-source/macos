@@ -47,7 +47,7 @@ extern int getppid(void);
 #define forever for(;;)
 
 int debug_select = 0;
-int debug_mount = 0;
+int debug_mount = DEBUG_SYSLOG;
 int debug_proc = 0;
 int debug_options = 0;
 int debug;
@@ -84,6 +84,25 @@ setsid(void)
 }
 #endif
 
+#ifdef __APPLE__ 
+#define PID_FILE "/var/run/automount.pid"
+#else
+#define PID_FILE "/etc/automount.pid"
+#endif
+
+static void
+writepid(void)
+{
+	FILE *fp;
+
+	fp = fopen(PID_FILE, "w");
+	if (fp != NULL)
+	{
+		fprintf(fp, "%d\n", getpid());
+		fclose(fp);
+	}
+}
+
 char *
 fdtoc(fd_set *f)
 {
@@ -107,8 +126,7 @@ do_select(struct timeval *tv)
 	x = svc_fdset;
 
 	if (tv != NULL) 
-		sys_msg(debug_select, LOG_DEBUG, "select timeout %d %d",
-			tv->tv_sec, tv->tv_usec);
+		sys_msg(debug_select, LOG_DEBUG, "select timeout %d %d", tv->tv_sec, tv->tv_usec);
 
 	n = select(FD_SETSIZE, &x, NULL, NULL, tv);
 
@@ -153,17 +171,19 @@ auto_run_no_timeout(void *x)
 }
 
 void
-auto_run(struct timeval *tv)
+auto_run(struct timeval *t)
 {
 	int n;
-	struct timeval now, delta;
+	struct timeval tv, now, delta;
 
 	gettimeofday(&last_timeout, (struct timezone *)0);
 
-	tv->tv_usec = 0;
-	if (tv->tv_sec <= 0) tv->tv_sec = 600;
+	tv.tv_usec = 0;
+	tv.tv_sec = t->tv_sec;
 
-	delta.tv_sec = tv->tv_sec;
+	if (tv.tv_sec <= 0) tv.tv_sec = 86400;
+
+	delta.tv_sec = tv.tv_sec;
 	delta.tv_usec = 0;
 
 	forever
@@ -171,18 +191,21 @@ auto_run(struct timeval *tv)
 		n = do_select(&delta);
 
 		gettimeofday(&now, (struct timezone *)0);
-		if (now.tv_sec >= (last_timeout.tv_sec + tv->tv_sec))
+		if (now.tv_sec >= (last_timeout.tv_sec + tv.tv_sec))
 		{
-			doing_timeout = 1;
-			[controller timeout];
-			doing_timeout = 0;
+			if (t->tv_sec > 0)
+			{
+				doing_timeout = 1;
+				[controller timeout];
+				doing_timeout = 0;
+			}
 
 			last_timeout = now;
-			delta.tv_sec = tv->tv_sec;
+			delta.tv_sec = tv.tv_sec;
 		}
 		else
 		{
-			delta.tv_sec = tv->tv_sec - (now.tv_sec - last_timeout.tv_sec);
+			delta.tv_sec = tv.tv_sec - (now.tv_sec - last_timeout.tv_sec);
 			if (delta.tv_sec <= 0) delta.tv_sec = 1;
 		}
 	}
@@ -281,8 +304,13 @@ shutdown_server(int x)
 void
 schedule_timeout(int x)
 {
-	last_timeout.tv_sec = 0;
-	last_timeout.tv_usec = 0;
+	[controller unmountAutomounts:0];
+}
+
+void
+reinit(int x)
+{
+	[controller reInit];
 }
 
 void
@@ -444,13 +472,10 @@ main(int argc, char *argv[])
 	}
 
 	timeout.tv_sec = GlobalTimeToLive;
-	if (timeout.tv_sec == 0) timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
 
 	dot = [String uniqueString:"."];
 	dotdot = [String uniqueString:".."];
-
-        system("/System/Library/Filesystems/AppleShare/afpLoad");
 
 	if (becomeDaemon)
 	{
@@ -464,25 +489,29 @@ main(int argc, char *argv[])
 		}
 		else if (pid > 0)
 		{
-			// Parent waits for child's signal
+			/* Parent waits for child's signal */
 			forever pause();
 		}
 
-		// detach from controlling tty and start a new process group
+		/* detach from controlling tty and start a new process group */
 		if (setsid() < 0)
 		{
 			sys_msg(debug, LOG_ERR, "setsid() failed: %s", strerror(errno));
 		}
+
+		writepid();
 	}
-        rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
+
+	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
 	setrlimit(RLIMIT_CORE, &rlim);
 
 	sys_openlog("automount", LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	sys_msg(debug, LOG_ERR, "automount version %s", version);
 
-	signal(SIGHUP, schedule_timeout);
-	signal(SIGUSR1, print_tree);
+	signal(SIGHUP, reinit);
+	signal(SIGUSR1, schedule_timeout);
+	signal(SIGUSR2, print_tree);
 	signal(SIGINT, shutdown_server);
 	signal(SIGQUIT, shutdown_server);
 	signal(SIGTERM, shutdown_server);
@@ -528,7 +557,7 @@ main(int argc, char *argv[])
 	}
 
 	if (staticMode)
-            [[controller rootMap] mount:[[controller rootMap] root] withUid:0];
+		[[controller rootMap] mount:[[controller rootMap] root] withUid:0];
  	
 	run_select_loop = 0;
 

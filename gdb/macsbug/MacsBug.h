@@ -30,21 +30,21 @@ extern Gdb_Cmd_Class macsbug_testing_class;	/* help class for testing commands	*
 extern Gdb_Cmd_Class macsbug_useful_class;	/* help class for useful commands	*/
 
 #define MACSBUG_COMMAND(command, help) \
-    gdb_define_plugin(#command, command, macsbug_class, help)
+    gdb_define_cmd(#command, command, macsbug_class, help)
     
 #define MACSBUG_INTERNAL_COMMAND(command, help) \
-    gdb_define_plugin(#command, command, macsbug_internal_class, help)
+    gdb_define_cmd(#command, command, macsbug_internal_class, help)
 
 #define MACSBUG_SCREEN_COMMAND(command, help) \
-    gdb_define_plugin(#command, command, macsbug_screen_class, help)
+    gdb_define_cmd(#command, command, macsbug_screen_class, help)
 
 #define MACSBUG_TESTING_COMMAND(command, help) \
-    gdb_define_plugin(#command, command, macsbug_testing_class, help)
+    gdb_define_cmd(#command, command, macsbug_testing_class, help)
 
 #define MACSBUG_USEFUL_COMMAND(command, help) \
-    gdb_define_plugin(#command, command, macsbug_useful_class, help)
+    gdb_define_cmd(#command, command, macsbug_useful_class, help)
 
-#define COMMAND_ALIAS(command, alias) gdb_define_plugin_alias(#command, #alias)
+#define COMMAND_ALIAS(command, alias) gdb_define_cmd_alias(#command, #alias)
 
 #define CHANGE_TO_MACSBUG_COMMAND(command) gdb_change_class(#command, macsbug_class)
 
@@ -81,6 +81,7 @@ typedef struct {				/* format_disasm_line() data layout:	*/
  	  #define FLAG_PC   	    0x0001	/*	flag pc line with '*' 		*/
 	  #define ALWAYS_SHOW_NAME  0x0002	/*	always show the function name	*/
 	  #define NO_NEWLINE	    0x0004	/*	don't append '\n' to line	*/
+	  #define WRAP_TO_SIDEBAR   0x0008	/*	wrap lines to right sidebar	*/
 	  #define BRANCH_TAKEN 	    0x4000	/*	cond br at pc will be taken	*/
 	  #define BRANCH_NOT_TAKEN  0x8000	/*	cond br at pc will not be taken	*/
 } DisasmData;
@@ -113,6 +114,7 @@ extern void force_pc_area_update(void);
 extern void rewrite_bottom_line(char *line, int err);
 extern void __display_side_bar(char *arg, int from_tty);
 extern void get_screen_size(int *max_rows, int *max_cols);
+extern void save_stack(int max_rows);
 extern void my_prompt_position_function(int continued);
 extern void my_raw_input_handler(char *theRawLine);
 extern void update_macsbug_prompt(void);
@@ -123,9 +125,9 @@ extern void forget_some_history(int n);
 #define DEFAULT_TAB_VALUE    	8		/* default history area tab setting	*/
 #define DEFAULT_HISTORY_SIZE 	4000		/* default max number of history lines	*/
 
-#define MIN_SIDEBAR (14+32)	 		/* "SP"/sp/empty/"CurApName"/appname/	*/
-    						/* empty/LR/CR/empty/CTR/MSR/MQ/XER/	*/
-						/* empty/R0...R31			*/
+#define MIN_SIDEBAR (12+32)	 		/* "SP"/sp/empty/"CurApName"/appname/	*/
+    						/* empty/LR/CR/empty/CTR/XER/empty/	*/
+						/* R0...R31				*/
 
 #define MIN_PC_LINES		2		/* min nbr of pc area lines allowed	*/
 #define MAX_PC_LINES		15		/* max nbr of pc area lines allowed	*/
@@ -224,6 +226,7 @@ extern int cmd_area_lines;			/* user controlled cmd area max lines	*/
 extern int max_history;				/* max nbr of lines of history recorded	*/
 extern int show_so_si_src;			/* show source with so/si commands	*/
 extern int dx_state;				/* breakpoints enabled state		*/
+extern int sidebar_state;			/* display reg sidebar in scroll mode	*/
 extern int mb_testing;				/* set by SET mb_testing for debugging	*/
 
 /*--------------------------------------------------------------------------------------*/

@@ -10,7 +10,7 @@
 
 ##
 ##  ====================================================================
-##  Copyright (c) 1998-2000 Ralf S. Engelschall. All rights reserved.
+##  Copyright (c) 1998-2001 Ralf S. Engelschall. All rights reserved.
 ## 
 ##  Redistribution and use in source and binary forms, with or without
 ##  modification, are permitted provided that the following conditions
@@ -255,8 +255,8 @@ ConfigStart
         fi
         #   4. override decision on a few brain-dead platforms
         if [ ".$my_rule_SSL_SDBM" = .default ]; then
-            case "$OS" in
-                Linux )
+            case "$PLAT" in
+                *-linux* )
                     #   force Linux boxes to use builtin SDBM per default because 
                     #   of too much broken vendor DBM libraries on this platform
                     SSL_DBM_NAME=''
@@ -364,7 +364,7 @@ ConfigStart
     #   SSL engine support
     #
     case $SSL_VERSION_ID in
-        *0.9.6*engine* )
+        *0.9.6*engine* | *0.9.6a*engine* | *0.9.[789]* )
             SSL_CFLAGS="$SSL_CFLAGS -DSSL_ENGINE"
             ;;
     esac
@@ -403,7 +403,7 @@ ConfigStart
             exit 1
         fi
     fi
-    if [ ".$SSL_INCDIR" != . ]; then
+    if [ ".$SSL_INCDIR" != "./usr/include" ]; then
         SSL_CFLAGS="$SSL_CFLAGS -I\$(SSL_INCDIR)"
     fi
 
@@ -413,7 +413,7 @@ ConfigStart
     if [ ".$SSL_BASE" = .SYSTEM ]; then
         SSL_LIBDIR=""
         for p in . /lib /usr/lib /usr/local/lib; do
-            if [ -f "$p/libssl.a" -o -f "$p/libssl.so" ]; then
+            if [ -f "$p/libssl.a" -o -f "$p/libssl.so" -o -f "$p/libssl.dylib" ]; then
                 SSL_LIBDIR="$p"
                 my_real_ssl_libdir="$p"
                 break

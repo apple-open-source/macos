@@ -43,7 +43,6 @@
 
 switch (CUR_SYMBOL_TYPE)
   {
-    char *p;
     /*
      * Standard, external, non-debugger, symbols
      */
@@ -75,10 +74,11 @@ switch (CUR_SYMBOL_TYPE)
 			   CUR_SYMBOL_TYPE, objfile);	/* Always */
 #endif /* DBXREAD_ONLY */
     continue;
+  }
 
+switch (CUR_SYMBOL_TYPE)
+  {
     /* Standard, local, non-debugger, symbols */
-
-  case N_NBTEXT:
 
     /* We need to be able to deal with both N_FN or N_TEXT,
        because we have no way of knowing whether the sys-supplied ld
@@ -86,11 +86,15 @@ switch (CUR_SYMBOL_TYPE)
        in another wrinkle -- they renumbered N_FN.  */
 
   case N_FN:
+  case N_NBTEXT:
   case N_FN_SEQ:
   case N_TEXT:
 #ifdef DBXREAD_ONLY
     CUR_SYMBOL_VALUE += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
     SET_NAMESTRING_PREFIX (prefix);
+    if ((! (objfile->symflags & (OBJF_SYM_LOCAL | OBJF_SYM_DEBUG)))
+	&& ((namestring[0] != '+') && (namestring[0] != '-')))
+      continue;
     if ((namestring[0] == '-' && namestring[1] == 'l')
 	|| (namestring[(nsl = strlen (namestring)) - 1] == 'o'
 	    && namestring[nsl - 2] == '.'))
@@ -123,6 +127,11 @@ switch (CUR_SYMBOL_TYPE)
       goto record_it;
 #endif /* DBXREAD_ONLY */
     continue;
+  }
+
+switch (CUR_SYMBOL_TYPE)
+  {
+    char *p;
 
   case N_DATA:
     CUR_SYMBOL_VALUE += ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
@@ -395,7 +404,7 @@ switch (CUR_SYMBOL_TYPE)
   case N_M2C:			/* I suspect that I can ignore this here. */
   case N_SCOPE:		/* Same.   */
 
-    SET_NAMESTRING_PREFIX (prefix);
+    SET_NAMESTRING ();
 
 #ifdef DBXREAD_ONLY
     /* See if this is an end of function stab.  */

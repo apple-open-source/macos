@@ -22,7 +22,7 @@
 
 - (NSString *)description
 {
-    return (_isBool?@"Yes":@"No");
+    return (_isBool?NSLocalizedString(@"Yes", @""):NSLocalizedString(@"No", @""));
 }
 
 @end

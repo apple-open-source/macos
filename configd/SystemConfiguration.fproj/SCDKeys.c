@@ -20,35 +20,49 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * December 11, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <SystemConfiguration/SystemConfiguration.h>
 
 #include <stdarg.h>
 
 /*
- * SCDKeyCreate*
- * - convenience routines that create a CFString key for an item in the cache
+ * SCDynamicStoreKeyCreate*
+ * - convenience routines that create a CFString key for an item in the store
  */
 
 /*
- * Function: SCDKeyCreate
+ * Function: SCDynamicStoreKeyCreate
  * Purpose:
- *    Creates a cache key using the given format.
+ *    Creates a store key using the given format.
  */
 CFStringRef
-SCDKeyCreate(CFStringRef fmt, ...)
+SCDynamicStoreKeyCreate(CFAllocatorRef	allocator,
+			CFStringRef	fmt,
+			...)
 {
 	va_list	args;
 	va_start(args, fmt);
-	return (CFStringCreateWithFormatAndArguments(NULL,
+	return (CFStringCreateWithFormatAndArguments(allocator,
 						     NULL,
 						     fmt,
 						     args));
 }
 
 CFStringRef
-SCDKeyCreateNetworkGlobalEntity(CFStringRef domain, CFStringRef entity)
+SCDynamicStoreKeyCreateNetworkGlobalEntity(CFAllocatorRef	allocator,
+					   CFStringRef		domain,
+					   CFStringRef		entity)
 {
-	return (CFStringCreateWithFormat(NULL,
+	return (CFStringCreateWithFormat(allocator,
 					 NULL,
 					 CFSTR("%@/%@/%@/%@"),
 					 domain,
@@ -58,9 +72,10 @@ SCDKeyCreateNetworkGlobalEntity(CFStringRef domain, CFStringRef entity)
 }
 
 CFStringRef
-SCDKeyCreateNetworkInterface(CFStringRef domain)
+SCDynamicStoreKeyCreateNetworkInterface(CFAllocatorRef	allocator,
+					CFStringRef	domain)
 {
-	return (CFStringCreateWithFormat(NULL,
+	return (CFStringCreateWithFormat(allocator,
 					 NULL,
 					 CFSTR("%@/%@/%@"),
 					 domain,
@@ -69,12 +84,13 @@ SCDKeyCreateNetworkInterface(CFStringRef domain)
 }
 
 CFStringRef
-SCDKeyCreateNetworkInterfaceEntity(CFStringRef domain,
-				   CFStringRef ifname,
-				   CFStringRef entity)
+SCDynamicStoreKeyCreateNetworkInterfaceEntity(CFAllocatorRef	allocator,
+					      CFStringRef	domain,
+					      CFStringRef	ifname,
+					      CFStringRef	entity)
 {
 	if (entity == NULL) {
-		return (CFStringCreateWithFormat(NULL,
+		return (CFStringCreateWithFormat(allocator,
 						 NULL,
 						 CFSTR("%@/%@/%@/%@"),
 						 domain,
@@ -82,7 +98,7 @@ SCDKeyCreateNetworkInterfaceEntity(CFStringRef domain,
 						 kSCCompInterface,
 						 ifname));
 	} else {
-		return (CFStringCreateWithFormat(NULL,
+		return (CFStringCreateWithFormat(allocator,
 						 NULL,
 						 CFSTR("%@/%@/%@/%@/%@"),
 						 domain,
@@ -94,12 +110,13 @@ SCDKeyCreateNetworkInterfaceEntity(CFStringRef domain,
 }
 
 CFStringRef
-SCDKeyCreateNetworkServiceEntity(CFStringRef domain,
-				 CFStringRef serviceID,
-				 CFStringRef entity)
+SCDynamicStoreKeyCreateNetworkServiceEntity(CFAllocatorRef	allocator,
+					    CFStringRef		domain,
+					    CFStringRef 	serviceID,
+					    CFStringRef		entity)
 {
 	if (entity == NULL) {
-		return (CFStringCreateWithFormat(NULL,
+		return (CFStringCreateWithFormat(allocator,
 						 NULL,
 						 CFSTR("%@/%@/%@/%@"),
 						 domain,
@@ -107,7 +124,7 @@ SCDKeyCreateNetworkServiceEntity(CFStringRef domain,
 						 kSCCompService,
 						 serviceID));
 	} else {
-		return (CFStringCreateWithFormat(NULL,
+		return (CFStringCreateWithFormat(allocator,
 						 NULL,
 						 CFSTR("%@/%@/%@/%@/%@"),
 						 domain,

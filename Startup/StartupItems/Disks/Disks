@@ -8,17 +8,8 @@
 
 if [ ! -f /var/db/volinfo.database ]; then Uninitialized_VSDB=-YES-; fi
 
-if [ "${AUTODISKMOUNT:=-YES-}" != "-NO-" ]; then
-    ConsoleMessage "Mounting media"
+ConsoleMessage "Mounting media"
 
-    case ${AUTODISKMOUNT} in
-      -REMOVABLE-)
-	autodiskmountflags="-a" ;; # Mount removeable media
-      *)
-        autodiskmountflags="" ;;
-    esac
-
-    autodiskmount -v ${autodiskmountflags}
-fi
+/sbin/autodiskmount -va
 
 if [ "${Uninitialized_VSDB:=-NO-}" = "-YES-" ]; then vsdbutil -i; fi

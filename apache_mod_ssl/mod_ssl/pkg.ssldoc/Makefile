@@ -1,6 +1,6 @@
 ##
 ##  Makefile -- mod_ssl User Manual: Build Precedure
-##  Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
 ##
 
 WMK = wmk

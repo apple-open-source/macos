@@ -1,0 +1,891 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 32;
+	objects = {
+		01A633B5000CE54D11CA2A87 = {
+			isa = PBXTargetDependency;
+			target = 01E6439A000CE08211CA2A87;
+		};
+		01A633B6000CE60511CA2A87 = {
+			fileRef = 01CA8CBEFFEFFF1D11CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01A633B7000CE60511CA2A87 = {
+			fileRef = 01CA8CC0FFEFFF1D11CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01A633B8000CE60511CA2A87 = {
+			fileRef = 01CA8CBFFFEFFF1D11CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01A633B9000CE60511CA2A87 = {
+			fileRef = 01CA8CBDFFEFFF1D11CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01A633BA000CE60511CA2A87 = {
+			fileRef = 01CA8CA0FFEFFEA711CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01A633C3000CE60511CA2A87 = {
+			fileRef = 01E64399000CE08211CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01A633C8000CE70B11CA2A87 = {
+			children = (
+				01A633C9000CE70B11CA2A87,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		01A633C9000CE70B11CA2A87 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		01A633CA000CE70B11CA2A87 = {
+			fileRef = 01A633C8000CE70B11CA2A87;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01CA8CA0FFEFFEA711CA2A87 = {
+			isa = PBXBundleReference;
+			path = IOADBFamily.kext;
+			refType = 3;
+		};
+		01CA8CA1FFEFFEA711CA2A87 = {
+			buildPhases = (
+				01CA8CA2FFEFFEA711CA2A87,
+				01CA8CA3FFEFFEA711CA2A87,
+				01CA8CA4FFEFFEA711CA2A87,
+				01CA8CA5FFEFFEA711CA2A87,
+				01CA8CA6FFEFFEA711CA2A87,
+			);
+			buildSettings = {
+				PRODUCT_NAME = IOADBFamily;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOADBFamily;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOADBBus;
+			productReference = 01CA8CA0FFEFFEA711CA2A87;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>ADB Family Pseudoextension, Apple Computer Inc, 1.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOADBFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ADB Family Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01CA8CA2FFEFFEA711CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		01CA8CA3FFEFFEA711CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		01CA8CA4FFEFFEA711CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		01CA8CA5FFEFFEA711CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		01CA8CA6FFEFFEA711CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		01CA8CBDFFEFFF1D11CA2A87 = {
+			isa = PBXBundleReference;
+			path = BSDKernel.kext;
+			refType = 3;
+		};
+		01CA8CBEFFEFFF1D11CA2A87 = {
+			isa = PBXBundleReference;
+			path = Mach.kext;
+			refType = 3;
+		};
+		01CA8CBFFFEFFF1D11CA2A87 = {
+			isa = PBXBundleReference;
+			path = IOKit.kext;
+			refType = 3;
+		};
+		01CA8CC0FFEFFF1D11CA2A87 = {
+			isa = PBXBundleReference;
+			path = Libkern.kext;
+			refType = 3;
+		};
+		01CA8CC7FFEFFF1D11CA2A87 = {
+			buildPhases = (
+				01CA8CC8FFEFFF1D11CA2A87,
+				01CA8CC9FFEFFF1D11CA2A87,
+				01CA8CCAFFEFFF1D11CA2A87,
+				01CA8CCBFFEFFF1D11CA2A87,
+				01CA8CCCFFEFFF1D11CA2A87,
+			);
+			buildSettings = {
+				PRODUCT_NAME = BSDKernel;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = BSDKernel;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = BSD;
+			productReference = 01CA8CBDFFEFFF1D11CA2A87;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 1.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.kernel.bsd</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>BSD Kernel Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01CA8CC8FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		01CA8CC9FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		01CA8CCAFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		01CA8CCBFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		01CA8CCCFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		01CA8CCDFFEFFF1D11CA2A87 = {
+			buildPhases = (
+				01CA8CCEFFEFFF1D11CA2A87,
+				01CA8CCFFFEFFF1D11CA2A87,
+				01CA8CD0FFEFFF1D11CA2A87,
+				01CA8CD1FFEFFF1D11CA2A87,
+				01CA8CD2FFEFFF1D11CA2A87,
+			);
+			buildSettings = {
+				PRODUCT_NAME = Mach;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Mach;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = Mach;
+			productReference = 01CA8CBEFFEFFF1D11CA2A87;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 1.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.kernel.mach</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Mach Kernel Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01CA8CCEFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		01CA8CCFFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		01CA8CD0FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		01CA8CD1FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		01CA8CD2FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		01CA8CD3FFEFFF1D11CA2A87 = {
+			buildPhases = (
+				01CA8CD4FFEFFF1D11CA2A87,
+				01CA8CD5FFEFFF1D11CA2A87,
+				01CA8CD6FFEFFF1D11CA2A87,
+				01CA8CD7FFEFFF1D11CA2A87,
+				01CA8CD8FFEFFF1D11CA2A87,
+			);
+			buildSettings = {
+				PRODUCT_NAME = IOKit;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOKit;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOKit;
+			productReference = 01CA8CBFFFEFFF1D11CA2A87;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>I/O Kit Pseudoextension, Apple Computer Inc, 1.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.kernel.iokit</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01CA8CD4FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		01CA8CD5FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		01CA8CD6FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		01CA8CD7FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		01CA8CD8FFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		01CA8CD9FFEFFF1D11CA2A87 = {
+			buildPhases = (
+				01CA8CDAFFEFFF1D11CA2A87,
+				01CA8CDBFFEFFF1D11CA2A87,
+				01CA8CDCFFEFFF1D11CA2A87,
+				01CA8CDDFFEFFF1D11CA2A87,
+				01CA8CDEFFEFFF1D11CA2A87,
+			);
+			buildSettings = {
+				PRODUCT_NAME = Libkern;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Libkern;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = LibKern;
+			productReference = 01CA8CC0FFEFFF1D11CA2A87;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Libkern Pseudoextension, Apple Computer Inc, 1.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.kernel.libkern</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Libkern Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01CA8CDAFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		01CA8CDBFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		01CA8CDCFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		01CA8CDDFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		01CA8CDEFFEFFF1D11CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		01E64399000CE08211CA2A87 = {
+			isa = PBXBundleReference;
+			path = IOSystemManagement.kext;
+			refType = 3;
+		};
+		01E6439A000CE08211CA2A87 = {
+			buildPhases = (
+				01E6439B000CE08211CA2A87,
+				01E6439C000CE08211CA2A87,
+				01E6439D000CE08211CA2A87,
+				01E6439E000CE08211CA2A87,
+				01E6439F000CE08211CA2A87,
+			);
+			buildSettings = {
+				PRODUCT_NAME = IOSystemManagement;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOSystemManagement;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOSystemManagement;
+			productReference = 01E64399000CE08211CA2A87;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>System Management Pseudoextension, Apple Computer Inc, 1.1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOSystemManagementFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>System Management Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01E6439B000CE08211CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		01E6439C000CE08211CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		01E6439D000CE08211CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		01E6439E000CE08211CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		01E6439F000CE08211CA2A87 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		01FD1976FFF048077F000001 = {
+			isa = PBXTargetDependency;
+			target = 01CA8CCDFFEFFF1D11CA2A87;
+		};
+		01FD1977FFF048077F000001 = {
+			isa = PBXTargetDependency;
+			target = 01CA8CD9FFEFFF1D11CA2A87;
+		};
+		01FD1978FFF048077F000001 = {
+			isa = PBXTargetDependency;
+			target = 01CA8CD3FFEFFF1D11CA2A87;
+		};
+		01FD1979FFF048077F000001 = {
+			isa = PBXTargetDependency;
+			target = 01CA8CC7FFEFFF1D11CA2A87;
+		};
+		01FD197AFFF048077F000001 = {
+			isa = PBXTargetDependency;
+			target = 01CA8CA1FFEFFEA711CA2A87;
+		};
+		053B12F5FFF048357F000001 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				01A633B6000CE60511CA2A87,
+				01A633B7000CE60511CA2A87,
+				01A633B8000CE60511CA2A87,
+				01A633B9000CE60511CA2A87,
+				01A633BA000CE60511CA2A87,
+				01A633C3000CE60511CA2A87,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			name = "Copy Files";
+		};
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			name = "Shell Script";
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				01CA8CCDFFEFFF1D11CA2A87,
+				01CA8CD9FFEFFF1D11CA2A87,
+				01CA8CD3FFEFFF1D11CA2A87,
+				01CA8CC7FFEFFF1D11CA2A87,
+				01CA8CA1FFEFFEA711CA2A87,
+				01E6439A000CE08211CA2A87,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = SystemKEXT;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+				053B12F5FFF048357F000001,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				PRODUCT_NAME = System;
+				WRAPPER_EXTENSION = kext;
+			};
+			conditionalBuildSettings = {
+			};
+			dependencies = (
+				01FD1976FFF048077F000001,
+				01FD1977FFF048077F000001,
+				01FD1978FFF048077F000001,
+				01FD1979FFF048077F000001,
+				01FD197AFFF048077F000001,
+				01A633B5000CE54D11CA2A87,
+			);
+			isa = PBXBundleTarget;
+			name = SystemKEXT;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = SystemKEXT;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>System Resource Pseudoextension, Apple Computer Inc, 1.4</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.kernel</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>System Resource Pseudoextension</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+	<key>OSKernelResource</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				01A633CA000CE70B11CA2A87,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				01A633C8000CE70B11CA2A87,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = System.kext;
+			refType = 3;
+		};
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				01CA8CBEFFEFFF1D11CA2A87,
+				01CA8CC0FFEFFF1D11CA2A87,
+				01CA8CBFFFEFFF1D11CA2A87,
+				01CA8CBDFFEFFF1D11CA2A87,
+				01CA8CA0FFEFFEA711CA2A87,
+				01E64399000CE08211CA2A87,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		247142CAFF3F8F9811CA285C = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

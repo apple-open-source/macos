@@ -29,7 +29,8 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-FRAMEWORKS = -framework SystemConfiguration
+NEXTSTEP_PB_CFLAGS = -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
+FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

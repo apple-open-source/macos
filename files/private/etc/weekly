@@ -14,7 +14,7 @@ if [ -x /usr/libexec/locate.updatedb ]; then
     echo "Rebuilding locate database:"
     locdb=/var/db/locate.database
     touch "${locdb}"; chown nobody "${locdb}"; chmod 644 "${locdb}"
-    echo locate.updatedb | nice -5 su -fm nobody 2>&1 | sed -e '/Permission denied/d'
+    echo /usr/libexec/locate.updatedb | nice -5 su -fm nobody 2>&1 | sed -e '/Permission denied/d'
     chmod 444 "${locdb}"
 fi
 

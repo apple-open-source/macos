@@ -172,11 +172,7 @@ LDAPFUNCDECL unsigned long ber_first_element( BerElement *ber, unsigned long *le
 	char **last );
 LDAPFUNCDECL unsigned long ber_next_element( BerElement *ber, unsigned long *len,
 	char *last );
-#if defined( MACOS ) || defined( BC31 ) || defined( _WIN32 )
 LDAPFUNCDECL unsigned long ber_scanf( BerElement *ber, char *fmt, ... );
-#else
-LDAPFUNCDECL unsigned long ber_scanf();
-#endif
 LDAPFUNCDECL void ber_bvfree( struct berval *bv );
 LDAPFUNCDECL void ber_bvecfree( struct berval **bv );
 LDAPFUNCDECL struct berval *ber_bvdup( struct berval *bv );
@@ -199,11 +195,7 @@ LDAPFUNCDECL int ber_start_seq( BerElement *ber, unsigned long tag );
 LDAPFUNCDECL int ber_start_set( BerElement *ber, unsigned long tag );
 LDAPFUNCDECL int ber_put_seq( BerElement *ber );
 LDAPFUNCDECL int ber_put_set( BerElement *ber );
-#if defined( MACOS ) || defined( BC31 ) || defined( _WIN32 )
 LDAPFUNCDECL int ber_printf( BerElement *ber, char *fmt, ... );
-#else
-LDAPFUNCDECL int ber_printf();
-#endif
 
 LDAPFUNCDECL long ber_read( BerElement *ber, char *buf, unsigned long len );
 LDAPFUNCDECL long ber_write( BerElement *ber, char *buf, unsigned long len,

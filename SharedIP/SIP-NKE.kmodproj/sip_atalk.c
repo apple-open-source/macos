@@ -76,6 +76,8 @@
 
 #include <sys/syslog.h>
 
+int atalk_detach(caddr_t  cookie);
+
 /*
  * Setup the filter (passed in) for the requested AppleTalk values.
  *  Verifying that it's OK to do this is done by the caller once
@@ -351,7 +353,14 @@ atalk_attach_protofltr(struct ifnet *ifp, struct blueCtlBlock *ifb)
 {
     u_long at_dltag, aarp_dltag;
     int retval=0;
-    struct dlil_pr_flt_str atalk_pfilter = { (caddr_t)ifb, atalk_infltr, atalk_outfltr, 0,0,0};
+    struct dlil_pr_flt_str atalk_pfilter =
+            { (caddr_t)ifb,
+              atalk_infltr,
+              atalk_outfltr,
+              0,
+              0,
+              atalk_detach
+            };
 
     /* Note: this assume the folowing here:
 	- if AppleTalk X is already up and running, get it's home port and
@@ -494,14 +503,36 @@ atalk_stop(struct blueCtlBlock *ifb)
 
     if (ifb == NULL)
         return(0);
+    
+    ifb->atalk_stopping = 1;
     if (ifb->atalk_proto_filter_id) {
 #if SIP_DEBUG
         log(LOG_WARNING, "atalk_stop: deregister AppleTalk proto filter tag=%d\n",
             ifb->atalk_proto_filter_id);
 #endif
         retval = dlil_detach_filter(ifb->atalk_proto_filter_id);
-        if (retval == 0)
-            ifb->atalk_proto_filter_id = 0; /* make sure we can't deregister twice */
      }
+     
+     ifb->atalk_stopping = 0;
      return(retval);
+}
+
+/* Handle our filter being detached */
+int atalk_detach(caddr_t  cookie)
+{
+    /* Assume the interface has been detached */
+    struct blueCtlBlock *ifb = (struct blueCtlBlock*)cookie;
+    
+    ifb->atalk_proto_filter_id = 0;
+    
+    if (!ifb->atalk_stopping)
+    {
+        /*
+         * we're being detached outside the context of 
+         * atalk_stop.
+         */
+        atalk_stop(ifb);
+    }
+    
+    return 0;
 }

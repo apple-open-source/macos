@@ -107,7 +107,7 @@ dsrecord_to_dsdata(dsrecord *r)
 		}
 	}
 
-	d = (dsdata *)malloc(sizeof(dsdata));
+	d = dsdata_alloc();
 	d->retain = 1;
 	d->type = DataTypeDSRecord;
 	d->length = len;
@@ -232,7 +232,7 @@ deserialize_dsdata(char **p)
 {
 	dsdata *udata;
 
-	udata = (dsdata *)malloc(sizeof(dsdata));
+	udata = dsdata_alloc();
 	udata->retain = 1;
 	udata->type = deserialize_32(p);
 	udata->length = deserialize_32(p);
@@ -287,7 +287,7 @@ dsdata_to_dsrecord(dsdata *d)
 
 	for (attrx = 0; attrx < r->count; attrx++)
 	{
-		r->attribute[attrx] = (dsattribute *)malloc(sizeof(dsattribute));
+		r->attribute[attrx] = dsattribute_alloc();
 		r->attribute[attrx]->retain = 1;
 
 	
@@ -312,7 +312,7 @@ dsdata_to_dsrecord(dsdata *d)
 
 	for (attrx = 0; attrx < r->meta_count; attrx++)
 	{
-		r->meta_attribute[attrx] = (dsattribute *)malloc(sizeof(dsattribute));
+		r->meta_attribute[attrx] = dsattribute_alloc();
 		r->meta_attribute[attrx]->retain = 1;
 
 		r->meta_attribute[attrx]->key = deserialize_dsdata(&p);
@@ -329,6 +329,7 @@ dsdata_to_dsrecord(dsdata *d)
 	}
 
 	r->index = NULL;
+	r->next = NULL;
 
 	return r;
 }
@@ -407,6 +408,7 @@ dsrecord_new(void)
 	r->meta_attribute = NULL;
 
 	r->index = NULL;
+	r->next = NULL;
 
 	return r;
 }
@@ -440,6 +442,8 @@ dsrecord_release(dsrecord *r)
 	if (r->meta_count > 0) free(r->meta_attribute);
 
 	if (r->index != NULL) dsindex_free(r->index);
+	if (r->next != NULL) dsrecord_release(r->next);
+
 	free(r);
 }
 
@@ -608,6 +612,48 @@ dsrecord_merge_attribute(dsrecord *r, dsattribute *a, u_int32_t asel)
 	}
 
 	dsrecord_append_attribute(r, a, asel);
+}
+
+void
+dsrecord_insert_attribute(dsrecord *r, dsattribute *a, u_int32_t where, u_int32_t asel)
+{
+	u_int32_t len, x, i;
+
+	if (r == NULL) return;
+	if (a == NULL) return;
+
+	if (asel == SELECT_ATTRIBUTE)
+	{
+		len = r->count;
+		r->count++;
+		if (len == 0)
+			r->attribute = (dsattribute **)malloc(sizeof(dsattribute *));
+		else
+			r->attribute = (dsattribute **)realloc(r->attribute,
+				r->count * sizeof(dsattribute *));
+
+		x = where;
+		if (x > len) x = len;
+		for (i = len; i > x; i--) r->attribute[i] = r->attribute[i-1];
+
+		r->attribute[x] = dsattribute_retain(a);
+	}
+	else
+	{
+		len = r->meta_count;
+		r->meta_count++;
+		if (len == 0)
+			r->meta_attribute = (dsattribute **)malloc(sizeof(dsattribute *));
+		else
+			r->meta_attribute = (dsattribute **)realloc(r->meta_attribute,
+				r->meta_count * sizeof(dsattribute *));
+
+		x = where;
+		if (x > len) x = len;
+		for (i = len; i > x; i--) r->meta_attribute[i] = r->meta_attribute[i-1];
+
+		r->meta_attribute[x] = dsattribute_retain(a);
+	}
 }
 
 void

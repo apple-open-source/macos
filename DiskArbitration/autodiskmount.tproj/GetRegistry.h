@@ -28,7 +28,10 @@ extern "C" {
 
 #include <IOKit/IOKitLib.h>
 
-void GetDisksFromRegistry(io_iterator_t iter);
+void GetDisksFromRegistry(io_iterator_t iter, int initialRun);
+int shouldAutomount(io_registry_entry_t media);
+int shouldEjectOnLogout(io_registry_entry_t media);
+int ownerUIDForMedia(io_registry_entry_t media);
 
 #ifdef __cplusplus
 }

@@ -36,37 +36,12 @@
  */
 
 #include <stdio.h>
-#ifdef MACOS
 #include <stdlib.h>
 #include <stdarg.h>
-#include "macos.h"
-#else /* MACOS */
-#if defined(NeXT) || defined(VMS) || defined(__APPLE__)
-#include <stdlib.h>
-#else /* next || vms */
-#include <malloc.h>
-#endif /* next || vms */
-#if defined( BC31 ) || defined( _WIN32 )
-#include <stdarg.h>
-#else /* BC31 || _WIN32 */
-#include <varargs.h>
-#endif /* BC31 || _WIN32 */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#ifdef PCNFS
-#include <tklib.h>
-#endif /* PCNFS */
-#endif /* MACOS */
-#ifndef VMS
-#include <memory.h>
-#endif
 #include <string.h>
+#include <sys/types.h>
+#include <netinet/in.h>
 #include "lber.h"
-
-#if defined( DOS ) || defined( _WIN32 )
-#include "msdos.h"
-#endif /* DOS */
 
 #ifdef NEEDPROTOS
 static int ber_put_len( BerElement *ber, unsigned long len, int nosos );
@@ -541,33 +516,16 @@ ber_put_set( BerElement *ber )
 	return( ber_put_seqorset( ber ) );
 }
 
-/* VARARGS */
 int
-ber_printf(
-#if defined( MACOS ) || defined( _WIN32 ) || defined( BC31 )
-	BerElement *ber, char *fmt, ... )
-#else /* MACOS || _WIN32 || BC31 */
-	va_alist )
-va_dcl
-#endif /* MACOS || _WIN32 || BC31 */
+ber_printf(BerElement *ber, char *fmt, ... )
 {
 	va_list		ap;
-#if !defined( MACOS ) && !defined( _WIN32 ) && !defined( BC31 )
-	BerElement	*ber;
-	char		*fmt;
-#endif /* !MACOS && !_WIN32 && !BC31 */
 	char		*s, **ss;
 	struct berval	**bv;
 	int		rc, i;
 	unsigned long	len;
 
-#if defined( MACOS ) || defined( _WIN32 ) || defined( BC31 )
 	va_start( ap, fmt );
-#else /* MACOS || _WIN32 || BC31 */
-	va_start( ap );
-	ber = va_arg( ap, BerElement * );
-	fmt = va_arg( ap, char * );
-#endif /* MACOS || _WIN32 || BC31 */
 
 	for ( rc = 0; *fmt && rc != -1; fmt++ ) {
 		switch ( *fmt ) {

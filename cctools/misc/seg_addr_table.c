@@ -235,7 +235,7 @@ char **envp)
     struct layout_info *layout_info;
     enum bool seg1addr_specified, segs_read_only_addr_specified,
 	      segs_read_write_addr_specified, relayout, update, create,
-	      checkonly;
+	      checkonly, update_overlaps;
     enum bool found, is_framework, next_flat, next_split;
     enum bool operation_specified, from_dylib_table, create_dylib_table;
     char *install_name, *has_suffix;
@@ -261,6 +261,7 @@ char **envp)
 	relayout = FALSE;
 	update = FALSE;
 	checkonly = FALSE;
+	update_overlaps = FALSE;
 	create = FALSE;
 	from_dylib_table = FALSE;
 	create_dylib_table = FALSE;
@@ -307,6 +308,14 @@ char **envp)
 		    }
 		    operation_specified = TRUE;
 		    checkonly = TRUE;
+		}
+		else if(strcmp(argv[i], "-update_overlaps") == 0){
+		    if(operation_specified == TRUE){
+			error("more than one operation specified");
+			usage();
+		    }
+		    operation_specified = TRUE;
+		    update_overlaps = TRUE;
 		}
 		else if(strcmp(argv[i], "-create") == 0){
 		    if(operation_specified == TRUE){
@@ -499,15 +508,16 @@ char **envp)
 	    info.disablewarnings = FALSE;
 	}
 
-	if(update == TRUE){
+	if(update == TRUE || update_overlaps == TRUE){
 	    if(seg1addr_specified == TRUE)
-		fatal("can't specify -seg1addr option when -update is used");
+		fatal("can't specify -seg1addr option when -update or "
+		      "-update_overlaps is used");
 	    if(segs_read_only_addr_specified == TRUE)
 		fatal("can't specify -segs_read_only_addr option when -update "
-		      "is used");
+		      "or -update_overlaps is used");
 	    if(segs_read_write_addr_specified == TRUE)
 		fatal("can't specify -segs_read_write_addr option when -update "
-		      "is used");
+		      "or -update_overlaps is used");
 	}
 
 	/*
@@ -604,11 +614,12 @@ char **envp)
 	}
 
 	/*
-	 * If the -update option is specified then pick up the next addresses
+	 * If the -update, -update_overlap or -checkonly options are 
+	 * specified then pick up the next addresses
 	 * to assign.  The addresses are assigned starting at the
 	 * NEXT_FLAT_ADDRESS_TO_ASSIGN and NEXT_SPLIT_ADDRESS_TO_ASSIGN.
 	 */
-	if(update == TRUE || checkonly == TRUE){
+	if(update == TRUE || checkonly == TRUE || update_overlaps == TRUE){
 	    next_flat = FALSE;
 	    next_split = FALSE;
 	    for(i = 0 ; i < info.table_size; i++){
@@ -654,15 +665,16 @@ char **envp)
 	}
 
 	/*
-	 * For the -relayout, -update, -checkonly  and -create options make a
-	 * pass through all the entries in the seg_addr_table and determine the
-	 * short names for each of the flat entries and determine the maximum
-	 * size and their seg1addr.  For the split libraries just determine
+	 * For the -relayout, -update, -checkonly, -update_overlaps
+	 * and -create options make a  pass through all the entries in
+	 * in the seg_addr_table and determine the short names for each 
+	 * of the flat entries and determine the maximum size and their
+	 * seg1addr.  For the split libraries just determine
 	 * their maximum size and their segs_read_only_addr and
 	 * segs_read_write_addr.
 	 */
 	if(relayout == TRUE || update == TRUE || checkonly == TRUE ||
-	   create == TRUE){
+	   create == TRUE || update_overlaps == TRUE){
     	    layout_info = allocate(sizeof(struct layout_info) *
 				   (info.table_size + 2));
 	    memset(layout_info, '\0', sizeof(struct layout_info) *
@@ -697,6 +709,16 @@ char **envp)
 	    layout_info[used].max_sizes.all = 0x10000000;
 	    info.sorted_flat_layout_info[info.nsorted_flat++] =
 		layout_info + used;
+	    /*
+	     * Create a bogus current_entry to keep all current_entry
+	     * pointers valid.
+	     */
+	    layout_info[used].current_entry =
+		allocate(sizeof(struct seg_addr_table));
+	    layout_info[used].current_entry->install_name =
+		READ_ONLY_SEGMENT_NAME;
+	    layout_info[used].current_entry->split = FALSE;
+	    layout_info[used].current_entry->seg1addr = DEFAULT_READ_ONLY_ADDR;
 	    used++;
 
 	    layout_info[used].install_name = READ_WRITE_SEGMENT_NAME;
@@ -707,6 +729,16 @@ char **envp)
 	    layout_info[used].max_sizes.all = 0x10000000;
 	    info.sorted_flat_layout_info[info.nsorted_flat++] =
 		layout_info + used;
+	    /*
+	     * Create a bogus current_entry to keep all current_entry 
+	     * pointers valid.
+	     */
+	    layout_info[used].current_entry = 
+		allocate(sizeof(struct seg_addr_table));
+	    layout_info[used].current_entry->install_name = 
+		READ_WRITE_SEGMENT_NAME;
+	    layout_info[used].current_entry->split = FALSE;
+	    layout_info[used].current_entry->seg1addr = DEFAULT_READ_WRITE_ADDR;
 	    used++;
 
 	    for(i = 0 ; i < info.table_size; i++){
@@ -741,6 +773,11 @@ char **envp)
 			layout_info[used].seg1addr = entry->seg1addr;
 			layout_info[used].max_sizes.all =
 			    entry->segs_read_write_addr;
+			/* 
+			 * Create a current_entry pointer 
+			 * for the fixed addresses
+			 */
+			layout_info[used].current_entry = entry;
 
 			info.layout_info[i] = layout_info + used;
 			info.sorted_flat_layout_info
@@ -799,7 +836,8 @@ char **envp)
 			layout_info[used].image_file_name = image_file_name;
 			layout_info[used].short_name = short_name;
 			info.layout_info[i] = layout_info + used;
-			if((update == TRUE || checkonly == TRUE) &&
+			if((update == TRUE || checkonly == TRUE ||
+			    update_overlaps == TRUE) &&
 			   entry->seg1addr != 0)
 			    info.sorted_flat_layout_info
 				[info.nsorted_flat++] = layout_info + used;
@@ -811,7 +849,8 @@ char **envp)
 		    layout_info[used].image_file_name = image_file_name;
 		    layout_info[used].short_name = NULL;
 		    info.layout_info[i] = layout_info + used;
-		    if((update == TRUE || checkonly == TRUE) &&
+		    if((update == TRUE || checkonly == TRUE ||
+		        update_overlaps == TRUE) &&
 		       entry->segs_read_only_addr != 0){
 			info.sorted_split_read_only_layout_info
 			    [info.nsorted_split] = layout_info + used;
@@ -854,10 +893,17 @@ char **envp)
 	    /* check the sorted flat libraries for overlaps */
 	    for(i = 0 ; i < info.nsorted_flat; i++){
 		for(j = i + 1; j < info.nsorted_flat; j++){
-		    if(info.sorted_flat_layout_info[i]->seg1addr +
+		    if(info.sorted_flat_layout_info[i]->current_entry->
+		            seg1addr +
 		       info.sorted_flat_layout_info[i]->max_sizes.all >
-		       info.sorted_flat_layout_info[j]->seg1addr){
-			flat_overlap_error(&info, i, j, FALSE);
+		       info.sorted_flat_layout_info[j]->current_entry->
+	  	            seg1addr){
+			if(update_overlaps == TRUE)
+			    /* Zero out the address for the overlap */
+			    info.sorted_flat_layout_info[i]->
+				current_entry->seg1addr = 0;
+			else
+			    flat_overlap_error(&info, i, j, FALSE);
 		    }
 		}
 		/*
@@ -865,14 +911,20 @@ char **envp)
 		 * (excluding fixed regions) so that it does not overlap with
 		 * the next address to be assigned.
 		 */
-		if((update == TRUE || checkonly == TRUE) &&
+		if((update == TRUE || checkonly == TRUE ||
+		    update_overlaps == TRUE) &&
 		   strcmp(info.sorted_flat_layout_info[i]->install_name,
 			  FIXED_ADDRESS_AND_SIZE) != 0 &&
-		   info.sorted_flat_layout_info[i]->seg1addr +
+		   info.sorted_flat_layout_info[i]->current_entry->seg1addr +
 		   info.sorted_flat_layout_info[i]->max_sizes.all >
 		   info.seg1addr &&
 		   info.sorted_flat_layout_info[i]->seg1addr < info.seg1addr){
-		    flat_overlap_error(&info, i, ULONG_MAX, TRUE);
+		    if(update_overlaps == TRUE)
+			/* Zero out the address for the overlap */
+			info.sorted_flat_layout_info[i]->
+			    current_entry->seg1addr = 0;
+		    else
+			flat_overlap_error(&info, i, ULONG_MAX, TRUE);
 		}
 	    }
 
@@ -883,14 +935,19 @@ char **envp)
 	    for(i = 0 ; i < info.nsorted_split; i++){
 		for(j = i + 1 ; j < info.nsorted_split; j++){
 		    if(info.sorted_split_read_only_layout_info[i]->
-			    segs_read_only_addr +
+			    current_entry->segs_read_only_addr +
 		       info.sorted_split_read_only_layout_info[i]->
 			    max_sizes.read_only >
 		       info.sorted_split_read_only_layout_info[j]->
-			    segs_read_only_addr){
-			split_overlap_error(&info, i, j,
-					info.sorted_split_read_only_layout_info,
-					    "read-only", FALSE);
+			    current_entry->segs_read_only_addr){
+			if(update_overlaps == TRUE)
+			    /* Zero out the address for the overlap */
+			    info.sorted_split_read_only_layout_info[i]->
+				current_entry->segs_read_only_addr = 0;
+			else	
+		 	    split_overlap_error(&info, i, j,
+				info.sorted_split_read_only_layout_info,
+				    "read-only", FALSE);
 		    }
 		}
 		/*
@@ -898,15 +955,21 @@ char **envp)
 		 * so that it does not overlap with the next address to be
 		 * assigned.
 		 */
-		if((update == TRUE || checkonly == TRUE) &&
+		if((update == TRUE || checkonly == TRUE ||
+		    update_overlaps == TRUE) &&
 		   info.sorted_split_read_only_layout_info[i]->
-		    segs_read_only_addr +
+		    current_entry->segs_read_only_addr +
 		   info.sorted_split_read_only_layout_info[i]->
 		    max_sizes.read_only >
 		   info.segs_read_only_addr){
-		    split_overlap_error(&info, i, ULONG_MAX,
-					info.sorted_split_read_only_layout_info,
-					"read-only", TRUE);
+		    if(update_overlaps == TRUE)
+			/* Zero out the address for the overlap */
+			info.sorted_split_read_only_layout_info[i]->
+			     current_entry->segs_read_only_addr = 0;
+		    else
+			split_overlap_error(&info, i, ULONG_MAX,
+			    info.sorted_split_read_only_layout_info,
+			    "read-only", TRUE);
 		}
 	    }
 
@@ -917,14 +980,18 @@ char **envp)
 	    for(i = 0 ; i < info.nsorted_split; i++){
 		for(j = i + 1 ; j < info.nsorted_split; j++){
 		    if(info.sorted_split_read_write_layout_info[i]->
-			    segs_read_write_addr +
+			    current_entry->segs_read_write_addr +
 		       info.sorted_split_read_write_layout_info[i]->
 			    max_sizes.read_write >
 		       info.sorted_split_read_write_layout_info[j]->
-			    segs_read_write_addr){
-			split_overlap_error(&info, i, j,
-				    info.sorted_split_read_write_layout_info,
-					"read-write", FALSE);
+			    current_entry->segs_read_write_addr){
+			if(update_overlaps == TRUE)
+			    info.sorted_split_read_write_layout_info[i]->
+				current_entry->segs_read_write_addr = 0;
+			else
+			    split_overlap_error(&info, i, j,
+				info.sorted_split_read_write_layout_info,
+				    "read-write", FALSE);
 		    }
 		}
 		/*
@@ -932,15 +999,20 @@ char **envp)
 		 * so that it does not overlap with the next address to be
 		 * assigned.
 		 */
-		if((update == TRUE || checkonly == TRUE) &&
+		if((update == TRUE || checkonly == TRUE ||
+		    update_overlaps == TRUE) &&
 		   info.sorted_split_read_write_layout_info[i]->
-		    segs_read_write_addr +
+		    current_entry->segs_read_write_addr +
 		   info.sorted_split_read_write_layout_info[i]->
 		    max_sizes.read_write >
 		   info.segs_read_write_addr){
-		    split_overlap_error(&info, i, ULONG_MAX,
-				    info.sorted_split_read_write_layout_info,
-					"read-write", TRUE);
+		    if(update_overlaps == TRUE)
+			info.sorted_split_read_write_layout_info[i]->
+			    current_entry->segs_read_write_addr = 0;	
+		    else
+			split_overlap_error(&info, i, ULONG_MAX,
+			    info.sorted_split_read_write_layout_info,
+				"read-write", TRUE);
 		}
 	    }
 	}
@@ -1084,12 +1156,13 @@ char **envp)
 	}
 
 	/*
-	 * If the -update option is specified then only layout the images in
+	 * If the -update or the -update_overlaps option is specified
+	 * then only layout the images in
 	 * the seg_addr_table which had an address of zero.  The addresses are
 	 * assigned starting at the NEXT_FLAT_ADDRESS_TO_ASSIGN and
 	 * NEXT_SPLIT_ADDRESS_TO_ASSIGN and were picked up above.
 	 */
-	if(update == TRUE){
+	if(update == TRUE || update_overlaps == TRUE){
 	    for(i = 0 ; i < info.table_size; i++){
 		entry = info.seg_addr_table + i;
 		if(info.layout_info[i] != NULL &&
@@ -1287,7 +1360,8 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [[[-relayout | -update ] -o output_file] |  "
+	fprintf(stderr, "Usage: %s [[[-relayout | -update " 
+		"| -update_overlaps] -o output_file] |  "
 		"-checkonly ] [-seg_addr_table input_file] "
 		"[-disablewarnings] [-seg1addr hex_address] "
 		"[-segs_read_only_addr hex_address] "
@@ -1323,9 +1397,9 @@ qsort_flat(
 const struct layout_info **p1,
 const struct layout_info **p2)
 {
-	if((*p1)->seg1addr == (*p2)->seg1addr)
+	if((*p1)->current_entry->seg1addr == (*p2)->current_entry->seg1addr)
 	    return(0);
-	if((*p1)->seg1addr < (*p2)->seg1addr)
+	if((*p1)->current_entry->seg1addr < (*p2)->current_entry->seg1addr)
 	    return(-1);
 	return(1);
 }
@@ -1340,9 +1414,11 @@ qsort_split_read_only(
 const struct layout_info **p1,
 const struct layout_info **p2)
 {
-	if((*p1)->segs_read_only_addr == (*p2)->segs_read_only_addr)
+	if((*p1)->current_entry->segs_read_only_addr == 
+	   (*p2)->current_entry->segs_read_only_addr)
 	    return(0);
-	if((*p1)->segs_read_only_addr < (*p2)->segs_read_only_addr)
+	if((*p1)->current_entry->segs_read_only_addr <
+	   (*p2)->current_entry->segs_read_only_addr)
 	    return(-1);
 	return(1);
 }
@@ -1357,9 +1433,11 @@ qsort_split_read_write(
 const struct layout_info **p1,
 const struct layout_info **p2)
 {
-	if((*p1)->segs_read_write_addr == (*p2)->segs_read_write_addr)
+	if((*p1)->current_entry->segs_read_write_addr ==
+	   (*p2)->current_entry->segs_read_write_addr)
 	    return(0);
-	if((*p1)->segs_read_write_addr < (*p2)->segs_read_write_addr)
+	if((*p1)->current_entry->segs_read_write_addr < 
+	   (*p2)->current_entry->segs_read_write_addr)
 	    return(-1);
 	return(1);
 }

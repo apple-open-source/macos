@@ -66,6 +66,7 @@
 
 #include "DiskArbitrationTypes.h"
 #include "DiskVolume.h"
+#include "Configuration.h"
 #include "DiskArbitrationServerMain.h"
 #include "FSParticular.h"
 
@@ -132,16 +133,21 @@ fsck_vols(DiskVolumesPtr vols)
     for (i = 0; i < DiskVolumes_count(vols); i++)
     {
 
-	DiskVolumePtr vol;
+        DiskVolumePtr vol = (DiskVolumePtr)DiskVolumes_objectAtIndex(vols,i);
+        if (!vol) {
+                return FALSE;
+        }
 
-	vol = (DiskVolumePtr)DiskVolumes_objectAtIndex(vols,i);
-
-	if (vol->writable && vol->dirty && vol->mount_point == NULL)
+        if ((vol->writable || shouldFsckReadOnlyMedia()) && vol->dirty && vol->mount_point == NULL)
 	{
+            DiskPtr dp = LookupDiskByIOBSDName( vol->disk_dev_name );
 	    /* Construct a command line to fsck/fsck_hfs this dirty volume. */
             char *fsckCmd = repairPathForFileSystem(vol->fs_type);
             char *rprCmd = repairArgsForFileSystem(vol->fs_type);
 
+            dwarning(("sending checking messages\n"));
+            SendDiskWillBeCheckedMessages(dp);
+            
             sprintf(command, "%s %s /dev/r%s", fsckCmd, rprCmd,vol->disk_dev_name);
             sprintf(fsck_command_line, fsckCmd);
 
@@ -184,17 +190,23 @@ fsck_vols(DiskVolumesPtr vols)
 		if ( ret <= 0 )
 		{
 			/* Mark the volume as clean so that it will be mounted */
+                        dwarning(("*** vol dirty? ***\n"));
 			vol->dirty = FALSE;
 		}
 		else
 		{
 			dwarning(("'%s' failed: %d\n", command, ret));
+                        StartUnmountableDiskThread(dp);
+                        dp->flags |= kDiskArbDiskAppearedCheckFailed;
 		}
 
 		/* Result will be TRUE iff each fsck command is successful */
-
+                dwarning(("*** result? ***\n"));
 		result = result && (ret == 0);
 	    }
+
+            dwarning(("*** freeing? ***\n"));
+
             free(fsckCmd);
             free(rprCmd);
 
@@ -210,6 +222,7 @@ boolean_t
 mount_vols(DiskVolumesPtr vols, int takeOwnership)
 {
     int i;
+    dwarning(("*** mount_vols ***\n"));
 
     for (i = 0; i < DiskVolumes_count(vols); i++)
     {
@@ -225,7 +238,8 @@ mount_vols(DiskVolumesPtr vols, int takeOwnership)
                             DiskSetMountpoint(dp, d->mount_point);
                             if (takeOwnership) {
 
-                                    if (dp->mountedUser != -1) {
+                                    if (dp->mountedUser == -1 && currentConsoleUser != -1) {
+                                        dp->mountedUser = currentConsoleUser;
                                         // some is actually logged in, chown the disk to that user
                                         dwarning(("*** Someone should own the disks now %d, %s ***\n", dp->mountedUser, d->mount_point));
                                         chown(d->mount_point, dp->mountedUser, 99);
@@ -259,7 +273,8 @@ mount_vols(DiskVolumesPtr vols, int takeOwnership)
                             DiskSetMountpoint( dp, d->mount_point );
                             if (takeOwnership) {
 
-                                    if (dp->mountedUser != -1) {
+                                    if (dp->mountedUser == -1 && currentConsoleUser != -1) {
+                                        dp->mountedUser = currentConsoleUser;
                                         // some is actually logged in, chown the disk to that user
                                         dwarning(("*** Someone should own the disks now %d, %s ***\n", dp->mountedUser, d->mount_point));
                                         chown(d->mount_point, dp->mountedUser, 99);
@@ -274,6 +289,11 @@ mount_vols(DiskVolumesPtr vols, int takeOwnership)
     return (TRUE);
 }
 
+void DiskArbDiskAppearedRecognizableSectionMountedApplier(DiskPtr wholePtr)
+{
+    wholePtr->flags = wholePtr->flags | kDiskArbDiskAppearedRecognizableSectionMounted;
+}
+
 void autodiskmount(int takeOwnership)
 {
     DiskVolumesPtr vols;
@@ -286,61 +306,31 @@ void autodiskmount(int takeOwnership)
     CleanupDirectory("/");
     CleanupDirectory(mountPath());
 
-    DiskVolumes_do_removable(vols,g.do_removable,g.eject_removable);
+    DiskVolumes_do_volumes(vols);
 
-    if (g.do_mount)
-    {
-	if (fsck_vols(vols) == FALSE)
-	{
-		pwarning(("Some fsck failed!\n"));
-	}
+        if (fsck_vols(vols) == FALSE)
+        {
+                pwarning(("Some fsck failed!\n"));
+        }
 
-	if (mount_vols(vols, takeOwnership) == FALSE)
-	{
-		pwarning(("Some mount() failed!\n"));
-	}
+        if (mount_vols(vols, takeOwnership) == FALSE)
+        {
+                pwarning(("Some mount() failed!\n"));
+        }
 
 
-            for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next )
-            {
-                    // if any of the diskPartitions contain a mounted volume
-                    // then mark the whole disk as having a mount
+        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next )
+        {
+                // if any of the diskPartitions contain a mounted volume
+                // then mark the whole disk as having at least one mount
 
-                    if (diskPtr->mountpoint != NULL && strlen(diskPtr->mountpoint)) {
-                            DiskPtr wholePtr = LookupWholeDiskForThisPartition(diskPtr);
+                if (diskPtr->mountpoint != NULL && strlen(diskPtr->mountpoint)) {
+                        LookupWholeDisksForThisPartition(diskPtr->service, DiskArbDiskAppearedRecognizableSectionMountedApplier);
+                }
 
-                            if (wholePtr) {
-                                    wholePtr->flags = wholePtr->flags | kDiskArbDiskAppearedRecognizableSectionMounted;
-                            }
-                    }
-
-            }
-            for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next )
-            {
-                    // go through them all again ...
-                    // check the new whole disks for a new disk that does not contain a recognizable section
-
-                    int isWhole = ( diskPtr->flags & kDiskArbDiskAppearedWholeDiskMask );
-                    int dialogPreviouslyDisplayed = ( diskPtr->flags & kDiskArbDiskAppearedDialogDisplayed );
-                    int neverMount = ( diskPtr->flags & kDiskArbDiskAppearedNoMountMask );
-
-                    if (isWhole && !dialogPreviouslyDisplayed && !neverMount) {
-                            int recognizablePartitionsAppeared = ( diskPtr->flags & kDiskArbDiskAppearedRecognizableSectionMounted );
-
-                            if (!recognizablePartitionsAppeared) {
-                                    // display the dialog
-                                    if (DiskArbIsHandlingUnrecognizedDisks()) {
-                                            StartUnrecognizedDiskDialogThread(diskPtr);
-                                            diskPtr->flags |= kDiskArbDiskAppearedDialogDisplayed;
-                                    }
-                            }
-                    }
-            }
-
+        }
 
             
-    }
-
     if (g.verbose)
     {
         DiskVolumes_print(vols);
@@ -367,10 +357,7 @@ main(int argc, char * argv[])
     g.NumDisks = 0;
     g.NumDisksAddedOrDeleted = 1;
 	
-    g.eject_removable = FALSE;
-    g.do_removable = FALSE;
     g.verbose = FALSE;
-    g.do_mount = TRUE;
     g.debug = FALSE;
 	
     /* Initialize <progname> */
@@ -389,31 +376,19 @@ main(int argc, char * argv[])
 
     /* Parse command-line arguments */
 
-    while ((ch = getopt(argc, argv, "avned")) != -1)
+    while ((ch = getopt(argc, argv, "avd")) != -1)
     {
 	switch (ch)
 	{
 	    case 'a':
-		g.do_removable = TRUE;
 	    break;
 	    case 'v':
 		g.verbose = TRUE;
-	    break;
-	    case 'n':
-		g.do_mount = FALSE;
-	    break;
-	    case 'e':
-		g.eject_removable = TRUE;
 	    break;
 	    case 'd':
 		g.debug = TRUE;
 	    break;
 	}
-    }
-
-    if (g.eject_removable)
-    {
-	g.do_removable = FALSE; /* sorry, eject overrides use */
     }
 
     {	/* Radar 2323271 */

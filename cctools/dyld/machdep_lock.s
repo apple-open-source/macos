@@ -164,7 +164,6 @@ _try_to_get_lock:
 	li	r4,1	; Lock value
 1:
 	lwarx   r5,0,r3	; Read the lock and reserve
-	sync		; Fix for 3.2 and older CPUs
 	stwcx.  r4,0,r3	; Try to lock the lock
 	bne-    1b	; Lost reservation, try again
 	isync		; Workaround some buggy CPUs

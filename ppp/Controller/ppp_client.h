@@ -24,8 +24,6 @@
 #ifndef __PPP_CLIENT_H__
 #define __PPP_CLIENT_H__
 
-#include "queue_data.h"
-
 // current version of the pppconfd api
 #define CURRENT_VERSION 1
 
@@ -53,7 +51,6 @@ struct opt_str {
 
 // options structure
 struct options {
-   //struct opt_str 		file;
     struct {
         struct opt_str 		name;
         struct opt_long 	speed;
@@ -61,22 +58,19 @@ struct options {
         struct opt_long 	speaker;
         struct opt_long 	pulse;
         struct opt_long 	dialmode;
-        //struct opt_str 		connectprgm;
     } dev;
     struct {
         struct opt_str 		remoteaddr;
         struct opt_str 		altremoteaddr;
         struct opt_long 	idletimer;
+        struct opt_long 	remindertimer;
         struct opt_long 	sessiontimer;
         struct opt_long		terminalmode;
         struct opt_str 		terminalscript;
-        //struct opt_str 		terminalprgm;
         struct opt_long 	connectdelay;
-        struct opt_str 		listenfilter;
-        struct opt_long 	loopback;
         struct opt_long 	redialcount;
         struct opt_long 	redialinterval;
-    } comm;
+   } comm;
     struct {
         struct opt_long 	pcomp;
         struct opt_long 	accomp;
@@ -84,15 +78,14 @@ struct options {
         struct opt_long 	mtu;
         struct opt_long 	rcaccm;
         struct opt_long 	txaccm;
-        struct opt_long 	echo;
+        struct opt_long 	echointerval;
+        struct opt_long 	echofailure;
     } lcp;
     struct {
         struct opt_long 	hdrcomp;
         struct opt_long 	localaddr;
         struct opt_long 	remoteaddr;
         struct opt_long 	useserverdns;
-        struct opt_long 	serverdns1;
-        struct opt_long 	serverdns2;
     } ipcp;
     struct {
         struct opt_long 	proto;
@@ -101,12 +94,9 @@ struct options {
     } auth;
     struct {
         struct opt_str 		logfile;
-        struct opt_long 	remindertimer;
-        struct opt_long 	alertenable;
-        struct opt_long 	autolisten;
+        //struct opt_long 	alertenable;
         struct opt_long 	autoconnect;
         struct opt_long 	disclogout;
-        struct opt_long 	connlogout;
         struct opt_long 	verboselog;
     } misc;
 };
@@ -118,8 +108,10 @@ struct client_opts {
 };
 
 struct client {
-    // u_char 		set;		// is this record in use ?
-    CFSocketRef	 	ref;		// socket we talk with, -1 = client free
+
+    TAILQ_ENTRY(client) next;
+
+    CFSocketRef	 	ref;		// socket we talk with
 
     /* event notification */
     u_char	 	notify; 	// 0 = do not notify, 1 = notification active
@@ -128,25 +120,16 @@ struct client {
     /* option management */
     TAILQ_HEAD(, client_opts) 	opts_head;
 
-    /* for clients extensions*/
-    u_short		readfd_len;	// not null if read pending for ttybuf
-    u_long		readfd_cookie;	// pending cookie
-    u_long		readfd_link;	// corresponding link
-    struct queue_data 	readfd_queue;  	// unread data
-
 };
 
 
-#define MAX_CLIENT 	16		// Fix Me : should be more dynamic
-
-extern struct client 		*clients[MAX_CLIENT];
-
 
 u_long client_init_all ();
-u_long client_new (CFSocketRef ref);
-u_long client_dispose (u_short id);
+struct client *client_new (CFSocketRef ref);
+void client_dispose (struct client *client);
 u_long client_notify (u_long link, u_long state, u_long error);
-struct options *client_newoptset (u_short id, u_long link);
-struct options *client_findoptset (u_short id, u_long link);
+struct options *client_newoptset (struct client *client, u_long link);
+struct options *client_findoptset (struct client *client, u_long link);
+struct client *client_findbysocketref(CFSocketRef ref);
 
 #endif

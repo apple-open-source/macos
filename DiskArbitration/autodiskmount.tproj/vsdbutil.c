@@ -1133,13 +1133,29 @@ unsigned char finalcount[8];
 
 kern_return_t DiskArbVSDBAdoptVolume_rpc(
                                          mach_port_t server,
+                                         pid_t clientPid,
                                          DiskArbDiskIdentifier diskIdentifier)
 {
 
-    DiskPtr diskPtr;
+    DiskPtr diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+    ClientPtr clientPtr = LookupClientByPID(clientPid);
 
-    diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+    if ( NULL == diskPtr )
+    {
+            if (clientPtr) {
+                    SendCallFailedMessage(clientPtr, NULL, kDiskArbVSDBAdoptRequestFailed, kDiskArbVolumeDoesNotExist);
+            }
 
+            return -1;
+    }
+
+    if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.volinfo.adopt")) {
+            if (clientPtr) {
+                    SendCallFailedMessage(clientPtr, diskPtr, kDiskArbVSDBAdoptRequestFailed, kDiskArbInsecureRequest);
+            }
+            return -1;
+    }
+    
     dwarning(("Adopting volume %s\n", diskPtr->mountpoint));
 
 
@@ -1151,12 +1167,25 @@ kern_return_t DiskArbVSDBAdoptVolume_rpc(
 
 kern_return_t DiskArbVSDBDisownVolume_rpc(
                                          mach_port_t server,
-                                         DiskArbDiskIdentifier diskIdentifier)
+                                          pid_t clientPid,
+                                          DiskArbDiskIdentifier diskIdentifier)
 {
-    DiskPtr diskPtr;
+    DiskPtr diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+    ClientPtr clientPtr = LookupClientByPID(clientPid);
 
-    diskPtr = LookupDiskByIOBSDName( diskIdentifier );
+    if (!diskPtr) {
+            if (clientPtr) {
+                    SendCallFailedMessage(clientPtr, NULL, kDiskArbVSDBDisownRequestFailed, kDiskArbVolumeDoesNotExist);
+            }
+            return -1;
+    }
 
+    if (!requestingClientHasPermissionToModifyDisk(clientPid, diskPtr, "system.volume.volinfo.disown")) {
+            if (clientPtr) {
+                    SendCallFailedMessage(clientPtr, diskPtr, kDiskArbVSDBDisownRequestFailed, kDiskArbInsecureRequest);
+            }
+            return -1;
+    }
 
     dwarning(("Disowning volume %s\n", diskPtr->mountpoint));
 

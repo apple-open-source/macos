@@ -1,0 +1,10 @@
+{
+  Description     = "Apple Security Server";
+  Provides        = ("SecurityServer");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting SecurityServer";
+    stop  = "Stopping SecurityServer";
+  };
+}

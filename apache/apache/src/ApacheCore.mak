@@ -28,12 +28,16 @@ NULL=
 NULL=nul
 !ENDIF 
 
+CPP=cl.exe
+MTL=midl.exe
+RSC=rc.exe
+
 !IF  "$(CFG)" == "ApacheCore - Win32 Release"
 
-OUTDIR=.\CoreR
-INTDIR=.\CoreR
+OUTDIR=.\Release
+INTDIR=.\Release
 # Begin Custom Macros
-OutDir=.\CoreR
+OutDir=.\Release
 # End Custom Macros
 
 !IF "$(RECURSE)" == "0" 
@@ -42,20 +46,21 @@ ALL : "$(OUTDIR)\ApacheCore.dll"
 
 !ELSE 
 
-ALL : "regex - Win32 Release" "gen_uri_delims - Win32 Release"\
- "gen_test_char - Win32 Release" "ApacheOS - Win32 Release" "ap - Win32 Release"\
- "$(OUTDIR)\ApacheCore.dll"
+ALL : "Win9xConHook - Win32 Release" "regex - Win32 Release"\
+ "gen_uri_delims - Win32 Release" "gen_test_char - Win32 Release"\
+ "ApacheOS - Win32 Release" "ap - Win32 Release" "$(OUTDIR)\ApacheCore.dll"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
 CLEAN :"ap - Win32 ReleaseCLEAN" "ApacheOS - Win32 ReleaseCLEAN"\
  "gen_test_char - Win32 ReleaseCLEAN" "gen_uri_delims - Win32 ReleaseCLEAN"\
- "regex - Win32 ReleaseCLEAN" 
+ "regex - Win32 ReleaseCLEAN" "Win9xConHook - Win32 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
 	-@erase "$(INTDIR)\alloc.obj"
+	-@erase "$(INTDIR)\ApacheCore.idb"
 	-@erase "$(INTDIR)\buff.obj"
 	-@erase "$(INTDIR)\buildmark.obj"
 	-@erase "$(INTDIR)\getopt.obj"
@@ -96,7 +101,6 @@ CLEAN :
 	-@erase "$(INTDIR)\util_script.obj"
 	-@erase "$(INTDIR)\util_uri.obj"
 	-@erase "$(INTDIR)\util_win32.obj"
-	-@erase "$(INTDIR)\vc50.idb"
 	-@erase "$(OUTDIR)\ApacheCore.dll"
 	-@erase "$(OUTDIR)\ApacheCore.exp"
 	-@erase "$(OUTDIR)\ApacheCore.lib"
@@ -105,46 +109,12 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP=cl.exe
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I ".\include" /I ".\os\win32" /D "NDEBUG" /D\
- "WIN32" /D "_WINDOWS" /D "WIN32_LEAN_AND_MEAN" /Fo"$(INTDIR)\\"\
- /Fd"$(INTDIR)\\" /FD /c 
-CPP_OBJS=.\CoreR/
+CPP_PROJ=/nologo /MD /W3 /O2 /I ".\include" /I ".\os\win32" /I\
+ ".\os\win32\win9xconhook" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D\
+ "WIN32_LEAN_AND_MEAN" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\ApacheCore" /FD /c 
+CPP_OBJS=.\Release/
 CPP_SBRS=.
-
-.c{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.c{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-MTL=midl.exe
 MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /win32 
-RSC=rc.exe
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\ApacheCore.bsc" 
 BSC32_SBRS= \
@@ -199,9 +169,10 @@ LINK32_OBJS= \
 	"$(INTDIR)\util_script.obj" \
 	"$(INTDIR)\util_uri.obj" \
 	"$(INTDIR)\util_win32.obj" \
-	".\ap\Release\ap.lib" \
-	".\os\win32\ApacheOSR\ApacheOS.lib" \
-	".\regex\Release\regex.lib"
+	".\ap\LibR\ap.lib" \
+	".\os\win32\LibR\ApacheOS.lib" \
+	".\os\win32\Release\Win9xConHook.lib" \
+	".\regex\LibR\regex.lib"
 
 "$(OUTDIR)\ApacheCore.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -210,10 +181,10 @@ LINK32_OBJS= \
 
 !ELSEIF  "$(CFG)" == "ApacheCore - Win32 Debug"
 
-OUTDIR=.\CoreD
-INTDIR=.\CoreD
+OUTDIR=.\Debug
+INTDIR=.\Debug
 # Begin Custom Macros
-OutDir=.\CoreD
+OutDir=.\Debug
 # End Custom Macros
 
 !IF "$(RECURSE)" == "0" 
@@ -222,20 +193,21 @@ ALL : "$(OUTDIR)\ApacheCore.dll"
 
 !ELSE 
 
-ALL : "regex - Win32 Debug" "gen_uri_delims - Win32 Debug"\
- "gen_test_char - Win32 Debug" "ApacheOS - Win32 Debug" "ap - Win32 Debug"\
- "$(OUTDIR)\ApacheCore.dll"
+ALL : "Win9xConHook - Win32 Debug" "regex - Win32 Debug"\
+ "gen_uri_delims - Win32 Debug" "gen_test_char - Win32 Debug"\
+ "ApacheOS - Win32 Debug" "ap - Win32 Debug" "$(OUTDIR)\ApacheCore.dll"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
 CLEAN :"ap - Win32 DebugCLEAN" "ApacheOS - Win32 DebugCLEAN"\
  "gen_test_char - Win32 DebugCLEAN" "gen_uri_delims - Win32 DebugCLEAN"\
- "regex - Win32 DebugCLEAN" 
+ "regex - Win32 DebugCLEAN" "Win9xConHook - Win32 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
 	-@erase "$(INTDIR)\alloc.obj"
+	-@erase "$(INTDIR)\ApacheCore.idb"
 	-@erase "$(INTDIR)\buff.obj"
 	-@erase "$(INTDIR)\buildmark.obj"
 	-@erase "$(INTDIR)\getopt.obj"
@@ -276,11 +248,8 @@ CLEAN :
 	-@erase "$(INTDIR)\util_script.obj"
 	-@erase "$(INTDIR)\util_uri.obj"
 	-@erase "$(INTDIR)\util_win32.obj"
-	-@erase "$(INTDIR)\vc50.idb"
-	-@erase "$(INTDIR)\vc50.pdb"
 	-@erase "$(OUTDIR)\ApacheCore.dll"
 	-@erase "$(OUTDIR)\ApacheCore.exp"
-	-@erase "$(OUTDIR)\ApacheCore.ilk"
 	-@erase "$(OUTDIR)\ApacheCore.lib"
 	-@erase "$(OUTDIR)\ApacheCore.map"
 	-@erase "$(OUTDIR)\ApacheCore.pdb"
@@ -288,53 +257,19 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP=cl.exe
-CPP_PROJ=/nologo /MDd /W3 /Gm /GX /Zi /Od /I ".\include" /I ".\os\win32" /D\
- "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "WIN32_LEAN_AND_MEAN" /Fo"$(INTDIR)\\"\
- /Fd"$(INTDIR)\\" /FD /c 
-CPP_OBJS=.\CoreD/
+CPP_PROJ=/nologo /MDd /W3 /GX /Zi /Od /I ".\include" /I ".\os\win32" /I\
+ ".\os\win32\win9xconhook" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D\
+ "WIN32_LEAN_AND_MEAN" /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\ApacheCore" /FD /c 
+CPP_OBJS=.\Debug/
 CPP_SBRS=.
-
-.c{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(CPP_OBJS)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.c{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(CPP_SBRS)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-MTL=midl.exe
 MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
-RSC=rc.exe
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\ApacheCore.bsc" 
 BSC32_SBRS= \
 	
 LINK32=link.exe
 LINK32_FLAGS=kernel32.lib user32.lib advapi32.lib ws2_32.lib /nologo\
- /subsystem:windows /dll /incremental:yes /pdb:"$(OUTDIR)\ApacheCore.pdb"\
+ /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\ApacheCore.pdb"\
  /map:"$(INTDIR)\ApacheCore.map" /debug /machine:I386 /def:".\ApacheCore.def"\
  /out:"$(OUTDIR)\ApacheCore.dll" /implib:"$(OUTDIR)\ApacheCore.lib"\
  /base:@"os\win32\BaseAddr.ref",ApacheCore 
@@ -382,9 +317,10 @@ LINK32_OBJS= \
 	"$(INTDIR)\util_script.obj" \
 	"$(INTDIR)\util_uri.obj" \
 	"$(INTDIR)\util_win32.obj" \
-	".\ap\Debug\ap.lib" \
-	".\os\win32\ApacheOSD\ApacheOS.lib" \
-	".\regex\Debug\regex.lib"
+	".\ap\LibD\ap.lib" \
+	".\os\win32\Debug\Win9xConHook.lib" \
+	".\os\win32\LibD\ApacheOS.lib" \
+	".\regex\LibD\regex.lib"
 
 "$(OUTDIR)\ApacheCore.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -392,6 +328,36 @@ LINK32_OBJS= \
 <<
 
 !ENDIF 
+
+.c{$(CPP_OBJS)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(CPP_OBJS)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(CPP_OBJS)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.c{$(CPP_SBRS)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(CPP_SBRS)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(CPP_SBRS)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
 
 
 !IF "$(CFG)" == "ApacheCore - Win32 Release" || "$(CFG)" ==\
@@ -402,6 +368,7 @@ DEP_CPP_ALLOC=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -414,7 +381,6 @@ DEP_CPP_ALLOC=\
 	
 NODEP_CPP_ALLOC=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -428,6 +394,7 @@ DEP_CPP_BUFF_=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -440,7 +407,6 @@ DEP_CPP_BUFF_=\
 	
 NODEP_CPP_BUFF_=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -454,6 +420,7 @@ DEP_CPP_BUILD=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -464,7 +431,6 @@ DEP_CPP_BUILD=\
 	
 NODEP_CPP_BUILD=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -483,6 +449,7 @@ DEP_CPP_HTTP_=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\explain.h"\
@@ -500,7 +467,6 @@ DEP_CPP_HTTP_=\
 	
 NODEP_CPP_HTTP_=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -514,6 +480,7 @@ DEP_CPP_HTTP_C=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_md5.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
@@ -537,7 +504,6 @@ DEP_CPP_HTTP_C=\
 	
 NODEP_CPP_HTTP_C=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -551,6 +517,7 @@ DEP_CPP_HTTP_L=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -566,7 +533,6 @@ DEP_CPP_HTTP_L=\
 	
 NODEP_CPP_HTTP_L=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -580,6 +546,7 @@ DEP_CPP_HTTP_M=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\explain.h"\
@@ -605,7 +572,6 @@ DEP_CPP_HTTP_M=\
 	
 NODEP_CPP_HTTP_M=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	".\main\xmlparse.h"\
 	
@@ -620,6 +586,7 @@ DEP_CPP_HTTP_P=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -639,7 +606,6 @@ DEP_CPP_HTTP_P=\
 	
 NODEP_CPP_HTTP_P=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -653,6 +619,7 @@ DEP_CPP_HTTP_R=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\fnmatch.h"\
@@ -672,7 +639,6 @@ DEP_CPP_HTTP_R=\
 	
 NODEP_CPP_HTTP_R=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -686,6 +652,7 @@ DEP_CPP_HTTP_V=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -701,7 +668,6 @@ DEP_CPP_HTTP_V=\
 	
 NODEP_CPP_HTTP_V=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -715,6 +681,7 @@ DEP_CPP_MOD_A=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -729,7 +696,6 @@ DEP_CPP_MOD_A=\
 	
 NODEP_CPP_MOD_A=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -743,6 +709,7 @@ DEP_CPP_MOD_AC=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -760,7 +727,6 @@ DEP_CPP_MOD_AC=\
 	
 NODEP_CPP_MOD_AC=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -774,6 +740,7 @@ DEP_CPP_MOD_AL=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -785,7 +752,6 @@ DEP_CPP_MOD_AL=\
 	
 NODEP_CPP_MOD_AL=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -799,6 +765,7 @@ DEP_CPP_MOD_AS=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -815,7 +782,6 @@ DEP_CPP_MOD_AS=\
 	
 NODEP_CPP_MOD_AS=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -829,6 +795,7 @@ DEP_CPP_MOD_AU=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -843,7 +810,6 @@ DEP_CPP_MOD_AU=\
 	
 NODEP_CPP_MOD_AU=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -857,6 +823,7 @@ DEP_CPP_MOD_AUT=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\fnmatch.h"\
@@ -875,7 +842,6 @@ DEP_CPP_MOD_AUT=\
 	
 NODEP_CPP_MOD_AUT=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -889,6 +855,7 @@ DEP_CPP_MOD_C=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -907,7 +874,6 @@ DEP_CPP_MOD_C=\
 	
 NODEP_CPP_MOD_C=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -921,6 +887,7 @@ DEP_CPP_MOD_D=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -938,7 +905,6 @@ DEP_CPP_MOD_D=\
 	
 NODEP_CPP_MOD_D=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -952,6 +918,7 @@ DEP_CPP_MOD_E=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -963,7 +930,6 @@ DEP_CPP_MOD_E=\
 	
 NODEP_CPP_MOD_E=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -977,6 +943,7 @@ DEP_CPP_MOD_I=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -994,7 +961,6 @@ DEP_CPP_MOD_I=\
 	
 NODEP_CPP_MOD_I=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1008,6 +974,7 @@ DEP_CPP_MOD_IN=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1025,7 +992,6 @@ DEP_CPP_MOD_IN=\
 	
 NODEP_CPP_MOD_IN=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	".\modules\standard\config.h"\
 	".\modules\standard\modules\perl\mod_perl.h"\
@@ -1041,6 +1007,7 @@ DEP_CPP_MOD_IS=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1057,7 +1024,6 @@ DEP_CPP_MOD_IS=\
 	
 NODEP_CPP_MOD_IS=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1071,6 +1037,7 @@ DEP_CPP_MOD_L=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1084,7 +1051,6 @@ DEP_CPP_MOD_L=\
 	
 NODEP_CPP_MOD_L=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1098,6 +1064,7 @@ DEP_CPP_MOD_M=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1110,7 +1077,6 @@ DEP_CPP_MOD_M=\
 	
 NODEP_CPP_MOD_M=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1124,6 +1090,7 @@ DEP_CPP_MOD_N=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1140,7 +1107,6 @@ DEP_CPP_MOD_N=\
 	
 NODEP_CPP_MOD_N=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1154,6 +1120,7 @@ DEP_CPP_MOD_S=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1167,7 +1134,6 @@ DEP_CPP_MOD_S=\
 	
 NODEP_CPP_MOD_S=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1181,6 +1147,7 @@ DEP_CPP_MOD_SO=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1193,7 +1160,6 @@ DEP_CPP_MOD_SO=\
 	
 NODEP_CPP_MOD_SO=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1207,6 +1173,7 @@ DEP_CPP_MOD_U=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1218,7 +1185,6 @@ DEP_CPP_MOD_U=\
 	
 NODEP_CPP_MOD_U=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1232,6 +1198,7 @@ DEP_CPP_MODUL=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1243,7 +1210,6 @@ DEP_CPP_MODUL=\
 	
 NODEP_CPP_MODUL=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1283,6 +1249,7 @@ DEP_CPP_REGIS=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1294,7 +1261,6 @@ DEP_CPP_REGIS=\
 	
 NODEP_CPP_REGIS=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1308,6 +1274,7 @@ DEP_CPP_RFC14=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1321,7 +1288,6 @@ DEP_CPP_RFC14=\
 	
 NODEP_CPP_RFC14=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1335,6 +1301,7 @@ DEP_CPP_SERVI=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1348,10 +1315,10 @@ DEP_CPP_SERVI=\
 	".\os\win32\readdir.h"\
 	".\os\win32\registry.h"\
 	".\os\win32\service.h"\
+	".\os\win32\Win9xConHook.h"\
 	
 NODEP_CPP_SERVI=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1365,6 +1332,7 @@ DEP_CPP_UTIL_=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1378,7 +1346,6 @@ DEP_CPP_UTIL_=\
 	
 NODEP_CPP_UTIL_=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1409,6 +1376,7 @@ DEP_CPP_UTIL_M=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_md5.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
@@ -1421,7 +1389,6 @@ DEP_CPP_UTIL_M=\
 	
 NODEP_CPP_UTIL_M=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1435,6 +1402,7 @@ DEP_CPP_UTIL_S=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1454,7 +1422,6 @@ DEP_CPP_UTIL_S=\
 	
 NODEP_CPP_UTIL_S=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1468,6 +1435,7 @@ DEP_CPP_UTIL_U=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1481,7 +1449,6 @@ DEP_CPP_UTIL_U=\
 	
 NODEP_CPP_UTIL_U=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1495,6 +1462,7 @@ DEP_CPP_UTIL_W=\
 	".\include\ap_alloc.h"\
 	".\include\ap_config.h"\
 	".\include\ap_ctype.h"\
+	".\include\ap_ebcdic.h"\
 	".\include\ap_mmn.h"\
 	".\include\buff.h"\
 	".\include\hsregex.h"\
@@ -1506,7 +1474,6 @@ DEP_CPP_UTIL_W=\
 	
 NODEP_CPP_UTIL_W=\
 	".\include\ap_config_auto.h"\
-	".\include\ebcdic.h"\
 	".\include\sfio.h"\
 	
 
@@ -1654,6 +1621,36 @@ NODEP_CPP_UTIL_W=\
    $(MAKE) /$(MAKEFLAGS) CLEAN /F ".\regex.mak" CFG="regex - Win32 Debug"\
  RECURSE=1 
    cd ".."
+
+!ENDIF 
+
+!IF  "$(CFG)" == "ApacheCore - Win32 Release"
+
+"Win9xConHook - Win32 Release" : 
+   cd ".\os\win32"
+   $(MAKE) /$(MAKEFLAGS) /F ".\Win9xConHook.mak"\
+ CFG="Win9xConHook - Win32 Release" 
+   cd "..\.."
+
+"Win9xConHook - Win32 ReleaseCLEAN" : 
+   cd ".\os\win32"
+   $(MAKE) /$(MAKEFLAGS) CLEAN /F ".\Win9xConHook.mak"\
+ CFG="Win9xConHook - Win32 Release" RECURSE=1 
+   cd "..\.."
+
+!ELSEIF  "$(CFG)" == "ApacheCore - Win32 Debug"
+
+"Win9xConHook - Win32 Debug" : 
+   cd ".\os\win32"
+   $(MAKE) /$(MAKEFLAGS) /F ".\Win9xConHook.mak"\
+ CFG="Win9xConHook - Win32 Debug" 
+   cd "..\.."
+
+"Win9xConHook - Win32 DebugCLEAN" : 
+   cd ".\os\win32"
+   $(MAKE) /$(MAKEFLAGS) CLEAN /F ".\Win9xConHook.mak"\
+ CFG="Win9xConHook - Win32 Debug" RECURSE=1 
+   cd "..\.."
 
 !ENDIF 
 

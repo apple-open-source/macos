@@ -10,7 +10,7 @@
 <table width="100%" cellpadding=0><tr>
 <td width="30%">Back to <a href="/~esr/index.html">Fetchmail Home Page</a>
 <td width="30%" align=center>To <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 1999/09/23 17:21:41 $
+<td width="30%" align=right>$Date: 2001/08/10 16:06:53 $
 </table>
 <HR>
 <H1 ALIGN=CENTER>Design Notes On Fetchmail</H1>
@@ -57,10 +57,10 @@ in its class.  The name change quickly followed.<P>
 
 <H1>The rewrite option</H1>
 
-RFC 1123 stipulates that MTAs ought to canonicalize the addresses of
-outgoing mail so that From:, To:, Cc:, Bcc: and other address headers
-contain only fully qualified domain names.  Failure to do so can break
-the reply function on many mailers.<P>
+MTAs ought to canonicalize the addresses of outgoing non-local mail so
+that From:, To:, Cc:, Bcc: and other address headers contain only
+fully qualified domain names.  Failure to do so can break the reply
+function on many mailers.  (Sendmail has an option to do this.)<P>
 
 This problem only becomes obvious when a reply is generated on a
 machine different from where the message was delivered.  The
@@ -293,12 +293,6 @@ not too distant future, we'll zap the ifdefs and just let autoconf
 check for getaddrinfo. IPv6 support comes pretty much automatically
 once you have protocol family independence.<P>
 
-Craig Metz used his inner_connect() function to handle most of the
-connect work. This is a nonstandard function not likely to ever exist
-in a system's libc, but we can just include that source file if the
-day comes when we want to support IPv6 without the inet6-apps
-library. It just makes life easier.<P>
-
 <H1>Internationalization</H1>
 
 Internationalization is handled using GNU gettext (see the file
@@ -306,10 +300,8 @@ ABOUT_NLS in the source distribution).  This places some
 minor constraints on the code.<P>
 
 Strings that must be subject to translation should be wrapped with _() 
-or N_() -- the former in functuib arguments, the latter in static
+or N_() -- the former in function arguments, the latter in static
 initializers and other non-function-argument contexts.<p>
-
-To test the support
 
 <H1>Checklist for Adding Options</H1>
 
@@ -338,25 +330,31 @@ following minimum steps.
 
 <LI>Add code to dump the option value in <code>fetchmail.c:dump_params</code>.
 
-<LI>Add proper <code>FLAG_MERGE</code> actions in fetchmail.c's
-    optmerge() function.  (If it's a global option, add an override 
-    at the end of load_params.
+<LI> For a per-site or per-user option, add proper
+    <code>FLAG_MERGE</code> actions in fetchmail.c's optmerge()
+    function.  For a global option, add an override at the end of
+    load_params; this will involve copying a "cmd_run."  field to a
+    corresponding "run." field, see the existing code for models.
 
 <LI>Document the option in fetchmail.man.  This will require at least
     two changes; one to the collected table of options, and one full
     text description of the option.
-
-<LI>Add the new token and a brief description to the header comment of
-    sample.rcfile.
 
 <LI>Hack fetchmailconf to configure it.  Bump the fetchmailconf version.
 
 <LI>Hack conf.c to dump the option so we won't have a version-skew problem.
 
 <LI>Add an entry to NEWS.
+
+<LI>If the option implements a new feature, add a note to the feature list.
 </UL>
 
 There may be other things you have to do in the way of logic, of course.<P>
+
+Before you implement an option, though, think hard.  Is there any way
+to make fetchmail automatically detect the circumstances under which
+it should change its behavior?  If so, don't write an option.  Just do
+the check!<p>
 
 <H1>Lessons learned</H1>
 
@@ -390,8 +388,8 @@ hours spent looking for subtle pathologies.<P>
 
 <H3>3. IMAP is a Good Thing.</H3>
 
-If there were a standard IMAP equivalent of the POP3 APOP validation,
-POP3 would be completely obsolete.<P>
+Now that there is a standard IMAP equivalent of the POP3 APOP validation
+in CRAM-MD5, POP3 is completely obsolete.<P>
 
 <H3>4. SMTP is the Right Thing</H3>
 
@@ -429,8 +427,9 @@ a gift from the gods, and this is my expression of gratitude.<P>
 
 The beta testers didn't know it at the time, but they were also the
 subjects of a sociological experiment.  The results are described in
-my paper, <A HREF="//www.tuxedo.org/~esr/writings/cathedral-bazaar/">The Cathedral
-And The Bazaar</A>.
+my paper, <A
+HREF="//www.tuxedo.org/~esr/writings/cathedral-bazaar/">The Cathedral
+And The Bazaar</A>.<P>
 
 <H1>Credits</H1>
 
@@ -456,15 +455,15 @@ all shaped the design in one way or another.<P>
 
 <DL>
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc821.txt">RFC821</A>
-<DD>  SMTP protocol
+<DD> SMTP protocol
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc822.txt">RFC822</A>
-<DD>  Mail header format
+<DD> Mail header format
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc937.txt">RFC937</A>
-<DD>  Post Office Protocol - Version 2
+<DD> Post Office Protocol - Version 2
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc974.txt">RFC974</A>
-<DD>  MX routing
+<DD> MX routing
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc976.txt">RFC976</A>
-<DD>  UUCP mail format
+<DD> UUCP mail format
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1081.txt">RFC1081</A>
 <DD> Post Office Protocol - Version 3
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1123.txt">RFC1123</A>
@@ -483,6 +482,8 @@ all shaped the design in one way or another.<P>
 <DD> Transition of Internet Mail from Just-Send-8 to 8-bit SMTP/MIME
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1460.txt">RFC1460</A>
 <DD> Post Office Protocol - Version 3
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1508.txt">RFC1508</A>
+<DD> Generic Security Service Application Program Interface
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1521.txt">RFC1521</A>
 <DD> MIME: Multipurpose Internet Mail Extensions
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1869.txt">RFC1869</A>
@@ -515,6 +516,8 @@ all shaped the design in one way or another.<P>
 <DD> A One-Time Password System
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1939.txt">RFC1939</A>
 <DD> Post Office Protocol - Version 3
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1957.txt">RFC1957</A>
+<DD> Some Observations on Implementations of the Post Office Protocol (POP3)
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc1985.txt">RFC1985</A>
 <DD> SMTP Service Extension for Remote Message Queue Starting
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2033.txt">RFC2033</A>
@@ -525,17 +528,34 @@ all shaped the design in one way or another.<P>
 <DD> IMAP4 Compatibility With IMAP2bis
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2062.txt">RFC2062</A>
 <DD> Internet Message Access Protocol - Obsolete Syntax
-<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2195.txt">RFC2449</A>
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2195.txt">RFC2195</A>
 <DD> IMAP/POP AUTHorize Extension for Simple Challenge/Response
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2177.txt">RFC2177</A>
+<DD> IMAP IDLE command
 <DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2449.txt">RFC2449</A>
 <DD> POP3 Extension Mechanism
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2683.txt">RFC2683</A>
+<DD> IMAP4 Implementation Recommendations
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2595.html">RFC2595</A>
+<DD> Using TLS with IMAP, POP3 and ACAP
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2645.html">RFC2645</A>
+<DD>On-Demand Mail Relay: SMTP with Dynamic IP Addresses
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2821.html">RFC2821</A>
+<DD> Simple Mail Transfer Protocol
+<DT><A HREF="ftp://ftp.isi.edu/in-notes/rfc2822.txt">RFC2822</A>
+<DD>Internet Message Format
 </DL>
+<!--
+RFC2192 IMAP URL Scheme
+RFC2193 IMAP4 Mailbox Referrals
+RFC2221 IMAP4 Login Referrals
+-->
 
 <HR>
 <table width="100%" cellpadding=0><tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home Page</a>
 <td width="30%" align=center>To <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 1999/09/23 17:21:41 $
+<td width="30%" align=right>$Date: 2001/08/10 16:06:53 $
 </table>
 
 <P><ADDRESS>Eric S. Raymond <A HREF="mailto:esr@thyrsus.com">&lt;esr@snark.thyrsus.com&gt;</A></ADDRESS>

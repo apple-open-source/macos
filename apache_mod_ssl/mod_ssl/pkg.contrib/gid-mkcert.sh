@@ -1,7 +1,7 @@
 #!/bin/sh
 ##
 ##  gid-mkcert.sh -- Create Certificates for Global Server ID facility
-##  Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
 ##
 ##  This script is derived from mkcert.sh from the mod_ssl distribution.
 ##  It requires OpenSSL 0.9.4.
@@ -46,7 +46,7 @@ for file in /var/log/messages /var/adm/messages \
 done
 
 echo "${T_MD}This is GID-MKCERT (Global Server ID Generation)${T_ME}"
-echo "${T_MD}Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved.${T_ME}"
+echo "${T_MD}Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved.${T_ME}"
 
 if [ ! -f $sslcrtdir/ca.crt ]; then
     echo ""

@@ -20,16 +20,31 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 23, 2001		Allan Nathanson <ajn@apple.com>
+ * - update to public SystemConfiguration.framework APIs
+ *
+ * June 4, 2001			Allan Nathanson <ajn@apple.com>
+ * - add changed keys as the arguments to the kicker script
+ *
+ * June 30, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define	SYSTEMCONFIGURATION_NEW_API
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
+#include <SystemConfiguration/SCValidation.h>
 
 
 /*
@@ -45,48 +60,47 @@ typedef struct {
 	boolean_t		active;
 	boolean_t		needsKick;
 
-	/* helper thread (when using the CFRunLoop) */
+	/* helper thread */
 	pthread_t		helper;
 
 	/* dictionary associated with this target */
 	CFDictionaryRef		dict;
 
-	/* SCD session information for this target */
-	SCDSessionRef		session;
+	/* SCDynamicStore session information for this target */
+	CFRunLoopRef		rl;
+	CFRunLoopSourceRef	rls;
+	SCDynamicStoreRef	store;
+
+	/* changed keys */
+	CFMutableArrayRef	changedKeys;
 } kickee, *kickeeRef;
 
 
-static CFStringRef	myBundleDir;
+static CFURLRef	myBundleURL	= NULL;
+static Boolean	_verbose	= FALSE;
 
 
 int
-execCommandWithUID(const char *command, uid_t reqUID)
+execCommandWithUID(const char *command, const char *argv[], uid_t reqUID)
 {
 	uid_t		curUID = geteuid();
 	pid_t		pid;
-	const char	*arg0;
 	int		status;
 	int		i;
 
-	SCDLog(LOG_NOTICE, CFSTR("executing %s"), command);
-	SCDLog(LOG_DEBUG,  CFSTR("  current uid = %d, requested = %d"), curUID, reqUID);
+	SCLog(TRUE,     LOG_NOTICE, CFSTR("executing %s"), command);
+	SCLog(_verbose, LOG_DEBUG,  CFSTR("  current uid = %d, requested = %d"), curUID, reqUID);
 
-	pid = vfork();
+	pid = /*v*/fork();
 	switch (pid) {
 		case -1 :
 			/* if error */
 			status = W_EXITCODE(errno, 0);
-			SCDLog(LOG_DEBUG,  CFSTR("vfork() failed: %s"), strerror(errno));
+			SCLog(TRUE, LOG_DEBUG,  CFSTR("vfork() failed: %s"), strerror(errno));
 			return status;
 
 		case 0 :
 			/* if child */
-
-			if ((arg0 = rindex(command, '/')) != NULL) {
-				arg0++;
-			} else {
-				arg0 = command;
-			}
 
 			if ((curUID != reqUID) && (curUID == 0)) {
 				(void) setuid(reqUID);
@@ -99,9 +113,9 @@ execCommandWithUID(const char *command, uid_t reqUID)
 			dup(0);
 
 			/* execute requested command */
-			execl(command, arg0, (char *)NULL);
+			execv(command, argv);
 			status = W_EXITCODE(errno, 0);
-			SCDLog(LOG_DEBUG,  CFSTR("execl() failed: %s"), strerror(errno));
+			SCLog(TRUE, LOG_DEBUG,  CFSTR("execl() failed: %s"), strerror(errno));
 			_exit (WEXITSTATUS(status));
 	}
 
@@ -122,10 +136,10 @@ cleanupTarget(void *ptr)
 	 * cleaned up so we can simply release the target dictionary and then
 	 * remove the target itself.
 	 */
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaCallback() thread cancelled, cleaning up \"target\""));
-
+	SCLog(_verbose, LOG_DEBUG, CFSTR("SCDynamicStore callback thread cancelled, cleaning up \"target\""));
 	pthread_mutex_destroy(&target->lock);
-	CFRelease(target->dict);
+	if (target->dict)		CFRelease(target->dict);
+	if (target->changedKeys)	CFRelease(target->changedKeys);
 	CFAllocatorDeallocate(NULL, target);
 	return;
 }
@@ -134,19 +148,45 @@ cleanupTarget(void *ptr)
 void
 cleanupCFObject(void *ptr)
 {
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaCallback() thread cancelled, cleaning up \"theCommand\" string"));
+	SCLog(_verbose, LOG_DEBUG, CFSTR("SCDynamicStore callback thread cancelled, cleaning up \"theCommand\" string"));
 	if (ptr != NULL)
 		CFRelease(ptr);
 	return;
 }
 
 
+typedef struct {
+	char	*cmd;
+	char	**argv;
+} execInfo, *execInfoRef;
+
+
 void
-cleanupCFAllocator(void *ptr)
+cleanupArgInfo(void *ptr)
 {
-	SCDLog(LOG_DEBUG, CFSTR("SCDNotifierInformViaCallback() thread cancelled, cleaning up \"cmd\" buffer"));
-	if (ptr != NULL)
-		CFAllocatorDeallocate(NULL, ptr);
+	execInfoRef	info	= (execInfoRef)ptr;
+
+	SCLog(_verbose, LOG_DEBUG, CFSTR("SCDynamicStore callback thread cancelled, cleaning up \"cmd\" buffer"));
+	if (info == NULL) {
+		return;
+	}
+
+	/* clean up the command */
+	if (info->cmd) {
+		CFAllocatorDeallocate(NULL, info->cmd);
+	}
+
+	/* clean up the arguments */
+	if (info->argv) {
+		int	argc = 1;	/* skip argv[0], command name */
+
+		while (info->argv[argc] != NULL) {
+			CFAllocatorDeallocate(NULL, info->argv[argc]);
+			argc++;
+		}
+		CFAllocatorDeallocate(NULL, info->argv);
+	}
+
 	return;
 }
 
@@ -154,22 +194,21 @@ cleanupCFAllocator(void *ptr)
 void *
 booter(void *arg)
 {
-	kickeeRef	target      = (kickeeRef)arg;
-	CFStringRef	name        = CFDictionaryGetValue(target->dict, CFSTR("name"));
-	CFStringRef	execCommand = CFDictionaryGetValue(target->dict, CFSTR("execCommand"));
-	CFNumberRef	execUID     = CFDictionaryGetValue(target->dict, CFSTR("execUID"));
+	kickeeRef	target		= (kickeeRef)arg;
+	CFStringRef	name		= CFDictionaryGetValue(target->dict, CFSTR("name"));
+	CFStringRef	execCommand	= CFDictionaryGetValue(target->dict, CFSTR("execCommand"));
+	CFNumberRef	execUID		= CFDictionaryGetValue(target->dict, CFSTR("execUID"));
+	CFBooleanRef	passKeys	= CFDictionaryGetValue(target->dict, CFSTR("changedKeysAsArguments"));
 
-	SCDLog(LOG_DEBUG, CFSTR("Kicker callback, target=%@"), name);
+	SCLog(_verbose, LOG_DEBUG, CFSTR("Kicker callback, target=%@"), name);
 
 	pthread_cleanup_push(cleanupTarget, (void *)target);
 
-	if (execCommand != NULL) {
+	if (isA_CFString(execCommand)) {
 		CFMutableStringRef	theCommand;
 		CFRange			bpr;
-		int			cmdLen = CFStringGetLength(execCommand) + 1;
-		char			*cmd = NULL;
-		Boolean			ok;
-		uid_t			reqUID = 0;
+		Boolean			ok	= TRUE;
+		uid_t			reqUID	= 0;
 		int			status;
 
 		theCommand = CFStringCreateMutableCopy(NULL, 0, execCommand);
@@ -177,54 +216,114 @@ booter(void *arg)
 
 		bpr = CFStringFind(theCommand, CFSTR("$BUNDLE"), 0);
 		if (bpr.location != kCFNotFound) {
-			CFStringReplace(theCommand, bpr, myBundleDir);
+			CFStringRef	bundlePath;
+
+			bundlePath = CFURLCopyFileSystemPath(myBundleURL, kCFURLPOSIXPathStyle);
+			CFStringReplace(theCommand, bpr, bundlePath);
+			CFRelease(bundlePath);
 		}
 
-		cmdLen = CFStringGetLength(theCommand) + 1;
-		cmd    = CFAllocatorAllocate(NULL, cmdLen, 0);
-		pthread_cleanup_push(cleanupCFAllocator, (void *)cmd);
+		if (isA_CFNumber(execUID)) {
+			CFNumberGetValue(execUID, kCFNumberIntType, &reqUID);
+		}
 
-		ok = CFStringGetCString(theCommand,
-					cmd,
-					cmdLen,
-					kCFStringEncodingMacRoman);
-		if (ok) {
-			if (execUID) {
-				CFNumberGetValue(execUID, kCFNumberIntType, &reqUID);
+		pthread_mutex_lock(&target->lock);
+		while (ok && target->needsKick) {
+			int		i;
+			execInfo	info;
+			int		len;
+			int		nKeys	= CFArrayGetCount(target->changedKeys);
+
+			info.cmd = NULL;
+			info.argv = CFAllocatorAllocate(NULL,
+							(nKeys + 2) * sizeof(char *),
+							0);
+			for (i=0; i<(nKeys + 2); i++) {
+				info.argv[i] = NULL;
+			}
+			pthread_cleanup_push(cleanupArgInfo, &info);
+
+			/* convert command */
+			len = CFStringGetLength(theCommand) + 1;
+			info.cmd = CFAllocatorAllocate(NULL, len, 0);
+			ok = CFStringGetCString(theCommand,
+						info.cmd,
+						len,
+						kCFStringEncodingMacRoman);
+			if (!ok) {
+				SCLog(TRUE, LOG_DEBUG, CFSTR("  could not convert command to C string"));
+				goto error;
 			}
 
-			pthread_mutex_lock(&target->lock);
-			while (ok && target->needsKick) {
-				target->needsKick = FALSE;
-				pthread_mutex_unlock(&target->lock);
+			/* create command name argument */
+			if ((info.argv[0] = rindex(info.cmd, '/')) != NULL) {
+				info.argv[0]++;
+			} else {
+				info.argv[0] = info.cmd;
+			}
 
-				status = execCommandWithUID(cmd, reqUID);
-				if (WIFEXITED(status)) {
-					SCDLog(LOG_DEBUG, CFSTR("  exit status = %d"), WEXITSTATUS(status));
-					if (WEXITSTATUS(status) != 0) {
-						ok = FALSE;
+			/* create changed key arguments */
+			if (isA_CFBoolean(passKeys) && CFBooleanGetValue(passKeys)) {
+				for (i=0; i<nKeys; i++) {
+					CFStringRef	key = CFArrayGetValueAtIndex(target->changedKeys, i);
+
+					len = CFStringGetLength(key) + 1;
+					info.argv[i+1] = CFAllocatorAllocate(NULL, len, 0);
+					ok = CFStringGetCString(key,
+								info.argv[i+1],
+								len,
+								kCFStringEncodingMacRoman);
+					if (!ok) {
+						SCLog(TRUE, LOG_DEBUG,
+						      CFSTR("  could not convert argument to C string"));
+						goto error;
 					}
-				} else if (WIFSIGNALED(status)) {
-					SCDLog(LOG_DEBUG, CFSTR("  terminated w/signal = %d"), WTERMSIG(status));
-					ok = FALSE;
-				} else {
-					SCDLog(LOG_DEBUG, CFSTR("  exit status = %d"), status);
+				}
+			}
+
+			CFRelease(target->changedKeys);
+			target->changedKeys = NULL;
+
+			/* allow additional requests to be queued */
+			target->needsKick = FALSE;
+
+			pthread_mutex_unlock(&target->lock);
+
+			status = execCommandWithUID(info.cmd, info.argv, reqUID);
+			if (WIFEXITED(status)) {
+				SCLog(TRUE, LOG_DEBUG,
+				      CFSTR("  target=%@: exit status = %d"),
+				      name,
+				      WEXITSTATUS(status));
+				if (WEXITSTATUS(status) != 0) {
 					ok = FALSE;
 				}
-
-				pthread_mutex_lock(&target->lock);
+			} else if (WIFSIGNALED(status)) {
+				SCLog(TRUE, LOG_DEBUG,
+				      CFSTR("  target=%@: terminated w/signal = %d"),
+				      name,
+				      WTERMSIG(status));
+				ok = FALSE;
+			} else {
+				SCLog(TRUE, LOG_DEBUG,
+				      CFSTR("  target=%@: exit status = %d"),
+				      name,
+				      status);
+				ok = FALSE;
 			}
-			target->active = FALSE;
-			pthread_mutex_unlock(&target->lock);
-		} else {
-			SCDLog(LOG_DEBUG, CFSTR("  could not convert command to C string"));
-		}
 
-		/*
-		 * pop the cleanup routine for the "cmd" string. We end up deallocating
-		 * the block of memory in the process.
-		 */
-		pthread_cleanup_pop(1);
+		    error :
+
+			/*
+			 * pop the cleanup routine for the "info" structure. We end
+			 * up deallocating the associated memory in the process.
+			 */
+			pthread_cleanup_pop(1);
+
+			pthread_mutex_lock(&target->lock);
+		}
+		target->active = FALSE;
+		pthread_mutex_unlock(&target->lock);
 
 		/*
 		 * pop the cleanup routine for the "theCommand" CFString. We end up calling
@@ -240,8 +339,11 @@ booter(void *arg)
 			 * session (which will result in this thread being cancelled) and
 			 * the kickee target released.
 			 */
-			SCDLog(LOG_NOTICE, CFSTR("Kicker: retries disabled (command failed), target=%@"), name);
-			SCDClose(&target->session);
+			SCLog(TRUE, LOG_NOTICE,
+			      CFSTR("Kicker: retries disabled (command failed), target=%@"),
+			      name);
+			CFRunLoopRemoveSource(target->rl, target->rls, kCFRunLoopDefaultMode);
+			CFRelease(target->store);
 		}
 	}
 
@@ -255,66 +357,63 @@ booter(void *arg)
 }
 
 
-boolean_t
-kicker(SCDSessionRef session, void *arg)
+void
+kicker(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
-	kickeeRef	target      = (kickeeRef)arg;
-	CFStringRef	name        = CFDictionaryGetValue(target->dict, CFSTR("name"));
-	SCDStatus	scd_status;
-	CFArrayRef	changedKeys;
-
-	/*
-	 * Fetched the changed keys
-	 */
-	scd_status = SCDNotifierGetChanges(session, &changedKeys);
-	if (scd_status == SCD_OK) {
-		CFRelease(changedKeys);
-	} else {
-		SCDLog(LOG_ERR, CFSTR("SCDNotifierGetChanges() failed: %s"), SCDError(scd_status));
-		/* XXX need to do something more with this FATAL error XXXX */
-	}
+	CFIndex		i;
+	kickeeRef	target		= (kickeeRef)arg;
+	pthread_attr_t	tattr;
 
 	/*
 	 * Start a new kicker.  If a kicker was already active then flag
 	 * the need for a second kick after the active one completes.
 	 */
 	pthread_mutex_lock(&target->lock);
-	if (target->active) {
-		target->needsKick = TRUE;
-		pthread_mutex_unlock(&target->lock);
-		SCDLog(LOG_DEBUG, CFSTR("Kicker callback, target=%@ request queued"), name);
-		return TRUE;
+
+	/* create (or add to) the full list of keys that have changed */
+	if (!target->changedKeys) {
+		target->changedKeys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
+	for (i=0; i<CFArrayGetCount(changedKeys); i++) {
+		CFStringRef	key = CFArrayGetValueAtIndex(changedKeys, i);
+
+		if (!CFArrayContainsValue(target->changedKeys,
+					  CFRangeMake(0, CFArrayGetCount(target->changedKeys)),
+					  key)) {
+			CFArrayAppendValue(target->changedKeys, key);
+		}
+	}
+
+	if (target->active) {
+		CFStringRef	name = CFDictionaryGetValue(target->dict, CFSTR("name"));
+
+		/* we need another kick! */
+		target->needsKick = TRUE;
+
+		pthread_mutex_unlock(&target->lock);
+		SCLog(_verbose, LOG_DEBUG, CFSTR("Kicker callback, target=%@ request queued"), name);
+		return;
+	}
+
+	/* we're starting a new kicker */
 	target->active    = TRUE;
 	target->needsKick = TRUE;
 	pthread_mutex_unlock(&target->lock);
 
-	if (SCDOptionGet(session, kSCDOptionUseCFRunLoop)) {
-		/*
-		 * we are executing in the CFRunLoop. As such, this
-		 * callback IS NOT running in a per-notification
-		 * thread and since we don't want to block other
-		 * processes while we are waiting for our command
-		 * execution to complete we need to spawn ourselves.
-		 */
-		pthread_attr_t	tattr;
+	/*
+	 * since we are executing in the CFRunLoop and
+	 * since we don't want to block other processes
+	 * while we are waiting for our command execution
+	 * to complete we need to spawn ourselves.
+	 */
+	pthread_attr_init(&tattr);
+	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
+	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
+	pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
+	pthread_create(&target->helper, &tattr, booter, (void *)target);
+	pthread_attr_destroy(&tattr);
 
-		pthread_attr_init(&tattr);
-		pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
-		pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
-		pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
-		pthread_create(&target->helper, &tattr, booter, (void *)target);
-		pthread_attr_destroy(&tattr);
-	} else {
-		/*
-		 * we are not executing in the CFRunLoop. As such,
-		 * this callback IS running in a per-notification
-		 * thread.
-		 */
-		booter(target);
-	}
-
-	return TRUE;
+	return;
 }
 
 
@@ -329,158 +428,179 @@ kicker(SCDSessionRef session, void *arg)
 void
 startKicker(const void *value, void *context)
 {
-	kickeeRef		target = CFAllocatorAllocate(NULL, sizeof(kickee), 0);
 	CFMutableStringRef	name;
-	SCDStatus		scd_status;
 	CFArrayRef		keys;
-	CFIndex			i;
+	CFArrayRef		patterns;
+	kickeeRef		target		= CFAllocatorAllocate(NULL, sizeof(kickee), 0);
+	SCDynamicStoreContext	targetContext	= { 0, (void *)target, NULL, NULL, NULL };
 
 	pthread_mutex_init(&target->lock, NULL);
 	target->active		= FALSE;
 	target->needsKick	= FALSE;
-	target->dict		= (CFDictionaryRef)value;
+	target->dict		= CFRetain((CFDictionaryRef)value);
+	target->store		= NULL;
+	target->rl		= NULL;
+	target->rls		= NULL;
+	target->changedKeys	= NULL;
 
 	name = CFStringCreateMutableCopy(NULL,
 					 0,
 					 CFDictionaryGetValue(target->dict, CFSTR("name")));
-	SCDLog(LOG_DEBUG, CFSTR("Starting kicker for %@"), name);
+	SCLog(TRUE, LOG_DEBUG, CFSTR("Starting kicker for %@"), name);
 
 	CFStringAppend(name, CFSTR(" \"Kicker\""));
-	scd_status = SCDOpen(&target->session, name);
+	target->store = SCDynamicStoreCreate(NULL, name, kicker, &targetContext);
 	CFRelease(name);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_NOTICE, CFSTR("SCDOpen() failed: %s"), SCDError(scd_status));
-		CFAllocatorDeallocate(NULL, target);
-		return;
+	if (!target->store) {
+		SCLog(TRUE,
+		      LOG_NOTICE,
+		      CFSTR("SCDynamicStoreCreate() failed: %s"),
+		      SCErrorString(SCError()));
+		goto error;
 	}
 
-	keys = CFDictionaryGetValue(target->dict, CFSTR("keys"));
-	if (keys != NULL) {
-		for (i=0; i<CFArrayGetCount(keys); i++) {
-			scd_status = SCDNotifierAdd(target->session,
-						    CFArrayGetValueAtIndex(keys, i),
-						    0);
-			if (scd_status != SCD_OK) {
-				SCDLog(LOG_NOTICE, CFSTR("SCDNotifierAdd() failed: %s"), SCDError(scd_status));
-				(void) SCDClose(&target->session);
-				CFAllocatorDeallocate(NULL, target);
-				return;
-			}
-		}
+	keys     = isA_CFArray(CFDictionaryGetValue(target->dict, CFSTR("keys")));
+	patterns = isA_CFArray(CFDictionaryGetValue(target->dict, CFSTR("regexKeys")));
+	if (!SCDynamicStoreSetNotificationKeys(target->store, keys, patterns)) {
+		SCLog(TRUE,
+		      LOG_NOTICE,
+		      CFSTR("SCDynamicStoreSetNotifications() failed: %s"),
+		      SCErrorString(SCError()));
+		goto error;
 	}
 
-	keys = CFDictionaryGetValue(target->dict, CFSTR("regexKeys"));
-	if (keys != NULL) {
-		for (i=0; i<CFArrayGetCount(keys); i++) {
-			scd_status = SCDNotifierAdd(target->session,
-						    CFArrayGetValueAtIndex(keys, i),
-						    kSCDRegexKey);
-			if (scd_status != SCD_OK) {
-				SCDLog(LOG_NOTICE, CFSTR("SCDNotifierAdd() failed: %s"), SCDError(scd_status));
-				(void) SCDClose(&target->session);
-				CFAllocatorDeallocate(NULL, target);
-				return;
-			}
-		}
+	target->rl  = CFRunLoopGetCurrent();
+	target->rls = SCDynamicStoreCreateRunLoopSource(NULL, target->store, 0);
+	if (!target->rls) {
+		SCLog(TRUE,
+		      LOG_NOTICE,
+		      CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s"),
+		      SCErrorString(SCError()));
+		goto error;
 	}
 
-	CFRetain(target->dict);
+	CFRunLoopAddSource(target->rl, target->rls, kCFRunLoopDefaultMode);
+	return;
 
-	scd_status = SCDNotifierInformViaCallback(target->session, kicker, target);
-	if (scd_status != SCD_OK) {
-		SCDLog(LOG_NOTICE, CFSTR("SCDNotifierInformViaCallback() failed: %s"), SCDError(scd_status));
-		(void) SCDClose(&target->session);
-		CFRelease(target->dict);
-		CFAllocatorDeallocate(NULL, target);
-		return;
-	}
+    error :
 
+	CFRelease(target->dict);
+	if (target->store)	CFRelease(target->store);
+	CFAllocatorDeallocate(NULL, target);
 	return;
 }
 
 
 CFArrayRef
-getTargets(const char *bundleName, const char *bundleDir)
+getTargets(CFBundleRef bundle)
 {
-	char			*targetPath;
 	int			fd;
+	Boolean			ok;
 	struct stat		statBuf;
-	CFMutableDataRef	xmlTargets;
 	CFArrayRef		targets;	/* The array of dictionaries
 						   representing targets with
 						   a "kick me" sign posted on
-						   their backs.*/
+						   their backs. */
+	char			targetPath[MAXPATHLEN];
+	CFURLRef		url;
 	CFStringRef		xmlError;
+	CFMutableDataRef	xmlTargets;
 
-	/*
-	 * Given a bundle name (e.g. "foo") and the associated bundle directory
-	 * path (e.g. /System/Library/SystemConfiguration/foo.bundle) we build
-	 * a path to the bundle's "Resources" directory and the XML property
-	 * list which contains information on the processes to be kicked. The
-	 * resulting path would look like the following:
-	 *
-	 *   /System/Library/SystemConfiguration/foo.bundle/Resources/foo[_debug]
-	 */
-	 targetPath = malloc(strlen(bundleDir) + 11 + strlen(bundleName) + 5);
-	 (void) sprintf(targetPath, "%s/Resources/%s.xml", bundleDir, bundleName);
-	 if ((fd = open(targetPath, O_RDONLY, 0)) == -1) {
-		 SCDLog(LOG_NOTICE, CFSTR("%s start(): %s not found"), bundleName, targetPath);
-		 free(targetPath);
-		 return NULL;
-	 }
-	 free(targetPath);
+	/* locate the Kicker targets */
+	url = CFBundleCopyResourceURL(bundle, CFSTR("Kicker"), CFSTR("xml"), NULL);
+	if (!url) {
+		return NULL;
+	}
 
-	 /* Get the size of the XML data */
-	 if (fstat(fd, &statBuf) < 0) {
-		 (void) close(fd);
-		 return NULL;
-	 }
-	 if ((statBuf.st_mode & S_IFMT) != S_IFREG) {
-		 (void) close(fd);
-		 return NULL;
-	 }
+	ok = CFURLGetFileSystemRepresentation(url,
+					      TRUE,
+					      (UInt8 *)&targetPath,
+					      sizeof(targetPath));
+	CFRelease(url);
+	if (!ok) {
+		return NULL;
+	}
 
-	 xmlTargets = CFDataCreateMutable(NULL, statBuf.st_size);
-	 CFDataSetLength(xmlTargets, statBuf.st_size);
-	 if (read(fd, (void *)CFDataGetBytePtr(xmlTargets), statBuf.st_size) != statBuf.st_size) {
-		 CFRelease(xmlTargets);
-		 (void) close(fd);
-		 return NULL;
-	 }
-	 (void) close(fd);
+	/* open the file */
+	if ((fd = open(targetPath, O_RDONLY, 0)) == -1) {
+		SCLog(TRUE, LOG_NOTICE,
+		      CFSTR("%@ load(): %s not found"),
+		      CFBundleGetIdentifier(bundle),
+		      targetPath);
+		return NULL;
+	}
 
-	 targets = CFPropertyListCreateFromXMLData(NULL,
-						   xmlTargets,
-						   kCFPropertyListImmutable,
-						   &xmlError);
-	 CFRelease(xmlTargets);
-	 if (xmlError) {
-		 SCDLog(LOG_DEBUG, CFSTR("CFPropertyListCreateFromXMLData() start: %s"), xmlError);
-		 return NULL;
-	 }
+	/* get the type and size of the XML data file */
+	if (fstat(fd, &statBuf) < 0) {
+		(void) close(fd);
+		return NULL;
+	}
 
-	 return targets ;
+	/* check that its a regular file */
+	if ((statBuf.st_mode & S_IFMT) != S_IFREG) {
+		(void) close(fd);
+		return NULL;
+	}
+
+	/* load the file contents */
+	xmlTargets = CFDataCreateMutable(NULL, statBuf.st_size);
+	CFDataSetLength(xmlTargets, statBuf.st_size);
+	if (read(fd, (void *)CFDataGetBytePtr(xmlTargets), statBuf.st_size) != statBuf.st_size) {
+		CFRelease(xmlTargets);
+		(void) close(fd);
+		return NULL;
+	}
+	(void) close(fd);
+
+	/* convert the XML data into a property list */
+	targets = CFPropertyListCreateFromXMLData(NULL,
+						  xmlTargets,
+						  kCFPropertyListImmutable,
+						  &xmlError);
+	CFRelease(xmlTargets);
+	if (!targets) {
+		if (xmlError) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("CFPropertyListCreateFromXMLData() start: %@"),
+			      xmlError);
+			CFRelease(xmlError);
+		}
+		return NULL;
+	}
+
+	if (!isA_CFArray(targets)) {
+		CFRelease(targets);
+		targets = NULL;
+	}
+
+	return targets;
 }
 
 
 void
-start(const char *bundleName, const char *bundleDir)
+load(CFBundleRef bundle, Boolean bundleVerbose)
 {
 	CFArrayRef	targets;	/* The array of dictionaries representing targets
 					 * with a "kick me" sign posted on their backs.*/
 
-	SCDLog(LOG_DEBUG, CFSTR("start() called"));
-	SCDLog(LOG_DEBUG, CFSTR("  bundle name      = %s"), bundleName);
-	SCDLog(LOG_DEBUG, CFSTR("  bundle directory = %s"), bundleDir);
+	if (bundleVerbose) {
+		_verbose = TRUE;
+	}
 
-	/* save the path to the bundle directory */
-	myBundleDir = CFStringCreateWithCString(NULL, bundleDir, kCFStringEncodingMacRoman);
+	SCLog(_verbose, LOG_DEBUG, CFSTR("load() called"));
+	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
+
+	/* get the bundle's URL */
+	myBundleURL = CFBundleCopyBundleURL(bundle);
+	if (!myBundleURL) {
+		return;
+	}
 
 	/* get the targets */
-	targets = getTargets(bundleName, bundleDir);
-	if (targets == NULL) {
+	targets = getTargets(bundle);
+	if (!targets) {
 		/* if nothing to do */
-		CFRelease(myBundleDir);
+		CFRelease(myBundleURL);
 		return;
 	}
 
@@ -493,3 +613,18 @@ start(const char *bundleName, const char *bundleDir)
 
 	return;
 }
+
+#ifdef	MAIN
+int
+main(int argc, char **argv)
+{
+	_sc_log     = FALSE;
+	_sc_verbose = (argc > 1) ? TRUE : FALSE;
+
+	load(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
+	CFRunLoopRun();
+	/* not reached */
+	exit(0);
+	return 0;
+}
+#endif

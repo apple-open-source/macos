@@ -13,12 +13,12 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 CLASSES = AMMap.m AMString.m AMVnode.m Array.m Controller.m FileMap.m\
-          FstabMap.m NIMap.m RRObject.m Server.m
+          FstabMap.m NIMap.m RRObject.m Server.m StaticMap.m
 
 HFILES = AMMap.h AMString.h AMVersion.h AMVnode.h Array.h\
          Controller.h FileMap.h FstabMap.h NFSHeaders.h NIMap.h\
-         RRObject.h Server.h automount.h config.h log.h syslock.h\
-         systhread.h
+         RRObject.h Server.h StaticMap.h\
+		 automount.h config.h log.h syslock.h systhread.h
 
 MFILES = automount.m proc.m
 

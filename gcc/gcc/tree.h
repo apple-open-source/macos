@@ -963,7 +963,26 @@ struct tree_type
   unsigned lang_flag_6 : 1;
   /* room for 3 more bits */
 
+#ifdef APPLE_ALIGN_CHECK
+  /* Purely for debugging alignment changes -- we can remove if needed.
+     This is set if the type had a different alignment in the OS X 10.0
+     compiler (March 2001, __APPLE_CC__ == 926 .)  */
+
+  unsigned short align, osx1_align;
+  unsigned osx1_rec_size;
+
+#define TYPE_OSX1_ALIGN(TYPE)	(TYPE_CHECK (TYPE)->type.osx1_align)
+#define TYPE_OSX1_SIZE(TYPE)	(TYPE_CHECK (TYPE)->type.osx1_rec_size)
+
+#define TYPE_DIFF_ALIGN(TYPE)					\
+	(TYPE_OSX1_ALIGN (TYPE) != 0				\
+		&& TYPE_OSX1_ALIGN (TYPE) != TYPE_ALIGN (TYPE))
+
+#define TYPE_DIFF_SIZE(TYPE)	type_has_different_size_in_osx1 (TYPE)
+#else
   unsigned int align;
+#endif
+
   union tree_node *pointer_to;
   union tree_node *reference_to;
   union {int address; char *pointer; } symtab;
@@ -1213,6 +1232,12 @@ struct tree_type
    COMMON except that it is OK for them to have DECL_INITIAL
    initializations, and they are allowed in shared libraries.  */
 #define DECL_COALESCED(NODE) (DECL_CHECK (NODE)->decl.coalesced_flag)
+
+/* Nonzero if a given ..._DECL node could be written to (for example,
+   if the node needs constructing.)  */
+#define DECL_TREE_MAY_BE_WRITTEN(NODE)				\
+		(DECL_CHECK (NODE)->decl.tree_may_be_written_flag)
+
 #endif
 
 /* Language-specific decl information.  */
@@ -1236,8 +1261,16 @@ struct tree_type
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
    initializatons. */
+#ifdef NEXT_SEMANTICS
+/* These don't need to be nearly so big, and making them fit in a signed
+   16-bit int saves us four instructions in every static init routine.
+   Cheesy, I know.  Sorry.  */
+#define DEFAULT_INIT_PRIORITY 32767
+#define MAX_INIT_PRIORITY 32767
+#else
 #define DEFAULT_INIT_PRIORITY 65535
 #define MAX_INIT_PRIORITY 65535
+#endif
 #define MAX_RESERVED_INIT_PRIORITY 100
 
 /* In a TYPE_DECL
@@ -1370,13 +1403,18 @@ struct tree_decl
 {
   char common[sizeof (struct tree_common)];
   char *filename;
+#ifndef NEXT_SEMANTICS
   int linenum;
+#endif
   unsigned int uid;
   union tree_node *size;
 #ifdef ONLY_INT_FIELDS
   int mode : 8;
 #else
   enum machine_mode mode : 8;
+#endif
+#ifdef NEXT_SEMANTICS
+  unsigned linenum : 24;	/* Reduces struct size from 100 to 96 bytes  */
 #endif
 
   unsigned external_flag : 1;
@@ -1403,7 +1441,8 @@ struct tree_decl
   /* room for six more */
 #ifdef HAVE_COALESCED_SYMBOLS
   unsigned coalesced_flag : 1;
-  /* room for five more  */
+  unsigned tree_may_be_written_flag : 1;
+  /* room for four more  */
 #endif
 #endif
 #if defined (NEXT_PDO) && defined (_WIN32)

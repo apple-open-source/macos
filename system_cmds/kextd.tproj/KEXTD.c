@@ -838,7 +838,7 @@ static KEXTReturn _KEXTDModuleErrorCB(KEXTManagerRef manager, KEXTModuleRef modu
 #if TIMERSOURCE
 static void _KEXTDTimerCallout(CFRunLoopTimerRef timer, void * info)
 {
-    KEXTDScanPaths((KEXTDRef)info);
+    KEXTDScanPaths((KEXTDRef)info, false);
 }
 #endif
 
@@ -853,7 +853,7 @@ static void _KEXTDSIGHUPCallout(void * info)
 
     // Check for new or removed bundles and do the appropriate
     // things.
-    KEXTDScanPaths((KEXTDRef)info);
+    KEXTDScanPaths((KEXTDRef)info, false);
 
     // Make sure we try to load the unloaded personalities
     // It's probably overkill to do this here.
@@ -870,7 +870,7 @@ static void _KEXTDPerform(void * info)
 
     k = (KEXTD *)info;
 
-//    KEXTDScanPaths((KEXTDRef)k);
+//    KEXTDScanPaths((KEXTDRef)k, false);
 
     PTLockTakeLock(k->_queue_lock);
     while ( !queue_empty(&k->_requestQ) ) {
@@ -886,13 +886,7 @@ static void _KEXTDPerform(void * info)
         name = reqstruct->kmodname;
         free(reqstruct);
 
-	if( type == kIOCatalogMatchIdle) {
-
-	    mach_timespec_t timeout = { 10, 0 };
-	    IOKitWaitQuiet( k->_catPort, &timeout );
-	    KEXTdaemonSignal();
-
-        } else if ( name ) {
+        if ( name ) {
 
             if ( k->_beVerbose ) {
                 char modname[256];
@@ -1038,7 +1032,7 @@ void KEXTDReset(KEXTDRef kextd)
     if ( k->_manager )
         KEXTManagerReset(k->_manager);
     
-    KEXTDScanPaths(kextd);
+    KEXTDScanPaths(kextd, false);
 }
 
 static KEXTReturn _KEXTDSendDataToCatalog(KEXTDRef kextd, int flag, CFTypeRef obj)
@@ -1123,9 +1117,9 @@ static KEXTReturn _KEXTDSendPersonalities(KEXTDRef kextd, KEXTBootlevel bootleve
 
     if ( CFArrayGetCount(toload) > 0 ) {
         error = KEXTManagerLoadPersonalities(((KEXTD *)kextd)->_manager, toload);
-    } else {
-	KEXTdaemonSignal();
     }
+
+    KEXTdaemonSignal();
 
     CFRelease(toload);
 
@@ -1355,7 +1349,6 @@ KEXTReturn KEXTDKernelRequest(KEXTDRef kextd, CFStringRef name)
 static void * _KEXTDKmodWait(void * info)
 {
     mach_port_t kmodPort;
-    kern_return_t kr;
     KEXTD * kextd;
     KEXTReturn error;
     request_t * reqstruct;
@@ -1464,7 +1457,7 @@ KEXTdaemonSignal(void)
 	return;
     signalled = TRUE;
     if (gDebug) {
-        printf("kextd: idle\n");
+        printf("kextd: signal\n");
 	return;
     }
 
@@ -1486,11 +1479,17 @@ static void
 KEXTdaemonWait(void)
 {
     kern_return_t	kr;
+    mach_port_t		masterPort;
     mach_timespec_t 	waitTime = { 40, 0 };
 
     kr = semaphore_timedwait( gDaemonSema, waitTime );
     if( kr != KERN_SUCCESS )
         syslog(LOG_ERR, "semaphore_timedwait(%lx)\n", kr);
+
+    IOMasterPort( MACH_PORT_NULL, &masterPort );
+    IOKitWaitQuiet( masterPort, &waitTime );
+    if( kr != KERN_SUCCESS )
+        syslog(LOG_ERR, "IOKitWaitQuiet(%lx)\n", kr);
 }
 
 static int
@@ -1547,9 +1546,9 @@ KEXTdaemon(nochdir, noclose)
 
 
 #if TIMERSOURCE
-KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, Boolean poll, CFIndex period, KEXTBootlevel bootlevel)
+KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, Boolean poll, CFIndex period, KEXTBootlevel bootlevel, Boolean cdMKextBoot)
 #else
-KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, KEXTBootlevel bootlevel)
+KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, Boolean debug, KEXTBootlevel bootlevel, Boolean cdMKextBoot)
 #endif
 {
     pthread_attr_t kmod_thread_attr;
@@ -1585,7 +1584,7 @@ KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, B
     };
 
     gDebug = debug;
-    if (!debug) {
+    if (!debug && !cdMKextBoot) {
         errno = 0;
         KEXTdaemon(0, 0);
         if ( errno ) {
@@ -1615,6 +1614,11 @@ KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, B
     }
 
     _kextd = kextd;
+
+    if( cdMKextBoot) {
+        KEXTDScanPaths(kextd, true);
+        return kKEXTReturnSuccess;
+    }
 
     // FIXME: Need a way to make this synchronous!
     error = KERN2KEXTReturn(IOCatalogueSendData(k->_catPort, kIOCatalogRemoveKernelLinker, 0, 0));
@@ -1672,7 +1676,7 @@ KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, B
     syslog(LOG_INFO, "started.");
 
     IOCatalogueReset(k->_catPort, kIOCatalogResetDefault);
-    KEXTDScanPaths(kextd);
+    KEXTDScanPaths(kextd, false);
 
 #if TIMERSOURCE
     if ( poll ) {
@@ -1705,7 +1709,7 @@ KEXTReturn KEXTDStartMain(KEXTDRef kextd, Boolean beVerbose, Boolean safeBoot, B
     return kKEXTReturnSuccess;
 }
 
-void KEXTDScanPaths(KEXTDRef kextd)
+void KEXTDScanPaths(KEXTDRef kextd, Boolean cdMKextBoot)
 {
     KEXTReturn error;
     KEXTD * k;
@@ -1732,9 +1736,11 @@ void KEXTDScanPaths(KEXTDRef kextd)
                     syslog(LOG_INFO, "scanning: %s.", str);
                 }
             }
-            error = KEXTManagerScanPath(k->_manager, url);
-            if ( error != kKEXTReturnSuccess ) {
-                syslog(LOG_ERR, "error (%d) scanning path.\n", error);
+            if( !cdMKextBoot) {
+                error = KEXTManagerScanPath(k->_manager, url);
+                if ( error != kKEXTReturnSuccess ) {
+                    syslog(LOG_ERR, "error (%d) scanning path.\n", error);
+                }
             }
 #if LOOKAPPLENDRV
 	    do {

@@ -5,7 +5,7 @@
 #           is to hold info for data export to Inside Mac Database
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/15/99
+# Last Updated: $Date: 2001/03/01 07:25:08 $
 #
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -55,6 +55,7 @@ sub _initialize {
     my($self) = shift;
     $self->{POSITION} = undef;
     $self->{TYPE} = undef;
+    $self->{USERDICTARRAY} = [];
 }
 
 sub position {
@@ -73,6 +74,40 @@ sub type {
         $self->{TYPE} = shift;
     }
     return $self->{TYPE};
+}
+
+# for miscellaneous data, such as the parameters within a typedef'd struct of callbacks
+# stored as an array to preserve order.
+sub userDictArray {
+    my $self = shift;
+
+    if (@_) {
+        @{ $self->{USERDICTARRAY} } = @_;
+    }
+    return @{ $self->{USERDICTARRAY} };
+}
+
+sub addToUserDictArray {
+    my $self = shift;
+
+    if (@_) {
+        foreach my $item (@_) {
+            push (@{ $self->{USERDICTARRAY} }, $item);
+        }
+    }
+    return @{ $self->{USERDICTARRAY} };
+}
+
+
+sub addKeyAndValueInUserDict {
+    my $self = shift;
+    
+    if (@_) {
+        my $key = shift;
+        my $value = shift;
+        $self->{USERDICT}{$key} = $value;
+    }
+    return %{ $self->{USERDICT} };
 }
 
 sub printObject {

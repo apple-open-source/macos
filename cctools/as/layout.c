@@ -202,6 +202,11 @@ void)
 		    fragP->fr_offset = fragP->fr_next->fr_address -
 				       fragP->fr_address -
 				       fragP->fr_fix;
+		    if(fragP->fr_offset < 0){
+			as_warn("rs_org invalid, dot past value by %ld bytes",
+				fragP->fr_offset);
+			fragP->fr_offset = 0;
+		    }
 		    break;
 
 		case rs_fill:

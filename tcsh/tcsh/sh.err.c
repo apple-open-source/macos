@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.err.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.err.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
 /*
  * sh.err.c: Error printing routines. 
  */
@@ -37,7 +37,7 @@
 #define _h_sh_err		/* Don't redefine the errors	 */
 #include "sh.h"
 
-RCSID("$Id: sh.err.c,v 1.1.1.1 1999/04/23 01:59:54 wsanchez Exp $")
+RCSID("$Id: sh.err.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $")
 
 /*
  * C Shell
@@ -205,6 +205,11 @@ errinit()
 
     for (i = 0; i < NO_ERRORS; i++)
 	xfree((ptr_t) elst[i]);
+#  if defined(__FreeBSD__) || defined(hpux)
+#  define NLS_MAXSET 30
+    for (i = 1; i <= NLS_MAXSET; i++)
+	CGETS(i, 1, "" );
+#  endif
 #endif
 
     elst[ERR_SYNTAX] = CSAVS(1, 1, "Syntax Error");
@@ -360,7 +365,7 @@ errinit()
     elst[ERR_MFLAG] = CSAVS(1, 133, "No operand for -m flag");
     elst[ERR_ULIMUS] = CSAVS(1, 134, "Usage: unlimit [-fh] [limits]");
     elst[ERR_READONLY] = CSAVS(1, 135, "$%S is read-only");
-    elst[ERR_BADJOB] = CSAVS(1, 136, "No such job");
+    elst[ERR_BADJOB] = CSAVS(1, 136, "No such job (badjob)");
     elst[ERR_BADCOLORVAR] = CSAVS(1, 137, "Unknown colorls variable `%c%c'");
 }
 /*
@@ -499,7 +504,7 @@ stderror(va_alist)
     /*
      * Go away if -e or we are a child shell
      */
-    if (exiterr || child)
+    if (!exitset || exiterr || child)
 	xexit(1);
 
     /*

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var.c,v 1.1.1.3 2001/01/25 05:00:14 wsanchez Exp $ */
+/* $Id: var.c,v 1.1.1.4 2001/07/19 00:20:23 zarzycki Exp $ */
 
 
 /* {{{ includes 
@@ -161,7 +161,7 @@ inline int php_add_var_hash(HashTable *var_hash, zval *var, void *var_old) {
 	snprintf(id,sizeof(id)-1, "%p", var);
 	id[sizeof(id)-1]='\0';
 
-	if(var_old && zend_hash_find(var_hash, id, sizeof(id), var_old) == SUCCESS) {
+	if(var_old && zend_hash_find(var_hash, id, strlen(id), var_old) == SUCCESS) {
 		if(!var->is_ref) {
 			/* we still need to bump up the counter, since non-refs will
 			   be counted separately by unserializer */
@@ -172,7 +172,7 @@ inline int php_add_var_hash(HashTable *var_hash, zval *var, void *var_old) {
 	}
 	
 	var_no = zend_hash_num_elements(var_hash)+1; /* +1 because otherwise hash will think we are trying to store NULL pointer */
-	zend_hash_add(var_hash, id, sizeof(id), &var_no, sizeof(var_no), NULL);
+	zend_hash_add(var_hash, id, strlen(id), &var_no, sizeof(var_no), NULL);
 	return SUCCESS;
 }
 
@@ -259,7 +259,7 @@ void php_var_serialize(pval *buf, pval **struc, HashTable *var_hash)
 							
 							zend_hash_internal_pointer_reset_ex(HASH_OF(retval_ptr),&pos);
 							for (;; zend_hash_move_forward_ex(HASH_OF(retval_ptr),&pos)) {
-								if ((i = zend_hash_get_current_key_ex(HASH_OF(retval_ptr), &key, NULL, &index, &pos)) == HASH_KEY_NON_EXISTANT) {
+								if ((i = zend_hash_get_current_key_ex(HASH_OF(retval_ptr), &key, NULL, &index, 0, &pos)) == HASH_KEY_NON_EXISTANT) {
 									break;
 								}
 
@@ -319,12 +319,10 @@ void php_var_serialize(pval *buf, pval **struc, HashTable *var_hash)
 				
 				zend_hash_internal_pointer_reset_ex(myht, &pos);
 				for (;; zend_hash_move_forward_ex(myht, &pos)) {
-					if ((i = zend_hash_get_current_key_ex(myht, &key, NULL, &index, &pos)) == HASH_KEY_NON_EXISTANT) {
+					if ((i = zend_hash_get_current_key_ex(myht, &key, NULL, &index, 0, &pos)) == HASH_KEY_NON_EXISTANT) {
 						break;
 					}
 					if (zend_hash_get_current_data_ex(myht, (void **) (&data), &pos) != SUCCESS || !data /* || ((*data) == (*struc)) */) {
-						if (i == HASH_KEY_IS_STRING)
-							efree(key);
 						continue;
 					}
 
@@ -342,7 +340,6 @@ void php_var_serialize(pval *buf, pval **struc, HashTable *var_hash)
 							d->value.str.val = key;
 							d->value.str.len = strlen(key);
 							php_var_serialize(buf, &d, NULL);
-							efree(key);
 							FREE_ZVAL(d);
 							break;
 					}

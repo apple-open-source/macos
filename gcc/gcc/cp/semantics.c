@@ -1238,7 +1238,7 @@ begin_class_definition (t)
 	{
 	  if ( current_aggr == class_type_node ) {
             tree base_typename;
-	    printf ("+cm %s %u\n", IDENTIFIER_POINTER (typename), lineno);
+	        printf ("+cm %s %u\n", IDENTIFIER_POINTER (typename), lineno);
             /* Dump inheritance chain.  */
             for (l_base_count = 0; l_base_count < CLASSTYPE_N_BASECLASSES (t);
                  l_base_count++) 
@@ -1253,6 +1253,34 @@ begin_class_definition (t)
 	    printf ("+sh %s %u\n", IDENTIFIER_POINTER (typename), lineno);
 	  else if (current_aggr == union_type_node)
 	    printf ("+uh %s %u\n", IDENTIFIER_POINTER (typename), lineno);
+	}
+    }
+
+  if ( flag_gen_index )
+    {
+      extern tree current_aggr;
+      int l_base_count = 0; //local variable used while traversing base classes
+      tree typename  = DECL_NAME (TYPE_NAME (t));
+
+      if (!ANON_AGGRNAME_P (typename) && !IDENTIFIER_TEMPLATE (typename))
+	{
+	  if ( current_aggr == class_type_node ) {
+            tree base_typename;
+	        dump_symbol_info ("+cm ", IDENTIFIER_POINTER (typename), lineno);
+            /* Dump inheritance chain.  */
+            for (l_base_count = 0; l_base_count < CLASSTYPE_N_BASECLASSES (t);
+                 l_base_count++) 
+              {
+              base_typename = TYPE_NAME (TYPE_BINFO_BASETYPE (t,l_base_count));
+              dump_symbol_info ("+ci ", 
+                      IDENTIFIER_POINTER (DECL_NAME (base_typename)),
+                      lineno);
+              }
+          }
+	  else if (current_aggr == record_type_node)
+	    dump_symbol_info ("+sh ", IDENTIFIER_POINTER (typename), lineno);
+	  else if (current_aggr == union_type_node)
+	    dump_symbol_info ("+uh ", IDENTIFIER_POINTER (typename), lineno);
 	}
     }
   
@@ -1375,7 +1403,6 @@ dump_declaration (declarator)
       tree declarator;
 {  
   char ch;
-
   if (DECL_ARTIFICIAL (declarator))
     return; // Ignore compiler generated stuff
   
@@ -1393,14 +1420,14 @@ dump_declaration (declarator)
          ch = '-';
       if (DECL_DESTRUCTOR_P (declarator)) 
         /* Display '~' in front of destructor name.  */
-        printf ("+%ch ~%s %u\n", ch,
+        printf ("+%ch ~%s %u\n", ch, 
 		IDENTIFIER_POINTER (DECL_NAME (declarator)),
 		DECL_SOURCE_LINE (declarator));
       else if (IDENTIFIER_OPNAME_P (DECL_NAME (declarator)))
         {
           /* operator method.
              Decode the name and put 'operator' word before the name.  */
-          printf ("+%ch operator%s %u\n", ch,
+          printf ("+%ch operator%s %u\n", ch, 
                   operator_name_string (DECL_NAME (declarator)),
                   DECL_SOURCE_LINE (declarator));
         }
@@ -1410,7 +1437,7 @@ dump_declaration (declarator)
              Fix Me: Find better way!  */
           if (strncmp (IDENTIFIER_POINTER (DECL_NAME (declarator)), "_GLOBAL_", 8))
             {
-              printf ("+%ch %s %u\n", ch,
+              printf ("+%ch %s %u\n", ch, 
                       IDENTIFIER_POINTER (DECL_NAME (declarator)),
                       DECL_SOURCE_LINE (declarator));
             }
@@ -1424,6 +1451,70 @@ dump_declaration (declarator)
       if (DECL_NAME (declarator)) 
         {
           printf ("+dh %s %u\n", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+                  DECL_SOURCE_LINE (declarator));
+        } 
+      break;
+    default:
+      break;
+  }
+}
+
+void
+gen_declaration_index (declarator)
+      tree declarator;
+{  
+  char fn_type; /* Function, Member Function or Static Member Function */
+  char buf[15];
+  if (DECL_ARTIFICIAL (declarator) || processing_template_decl || DECL_USE_TEMPLATE (declarator))
+    return; // stay away from templates. Peace!
+
+  switch (TREE_CODE (declarator)) {
+    case FUNCTION_DECL:
+      if (DECL_STATIC_FUNCTION_P (declarator))
+         fn_type = '+';
+      else
+         fn_type = '-';
+      if (DECL_DESTRUCTOR_P (declarator)) {
+        /* Display '~' in front of destructor name.  */
+        sprintf (&buf[0], "+%ch ", fn_type);
+        dump_symbol_info (buf, NULL, -1);
+        dump_symbol_info (NULL, "~", -1);
+        dump_symbol_info (NULL,
+		IDENTIFIER_POINTER (DECL_NAME (declarator)),
+		DECL_SOURCE_LINE (declarator));
+      }
+      else if (IDENTIFIER_OPNAME_P (DECL_NAME (declarator)))
+        {
+          /* operator method.
+             Decode the name and put 'operator' word before the name.  */
+          sprintf (&buf[0], "+%ch ", fn_type);
+          dump_symbol_info (buf, NULL, -1);
+          dump_symbol_info (NULL, "operator", -1);
+          dump_symbol_info (NULL,
+                  operator_name_string (DECL_NAME (declarator)),
+                  DECL_SOURCE_LINE (declarator));
+        }
+      else
+        {
+          /* Do not print compiler generated function defs.
+             Fix Me: Find better way!  */
+          if (strncmp (IDENTIFIER_POINTER (DECL_NAME (declarator)), "_GLOBAL_", 8))
+            {
+              sprintf (&buf[0], "+%ch ", fn_type);
+              dump_symbol_info (buf,
+                      IDENTIFIER_POINTER (DECL_NAME (declarator)),
+                      DECL_SOURCE_LINE (declarator));
+            }
+        }
+      break;
+    case CONST_DECL:
+      dump_symbol_info ("+nh ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
+              DECL_SOURCE_LINE (declarator));
+      break;
+    case FIELD_DECL:
+      if (DECL_NAME (declarator)) 
+        {
+          dump_symbol_info ("+dh ", IDENTIFIER_POINTER (DECL_NAME (declarator)), 
                   DECL_SOURCE_LINE (declarator));
         } 
       break;
@@ -1451,6 +1542,8 @@ finish_member_declaration (decl)
 
   if (flag_dump_symbols)
     dump_declaration (decl);
+  if (flag_gen_index)
+    gen_declaration_index (decl);
 
   /* Set up access control for DECL.  */
   TREE_PRIVATE (decl) 
@@ -1545,6 +1638,18 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
         {
           if (current_aggr == class_type_node)
                printf ("-cm %u\n", lineno);
+        }
+    }
+
+  if (flag_gen_index)
+    {
+      extern tree current_aggr;
+      tree typename  = DECL_NAME (TYPE_NAME (t));
+
+      if (!ANON_AGGRNAME_P (typename) && !IDENTIFIER_TEMPLATE (typename))
+        {
+          if (current_aggr == class_type_node)
+               dump_symbol_info ("-cm ", NULL, lineno);
         }
     }
 

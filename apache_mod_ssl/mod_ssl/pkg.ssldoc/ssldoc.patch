@@ -7,8 +7,8 @@
 ## ____________________________________________________________________________
 ##
 ## Annotated patch file: ssldoc.patch
-## Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 14-Oct-2000
+## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
+## Created on: 20-May-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -28,13 +28,50 @@
 | "includes OpenSSL" buttons.
 +---------------------------------------------------------------------------
 Index: htdocs/index.html.en
---- htdocs/index.html.en	2000/01/21 18:07:06	1.1.1.1
-+++ htdocs/index.html.en	2000/01/22 19:54:33	1.2
+--- htdocs/index.html.en	2001/05/20 08:16:29	1.1.1.3
++++ htdocs/index.html.en	2001/05/20 08:23:01	1.4
 @@ -1,38 +1,87 @@
- <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
- <HTML>
-  <HEAD>
--  <TITLE>Test Page for Apache Installation</TITLE>
+-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+-<html xmlns="http://www.w3.org/1999/xhtml">
+-<head>
+-<title>Test Page for Apache Installation</title>
+-</head>
+-<!-- Background white, links blue (unvisited), navy (visited), red
+-(active) -->
+-<body bgcolor="#FFFFFF" text="#000000" link="#0000FF"
+-vlink="#000080" alink="#FF0000">
+-<p>If you can see this, it means that the installation of the <a
+-href="http://www.apache.org/foundation/preFAQ.html">Apache web
+-server</a> software on this system was successful. You may now add
+-content to this directory and replace this page.</p>
+-
+-<hr width="50%" size="8" />
+-<h2 align="center">Seeing this instead of the website you
+-expected?</h2>
+-
+-<p>This page is here because the site administrator has changed the
+-configuration of this web server. Please <strong>contact the person
+-responsible for maintaining this server with questions.</strong>
+-The Apache Software Foundation, which wrote the web server software
+-this site administrator is using, has nothing to do with
+-maintaining this site and cannot help resolve configuration
+-issues.</p>
+-
+-<hr width="50%" size="8" />
+-<p>The Apache <a href="manual/">documentation</a> has been included
+-with this distribution.</p>
+-
+-<p>You are free to use the image below on an Apache-powered web
+-server. Thanks for using Apache!</p>
+-
+-<div align="center"><img src="apache_pb.gif" alt="" /></div>
+-</body>
+-</html>
+-
++<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
++<HTML>
++ <HEAD>
 +  <TITLE>Test Page for the SSL/TLS-aware Apache Installation on Web Site</TITLE>
 +  <STYLE TYPE="text/css">
 +  H1 {
@@ -52,40 +89,15 @@ Index: htdocs/index.html.en
 +      background-repeat: no-repeat;
 +  }
 +  </STYLE>
-  </HEAD>
- <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
-  <BODY
-   BGCOLOR="#FFFFFF"
-   TEXT="#000000"
-   LINK="#0000FF"
--  VLINK="#000080"
++ </HEAD>
++<!-- Background white, links blue (unvisited), navy (visited), red (active) -->
++ <BODY
++  BGCOLOR="#FFFFFF"
++  TEXT="#000000"
++  LINK="#0000FF"
 +  VLINK="#0000FF"
-   ALINK="#FF0000"
-  >
--
--
--<P>
--If you can see this, it means that the installation of the <A HREF="http://www.apache.org/httpd">Apache web server</A> software on this system was successful.  You may now add content to this directory and replace this page.
--
--<P><HR WIDTH="50%" SIZE="8">
--
--<H2 ALIGN="CENTER">Seeing this instead of the website you expected?</H2>
--
--<P>
--This page is here because the site administrator has changed the configuration of this web server.  
--Please  <STRONG>contact the person responsible for maintaining this server with questions.</STRONG>   The Apache Software Foundation, which wrote the web server software this site administrator is using, has nothing to do with maintaining this site and cannot help resolve configuration issues.
--
--<P><HR WIDTH="50%" SIZE="8">
--
--
--<P>
--The Apache <A HREF="manual/index.html">documentation</A> has been included with this distribution.
--
--<P>
--You are free to use the image below on an Apache-powered web server.  Thanks for using Apache!
--
--<DIV ALIGN="CENTER"><IMG SRC="apache_pb.gif" ALT=""></DIV>
--</BODY>
++  ALINK="#FF0000"
++ >
 +  <BLOCKQUOTE>
 +  <BLOCKQUOTE>
 +  <BR>
@@ -143,16 +155,16 @@ Index: htdocs/index.html.en
 +  </BLOCKQUOTE>
 +  </BLOCKQUOTE>
 + </BODY>
- </HTML>
++</HTML>
 
 +---------------------------------------------------------------------------
 | Add a hyperlink to the mod_ssl document.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/index.html
---- htdocs/manual/mod/index.html	2000/10/12 08:17:45	1.1.1.3
-+++ htdocs/manual/mod/index.html	2000/10/12 08:31:47	1.9
-@@ -116,6 +118,8 @@
- <DD>Experimental support for loading modules (DLLs on Windows) at runtime
+--- htdocs/manual/mod/index.html	2001/01/23 11:35:19	1.1.1.4
++++ htdocs/manual/mod/index.html	2001/01/23 11:48:05	1.10
+@@ -114,6 +116,8 @@
+ <DD>Support for loading modules (.so's on Unix, .dll's on Win32) at runtime
  <DT><A HREF="mod_speling.html">mod_speling</A> Apache 1.3 and up
  <DD>Automatically correct minor typos in URLs
 +<DT><A HREF="mod_ssl/index.html">mod_ssl</A> Apache 1.3 with mod_ssl applied
@@ -165,12 +177,12 @@ Index: htdocs/manual/mod/index.html
 | Add a hyperlink to the mod_ssl document.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/index-bytype.html
---- htdocs/manual/mod/index-bytype.html	2000/10/12 08:17:45	1.1.1.1
-+++ htdocs/manual/mod/index-bytype.html	2000/10/12 12:44:32	1.2
+--- htdocs/manual/mod/index-bytype.html	2001/01/23 11:35:19	1.1.1.2
++++ htdocs/manual/mod/index-bytype.html	2001/01/23 11:48:05	1.3
 @@ -164,6 +164,8 @@
- <DD>Experimental support for loading modules (DLLs on Windows) at runtime
+ <DD>Support for loading modules (DLLs on Windows) at runtime
  <DT><A HREF="mod_mmap_static.html">mod_mmap_static</A> Apache 1.3 and up
- <DD>Mapping files into memory for faster serving.
+ <DD><DD>Experimental file caching, mapping files into memory to improve performace
 +<DT><A HREF="mod_ssl/index.html">mod_ssl</A> Apache 1.3 with mod_ssl applied
 +<DD>Apache SSL interface to OpenSSL
  </DL>
@@ -182,9 +194,9 @@ Index: htdocs/manual/mod/index-bytype.html
 | documented inside the mod_ssl document.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/directives.html
---- htdocs/manual/mod/directives.html	2000/10/12 08:17:45	1.1.1.9
-+++ htdocs/manual/mod/directives.html	2000/10/12 08:31:47	1.19
-@@ -222,6 +223,27 @@
+--- htdocs/manual/mod/directives.html	2001/05/20 08:16:32	1.1.1.10
++++ htdocs/manual/mod/directives.html	2001/05/20 08:23:01	1.20
+@@ -225,6 +226,27 @@
  <LI><A HREF="mod_setenvif.html#setenvif">SetEnvIf</A>
  <LI><A HREF="mod_setenvif.html#SetEnvIfNoCase">SetEnvIfNoCase</A>
  <LI><A HREF="mod_mime.html#sethandler">SetHandler</A>

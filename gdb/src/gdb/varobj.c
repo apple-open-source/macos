@@ -23,17 +23,17 @@
 #include "valprint.h"
 #include "inferior.h"
 #include "language.h"
-#include "wrapper.h"
 #include "gdbcmd.h"
 #include <math.h>
 
 #include "varobj.h"
+#include "wrapper.h"
 
 /* Non-zero if we want to see trace of varobj level stuff.  */
 
 int varobjdebug = 0;
 
-/* String representations of gdb's format codes */
+/* String representations of gdb'Ss format codes */
 char *varobj_format_string[] =
 {"natural", "binary", "decimal", "hexadecimal", "octal"};
 
@@ -380,6 +380,10 @@ enum vsections
   {
     v_public = 0, v_private, v_protected
   };
+static int cplus_real_type_index_for_fake_child_index (
+                                      struct type *type, 
+                                      enum vsections prot, 
+                                      int num);
 
 /* Private data */
 
@@ -795,6 +799,7 @@ varobj_get_valid_block (struct varobj *var, CORE_ADDR *start,
   *start = var->root->valid_block->startaddr;
   *end = var->root->valid_block->endaddr;
 }
+
 char *
 varobj_get_value (struct varobj *var)
 {
@@ -2078,7 +2083,16 @@ c_value_of_child (struct varobj *parent, int index)
 	      break;
 
 	    default:
-	      gdb_value_ind (temp, &value);
+	      /* If we errored out here, then the value is likely
+		 bogus.  Release it and return NULL.  Using it
+		 can be dangerous.
+	      */
+	      if (!gdb_value_ind (temp, &value))
+		{
+		  if (value != NULL)
+		    release_value (value);
+		  return NULL;
+		}
 	      break;
 	    }
 	  break;
@@ -2184,7 +2198,7 @@ c_value_of_variable (struct varobj *var)
     case TYPE_CODE_ARRAY:
       {
 	char number[18];
-	sprintf (number, "[%d]", var->num_children);
+	sprintf (number, "[%d]", number_of_children(var));
 	return xstrdup (number);
       }
       /* break; */
@@ -2295,6 +2309,88 @@ cplus_class_num_children (struct type *type, int children[3])
     }
 }
 
+/* Compute the index in the type structure TYPE of the NUM'th field
+   of protection level PROT */
+static int
+cplus_real_type_index_for_fake_child_index (struct type *type, 
+                                      enum vsections prot, 
+                                      int num)
+{
+  int num_found = 0;
+  int foundit = 0;
+  int i;
+
+  switch (prot)
+    { 
+      case v_public:
+        for (i = TYPE_N_BASECLASSES (type); i < TYPE_NFIELDS (type); i++)
+          {
+            /* If we have a virtual table pointer, omit it. */
+            if (TYPE_VPTR_BASETYPE (type) == type
+	        && TYPE_VPTR_FIELDNO (type) == i)
+	        continue;
+
+            if (!TYPE_FIELD_PROTECTED (type, i) 
+                 && !TYPE_FIELD_PRIVATE (type, i))
+              {
+                if (num_found == num)
+                  {
+                    foundit = 1;
+                    break;
+                  }
+                else
+	          num_found++;
+              }
+            }
+          break;
+      case v_protected:
+        for (i = TYPE_N_BASECLASSES (type); i < TYPE_NFIELDS (type); i++)
+          {
+            /* If we have a virtual table pointer, omit it. */
+            if (TYPE_VPTR_BASETYPE (type) == type
+	        && TYPE_VPTR_FIELDNO (type) == i)
+	        continue;
+
+            if (TYPE_FIELD_PROTECTED (type, i))
+              {
+                if (num_found == num)
+                  {
+                    foundit = 1;
+                    break;
+                  }
+                else
+	          num_found++;
+              }
+            }
+          break;
+      case v_private:
+        for (i = TYPE_N_BASECLASSES (type); i < TYPE_NFIELDS (type); i++)
+          {
+            /* If we have a virtual table pointer, omit it. */
+            if (TYPE_VPTR_BASETYPE (type) == type
+	        && TYPE_VPTR_FIELDNO (type) == i)
+	        continue;
+
+            if (TYPE_FIELD_PRIVATE (type, i))
+              {
+                if (num_found == num)
+                  {
+                    foundit = 1;
+                    break;
+                  }
+                else
+	          num_found++;
+              }
+            }
+          break;
+    }
+    
+    if (!foundit)
+      return -1;
+      
+    return i;
+ }
+
 static char *
 cplus_name_of_variable (struct varobj *parent)
 {
@@ -2327,13 +2423,20 @@ cplus_name_of_child (struct varobj *parent, int index)
 	{
 	  /* FIXME: This assumes that type orders
 	     inherited, public, private, protected */
-	  int i = index + TYPE_N_BASECLASSES (type);
-	  if (STREQ (parent->name, "private") || STREQ (parent->name, "protected"))
-	    i += children[v_public];
-	  if (STREQ (parent->name, "protected"))
-	    i += children[v_private];
+          int index_in_type;
+          enum vsections prot;
+          
+	  if (STREQ (parent->name, "private"))
+            prot = v_private;
+          else if (STREQ (parent->name, "protected"))
+            prot = v_protected;
+	  else if (STREQ (parent->name, "public"))
+            prot = v_public;
 
-	  name = TYPE_FIELD_NAME (type, i);
+          index_in_type = 
+            cplus_real_type_index_for_fake_child_index(type, prot, index);
+          
+	  name = TYPE_FIELD_NAME (type, index_in_type);
 	}
       else if (index < TYPE_N_BASECLASSES (type))
 	name = TYPE_FIELD_NAME (type, index);
@@ -2425,13 +2528,24 @@ cplus_value_of_child (struct varobj *parent, int index)
 	  /* Baseclass */
 	  if (parent->value != NULL)
 	    {
-	      value_ptr temp;
+	      value_ptr temp = NULL;
 
 	      if (TYPE_CODE (VALUE_TYPE (parent->value)) == TYPE_CODE_PTR
 		  || TYPE_CODE (VALUE_TYPE (parent->value)) == TYPE_CODE_REF)
-		gdb_value_ind (parent->value, &temp);
+		{
+		  if (!gdb_value_ind (parent->value, &temp))
+		    {
+		      /* Something went wrong getting the value of the
+			 parent, we had better get out of here... */
+		      if (temp != NULL)
+			release_value (temp);
+		      return c_value_of_child (parent, index);
+		    }
+		}
 	      else
-		temp = parent->value;
+		{
+		  temp = parent->value;
+		}
 
 	      value = value_cast (TYPE_FIELD_TYPE (type, index), temp);
 	      release_value (value);

@@ -120,6 +120,16 @@ sys_interfaces(void)
 	return my_interfaces;
 }
 
+void
+sys_interfaces_release(void)
+{
+	if (my_interfaces == NULL) return;
+
+	free(my_interfaces->interface);
+	free(my_interfaces);
+	my_interfaces = NULL;
+}
+
 int
 sys_is_my_address(struct in_addr *a)
 {
@@ -147,7 +157,8 @@ sys_is_my_network(struct in_addr *a)
 	
 	for (i = 0; i < l->count; i++)
 	{
-		if (a->s_addr == l->interface[i].addr.s_addr) return 1;
+		if (l->interface[i].flags & IFF_POINTOPOINT) continue;
+		if (a->s_addr == l->interface[i].netaddr.s_addr) return 1;
 	}
 	return 0;
 }
@@ -163,6 +174,7 @@ sys_is_my_broadcast(struct in_addr *a)
 	
 	for (i = 0; i < l->count; i++)
 	{
+		if (l->interface[i].flags & IFF_POINTOPOINT) continue;
 		if (a->s_addr == l->interface[i].bcast.s_addr) return 1;
 	}
 	return 0;
@@ -180,8 +192,15 @@ sys_is_on_attached_network(struct in_addr *a)
 
 	for (i = 0; i < l->count; i++)
 	{
-		n = a->s_addr & l->interface[i].mask.s_addr;
-		if (n == l->interface[i].netaddr.s_addr) return 1;
+		if (!(l->interface[i].flags & IFF_POINTOPOINT))
+		{
+			n = a->s_addr & l->interface[i].mask.s_addr;
+			if (n == l->interface[i].netaddr.s_addr) return 1;
+		}
+		else
+		{
+			if (a->s_addr == l->interface[i].addr.s_addr) return 1;
+		}
 	}
 	return 0;
 }

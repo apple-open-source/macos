@@ -1,3 +1,155 @@
+2001-08-06  James Ingham  <jingham@inghji.apple.com>
+
+	* symtab.c (in_prologue): If the function start address doesn't
+	look like a prologue start, try also scanning from the pc.  This
+	helps us in some cases where we have bad debug info so the
+	function address is off in never-never land.  I have seen this
+	happen in PEF binaries where there are some functions with
+	traceback tables inlined, but not all.
+
+2001-08-02  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c (cplus_real_type_index_for_fake_child_index): New
+	function, return the index in the class type for the n'th child of
+	one of the varobj fake children.
+	(cplus_name_of_child): Use this function rather than just assume 
+	the class writer had ordered her variables in a particular order.
+
+	(c_value_of_variable): Make sure you count the number of children
+	before reporting it in an Array's value string.
+
+2001-08-01  James Ingham  <jingham@inghji.apple.com>
+
+	* command.c (_initialize_command): The file name completer is more
+	appropriate for "shell" than the default completer...
+
+2001-07-09  James Ingham  <jingham@inghji.apple.com>
+
+	* valops.c (value_rtti_type): Check for minsym == NULL BEFORE using it.
+
+2001-07-06  James Ingham  <jingham@inghji.apple.com>
+
+	* wrapper.c (gdb_varobj_get_value): provide a save
+	varobj_get_value.
+        * wrapper.h: declare it.
+	* cli-out.c: wrapper.h now requires varobj.h.
+	* gdbtypes.c: ditto
+	* values.c: ditto
+	* varobj.h: ditto
+	
+2001-06-21  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c (cplus_value_of_child): Just cosmetic - I find the
+	added brackets more readable.
+
+2001-06-20  Ira L. Ruben  <ira@apple.com>
+	* breakpoint.c (parse_breakpoint_sals): Handle case where address
+	is NULL and default_breakpoint_valid to set addr_string to "*pc"
+	(sal.pc) to avoid warning from breakpoint_re_set_one().
+
+2001-06-15  Ira L. Ruben  <ira@apple.com>
+
+	* Makefile.in: Update dependencies for breakpoint.o
+	
+	* breakpoint.c (set_raw_breakpoint): init new original_type field.
+	(create_breakpoints): Handle new original_type argument.
+	(break_command_1): Ditto. 
+	(do_captured_breakpoint): Pass new original type to create_breakpoints.
+	(break_at_finish_at_depth_command_1): pass original type to
+	break_command_1.
+	(break_at_finish_command_1): Ditto.
+	(break_command): Ditto.
+	(future_break_command_1): Ditto.
+	(tbreak_command): Ditto.
+	(hbreak_command): Ditto.
+	(thbreak_command): Ditto.
+	(stopin_command): Ditto.
+	(stopat_command): Ditto.
+	(watch_command_1): Handle new original_type argument.
+	(watch_command): Pass new original type to watch_command_1.
+	(rwatch_command_wrapper): Ditto.
+	(awatch_command): Ditto.
+	(ignore_command): Suppress newline if from_tty is false.
+	(write_one_breakpoint): new routine for save_breakpoints_command.
+	(save_breakpoints_command): Add save-breakpoints command.
+	(_initialize_breakpoint): Define save-breakpoints and its aliases.
+	
+	* breakpoint.h (enum bptype): Add new breakpoint types.
+	(struct breakpoint): Add field to recore original breakpoint type.
+	
+	* main.c (captured_main): Initialize $input_radix and $output_radix.
+	These are referenced by a save-breakpoints file to preserve radix
+	across the breakpoint restoration.
+	
+	* tracepoint.c (tracepoint_save_command): Fix fopen error reporting to
+	show errno information just like save-breakpoints command.
+	
+	* valprint.c (set_input_radix_1): Set $input_radix.
+	(set_output_radix_1): Set $output_radix.
+
+2001-06-15  James Ingham  <jingham@inghji.apple.com>
+
+	* infcmd.c (_initialize_infcmd): If the "run" completer is the
+	file completer, then the "set args" should be as well.  Make it
+	so...
+
+2001-06-13  Jim Ingham  <jingham@inghji.apple.com>
+
+	* infcmd.c: Make the completer for run be the file completer.  It
+	is very common for file names to be the arguments to programs,
+	nothing else really makes sense...
+
+	* valops.c (value_cast): When you are consing up the pointer type
+	for a superclass, set the enclosing type as well or all the
+	superclass fields will be incorrect.
+
+2001-06-08  James Ingham  <jingham@inghji.apple.com>
+
+	* breakpoint.c (_initialize_breakpoint): Add "break ... if <cond>
+	to the documentation for the breakpoint command.
+
+2001-04-17  James Ingham  <jingham@inghji.apple.com>
+
+	* blockframe.c (create_new_frame): move the INIT_EXTRA_FRAME_INFO
+	call to BEFORE the find_pc_partial_function.  This ensures that we
+	will never get a frame without an extra_info because of an error
+	in find_pc_partial_function.
+
+2001-04-09  James Ingham  <jingham@inghji.apple.com>
+
+	* symtab.c (find_line_pc_range): Check that linetable is not null
+	before you dereference it.
+
+	* varobj.c (cplus_value_of_child): check that gdb_value_ind does
+	not return null.  In the C++ case, gdb_value_ind tries to look up
+	the superclass, and sometimes fails miserable.  Protect against
+	that.
+
+2001-03-12  James Ingham  <jingham@inghji.apple.com>
+
+	* valops.c (value_rtti_type): Remove the attempt to offset to 
+	the full type, since that never worked for the hard cases were
+	it might be useful, and failed for the easy cases...  NB. This
+	code is pretty useless for GCC right now.  But at least this
+	renders it harmless.
+
+2001-02-13  James Ingham  <jingham@inghji.apple.com>
+
+	* event-top.c (display_gdb_prompt): Call target_terminal_ours
+	before we reinsert the readline callback handler.  This is
+	necessary if the inferior dies unexpectedly, and the code doesn't
+	clean up.
+
+2001-02-12  James Ingham  <jingham@inghji.apple.com>
+
+	* infrun.c (proceed): set target_executing to 0.  normal_stop
+	doesn't do this, and in the non-asynchronous case,
+	complete_execution doesn't get called either.
+
+2001-02-05  James Ingham  <jingham@inghji.apple.com>
+
+	* objc-lang.c: If syms is NULL, don't try to dereference it!
+
 2001-01-25  James Ingham  <jingham@inghji.apple.com>
 
 	* infrun.c: Initialize sync_execution to 1 - this is the default

@@ -1,7 +1,7 @@
 XCOMM
-XCOMM $Id: Imakefile,v 1.1.1.1 1999/04/23 01:59:50 wsanchez Exp $
+XCOMM $Id: Imakefile,v 1.1.1.2 2001/06/28 23:10:48 bbraun Exp $
 XCOMM
-XCOMM Imakefile for tcsh 6.08
+XCOMM Imakefile for tcsh 6.10
 XCOMM Marc Horowitz, MIT SIPB
 XCOMM
 
@@ -117,17 +117,23 @@ DEPENDFLAGS = -o.o
 # endif
 
 # ifdef SGIArchitecture
-#  define ConfigH sgi
-#  ifdef you_are_using_yp
-#   define UseSunLib 
-#  endif
-#  ifndef UseLibBSD
+#   define ConfigH irix
 #   define UseLibBSD
-#  endif
-#  if !HasGCC
-#   define MyStdc -D__STDC__
-#   if SGICompilerMajorVersion < 4
+#  if (OSMajorVersion < 5)
+#   ifdef you_are_using_yp
+#    define UseSunLib 
+#   endif
+#   if !HasGCC
+#    define MyStdc -D__STDC__
+#    if SGICompilerMajorVersion < 4
 CCOPTIONS=-float	# We don't want -cckr and -prototypes
+#    endif
+#   endif
+#  endif
+#  if (OSMajorVersion == 6)
+#   if (OSMinorVersion >= 2)
+#    undef UseLibBSD
+#    define ConfigH irix62
 #   endif
 #  endif
 # endif
@@ -192,6 +198,10 @@ EXTF=mi.termios.c mi.wait.h mi.varargs.h vms.termcap.c
 #   define ConfigH isc202
 #  endif
 # endif /* i386Isc */
+
+# ifdef OpenBSDArchitecture
+#  define ConfigH bsd4.4
+# endif /* OpenBsdArchitecture */
 
 # ifdef NetBSDArchitecture
 #  define ConfigH bsd4.4
@@ -470,7 +480,7 @@ LDLIBS = MyLibs
 #endif
 
 SUF = o
-VERSION = 6.08
+VERSION = 6.10
 
 SHSRCS=	sh.c sh.dir.c sh.dol.c sh.err.c sh.exec.c sh.char.c \
 	sh.exp.c sh.file.c sh.func.c sh.glob.c sh.hist.c sh.init.c \

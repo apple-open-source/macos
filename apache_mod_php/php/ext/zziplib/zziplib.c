@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,40 +12,51 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Hartmut Holzgraefe <hartmut@six.de>                         |
+   | Authors: Sterling Hughes <sterling@php.net>                          |
    +----------------------------------------------------------------------+
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
 #include "php_zziplib.h"
 
-/* You should tweak config.m4 so this symbol (or some else suitable)
-   gets defined.
-*/
 #if HAVE_ZZIPLIB
 
-/* If you declare any globals in php_zziplib.h uncomment this:
-ZEND_DECLARE_MODULE_GLOBALS(zziplib)
-*/
+#include "ext/standard/info.h"
+#include <zziplib.h>
 
-/* True global resources - no need for thread safety here */
-static int le_zziplib;
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
-/* Every user visible function must have an entry in zziplib_functions[].
-*/
+static int le_zzip_dir;
+static int le_zzip_entry;
+
 function_entry zziplib_functions[] = {
-	PHP_FE(confirm_zziplib_compiled,	NULL)		/* For testing, remove later. */
-	{NULL, NULL, NULL}	/* Must be the last line in zziplib_functions[] */
+	PHP_FE(zzip_opendir,                 NULL)
+	PHP_FE(zzip_readdir,                 NULL)
+	PHP_FE(zzip_closedir,                NULL)
+	PHP_FE(zzip_entry_name,              NULL)
+	PHP_FE(zzip_entry_compressedsize,    NULL)
+	PHP_FE(zzip_entry_filesize,          NULL)
+	PHP_FE(zzip_entry_compressionmethod, NULL)
+	PHP_FE(zzip_open,                    NULL)
+	PHP_FE(zzip_read,                    NULL)
+	PHP_FE(zzip_close,                   NULL)
+	{NULL, NULL, NULL}
 };
 
 zend_module_entry zziplib_module_entry = {
 	"zziplib",
 	zziplib_functions,
 	PHP_MINIT(zziplib),
-	PHP_MSHUTDOWN(zziplib),
-	PHP_RINIT(zziplib),		/* Replace with NULL if there's nothing to do at request start */
-	PHP_RSHUTDOWN(zziplib),	/* Replace with NULL if there's nothing to do at request end */
+	NULL,
+	NULL,		
+	NULL,
 	PHP_MINFO(zziplib),
 	STANDARD_MODULE_PROPERTIES
 };
@@ -54,79 +65,243 @@ zend_module_entry zziplib_module_entry = {
 ZEND_GET_MODULE(zziplib)
 #endif
 
-/* Remove comments and fill if you need to have entries in php.ini
-PHP_INI_BEGIN()
-PHP_INI_END()
-*/
+static void php_zziplib_free_dir(zend_rsrc_list_entry *rsrc)
+{
+	ZZIP_DIR *z_dir = (ZZIP_DIR *) rsrc->ptr;
+	zzip_closedir(z_dir);
+}
+
+static void php_zziplib_free_entry(zend_rsrc_list_entry *rsrc)
+{
+	php_zzip_dirent *entry = (php_zzip_dirent *) rsrc->ptr;
+
+	if (entry->fp) {
+		zzip_close(entry->fp);
+	}
+
+	efree(entry);
+}
 
 PHP_MINIT_FUNCTION(zziplib)
 {
-/* Remove comments if you have entries in php.ini
-	REGISTER_INI_ENTRIES();
-*/
-	return SUCCESS;
-}
+	le_zzip_dir   = zend_register_list_destructors_ex(php_zziplib_free_dir, NULL, "ZZIP Directory", module_number);
+	le_zzip_entry = zend_register_list_destructors_ex(php_zziplib_free_entry, NULL, "ZZIP Entry", module_number);
 
-PHP_MSHUTDOWN_FUNCTION(zziplib)
-{
-/* Remove comments if you have entries in php.ini
-	UNREGISTER_INI_ENTRIES();
-*/
-	return SUCCESS;
-}
-
-/* Remove if there's nothing to do at request start */
-PHP_RINIT_FUNCTION(zziplib)
-{
-	return SUCCESS;
-}
-
-/* Remove if there's nothing to do at request end */
-PHP_RSHUTDOWN_FUNCTION(zziplib)
-{
-	return SUCCESS;
+	return(SUCCESS);
 }
 
 PHP_MINFO_FUNCTION(zziplib)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "zziplib support", "enabled");
+	php_info_print_table_row(2, "zziplib support", "enabled");
 	php_info_print_table_end();
 
-	/* Remove comments if you have entries in php.ini
-	DISPLAY_INI_ENTRIES();
-	*/
 }
 
-/* Remove the following function when you have succesfully modified config.m4
-   so that your module can be compiled into PHP, it exists only for testing
-   purposes. */
-
-/* Every user-visible function in PHP should document itself in the source */
-/* {{{ proto string confirm_zziplib_compiled(string arg)
-   Return a string to confirm that the module is compiled in */
-PHP_FUNCTION(confirm_zziplib_compiled)
+/* {{{ proto resource zzip_opendir(string filename)
+   Open a new zzip archive for reading */
+PHP_FUNCTION(zzip_opendir)
 {
-	zval **arg;
-	int len;
-	char string[256];
+	zval **filename;
+	ZZIP_DIR *archive_p = NULL;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_string_ex(arg);
+	archive_p = zzip_opendir(Z_STRVAL_PP(filename));
+	if (archive_p == NULL) {
+		php_error(E_WARNING, "Cannot open zip archive %s", Z_STRVAL_PP(filename));
+		RETURN_FALSE;
+	}
 
-	len = sprintf(string, "Congratulations, you have successfully modified ext/zziplib/config.m4, module %s is compiled into PHP", Z_STRVAL_PP(arg));
-	RETURN_STRINGL(string, len, 1);
+	ZEND_REGISTER_RESOURCE(return_value, archive_p, le_zzip_dir);
 }
 /* }}} */
-/* The previous line is meant for emacs, so it can correctly fold and unfold
-   functions in source code. See the corresponding marks just before function
-   definition, where the functions purpose is also documented. Please follow
-   this convention for the convenience of others editing your code.
-*/
 
+/* {{{ proto resource zzip_readdir(resource zzipp)
+   Returns the next file in the archive */
+PHP_FUNCTION(zzip_readdir)
+{
+	zval **zzip_dp;
+	ZZIP_DIR *archive_p = NULL;
+	php_zzip_dirent *entry = NULL;
+	int ret;
+
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(1, &zzip_dp) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(archive_p, ZZIP_DIR *, zzip_dp, -1, "ZZIP Directory", le_zzip_dir);
+
+	entry = (php_zzip_dirent *) emalloc(sizeof(php_zzip_dirent));
+
+	ret = zzip_dir_read(archive_p, &entry->dirent);
+	if (ret == 0) {
+		efree(entry);
+		RETURN_FALSE;
+	}
+
+	ZEND_REGISTER_RESOURCE(return_value, entry, le_zzip_entry);
+}
+/* }}} */
+
+/* {{{ proto void zzip_closedir(resource zzipp)
+   Close a Zip archive */
+PHP_FUNCTION(zzip_closedir)
+{
+	zval **zzip_dp;
+	ZZIP_DIR *archive_p = NULL;
+
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(1, &zzip_dp) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(archive_p, ZZIP_DIR *, zzip_dp, -1, "ZZIP Directory", le_zzip_dir);
+
+	zend_list_delete(Z_LVAL_PP(zzip_dp));
+}
+/* }}} */
+
+static void php_zzip_get_entry(INTERNAL_FUNCTION_PARAMETERS, int opt)
+{
+	zval **zzip_ent;
+	php_zzip_dirent *entry = NULL;
+
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(1, &zzip_ent) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(entry, php_zzip_dirent *, zzip_ent, -1, "ZZIP Entry", le_zzip_entry);
+
+	switch (opt) {
+	case 0:
+		RETURN_STRING(entry->dirent.d_name, 1);
+		break;
+	case 1:
+		RETURN_LONG(entry->dirent.d_csize);
+		break;
+	case 2:
+		RETURN_LONG(entry->dirent.st_size);
+		break;
+	case 3:
+		RETURN_STRING((char *) zzip_compr_str(entry->dirent.d_compr), 1);
+		break;
+	}
+}
+
+/* {{{ proto string zzip_entry_name(resource zzip_entry)
+   Return the name given a ZZip entry */
+PHP_FUNCTION(zzip_entry_name)
+{
+	php_zzip_get_entry(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+}
+/* }}} */
+
+/* {{{ proto int zzip_entry_compressedsize(resource zzip_entry)
+   Return the compressed size of a ZZip entry */
+PHP_FUNCTION(zzip_entry_compressedsize)
+{
+	php_zzip_get_entry(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+}
+/* }}} */
+
+/* {{{ proto int zzip_entry_filesize(resource zzip_entry)
+   Return the actual filesize of a ZZip entry */
+PHP_FUNCTION(zzip_entry_filesize)
+{
+	php_zzip_get_entry(INTERNAL_FUNCTION_PARAM_PASSTHRU, 2);
+}
+/* }}} */
+
+/* {{{ proto string zzip_entry_compressionmethod(resource zzip_entry)
+   Return a string containing the compression method used on a particular entry */
+PHP_FUNCTION(zzip_entry_compressionmethod)
+{
+	php_zzip_get_entry(INTERNAL_FUNCTION_PARAM_PASSTHRU, 3);
+}
+/* }}} */
+
+/* {{{ proto bool zzip_open(resource zzip_dp, resource zzip_entry, string mode)
+   Open a Zip File, pointed by the resource entry */
+PHP_FUNCTION(zzip_open)
+{
+	zval **zzip_dp, **zzip_ent, **mode;
+	ZZIP_DIR *archive_p = NULL;
+	php_zzip_dirent *entry = NULL;
+
+	if (ZEND_NUM_ARGS() != 2 ||
+		zend_get_parameters_ex(3, &zzip_dp, &zzip_ent, &mode) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(archive_p, ZZIP_DIR *, zzip_dp, -1, "ZZIP Directory", le_zzip_dir);
+	ZEND_FETCH_RESOURCE(entry, php_zzip_dirent *, zzip_dp, -1, "ZZIP Entry", le_zzip_entry);
+
+	entry->fp = zzip_file_open(archive_p, entry->dirent.d_name, O_RDONLY|O_BINARY);
+
+	if (entry->fp) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto string zzip_read(resource zzip_ent)
+   Read X bytes from an opened zzip entry */
+PHP_FUNCTION(zzip_read)
+{
+	zval **zzip_ent, **length;
+	php_zzip_dirent *entry = NULL;
+	char *buf = NULL;
+	int len = 1024,
+		argc = ZEND_NUM_ARGS(),
+		ret = 0;
+
+	if (argc < 1 || argc > 2 ||
+		zend_get_parameters_ex(argc, &zzip_ent, &length) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(entry, php_zzip_dirent *, zzip_ent, -1, "ZZIP Entry", le_zzip_entry);
+	if (argc > 1) {
+		convert_to_long_ex(length);
+		len = Z_LVAL_PP(length);
+	}
+
+	buf = emalloc(len + 1);
+
+	ret = zzip_read(entry->fp, buf, len);
+	if (ret == 0) {
+		RETURN_FALSE;
+	}
+	
+	RETURN_STRINGL(buf, len, 0);
+}
+/* }}} */
+
+/* {{{ proto void zzip_close(resource zzip_ent)
+   Close a zzip entry */
+PHP_FUNCTION(zzip_close)
+{
+	zval **zzip_ent;
+	php_zzip_dirent *entry = NULL;
+
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(1, &zzip_ent) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(entry, php_zzip_dirent *, zzip_ent, -1, "ZZIP Entry", le_zzip_entry);
+
+	zend_list_delete(Z_LVAL_PP(zzip_ent));
+}
+/* }}} */
 
 #endif	/* HAVE_ZZIPLIB */
 

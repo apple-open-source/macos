@@ -121,7 +121,7 @@ static void define_colon(void)
     if (gdb_target_running()) {
         redirect_stdout = gdb_open_output(stdout, colon_filter, NULL);
         gdb_redirect_output(redirect_stdout);
-        gdb_print_address(gdb_get_int("$pc"));
+        gdb_print_address("*$pc", 0);
         gdb_close_output(redirect_stdout);
     } else
     	gdb_set_int("$colon", -1);
@@ -319,7 +319,7 @@ static void build_argv(char *commandLine)
  
 static void preprocess_commands(char *commandLine, void *data)
 {
-    int  i, len;
+    int  i, len, lastcmd;
     char *p, cmd[20];
     
     static int firsttime = 1;
@@ -330,10 +330,12 @@ static void preprocess_commands(char *commandLine, void *data)
 	short	       pairedCmdNbr;
 	unsigned short flags;
 	    #define REPEATABLE 	   0x0001	/* null cmd, repeat prev. with no args	*/	
-	    #define NOT_REPEATABLE 0x0002	/* null cmd, don't repreat previous	*/
+	    #define NOT_REPEATABLE 0x0002	/* null cmd, don't repeat previous	*/
 	    #define REPEATED_ONCE  0x0004	/* cmd has been repeated at least once	*/
 	    #define HAD_NO_ARGS	   0x0008	/* first use of cmd had no args		*/
+    	    #define GDB_ENHANCED   0x0010	/* enhanced existing gdb cmd		*/
 	    #define IS_PLUGIN      0x8000	/* cmd written as a plugin		*/
+    	    #define GDB_REP_ENHNCD (REPEATABLE | GDB_ENHANCED)
     } Command_Info;
     
     #define MACSBUG_CMD(cmd, cmdNbr, paired, flags) {#cmd, cmdNbr, paired, flags}
@@ -344,8 +346,8 @@ static void preprocess_commands(char *commandLine, void *data)
     /* table so the commands must be alphabetical.					*/
     
     static Command_Info macsbug_cmds[] = {
-    	MACSBUG_CMD(BRC,   1, -1, NOT_REPEATABLE	  ),
-	MACSBUG_CMD(BRD,   2, -1, NOT_REPEATABLE	  ),
+    	MACSBUG_CMD(BRC,   1, -1, NOT_REPEATABLE|IS_PLUGIN),
+	MACSBUG_CMD(BRD,   2, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(BRM,  38, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(BRP,  33, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(DB,    3, -1, REPEATABLE    |IS_PLUGIN),
@@ -370,10 +372,15 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(ILP,  11, -1, REPEATABLE   	|IS_PLUGIN),  /* alias */
 	MACSBUG_CMD(IP,   13, -1, REPEATABLE    |IS_PLUGIN),  
 	MACSBUG_CMD(IPP,  13, -1, REPEATABLE    |IS_PLUGIN),  /* alias */
-	MACSBUG_CMD(L,	  44, -1, REPEATABLE    |IS_PLUGIN),  /* special case alias */
-	MACSBUG_CMD(LIST, 44, -1, REPEATABLE    |IS_PLUGIN),  /* special case       */
-	MACSBUG_CMD(MR,   15, -1, NOT_REPEATABLE	  ),
+	MACSBUG_CMD(L,	  44, -1, REPEATABLE    |IS_PLUGIN),  /* special case */
+	MACSBUG_CMD(LI,   44, -1, REPEATABLE    |IS_PLUGIN),  /* special case */
+	MACSBUG_CMD(LIS,  44, -1, REPEATABLE    |IS_PLUGIN),  /* special case */
+	MACSBUG_CMD(LIST, 44, -1, REPEATABLE    |IS_PLUGIN),  /* special case */
+	MACSBUG_CMD(MR,   15, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(MSET, 40, -1, REPEATABLE    |IS_PLUGIN),
+	MACSBUG_CMD(N,	  45, -1, GDB_REP_ENHNCD|IS_PLUGIN),  /* gdb enhanced */
+	MACSBUG_CMD(NEXT, 45, -1, GDB_REP_ENHNCD|IS_PLUGIN),  /* gdb enhanced */
+	MACSBUG_CMD(NEXTI,47, -1, GDB_REP_ENHNCD|IS_PLUGIN),  /* gdb enhanced */
 	MACSBUG_CMD(PC,   41, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(R0,   41, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(R1,   41, -1, NOT_REPEATABLE|IS_PLUGIN),
@@ -407,6 +414,7 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(R29,  41, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(R30,  41, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(R31,  41, -1, NOT_REPEATABLE|IS_PLUGIN),
+	MACSBUG_CMD(S,	  46, -1, GDB_REP_ENHNCD|IS_PLUGIN),  /* gdb enhanced */
 	MACSBUG_CMD(SB,   17, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(SC,   18, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(SC6,  18, -1, NOT_REPEATABLE|IS_PLUGIN),  /* alias */
@@ -416,11 +424,13 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(SM,   22, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(SO,   23, 16, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(SP,   41, 16, REPEATABLE    |IS_PLUGIN),
+	MACSBUG_CMD(STEP, 46, -1, GDB_REP_ENHNCD|IS_PLUGIN),  /* gdb enhanced */
+	MACSBUG_CMD(STEPI,48, -1, GDB_REP_ENHNCD|IS_PLUGIN),  /* gdb enhanced */
 	MACSBUG_CMD(SW,   24, -1, NOT_REPEATABLE|IS_PLUGIN),
-	MACSBUG_CMD(T,    25, -1, REPEATABLE    	  ),
-	MACSBUG_CMD(TD,   26, -1, NOT_REPEATABLE|IS_PLUGIN),
-	MACSBUG_CMD(TF,   27, -1, NOT_REPEATABLE	  ),
-	MACSBUG_CMD(TV,   28, -1, NOT_REPEATABLE	  ),
+	MACSBUG_CMD(T,    25, -1, REPEATABLE    |IS_PLUGIN),
+	MACSBUG_CMD(TD,   26, -1, REPEATABLE    |IS_PLUGIN),
+	MACSBUG_CMD(TF,   27, -1, REPEATABLE    |IS_PLUGIN),
+	MACSBUG_CMD(TV,   28, -1, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(WH,   42, -1, REPEATABLE    |IS_PLUGIN)
     };
     
@@ -428,22 +438,42 @@ static void preprocess_commands(char *commandLine, void *data)
     /* MacsBug screen is off just to make the listing contiguous the way we do with	*/
     /* disassemblies and memory dumps when the MacsBug screen is off.			*/
     
+    /* Similarly N[EXT], S[TEP], NEXTI and STEPI are processed like LIST to make those	*/
+    /* commands display contiguously when the MacsBug screen is off.			*/
+    
     Command_Info *b;
     
     if (!commandLine)
     	return;
     
-    /* If no command entered ues the previous command if that is allowed...		*/
+    /* If no command was entered use the previous command if that is allowed...		*/
+    
+    /* A null command line is treated by gdb as a repeat of the previous command.  If	*/
+    /* it's a repeatable MacsBug command (e.g., IL) then the repeated command has no	*/
+    /* arguments even if the original had arguments.  If it's an enhanced repeatable	*/
+    /* gdb command (.e.g., NEXT), i.e., enhanced to show a contiguous display even when	*/
+    /* the MacsBug screen is off, then we only allow the contiguity iff the original	*/
+    /* command had no arguments.  This is controlled by $__lastcmd__.			*/
     
     len = strlen(commandLine);
     if (len == 0 && continued_len == 0 && (prev_cmd.flags & REPEATABLE) &&
     	gdb_get_int("$__lastcmd__") == prev_cmd.cmdNbr) {
-    	if (prev_cmd.flags & (REPEATED_ONCE|HAD_NO_ARGS))
-	    gdb_set_previous_command(prev_cmd.cmd);
-	else {
-    	    change_cmd(commandLine, "", prev_cmd.cmd, 0);
-	    prev_cmd.flags |= REPEATED_ONCE;
-	}
+	if (!(prev_cmd.flags & GDB_ENHANCED))			/* not gdb enhanced...	*/
+    	    if (prev_cmd.flags & (REPEATED_ONCE|HAD_NO_ARGS))	/* ...had no args	*/
+	    	gdb_set_previous_command(prev_cmd.cmd);		/* ...cmd with no args	*/
+	    else {						/* ...had args		*/
+    	    	change_cmd(commandLine, "", prev_cmd.cmd, 0);	/* ...cmd with no args	*/
+	    	prev_cmd.flags |= REPEATED_ONCE;
+	    }
+	else if (!(prev_cmd.flags & HAD_NO_ARGS))		/* gdb enhanced...	*/
+	    gdb_set_int("$__lastcmd__", -1);			/* ...had args		*/
+
+	/* If this is a repeat of a enhanced gdb command, but the original command had	*/
+	/* arguments, then make them think that they are not contiguous...		*/
+	
+	if ((prev_cmd.flags & GDB_ENHANCED) && !(prev_cmd.flags & HAD_NO_ARGS))
+	    gdb_set_int("$__lastcmd__", -1);
+	    
 	gdb_set_int(ARGC, current_argc = 0);
 	return;
     }
@@ -487,7 +517,9 @@ static void preprocess_commands(char *commandLine, void *data)
     
     if (log_stream)
     	fprintf(log_stream, "%s\n", commandLine);
-    
+   
+    lastcmd = -1;				/* used to set $__lastcmd__ at end	*/
+
     /* See if the command is one of our MacsBug commands...				*/
     
     for (p = commandLine; *p && (*p != ' ' && *p != '\t'); p++) ; /* find end of cmd	*/
@@ -507,14 +539,16 @@ static void preprocess_commands(char *commandLine, void *data)
 	    /* "cute" about how we cause gdb's command history to be recorded for that	*/
 	    /* null line next time.							*/
 	    
-    	    /* Also, a "G" command is equivalent to "R[UN]" if we are not running.  	*/
-    	    
 	    if (b) {
+		if (prev_cmd.cmdNbr == b->cmdNbr && (b->flags & REPEATABLE))
+		    lastcmd = b->cmdNbr;	  /* see comments near end of function	*/
 	    	prev_cmd = *b;
     	    	while (p && (*p == ' ' || *p == '\t'))
     	    	    ++p;
     	    	if (!*p)
 		    prev_cmd.flags |= HAD_NO_ARGS;
+		else
+		    lastcmd = -1;
 		if (gdb_target_running() && !(b->flags & IS_PLUGIN))
 		    build_argv(commandLine);	   /* ...set up $__argc and $__argN's	*/
 		#if 0
@@ -540,9 +574,18 @@ static void preprocess_commands(char *commandLine, void *data)
 	prev_cmd.flags &= ~IS_PLUGIN;
     }
     
-    /* Explicit commands always reset to using a command for the first time...		*/
+    /* Explicit commands always reset to using a command for the first time *unless* it	*/
+    /* is a repeatable command (e.g., IP, i.e., ones that attempt to produce a		*/
+    /* contiguous display when the MacsBug screen is off) or an alternate spelling for 	*/
+    /* for the same repeatable command (.e.g., L and LIST, N and NEXT).  Such commands 	*/
+    /* are flagged as REPEATABLE.  If we have one of these, and the previous command 	*/
+    /* was the same command (number) then we set $__lastcmd__ exactly as if a null 	*/
+    /* command was entered, i.e., $__lastcmd__ is set to the same command number so 	*/
+    /* that the command can take appropriate actions if it handles contiguous output 	*/
+    /* (as L and LIST do, or IL when another IL is explicitly retyped instead of just	*/
+    /* hitting a return to repeat the previous command).									*/
     
-    gdb_set_int("$__lastcmd__", -1);
+    gdb_set_int("$__lastcmd__", lastcmd);
     
     /* Define the current value for $colon (addr of function containing pc)...		*/
     
@@ -575,14 +618,7 @@ void init_macsbug_cmdline(void)
     /* MacsBug class so that these commands "join" with the others to make up the 	*/
     /* complete set of commands for the MacsBug help class.				*/
     
-    CHANGE_TO_MACSBUG_COMMAND(brc);
-    CHANGE_TO_MACSBUG_COMMAND(brd);
     CHANGE_TO_MACSBUG_COMMAND(es);
-    CHANGE_TO_MACSBUG_COMMAND(g);
-    CHANGE_TO_MACSBUG_COMMAND(mr);
-    CHANGE_TO_MACSBUG_COMMAND(t);
-    CHANGE_TO_MACSBUG_COMMAND(tf);
-    CHANGE_TO_MACSBUG_COMMAND(tv);
     
     gdb_redirect_stdin(preprocess_commands, postprocess_commands, NULL);
 }

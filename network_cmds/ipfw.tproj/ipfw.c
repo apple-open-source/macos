@@ -16,7 +16,7 @@
  *
  * NEW command line interface for IP firewall facility
  *
- * $Id: ipfw.c,v 1.2 2000/06/07 04:22:47 lindak Exp $
+ * $Id: ipfw.c,v 1.4 2001/07/17 22:59:33 lindak Exp $
  *
  */
 

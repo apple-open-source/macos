@@ -9,7 +9,7 @@
  *	it in the next release.						*
  *									*
  ************************************************************************/
-/*$Id: header.h,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $*/
+/*$Id: header.h,v 1.1.1.2 2001/07/20 19:38:16 bbraun Exp $*/
 
 X(returnpath,		"Return-Path:")				  /* RFC 822 */
 X(received,		"Received:")				/* ditto ... */
@@ -167,3 +167,4 @@ X(anonpostto,		"Anon-Post-To:")
 X(encrkey,		"Encrypt-Key:")
 X(readreceiptto,	"Read-Receipt-To:")	  /* miscellaneous extension */
 X(fakesender,		"Fake-Sender:")
+X(envelopeto,		"Envelope-To:")			   /* exim extension */

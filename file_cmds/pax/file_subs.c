@@ -480,7 +480,12 @@ node_creat(arcn)
 	 */
 	if (pids)
 		res = ((arcn->type == PAX_SLK) ?
+#if defined(__APPLE__)
+    		    /* Mac OS X doesn't have lchown, so don't bother */
+		    0 :
+#else
 		    set_lids(arcn->name, arcn->sb.st_uid, arcn->sb.st_gid) :
+#endif
 		    set_ids(arcn->name, arcn->sb.st_uid, arcn->sb.st_gid));
 	else
 		res = 0;
@@ -777,6 +782,9 @@ set_ids(fnm, uid, gid)
 	return(0);
 }
 
+#if !defined(__APPLE__)
+/* Mac OS X doesn't have lchown */
+
 /*
  * set_lids()
  *	set the uid and gid of a file system node
@@ -795,11 +803,7 @@ set_lids(fnm, uid, gid)
 	gid_t gid;
 #endif
 {
-#ifdef __APPLE__
-	if (chown(fnm, uid, gid) < 0) {
-#else
 	if (lchown(fnm, uid, gid) < 0) {
-#endif
 		/*
 		 * ignore EPERM unless in verbose mode or being run by root.
 		 * if running as pax, POSIX requires a warning.
@@ -812,6 +816,7 @@ set_lids(fnm, uid, gid)
 	}
 	return(0);
 }
+#endif
 
 /*
  * set_pmode()

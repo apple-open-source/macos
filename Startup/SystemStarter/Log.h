@@ -1,9 +1,9 @@
 /**
  * Log.h - Error reporting facilities
- * Wilfredo Sanchez | wsanchez@apple.com
+ * Wilfredo Sanchez | wsanchez@opensource.apple.com
  * $Apple$
  **
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

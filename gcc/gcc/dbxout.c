@@ -565,6 +565,13 @@ dbxout_source_file (file, filename)
       fprintf (file, "%s ", ASM_STABS_OP);
       output_quoted_string (file, filename);
       fprintf (file, ",%d,0,0,%s\n", N_SOL, &ltext_label_name[1]);
+#ifdef EH_CLEANUPS_SEPARATE_SECTION
+      /* We could currently be in an EH cleanup section; switching
+	 back to __text now would be disastrous!  */
+      if (in_separate_eh_cleanup_section_p ())
+	;
+      else
+#endif
       if (current_function_decl != NULL_TREE
 #ifdef HAVE_COALESCED_SYMBOLS
 	  && (DECL_COALESCED (current_function_decl)

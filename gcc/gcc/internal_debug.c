@@ -17,6 +17,9 @@
 #include "rtl.h"
 #include "basic-block.h"
 
+/* get Objective-C stuff also */
+#include "objc/objc-act.h"
+
 #define fn_1(name,rt,pt)       rt (name) (pt a)           { return name(a); }
 #define fn_2(name,rt,p1,p2)    rt (name) (p1 a,p2 b)      { return name(a,b); }
 #define fn_3(name,rt,p1,p2,p3) rt (name) (p1 a,p2 b,p3 c) { return name(a,b,c); }
@@ -143,8 +146,8 @@ fn_1( SAVE_EXPR_RTL, rtx, tree )
 fn_1( TREE_ADDRESSABLE, int, tree )
 fn_1( TREE_ASM_WRITTEN, int, tree )
 fn_1( TREE_CHAIN, tree, tree )
-fn_1( TREE_CODE, int, tree )
-fn_1( TREE_CODE_CLASS, int, int )
+fn_1( TREE_CODE, enum tree_code, tree )
+fn_1( TREE_CODE_CLASS, char, int )
 fn_1( TREE_COMPLEXITY, int, tree )
 fn_1( TREE_CONSTANT, int, tree )
 fn_1( TREE_CONSTANT_OVERFLOW, int, tree )
@@ -226,6 +229,7 @@ fn_1( TYPE_P, int, tree )
 fn_1( TYPE_PACKED, int, tree )
 fn_1( TYPE_POINTER_TO, tree, tree )
 fn_1( TYPE_PRECISION, int, tree )
+fn_1( TYPE_QUALS, int, tree )
 fn_1( TYPE_READONLY, int, tree )
 fn_1( TYPE_REFERENCE_TO, tree, tree )
 fn_1( TYPE_SIZE, tree, tree )
@@ -386,5 +390,55 @@ fn_2( RANGE_REG_BLOCK_NODE, tree, rtx, int )
 /* And there's even a three-parameter one... */
 fn_3( XVECEXP, rtx, rtx, int, int )
 /* And that's more than all the C ones that I've run into. */
+
+/* ...but wait, there's more!  How about retrieving an arbitrary element in
+   a chain? And doing it in a brain-dead recursive way? */
+tree 
+TREE_CHAIN_N(head, n)
+  tree head;
+  int n;
+{
+  return n? TREE_CHAIN_N(TREE_CHAIN(head), --n): head;
+}
+
+int
+TREE_CHAIN_LENGTH(head)
+  tree head;
+{
+  return head? TREE_CHAIN_LENGTH(TREE_CHAIN(head)) + 1: 0;
+}
+
+/* Objective-C specific stuff */
+
+#define fn_noden( m ) fn_1(m, tree, tree)
+#define fn_nodei( m ) fn_1(m, int, tree)
+
+fn_noden(KEYWORD_KEY_NAME)
+fn_noden(KEYWORD_ARG_NAME)
+fn_noden(METHOD_SEL_NAME)
+fn_noden(METHOD_SEL_ARGS)
+fn_noden(METHOD_ADD_ARGS)
+fn_noden(METHOD_DEFINITION)
+fn_noden(METHOD_ENCODING)
+fn_noden(CLASS_NAME)
+fn_noden(CLASS_SUPER_NAME)   
+fn_noden(CLASS_IVARS)
+fn_noden(CLASS_RAW_IVARS)
+fn_noden(CLASS_NST_METHODS)
+fn_noden(CLASS_CLS_METHODS)
+fn_noden(CLASS_STATIC_TEMPLATE)
+fn_noden(CLASS_CATEGORY_LIST)
+fn_noden(CLASS_PROTOCOL_LIST)
+fn_noden(PROTOCOL_NAME)
+fn_noden(PROTOCOL_LIST)
+fn_noden(PROTOCOL_NST_METHODS)
+fn_noden(PROTOCOL_CLS_METHODS)
+fn_noden(PROTOCOL_FORWARD_DECL)
+fn_nodei(PROTOCOL_DEFINED)
+fn_noden(TYPE_PROTOCOL_LIST)
+fn_nodei(TREE_STATIC_TEMPLATE)
+fn_nodei(IS_ID)
+fn_nodei(IS_PROTOCOL_QUALIFIED_ID)
+fn_nodei(IS_SUPER)
 
 /* End of internal_debug.c */

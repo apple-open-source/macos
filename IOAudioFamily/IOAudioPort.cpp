@@ -34,8 +34,40 @@
 #define super IOService
 
 OSDefineMetaClassAndStructors(IOAudioPort, IOService)
+OSMetaClassDefineReservedUnused(IOAudioPort, 0);
+OSMetaClassDefineReservedUnused(IOAudioPort, 1);
+OSMetaClassDefineReservedUnused(IOAudioPort, 2);
+OSMetaClassDefineReservedUnused(IOAudioPort, 3);
+OSMetaClassDefineReservedUnused(IOAudioPort, 4);
+OSMetaClassDefineReservedUnused(IOAudioPort, 5);
+OSMetaClassDefineReservedUnused(IOAudioPort, 6);
+OSMetaClassDefineReservedUnused(IOAudioPort, 7);
+OSMetaClassDefineReservedUnused(IOAudioPort, 8);
+OSMetaClassDefineReservedUnused(IOAudioPort, 9);
+OSMetaClassDefineReservedUnused(IOAudioPort, 10);
+OSMetaClassDefineReservedUnused(IOAudioPort, 11);
+OSMetaClassDefineReservedUnused(IOAudioPort, 12);
+OSMetaClassDefineReservedUnused(IOAudioPort, 13);
+OSMetaClassDefineReservedUnused(IOAudioPort, 14);
+OSMetaClassDefineReservedUnused(IOAudioPort, 15);
+OSMetaClassDefineReservedUnused(IOAudioPort, 16);
+OSMetaClassDefineReservedUnused(IOAudioPort, 17);
+OSMetaClassDefineReservedUnused(IOAudioPort, 18);
+OSMetaClassDefineReservedUnused(IOAudioPort, 19);
+OSMetaClassDefineReservedUnused(IOAudioPort, 20);
+OSMetaClassDefineReservedUnused(IOAudioPort, 21);
+OSMetaClassDefineReservedUnused(IOAudioPort, 22);
+OSMetaClassDefineReservedUnused(IOAudioPort, 23);
+OSMetaClassDefineReservedUnused(IOAudioPort, 24);
+OSMetaClassDefineReservedUnused(IOAudioPort, 25);
+OSMetaClassDefineReservedUnused(IOAudioPort, 26);
+OSMetaClassDefineReservedUnused(IOAudioPort, 27);
+OSMetaClassDefineReservedUnused(IOAudioPort, 28);
+OSMetaClassDefineReservedUnused(IOAudioPort, 29);
+OSMetaClassDefineReservedUnused(IOAudioPort, 30);
+OSMetaClassDefineReservedUnused(IOAudioPort, 31);
 
-IOAudioPort *IOAudioPort::withAttributes(const char *portType, const char *portName, const char *subType, OSDictionary *properties)
+IOAudioPort *IOAudioPort::withAttributes(UInt32 portType, const char *portName, UInt32 subType, OSDictionary *properties)
 {
     IOAudioPort *port;
 
@@ -50,27 +82,27 @@ IOAudioPort *IOAudioPort::withAttributes(const char *portType, const char *portN
     return port;
 }
 
-bool IOAudioPort::initWithAttributes(const char *portType, const char *portName, const char *subType, OSDictionary *properties)
+bool IOAudioPort::initWithAttributes(UInt32 portType, const char *portName, UInt32 subType, OSDictionary *properties)
 {
     if (!init(properties)) {
         return false;
     }
 
-    if (!portType) {
+    if (portType == 0) {
         return false;
     }
 
     audioDevice = 0;
     isRegistered = false;
     
-    setProperty(IOAUDIOPORT_TYPE_KEY, portType);
-
-    if (portName) {
-        setProperty(IOAUDIOPORT_NAME_KEY, portName);
+    setType(portType);
+    
+    if (portName != 0) {
+        setName(portName);
     }
 
-    if (subType) {
-        setProperty(IOAUDIOPORT_SUBTYPE_KEY, subType);
+    if (subType != 0) {
+        setSubType(subType);
     }
 
     audioControls = OSSet::withCapacity(1);
@@ -88,6 +120,21 @@ void IOAudioPort::free()
     }
 
     super::free();
+}
+
+void IOAudioPort::setType(UInt32 portType)
+{	
+    setProperty(kIOAudioPortTypeKey, portType, sizeof(UInt32)*8);
+}
+
+void IOAudioPort::setSubType(UInt32 subType)
+{
+    setProperty(kIOAudioPortSubTypeKey, subType, sizeof(UInt32)*8);
+}
+
+void IOAudioPort::setName(const char *portName)
+{
+    setProperty(kIOAudioPortNameKey, portName);
 }
 
 bool IOAudioPort::start(IOService *provider)
@@ -121,7 +168,9 @@ void IOAudioPort::registerService(IOOptionBits options = 0)
             IOAudioControl *control;
     
             while (control = (IOAudioControl *)iterator->getNextObject()) {
-                control->registerService();
+                if (control->getProvider() == this) {
+                    control->registerService();
+                }
             }
             iterator->release();
 	}
@@ -135,28 +184,34 @@ IOAudioDevice *IOAudioPort::getAudioDevice()
     return audioDevice;
 }
 
-bool IOAudioPort::addAudioControl(IOAudioControl *control)
+IOReturn IOAudioPort::addAudioControl(IOAudioControl *control)
 {
+    bool controlWasStarted;
+    
     if (!control || !audioControls) {
-        return false;
+        return kIOReturnBadArgument;
     }
 
     if (!control->attach(this)) {
-        return false;
+        return kIOReturnError;
     }
 
-    if (!control->start(this)) {
-        control->detach(this);
-        return false;
+    controlWasStarted = control->getIsStarted();
+    
+    if (!controlWasStarted) {
+        if (!control->start(this)) {
+            control->detach(this);
+            return kIOReturnError;
+        }
     }
-
+    
     audioControls->setObject(control);
 
-    if (isRegistered) {
+    if (isRegistered && !controlWasStarted) {
         control->registerService();
     }
 
-    return true;
+    return kIOReturnSuccess;
 }
 
 void IOAudioPort::deactivateAudioControls()
@@ -173,6 +228,7 @@ void IOAudioPort::deactivateAudioControls()
         IOAudioControl *control;
 
         while (control = (IOAudioControl *)iterator->getNextObject()) {
+            // Should we check to see if we're the provider?
             if (!isInactive()) {
                 control->terminate();
             }
@@ -182,15 +238,4 @@ void IOAudioPort::deactivateAudioControls()
     }
 
     audioControls->flushCollection();
-}
-
-IOReturn IOAudioPort::performAudioControlValueChange(IOAudioControl *control, UInt32 newValue)
-{
-    IOReturn result = kIOReturnError;
-    
-    if (audioDevice) {
-        result = audioDevice->performAudioControlValueChange(control, newValue);
-    }
-    
-    return result;
 }

@@ -1,0 +1,39 @@
+-- file: edex0.asn1
+--
+-- snacced example, simple types module
+--
+-- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/tcl-example/edex0.asn1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+-- $Log: edex0.asn1,v $
+-- Revision 1.1.1.1  2001/05/18 23:14:10  mb
+-- Move from private repository to open source repository
+--
+-- Revision 1.1.1.1  1999/03/16 18:06:55  aram
+-- Originals from SMIME Free Library.
+--
+-- Revision 1.1  1997/01/01 22:57:11  rj
+-- first check-in
+--
+
+EdEx-Simple DEFINITIONS ::=
+BEGIN
+
+RainbowColor ::= INTEGER
+{
+  red(0), orange(1), yellow(2), green(3), blue(4), indigo(5), violet(6)
+}
+
+DayOfTheWeek ::= ENUMERATED
+{
+  sunday(0), monday(1), tuesday(2), wednesday(3), thursday(4), friday(5), saturday(6)
+}
+
+Hand ::= BIT STRING
+{
+  thumb(0), forefinger(1), middle-finger(2), ring-finger(3), little-finger(4)
+}
+
+victory Hand ::= { forefinger, middle-finger }
+
+File ::= OCTET STRING
+
+END

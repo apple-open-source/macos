@@ -1,4 +1,4 @@
-.TH DYLD 1 "November 15, 2000" "Apple Computer, Inc."
+.TH DYLD 1 "March 12, 2001" "Apple Computer, Inc."
 .SH NAME
 dyld \- the dynamic link editor
 .SH SYNOPSIS
@@ -11,6 +11,8 @@ DYLD_LIBRARY_PATH
 DYLD_FALLBACK_LIBRARY_PATH
 .br
 DYLD_INSERT_LIBRARIES
+.br
+DYLD_FORCE_FLAT_NAMESPACE
 .br
 DYLD_IMAGE_SUFFIX
 .br
@@ -97,8 +99,18 @@ to $(HOME)/lib:/usr/local/lib:/lib:/usr/lib.
 .B DYLD_INSERT_LIBRARIES
 This is a colon separated list of dynamic libraries to load before the ones
 specified in the program.  This lets you test new modules of existing dynamic
-shared libraries by loading a temporary dynamic shared library with just the
-new modules.
+shared libraries that are used in flat-namespace images by loading a temporary
+dynamic shared library with just the new modules.  Note that this has no
+effect on images built a two-level namespace images using a dynamic shared
+library unless
+.SM DYLD_FORCE_FLAT_NAMESPACE
+is also used.
+.TP
+.B DYLD_FORCE_FLAT_NAMESPACE
+Force all images in the program to be linked as flat-namespace images and ignore
+any two-level namespace bindings.  This may cause programs to fail to execute
+with a multiply defined symbol error if two-level namespace images are used to
+allow the images to have multiply defined symbols.
 .TP
 .B DYLD_IMAGE_SUFFIX
 This is set to a string of a suffix to try to be used for all shared libraries

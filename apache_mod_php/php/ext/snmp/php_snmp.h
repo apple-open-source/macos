@@ -2,7 +2,7 @@
 +----------------------------------------------------------------------+
 | PHP version 4.0                                                      |
 +----------------------------------------------------------------------+
-| Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+| Copyright (c) 1997-2001 The PHP Group                                |
 +----------------------------------------------------------------------+
 | This source file is subject to version 2.02 of the PHP license,      |
 | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
 +----------------------------------------------------------------------+
 */
 
-/* $Id: php_snmp.h,v 1.1.1.2 2000/09/07 00:05:59 wsanchez Exp $ */
+/* $Id: php_snmp.h,v 1.1.1.3 2001/07/19 00:20:05 zarzycki Exp $ */
 #ifndef PHP_SNMP_H
 #define PHP_SNMP_H
 

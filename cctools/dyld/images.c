@@ -209,6 +209,30 @@ static void deallocate_module_states(
     unsigned long nmodules);
 
 /*
+ * The image_pointers for two-level namespace images are allocated from this
+ * pool of image_pointers.  This is is to avoid malloc()'ing space for a
+ * reasonable number images_pointers in the most likely cases.
+TODO: the size for this needs to be picked.
+ */
+enum image_pointers_block_size { IMAGE_POINTER_BLOCK_SIZE = 10 };
+struct image_pointers_block {
+    unsigned long used;		/* the number of items used */
+    struct image * image_pointers[IMAGE_POINTER_BLOCK_SIZE];
+				/* the image pointers */
+};
+static struct image_pointers_block image_pointers_block;
+
+static struct image ** allocate_image_pointers(
+    unsigned long n);
+static void reallocate_image_pointers(
+    struct image **image_pointers,
+    unsigned long old_size,
+    unsigned long new_size);
+static void deallocate_image_pointers(
+    struct image **image_pointers,
+    unsigned long n);
+
+/*
  * The function pointer passed to _dyld_moninit() to do profiling of dyld loaded
  * code.  If this function pointer is not NULL at the time of a map_image()
  * called it is called indirectly to set up the profiling buffers.
@@ -221,7 +245,11 @@ static struct library_image *new_library_image(
     unsigned long nmodules);
 static char *get_framework_name(
     char *name,
+    unsigned long *short_name_size,
     enum bool with_underbar_suffix);
+static char * get_library_name(
+    char *name,
+    unsigned long *short_name_size);
 static char *look_back_for_slash(
     char *name,
     char *p);
@@ -240,18 +268,12 @@ static enum bool map_library_image(
     unsigned long library_offset,
     unsigned long library_size,
     dev_t dev,
-    ino_t ino);
+    ino_t ino,
+    struct image **image_pointer);
 static enum bool validate_library(
     char *dylib_name,
     struct dylib_command *dl,
     struct library_image *li);
-static enum bool is_library_loaded_by_name(
-    char *dylib_name,
-    struct dylib_command *dl);
-static enum bool is_library_loaded_by_stat(
-    char *dylib_name,
-    struct dylib_command *dl,
-    struct stat *stat_buf);
 static enum bool set_prebound_state(
     struct prebound_dylib_command *pbdylib);
 
@@ -294,6 +316,7 @@ static enum bool map_image(
     struct symtab_command **st,
     struct dylib_command **dlid,
     struct routines_command **rc,
+    struct twolevel_hints_command **hints_cmd,
     enum bool *change_protect_on_reloc,
     enum bool *cache_sync_on_reloc,
     enum bool *has_coalesced_sections,
@@ -309,7 +332,16 @@ static void set_segment_protections(
     struct mach_header *mh,
     unsigned long slide_value);
 static enum bool load_images_libraries(
-    struct mach_header *mh);
+    struct mach_header *mh,
+    struct image *image);
+static enum bool setup_sub_images(
+    struct library_image *library_image);
+static enum bool check_time_stamp(
+    struct library_image *library_image,
+    struct image *sub_image);
+static void setup_umbrella_images(
+    struct library_image *library_image,
+    unsigned long max_libraries);
 static void unload_shared_file(
     struct library_image *library_image);
 static void undo_prebinding_for_library(
@@ -442,6 +474,7 @@ unsigned long *entry_point)
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct thread_command *thread_command;
+    struct twolevel_hints_command *hints_cmd;
     struct object_image *object_image;
     enum bool change_protect_on_reloc, cache_sync_on_reloc,
 	      has_coalesced_sections, seg1addr_found;
@@ -466,6 +499,7 @@ unsigned long *entry_point)
 	linkedit_segment = NULL;
 	st = NULL;
 	dyst = NULL;
+	hints_cmd = NULL;
 	init = NULL;
 	term = NULL;
 	seg1addr_found = FALSE;
@@ -627,6 +661,18 @@ unsigned long *entry_point)
 		thread_command = (struct thread_command *)lc;
 		*entry_point = get_entry_point(thread_command);
 		break;
+	    case LC_TWOLEVEL_HINTS:
+		if(hints_cmd == NULL)
+		    hints_cmd = (struct twolevel_hints_command *)lc;
+		break;
+	    default:
+		if((lc->cmd & LC_REQ_DYLD) == LC_REQ_DYLD){
+		    error("can't launch executable: %s (unknown load command "
+			  "%ld (0x%x) required for execution)", name, i,
+			  (unsigned int)(lc->cmd));
+		    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
+		}
+		break;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
@@ -688,6 +734,7 @@ unsigned long *entry_point)
 	object_image->image.mh = mh;
 	object_image->image.st = st;
 	object_image->image.dyst = dyst;
+	object_image->image.hints_cmd = hints_cmd;
 	object_image->image.linkedit_segment = linkedit_segment;
 	object_image->image.change_protect_on_reloc = change_protect_on_reloc;
 	object_image->image.cache_sync_on_reloc = cache_sync_on_reloc;
@@ -698,6 +745,7 @@ unsigned long *entry_point)
 	object_image->image.dyld_stub_binding_helper =
 			    images_dyld_stub_binding_helper;
 #endif
+	object_image->image.outer_image = object_image;
 	object_image->image.valid = TRUE;
 	SET_LINK_STATE(object_image->module, BEING_LINKED);
 
@@ -722,7 +770,7 @@ unsigned long *entry_point)
 			   "DYLD_INSERT_LIBRARIES being set\n",
 			   executables_name);
 		prebinding = FALSE;
-		(void)load_library_image(NULL, dylib_name, FALSE);
+		(void)load_library_image(NULL, dylib_name, FALSE, NULL);
 		if(p == NULL){
 		    break;
 		}
@@ -740,13 +788,30 @@ unsigned long *entry_point)
 	    print("loading libraries for image: %s\n",
 		   object_image->image.name);
 	loading_executables_libraries = TRUE;
-	(void)load_images_libraries(mh);
+	(void)load_images_libraries(mh, &(object_image->image));
 	loading_executables_libraries = FALSE;
 
 	/*
 	 * Load the dependent libraries.
 	 */
 	load_dependent_libraries();
+
+	/*
+	 * If we are not forcing flatname space and this object image is a
+	 * two-level namespace image and has hints then set the
+	 * image_can_use_hints bit for this object image.
+	 */
+	if(force_flat_namespace == FALSE){
+	    if((object_image->image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	       (object_image->image.hints_cmd != NULL))
+		object_image->image.image_can_use_hints = TRUE;
+	    else
+		object_image->image.image_can_use_hints = FALSE;
+	}
+	if(dyld_hints_debug != 0)
+	    printf("image_can_use_hints = %s for image: %s\n",
+		   object_image->image.image_can_use_hints == TRUE ?
+		   "TRUE" : "FALSE", object_image->image.name);
 
 	/*
 	 * Call the routine that gdb might have a break point on to let it
@@ -767,16 +832,17 @@ char *path,
 char *suffix)
 {
     char *name, *new_dylib_name;
+    unsigned long size;
 
 	if(path == NULL){
 	    return(NULL);
 	}
 	new_dylib_name = NULL;
-	if((name = get_framework_name(dylib_name, FALSE)) != NULL){
+	if((name = get_framework_name(dylib_name, &size, FALSE)) != NULL){
 	    new_dylib_name = search_for_name_in_path(name, path, suffix);
 	}
 	if(new_dylib_name == NULL){
-	    if((name = get_framework_name(dylib_name, TRUE)) != NULL){
+	    if((name = get_framework_name(dylib_name, &size, TRUE)) != NULL){
 		new_dylib_name = search_for_name_in_path(name, path, suffix);
 	    }
 	}
@@ -904,16 +970,20 @@ char *suffix)
 /*
  * load_library_image() causes the specified dynamic shared library to be loaded
  * into memory and added to the dynamic link editor data structures to use it.
- * Specifily this routine takes a pointer to a dylib_command for a library and
- * finds and opens the file corresponding to it.  It deals with the file being
- * fat and then calls map_library_image() to have the library's segments mapped
- * into memory. 
+ * Specifically this routine takes a pointer to a dylib_command for a library
+ * and finds and opens the file corresponding to it (or if that is NULL then
+ * the specified dylib_name).  It deals with the file being fat and then calls
+ * map_library_image() to have the library's segments mapped into memory.  For
+ * two-level images that depend on this library, image_pointer is the address
+ * of a pointer to an image struct to be set (if not NULL) after this image is
+ * loaded.
  */
 enum bool
 load_library_image(
 struct dylib_command *dl, /* allow NULL for NSAddLibrary() to use this */
 char *dylib_name,
-enum bool force_searching)
+enum bool force_searching,
+struct image **image_pointer)
 {
     char *new_dylib_name, *constructed_name;
     int fd, errnum, save_errno;
@@ -987,7 +1057,7 @@ enum bool force_searching)
 	/*
 	 * If the library is already loaded just return.
 	 */
-	if(is_library_loaded_by_name(dylib_name, dl) == TRUE){
+	if(is_library_loaded_by_name(dylib_name, dl, image_pointer) == TRUE){
 	    if(new_dylib_name != NULL)
 		free(new_dylib_name);
 	    if(constructed_name != NULL)
@@ -1115,7 +1185,8 @@ enum bool force_searching)
 	/*
 	 * If the library is already loaded just return.
 	 */
-	if(is_library_loaded_by_stat(dylib_name, dl, &stat_buf) == TRUE){
+	if(is_library_loaded_by_stat(dylib_name, dl, &stat_buf, image_pointer)
+	   == TRUE){
 	    close(fd);
 	    if(new_dylib_name != NULL)
 		free(new_dylib_name);
@@ -1221,7 +1292,8 @@ enum bool force_searching)
 	     */
 	    return(map_library_image(dl, dylib_name, fd, file_addr, file_size,
 			             best_fat_arch->offset, best_fat_arch->size,
-			             stat_buf.st_dev, stat_buf.st_ino));
+			             stat_buf.st_dev, stat_buf.st_ino,
+				     image_pointer));
 	}
 	else{
 	    if(sizeof(struct mach_header) > file_size){
@@ -1249,7 +1321,7 @@ enum bool force_searching)
 	     */
 	    return(map_library_image(dl, dylib_name, fd, file_addr, file_size,
 				     0, file_size, stat_buf.st_dev,
-				     stat_buf.st_ino));
+				     stat_buf.st_ino, image_pointer));
 	}
 
 load_library_image_cleanup1:
@@ -1281,17 +1353,21 @@ load_library_image_cleanup2:
  *	Foo.framework/Versions/A/Foo
  *	Foo.framework/Foo
  * Where A and Foo can be any string.  If with_underbar_suffix is TRUE then
- * try to parse off a trailing suffix starting with an underbar.
+ * try to parse off a trailing suffix starting with an underbar.  The size of
+ * the short name (that is "Foo" for this example) is returned indirectly
+ * through short_name_size.
  */
 static
 char *
 get_framework_name(
 char *name,
+unsigned long *short_name_size,
 enum bool with_underbar_suffix)
 {
     char *foo, *a, *b, *c, *d, *suffix;
     unsigned long l, s;
 
+	*short_name_size = 0;
 	/* pull off the last component and make foo point to it */
 	a = strrchr(name, '/');
 	if(a == NULL)
@@ -1300,6 +1376,7 @@ enum bool with_underbar_suffix)
 	    return(NULL);
 	foo = a + 1;
 	l = strlen(foo);
+	*short_name_size = l;
 	
 	/* look for suffix if requested starting with a '_' */
 	if(with_underbar_suffix){
@@ -1308,8 +1385,10 @@ enum bool with_underbar_suffix)
 		s = strlen(suffix);
 		if(suffix == foo || s < 2)
 		    suffix = NULL;
-		else
+		else{
 		    l -= s;
+		    *short_name_size = l;
+		}
 	    }
 	}
 
@@ -1319,8 +1398,10 @@ enum bool with_underbar_suffix)
 	    if(strncmp(name, foo, l) == 0 &&
 	       strncmp(name + l, ".framework/", sizeof(".framework/")-1 ) == 0)
 		return(name);
-	    else
+	    else{
+		*short_name_size = 0;
 		return(NULL);
+	    }
 	}
 	else{
 	    if(strncmp(b+1, foo, l) == 0 &&
@@ -1329,27 +1410,98 @@ enum bool with_underbar_suffix)
 	}
 
 	/* next look for the form Foo.framework/Versions/A/Foo */
-	if(b == name)
+	if(b == name){
+	    *short_name_size = 0;
 	    return(NULL);
+	}
 	c = look_back_for_slash(name, b);
 	if(c == NULL ||
 	   c == name ||
-	   strncmp(c+1, "Versions/", sizeof("Versions/")-1) != 0)
+	   strncmp(c+1, "Versions/", sizeof("Versions/")-1) != 0){
+	    *short_name_size = 0;
 	    return(NULL);
+	}
 	d = look_back_for_slash(name, c);
 	if(d == NULL){
 	    if(strncmp(name, foo, l) == 0 &&
 	       strncmp(name + l, ".framework/", sizeof(".framework/")-1 ) == 0)
 		return(name);
-	    else
+	    else{
+		*short_name_size = 0;
 		return(NULL);
+	    }
 	}
 	else{
 	    if(strncmp(d+1, foo, l) == 0 &&
 	       strncmp(d+1 + l, ".framework/", sizeof(".framework/")-1 ) == 0)
 		return(d+1);
-	    else
+	    else{
+		*short_name_size = 0;
 		return(NULL);
+	    }
+	}
+}
+
+/*
+ * get_library_name() is passed a name of a dynamic library and returns a
+ * pointer to the start of the library name if one exist or NULL none exists.
+ * The name of the dynamic library is recognized as a library name if it has
+ * one of the two following forms (with any preceding directory name):
+ *	libFoo.A.dylib
+ *	libFoo.dylib
+ * The library may have a suffix trailing the name Foo of the form:
+ *	libFoo_profile.A.dylib
+ *	libFoo_profile.dylib
+ * The pointer returned in the above case is to "libFoo" and the size of
+ * the short name (that is "libFoo" for this example) is returned indirectly
+ * through short_name_size.
+ */
+static
+char *
+get_library_name(
+char *name,
+unsigned long *short_name_size)
+{
+    char *a, *b, *c;
+
+	*short_name_size = 0;
+	/* pull off the suffix after the "." and make a point to it */
+	a = strrchr(name, '.');
+	if(a == NULL)
+	    return(NULL);
+	if(a == name)
+	    return(NULL);
+	if(strcmp(a, ".dylib") != 0)
+	    return(NULL);
+
+	/* first pull off the version letter for the form Foo.A.dylib */
+	if(a - name >= 3 && a[-2] == '.')
+	    a = a - 2;
+
+	b = look_back_for_slash(name, a);
+	if(b == name)
+	    return(NULL);
+	if(b == NULL){
+	    /* ignore any suffix after an underbar
+	       like Foo_profile.A.dylib */
+	    c = strchr(name, '_');
+	    if(c != NULL && c != name){
+		*short_name_size = c - name;
+	    }
+	    else
+		*short_name_size = a - name;
+	    return(name);
+	}
+	else{
+	    /* ignore any suffix after an underbar
+	       like Foo_profile.A.dylib */
+	    c = strchr(b+1, '_');
+	    if(c != NULL && c != b+1){
+		*short_name_size = c - (b+1);
+	    }
+	    else
+		*short_name_size = a - (b+1);
+	    return(b+1);
 	}
 }
 
@@ -1393,6 +1545,10 @@ char *suffix)
 	    p = strchr(path, ':');
 	    if(p != NULL)
 		*p = '\0';
+	    else{
+		if(*path == '\0')
+		    return(NULL);
+	    }
 	    if(*path == '\0')
 		goto next_path;
 	    strcpy(dylib_name, path);
@@ -1488,7 +1644,9 @@ char *dylib_name)
 
 /*
  * map_library_image() maps segments of the specified library into memory and
- * adds the library to the list of library images.
+ * adds the library to the list of library images.  For two-level images that
+ * depend on this library, image_pointer is the address of a pointer to an
+ * image struct to be set (if not NULL) after if this image is loaded.
  */
 static
 enum bool
@@ -1501,7 +1659,8 @@ unsigned long file_size,
 unsigned long library_offset,
 unsigned long library_size,
 dev_t dev,
-ino_t ino)
+ino_t ino,
+struct image **image_pointer)
 {
     struct mach_header *mh;
     int errnum;
@@ -1513,6 +1672,7 @@ ino_t ino)
     struct symtab_command *st;
     struct dylib_command *dlid;
     struct routines_command *rc;
+    struct twolevel_hints_command *hints_cmd;
     enum bool change_protect_on_reloc, cache_sync_on_reloc,
 	      has_coalesced_sections;
     struct section *init, *term;
@@ -1580,9 +1740,10 @@ ino_t ino)
 	 */
 	if(map_image(dylib_name, "library", library_size, fd, file_addr, 
 	    file_size, library_offset, library_size, low_addr, high_addr, &mh,
-	    &linkedit_segment, &dyst, &st, &dlid, &rc, &change_protect_on_reloc,
-	    &cache_sync_on_reloc, &has_coalesced_sections, &init, &term,
-	    &seg1addr, &segs_read_write_addr, &slide_value,
+	    &linkedit_segment, &dyst, &st, &dlid, &rc, &hints_cmd,
+	    &change_protect_on_reloc, &cache_sync_on_reloc,
+	    &has_coalesced_sections, &init, &term, &seg1addr,
+	    &segs_read_write_addr, &slide_value,
 	    &images_dyld_stub_binding_helper) == FALSE){
 
 	    return(FALSE);
@@ -1614,6 +1775,7 @@ ino_t ino)
 	library_image->image.st = st;
 	library_image->image.dyst = dyst;
 	library_image->image.rc = rc;
+	library_image->image.hints_cmd = hints_cmd;
 	library_image->image.linkedit_segment = linkedit_segment;
 	library_image->image.change_protect_on_reloc = change_protect_on_reloc;
 	library_image->image.cache_sync_on_reloc = cache_sync_on_reloc;
@@ -1629,6 +1791,29 @@ ino_t ino)
 	library_image->ino = ino;
 	library_image->remove_on_error = return_on_error;
 	library_image->library_offset = library_offset;
+	library_image->image.sub_images_setup = FALSE;
+	library_image->image.umbrella_images_setup = FALSE;
+	if(image_pointer != NULL)
+	    *image_pointer = &(library_image->image);
+	/*
+	 * Since we can't know if the name may have an underbar in it first
+	 * try to get the name without a suffix then if that fails try it
+	 * with a suffix.
+	 */
+	library_image->image.umbrella_name = get_framework_name(
+		(char *)dlid + dlid->dylib.name.offset,
+		&(library_image->image.name_size),
+		FALSE);
+	if(library_image->image.umbrella_name == NULL)
+	    library_image->image.umbrella_name = get_framework_name(
+		    (char *)dlid + dlid->dylib.name.offset,
+		    &(library_image->image.name_size),
+		    TRUE);
+	if(library_image->image.umbrella_name == NULL)
+	    library_image->image.library_name = get_library_name(
+		    (char *)dlid + dlid->dylib.name.offset,
+		    &(library_image->image.name_size));
+	library_image->image.outer_image = library_image;
 	library_image->image.valid = TRUE;
 
 	/*
@@ -1661,6 +1846,21 @@ ino_t ino)
 		prebinding = FALSE;
 	}
 	else{
+	    /*
+	     * The library is prebound.  If we are forcing flat name space and
+	     * this is a two-level namespace library then disable prebinding.
+	     */
+	    if(force_flat_namespace == TRUE &&
+	       (mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+		if(dyld_prebind_debug != 0 &&
+		   prebinding == TRUE &&
+		   launched == FALSE)
+		    print("dyld: %s: prebinding disabled because library: %s "
+			  "is two-level namespace and flat namespace is being "
+			  "used\n", executables_name, dylib_name);
+		if(launched == FALSE)
+		    prebinding = FALSE;
+	    }
 	    /*
 	     * The library is prebound.  If we have already launched the
 	     * program we can't use the prebinding and it must be undone.
@@ -1747,6 +1947,7 @@ unsigned long object_size)
     struct segment_command *linkedit_segment, *mach_header_segment;
     struct dysymtab_command *dyst;
     struct symtab_command *st;
+    struct twolevel_hints_command *hints_cmd;
     enum bool change_protect_on_reloc, cache_sync_on_reloc,
 	      has_coalesced_sections;
     struct section *init, *term;
@@ -1805,9 +2006,9 @@ unsigned long object_size)
 	 */
 	if(map_image(name, "object file image", object_size, -1, NULL, 
 	    0, 0, 0, low_addr, high_addr, &mh, &linkedit_segment, &dyst, &st,
-	    NULL, NULL, &change_protect_on_reloc, &cache_sync_on_reloc,
-	    &has_coalesced_sections, &init, &term, &seg1addr,
-	    &segs_read_write_addr, &slide_value,
+	    NULL, NULL, &hints_cmd, &change_protect_on_reloc,
+	    &cache_sync_on_reloc, &has_coalesced_sections, &init, &term,
+	    &seg1addr, &segs_read_write_addr, &slide_value,
 	    &images_dyld_stub_binding_helper) == FALSE){
 
 	    return(NULL);
@@ -1826,6 +2027,7 @@ unsigned long object_size)
 	object_image->image.mh = mh;
 	object_image->image.st = st;
 	object_image->image.dyst = dyst;
+	object_image->image.hints_cmd = hints_cmd;
 	object_image->image.linkedit_segment = linkedit_segment;
 	object_image->image.change_protect_on_reloc = change_protect_on_reloc;
 	object_image->image.cache_sync_on_reloc = cache_sync_on_reloc;
@@ -1836,6 +2038,7 @@ unsigned long object_size)
 	object_image->image.dyld_stub_binding_helper =
 			    images_dyld_stub_binding_helper;
 #endif
+	object_image->image.outer_image = object_image;
 	object_image->image.valid = TRUE;
 	SET_LINK_STATE(object_image->module, UNLINKED);
 
@@ -1868,7 +2071,7 @@ unsigned long object_size)
 	if(dyld_print_libraries == TRUE)
 	    print("loading libraries for image: %s\n",
 		   object_image->image.name);
-	if(load_images_libraries(mh) == FALSE &&
+	if(load_images_libraries(mh, &(object_image->image)) == FALSE &&
 	   return_on_error == TRUE){
 	    /*
 	     * If we are doing return on error and the libraries for this
@@ -1992,6 +2195,7 @@ struct dysymtab_command **dyst,
 struct symtab_command **st,
 struct dylib_command **dlid,
 struct routines_command **rc,
+struct twolevel_hints_command **hints_cmd,
 enum bool *change_protect_on_reloc,
 enum bool *cache_sync_on_reloc,
 enum bool *has_coalesced_sections,
@@ -2366,6 +2570,8 @@ cleanup_and_reset_pointers:
 	    *dlid = NULL;
 	if(rc != NULL)
 	    *rc = NULL;
+	if(hints_cmd != NULL)
+	    *hints_cmd = NULL;
 	*seg1addr = ULONG_MAX;
 	*segs_read_write_addr = ULONG_MAX;
 	*change_protect_on_reloc = FALSE;
@@ -2550,6 +2756,10 @@ printf("name = %s segname = %s sg = 0x%x\n", name, sg->segname, sg);
 	    case LC_ROUTINES:
 		if(rc != NULL && *rc == NULL)
 		    *rc = (struct routines_command *)lc;
+		break;
+	    case LC_TWOLEVEL_HINTS:
+		if(hints_cmd != NULL && *hints_cmd == NULL)
+		    *hints_cmd = (struct twolevel_hints_command *)lc;
 		break;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -2765,6 +2975,222 @@ unsigned long slide_value)
 }
 
 /*
+ * With this defined it adds some checks to the code that trys to use subtrees
+ * of two-level namespace prebound libraries.  It should not be on for
+ * production builds.
+ */
+#define SANITY_CHECK_TWOLEVEL_PREBOUND
+
+/*
+ * all_dependents_twolevel_prebound() determines whether lib and all
+ * dependents can be used as two-level and prebound libraries.
+ */
+static
+enum bool
+all_dependents_twolevel_prebound(
+struct library_image *const lib)
+{
+    const struct dylib_command *dl;
+    const struct load_command *lc;
+    struct library_image *dep_lib;
+    struct image *dep_image;
+    const char *dep_name;
+    unsigned long i, j;
+
+#ifdef SANITY_CHECK_TWOLEVEL_PREBOUND
+	if(lib->image.subtrees_twolevel_prebound_setup == TRUE){
+	    /* should never get here */
+	    print("dyld: internal error calc_twolevel_prebound_dependency() "
+		  "called for: %s who's two-level prebound state is already "
+		  "setup", lib->image.name);
+
+	    return(lib->image.subtrees_twolevel_prebound);
+	}
+#endif
+
+	/*
+	 * Avoid wacky circular dependencies by setting the
+	 * "setup" bit to TRUE and the twolevel-prebound state
+	 * to FALSE to indicate it "can't be used twolevel-prebound".
+	 */
+	lib->image.subtrees_twolevel_prebound_setup = TRUE;
+	lib->image.subtrees_twolevel_prebound = FALSE;
+
+	if(dyld_prebind_debug > 2)
+	    print("dyld: checking: %s and dependents\n", lib->image.name);
+
+	/*
+	 * Run through dependents of lib, marking them as appropriate.
+	 */
+	lc = (struct load_command *)
+	     ((char *)lib->image.mh + sizeof(struct mach_header));
+	j = 0;
+	for(i = 0; i < lib->image.mh->ncmds; i++){
+	    if(lc->cmd == LC_LOAD_DYLIB){
+		dl = (struct dylib_command *)lc;
+		dep_name = (char *)dl + dl->dylib.name.offset;
+		dep_image = lib->image.dependent_images[j++];
+		dep_lib = (struct library_image *)(dep_image->outer_image);
+		/*
+		 * If dep_lib has a different date from that recorded in the
+		 * dylib load command, bail out.
+		 */
+		if(dl->dylib.timestamp != dep_lib->dlid->dylib.timestamp){
+		    if(dyld_prebind_debug > 2)
+			print("dyld: %s timestamp differs from the "
+			      "load_cmd's\n", lib->image.name);
+		    return(FALSE);
+		}
+		else if(dep_image->subtrees_twolevel_prebound_setup){
+		    /*
+		     * If we already know that this subtree can't be used
+		     * twolevel-prebound, bail out.
+		     */
+		    if(dep_image->subtrees_twolevel_prebound == FALSE)
+			return(FALSE);
+		}
+		else{
+		    /*
+		     * Check all of dep_lib's dependent libs.
+		     */
+		    dep_image->subtrees_twolevel_prebound =
+			all_dependents_twolevel_prebound(dep_lib);
+
+		    /*
+		     * If dep_lib cannot be twolevel-prebound, neither can we.
+		     */
+		    if(dep_image->subtrees_twolevel_prebound == FALSE)
+			return(FALSE);
+		}
+#ifdef SANITY_CHECK_TWOLEVEL_PREBOUND
+		/*
+		 * Ensure that DEP_LIB's subtree is good.
+		 */
+		if(dep_image->subtrees_twolevel_prebound == FALSE)
+		    print("dyld: internal error: lib %s twolevel_prebound state"
+			  " is FALSE!", dep_image->name);
+#endif
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+
+	/*
+	 * Reaching here means that this subtree (lib and all its dependents)
+	 * can be used twolevel-prebound.
+	 */
+	lib->image.subtrees_twolevel_prebound = TRUE;
+
+	if(dyld_prebind_debug > 2)
+	    print("  --> %s and its dependents are OK\n", lib->image.name);
+
+	return(TRUE);
+}
+
+/*
+ * find_twolevel_prebound_lib_subtrees() walks the dependency graph of all the
+ * libraries looking for subtrees which are two-level prebound, not slid and
+ * all the dependent timestamps match.
+ */
+void
+find_twolevel_prebound_lib_subtrees(
+void)
+{
+    struct library_images *q;
+    struct library_image *l;
+    unsigned long i, total, used;
+
+	if(dyld_prebind_debug > 2)
+	    print("dyld: In find_twolevel_prebound_lib_subtrees()\n");
+
+	/*
+	 * Do trivial weeding out of any library that is not two-level,
+	 * prebound and at the correct address.
+	 */
+	q = &library_images;
+	do{
+	    for(i = 0; i < q->nimages; i++){
+		l = &q->images[i];
+		if((l->image.mh->flags & (MH_TWOLEVEL | MH_PREBOUND)) !=
+					 (MH_TWOLEVEL | MH_PREBOUND) ||
+		    l->image.vmaddr_slide != 0){
+
+		    l->image.subtrees_twolevel_prebound = FALSE;
+		    l->image.subtrees_twolevel_prebound_setup = TRUE;
+
+		    if(dyld_prebind_debug > 2){
+			print("dyld: **** '%s' ", l->image.name);
+			if(l->image.vmaddr_slide != 0)
+			    print("slid ****\n");
+			else
+			    print("not twolevel-prebound ****\n");
+		    }
+		}
+	    }
+	    q = q->next_images;
+	}while(q != NULL);
+
+	/*
+	 * See which libs have the time stamps of all the dependents that match
+	 * so we can use them twolevel-prebound.
+	 */
+	q = &library_images;
+	do{
+	    for(i = 0; i < q->nimages; i++){
+		l = &q->images[i];
+		if(l->image.subtrees_twolevel_prebound_setup == FALSE){
+		    /*
+		     * See if all dependents are twolevel-prebound OK.
+		     * Note that all_dependents_twolevel_prebound() sets
+		     * the "subtrees_twolevel_prebound_setup" field (as
+		     * well as "subtrees_twolevel_prebound", which means
+		     * we don't need to set it here, but it looks nicer :-)
+		     */
+		    l->image.subtrees_twolevel_prebound =
+				all_dependents_twolevel_prebound(l);
+		}
+	    }
+	    q = q->next_images;
+	}while(q != NULL);
+
+	/*
+	 * Show the names of those libs we CAN use prebound, if debugging.
+	 * While we're there, check to make sure we've visited every lib.
+	 */
+	if(dyld_prebind_debug != 0){
+	    total = 0;
+	    used = 0;
+	    q = &library_images;
+	    do{
+		for(i = 0; i < q->nimages; ++i){
+		    l = &q->images[i];
+
+#ifdef SANITY_CHECK_TWOLEVEL_PREBOUND
+		    if(l->image.subtrees_twolevel_prebound_setup == FALSE){
+			print("dyld: internal error two-level prebound state "
+			      "of lib: %s not setup\n", l->image.name);
+		    }
+#endif
+		    total++;
+		    if(l->image.subtrees_twolevel_prebound == TRUE){
+			used++;
+			if(dyld_prebind_debug > 1)
+			    print("dyld: using: %s as two-level prebound\n",
+				    q->images[i].image.name);
+		    }
+		    else{
+			if(dyld_prebind_debug > 1)
+			    print("dyld: NOT using: %s as two-level prebound\n",
+				    q->images[i].image.name);
+		    }
+		}
+		q = q->next_images;
+	    }while(q != NULL);
+	    print("dyld: %lu two-level prebound libraries used out of %ld\n",
+		  used, total);
+	}
+}
+
+/*
  * load_dependent_libraries() loads the dependent libraries for libraries that
  * have not had their dependent libraries loaded.  This is done this way to get
  * the proper order of libraries.  The proper order is to have all the libraries
@@ -2774,13 +3200,18 @@ unsigned long slide_value)
  * The return value is only used when return_on_error is TRUE.  In this case 
  * a return value of TRUE indicates success and a return value of FALSE
  * indicates failure and that all change have been backed out.
+ *
+ * Once all the needed libraries are loaded then the sub_images and
+ * umbrella_images lists are set up for those two-level namespace libraries
+ * that need them set up.
  */
 enum bool
 load_dependent_libraries(
 void)
 {
-    unsigned long i;
+    unsigned long i, max_libraries;
     struct library_images *q;
+    enum bool some_images_setup;
 
 	q = &library_images;
 	do{
@@ -2789,7 +3220,8 @@ void)
 		    if(dyld_print_libraries == TRUE)
 			print("loading libraries for image: %s\n",
 			       q->images[i].image.name);
-		    if(load_images_libraries(q->images[i].image.mh) == FALSE &&
+		    if(load_images_libraries(q->images[i].image.mh,
+					     &(q->images[i].image)) == FALSE &&
 		       return_on_error == TRUE)
 			return(FALSE);
 		    q->images[i].dependent_libraries_loaded = TRUE;
@@ -2798,35 +3230,234 @@ void)
 	    q = q->next_images;
 	}while(q != NULL);
 
+	/*
+	 * To support the "primary" library concept each image that has
+	 * sub-frameworks and sub-umbrellas has a sub_images list created for
+	 * it for other libraries to search in for symbol names.
+	 *
+	 * To be able to bind a symbol pointers for symbols in a sub_image of
+	 * an umbrella each sub_image has a list of umbrella images that it is
+	 * a part of.
+	 *
+	 * These lists are set up after all the dependent libraries are loaded
+	 * in the loops above.
+	 */
+	if(force_flat_namespace == FALSE){
+	    /*
+	     * Now with all the libraries loaded and the dependent_images set up
+	     * set up the sub_images for any library that does not have this set
+	     * up yet.  Since sub_images include sub_umbrellas any image that
+	     * has sub_umbrellas must have the sub_umbrella images set up first.
+	     * To do this setup_sub_images() will return FALSE for an image that
+	     * needed one of its sub_umbrellas set up and we will loop here
+	     * until we get a clean pass with no more images needing setup.
+	     */
+	    do{
+		some_images_setup = FALSE;
+		q = &library_images;
+		do{
+		    for(i = 0; i < q->nimages; i++){
+			if(q->images[i].image.sub_images_setup == FALSE){
+			    some_images_setup |=
+				    setup_sub_images(&(q->images[i]));
+			}
+		    }
+		    q = q->next_images;
+		}while(q != NULL);
+	    }while(some_images_setup == TRUE);
+	    /*
+	     * TODO: will adding a loop here checking for images not set up
+	     * catch circular sub_umbrella loops?  Or is it even possible to
+	     * build such a thing?
+	     */
+
+	    /*
+	     * Now with all the sub_images set up set up the umbrella_images for
+	     * any library that does not have this set up yet.
+	     */
+	    max_libraries = 0;
+	    q = &library_images;
+	    do{
+		max_libraries += q->nimages;
+		q = q->next_images;
+	    }while(q != NULL);
+
+	    q = &library_images;
+	    do{
+		for(i = 0; i < q->nimages; i++){
+		    if(q->images[i].image.umbrella_images_setup == FALSE){
+			setup_umbrella_images(&(q->images[i]), max_libraries);
+		    }
+		}
+		q = q->next_images;
+	    }while(q != NULL);
+
+	    /*
+	     * If DYLD_TWO_LEVEL_DEBUG is set print out the lists.
+	     */
+	    if(dyld_two_level_debug == TRUE){
+		static enum bool list_printed = FALSE;
+
+		if(list_printed == FALSE){
+		    printf("Library order\n");
+		    q = &library_images;
+		    do{
+			for(i = 0; i < q->nimages; i++){
+			    if(q->images[i].image.umbrella_name != NULL)
+			       printf("\t%.*s\n",
+				  (int)q->images[i].image.name_size,
+				  q->images[i].image.umbrella_name);
+			    else if(q->images[i].image.library_name != NULL)
+			       printf("\t%.*s\n",
+				  (int)q->images[i].image.name_size,
+				  q->images[i].image.library_name);
+			    else
+			       printf("\t%s\n", q->images[i].image.name);
+			}
+			q = q->next_images;
+		    }while(q != NULL);
+		    list_printed = TRUE;
+		}
+
+		q = &library_images;
+		do{
+		    for(i = 0; i < q->nimages; i++){
+			unsigned long j;
+			struct image **sp;
+
+			if(q->images[i].image.two_level_debug_printed == FALSE){
+			    printf("library: %s",
+				   q->images[i].image.name);
+			    if(q->images[i].image.umbrella_name != NULL)
+				printf(" umbrella_name = %.*s\n",
+				   (int)(q->images[i].image.name_size),
+				   q->images[i].image.umbrella_name);
+			    else if(q->images[i].image.library_name != NULL)
+				printf(" library_name = %.*s\n",
+				   (int)(q->images[i].image.name_size),
+				   q->images[i].image.library_name);
+			    else
+				printf(" umbrella & library name = NULL\n");
+
+			    printf("    ndependent_images = %lu\n",
+				   q->images[i].image.ndependent_images);
+			    sp = q->images[i].image.dependent_images;
+			    for(j = 0;
+				j < q->images[i].image.ndependent_images;
+				j++){
+				if(sp[j]->umbrella_name != NULL)
+				   printf("\t[%lu] %.*s\n", j,
+					  (int)sp[j]->name_size,
+					  sp[j]->umbrella_name);
+				else if(sp[j]->library_name != NULL)
+				   printf("\t[%lu] %.*s\n", j,
+					  (int)sp[j]->name_size,
+					  sp[j]->library_name);
+				else
+				   printf("\t[%lu] %s\n", j, sp[j]->name);
+			    }
+
+			    printf("    nsub_images = %lu\n",
+				   q->images[i].image.nsub_images);
+			    sp = q->images[i].image.sub_images;
+			    for(j = 0; j < q->images[i].image.nsub_images; j++){
+				if(sp[j]->umbrella_name != NULL)
+				   printf("\t[%lu] %.*s\n", j,
+					  (int)sp[j]->name_size,
+					  sp[j]->umbrella_name);
+				else if(sp[j]->library_name != NULL)
+				   printf("\t[%lu] %.*s\n", j,
+					  (int)sp[j]->name_size,
+					  sp[j]->library_name);
+				else
+				   printf("\t[%lu] %s\n", j, sp[j]->name);
+			    }
+
+			    printf("    numbrella_images = %lu\n",
+				   q->images[i].image.numbrella_images);
+			    sp = q->images[i].image.umbrella_images;
+			    for(j = 0;
+				j < q->images[i].image.numbrella_images;
+				j++){
+				if(sp[j]->umbrella_name != NULL)
+				   printf("\t[%lu] %.*s\n", j,
+					  (int)sp[j]->name_size,
+					  sp[j]->umbrella_name);
+				else if(sp[j]->library_name != NULL)
+				   printf("\t[%lu] %.*s\n", j,
+					  (int)sp[j]->name_size,
+					  sp[j]->library_name);
+				else
+				   printf("\t[%lu] %s\n", j, sp[j]->name);
+			    }
+			}
+			q->images[i].image.two_level_debug_printed = TRUE;
+		    }
+		    q = q->next_images;
+		}while(q != NULL);
+	    }
+	}
+
 	return(TRUE);
 }
 
 /*
  * load_images_libraries() loads the library image's for the specified mach
- * header.  It does not in turn load any libraries these libraries depend on.
- * If we are doing return_on_error then any libraries loaded are then unloaded
- * and FALSE is returned.  Else TRUE is returned.
+ * header from the specified image.  It does not in turn load any libraries
+ * these libraries depend on.  If force_flat_namespace is FALSE then the array
+ * of pointers to the dependent images is allocated and set into the image
+ * structure.  If we are doing return_on_error then any libraries loaded are
+ * then unloaded and FALSE is returned if errors occur.  Else TRUE is returned.
  */
 static
 enum bool
 load_images_libraries(
-struct mach_header *mh)
+struct mach_header *mh,
+struct image *image)
 {
-    unsigned long i;
+    unsigned long i, ndependent_images;
     struct load_command *lc, *load_commands;
     struct dylib_command *dl_load;
+    struct image **dependent_images, **image_pointer;
+
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	/*
+	 * If force_flat_namespace is false count the number of dependent
+	 * images and allocate the image pointers for them.
+	 */
+	ndependent_images = 0;
+	dependent_images = NULL;
+	if(force_flat_namespace == FALSE){
+	    lc = load_commands;
+	    for(i = 0; i < mh->ncmds; i++){
+		switch(lc->cmd){
+		case LC_LOAD_DYLIB:
+		    ndependent_images++;
+		    break;
+		}
+		lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	    }
+	    dependent_images = allocate_image_pointers(ndependent_images);
+	    image->dependent_images = dependent_images;
+	    image->ndependent_images = ndependent_images;
+	}
 
 	/*
 	 * Load each of the libraries this image uses.
 	 */
-	load_commands = (struct load_command *)((char *)mh +
-						sizeof(struct mach_header));
+	ndependent_images = 0;
 	lc = load_commands;
 	for(i = 0; i < mh->ncmds; i++){
 	    switch(lc->cmd){
 	    case LC_LOAD_DYLIB:
 		dl_load = (struct dylib_command *)lc;
-		if(load_library_image(dl_load, NULL, FALSE) == FALSE &&
+		if(dependent_images != NULL)
+		    image_pointer = &(dependent_images[ndependent_images++]);
+		else
+		    image_pointer = NULL;
+		if(load_library_image(dl_load, NULL, FALSE, image_pointer) ==
+		   FALSE &&
 		   return_on_error == TRUE){
 		    unload_remove_on_error_libraries();
 		    return(FALSE);
@@ -2836,6 +3467,508 @@ struct mach_header *mh)
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 	return(TRUE);
+}
+
+/*
+ * setup_sub_images() is called to set up the sub images that make up the
+ * specified "primary" library_image.  If not all of its sub_umbrella's or 
+ * sub_librarys are set up then it will return FALSE and not set up the sub
+ * images.  The caller will loop through all the libraries until all libraries
+ * are setup.  This routine will return TRUE when it set up the sub_images and
+ * will also set the sub_images_setup field to TRUE in the specified library.
+ */
+static
+enum bool
+setup_sub_images(
+struct library_image *library_image)
+{
+    unsigned long i, j, k, l, n, max_libraries;
+    struct mach_header *mh;
+    struct load_command *lc, *load_commands;
+    struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
+    struct sub_framework_command *sub;
+    struct image **deps;
+    char *sub_umbrella_name, *sub_library_name, *sub_framework_name;
+    enum bool found, ignore_time_stamps, subs_can_use_hints, time_stamps_match;
+
+	max_libraries = 0;
+	deps = library_image->image.dependent_images;
+
+	/*
+	 * For the two-level namespace hints to be usable for images that
+	 * have this image as a sub image we must know that there can't be the
+	 * possiblity of new multiple definitions of the same symbol in the
+	 * umbrella.  If any of this library's sub-umbrellas or sub-libraries
+	 * were marked as with subs_can_use_hints == FALSE then hints for images
+	 * that have this image as a sub image also can't be used.  So assume
+	 * that we can use the hints and set subs_can_use_hints to FALSE if any
+	 * of the sub-umbrellas or sub-libraries hints can't be used.
+	 */
+	subs_can_use_hints = TRUE;
+
+	/*
+	 * First see if this library has any sub-umbrellas or sub-libraries and
+	 * that they have had their sub-images set up.  If not return FALSE and
+	 * wait for this to be set up.  If so add the count of sub-images to
+	 * max_libraries value which will be used for allocating the array for
+	 * the sub-images of this library.
+	 */
+	mh = library_image->image.mh;
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	lc = load_commands;
+	for(i = 0; i < mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SUB_UMBRELLA:
+		usub = (struct sub_umbrella_command *)lc;
+		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
+		for(j = 0; j < library_image->image.ndependent_images; j++){
+		    if(deps[j]->umbrella_name != NULL &&
+		       strncmp(sub_umbrella_name, deps[j]->umbrella_name,
+			       deps[j]->name_size) == 0 &&
+		       sub_umbrella_name[deps[j]->name_size] == '\0'){
+			/*
+			 * TODO: can't this logic (here and in our caller) hang
+		         * if there is a circular loop?  And is that even
+			 * possible to create?  See comments in our caller.
+			 */
+			if(deps[j]->sub_images_setup == FALSE)
+			    return(FALSE);
+			max_libraries += 1 + deps[j]->nsub_images;
+			if(deps[j]->subs_can_use_hints == FALSE)
+			    subs_can_use_hints = FALSE;
+		    }
+		}
+		break;
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0; j < library_image->image.ndependent_images; j++){
+		    if(deps[j]->library_name != NULL &&
+		       strncmp(sub_library_name, deps[j]->library_name,
+			       deps[j]->name_size) == 0 &&
+		       sub_library_name[deps[j]->name_size] == '\0'){
+			/*
+			 * TODO: can't this logic (here and in our caller) hang
+		         * if there is a circular loop?  And is that even
+			 * possible to create?  See comments in our caller.
+			 */
+			if(deps[j]->sub_images_setup == FALSE)
+			    return(FALSE);
+			max_libraries += 1 + deps[j]->nsub_images;
+			if(deps[j]->subs_can_use_hints == FALSE)
+			    subs_can_use_hints = FALSE;
+		    }
+		}
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+
+	/*
+	 * Allocate the sub-images array of pointers to images that make up
+	 * this "primary" library.  Allocate enough to handle the max and
+	 * then this allocation will be reallocated with the actual needed
+	 * size.
+	 */
+	max_libraries += library_image->image.ndependent_images;
+	library_image->image.sub_images =
+	    allocate_image_pointers(max_libraries);
+	n = 0;
+
+	/*
+	 * For the two-level namespace hints to be usable we must know that
+	 * there can't be the possiblity of new multiple definitions of the
+	 * same symbol in the umbrella.  We can know this two ways.  First if
+	 * this umbrella is built with the MH_NOMULTIDEFS flag and the builder
+	 * of the umbrella assures this for us.  Second all the time stamps of
+	 * all the sub-images must match (note they don't have to be prebound
+	 * or at the correct address).  We must avoid using the hints if there
+	 * is a possiblity of new multiple definitions of the same symbol in
+	 * the umbrella as using the hint and not using the hint may get a
+	 * different answer.
+	 *
+	 * Checking of the time stamps of the sub images is only done if we
+	 * don't know we can already use the hints.  We keep checking the time
+	 * stamps while time_stamps_match is TRUE only if ignore_time_stamps is
+	 * FALSE
+	 */
+	if((library_image->image.mh->flags & MH_NOMULTIDEFS) == MH_NOMULTIDEFS){
+	    ignore_time_stamps = TRUE;
+	    time_stamps_match = TRUE;
+	}
+	else{
+	    ignore_time_stamps = FALSE;
+	    if(subs_can_use_hints == TRUE)
+		time_stamps_match = TRUE;
+	    else
+		time_stamps_match = FALSE;
+	}
+
+	/*
+	 * First add the dependent images which are sub-frameworks of this
+	 * image to the sub images list.
+	 */
+	if(library_image->image.umbrella_name != NULL){
+	    for(i = 0; i < library_image->image.ndependent_images; i++){
+		mh = deps[i]->mh;
+		load_commands = (struct load_command *)((char *)(mh) +
+						    sizeof(struct mach_header));
+		lc = load_commands;
+		for(j = 0; j < mh->ncmds; j++){
+		    if(lc->cmd == LC_SUB_FRAMEWORK){
+			sub = (struct sub_framework_command *)lc;
+			sub_framework_name = (char *)sub + sub->umbrella.offset;
+			if(library_image->image.umbrella_name != NULL &&
+			   strncmp(sub_framework_name,
+			       library_image->image.umbrella_name,
+			       library_image->image.name_size) == 0 &&
+			   sub_framework_name[
+			       library_image->image.name_size] =='\0'){
+			    library_image->image.sub_images[n++] = deps[i];
+			    /*
+			     * Mark this dependent as not having its
+			     * umbrella images set up to force them to be
+			     * set up again in case this is a new umbrella
+			     * library for this dependent.
+			     */
+			    deps[i]->umbrella_images_setup = FALSE;
+
+			    /*
+			     * If it is not known we can use the hints and the
+			     * timestamps still match we must check this sub
+			     * image's timestamp.
+			     */
+			    if(ignore_time_stamps == FALSE &&
+			       time_stamps_match == TRUE)
+				time_stamps_match = check_time_stamp(
+				    library_image, deps[i]);
+			    goto next_dep;
+			}
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+next_dep:	;
+	    }
+	}
+
+	/*
+	 * Second add the sub-umbrella's and sub-library's sub-images to the
+	 * sub images list.
+	 */
+	mh = library_image->image.mh;
+	load_commands = (struct load_command *)((char *)mh +
+						sizeof(struct mach_header));
+	lc = load_commands;
+	for(i = 0; i < mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_SUB_UMBRELLA:
+		usub = (struct sub_umbrella_command *)lc;
+		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
+		for(j = 0; j < library_image->image.ndependent_images; j++){
+		    if(deps[j]->umbrella_name != NULL &&
+		       strncmp(sub_umbrella_name, deps[j]->umbrella_name,
+			       deps[j]->name_size) == 0 &&
+		       sub_umbrella_name[deps[j]->name_size] == '\0'){
+
+			/* make sure this image is not already on the list */
+			found = FALSE;
+			for(l = 0; l < n; l++){
+			    if(library_image->image.sub_images[l] == deps[j]){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE){
+			    library_image->image.sub_images[n++] = deps[j];
+			    /*
+			     * Mark this dependent as not having its
+			     * umbrella images set up to force them to be
+			     * set up again in case this is a new umbrella
+			     * library for this dependent.
+			     */
+			    deps[j]->umbrella_images_setup = FALSE;
+			    /*
+			     * If it is not known we can use the hints and the
+			     * timestamps still match we must check this sub
+			     * image's timestamp.
+			     */
+			    if(ignore_time_stamps == FALSE &&
+			       time_stamps_match == TRUE)
+				time_stamps_match = check_time_stamp(
+				    library_image, deps[j]);
+			}
+
+			for(k = 0; k < deps[j]->nsub_images; k++){
+			    /* make sure this image is not already on the list*/
+			    found = FALSE;
+			    for(l = 0; l < n; l++){
+				if(library_image->image.sub_images[l] ==
+				   deps[j]->sub_images[k]){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE){
+				library_image->image.sub_images[n++] = 
+				    deps[j]->sub_images[k];
+				/*
+				 * Mark this dependent as not having its
+				 * umbrella images set up to force them to be
+				 * set up again in case this is a new umbrella
+				 * library for this dependent.
+				 */
+				deps[j]->sub_images[k]->umbrella_images_setup =
+				     FALSE;
+				/*
+				 * If it is not known we can use the hints and
+				 * the timestamps still match we must check
+				 * this sub image's timestamp.
+				 */
+				if(ignore_time_stamps == FALSE &&
+				   time_stamps_match == TRUE)
+				    time_stamps_match = check_time_stamp(
+					library_image, deps[j]->sub_images[k]);
+			    }
+			}
+		    }
+		}
+		break;
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		sub_library_name = (char *)lsub + lsub->sub_library.offset;
+		for(j = 0; j < library_image->image.ndependent_images; j++){
+		    if(deps[j]->library_name != NULL &&
+		       strncmp(sub_library_name, deps[j]->library_name,
+			       deps[j]->name_size) == 0 &&
+		       sub_library_name[deps[j]->name_size] == '\0'){
+
+			/* make sure this image is not already on the list */
+			found = FALSE;
+			for(l = 0; l < n; l++){
+			    if(library_image->image.sub_images[l] == deps[j]){
+				found = TRUE;
+				break;
+			    }
+			}
+			if(found == FALSE){
+			    library_image->image.sub_images[n++] = deps[j];
+			    /*
+			     * Mark this dependent as not having its
+			     * umbrella images set up to force them to be
+			     * set up again in case this is a new umbrella
+			     * library for this dependent.
+			     */
+			    deps[j]->umbrella_images_setup = FALSE;
+			    /*
+			     * If it is not known we can use the hints and the
+			     * timestamps still match we must check this sub
+			     * image's timestamp.
+			     */
+			    if(ignore_time_stamps == FALSE &&
+			       time_stamps_match == TRUE)
+				time_stamps_match = check_time_stamp(
+				    library_image, deps[j]);
+			}
+
+			for(k = 0; k < deps[j]->nsub_images; k++){
+			    /* make sure this image is not already on the list*/
+			    found = FALSE;
+			    for(l = 0; l < n; l++){
+				if(library_image->image.sub_images[l] ==
+				   deps[j]->sub_images[k]){
+				    found = TRUE;
+				    break;
+				}
+			    }
+			    if(found == FALSE){
+				library_image->image.sub_images[n++] = 
+				    deps[j]->sub_images[k];
+				/*
+				 * Mark this dependent as not having its
+				 * umbrella images set up to force them to be
+				 * set up again in case this is a new umbrella
+				 * library for this dependent.
+				 */
+				deps[j]->sub_images[k]->umbrella_images_setup =
+				     FALSE;
+				/*
+				 * If it is not known we can use the hints and
+				 * the timestamps still match we must check
+				 * this sub image's timestamp.
+				 */
+				if(ignore_time_stamps == FALSE &&
+				   time_stamps_match == TRUE)
+				    time_stamps_match = check_time_stamp(
+					library_image, deps[j]->sub_images[k]);
+			    }
+			}
+		    }
+		}
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+	/*
+	 * Now reallocate the sub-images of this library to the actual size
+	 * needed for it.  Note this just gives back the pointers we don't
+	 * use when allocated from the block of preallocated pointers.
+	 */
+	reallocate_image_pointers(library_image->image.sub_images,
+				  max_libraries, n);
+	library_image->image.nsub_images = n;
+
+	library_image->image.sub_images_setup = TRUE;
+
+	/*
+	 * If all this image's sub-umbrellas and sub-libraries have hints
+	 * that can be used then the hints can be used in this image to aid in
+	 * the lookup of symbols in this image if it is two-level and if it
+	 * has hints.
+	 */
+	if(subs_can_use_hints == TRUE){
+	    if((library_image->image.mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	       (library_image->image.hints_cmd != NULL))
+		library_image->image.image_can_use_hints = TRUE;
+	     else
+		library_image->image.image_can_use_hints = FALSE;
+	    /*
+	     * If this image is a sub-image of another umbrella image then for
+	     * hints in the umbrella to be used this image's time stamps for its
+	     * sub images much match.  Or MH_NOMULTIDEFS was set in the
+	     * mach header and we already assumed the time_stamps_match.
+	     */
+	    if(time_stamps_match == TRUE)
+		library_image->image.subs_can_use_hints = TRUE;
+	    else
+		library_image->image.subs_can_use_hints = FALSE;
+	}
+	else{
+	    library_image->image.image_can_use_hints = FALSE;
+	    library_image->image.subs_can_use_hints = FALSE;
+	}
+	if(dyld_hints_debug != 0)
+	    printf("image_can_use_hints = %s subs_can_use_hints = %s for "
+		   "image: %s\n",
+		   library_image->image.image_can_use_hints == TRUE ?
+		   "TRUE" : "FALSE",
+		   library_image->image.subs_can_use_hints == TRUE ?
+		   "TRUE" : "FALSE",
+		   library_image->image.name);
+
+	return(TRUE);
+}
+
+/*
+ * check_time_stamp() checks the timestamp for LC_LOAD_DYLIB command in the
+ * specified library_image against the time stamp of the LC_ID_DYLIB command for
+ * the sub_image.  If they are the same it returns TRUE else it returns FALSE.
+ */
+static
+enum bool
+check_time_stamp(
+struct library_image *library_image,
+struct image *sub_image)
+{
+    unsigned long i;
+    struct load_command *lc;
+    struct dylib_command *dl_load, *dlid;
+    char *dep_name, *name;
+
+	dlid = ((struct library_image *)sub_image->outer_image)->dlid;
+	dep_name = (char *)dlid + dlid->dylib.name.offset;
+
+	lc = (struct load_command *)((char *)(library_image->image.mh) +
+				    sizeof(struct mach_header));
+	for(i = 0; i < library_image->image.mh->ncmds; i++){
+	    switch(lc->cmd){
+	    case LC_LOAD_DYLIB:
+		dl_load = (struct dylib_command *)lc;
+		name = (char *)dl_load + dl_load->dylib.name.offset;
+		if(strcmp(name, dep_name) == 0){
+		    if(dlid->dylib.timestamp == dl_load->dylib.timestamp)
+			return(TRUE);
+		    else
+			return(FALSE);
+		}
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+	/* should never get here */
+	return(FALSE);
+}
+
+/*
+ * setup_umbrella_images() sets up the umbrella_images list for the specified
+ * library.  If any library has this library listed as one of its sub_images
+ * then that library is added to the list of umbrella_images.  The prameter
+ * max_libraries is the total number of libraries and is used to at first to
+ * allocate the number of image pointers for the umbrella_images.  After the
+ * true size that is needed is known then umbrella_images is "reallocated" to
+ * the actual size needed.
+ */
+static
+void
+setup_umbrella_images(
+struct library_image *library_image,
+unsigned long max_libraries)
+{
+    unsigned long i, j;
+    struct library_images *q;
+    enum bool found;
+
+	library_image->image.umbrella_images =
+	    allocate_image_pointers(max_libraries);
+	library_image->image.numbrella_images = 0;
+
+	q = &library_images;
+	do{
+	    for(i = 0; i < q->nimages; i++){
+		/*
+		 * Check to see if this library is on the list of
+		 * umbrella_images already.  If so nothing more to do with it.
+		 */
+		found = FALSE;
+		for(j = 0; j < library_image->image.numbrella_images; j++){
+		    if(library_image->image.umbrella_images[j] ==
+		       &(q->images[i].image) ){
+			found = TRUE;
+			break;
+		    }
+		}
+		if(found == TRUE)
+		    continue;
+
+		/*
+		 * This library is not on the list of umbrella_images so see if
+		 * the library we are setting up the list for is listed as one
+		 * of this library's sub-images.  If so put it on the
+		 * umbrella_images list.
+		 */
+		for(j = 0; j < q->images[i].image.nsub_images; j++){
+		    if(q->images[i].image.sub_images[j] ==
+		       &(library_image->image) ){
+			library_image->image.umbrella_images[
+			    library_image->image.numbrella_images++] =
+				&(q->images[i].image);
+			break;
+		    }
+		}
+	    }
+	    q = q->next_images;
+	}while(q != NULL);
+
+	/*
+	 * Now reallocate the sub-umbrellas of this library to the actual size
+	 * needed for it.  Note this just gives back the pointers we don't
+	 * use when allocated from the block of preallocated pointers.
+	 */
+	reallocate_image_pointers(library_image->image.umbrella_images,
+				  max_libraries,
+				  library_image->image.numbrella_images);
+	library_image->image.umbrella_images_setup = TRUE;
 }
 
 /*
@@ -2897,8 +4030,17 @@ void)
 			}
 			deallocate_module_states(library_image->modules,
 						 library_image->nmodules);
+			deallocate_image_pointers(
+			    library_image->image.dependent_images,
+			    library_image->image.ndependent_images);
+			deallocate_image_pointers(
+			    library_image->image.sub_images,
+			    library_image->image.nsub_images);
+			deallocate_image_pointers(
+			    library_image->image.umbrella_images,
+			    library_image->image.numbrella_images);
 			/* zero out the image as it will be reused */
-			memset(library_image,'0',sizeof(struct library_image));
+			memset(library_image,'\0',sizeof(struct library_image));
 		    }
 		    /* reset the number of images in this block */
 		    p->nimages = i;
@@ -2941,6 +4083,15 @@ void)
 			    }
 			    deallocate_module_states(library_image->modules,
 						     library_image->nmodules);
+			    deallocate_image_pointers(
+				library_image->image.dependent_images,
+				library_image->image.ndependent_images);
+			    deallocate_image_pointers(
+				library_image->image.sub_images,
+				library_image->image.nsub_images);
+			    deallocate_image_pointers(
+				library_image->image.umbrella_images,
+				library_image->image.numbrella_images);
 			}
 			temp = q->next_images;
 			free(q);
@@ -3270,6 +4421,15 @@ unsigned long *high_addr)
 			name, i);
 		    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
 		    return(FALSE);
+		}
+		break;
+
+	    default:
+		if((lc->cmd & LC_REQ_DYLD) == LC_REQ_DYLD){
+		    error("can't use %s: %s (unknown load command %ld (0x%x) "
+			  "required for execution)", image_type, name, i,
+			  (unsigned int)(lc->cmd));
+		    link_edit_error(DYLD_FILE_FORMAT, EBADMACHO, name);
 		}
 		break;
 	    }
@@ -3789,7 +4949,7 @@ unsigned long nmodules)
 /*
  * deallocate_module_states() is passed a pointer to an array of module states
  * allocated by the above allocate_module_states() routine to deallocate in the
- * case of an error when return_on_error is set.  These are alwasys allocated
+ * case of an error when return_on_error is set.  These are always allocated
  * with allocate() so we can free them.
  */
 static
@@ -3802,6 +4962,87 @@ unsigned long nmodules)
 	   modules + nmodules >= module_state_block.module_states +
 				 MODULE_STATE_BLOCK_SIZE){
 	    free(modules);
+	}
+}
+
+/*
+ * allocate_image_pointers() is passed the number of image pointers to allocate.
+ * The allocation/reallocation of image pointers is based on setting up one of
+ * these arrays at a time. Using a maximum value for n then reallocateing it to
+ * the actual smaller value.
+ */
+static
+struct image **
+allocate_image_pointers(
+unsigned long n)
+{
+    struct image **p;
+
+	if(n <= IMAGE_POINTER_BLOCK_SIZE - image_pointers_block.used &&
+	   return_on_error == FALSE){
+	    p = image_pointers_block.image_pointers + image_pointers_block.used;
+	    image_pointers_block.used += n;
+	}
+	else{
+	    p = allocate(sizeof(struct image *) * n);
+	}
+	return(p);
+}
+
+/*
+ * reallocate_image_pointers() is used ONLY to allocate a SMALLER number of
+ * image pointers.  That is old_size must always be greater or the same as 
+ * new_size.
+ */
+static
+void
+reallocate_image_pointers(
+struct image **image_pointers,
+unsigned long old_size,
+unsigned long new_size)
+{
+	if(image_pointers < image_pointers_block.image_pointers &&
+	   image_pointers + old_size >= image_pointers_block.image_pointers +
+				 IMAGE_POINTER_BLOCK_SIZE){
+	    return;
+	}
+	else{
+	    if(old_size >= new_size &&
+	       image_pointers + old_size ==
+	       image_pointers_block.image_pointers + image_pointers_block.used){
+		memset(image_pointers + new_size, '\0',
+		       sizeof(struct image *) * (old_size - new_size));
+		image_pointers_block.used -= (old_size - new_size);
+	    }
+	}
+}
+
+/*
+ * deallocate_image_pointers() deallocates the image pointers allocated with
+ * allocate_image_pointers().  If this was the last allocated set of pointers
+ * in the preallocated block the pointers are reclaimed. If the pointer are
+ * outside the preallocated block they are free()'ed else they are leaked.
+ */
+static
+void
+deallocate_image_pointers(
+struct image **image_pointers,
+unsigned long n)
+{
+	if(image_pointers == NULL || n == 0)
+	    return;
+
+	if(image_pointers < image_pointers_block.image_pointers &&
+	   image_pointers + n >= image_pointers_block.image_pointers +
+				 IMAGE_POINTER_BLOCK_SIZE){
+	    free(image_pointers);
+	}
+	else{
+	    if(image_pointers + n ==
+	       image_pointers_block.image_pointers + image_pointers_block.used){
+		memset(image_pointers, '\0', sizeof(struct image *) * n);
+		image_pointers_block.used -= n;
+	    }
 	}
 }
 
@@ -3853,21 +5094,37 @@ struct library_image *li)
 /*
  * is_library_loaded_by_name() returns TRUE if the library is already loaded.
  * Also it validates the compatibility version and timestamp of the library
- * against the load command.
+ * against the load command.  For two-level images that depend on this library,
+ * image_pointer is the address of a pointer to an image struct to be set (if
+ * not NULL) after if this image is loaded.
  */
-static
 enum bool
 is_library_loaded_by_name(
 char *dylib_name,
-struct dylib_command *dl)
+struct dylib_command *dl,
+struct image **image_pointer)
 {
     unsigned long i;
     struct library_images *p;
 
+	/*
+	 * If this library name is not a full path we can't match by name if the
+	 * program was already launched as it could be the same name as a
+	 * library already loaded but be a different library if the current
+	 * working directory changed.  So return FALSE and let it be opened and 
+	 * checked to be the same if the stat(2) info is the same.
+	 */
+	if(launched == FALSE && *dylib_name != '/')
+	    return(FALSE);
 	for(p = &library_images; p != NULL; p = p->next_images){
 	    for(i = 0; i < p->nimages; i++){
 		if(strcmp(dylib_name, p->images[i].image.name) == 0){
-		    return(validate_library(dylib_name, dl, &(p->images[i])));
+		    if(validate_library(dylib_name, dl, &(p->images[i])) ==
+		       TRUE){
+			if(image_pointer != NULL)
+			    *image_pointer = &(p->images[i].image);
+			return(TRUE);
+		    }
 		}
 	    }
 	}
@@ -3877,14 +5134,16 @@ struct dylib_command *dl)
 /*
  * is_library_loaded_by_stat() returns TRUE if the library is already loaded. 
  * Also it validates the compatibility version and timestamp of the library
- * against the load command.
+ * against the load command.  For two-level images that depend on this library,
+ * image_pointer is the address of a pointer to an image struct to be set (if
+ * not NULL) after if this image is loaded.
  */
-static
 enum bool
 is_library_loaded_by_stat(
 char *dylib_name,
 struct dylib_command *dl,
-struct stat *stat_buf)
+struct stat *stat_buf,
+struct image **image_pointer)
 {
     unsigned long i;
     struct library_images *p;
@@ -3897,7 +5156,12 @@ struct stat *stat_buf)
 	    for(i = 0; i < p->nimages; i++){
 		if(stat_buf->st_dev == p->images[i].dev &&
 		   stat_buf->st_ino == p->images[i].ino){
-		    return(validate_library(dylib_name, dl, &(p->images[i])));
+		    if(validate_library(dylib_name, dl, &(p->images[i])) ==
+		       TRUE){
+			if(image_pointer != NULL)
+			    *image_pointer = &(p->images[i].image);
+			return(TRUE);
+		    }
 		}
 	    }
 	}
@@ -4010,6 +5274,7 @@ struct prebound_dylib_command *pbdylib)
     unsigned long i, j;
     char *name, *linked_modules, *install_name;
     struct library_images *q;
+    enum bool some_modules_linked;
 
 	name = (char *)pbdylib + pbdylib->name.offset;
 	linked_modules = (char *)pbdylib + pbdylib->linked_modules.offset;
@@ -4019,6 +5284,7 @@ struct prebound_dylib_command *pbdylib)
 		install_name = (char *)q->images[i].dlid +
 				q->images[i].dlid->dylib.name.offset;
 		if(strcmp(install_name, name) == 0){
+		    some_modules_linked = FALSE;
 		    if(q->images[i].image.prebound == TRUE ||
 		       q->images[i].image.dyst->nmodtab != pbdylib->nmodules){
 			if(dyld_prebind_debug != 0)
@@ -4029,11 +5295,33 @@ struct prebound_dylib_command *pbdylib)
 			return(FALSE);
 		    }
 		    for(j = 0; j < q->images[i].nmodules; j++){
-			if((linked_modules[j/8] >> (j%8)) & 1)
+			if((linked_modules[j/8] >> (j%8)) & 1){
 			    SET_LINK_STATE(q->images[i].modules[j],
 					   FULLY_LINKED);
+			    some_modules_linked = TRUE;
+			}
 		    }
 		    q->images[i].image.prebound = TRUE;
+		    if(some_modules_linked == FALSE){
+			/* undo the prebinding of the lazy symbols pointers */
+			undo_prebound_lazy_pointers(
+			    &(q->images[i].image),
+#if defined(m68k) || defined(__i386__)
+			    GENERIC_RELOC_PB_LA_PTR,
+#endif
+#ifdef hppa
+			    HPPA_RELOC_PB_LA_PTR,
+#endif
+#ifdef sparc
+			    SPARC_RELOC_PB_LA_PTR,
+#endif
+#ifdef __ppc__
+			    PPC_RELOC_PB_LA_PTR,
+#endif
+			    TRUE, /* all_lazy_pointers */
+			    0);
+			q->images[i].image.undone_prebound_lazy_pointers = TRUE;
+		    }
 		    return(TRUE);
 		}
 	    }
@@ -4092,17 +5380,20 @@ void)
 		undo_prebound_lazy_pointers(
 		    &(p->images[i].image),
 #if defined(m68k) || defined(__i386__)
-		    GENERIC_RELOC_PB_LA_PTR);
+		    GENERIC_RELOC_PB_LA_PTR,
 #endif
 #ifdef hppa
-		    HPPA_RELOC_PB_LA_PTR);
+		    HPPA_RELOC_PB_LA_PTR,
 #endif
 #ifdef sparc
-		    SPARC_RELOC_PB_LA_PTR);
+		    SPARC_RELOC_PB_LA_PTR,
 #endif
 #ifdef __ppc__
-		    PPC_RELOC_PB_LA_PTR);
+		    PPC_RELOC_PB_LA_PTR,
 #endif
+		    TRUE, /* all_lazy_pointers */
+		    0);
+		p->images[i].image.undone_prebound_lazy_pointers = TRUE;
 		linkedit_segment = p->images[i].image.linkedit_segment;
 		st = p->images[i].image.st;
 		dyst = p->images[i].image.dyst;
@@ -4169,6 +5460,10 @@ void)
  * undo_prebinding_for_library() undoes the prebinding for the specified
  * library.  We make sure the lazy pointers are reset and then just set the
  * module state to PREBOUND_UNLINKED.
+ *
+ * For the optimization of using two-level namespace prebound libraries if
+ * this is such a library then its lazy pointer are left set and the module
+ * state is set to FULLY_LINKED and the FULLYBOUND_STATE is set.
  */
 static
 void
@@ -4178,47 +5473,88 @@ struct library_image *library_image)
     unsigned long j;
 
 	/*
-	 * Undo the prebinding of the lazy symbols pointers if the
-	 * library as not been slid.  If it has been slid then this
-	 * would have been done in local_relocation().
+	 * If this library and all dependents are not two-level namespace
+	 * and prebound, then undo the lazy symbols pointers and set the
+	 * module states to PREBOUND_UNLINKED.
+	 *
+	 * If this library and all dependents are two-level namespace and
+	 * prebound just set the module states to RELOCATED and leave the
+	 * lazy symbols set.
 	 */
-	if(library_image->image.vmaddr_slide == 0)
-	    undo_prebound_lazy_pointers(
-		&(library_image->image),
+	if(library_image->image.subtrees_twolevel_prebound == FALSE){
+	    /*
+	     * Undo the prebinding of the lazy symbols pointers if the
+	     * library has not been slid.  If it has been slid then this
+	     * would have been done in local_relocation().
+	     */
+	    if(library_image->image.vmaddr_slide == 0){
+		undo_prebound_lazy_pointers(
+		    &(library_image->image),
 #if defined(m68k) || defined(__i386__)
-		GENERIC_RELOC_PB_LA_PTR);
+		    GENERIC_RELOC_PB_LA_PTR,
 #endif
 #ifdef hppa
-		HPPA_RELOC_PB_LA_PTR);
+		    HPPA_RELOC_PB_LA_PTR,
 #endif
 #ifdef sparc
-		SPARC_RELOC_PB_LA_PTR);
+		    SPARC_RELOC_PB_LA_PTR,
 #endif
 #ifdef __ppc__
-		PPC_RELOC_PB_LA_PTR);
+		    PPC_RELOC_PB_LA_PTR,
 #endif
-
-	for(j = 0; j < library_image->nmodules; j++)
-	    SET_LINK_STATE(library_image->modules[j], PREBOUND_UNLINKED);
-
+		    TRUE, /* all_lazy_pointers */
+		    0);
+		library_image->image.undone_prebound_lazy_pointers = TRUE;
+	    }
+	    for(j = 0; j < library_image->nmodules; j++)
+		SET_LINK_STATE(library_image->modules[j], PREBOUND_UNLINKED);
+	}
+	else{
+	    if(dyld_prebind_debug > 2){
+		print("dyld: In undo_prebinding_for_library() name = %s "
+		      "setup = %s twolevel_prebound = %s\n",
+		      library_image->image.name,
+		      library_image->image.subtrees_twolevel_prebound_setup ==
+		      TRUE ? "TRUE" : "FALSE",
+		      library_image->image.subtrees_twolevel_prebound ==
+		      TRUE ? "TRUE" : "FALSE");
+	    }
+	    for(j = 0; j < library_image->nmodules; j++){
+		SET_LINK_STATE(library_image->modules[j], FULLY_LINKED);
+		SET_FULLYBOUND_STATE(library_image->modules[j]);
+	    }
+	}
 }
 
 /*
  * try_to_use_prebound_libraries() is called when the libraries are setup for
  * prebinding but the executable is not.  If if is successfull prebinding is
- * left set to TRUE if not prebinding gets set to FALSE.
+ * left set to TRUE if not prebinding gets set to FALSE.  This is checking to
+ * see if flat namespace semantics can be used.
  */
 void
 try_to_use_prebound_libraries(
 void)
 {
 	/*
-	 * For now without two-level namespaves it is very expensive to check
-	 * all libraries against all other libraries just to see if we can
-	 * launch using prebound libraries.  So for now if there is more than
-	 * one library we'll not use prebound libraries.
+	 * Without two-level namespaces it is very expensive to check all
+	 * libraries against all other libraries just to see if we can
+	 * launch using prebound libraries if we are using flat namespace
+	 * semantics.  So for now if there is more than one library just
+	 * return and don't try to use the prebound libraries.
+	 * 
+	 * Also return if we are not forcing flat namespace and there is only
+	 * one library and it is two-level namespace so that
+	 * find_twolevel_prebound_lib_subtrees() can be called to use
+	 * the two-level namespace prebound library which is quicker than
+	 * checking for overriddes which does not need to happen with a
+	 * two-level namespace library.
 	 */
-	if(library_images.nimages > 1){
+	if(library_images.nimages > 1 ||
+	   (force_flat_namespace == FALSE &&
+	    library_images.nimages == 1 &&
+	    (library_images.images[0].image.mh->flags & MH_TWOLEVEL) ==
+	     MH_TWOLEVEL) ){
 	    prebinding = FALSE;
 	    return;
 	}
@@ -4420,6 +5756,9 @@ enum bool make_delayed_calls)
 			    else if(dyld_abort_multiple_inits == TRUE)
 				abort();
 
+/*
+printf("Calling init routine 0x%x in %s\n", init_routine, q->images[i].image.name);
+*/
 			    release_lock();
 			    init_routine();
 			    set_lock();
@@ -4537,7 +5876,9 @@ printf("call_dependent_init_routines() for %s\n", image->name);
 		i < dyst->iundefsym + dyst->nundefsym;
 		i++){
 		symbol_name = strings + symbols[i].n_un.n_strx;
-		lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+		lookup_symbol(symbol_name, get_primary_image(image, symbols+i),
+			      get_hint(image, symbols+i),
+			      &defined_symbol, &defined_module,
 			      &defined_image, &defined_library_image,
 			      NO_INDR_LOOP);
 
@@ -4584,7 +5925,8 @@ printf("undefined symbol %s in %s\n", symbol_name, image->name);
 		module_name = "NULL";
 	    }
 /*
-printf("call_dependent_init_routines() for %s(%s)\n", image->name, module_name);
+printf("call_dependent_init_routines() for %s(%s)\n", image->name,
+module_name == NULL ? "NULL" : module_name);
 */
 	    /*
 	     * use_header_dependencies will be TRUE only in the case we are
@@ -4606,7 +5948,8 @@ printf("call_dependent_init_routines() for %s(%s)\n", image->name, module_name);
 			    for(j = 0;
 				dependent_image == NULL && j < q->nimages;
 				j++){
-				if(strcmp(q->images[j].image.name,
+				if(strcmp((char *)q->images[j].dlid +
+					  q->images[j].dlid->dylib.name.offset,
 					  dependent_name) == 0){
 				    dependent_image = &(q->images[j].image);
 				    dependent_library_image = q->images + j;
@@ -4617,9 +5960,13 @@ printf("call_dependent_init_routines() for %s(%s)\n", image->name, module_name);
 			/*
 			 * Even if this image does not an init routine one of
 			 * its dependent libraries may have one so they need
-			 * to be called first).
+			 * to be called first).  We use the init_called for
+			 * libraries that do not have init routines when
+			 * use_header_dependencies == TRUE so that we don't
+			 * have to visit more than once.
 			 */
-			if(dependent_image != NULL){
+			if(dependent_image != NULL &&
+			   dependent_library_image->image.init_called == FALSE){
 			    /*
 			     * Make sure all its dependent init routines
 			     * are called.
@@ -4675,12 +6022,24 @@ printf("call_dependent_init_routines(use_header_dependencies == TRUE) for "
 "%s(%s)\n", dependent_image->name, module_name);
 */
 
+/*
+printf("Calling init routine 0x%x in %s\n", init_routine, dependent_library_image->image.name);
+*/
 				    release_lock();
 				    init_routine();
 				    set_lock();
 				    init_routine_being_called = FALSE;
 				}
 			    }
+			}
+			/*
+			 * As noted above the corresponding if for this else
+			 * we mark this library as the init routine was called
+			 * even it it does not have an init routine so we
+			 * don't visit it again.
+			 */
+			else if(dependent_library_image != NULL){
+			    dependent_library_image->image.init_called = TRUE;
 			}
 		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -4709,7 +6068,10 @@ printf("call_dependent_init_routines(use_header_dependencies == TRUE) for "
 		   dylib_references[i].flags !=
 			REFERENCE_FLAG_UNDEFINED_LAZY)
 		    continue;
-		lookup_symbol(symbol_name, &defined_symbol, &defined_module,
+		lookup_symbol(symbol_name, get_primary_image(image, symbols +
+						    dylib_references[i].isym),
+			      get_hint(image, symbols+dylib_references[i].isym),
+			      &defined_symbol, &defined_module,
 			      &defined_image, &defined_library_image,
 			      NO_INDR_LOOP);
 /*
@@ -4775,6 +6137,9 @@ printf("call_dependent_init_routines(use_header_dependencies == FALSE) for "
 			else if(dyld_abort_multiple_inits == TRUE)
 			    abort();
 
+/*
+printf("Calling init routine 0x%x in %s\n", init_routine, defined_library_image->image.name);
+*/
 			release_lock();
 			init_routine();
 			set_lock();
@@ -5491,6 +6856,9 @@ down:
 	    else if(dyld_abort_multiple_inits == TRUE)
 		abort();
 
+/*
+printf("Calling init routine 0x%x in %s\n", init_routine, library_image->image.name);
+*/
 	    release_lock();
 	    init_routine();
 	    set_lock();

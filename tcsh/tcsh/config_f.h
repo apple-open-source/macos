@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/config_f.h,v 1.1.1.1 1999/04/23 01:59:51 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/config_f.h,v 1.1.1.2 2001/06/28 23:10:46 bbraun Exp $ */
 /*
  * config_f.h -- configure various defines for tcsh
  *
@@ -121,7 +121,8 @@
 
 /*
  * DSPMBYTE	add variable "dspmbyte" and display multi-byte string at
- *		only output, when "dspmbyte" is set.
+ *		only output, when "dspmbyte" is set. Should be used with
+ *		KANJI
  */
 #undef DSPMBYTE
 
@@ -142,7 +143,7 @@
  *		This can be much slower and no memory statistics will be
  *		provided.
  */
-#if defined(__MACHTEN__) || defined(PURIFY) || defined(MALLOC_TRACE) || defined(_OSD_POSIX)
+#if defined(__MACHTEN__) || defined(PURIFY) || defined(MALLOC_TRACE) || defined(_OSD_POSIX) || defined(__MVS__)
 # define SYSMALLOC
 #else
 # undef SYSMALLOC
@@ -168,6 +169,12 @@
  *
  */
 #define COLOR_LS_F
+
+/*
+ * COLORCAT Do you want to colorful message ?
+ *
+ */
+#undef COLORCAT
 
 /*
  * RCSID	This defines if we want rcs strings in the binary or not

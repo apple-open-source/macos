@@ -1,11 +1,10 @@
 --TEST--
-MySQL DB::connect
+DB_mysql::connect test
 --SKIPIF--
-<?php include("skipif.inc"); ?>
+<?php require "skipif.inc"; ?>
 --FILE--
 <?php
-require_once "DB.php";
-$dbh = DB::connect("mysql://localhost/test");
+require "connect.inc";
 if (is_object($dbh)) {
     print "\$dbh is an object\n";
 }

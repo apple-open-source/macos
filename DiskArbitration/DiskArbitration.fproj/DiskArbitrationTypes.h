@@ -55,12 +55,16 @@ enum
         kDiskArbNotifyBlueBoxBootVolumeUpdated						= 1 << 6,
         kDiskArbNotifyCompleted								= 1 << 7,
         kDiskArbNotifyChangedDisks							= 1 << 8,
-        kDiskArbNotifyUnrecognizedVolumes						= 1 << 9,
+        kDiskArbArbitrateUnrecognizedVolumes						= 1 << 9,
+        kDiskArbNotifyUnrecognizedVolumes						= 1 << 10,
+        kDiskArbNotifyDiskWillBeChecked							= 1 << 12,
+        kDiskArbNotifyCallFailed							= 1 << 13,
 };
 
 /* Beware: these definitions must be kept in sync with ClientToServer.defs and ServerToClient.defs */
 
 typedef char DiskArbDiskIdentifier[ 1024 ];
+typedef char DiskArbSecurityToken[ 32 ];
 typedef char DiskArbMountpoint[ 1024 ];
 typedef char DiskArbIOContent[ 1024 ];
 typedef char DiskArbDeviceTreePath[ 1024 ];
@@ -85,6 +89,8 @@ enum
         kDiskArbDiskAppearedRecognizableSectionMounted		= 1 << 10,
         kDiskArbDiskAppearedDialogDisplayed			= 1 << 11,
         kDiskArbDiskAppearedNoMountMask				= 1 << 12,
+        kDiskArbDiskAppearedNoSizeMask				= 1 << 13,
+        kDiskArbDiskAppearedCheckFailed				= 1 << 14,
 };
 
 /* Flags for the DiskArbUnmount...() family of calls */
@@ -125,6 +131,16 @@ enum
 
 };
 
+/* Disk Reservation Status */
+
+enum
+{
+        kDiskArbDeviceIsReserved					= 0,
+        kDiskArbDeviceIsNotReserved					= 1,
+        kDiskArbDeviceReservationObtained				= 2,
+        kDiskArbDeviceReservationRefused				= 3,
+};
+
 /* VSDB Permissions */
 #define kDiskArbVSDBPermissionsNotExist 	0
 #define kDiskArbVSDBPermissionsEnabled		1
@@ -132,6 +148,50 @@ enum
     
 
 #define kDiskArbNoUser -1
+
+enum
+{
+        kDiskArbHandlesNothing					= 0x00000000,
+
+        kDiskArbHandlesUnrecognizedFixedMedia				= 1 << 0,
+        kDiskArbHandlesUnrecognizedCDMedia				= 1 << 1,
+        kDiskArbHandlesUnrecognizedDVDMedia				= 1 << 2,
+        kDiskArbHandlesUnrecognizedOtherRemovableMedia			= 1 << 3,
+
+        kDiskArbHandlesUninitializedFixedMedia				= 1 << 10,
+        kDiskArbHandlesUninitializedCDMedia				= 1 << 11,
+        kDiskArbHandlesUninitializedDVDMedia				= 1 << 12,
+        kDiskArbHandlesUninitializedOtherRemovableMedia			= 1 << 13,
+};
+
+enum
+{
+        kDiskArbRequestFailed					= 0x00000000,
+        kDiskArbUnmountRequestFailed				= 1 << 0,
+        kDiskArbEjectRequestFailed				= 1 << 1,
+        kDiskArbUnmountAndEjectRequestFailed			= 1 << 2,
+        kDiskArbDiskChangeRequestFailed				= 1 << 3,
+        kDiskArbSetEncodingRequestFailed			= 1 << 4,
+        kDiskArbVSDBAdoptRequestFailed				= 1 << 5,
+        kDiskArbVSDBDisownRequestFailed				= 1 << 6,
+};
+
+enum
+{
+        kDiskArbVolumeDoesNotExist				= 1 << 0,
+        kDiskArbParametersIncorrect				= 1 << 1,
+        kDiskArbInsecureRequest					= 1 << 2,
+        kDiskArbIsBusy						= 1 << 3,
+        kDiskArbDiskIsNetwork					= 1 << 4,
+        kDiskArbInvalidVolumeFormat				= 1 << 5,
+};
+
+#define kDiskArbHandlesAllUnrecognizedMedia ( kDiskArbHandlesUnrecognizedFixedMedia | kDiskArbHandlesUnrecognizedCDMedia | kDiskArbHandlesUnrecognizedDVDMedia | kDiskArbHandlesUnrecognizedOtherRemovableMedia)
+
+#define kDiskArbHandlesAllUninitializedMedia ( kDiskArbHandlesUninitializedFixedMedia | kDiskArbHandlesUninitializedCDMedia | kDiskArbHandlesUninitializedDVDMedia | kDiskArbHandlesUninitializedOtherRemovableMedia )
+
+#define kDiskArbHandlesAllUnrecognizedOrUninitializedMedia ( kDiskArbHandlesAllUnrecognizedMedia | kDiskArbHandlesAllUninitializedMedia)
+
 
 #endif
 

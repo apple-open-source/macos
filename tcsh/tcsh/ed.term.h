@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.term.h,v 1.1.1.1 1999/04/23 01:59:53 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.term.h,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
 /*
  * ed.term.h: Local terminal header
  */

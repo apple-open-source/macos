@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.types.h,v 1.1.1.1 1999/04/23 01:59:56 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.types.h,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /* sh.types.h: Do the necessary typedefs for each system.
  *             Up till now I avoided making this into a separate file
  *	       But I just wanted to eliminate the whole mess from sh.h
@@ -172,9 +172,9 @@ extern char *sbrk();
 # endif /* HPUXVERSION < 800 */
 #endif /* __hpux */
 
-#if defined(_MINIX) || defined(__EMX__) || defined(COHERENT)
+#if (defined(_MINIX) && !defined(_MINIX_VMD)) || defined(__EMX__) || defined(COHERENT)
 typedef char * caddr_t;
-#endif /* _MINIX || __EMX__ || COHERENT */
+#endif /* (_MINIX && !_MINIX_VMD) || __EMX__ || COHERENT */
 
 /***
  *** hp9000s500 running hpux-5.2
@@ -312,6 +312,10 @@ typedef char * caddr_t;
 # ifndef _PID_T
 #  define _PID_T
 # endif /* _PID_T */
+# ifndef _PTR_T
+#  define _PTR_T
+    typedef void * ptr_t;
+# endif /* _PTR_T */
 #endif /* ultrix || __ultrix */
 
 

@@ -110,18 +110,46 @@ ppc_print_extra_frame_info (frame)
     printf_filtered (" Unable to determine function property information.\n");
   }
 }
+/* We need to make sure that ppc_init_frame_pc_first won't longjmp, 
+   since if it does it can leave a frame structure with no extra_info
+   allocated in get_prev_frame, and there are way too many places that
+   assume that a valid frame has a valid extra_info to catch them all. */
 
-void
-ppc_init_frame_pc_first (fromleaf, frame)
-     int fromleaf;
-     struct frame_info *frame;
+struct ppc_init_frame_pc_args
 {
+  int fromleaf;
+  struct frame_info *frame;
+};
+
+int
+ppc_init_frame_pc_first_unsafe (struct ppc_init_frame_pc_args *args)
+{
+  int fromleaf = args->fromleaf;
+  struct frame_info *frame = args->frame;
   struct frame_info *next;
 
   CHECK_FATAL (frame != NULL);
   next = get_next_frame (frame);
   CHECK_FATAL (next != NULL);
   frame->pc = ppc_frame_saved_pc (next);
+
+  return 1;
+}
+
+void
+ppc_init_frame_pc_first (int fromleaf, struct frame_info *frame)
+{
+  struct ppc_init_frame_pc_args args;
+
+  args.fromleaf = fromleaf;
+  args.frame = frame;
+
+  if (!catch_errors ((catch_errors_ftype *) ppc_init_frame_pc_first_unsafe, 
+		     &args, "", RETURN_MASK_ERROR))
+    {
+      ppc_debug ("ppc_init_frame_pc_first: got an error calling %s.\n", 
+		 "ppc_frame_saved_pc.\n");
+    }
 }
 
 void
@@ -132,6 +160,44 @@ ppc_init_frame_pc (fromleaf, frame)
   CHECK_FATAL (frame != NULL);
 }
 
+/* ppc_get_unsaved_pc 
+   
+   This function hides a little complication when you are looking for
+   a the saved pc in a frame which either does not save the pc, or saves
+   it but hasn't done so yet.  In that case, the pc may still be in the
+   link register, but it ALSO might have gotten displaced by the PIC base
+   setting call - which does "blc pc+4; mflr r31" so the lr is wrong for
+   a little while.
+*/
+
+CORE_ADDR
+ppc_get_unsaved_pc (struct frame_info *frame, ppc_function_properties *props)
+{
+  struct frame_info *cur_frame;
+  CORE_ADDR retval;
+  
+  if ((props->lr_reg == -1)
+      || ((props->lr_invalid == 0) 
+	  || (frame->pc <= props->lr_invalid)
+	  || (frame->pc > props->lr_valid_again)))
+    {
+      ppc_debug ("ppc_get_unsaved_pc: link register was not saved.\n");
+      cur_frame = get_current_frame ();
+      set_current_frame (frame);
+      retval = read_register (LR_REGNUM);
+      set_current_frame (cur_frame);
+    }
+  else
+    {
+      ppc_debug ("ppc_get_unsaved_pc: link register stashed in register %d.\n",
+		 props->lr_reg);
+      cur_frame = get_current_frame ();
+      set_current_frame (frame);
+      retval = read_register (props->lr_reg);
+      set_current_frame (cur_frame);
+    }
+  return retval;
+}
 
 CORE_ADDR
 ppc_frame_find_pc (frame)
@@ -143,72 +209,118 @@ ppc_frame_find_pc (frame)
 
   if (frame->signal_handler_caller) {
     CORE_ADDR psp = read_memory_unsigned_integer (frame->frame, 4);
+    CORE_ADDR retval;
     /* psp is the top of the signal handler data pushed by the kernel */
     /* 0x220 is offset to SIGCONTEXT; 0x10 is offset to $pc */
     ppc_debug ("ppc_frame_saved_pc: determing previous pc from signal context\n");
-    return read_memory_unsigned_integer (psp + 0x220 + 0x10, 4);
+    retval = read_memory_unsigned_integer (psp + 0x220 + 0x10, 4);
+    ppc_debug ("Signal frame at: 0x%lx, saved pc at: 0x%lx.\n", psp, retval);
   }
 
   prev = ppc_frame_chain (frame);
   if ((prev == 0) || (! ppc_frame_chain_valid (prev, frame))) { 
-    ppc_debug ("ppc_frame_saved_pc: previous stack frame not valid: returning 0\n");
+    ppc_debug ("ppc_frame_find_pc: previous stack frame not valid: returning 0\n");
     return 0; 
   }
-  ppc_debug ("ppc_frame_saved_pc: value of prev is 0x%lx\n", (unsigned long) prev);
+  ppc_debug ("ppc_frame_find_pc: value of prev is 0x%lx\n", (unsigned long) prev);
 
-  if (ppc_frame_cache_properties (frame, NULL) != 0) {
-    ppc_debug ("ppc_frame_saved_pc: unable to find properties of function containing 0x%lx\n",
-	       (unsigned long) frame->pc);
-    ppc_debug ("ppc_frame_saved_pc: assuming link register saved in normal location\n");
-    if (ppc_frameless_function_invocation (frame)) {
-      return read_register (LR_REGNUM);
-    } else {
-      ppc_function_properties lprops;
-      CORE_ADDR body_start;
-      body_start = ppc_parse_instructions (frame->pc, INVALID_ADDRESS, &lprops);
-      if (body_start > frame->pc && lprops.lr_saved)
+  if (ppc_frame_cache_properties (frame, NULL) != 0) 
+    {
+      ppc_debug ("ppc_frame_find_pc: unable to find properties of function containing 0x%lx\n",
+		 (unsigned long) frame->pc);
+      ppc_debug ("ppc_frame_find_pc: assuming link register saved in normal location\n");
+      
+      if (ppc_frameless_function_invocation (frame)) 
 	{
-	  /* If we are in the prologue, and if the properties dingus
-	   * still thinks that we are saving the LR, then clearly we
-	   * haven't done it yet, and so we read from the LR...  
-	   */
+	  /* FIXME: Formally, we ought to check for frameless function
+	     invocation, but in fact, ppc_frameless_function_invocation
+	     first calls ppc_frame_cache_properties and returns 0 if it
+	     fails.  Since this just failed above, we won't ever get
+	     into this branch. But I don't know another way to figure
+	     this out. */
 	  return read_register (LR_REGNUM);
+	} 
+      else 
+	{
+	  ppc_function_properties lprops;
+	  CORE_ADDR body_start;
+	  body_start = ppc_parse_instructions (frame->pc, INVALID_ADDRESS, 
+					       &lprops);
+          
+	  /* We get here if we are a bit lost: after all we weren't
+	     able to successfully run ppc_frame_cache_properties.  So
+	     we should treat the lprops with some caution.  One common
+	     mistake is to falsly assume the lr hasn't been saved
+	     (since un-interpretible prologue and frameless prologue
+	     look kind of the same).  So add this obvious check
+	     here for being a leaf fn. in the first branch... */
+	  
+	  if ((frame->next == NULL && lprops.lr_saved == 0) || 
+	      (lprops.lr_saved >= frame->pc))
+	    {
+      	      /* Either we aren't saving the link register, or our scan
+		 shows that the link register WILL be saved, but has not
+		 been yet.  So figure out where it actually is.  To do this,
+		 we need to see if the lr is ever stomped, and if so, if we
+		 are within that part of the prologue.
+	      */
+	      return ppc_get_unsaved_pc (frame, &lprops);
+	    }
+	  else
+	    {
+	      /* The link register is safely on the stack... */
+	      return read_memory_unsigned_integer (prev + DEFAULT_LR_SAVE, 4);
+	    }
+	}
+    }
+  else
+    {
+      ppc_function_properties *props;
+      struct frame_info *cur_frame;
+      CORE_ADDR retval;
+
+      props = frame->extra_info->props;
+      CHECK_FATAL (props != NULL);
+
+      if (props->lr_saved)
+	{
+	  if (props->lr_saved < frame->pc)
+	    {
+	      /* The link register is safely on the stack... */
+	      return read_memory_unsigned_integer (prev 
+						   + props->lr_offset, 4);
+	    }
+	  else 
+	    {
+	      ppc_debug ("ppc_frame_find_pc: function did not save link register\n");
+	      return ppc_get_unsaved_pc (frame, props);
+	    }
+        }
+      else if (frame->next && frame->next->signal_handler_caller) 
+	{
+	  ppc_debug ("ppc_frame_find_pc: %s\n", 
+		     "using link area from signal handler.");
+	  return read_memory_unsigned_integer (frame->frame - 0x320 
+					       + DEFAULT_LR_SAVE, 4);
+	}
+      else if (frame->next && ppc_is_dummy_frame (frame->next)) 
+	{
+	  ppc_debug ("ppc_frame_find_pc: using link area from call dummy\n");
+	  return read_memory_unsigned_integer (frame->frame - 0x1c, 4);
+	}
+      else if (!props->lr_saved)
+	{
+	  return ppc_get_unsaved_pc (frame, props);
 	}
       else
 	{
+	  ppc_debug ("ppc_frame_find_pc: function is not a leaf\n");
+	  ppc_debug ("ppc_frame_find_pc: assuming link register saved in normal location\n");
 	  return read_memory_unsigned_integer (prev + DEFAULT_LR_SAVE, 4);
 	}
     }
-  }
-  CHECK_FATAL (frame->extra_info->props != NULL);
-  
-  if (frame->extra_info->props->lr_saved) {
-    return read_memory_unsigned_integer (prev + frame->extra_info->props->lr_offset, 4);
-  } else {
-    ppc_debug ("ppc_frame_saved_pc: function did not save link register\n");
-  }
-
-  if (frame->next == NULL) {
-    ppc_debug ("ppc_frame_saved_pc: function is leaf; link register should be current\n");
-    return read_register (LR_REGNUM);
-  }
-
-  if ((frame->next != NULL) 
-      && frame->next->signal_handler_caller) {
-    ppc_debug ("ppc_frame_saved_pc: using link area from signal handler\n");
-    return read_memory_unsigned_integer (frame->frame - 0x320 + DEFAULT_LR_SAVE, 4);
-  }
-
-  if ((frame->next != NULL) && (ppc_is_dummy_frame (frame->next))) {
-    ppc_debug ("ppc_frame_saved_pc: using link area from call dummy\n");
-    return read_memory_unsigned_integer (frame->frame - 0x1c, 4);
-  }
-
-  CHECK_FATAL (frame->next != NULL);
-
-  ppc_debug ("ppc_frame_saved_pc: function is not a leaf\n");
-  ppc_debug ("ppc_frame_saved_pc: assuming link register saved in normal location\n");
-  return read_memory_unsigned_integer (prev + DEFAULT_LR_SAVE, 4);
+  /* Should never get here, just quiets the compiler. */
+  return 0;
 }
 
 CORE_ADDR
@@ -260,7 +372,7 @@ ppc_frame_chain_valid (chain, frame)
 {
   if (chain == 0) { return 0; }
 
-#if 0
+#if 1
   /* reached end of stack? */
   if (read_memory_unsigned_integer (chain, 4) == 0) { return 0; }
 #endif
@@ -308,13 +420,15 @@ ppc_is_dummy_frame (frame)
 
 /* Return the address of a frame. This is the inital %sp value when the frame
    was first allocated. For functions calling alloca(), it might be saved in
-   an alloca register. */
+   the frame pointer register. */
 
 CORE_ADDR
 ppc_frame_cache_initial_stack_address (frame)
      struct frame_info *frame;
 {
   CHECK_FATAL (frame != NULL);
+  CHECK_FATAL (frame->extra_info != NULL);
+    
   if (frame->extra_info->initial_sp == 0) { 
     frame->extra_info->initial_sp = ppc_frame_initial_stack_address (frame);
   }
@@ -343,7 +457,7 @@ ppc_frame_initial_stack_address (frame)
   /* If no alloca register is used, then frame->frame is the value of
      %sp for this frame, and it is valid. */
 
-  if (frame->extra_info->props->alloca_reg < 0) {
+  if (frame->extra_info->props->frameptr_reg < 0) {
     frame->extra_info->initial_sp = frame->frame;
     return frame->extra_info->initial_sp;
   }
@@ -351,36 +465,42 @@ ppc_frame_initial_stack_address (frame)
   /* This function has an alloca register. If this is the top-most frame
      (with the lowest address), the value in alloca register is valid. */
 
-  if (! get_next_frame (frame)) {
-    frame->extra_info->initial_sp = read_register (frame->extra_info->props->alloca_reg);     
-    return frame->extra_info->initial_sp;
-  }
+  if (! get_next_frame (frame)) 
+    {
+      frame->extra_info->initial_sp 
+	= read_register (frame->extra_info->props->frameptr_reg);     
+      return frame->extra_info->initial_sp;
+    }
 
   /* Otherwise, this is a caller frame. Callee has usually already saved
      registers, but there are exceptions (such as when the callee
      has no parameters). Find the address in which caller's alloca
      register is saved. */
 
-  for (callee = get_next_frame (frame); callee != NULL; callee = get_next_frame (callee)) {
+  for (callee = get_next_frame (frame); callee != NULL; 
+       callee = get_next_frame (callee)) 
+    {
 
-    ppc_frame_cache_saved_regs (callee);
+      ppc_frame_cache_saved_regs (callee);
+      
+      /* this is the address in which alloca register is saved. */
+      
+      tmpaddr = callee->saved_regs[frame->extra_info->props->frameptr_reg];
+      if (tmpaddr) {
+	frame->extra_info->initial_sp 
+	  = read_memory_unsigned_integer (tmpaddr, 4); 
+	return frame->extra_info->initial_sp;
+      }
 
-    /* this is the address in which alloca register is saved. */
-
-    tmpaddr = callee->saved_regs[frame->extra_info->props->alloca_reg];
-    if (tmpaddr) {
-      frame->extra_info->initial_sp = read_memory_unsigned_integer (tmpaddr, 4); 
-      return frame->extra_info->initial_sp;
+      /* Go look into deeper levels of the frame chain to see if any one of
+	 the callees has saved the frame pointer register. */
     }
 
-    /* Go look into deeper levels of the frame chain to see if any one of
-       the callees has saved alloca register. */
-  }
+  /* If frame pointer register was not saved, by the callee (or any of
+     its callees) then the value in the register is still good. */
 
-  /* If alloca register was not saved, by the callee (or any of its callees)
-     then the value in the register is still good. */
-
-  frame->extra_info->initial_sp = read_register (frame->extra_info->props->alloca_reg);     
+  frame->extra_info->initial_sp 
+    = read_register (frame->extra_info->props->frameptr_reg);     
   return frame->extra_info->initial_sp;
 }
 
@@ -494,25 +614,30 @@ ppc_skip_prologue (pc)
   return bounds.body_start;
 }
 
-/* Determines whether the current frame has allocated a frame on the stack or not.  */
+/* Determines whether the current frame has allocated a frame on the
+   stack or not.  */
 
 int
 ppc_frameless_function_invocation (frame)
      struct frame_info *frame;
 {
-  if (ppc_frame_cache_properties (frame, NULL) != 0) {
-    ppc_debug ("frameless_function_invocation: unable to find properties of " 
-		 "function containing 0x%lx; assuming not frameless\n", frame->pc);
-    return 0;
-  }
-
-  /* if not a leaf, it's not frameless --- ignore result of ppc_frame_cache_properties */
-  /* (unless it was interrupted by a signal or a call_dummy) */
+  /* if not a leaf, it's not frameless (unless it was interrupted by a
+     signal or a call_dummy) */
 
   if (frame->next != NULL 
       && !frame->next->signal_handler_caller
       && !ppc_is_dummy_frame (frame->next))
-    { return 0; }
+    { 
+      return 0; 
+    }
+
+  if (ppc_frame_cache_properties (frame, NULL) != 0) {
+    ppc_debug ("frameless_function_invocation: unable to find properties of " 
+		 "function containing 0x%lx; assuming not frameless\n", 
+	       frame->pc);
+    return 0;
+  }
+
 
   return frame->extra_info->props->frameless;
 }

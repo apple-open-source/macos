@@ -25,11 +25,15 @@
 #include "target.h"
 #include "value.h"
 #include "command.h"
-#include "top.h"	// execute_command, get_prompt, instream, line
+#include "top.h"	// execute_command, get_prompt, instream, line, word brk completer
 #include "gdbtypes.h"	// enum type_code
-#include "gdbcmd.h" 	// cmdlist, execute_user_command
+#include "gdbcmd.h" 	// cmdlist, execute_user_command, filename_completer
 #include "expression.h" // parse_expression 
 #include "inferior.h"	// stop_bpstat
+#include "symtab.h"	// struct symtab_and_line, find_pc_line
+#include "frame.h"   	// selected_frame
+#include "parser-defs.h"// target_map_name_to_register
+#include "gdbarch.h"	// gdbarch_register_raw_size
 
 #define CLASS_BASE 100
 
@@ -43,7 +47,6 @@ typedef struct Class_user {		      /* reclassed class_user cmd list entry:	*/
 } Class_user;
 
 static Class_user *class_user_classes = NULL; /* list of reclassed class_user cmds 	*/
-
 
 /*--------------------------------------------------------------------------------------*/
 
@@ -105,6 +108,28 @@ static Gdb_Cmd_Class map_gdb_to_class(enum command_class theClass)
 }
 
 
+/*----------------------------------------------------------------------------------*
+ | restore_user_classes - restore user classes changed by intercept_help_commands() |
+ *----------------------------------------------------------------------------------*
+
+ This is a cleanup hook established by intercept_help_commands() to restore DEFINE
+ commands that are classed as something other than class_user while displaying HELP.
+ See intercept_help_commands() for further details.
+ 
+ Note we do this as a cleanup routine since intercept_help_commands() intercepts ALL
+ HELP commands.  If a HELP command reports an error we need to ensure we restore the
+ class_user commands we reclassed for the help.
+*/
+
+static void restore_user_classes(void *unused)
+{
+    Class_user *p;
+    
+    for (p = class_user_classes; p; p = p->next)  /* ...restore the original class	*/
+	p->c->class = class_user;
+}
+
+
 /*-------------------------------------------------------*
  | intercept_help_commands - intercept all HELP commands |
  *-------------------------------------------------------*
@@ -123,14 +148,13 @@ static Gdb_Cmd_Class map_gdb_to_class(enum command_class theClass)
 static void intercept_help_commands(char *arg, int from_tty)
 {
     Class_user *p;
+    struct cleanup *old_chain = make_cleanup(restore_user_classes, NULL);
     
     for (p = class_user_classes; p; p = p->next)/* ...change the recorded cmds		*/
 	p->c->class = map_class_to_gdb(p->class);			
     
     gdb_help_command(arg, from_tty);		/* ...HELP is none the wiser!		*/
-    
-    for (p = class_user_classes; p; p = p->next)/* ...restore the original class	*/
-	p->c->class = class_user;		
+    do_cleanups(old_chain);
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -191,9 +215,9 @@ void gdb_initialize(void)
  reason you might want to redefine an exiting (plugin) command as a class is when you
  want to use the command's name as a class category for the help display.  Then after
  the display you would convert it back to a plugin command again the way it was created
- in the first place, i.e., by calling gdb_define_plugin().  Of course you need to 
- intercept the HELP command to do this.  The gdb_replace_command() call is used to
- define command intercepts so that is relatively easy.
+ in the first place, i.e., by calling gdb_define_cmd().  Of course you need to intercept
+ the HELP command to do this.  The gdb_replace_command() call is used to define command
+ intercepts so that is relatively easy.
  
  Note, there is a limit of 50 user defined classes (why would you ever define so many?).
  After that the function returns Gdb_Too_Many_Classes.
@@ -265,7 +289,7 @@ void gdb_change_class(char *theCommand, Gdb_Cmd_Class newClass)
     /* class_user and treated specially since these are interpretive rather than calling*/
     /* a plugin or built-in command.  Gdb actually looks for the class class_user to	*/
     /* decide whether to interpret the command when it is class_user or to call it.  It	*/
-    /* also uses class_user to allow the user to display a comamnd's definition with 	*/
+    /* also uses class_user to allow the user to display a command's definition with 	*/
     /* SHOW USER.  Thus we cannot change the class now.  Rather we keep a list of all	*/
     /* class_user classes which are to be given a different class.  Since the purpose 	*/
     /* of the class is to place the command in a proper HELP class display then we use	*/
@@ -294,9 +318,54 @@ void gdb_change_class(char *theCommand, Gdb_Cmd_Class newClass)
 }
 
 
-/*--------------------------------------------------------*
- | gdb_define_plugin - define a new plugin command to gdb |
- *--------------------------------------------------------*
+/*-----------------------------------------------------------------------------------*
+ | gdb_fixup_document_help - replace option-spaces in DOCUMENT help with real spaces |
+ *-----------------------------------------------------------------------------------*
+ 
+ Help info for gdb script commands is defined between a DOCUMENT and its matching END. It
+ is a "feature" of gdb's handling of DOCUMENT help to strip all leading spaces from the
+ help strings as they are read in by gdb.  It also removes all blank lines or lines which
+ consist only of a newline.  This makes formatting such help information somewhat of a
+ pain!  The work around it is to use a leading "significant space", i.e., option-space,
+ which is 0xCA in Mac ASCII.  Then the help strings are displayed as desired.
+ 
+ The problem with using option-spaces for a gdb script command's help is that if the help
+ is displayed in any other context other than a xterm terminal (e.g., Project Builder) the
+ display might (and for Project Builder, does) explicitly show the "non-printable"
+ characters as something unique.  Thus gdb_fixup_document_help() is provided to replace
+ all the option-spaces with actual spaces after the script commands are defined and their
+ help read by gdb.
+ 
+ Call gdb_fixup_document_help() for each script command whose DOCUMENT help was formatted
+ using option-spaces.  If the command is defined and has DOCUMENT help it's options-spaces
+ will be replaced with real spaces.  Undefined commands or commands with no help info are
+ ignored.
+*/
+ 
+void gdb_fixup_document_help(char *theCommand)
+{
+    struct cmd_list_element *c;
+    unsigned char 	    *p;
+    
+    if (!theCommand || !*theCommand)
+    	return;
+    
+    c = lookup_cmd(&theCommand, cmdlist, "", 1, 0);
+    if (!c || !c->doc)
+	return;
+		
+    p = (unsigned char *)c->doc;
+    while (*p)
+    	if (*p == 0xCA)
+    	    *p++ = ' ';
+    	else
+    	    ++p;
+}
+
+
+/*-------------------------------------------*
+ | gdb_define_cmd - define a new gdb command |
+ *-------------------------------------------*
  
  The command name (theCommand), its class category (itsClass), and it's help info
  (helpInfo) are used to (re)define a plugin command.  A pointer to the plugin's
@@ -312,21 +381,21 @@ void gdb_change_class(char *theCommand, Gdb_Cmd_Class newClass)
  should also end with a period, not a newline.
 */
 
-void gdb_define_plugin(char *theCommand, Gdb_Plugin plugin, Gdb_Cmd_Class itsClass,
-			char *helpInfo)
+void gdb_define_cmd(char *theCommand, Gdb_Plugin plugin, Gdb_Cmd_Class itsClass,
+		    char *helpInfo)
 {
     add_com(strcpy((char *)gdb_malloc(strlen(theCommand) + 1), theCommand),
     	    map_class_to_gdb(itsClass), plugin, helpInfo);
 }
 
 
-/*--------------------------------------------------------------------------------*
- | gdb_define_plugin_alias - define an alias (special abbreviation) for a command |
- *--------------------------------------------------------------------------------*
+/*-----------------------------------------------------------------------------*
+ | gdb_define_cmd_alias - define an alias (special abbreviation) for a command |
+ *-----------------------------------------------------------------------------*
  
  Gdb allows special abbreviations for commands (e.g., gdb's "ni" is a alias for "nexti").
- By calling gdb_define_plugin_alias() you can define aliases for a command as well. It's
- intended for defining aliases for commands defined by gdb_define_plugin() but there's
+ By calling gdb_define_cmd_alias() you can define aliases for a command as well. It's
+ intended for defining aliases for commands defined by gdb_define_cmd() but there's
  nothing to prevent defining aliases for existing gdb commands as well.  As the grammar
  here implies ("aliases") you can defined more than one alias for the same command.
  
@@ -334,7 +403,7 @@ void gdb_define_plugin(char *theCommand, Gdb_Plugin plugin, Gdb_Cmd_Class itsCla
  to which it's aliased.
 */
 
-void gdb_define_plugin_alias(char *theCommand, char *itsAlias)
+void gdb_define_cmd_alias(char *theCommand, char *itsAlias)
 {
     struct cmd_list_element *c;
     char   orig_cmd[1024], *s = orig_cmd, *a;
@@ -345,6 +414,35 @@ void gdb_define_plugin_alias(char *theCommand, char *itsAlias)
     if (c)
     	add_com_alias(strcpy((char *)gdb_malloc(strlen(itsAlias) + 1), itsAlias),
 			theCommand, class_alias, 0);
+}
+
+
+/*----------------------------------------------------------------------------*
+ |  gdb_enable_filename_completion - enable filename completion for a command |
+ *----------------------------------------------------------------------------*
+ 
+ Allow filename completion for the specified command.  Generally the default is symbol
+ completion for most commands (there are a few that have their own unique completion,
+ e.g., ATTACH).  Defining a command with gdb_define_cmd() defaults to symbol completion.
+ By calling gdb_enable_filename_completion() you are saying that the specified command
+ has a filename argument and that filename completion should be used.
+ 
+ Note, completion refers to the standard shell behavior of attempting to finish a
+ word when a tab is entered or show all possible alternatives for that word.
+*/
+
+void gdb_enable_filename_completion(char *theCommand)
+{
+    struct cmd_list_element *c;
+    char   orig_cmd[1024], *s = orig_cmd, *a;
+    
+    strcpy(orig_cmd, theCommand);
+    c = lookup_cmd(&s, cmdlist, "", 1, 1);
+    
+    if (c) {
+  	c->completer = filename_completer;
+  	c->completer_word_break_characters = gdb_completer_filename_word_break_characters;
+    }
 }
 
 
@@ -390,8 +488,8 @@ Gdb_Plugin gdb_replace_command(char *theCommand, Gdb_Plugin new_command)
  command didn't exist or didn't have any helpInfo to begin with.
        
  Note, you cannot assume the returned pointer is to malloc'ed space for prexisting gdb
- commands.  For commands you create with gdb_define_plugin() you know how the helpInfo
- is allocated and can take appropriate actions.
+ commands.  For commands you create with gdb_define_cmd() you know how the helpInfo is
+ allocated and can take appropriate actions.
 */
 
 char *gdb_replace_helpinfo(char *theCommand, char *newHelp)
@@ -1265,7 +1363,7 @@ static value_ptr expression_to_value_ptr(char *expression)
  | gdb_get_int - return the integer value of an expression |
  *---------------------------------------------------------*
  
- Returns the integer value of the specified (integer) expression
+ Returns the integer value of the specified (integer) expression.
 */
 
 int gdb_get_int(char *expression)
@@ -1362,6 +1460,131 @@ static int is_var_defined(char *theVariable)
  {
      return (is_var_defined(theVariable));
  }
+
+/*--------------------------------------------------------------------------------------*/
+		       /*---------------------------------------*
+		        | Direct Register Manipulation Routines |
+			*---------------------------------------*/
+
+/*----------------------------------------------------------*
+ | gdb_set_register - set the value of a specified register |
+ *----------------------------------------------------------*
+ 
+ Set the value of theRegister (e.g., "$r0") from the size bytes in the specified value
+ buffer.  The size must match the size of the register.  NULL is returned if the
+ assignment is successful.  Otherwise the function returns a pointer to an appropriate
+ error string.
+ 
+ The following errors are possible:
+    
+    no registers available at this time
+    no frame selected
+    bad register
+    invalid register length
+    left operand of assignment is not an lvalue
+    could not convert register to internal representation
+    
+ Note, that it is recommended that the more general gdb_set_int() be used for 32-bit
+ registers.  The gdb_set_register() routine is intended mainly for setting larger
+ register data types like the AltiVec 16-byte registers.
+*/
+ 
+char *gdb_set_register(char *theRegister, void *value, int size)
+{
+    int       regnum;
+    char      *start = theRegister, *end;
+    value_ptr vp;
+    
+    if (!target_has_registers)
+    	return ("no registers available at this time");
+    
+    if (selected_frame == NULL)
+    	return ("no frame selected");
+    
+    if (*start == '$')
+	++start;
+    end = start + strlen(start);
+    
+    regnum = target_map_name_to_register(start, end - start);
+    if (regnum < 0)
+    	return ("bad register");
+    
+    if (gdbarch_register_raw_size(current_gdbarch, regnum) != size)
+    	return ("invalid register length");
+    
+    vp = expression_to_value_ptr(theRegister);
+    if (!vp)
+    	return ("could not convert register to internal representation");
+    
+    if (VALUE_LVAL(vp) != lval_register)
+    	return ("left operand of assignment is not an lvalue");
+    
+    write_register_bytes(VALUE_ADDRESS(vp) + VALUE_OFFSET(vp), (char *)value, size);
+    
+    return (NULL);
+}
+
+
+/*-------------------------------------------------------------*
+ | gdb_get_register - return the value of a specified register |
+ *-------------------------------------------------------------*
+ 
+ Returns the value of theRegister (e.g., "$r0") in the provided value buffer.  The
+ value pointer is returned as the function result and the value is copied (size bytes)
+ to the specified buffer.  If the register is invalid, or its value cannot be obtained,
+ NULL is returned and the value buffer is set with a character string appropriate to the
+ error.
+ 
+ The following errors are possible:
+    
+    no registers available at this time
+    no frame selected
+    bad register
+    value not available
+    
+ Obviously the buffer should be large enough to hold these error messages (for safety
+ make it at least 50 bytes long).
+ 
+ Note, that it is recommended that the more general gdb_get_int() be used for 32-bit
+ registers.  The gdb_get_register() routine is intended mainly for reading larger
+ register data types like the AltiVec 16-byte registers.
+*/
+
+void *gdb_get_register(char *theRegister, void *value, int *size)
+{
+    int regnum;
+    char *end;
+    
+    if (!target_has_registers) {
+	strcpy((char *)value, "no registers available at this time");
+	return (NULL);
+    }
+    
+    if (selected_frame == NULL) {
+	strcpy((char *)value, "no frame selected");
+	return (NULL);
+    }
+    
+    if (*theRegister == '$')
+	++theRegister;
+    end = theRegister + strlen(theRegister);
+    
+    regnum = target_map_name_to_register(theRegister, end - theRegister);
+    if (regnum < 0) {
+	strcpy((char *)value, "bad register");
+	return (NULL);
+    }
+            
+    if (read_relative_register_raw_bytes(regnum, (char *)value)) {
+    	strcpy((char *)value, "value not available");
+	return (NULL);
+    }
+    
+    *size = gdbarch_register_raw_size(current_gdbarch, regnum);
+    //gdb_printf("type = %d\n", TYPE_CODE(gdbarch_register_virtual_type(current_gdbarch, regnum)));
+    
+    return (value);
+}
 
 /*--------------------------------------------------------------------------------------*/
 			     /*----------------------------*
@@ -1516,12 +1739,93 @@ void gdb_fputs(char *s, GDB_FILE *stream)
 
 /*----------------------------------------------------------------------------------*
  | gdb_print_address - display the address and function corresponding to an address |
- *----------------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------------*
+ 
+ Display the address and function corresponding to an address (expression or file/line
+ specification).  If show_file_line_info is non-zero and the address corrersponds to a
+ source line, the file/line information along with the source line are also displayed.
+ 
+ Note, the source line is shown exactly as if a LIST was done of it.  Thus it is
+ listed in a context of N lines, where N is determined by the gdb SET listsize command.
+ 
+ The SET listsize command set the gdb global lines_to_list which we access here.
+*/
 
-void gdb_print_address(unsigned long addr)
+void gdb_print_address(char *address, int show_file_line_info)
 {
-    print_address((CORE_ADDR)addr, gdb_stdout);
-    gdb_fputs("\n", gdb_stdout);
+    int 	  	     i, curr_print_symbol_filename;
+    long		     start_line, end_line;
+    unsigned long	     addr;
+    struct symtabs_and_lines sals;
+    struct symtab_and_line   sal;
+    CORE_ADDR		     start_pc, end_pc;
+    
+    extern int lines_to_list;		  /* # of lines "list" command shows by default */
+    
+    static struct cmd_list_element *show_print_symbol_filename = NULL;
+    static int 			   *print_symbol_filename_p    = NULL;
+    
+    /* If this is the first time this routine got called then find the address of gdb's	*/
+    /* private switch that contains the current state for "SET print symbol-filename" 	*/
+    /* (FWIW, it happens to be called print_symbol_filename in gdb's printcmd.c).  We	*/
+    /* need to have this switch set 'on' across the print_address() call to get gdb to	*/
+    /* include file/line information as part of the address display.			*/
+    
+    if (show_print_symbol_filename == NULL || print_symbol_filename_p == NULL) {
+	char *p = "show print symbol-filename";
+	show_print_symbol_filename = lookup_cmd(&p, cmdlist, "", -1, 0);
+	
+	if (show_print_symbol_filename != NULL)
+	    if (show_print_symbol_filename->var_type == var_boolean)
+		print_symbol_filename_p = (int *)show_print_symbol_filename->var;
+    }
+    
+    if (print_symbol_filename_p) {
+	curr_print_symbol_filename = *print_symbol_filename_p;
+	*print_symbol_filename_p = (show_file_line_info != 0);
+    }
+        
+    /* Try to print the source line associated with the addr (if there is one)...	*/
+    
+    if (print_symbol_filename_p) {
+    	if (show_file_line_info) {
+	    //struct symtab_and_line sal = find_pc_line((CORE_ADDR)addr, 0);
+	    //if (sal.symtab)				/* no symtab ==> no line for it	*/
+	    //	print_source_lines(sal.symtab, sal.line, 1, 0);
+	    //else {
+	    sals = decode_line_spec_1(address, 0);
+	    
+	    /* C++  More than one line may have been specified, as when the user	*/
+	    /* specifies an overloaded function name. Print info on them all.		*/
+	    
+	    for (i = 0; i < sals.nelts; i++) {
+		sal = sals.sals[i];
+		if (sal.symtab && sal.line > 0 && find_line_pc_range (sal, &start_pc, &end_pc)) {
+		    if (i > 0)
+		    	gdb_printf("\n");
+		    print_address(start_pc, gdb_stdout);
+		    gdb_fputs("\n", gdb_stdout);
+		    start_line = sal.line - lines_to_list/2;
+		    if (start_line < 1)
+		    	start_line = 1;
+		    end_line = start_line + lines_to_list - 1;
+		    if (end_line > sal.symtab->nlines)
+		    	end_line = sal.symtab->nlines;
+		    //gdb_printf("start_line = %d, end_line = %d, nlines = %d\n",
+		    // 	start_line, end_line, end_line - start_line + 1);
+		    print_source_lines(sal.symtab, start_line, end_line - start_line + 1, 0);
+		}
+	    }
+	  
+	    free (sals.sals);
+    	    //}
+	}
+	*print_symbol_filename_p = curr_print_symbol_filename;
+    } else {
+    	addr = gdb_get_int(address);
+	print_address((CORE_ADDR)addr, gdb_stdout);
+	gdb_fputs("\n", gdb_stdout);
+   }
 }
 
 
@@ -1887,6 +2191,20 @@ int gdb_is_string(char *expression)
     //fprintf(stderr, "vp->type->code = %d\n", (int)type);
     
     return (type == TYPE_CODE_ARRAY || type == TYPE_CODE_PTR);
+}
+
+
+/*-----------------------------------------------------*
+ | gdb_tilde_expand - expand tilde's (~) in a pathname |
+ *-----------------------------------------------------*
+ 
+ Returns an malloc'ed string with is the result of expanding tilde's (~) in the
+ specified pathname.
+*/
+
+char *gdb_tilde_expand(char *pathname)
+{
+    return (tilde_expand(pathname));
 }
 
 /*--------------------------------------------------------------------------------------*/

@@ -44,7 +44,7 @@ extern int innetgr(char *, char *, char *, char *);
 	mountPoint = [controller mountDirectory];
 	if (mountPoint != nil) [mountPoint retain];
 
-        name = [String uniqueString:"-null"];
+	name = [String uniqueString:"-null"];
 
 	root = [[Vnode alloc] init];
 	[root setMap:self];
@@ -96,7 +96,7 @@ extern int innetgr(char *, char *, char *, char *);
 
 - (unsigned int)mount:(Vnode *)v
 {
-    return [self mount:v withUid:99];
+	return [self mount:v withUid:99];
 }
 
 - (unsigned int)mount:(Vnode *)v withUid:(int)uid
@@ -105,10 +105,10 @@ extern int innetgr(char *, char *, char *, char *);
 	Array *kids;
 
 	sys_msg(debug_mount, LOG_DEBUG, "Mount triggered at %s", [[v path] value]);
-        status = [controller nfsmount:v withUid:uid];
+	status = [controller nfsmount:v withUid:uid];
 	if (status != 0)
 	{
-		sys_msg(debug_mount, LOG_DEBUG, "Mount %s status %d",
+		sys_msg(debug_mount, LOG_ERR, "Mount %s status %d",
 			[[v path] value], status);
 		return status;
 	}
@@ -122,7 +122,7 @@ extern int innetgr(char *, char *, char *, char *);
 	if (kids != nil) len = [kids count];
 	for (i = 0; i < len; i++)
 	{
-            substatus = [self mount:[kids objectAtIndex:i] withUid:uid];
+		substatus = [self mount:[kids objectAtIndex:i] withUid:uid];
 		if (substatus != 0) fail++;
 	}
 
@@ -204,6 +204,11 @@ extern int innetgr(char *, char *, char *, char *);
 
 - (Vnode *)createVnodePath:(String *)path from:(Vnode *)v
 {
+	return [self createVnodePath:path from:v withType:nil];
+}
+
+- (Vnode *)createVnodePath:(String *)path from:(Vnode *)v withType:(String *)type
+{
 	int i, p;
 	Vnode *n, *x;
 	char *s, t[1024];
@@ -240,6 +245,7 @@ extern int innetgr(char *, char *, char *, char *);
 			[x setMap:self];
 			[controller registerVnode:x];
 			[x setName:part];
+			if (type != nil) [x setVfsType:type];
 			[n addChild:x];
 		}
 		n = x;
@@ -420,15 +426,15 @@ extern int innetgr(char *, char *, char *, char *);
 		if (!strcmp(v, [[controller hostArchitecture] value])) return YES;
 		return NO;
 	}
-        else if (!strcmp(k, "byte"))
-        {
-                if (!strcmp(v, [[controller hostByteOrder] value])) return YES;
-                return NO;
-        }
-        else if (!strcmp(k, "url"))
-        {
-            return YES;
-        }
+	else if (!strcmp(k, "byte"))
+	{
+		if (!strcmp(v, [[controller hostByteOrder] value])) return YES;
+		return NO;
+	}
+	else if (!strcmp(k, "url"))
+	{
+		return YES;
+	}
 
 	/* unknown key - refuse it */
 	return NO;

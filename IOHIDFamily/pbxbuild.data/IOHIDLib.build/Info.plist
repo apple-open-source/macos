@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOHIDLib</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOHIDLib</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOKit HID User Client Plugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>13AA9C44-6F1B-11D4-907C-0005028F18D5</key>
+		<string>IOHIDLibFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
+		<array>
+			<string>13AA9C44-6F1B-11D4-907C-0005028F18D5</string>
+		</array>
+	</dict>
+	<key>Personality</key>
+	<dict>
+		<key>IOProviderClass</key>
+		<string>IOHIDDevice</string>
+	</dict>
+</dict>
+</plist>

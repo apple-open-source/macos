@@ -4,7 +4,7 @@
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/03/22 02:27:13 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -53,8 +53,6 @@ my $debugging = 0;
 my $tracing = 0;
 my $outputExtension = ".html";
 my $tocFrameName = "toc.html";
-my $defaultFrameName = "index.html";
-my $compositePageName = "CompositePage.html";
 my $theTime = time();
 my ($sec, $min, $hour, $dom, $moy, $year, @rest);
 ($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
@@ -166,11 +164,11 @@ sub writeClasses {
         my $className = $obj->name();
         # for now, always shorten long names since some files may be moved to a Mac for browsing
         if (1 || $isMacOS) {$className = &safeName($className);};
-		$obj->outputDir("$classRootDir$pathSeparator$className");
-	    $obj->createFramesetFile();
-	    $obj->createContentFile();
-	    $obj->createTOCFile();
-	    $obj->writeHeaderElements(); 
+        $obj->outputDir("$classRootDir$pathSeparator$className");
+        $obj->createFramesetFile();
+        $obj->createContentFile();
+        $obj->createTOCFile();
+        $obj->writeHeaderElements(); 
     }
 }
 
@@ -198,6 +196,8 @@ sub createTOCFile {
 sub tocString {
     my $self = shift;
     my @classes = $self->classes();
+	my $compositePageName = HeaderDoc::APIOwner->compositePageName();
+	my $defaultFrameName = HeaderDoc::APIOwner->defaultFrameName();
     
     my $tocString = $self->SUPER::tocString();
 
@@ -208,13 +208,19 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName($name);};
-	        $tocString .= "<nobr>&nbsp;<a href = \"Classes/$safeName/index.html\" target =\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;<a href = \"Classes/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
 	    }
     }
     $tocString .= "<br><hr><a href=\"$compositePageName\" target =\"_blank\">[Printable HTML Page]</a>\n";
     return $tocString;
 }
 
+sub docNavigatorComment {
+    my $self = shift;
+    my $name = $self->name();
+    
+    return "<-- headerDoc=Header; name=$name-->";
+}
 
 ################## Misc Functions ###################################
 

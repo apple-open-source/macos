@@ -569,6 +569,7 @@ build_method_call (instance, name, parms, basetype_path, flags)
   tree basetype, instance_ptr;
 
 #ifdef GATHER_STATISTICS
+  extern int n_build_method_call;
   n_build_method_call++;
 #endif
 

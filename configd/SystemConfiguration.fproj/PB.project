@@ -7,26 +7,39 @@
         FRAMEWORKSEARCH = (); 
         H_FILES = (
             SystemConfiguration.h, 
+            SCPrivate.h, 
+            SCDPlugin.h, 
             config_types.h, 
+            SCDynamicStoreInternal.h, 
+            SCDynamicStore.h, 
+            SCDynamicStorePrivate.h, 
+            SCDynamicStoreKey.h, 
+            SCDynamicStoreCopySpecific.h, 
+            SCDynamicStoreSetSpecificPrivate.h, 
+            SCPreferencesInternal.h, 
+            SCPreferences.h, 
+            SCPreferencesPrivate.h, 
+            SCPreferencesPath.h, 
+            SCPreferencesSetSpecific.h, 
+            SCNetwork.h, 
+            SCValidation.h, 
+            ppp_msg.h, 
+            ppp.h, 
+            v1Compatibility.h, 
             SCD.h, 
             SCDKeys.h, 
-            SCDPrivate.h, 
             SCP.h, 
-            SCPPrivate.h, 
             SCPPath.h, 
             SCDConsoleUser.h, 
             SCDHostName.h, 
-            SCNetwork.h, 
-            ppp_msg.h, 
-            ppp.h
+            DHCPClientPreferences.h, 
+            SCDynamicStoreCopyDHCPInfo.h
         ); 
         OTHER_LINKED = (
             SCD.c, 
             SCDKeys.c, 
             SCDPrivate.c, 
-            SCDHandle.c, 
             SCDOpen.c, 
-            SCDClose.c, 
             SCDLock.c, 
             SCDUnlock.c, 
             SCDList.c, 
@@ -36,6 +49,8 @@
             SCDSet.c, 
             SCDRemove.c, 
             SCDTouch.c, 
+            SCDNotify.c, 
+            SCDNotifierSetKeys.c, 
             SCDNotifierList.c, 
             SCDNotifierAdd.c, 
             SCDNotifierRemove.c, 
@@ -49,7 +64,6 @@
             SCDSnapshot.c, 
             SCP.c, 
             SCPOpen.c, 
-            SCPClose.c, 
             SCPLock.c, 
             SCPUnlock.c, 
             SCPList.c, 
@@ -63,7 +77,10 @@
             SCDConsoleUser.c, 
             SCDHostName.c, 
             SCNetwork.c, 
-            ppp.c
+            SCProxies.c, 
+            ppp.c, 
+            v1Compatibility.c, 
+            DHCP.c
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 
@@ -78,24 +95,31 @@
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (
             SystemConfiguration.h, 
+            SCPrivate.h, 
             config_types.h, 
-            SCD.h, 
-            SCDPrivate.h, 
-            SCP.h, 
-            SCPPrivate.h, 
-            SCPPath.h, 
-            SCDConsoleUser.h, 
-            SCDHostName.h, 
-            SCNetwork.h
+            SCDynamicStoreInternal.h, 
+            SCDynamicStore.h, 
+            SCDynamicStorePrivate.h, 
+            SCDynamicStoreKey.h, 
+            SCDynamicStoreCopySpecific.h, 
+            SCDynamicStoreSetSpecificPrivate.h, 
+            SCPreferencesInternal.h, 
+            SCPreferences.h, 
+            SCPreferencesPrivate.h, 
+            SCPreferencesPath.h, 
+            SCPreferencesSetSpecific.h, 
+            SCNetwork.h, 
+            SCValidation.h, 
+            v1Compatibility.h
         ); 
         PUBLIC_HEADERS = (
             SystemConfiguration.h, 
-            SCD.h, 
-            SCDKeys.h, 
-            SCP.h, 
-            SCPPath.h, 
-            SCDConsoleUser.h, 
-            SCDHostName.h, 
+            SCDynamicStore.h, 
+            SCDynamicStoreKey.h, 
+            SCDynamicStoreCopySpecific.h, 
+            SCPreferences.h, 
+            SCPreferencesPath.h, 
+            SCPreferencesSetSpecific.h, 
             SCNetwork.h
         ); 
         SUBPROJECTS = (); 
@@ -103,7 +127,8 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"; 
+    NEXTSTEP_COMPILEROPTIONS = "-DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS"; 
+    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 

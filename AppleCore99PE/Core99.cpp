@@ -39,6 +39,7 @@ static unsigned long core99Speed[] = { 0, 1 };
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include "IOPMSlots99.h"
 #include "IOPMUSB99.h"
+#include <IOKit/pwr_mgt/IOPMPagingPlexus.h>
 
 //#include "Core99PowerTree.cpp"
 extern char * gIOCore99PMTree;
@@ -113,6 +114,7 @@ bool Core99PE::start(IOService *provider)
   
   // Set QAckDelay depending on the version of Uni-N.
   uniNVersion = readUniNReg(kUniNVersion);
+  if (uniNVersion < kUniNVersion150) {
     uniNArbCtrl = readUniNReg(kUniNArbCtrl);
     uniNArbCtrl &= ~kUniNArbCtrlQAckDelayMask;
     if (uniNVersion < kUniNVersion107) {
@@ -121,6 +123,7 @@ bool Core99PE::start(IOService *provider)
       uniNArbCtrl |= kUniNArbCtrlQAckDelay << kUniNArbCtrlQAckDelayShift;
     }
     writeUniNReg(kUniNArbCtrl, uniNArbCtrl);
+  }
 
   // Creates the nubs for the children of uni-n
   IOService *uniNServiceEntry = OSDynamicCast(IOService, uniNRegEntry);
@@ -236,21 +239,6 @@ bool Core99PE::platformAdjustService(IOService *service)
     return true;
   }
 
-  // Publish out the dual display heads on PowerBook3,1.
-  if (getMachineType() == kCore99TypePowerBook3_1) {
-    if (!strcmp(service->getName(), "ATY,RageM3pParent")) {
-      if (kIOReturnSuccess == IONDRVLibrariesInitialize(service)) {
-        createNubs(this, service->getChildIterator( gIODTPlane ));
-      }
-      return true;
-    }
-  }
-    
-  if ( strcmp(service->getName(), "usb") == 0 ) {
-    service->setProperty("USBclock","");
-    return true;
-  }
-  
   return true;
 }
 
@@ -279,6 +267,10 @@ IOReturn Core99PE::callPlatformFunction(const OSSymbol *functionName,
     return kIOReturnSuccess;
   }
   
+  if (functionName->isEqualTo("AccessUniN15PerformanceRegister")) {
+    return accessUniN15PerformanceRegister((bool)param1, (long)param2,
+					   (unsigned long *)param3);
+  }
   
   return super::callPlatformFunction(functionName, waitForFunction,
 				     param1, param2, param3, param4);
@@ -308,6 +300,9 @@ void Core99PE::enableUniNEthernetClock(bool enable)
 {
   unsigned long regTemp;
   
+  if (mutex != NULL)
+     IOLockLock(mutex);
+
   regTemp = readUniNReg(kUniNClockControl);
   
   if (enable) {
@@ -317,14 +312,22 @@ void Core99PE::enableUniNEthernetClock(bool enable)
   }
   
   writeUniNReg(kUniNClockControl, regTemp);
+
+  if (mutex != NULL)
+     IOLockUnlock(mutex);
 }
 
 void Core99PE::enableUniNFireWireClock(bool enable)
 {
   unsigned long regTemp;
+
+  //IOLog("FWClock, enable = %d kFW = %x\n", enable, kUniNFirewireClockEnable);
+
+  if (mutex != NULL)
+     IOLockLock(mutex);
   
   regTemp = readUniNReg(kUniNClockControl);
-    IOLog("FWClock, enable = %d kFW = %x\n", enable, kUniNFirewireClockEnable);
+
   if (enable) {
     regTemp |= kUniNFirewireClockEnable;
   } else {
@@ -332,6 +335,9 @@ void Core99PE::enableUniNFireWireClock(bool enable)
   }
   
   writeUniNReg(kUniNClockControl, regTemp);
+
+  if (mutex != NULL)
+     IOLockUnlock(mutex);
 }
 
 void Core99PE::enableUniNFireWireCablePower(bool enable)
@@ -352,6 +358,42 @@ void Core99PE::enableUniNFireWireCablePower(bool enable)
     }
 }
 
+enum {
+  kMCMonitorModeControl = 0,
+  kMCCommand,
+  kMCPerformanceMonitor0,
+  kMCPerformanceMonitor1,
+  kMCPerformanceMonitor2,
+  kMCPerformanceMonitor3
+};
+
+IOReturn Core99PE::accessUniN15PerformanceRegister(bool write, long regNumber,
+						   unsigned long *data)
+{
+  unsigned long offset;
+  
+  if (uniNVersion < kUniNVersion150) return kIOReturnUnsupported;
+  
+  switch (regNumber) {
+  case kMCMonitorModeControl  : offset = kUniNMMCR; break;
+  case kMCCommand             : offset = kUniNMCMDR; break;
+  case kMCPerformanceMonitor0 : offset = kUniNMPMC1; break;
+  case kMCPerformanceMonitor1 : offset = kUniNMPMC2; break;
+  case kMCPerformanceMonitor2 : offset = kUniNMPMC3; break;
+  case kMCPerformanceMonitor3 : offset = kUniNMPMC4; break;
+  default                     : return kIOReturnBadArgument;
+  }
+  
+  if (data == 0) return kIOReturnBadArgument;
+  
+  if (write) {
+    writeUniNReg(offset, *data);
+  } else {
+    *data = readUniNReg(offset);
+  }
+  
+  return kIOReturnSuccess;
+}
 
 //*********************************************************************************
 // PMInstantiatePowerDomains
@@ -367,7 +409,6 @@ void Core99PE::PMInstantiatePowerDomains ( void )
    OSString * errorStr = new OSString;
    OSObject * obj;
    IOPMUSB99 * usb99;
-   IOPMSlots99 * slots99;
 
    obj = OSUnserializeXML (gIOCore99PMTree, &errorStr);
 
@@ -377,32 +418,25 @@ void Core99PE::PMInstantiatePowerDomains ( void )
 
    getProvider()->setProperty ("powertreedesc", thePowerTree);
 
+#if CREATE_PLEXUS
+   plexus = new IOPMPagingPlexus;
+   if ( plexus ) {
+        plexus->init();
+        plexus->attach(this);
+        plexus->start(this);
+    }
+#endif
+         
    root = new IOPMrootDomain;
    root->init();
    root->attach(this);
    root->start(this);
-   root->youAreRoot();
 
-   switch (getMachineType()) {
-   case kCore99TypePowerBook2_1 :
-   case kCore99TypePowerBook2_2 :
-   case kCore99TypePowerBook3_1 :
-     root->setSleepSupported(kRootDomainSleepSupported);
-     break;
-     
-   case kCore99TypePowerMac2_1 :
-   case kCore99TypePowerMac2_2 :
-   case kCore99TypePowerMac3_1 :
-   case kCore99TypePowerMac3_2 :
-   case kCore99TypePowerMac3_3 :
-   case kCore99TypePowerMac5_1 :
-     root->setSleepSupported(kRootDomainSleepSupported
-			     | kFrameBufferDeepSleepSupported);
-     break;
-     
-   default :
-     break;
-   }
+    if ( plexus ) {
+        root->addPowerChild(plexus);
+    }
+
+    root->setSleepSupported(kRootDomainSleepSupported);
    
    if (NULL == root) {
      kprintf ("PMInstantiatePowerDomains - null ROOT\n");
@@ -417,6 +451,9 @@ void Core99PE::PMInstantiatePowerDomains ( void )
      usb99->attach (this);
      usb99->start (this);
      PMRegisterDevice (root, usb99);
+     if ( plexus ) {
+        plexus->addPowerChild (usb99);
+     }
    }
 
    slots99 = new IOPMSlots99;
@@ -425,8 +462,10 @@ void Core99PE::PMInstantiatePowerDomains ( void )
      slots99->attach (this);
      slots99->start (this);
      PMRegisterDevice (root, slots99);
+     if ( plexus ) {
+        plexus->addPowerChild (slots99);
+     }
    }
-
 }
 
 
@@ -440,44 +479,23 @@ extern const IORegistryPlane * gIOPowerPlane;
 
 void Core99PE::PMRegisterDevice(IOService * theNub, IOService * theDevice)
 {
-  OSData *	  aString;
   bool            nodeFound  = false;
   IOReturn        err        = -1;
+  OSData *	  propertyPtr = 0;
+  const char *	  theProperty;
 
   // Starts the protected area, we are trying to protect numInstancesRegistered
   if (mutex != NULL)
      IOLockLock(mutex);
 
   // reset our tracking variables before we check the XML-derived tree
-
   multipleParentKeyValue = NULL;
   numInstancesRegistered = 0;
 
   // try to find a home for this registrant in our XML-derived tree
-
   nodeFound = CheckSubTree (thePowerTree, theNub, theDevice, NULL);
 
-  // Disable sleep on machines with PCI cards in slots
-  if ( ((getMachineType() == kCore99TypePowerMac3_1) ||
-        (getMachineType() == kCore99TypePowerMac3_2) || 
-        (getMachineType() == kCore99TypePowerMac3_3)) && 
-        (OSDynamicCast(IOPCIDevice, theDevice)) ) {
-        aString = (OSData *)theDevice->getProperty("AAPL,slot-name");
-        if ( (aString != NULL) && (0 != strncmp(aString->getBytesNoCopy(), "SLOT-A", strlen("SLOT-A"))) )
-            root->setSleepSupported(kRootDomainSleepNotSupported | kFrameBufferDeepSleepSupported);
-  }
-
   if (0 == numInstancesRegistered) {
-
-    // hmm...no home was found in the XML-derived tree so we have to
-    // just register with the correct provider. If we have an ATI Rage
-    // device, get its provider from the DTPlane. This is reportedly
-    // a temporary thing and should be removed in the near (?) future.
-
-    if( theNub && (0 == strncmp(theNub->getName(), "ATY,RageM3p", strlen("ATY,RageM3p"))) &&
-        (0 != strncmp(theNub->getName(), "ATY,RageM3p1", strlen("ATY,RageM3p1"))) )
-        theNub = (IOService *) theNub->getParentEntry(gIODTPlane);
-
 
     // make sure the provider is within the Power Plane...if not, 
     // back up the hierarchy until we find a grandfather or great
@@ -493,13 +511,25 @@ void Core99PE::PMRegisterDevice(IOService * theNub, IOService * theDevice)
      IOLockUnlock(mutex);
 
   // try to register with the given (or reassigned in the case above) provider.
-
   if ( NULL != theNub )
      err = theNub->addPowerChild (theDevice);
 
   // failing that then register with root (but only if we didn't register in the 
   // XML-derived tree and only if the device we're registering is not the root).
-
-  if ((err != IOPMNoErr) && (0 == numInstancesRegistered) && (theDevice != root))
+  if ((err != IOPMNoErr) && (0 == numInstancesRegistered) && (theDevice != root)) {
      root->addPowerChild (theDevice);
+     if ( plexus ) {
+        plexus->addPowerChild (theDevice);
+    }
+  }
+  
+  // in addition, if it's in a PCI slot, give it to the Aux Power Supply driver
+  
+  propertyPtr = OSDynamicCast(OSData,theDevice->getProperty("AAPL,slot-name"));
+  if ( propertyPtr ) {
+     theProperty = (const char *) propertyPtr->getBytesNoCopy();
+     if ( strncmp("SLOT-",theProperty,5) == 0 ) {
+        slots99->addPowerChild (theDevice);
+     }
+  }
 }

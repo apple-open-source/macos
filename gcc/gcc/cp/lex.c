@@ -335,65 +335,15 @@ static int maxtoken;		/* Current nominal length of token buffer.  */
 char *token_buffer;		/* Pointer to token buffer.
 				   Actual allocated length is maxtoken + 2.  */
 
-#ifndef OBJCPLUS
-
 #include "hash.h"
 
-#else
-
-#include "../obcp/hash.h"
-
-int cplusplus_keywords_disabled = 0;
-extern int objc_declarator_context;
-extern int objc_receiver_context;
-extern int objc_msg_context;
-extern tree objc_ivar_chain;
-extern tree objc_method_context;
-
-/* This is some code to handle << extern "objective-c" { ... } >> */
-
-void install_reserved_words (enum languages lang)
-{
-  int i, n = TOTAL_KEYWORDS;
-
-  cplusplus_keywords_disabled = (lang != lang_cplusplus);
-  for (i = 0; i < n; i++)
-    {
-      if (wordlist[i].name && *wordlist[i].name != '\0')
-	{
-	  /* The keyword is currently installed...
-	     see if we should suspend it */
-	  if (lang == lang_c || lang == lang_objc)
-	    {
-	      /* favor Objective-C for now...only suspend C++ keywords */
-	      if (wordlist[i].lang == lang_cplusplus)
-		{
-		  wordlist[i].save = wordlist[i].name;
-		  wordlist[i].name = "";
-		}
-	    }
-	}
-      else if (wordlist[i].save && *wordlist[i].save != '\0')
-	{
-	  /* the keyword is currently suspended...
-	     see if we should re-install it */
-	  
-	  if (lang == lang_cplusplus)
-	    {
-	      if (wordlist[i].lang == lang_cplusplus)
-		{
-		  wordlist[i].name = wordlist[i].save;
-		  wordlist[i].save = "";
-		}
-	    }
-	}
-    }
-}
+#ifdef OBJCPLUS
+/* Objective-C++ protocol argument qualifier handling. */
 
 void
 forget_protocol_qualifiers ()
 {
-  int i, n = TOTAL_KEYWORDS;
+  int i, n = MAX_HASH_VALUE; 
 
   /* Check the lookahead tokens for protocol qualifiers.  */
   forget_saved_protocol_qualifiers ();
@@ -408,7 +358,7 @@ forget_protocol_qualifiers ()
 void
 remember_protocol_qualifiers ()
 {
-  int i, n = TOTAL_KEYWORDS;
+  int i, n = MAX_HASH_VALUE;
   
   for (i = 0; i < n; i++)
     {
@@ -427,8 +377,7 @@ remember_protocol_qualifiers ()
     }
 }
 
-#endif /* ndef OBJCPLUS */
-
+#endif /* ifdef OBJCPLUS */
 
 /* Nonzero tells yylex to ignore \ in string constants.  */
 static int ignore_escape_flag = 0;
@@ -519,6 +468,17 @@ lang_init_options ()
 
   /* Default exceptions on.  */
   flag_exceptions = 1;
+
+#ifdef NEXT_SEMANTICS
+  {
+    /* We have an inlining/aliasing bug with C++ destructors which are even
+       vaguely complex.  For now, don't allow such functions to be inlined.  */
+
+    extern char* (*maybe_inline_func_p) PROTO ((tree));
+    extern char *apple_should_inline_func_p PROTO ((tree));
+    maybe_inline_func_p = apple_should_inline_func_p;
+  }
+#endif
 }
 
 void
@@ -833,6 +793,7 @@ init_parse (filename)
   ridpointers[(int) RID_OUT] = get_identifier ("out");
   ridpointers[(int) RID_INOUT] = get_identifier ("inout");
   ridpointers[(int) RID_BYCOPY] = get_identifier ("bycopy");
+  ridpointers[(int) RID_BYREF] = get_identifier ("byref");
   ridpointers[(int) RID_ONEWAY] = get_identifier ("oneway");
   forget_protocol_qualifiers ();
 #endif /* OBJCPLUS */

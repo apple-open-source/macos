@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * March 24, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #include <servers/bootstrap.h>
 #include <sysexits.h>
 
@@ -34,14 +44,13 @@ extern struct rpc_subsystem	_config_subsystem;
 extern boolean_t		config_server(mach_msg_header_t *, mach_msg_header_t *);
 
 /* server state information */
-CFMachPortRef		configd_port;		/* configd server port (for new session requests) */
+CFMachPortRef			configd_port;		/* configd server port (for new session requests) */
 
 
 boolean_t
 config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 {
-	boolean_t			processed = FALSE;
-
+	Boolean				processed = FALSE;
 	mach_msg_format_0_trailer_t	*trailer;
 
 	/* Feed the request into the ("MiG" generated) server */
@@ -61,14 +70,14 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 			    (trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
 				thisSession->callerEUID = trailer->msgh_sender.val[0];
 				thisSession->callerEGID = trailer->msgh_sender.val[1];
-				SCDLog(LOG_DEBUG, CFSTR("caller has eUID = %d, eGID = %d"),
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("caller has eUID = %d, eGID = %d"),
 				       thisSession->callerEUID,
 				       thisSession->callerEGID);
 			} else {
-				static boolean_t warned = FALSE;
+				static Boolean warned	= FALSE;
 
 				if (!warned) {
-					SCDLog(LOG_WARNING, CFSTR("caller's credentials not available."));
+					SCLog(_configd_verbose, LOG_WARNING, CFSTR("caller's credentials not available."));
 					warned = TRUE;
 				}
 				thisSession->callerEUID = 0;
@@ -88,8 +97,15 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 	}
 
 	if (!processed) {
-		SCDLog(LOG_WARNING, CFSTR("unknown message received"));
-		exit (EX_OSERR);
+		SCLog(TRUE, LOG_ERR, CFSTR("unknown message ID (%d) received"), request->msgh_id);
+
+		reply->msgh_bits = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
+		reply->msgh_remote_port = request->msgh_remote_port;
+		reply->msgh_size = sizeof(mig_reply_error_t);	/* Minimal size */
+		reply->msgh_local_port = MACH_PORT_NULL;
+		reply->msgh_id = request->msgh_id;
+		((mig_reply_error_t *)reply)->NDR = NDR_record;
+		((mig_reply_error_t *)reply)->RetCode = MIG_BAD_ID;
 	}
 
 	return processed;
@@ -176,6 +192,7 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	}
 
 	CFAllocatorDeallocate(NULL, bufReply);
+	return;
 }
 
 
@@ -225,7 +242,7 @@ server_init()
 	/* Getting bootstrap server port */
 	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("task_get_bootstrap_port(): %s"), mach_error_string(status));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("task_get_bootstrap_port(): %s"), mach_error_string(status));
 		exit (EX_UNAVAILABLE);
 	}
 
@@ -234,7 +251,7 @@ server_init()
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			if (active) {
-				SCDLog(LOG_DEBUG, CFSTR("\"%s\" is currently active, exiting."), SCD_SERVER);
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("\"%s\" is currently active, exiting."), SCD_SERVER);
 				exit (EX_UNAVAILABLE);
 			}
 			break;
@@ -264,20 +281,20 @@ server_init()
 	/* Create a session for the primary / new connection port */
 	(void) addSession(configd_port);
 
-	SCDLog(LOG_DEBUG, CFSTR("Registering service \"%s\""), SCD_SERVER);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Registering service \"%s\""), SCD_SERVER);
 	status = bootstrap_register(bootstrap_port, SCD_SERVER, CFMachPortGetPort(configd_port));
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service not currently registered, "a good thing" (tm) */
 			break;
 		case BOOTSTRAP_NOT_PRIVILEGED :
-			SCDLog(LOG_ERR, CFSTR("bootstrap_register(): bootstrap not privileged"));
+			SCLog(_configd_verbose, LOG_ERR, CFSTR("bootstrap_register(): bootstrap not privileged"));
 			exit (EX_OSERR);
 		case BOOTSTRAP_SERVICE_ACTIVE :
-			SCDLog(LOG_ERR, CFSTR("bootstrap_register(): bootstrap service active"));
+			SCLog(_configd_verbose, LOG_ERR, CFSTR("bootstrap_register(): bootstrap service active"));
 			exit (EX_OSERR);
 		default :
-			SCDLog(LOG_ERR, CFSTR("bootstrap_register(): %s"), mach_error_string(status));
+			SCLog(_configd_verbose, LOG_ERR, CFSTR("bootstrap_register(): %s"), mach_error_string(status));
 			exit (EX_OSERR);
 	}
 
@@ -292,18 +309,16 @@ server_loop()
 	int		rlStatus;
 
 	while (TRUE) {
-		boolean_t	isLocked = SCDOptionGet(NULL, kSCDOptionIsLocked);
-
 		/*
 		 * if linked with a DEBUG version of the framework, display some
 		 * debugging information
 		 */
-		_showMachPortStatus();
+		__showMachPortStatus();
 
 		/*
 		 * process one run loop event
 		 */
-		rlMode = isLocked ? CFSTR("locked") : kCFRunLoopDefaultMode;
+		rlMode = (storeLocked > 0) ? CFSTR("locked") : kCFRunLoopDefaultMode;
 		rlStatus = CFRunLoopRunInMode(rlMode, 1.0e10, TRUE);
 
 		/*

@@ -29,7 +29,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-FRAMEWORKS = -framework IOKit
+FRAMEWORKS = -framework IOKit -framework CoreFoundation
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /$(USER)/BUILD

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -150,13 +153,23 @@ bool AppleMPICInterruptController::start(IOService *provider)
 
   registerService();  
   
-  getPlatform()->setCPUInterruptProperties(provider);
-  
-  // register the interrupt handler so it can receive interrupts.
+  tmpObject = provider->getProperty("interrupts");
   handler = getInterruptHandlerAddress();
-  for (cnt = 0; cnt < numCPUs; cnt++) {
-    provider->registerInterrupt(cnt, this, handler, 0);
-    provider->enableInterrupt(cnt);
+  if (0 == tmpObject) {
+
+     // host MPIC - set up CPU interrupts
+     // only set CPU interrupt properties for the host MPIC (which has no interrupts property)
+     getPlatform()->setCPUInterruptProperties(provider);
+  
+    // register the interrupt handler so it can receive interrupts.
+    for (cnt = 0; cnt < numCPUs; cnt++) {
+        provider->registerInterrupt(cnt, this, handler, 0);
+        provider->enableInterrupt(cnt);
+    }
+  } else {
+    // not host MPIC - just enable its interrupt
+    provider->registerInterrupt(0, this, handler, 0);
+    provider->enableInterrupt(0);
   }
   
   // Register this interrupt controller so clients can find it.
@@ -335,39 +348,45 @@ void AppleMPICInterruptController::initVector(long vectorNumber, IOInterruptVect
 
 void AppleMPICInterruptController::disableVectorHard(long vectorNumber, IOInterruptVector */*vector*/)
 {
-  long     regTemp, vectorBase;
+	long     regTemp, vectorBase;
   
-  if (vectorNumber < numVectors) {
-    vectorBase = mpicBaseAddress + kIntnVecPriOffset +
-      kIntnStride * vectorNumber;
-  } else {
-    vectorBase = mpicBaseAddress + kIPInVecPriOffset +
-      kIPInVecPriStride * (vectorNumber - numVectors);
-  }
-  
-  regTemp = lwbrx(vectorBase);
-  regTemp |= kIntnVPRMask;
-  stwbrx(regTemp, vectorBase);
-  eieio();
+	if (vectorNumber < numVectors) {
+		vectorBase = mpicBaseAddress + kIntnVecPriOffset +
+			kIntnStride * vectorNumber;
+	} else {
+		vectorBase = mpicBaseAddress + kIPInVecPriOffset +
+		kIPInVecPriStride * (vectorNumber - numVectors);
+	}
+
+	regTemp = lwbrx(vectorBase);
+	if (!(regTemp & kIntnVPRMask)) {
+		regTemp |= kIntnVPRMask;
+		stwbrx(regTemp, vectorBase);
+	}
+
+	return;
 }
 
 void AppleMPICInterruptController::enableVector(long vectorNumber,
 						IOInterruptVector */*vector*/)
 {
-  long     regTemp, vectorBase;
+	 long     regTemp, vectorBase;
   
-  if (vectorNumber < numVectors) {
-    vectorBase = mpicBaseAddress + kIntnVecPriOffset +
-      kIntnStride * vectorNumber;
-  } else {
-    vectorBase = mpicBaseAddress + kIPInVecPriOffset +
-      kIPInVecPriStride * (vectorNumber - numVectors);
-  }
+	if (vectorNumber < numVectors) {
+		vectorBase = mpicBaseAddress + kIntnVecPriOffset +
+				kIntnStride * vectorNumber;
+	} else {
+		vectorBase = mpicBaseAddress + kIPInVecPriOffset +
+				kIPInVecPriStride * (vectorNumber - numVectors);
+	}
   
-  regTemp = lwbrx(vectorBase);
-  regTemp &= ~kIntnVPRMask;
-  stwbrx(regTemp, vectorBase);
-  eieio();
+	regTemp = lwbrx(vectorBase);
+    if (regTemp & kIntnVPRMask) {
+		regTemp &= ~kIntnVPRMask;
+		stwbrx(regTemp, vectorBase);
+	}
+	
+	return;
 }
 
 OSData *AppleMPICInterruptController::getIPIVector(long physCPU)

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.proc.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.proc.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.proc.c: Job manipulations
  */
@@ -36,16 +36,16 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.proc.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.proc.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
 
 #include "ed.h"
 #include "tc.h"
 #include "tc.wait.h"
 
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 #undef POSIX
 #define POSIX
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 #ifdef aiws
 # undef HZ
 # define HZ 16
@@ -118,7 +118,11 @@ static struct rusage zru = {{0L, 0L}, {0L, 0L}, 0, 0, 0, 0, 0, 0, 0,
 static struct process_stats zru = {{0L, 0L}, {0L, 0L}, 0, 0, 0, 0, 0, 0, 0,
 				   0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 # else /* !_SEQUENT_ */
+#  ifdef _SX
+static struct tms zru = {0, 0, 0, 0}, lru = {0, 0, 0, 0};
+#  else	/* !_SX */
 static struct tms zru = {0L, 0L, 0L, 0L}, lru = {0L, 0L, 0L, 0L};
+#  endif	/* !_SX */
 # endif	/* !_SEQUENT_ */
 #endif /* !BSDTIMES */
 
@@ -207,7 +211,7 @@ loop:
     xprintf("Waiting...\n");
     flush();
 #endif /* JOBDEBUG */
-#ifndef WINNT
+#ifndef WINNT_NATIVE
 # ifdef BSDJOBS
 #  ifdef BSDTIMES
 #   ifdef convex
@@ -284,13 +288,13 @@ loop:
     (void) sigset(SIGCHLD, pchild);
 #  endif /* !BSDSIGS */
 # endif /* !BSDJOBS */
-#else /* WINNT */
+#else /* WINNT_NATIVE */
     {
 	extern int insource;
 	pid = waitpid(-1, &w,
 	    (setintr && (intty || insource) ? WNOHANG | WUNTRACED : WNOHANG));
     }
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
 #ifdef JOBDEBUG
     xprintf("parent %d pid %d, retval %x termsig %x retcode %x\n",
@@ -316,13 +320,13 @@ loop:
     for (pp = proclist.p_next; pp != NULL; pp = pp->p_next)
 	if (pid == pp->p_procid)
 	    goto found;
-#if !defined(BSDJOBS) && !defined(WINNT)
+#if !defined(BSDJOBS) && !defined(WINNT_NATIVE)
     /* this should never have happened */
     stderror(ERR_SYNC, pid);
     xexit(0);
-#else /* BSDJOBS || WINNT */
+#else /* BSDJOBS || WINNT_NATIVE */
     goto loop;
-#endif /* !BSDJOBS && !WINNT */
+#endif /* !BSDJOBS && !WINNT_NATIVE */
 found:
     pp->p_flags &= ~(PRUNNING | PSTOPPED | PREPORTED);
     if (WIFSTOPPED(w)) {
@@ -613,6 +617,9 @@ pjwait(pp)
 	(void) sigpause(SIGCHLD);
 #endif /* !BSDSIGS */
     }
+#ifdef JOBDEBUG
+	xprintf("%d returned from sigpause loop\n", getpid());
+#endif /* JOBDEBUG */
 #ifdef BSDSIGS
     (void) sigsetmask(omask);
 #else /* !BSDSIGS */
@@ -1082,13 +1089,13 @@ pprint(pp, flag)
 	 * we can search for the next one downstream later.
 	 */
 	}
-	pcond = (tp != pp || (inpipe && tp == pp));
+	pcond = (int) (tp != pp || (inpipe && tp == pp));
 #else /* !BACKPIPE */
-	pcond = (tp != pp);
+	pcond = (int) (tp != pp);
 #endif /* BACKPIPE */	    
 
 	jobflags |= pp->p_flags;
-	pstatus = pp->p_flags & PALLSTATES;
+	pstatus = (int) (pp->p_flags & PALLSTATES);
 	if (pcond && linp != linbuf && !(flag & FANCY) &&
 	    ((pstatus == status && pp->p_reason == reason) ||
 	     !(flag & REASON)))
@@ -1649,11 +1656,11 @@ pkill(v, signum)
 	else if (!(Isdigit(*cp) || *cp == '-'))
 	    stderror(ERR_NAME | ERR_JOBARGS);
 	else {
-#ifndef WINNT
+#ifndef WINNT_NATIVE
 	    pid = atoi(short2str(cp));
 #else
 		pid = strtoul(short2str(cp),NULL,0);
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	    if (kill(pid, signum) < 0) {
 		xprintf("%d: %s\n", pid, strerror(errno));
 		err1++;
@@ -1736,6 +1743,9 @@ pstart(pp, foregnd)
      * 7. I removed the line completely and added extra checks for
      *    pstart, so that if a job gets attached to and dies inside
      *    a debugger it does not confuse the shell. [christos]
+     * 8. on the nec sx-4 there seems to be a problem, which requires
+     *    a syscall(151, getpid(), getpid()) in osinit. Don't ask me
+     *    what this is doing. [schott@rzg.mpg.de]
      */
 
     if (rv != -1)

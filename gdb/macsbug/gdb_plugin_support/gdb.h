@@ -37,14 +37,14 @@ All plugins have the following general form:
     
     void init_from_gdb() 
     {
-	gdb_define_plugin("cmd1", plugin1_implementation, Gdb_Public, "cmd1 help...");
-	gdb_define_plugin("cmd2", plugin2_setup_argv, Gdb_Public "cmd2 help...");
+	gdb_define_cmd("cmd1", plugin1_implementation, Gdb_Public, "cmd1 help...");
+	gdb_define_cmd("cmd2", plugin2_setup_argv, Gdb_Public "cmd2 help...");
 	- - -
     }
 
 The non-static function init_from_gdb() is required and must be that name.  The plugin
 implementation(s) are associated with gdb command names where you specify the command
-name, its associated implementation function, and its help by calling gdb_define_plugin()
+name, its associated implementation function, and its help by calling gdb_define_cmd()
 for each plugin defined in this compilation unit.  Command help is grouped into classes,
 For these examples it's Gdb_Public defining them just like DEFINE commands (classes are
 described in more detail with the "Command Classes" calls). 
@@ -151,7 +151,7 @@ typedef void (*Gdb_Prompt_Positioning)(int);	/* prompt positioning function prot
  in its HELP class list just like its own.
  
  Whether it's one of the fixed classes or one of your own, you need to pass it to 
- gdb_define_plugin() which is used to define all plugin commands.  You may also use
+ gdb_define_cmd() which is used to define all plugin commands.  You may also use
  gdb_change_class() to change the class of a command after it's defined.
 */
 
@@ -179,7 +179,7 @@ Gdb_Cmd_Class gdb_define_class(char *className, char *classTitle);
       command as a class is when you want to use the command's name as a class category
       for the help display.  Then after the display you would convert it back to a plugin
       command again the way it was created in the first place, i.e., by calling
-      gdb_define_plugin().  Of course you need to intercept the HELP command to do this. 
+      gdb_define_cmd().  Of course you need to intercept the HELP command to do this. 
       The gdb_replace_command() call is used to define command intercepts so that is
       relatively easy.
  
@@ -200,9 +200,30 @@ void gdb_change_class(char *theCommand, Gdb_Cmd_Class newClass);
        Further you obviously must make sure that the plugins are loaded (via LOAD-PLUGIN)
        after the DEFINE commands, in the .gdbinit script (or one sourced during that time)
        so that the commands exist by the time this routine is called. */
-    
-void gdb_define_plugin(char *theCommand, Gdb_Plugin plugin, Gdb_Cmd_Class itsClass,
-			char *helpInfo);
+
+void gdb_fixup_document_help(char *theCommand);
+    /* Help info for gdb script commands is defined between a DOCUMENT and its matching
+       END. It is a "feature" of gdb's handling of DOCUMENT help to strip all leading
+       spaces from the help strings as they are read in by gdb.  It also removes all
+       blank lines or lines which consist only of a newline.  This makes formatting such
+       help information somewhat of a pain!  The work around it is to use a leading
+       "significant space", i.e., option-space, which is 0xCA in Mac ASCII.  Then the
+       help strings are displayed as desired.
+ 
+       The problem with using option-spaces for a gdb script command's help is that if
+       the help is displayed in any other context other than a xterm terminal (e.g.,
+       Project Builder) the display might (and for Project Builder, does) explicitly
+       show the "non-printable" characters as something unique.  Thus
+       gdb_fixup_document_help() is provided to replace all the option-spaces with actual
+       spaces after the script commands are defined and their help read by gdb.
+ 
+       Call gdb_fixup_document_help() for each script command whose DOCUMENT help was
+       formatted using option-spaces.  If the command is defined and has DOCUMENT help
+       it's options-spaces will be replaced with real spaces.  Undefined commands or
+       commands with no help info are ignored. */
+
+void gdb_define_cmd(char *theCommand, Gdb_Plugin plugin, Gdb_Cmd_Class itsClass,
+		    char *helpInfo);
     /* The command name (theCommand), its class category (itsClass), and it's help info
        (helpInfo) are used to (re)define a plugin command.  A pointer to the plugin's
        implementation is passed in the plugin function pointer.
@@ -216,16 +237,27 @@ void gdb_define_plugin(char *theCommand, Gdb_Plugin plugin, Gdb_Cmd_Class itsCla
        with it, the full documentation.  The first line should end with a period.
        The entire string should also end with a period, not a newline. */
 
-void gdb_define_plugin_alias(char *theCommand, char *itsAlias);
+void gdb_define_cmd_alias(char *theCommand, char *itsAlias);
     /* Gdb allows special abbreviations for commands (e.g., gdb's "ni" is a alias for
-       "nexti").  By calling gdb_define_plugin_alias() you can define aliases for a
+       "nexti").  By calling gdb_define_cmd_alias() you can define aliases for a
        command as well. It's intended for defining aliases for commands defined by
-       gdb_define_plugin() but there's nothing to prevent defining aliases for existing
+       gdb_define_cmd() but there's nothing to prevent defining aliases for existing
        gdb commands as well.  As the grammar here implies ("aliases") you can defined
        more than one alias for the same command.
  
        Note the command class for the alias is always made the same as the class of the
        command to which it's aliased. */
+
+void gdb_enable_filename_completion(char *theCommand);
+    /* Allow filename completion for the specified command.  Generally the default is
+       symbol completion for most commands (there are a few that have their own unique
+       completion, e.g., ATTACH).  Defining a command with gdb_define_cmd() defaults to
+       symbol completion.  By calling gdb_enable_filename_completion() you are saying
+       that the specified command has a filename argument and that filename completion
+       should be used.
+ 
+       Note, completion refers to the standard shell behavior of attempting to finish a
+       word when a tab is entered or show all possible alternatives for that word. */
 
 Gdb_Plugin gdb_replace_command(char *theCommand, Gdb_Plugin new_command);
     /* Replace an existing command specified by theCommand (string) with a new
@@ -243,7 +275,7 @@ char *gdb_replace_helpinfo(char *theCommand, char *newHelp);
        either the command didn't exist or didn't have any helpInfo to begin with.
        
        Note, you cannot assume the returned pointer is to malloc'ed space for prexisting
-       gdb commands.  For commands you create with gdb_define_plugin() you know how the
+       gdb commands.  For commands you create with gdb_define_cmd() you know how the
        helpInfo is allocated and can take appropriate actions. */
 
 void **gdb_private_data(char *plugin_name);
@@ -349,19 +381,21 @@ typedef enum {        /* value                    meaning				*/
 } Gdb_Set_Type;
 
 typedef void (*Gdb_Set_Funct)(char *theSetting,	/* SET handler function prototype	*/
-                              Gdb_Set_Type type, void *value, int show);
+                              Gdb_Set_Type type, void *value, int show, int confirm);
     /* A function following this prototype is passed to gdb_define_set(),
        gdb_define_set_enum(), and gdb_define_set_generic().  Such functions allow you
        to specially handle gdb SET and SHOW commands for your OWN settings.
 	 
        The SET function should have the following prototype:
 	 
-	 void sfunct(char *theSetting, Gdb_Set_Type type, void *value, int show);
+	 void sfunct(char *theSetting, Gdb_Set_Type type, void *value, int show,
+	             int confirm);
 	 
        where theSetting = the SET/SHOW setting being processed.
 	     type       = the type of the value described for gdb_define_set().
 	     value      = pointer to the value whose form is a function of the type.
-	     show       = 0 if called for SET and 1 for SHOW. 
+	     show       = 0 if called for SET and 1 for SHOW.
+	     confirm	= 1 if SET/SHOW is entered from terminal and SET confirm on.
 	     
        The value is usually for convenience and of course unnecessary if you associate
        unique sfunct's with unique settings.  If you use an sfunct for more than one
@@ -630,6 +664,51 @@ int gdb_is_var_defined(char *theVariable);
     /* Returns 1 if the specified convenience variable is defined and 0 if it is not. */       
 
 /*--------------------------------------------------------------------------------------*/
+		       /*---------------------------------------*
+		        | Direct Register Manipulation Routines |
+			*---------------------------------------*/
+
+char *gdb_set_register(char *theRegister, void *value, int size);
+    /* Set the value of theRegister (e.g., "$r0") from the size bytes in the specified
+       value buffer.  The size must match the size of the register.  NULL is returned if
+       the assignment is successful.  Otherwise the function returns a pointer to an
+       appropriate error string.
+ 
+       The following errors are possible:
+    
+	 no registers available at this time
+	 no frame selected
+	 bad register
+	 invalid register length
+	 left operand of assignment is not an lvalue
+	 could not convert register to internal representation
+    
+       Note, that it is recommended that the more general gdb_set_int() be used for
+       32-bit registers.  The gdb_set_register() routine is intended mainly for setting
+       larger register data types like the AltiVec 16-byte registers. */
+
+void *gdb_get_register(char *theRegister, void *value, int *size);
+    /* Returns the value of theRegister (e.g., "$r0") in the provided value buffer.  The
+       value pointer is returned as the function result and the value is copied (size
+       bytes) to the specified buffer.  If the register is invalid, or its value cannot
+       be obtained, NULL is returned and the value buffer is set with a character string
+       appropriate to the error.
+ 
+       The following errors are possible:
+
+	 no registers available at this time
+	 no frame selected
+	 bad register
+	 value not available
+
+       Obviously the buffer should be large enough to hold these error messages (for
+       safety make it at least 50 bytes long).
+ 
+       Note, that it is recommended that the more general gdb_get_int() be used for
+       32-bit registers.  The gdb_get_register() routine is intended mainly for reading
+       larger register data types like the AltiVec 16-byte registers. */
+
+/*--------------------------------------------------------------------------------------*/
 			     /*----------------------------*
 			      | Target Memory Manipulation |
 			      *----------------------------*/
@@ -698,8 +777,15 @@ void gdb_vfprintf(GDB_FILE *stream, char *fmt, va_list ap);
 void gdb_fputs(char *s, GDB_FILE *stream);
     /* Equivalent to gdb_fprintf(stream, "%s", s) */
      
-void gdb_print_address(unsigned long addr);
-    /* Display the address and function corresponding to an address. */
+void gdb_print_address(char *address, int show_file_line_info);
+    /* Display the address and function corresponding to an address (expression or
+       file/line specification).  If show_file_line_info is non-zero and the address
+       corrersponds to a source line the file/line information along with the source
+       line are also displayed. 
+       
+       Note, the source line is shown exactly as if a LIST was done of it.  Thus it
+       is listed in a context of N lines, where N is determined by the gdb SET listsize
+       command. */
 
 int gdb_query(char *fmt, ...);
     /* Display a query like gdb does it.  The arguments are exactly the same as for
@@ -1062,6 +1148,10 @@ int gdb_keyword(char *keyword, register char **table);
 int gdb_is_string(char *expression);
     /* Returns 1 if the expression is a quoted "string" and 0 if it isn't. */
 
+char *gdb_tilde_expand(char *pathname);
+    /* Returns an malloc'ed string with is the result of expanding tilde's (~) in the
+       specified pathname. */
+       
 /*--------------------------------------------------------------------------------------*/
 			    /*------------------------------*
 			     | Low-level gdb event handling |

@@ -42,6 +42,15 @@ all tags clean debug install installhdrs: $(SYMROOT) $(OBJROOT)
 		( OBJROOT=$(OBJROOT)/$${i};				  \
 		  SYMROOT=$(SYMROOT)/$${i};				  \
 		  DSTROOT=$(DSTROOT);					  \
+	          XCFLAGS=$(ARCHLESS_RC_CFLAGS);			  \
+	          GENSUBDIRS="$(GENERIC_SUBDIRS)";			  \
+	          for x in $$GENSUBDIRS;				  \
+	          do							  \
+	              if [ "$$x" == "$$i" ]; then			  \
+	                  XCFLAGS="$(RC_CFLAGS)";			  \
+	                  break;					  \
+	              fi						  \
+	          done;							  \
 		  echo "$$OBJROOT $$SYMROOT $$DSTROOT"; \
 		    cd $$i; ${MAKE}					  \
 			"OBJROOT=$$OBJROOT"		 	  	  \
@@ -52,7 +61,7 @@ all tags clean debug install installhdrs: $(SYMROOT) $(OBJROOT)
 			"TARGET=$$i"					  \
 			"RC_KANJI=$(RC_KANJI)"				  \
 			"JAPANESE=$(JAPANESE)"				  \
-			"RC_CFLAGS=$(ARCHLESS_RC_CFLAGS)" $@ 			  \
+			"RC_CFLAGS=$$XCFLAGS" $@			  \
 		) || exit $?; 						  \
 	    else							  \
 	    	echo "========= nothing to build for $$i =========";	  \

@@ -128,10 +128,17 @@ extern void WriteReturnMsgError(/* FILE *file, routine_t *rt,
 
 extern void  WriteRPCRoutineDescriptor(/* FILE *file, routine_t *rt,
 					 int arg_count, descr_count,
-					 string_t work_routine,
 					 string_t stub_routine,
 					 string_t sig_array */);
 
 extern void WriteRPCRoutineArgDescriptor(/* FILE *file, routine_t *rt */);
+
+extern void WriteRequestTypes(/* FILE *file, statement_t *stats */);
+
+extern void WriteRequestUnion(/* FILE *file, statement_t *stats */);
+
+extern void WriteReplyTypes(/* FILE *file, statement_t *stats */);
+
+extern void WriteReplyUnion(/* FILE *file, statement_t *stats */);
 
 #endif	/* _UTILS_H */

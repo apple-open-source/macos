@@ -486,6 +486,10 @@ print_node (file, prefix, node, indent)
       fprintf (file, " align %d", TYPE_ALIGN (node));
       fprintf (file, " symtab %d", TYPE_SYMTAB_ADDRESS (node));
       fprintf (file, " alias set %d", TYPE_ALIAS_SET (node));
+#ifdef APPLE_ALIGN_CHECK
+      fprintf (file, " osx1_align %d", node->type.osx1_align);
+      fprintf (file, " osx1_rec_size %d", node->type.osx1_rec_size);
+#endif
 
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 

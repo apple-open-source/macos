@@ -109,8 +109,12 @@ asm(".comm __objcInit, 4");
 asm(".comm __cplus_init, 4");
 asm(".comm __carbon_init, 4");
 extern void _objcInit(void);
+#ifndef POSTSCRIPT
+static void (*pointer_to_objcInit)(void) = _objcInit;
+#endif /* !defined(POSTSCRIPT) */
 extern void _cplus_init(void);
 extern void _carbon_init(int argc, char **argv);
+static void (*pointer_to_carbon_init)(int argc, char **argv) = _carbon_init;
 
 #define CARBON	1
 
@@ -203,13 +207,13 @@ char **envp)
 #endif
 
 #ifndef	POSTSCRIPT
-        if(*((int *)_objcInit) != 0)
-            _objcInit();
+       if(*((int *)pointer_to_objcInit) != 0)
+           pointer_to_objcInit();
 #endif
 
 #ifdef CARBON
-        if(*((int *)_carbon_init) != 0)
-            _carbon_init(argc, argv);
+        if(*((int *)pointer_to_carbon_init) != 0)
+            pointer_to_carbon_init(argc, argv);
 #endif
 
 #ifdef GCRT

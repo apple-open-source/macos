@@ -1,0 +1,116 @@
+# file: makehead.in
+# (unless it is the file Generated automatically from makehead.in by configure.)
+#
+# INSERT_VDA_COMMENTS
+# 
+# $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/makehead,v 1.1.1.1 2001/05/18 23:14:04 mb Exp $
+# $Log: makehead,v $
+# Revision 1.1.1.1  2001/05/18 23:14:04  mb
+# Move from private repository to open source repository
+#
+# Revision 1.4  2000/06/15 18:50:16  dmitch
+# Doc change only.
+#
+# Revision 1.1.1.1  1999/03/16 18:05:49  aram
+# Originals from SMIME Free Library.
+#
+# Revision 1.7  1997/02/16 16:44:50  rj
+# made return *this after calling abort()'' a compile time option.
+#
+# Revision 1.6  1995/09/07  18:38:39  rj
+# PSBOOK and PSNUP added. (they get used in .../doc/makefile)
+#
+# manext and mandir split into two pairs, for sections 1 and n.
+#
+# Revision 1.5  1995/07/24  14:59:35  rj
+# new macros added:
+#  libexecdir for architecture-specific stuff
+#  tcldir under libdir (architecture independent)
+#  TCLSH
+#  DEPENDENCIES for c*-lib's multiple dependencies via recursive make calls
+#  TREELIBS for tree-3.6 widget libs
+#  PATCH for c-lib to patch tbl.h
+#  TCL-P utility prog that returns whether the tcl interface should be made as exit code
+#
+# Revision 1.4  1995/02/18  11:53:46  rj
+# added a small hack to find gcc's hidden include directory to pass it to makedepend. this shall enable X11's makedepend to find .h files a little more the way gcc does.
+#
+# Revision 1.3  1995/02/13  14:53:58  rj
+# CFLAGS, CXXFLAGS and LDFLAGS moved from the various makefiles to here.
+#
+# Revision 1.2  1994/10/08  04:30:32  rj
+# Tcl and X11 libs added
+#
+# Revision 1.1  1994/09/01  00:51:23  rj
+# first check-in (new file).
+#
+
+srcdir		= .
+top_srcdir	= .
+prefix		= /usr/local
+exec_prefix	= ${prefix}
+
+bindir		= $(exec_prefix)/bin
+libexecdir	= $(exec_prefix)/lib
+libdir		= $(prefix)/lib
+incdir		= $(prefix)/include
+tcldir		= $(libdir)/snacc/tcl
+# beware setting both extensions to the same value, otherwise snacc.1 and snacc.n will collide!
+man1ext		= 1
+mannext		= n
+man1dir		= $(prefix)/man/man$(man1ext)
+manndir		= $(prefix)/man/man$(mannext)
+
+SHELL		= /bin/sh
+ECHO		= echo
+
+
+TCLSH		= false
+SNACC_NOVOLAT	= 
+
+MKDEP		= mkdep
+MKDEP_CCINC	= -I/usr/local/include -I/usr/libexec/ppc/2.95.2/include
+
+DEPENDENCIES	= dependencies
+
+LEX		= flex
+LFLAGS		= 
+LEXLIB		= -ll
+YACC		= bison -y
+
+CC		= cc
+CFLAGS		= -DMACOS -DYYTEXT_POINTER -DFLEX_IN_USE -DVDADER_RULES
+CXX		= c++
+CXXFLAGS	= -g -O2 -DVDADER_RULES
+
+LDFLAGS		= 
+LIBS		= 
+CPPFLAGS.TCL	=
+TCLLIBS		= 
+TREELIBS	= 
+
+CPPFLAGS.X11	= 
+LDFLAGS.X11	= 
+LDLIBS.X11pre	= 
+LDLIBS.X11extra	= 
+
+PATCH		= patch
+AR		= ar
+RANLIB		= ranlib
+
+INSTALL		= /usr/bin/install -c
+INSTALL_PROGRAM	= ${INSTALL}
+INSTALL_DATA	= ${INSTALL} -m 644
+
+LATEX		= false
+BIBTEX		= false
+DVIPS		= false
+DETEX		= false
+PSPREVIEW	= true
+PSBOOK		= false
+PSNUP		= false
+SPELL		= spell
+
+TCL-P		= $(TOP)/tcl-p
+
+REASON		= @if [ -f $@ ]; then $(ECHO) "====== making $@ because of $? ======"; else $(ECHO) "====== making (creating) $@ ======"; fi

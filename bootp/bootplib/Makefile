@@ -39,7 +39,7 @@ CURRENTLY_ACTIVE_VERSION = YES
 DEPLOY_WITH_VERSION_NAME = A
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = library.make
-NEXTSTEP_INSTALLDIR = /usr/libexec
+NEXTSTEP_INSTALLDIR = /usr/lib
 WINDOWS_INSTALLDIR = $(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Libraries
 PDO_UNIX_INSTALLDIR = /usr/local/lib
 LIBS = 
@@ -49,8 +49,6 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS =\
                -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd
-FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
-NEXTSTEP_PB_CFLAGS = -Wno-four-char-constants
 
 
 WINDOWS_PUBLIC_HEADERS_DIR = $(HOMEDRIVE)$(LOCAL_DEVELOPER_DIR)/Headers/$(NAME)

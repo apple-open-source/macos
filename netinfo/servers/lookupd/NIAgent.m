@@ -24,262 +24,558 @@
 
 /*
  * NIAgent.m
- *
- * NetInfo lookup agent for lookupd
- *
- * Copyright (c) 1995, NeXT Computer Inc.
- * All rights reserved.
  * Written by Marc Majka
  */
 
-#import <NetInfo/system_log.h>
 #import "NIAgent.h"
 #import "Config.h"
-#import "LUPrivate.h"
-#import <NetInfo/dsutil.h>
-#import <stdlib.h>
 #import <stdio.h>
+#import <stdlib.h>
 #import <string.h>
+#import <sys/types.h>
+#import <sys/socket.h>
+#import <netinet/in.h>
+#import <arpa/inet.h>
+#import <NetInfo/syslock.h>
+#import <NetInfo/system_log.h>
+#import <NetInfo/dsutil.h>
+#import <NetInfo/nilib2.h>
+#import "LUGlobal.h"
 
-static NIAgent *_sharedNIAgent = nil;
-static LUArray *_domainStore = nil;
-static char **_domainNames;
-static unsigned long timeout = 0;
+#define forever for(;;)
 
-#define NI_TIMEOUT 30
+#define DEFAULT_TIMEOUT 30
+#define DEFAULT_CONNECT_TIMEOUT 300
+#define DEFAULT_LATENCY 30
 
-@implementation NIAgent
+static unsigned long _shared_handle_count_ = 0;
+static ni_shared_handle_t **_shared_handle_ = NULL;
+static ni_shared_handle_t *_shared_local_ = NULL;
 
-/* Domain cache is maintained by the class */
-+initialize
+static char *pathForCategory[] =
 {
-	if (_domainStore == nil)
-	{
-		_domainStore = [[LUArray alloc] init];
-		[_domainStore setBanner:"NIAgent domain store"];
-		_domainNames = NULL;
-	}
-	return self;
-}
+	"/users",
+	"/groups",
+	"/machines",
+	"/networks",
+	"/services",
+	"/protocols",
+	"/rpcs",
+	"/mounts",
+	"/printers",
+	"/machines",
+	"/machines",
+	"/aliases",
+	"/netdomains",
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
 
-+ (ni_status)findDirectory:(char *)path domain:(void **)dom nidir:(ni_id *)nid
+typedef struct ni_private
 {
-	void *d, *p;
-	ni_id n, root;
+        int naddrs;
+        struct in_addr *addrs;
+        int whichwrite;
+        ni_name *tags;
+        int pid;
+        int tsock;
+        int tport;
+        CLIENT *tc;
+        long tv_sec;
+        long rtv_sec;
+        long wtv_sec;
+        int abort;
+        int needwrite;
+        int uid;
+        ni_name passwd;
+} ni_private;
+
+static ni_shared_handle_t *
+ni_shared_handle(struct in_addr *addr, char *tag)
+{
+	struct sockaddr_in sa;
+	void *domain, *d2;
 	ni_status status;
-	struct sockaddr_in addr;
+	ni_id root;
+	ni_shared_handle_t *h;
 
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	if (addr == NULL) return NULL;
+	if (tag == NULL) return NULL;
+
+	memset(&sa, 0, sizeof(struct in_addr));
+	sa.sin_family = AF_INET;
+	sa.sin_addr = *addr;
+
+	domain = ni_connect(&sa, tag);
+
+	if (domain == NULL) return NULL;
+
+	if (strcmp(tag, "local") != 0)
+	{
+		d2 = ni_new(domain, ".");
+		ni_free(domain);
+		domain = d2;
+		if (domain == NULL) return NULL;
+	}
 
 	root.nii_object = 0;
+	root.nii_instance = 0;
 
-	*dom = NULL;
-	nid->nii_object = NI_INDEX_NULL;
-	nid->nii_instance = NI_INDEX_NULL;
-	
-	syslock_lock(rpcLock);
-	d = ni_connect(&addr, "local");
-	syslock_unlock(rpcLock);
+	status = ni_self(domain, &root);
 
-	if (d == NULL) return NI_FAILED;
-	
-	syslock_lock(rpcLock);	
-	status = ni_self(d, &root);
-	syslock_unlock(rpcLock);
-
-	if (status != NI_OK) return status;
-
-	ni_setabort(d, 1);
-	ni_setreadtimeout(d, NI_TIMEOUT);
-
-	while (d != NULL)
+	if (status != NI_OK) 
 	{
-		syslock_lock(rpcLock);	
-		status = ni_pathsearch(d, &n, path);
-		syslock_unlock(rpcLock);
+		ni_free(domain);
+		return NULL;
+	}
 
-		if (status == NI_OK)
-		{
-			*dom = d;
-			*nid = n;
-			return NI_OK;
-		}
+	h = (ni_shared_handle_t *)malloc(sizeof(ni_shared_handle_t));
+	memset(h, 0, sizeof(ni_shared_handle_t));
+	h->refcount = 1;
+	h->ni = domain;
+
+	return h;
+}
 	
-		syslock_lock(rpcLock);	
-		status = ni_open(d, "..", &p);
-		if (status == NI_OK) status = ni_self(p, &root);
-		syslock_unlock(rpcLock);
-		ni_free(d);
-		d = NULL;
+static ni_shared_handle_t *
+ni_shared_local(void)
+{
+	struct in_addr loop;
 
-		if (status == NI_OK) d = p;
+	if (_shared_local_ != NULL)
+	{
+		_shared_local_->refcount++;
+		return _shared_local_;
+	}
+
+	memset(&loop, 0, sizeof(struct in_addr));
+	loop.s_addr = htonl(INADDR_LOOPBACK);
+
+	_shared_local_ = ni_shared_handle(&loop, "local");
+
+	return _shared_local_;
+}
+
+static int
+ni_shared_match(ni_shared_handle_t *h, struct in_addr *a, char *t)
+{
+	ni_private *ni;
+	unsigned long i;
+
+	if (h == NULL) return 0;
+	if (h->ni == NULL) return 0;
+	if (a == NULL) return 0;
+	if (t == NULL) return 0;
+
+	ni = (ni_private *)h->ni;
+	if (ni == NULL) return 0;
+
+	for (i = 0; i < ni->naddrs; i++)
+	{
+		if ((ni->addrs[i].s_addr == a->s_addr) && (strcmp(ni->tags[i], t) ==  0)) return 1;
+	}
+
+	return 0;
+}
+
+static ni_shared_handle_t *
+ni_shared_connection(struct in_addr *addr, char *tag)
+{
+	unsigned long i;
+	ni_shared_handle_t *h;
+
+	if (addr == NULL) return NULL;
+	if (tag == NULL) return NULL;
+
+	if (!strcmp(tag, "local") && (addr->s_addr == htonl(INADDR_LOOPBACK)))
+	{
+		return ni_shared_local();
+	}
+
+	for (i = 0; i < _shared_handle_count_; i++)
+	{
+		if (ni_shared_match(_shared_handle_[i], addr, tag))
+		{
+			_shared_handle_[i]->refcount++;
+			return _shared_handle_[i];
+		}
 	}
 	
+	h = ni_shared_handle(addr, tag);
+	if (h == NULL) return NULL;
+
+	if (_shared_handle_count_ == 0)
+	{
+		_shared_handle_ = (ni_shared_handle_t **)malloc(sizeof(ni_shared_handle_t *));
+	}
+	else
+	{
+		_shared_handle_ = (ni_shared_handle_t **)realloc(_shared_handle_, (_shared_handle_count_ + 1) * sizeof(ni_shared_handle_t *));
+	}
+
+	_shared_handle_[_shared_handle_count_] = h;
+	_shared_handle_count_++;
+
+	return h;
+}
+
+static void
+ni_shared_release(ni_shared_handle_t *h)
+{
+	unsigned long i, j;
+
+	if (h == NULL) return;
+
+	if (h->refcount > 0) h->refcount--;
+	if (h->refcount > 0) return;
+	
+	ni_free(h->ni);
+
+	if (h == _shared_local_)
+	{
+		free(_shared_local_);
+		_shared_local_ = NULL;
+		return;
+	}
+
+	for (i = 0; i < _shared_handle_count_; i++)
+	{
+		if (_shared_handle_[i] == h)
+		{
+			free(_shared_handle_[i]);
+			for (j = i + 1; j < _shared_handle_count_; j++, i++)
+			{
+				_shared_handle_[i] = _shared_handle_[j];
+			}
+			_shared_handle_count_--;
+			if (_shared_handle_count_ == 0)
+			{
+				free(_shared_handle_);
+				_shared_handle_ = NULL;
+				return;
+			}
+			_shared_handle_ = (ni_shared_handle_t **)realloc(_shared_handle_, _shared_handle_count_ * sizeof(ni_shared_handle_t *));
+			return;
+		}
+	}
+}
+
+static ni_shared_handle_t *
+ni_shared_parent(ni_shared_handle_t *h)
+{
+	ni_rparent_res *rpres;
+	ni_private *ni;
+	struct in_addr addr;
+	ni_shared_handle_t *p;
+
+	if (h == NULL) return NULL;
+	if (h->ni == NULL) return NULL;
+
+	ni = (ni_private *)h->ni;
+
+	rpres = _ni_rparent_2(NULL, ni->tc);
+
+	if (rpres == NULL) return NULL;
+	if (rpres->status != NI_OK) return NULL;
+
+	addr.s_addr = htonl(rpres->ni_rparent_res_u.binding.addr);
+	p = ni_shared_connection(&addr, rpres->ni_rparent_res_u.binding.tag);
+	free(rpres->ni_rparent_res_u.binding.tag);
+
+	return p;
+}
+
+static ni_shared_handle_t *
+ni_shared_open(void *x, char *rel)
+{
+	void *d;
+	ni_private *ni;
+	ni_status status;
+	ni_shared_handle_t *h;
+
+	if (rel == NULL) return NULL;
+
+	status = ni_open(x, rel, &d);
+	if (status != NI_OK) return NULL;
+
+	ni = (ni_private *)d;
+	h = ni_shared_connection(&(ni->addrs[0]), ni->tags[0]);
+	ni_free(d);
+	return h;
+}
+
+static ni_status
+_ni_find(ni_data *domain, unsigned long domain_count, char *str, unsigned long *where, ni_id *dir)
+{
+	ni_status status;
+	unsigned long i;
+
+	if (str == NULL) return NI_NODIR;
+	if (where == NULL) return NI_NODIR;
+	if (dir == NULL) return NI_NODIR;
+
+	for (i = 0; i < domain_count; i++)
+	{
+		status = ni_pathsearch(domain[i].handle->ni, dir, str);
+		if (status == NI_OK)
+		{
+			*where = i;
+			return status;
+		}
+	}
 	return NI_NODIR;
 }
 
-+ (LUNIDomain *)domainWithName:(char *)domainName
+static ni_status
+_ni_find_any(ni_data *domain, unsigned long domain_count, char **str, unsigned long *where, ni_id *dir)
 {
-	LUNIDomain *d;
-	int i, len;
+	ni_status status;
+	unsigned long i, j;
 
-	len = listLength(_domainNames);
-	for (i = 0; i < len; i++)
+	if (str == NULL) return NI_NODIR;
+	if (where == NULL) return NI_NODIR;
+	if (dir == NULL) return NI_NODIR;
+
+	for (i = 0; i < domain_count; i++)
 	{
-		if (streq(domainName, _domainNames[i]))
-			return [[_domainStore objectAtIndex:i] retain];
-	}
-
-	d = [[LUNIDomain alloc] initWithDomainNamed:domainName];
-	if (d != nil)
-	{
-		[_domainStore addObject:d];
-		_domainNames = appendString(domainName, _domainNames);
-	}
-
-	return d;
-}
-
-+ (void)releaseDomainStore
-{
-	[_domainStore release];
-	_domainStore = nil;
-	freeList(_domainNames);
-	_domainNames = NULL;
-}
-
-- (void)_setupChain:(LUArray *)c fromConfig:(LUDictionary *)config
-{
-	char **order;
-	LUNIDomain *d, *p;
-	int i, len;
-
-	/* Set up DomainOrder */
-	if (config == nil)
-	{
-		order = NULL;
-		len = 0;
-	}
-	else
-	{
-		order = [config valuesForKey:"DomainOrder"];
-		if (order == NULL) len = 0;
-		else len = listLength(order);
-	}
-
-	if (len == 0)
-	{
-		/* Only default to standard lookup for global config */
-		if (c != globalChain) return;
-
-		/* use plain local->root order */
-		d = [NIAgent domainWithName:"."];
-
-		while (d != nil)
+		for (j = 0; str[j] != NULL; j++)
 		{
-			[c addObject:d];
-			p = [[d parent] retain];
-			[d release];
-
-			d = p;
-			if (d != nil)
+			status = ni_pathsearch(domain[i].handle->ni, dir, str[j]);
+			if (status == NI_OK)
 			{
-				[_domainStore addObject:d];
-				_domainNames = appendString((char *)[d name], _domainNames);
+				*where = i;
+				return status;
 			}
 		}
-
 	}
-	else
-	{
-		for (i = 0; i < len; i++)
-		{
-			d = [NIAgent domainWithName:order[i]];
-			[c addObject:d];
-			[d release];
-		}
-	}
+	return NI_NODIR;
 }
+
+@implementation NIAgent
 
 - (NIAgent *)init
 {
-	int i;
+	return (NIAgent *)[self initWithArg:NULL];
+}
+
+- (LUAgent *)initWithArg:(char *)arg
+{
 	LUDictionary *config;
-	char str[256];
+	LUDictionary *global;
+	char *p, **domain_order;
+	int i, len;
 
-	if (didInit) return self;
-	
-	[super init];
+	[super initWithArg:arg];
 
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"NIAgent statistics"];
-	[stats setValue:"NetInfo" forKey:"information_system"];
-	threadLock = syslock_new(1);
+	latency = DEFAULT_LATENCY;
+	timeout = DEFAULT_TIMEOUT;
+	connect_timeout = DEFAULT_CONNECT_TIMEOUT;
 
-	config = [configManager configGlobal];
-	timeout = [configManager intForKey:"Timeout" dict:config default:30];
-	if (config != nil) [config release];
-
-	config = [configManager configForAgent:"NIAgent"];
-	timeout = [configManager intForKey:"Timeout" dict:config default:timeout];
-
-	/* Set DomainOrder */
-	globalChain = [[LUArray alloc] init];
-	[globalChain setBanner:"NIAgent global lookup chain"];
-
-	[self _setupChain:globalChain fromConfig:config];
-	if (config != nil) [config release];
-
-	for (i = 0; i < NCATEGORIES; i++)
+	config = [configManager configForAgent:"NIAgent" fromConfig:configurationArray];
+	global = [configManager configGlobal:configurationArray];
+	if (global != nil)
 	{
-		config = [configManager configForAgent:"NIAgent" category:(LUCategory)i];
-		chain[i] = [[LUArray alloc] init];
-		sprintf(str, "NIAgent %s lookup chain", [LUAgent categoryPathname:(LUCategory)i]);
-		[chain[i] setBanner:str];
-		[self _setupChain:chain[i] fromConfig:config];
-		if (config != nil) [config release];
+		if ([global valueForKey:"Timeout"] != NULL)
+			timeout = [global unsignedLongForKey:"Timeout"];
+		if ([global valueForKey:"ConnectTimeout"] != NULL)
+			connect_timeout = [global unsignedLongForKey:"ConnectTimeout"];
+		if ([global valueForKey:"ValidationLatency"] != NULL)
+			latency = [global unsignedLongForKey:"ValidationLatency"];
+	}
+	if (config != nil)
+	{
+		if ([config valueForKey:"Timeout"] != NULL)
+			timeout = [config unsignedLongForKey:"Timeout"];
+		if ([config valueForKey:"ConnectTimeout"] != NULL)
+			connect_timeout = [config unsignedLongForKey:"ConnectTimeout"];
+		if ([config valueForKey:"ValidationLatency"] != NULL)
+			latency = [config unsignedLongForKey:"ValidationLatency"];
+	}
+
+	p = NULL;
+
+	if ((arg == NULL) && (config != nil))
+	{
+		domain_order = [config valuesForKey:"DomainOrder"];
+		if (domain_order != NULL)
+		{
+			len = 0;
+			for (i = 0; domain_order[i] != NULL; i++) len += (strlen(domain_order[i]) + 1);
+			if (len > 0)
+			{
+				p = malloc(len + 1);
+				memset(p, 0, len + 1);
+				for (i = 0; domain_order[i] != NULL; i++)
+				{
+					strcat(p, domain_order[i]);
+					strcat(p, ",");
+				}
+				p[len - 1] = '\0';
+			}
+		}
+	}
+
+	domain = NULL;
+	domain_count = 0;
+
+	if (p == NULL)
+	{
+		[self setSource:arg];
+	}
+	else
+	{
+		[self setSource:p];
+		free(p);
 	}
 
 	return self;
-}
-
-+ (NIAgent *)alloc
-{
-	if (_sharedNIAgent != nil)
-	{
-		[_sharedNIAgent retain];
-		return _sharedNIAgent;
-	}
-
-	_sharedNIAgent = [super alloc];
-	[_sharedNIAgent init];
-	if (_sharedNIAgent == nil) return nil;
-
-	system_log(LOG_DEBUG, "Allocated NIAgent 0x%08x\n", (int)_sharedNIAgent);
-
-	return _sharedNIAgent;
 }
 
 - (void)dealloc
 {
-	int i;
+	unsigned long i;
 
-	for (i = 0; i < NCATEGORIES; i++)
-		if (chain[i] != nil) [chain[i] release];
-	if (globalChain != nil) [globalChain release];
-	if (stats != nil) [stats release];
-	if (threadLock != NULL) syslock_free(threadLock);
-	threadLock = NULL;
-	
+	syslock_lock(rpcLock);
+	for (i = 0; i < domain_count; i++)
+	{
+		ni_shared_release(domain[i].handle);
+	}
+	syslock_unlock(rpcLock);
+
+	free(domain);
+	domain = NULL;
+	domain_count = 0;
+
 	system_log(LOG_DEBUG, "Deallocated NIAgent 0x%08x\n", (int)self);
 
 	[super dealloc];
 }
 
-- (const char *)serviceName
+- (void)climbToRoot
 {
-	return "NetInfo";
+	ni_shared_handle_t *h0, *h1;
+
+	if (domain_count == 0) return;
+
+	h0 = domain[domain_count - 1].handle;
+
+	ni_setabort(h0->ni, 1);
+	ni_setreadtimeout(h0->ni, connect_timeout);
+
+	forever
+	{
+		syslock_lock(rpcLock);
+		h1 = ni_shared_parent(h0);
+		syslock_unlock(rpcLock);
+
+		if (h1 == NULL) return;
+	
+		h0 = h1;
+
+		ni_setreadtimeout(h0->ni, timeout);
+		ni_setpassword(h0->ni, "checksum");
+		domain = (ni_data *)realloc(domain, (domain_count + 1) * sizeof(ni_data));
+		domain[domain_count].handle = h0;
+		domain[domain_count].checksum = 0;
+		domain[domain_count].checksum_time = 0;
+		domain_count++;
+	}
+}
+
+- (void)setSource:(char *)arg
+{
+	ni_shared_handle_t *h;
+	char **list, *str;
+	unsigned long i, len;
+
+	if (arg == NULL)
+	{
+		syslock_lock(rpcLock);
+		h = ni_shared_local();
+		syslock_unlock(rpcLock);
+
+		if (h == NULL) return;
+
+		domain = (ni_data *)malloc(sizeof(ni_data));
+		ni_setreadtimeout(h->ni, timeout);
+		ni_setpassword(h->ni, "checksum");
+		domain[0].handle = h;
+		domain[0].checksum = 0;
+		domain[0].checksum_time = 0;
+		domain_count = 1;
+
+		[self climbToRoot];
+		return;
+	}
+	
+	str = malloc(strlen(arg) + 16);
+	sprintf(str, "NIAgent (%s)", arg);
+	[self setBanner:str];
+	free(str);
+
+	list = explode(arg, ",");
+	len = listLength(list);
+	for (i = 0; i < len; i++)
+	{
+		if (streq(list[i], "...")) [self climbToRoot];
+		else
+		{
+			syslock_lock(rpcLock);
+			h = ni_shared_open(NULL, list[i]);
+			syslock_unlock(rpcLock);
+
+			if (h == NULL) continue;
+
+			ni_setreadtimeout(h->ni, timeout);
+			ni_setpassword(h->ni, "checksum");
+			domain = (ni_data *)realloc(domain, (domain_count + 1) * sizeof(ni_data));
+			domain[domain_count].handle = h;
+			domain[domain_count].checksum = 0;
+			domain[domain_count].checksum_time = 0;
+			domain_count++;
+		}
+	}
+	freeList(list);
+}
+
+- (BOOL)findDirectory:(char *)path domain:(void **)d nidir:(ni_id *)nid
+{
+	ni_status status;
+	unsigned long where;
+
+	where = IndexNull;
+	status = _ni_find(domain, domain_count, path, &where, nid);
+	if (status == NI_OK) *d = domain[where].handle->ni;
+	return (status == NI_OK);
+}
+
+- (LUDictionary *)dictionaryForNIProplist:(ni_proplist *)p
+{
+	LUDictionary *item;
+	int i, j, len;
+	unsigned int where;
+
+	if (p == NULL) return nil;
+
+	item = [[LUDictionary alloc] init];
+
+	for (i = 0; i < p->ni_proplist_len; i++)
+	{
+		if (p->ni_proplist_val[i].nip_name == NULL) continue;
+
+		where = [item addKey:p->ni_proplist_val[i].nip_name];
+		if (where == IndexNull) continue;
+
+		len = p->ni_proplist_val[i].nip_val.ni_namelist_len;
+		for (j = 0; j < len; j++)
+		{
+			[item addValue:p->ni_proplist_val[i].nip_val.ni_namelist_val[j] atIndex:where];
+		}
+	}
+
+	return item;
 }
 
 - (const char *)shortName
@@ -287,526 +583,392 @@ static unsigned long timeout = 0;
 	return "NI";
 }
 
-- (void)setMaxChecksumAge:(time_t)age
+- (unsigned long)checksumForIndex:(unsigned long)i
 {
-	int i, j, len;
+	struct timeval now;
+	unsigned long age;
+	ni_status status;
+	ni_proplist pl;
+	unsigned long sum;
+	ni_index where;
 
-	for (j = 0; j < NCATEGORIES; j++)
+	gettimeofday(&now, (struct timezone *)NULL);
+	age = now.tv_sec - domain[i].checksum_time;
+	if (age <= latency) return domain[i].checksum;
+
+	NI_INIT(&pl);
+
+	syslock_lock(rpcLock);
+	status = ni_statistics(domain[i].handle->ni, &pl);
+	syslock_unlock(rpcLock);
+
+	if (status != NI_OK)
 	{
-		len = [chain[j] count];
-		for (i = 0; i < len; i++)
-			[[chain[j] objectAtIndex:i] setMaxChecksumAge:age];
-	}
-}
-
-
-- (unsigned int)indexOfDomain:(LUNIDomain *)domain
-{
-	unsigned int i, len;
-
-	if (domain == nil) return IndexNull;
-
-	len = [_domainStore count];
-	for (i = 0; i < len; i++)
-	{
-		if (domain == [_domainStore objectAtIndex:i]) return i;
-	}
-
-	return IndexNull;
-}
-
-- (LUNIDomain *)domainAtIndex:(unsigned int)where
-{
-	if (where >= listLength(_domainNames)) return nil;
-	return [_domainStore objectAtIndex:where];
-}
-	
-- (LUDictionary *)statistics
-{
-	LUNIDomain *d;
-	int i, len;
-	char key[256];
-
-	syslock_lock(threadLock);
-	len = listLength(_domainNames);
-	for (i = 0; i < len; i++)
-	{
-		d = [_domainStore objectAtIndex:i];
-		sprintf(key, "%d_domain", i);
-		[stats setValue:(char *)_domainNames[i] forKey:key];
-		sprintf(key, "%d_server", i);
-		[stats setValue:[d currentServer] forKey:key];
+		system_log(LOG_ERR, "ni_statistics: %s", ni_error(status));
+		ni_proplist_free(&pl);
+		return 0;
 	}
 
-	syslock_unlock(threadLock);
-	return stats;
+	/* checksum should be first (and only!) property */
+	where = NI_INDEX_NULL;
+	if (pl.ni_proplist_len > 0)
+	{
+		if (strcmp(pl.ni_proplist_val[0].nip_name, "checksum"))
+			where = 0;
+		else
+			where = ni_proplist_match(pl, "checksum", NULL);
+	}
+
+	if (where == NI_INDEX_NULL)
+	{
+		system_log(LOG_ERR, "Domain %lu: can't get checksum", i);
+		ni_proplist_free(&pl);
+		return 0;
+	}
+
+	sscanf(pl.ni_proplist_val[where].nip_val.ni_namelist_val[0], "%lu", &sum);
+	ni_proplist_free(&pl);
+
+	domain[i].checksum_time = now.tv_sec;
+	domain[i].checksum = sum;
+
+	return sum;
 }
 
-- (void)resetStatistics
+- (LUDictionary *)stamp:(LUDictionary *)item index:(unsigned long)i
 {
-	if (stats != nil) [stats release];
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"NIAgent statistics"];
-	[stats setValue:"NetInfo" forKey:"information_system"];
-}
+	char str[64];
 
-- (LUDictionary *)stamp:(LUDictionary *)item
-	domain:(LUNIDomain *)d
-{
-	char str[32];
+	if (item == nil) return nil;
+
 
 	[item setAgent:self];
-	[item setValue:"NetInfo" forKey:"_lookup_info_system"];
-	[item setValue:(char *)[d name] forKey:"_lookup_NI_domain"];
-	[item setValue:[d currentServer] forKey:"_lookup_NI_server"];
-	sprintf(str, "%u", [self indexOfDomain:d]);
+	[item setValue:"NI" forKey:"_lookup_info_system"];
+
+	sprintf(str, "%lu", i);
 	[item setValue:str forKey:"_lookup_NI_index"];
-	sprintf(str, "%lu", [d currentChecksum]);
+
+	sprintf(str, "%lu", [self checksumForIndex:i]);
 	[item setValue:str forKey:"_lookup_NI_checksum"];
+
 	return item;
-}
-
-- (void)allStamp:(LUArray *)all
-	domain:(LUNIDomain *)d
-	addToList:(LUArray *)list
-{
-	int i, len;
-	char *dname;
-	char *sname;
-	char index[32], csum[32];
-	LUDictionary * item;
-
-	if (all == nil) return;
-
-	dname = copyString((char *)[d name]);
-	sname = copyString([d currentServer]);
-	sprintf(index, "%u", [self indexOfDomain:d]);
-	sprintf(csum, "%lu", [d currentChecksum]);
-
-	len = [all count];
-	for (i = 0; i < len; i++)
-	{
-		item = [all objectAtIndex:i];
-		[item setAgent:self];
-		[item setValue:"NetInfo" forKey:"_lookup_info_system"];
-		[item setValue:dname forKey:"_lookup_NI_domain"];
-		[item setValue:sname forKey:"_lookup_NI_server"];
-		[item setValue:index forKey:"_lookup_NI_index"];
-		[item setValue:csum forKey:"_lookup_NI_checksum"];
-
-		[list addObject:item];
-	}
-	freeString(dname);
-	dname = NULL;
-	freeString(sname);
-	sname = NULL;
 }
 
 - (BOOL)isValid:(LUDictionary *)item
 {
-	unsigned long oldsum, newsum;
+	unsigned long oldsum, newsum, i;
 	char *c;
-	LUNIDomain *d;
 
 	if (item == nil) return NO;
+	if ([self isStale]) return NO;
+
 	c = [item valueForKey:"_lookup_NI_checksum"];
 	if (c == NULL) return NO;
 	sscanf(c, "%lu", &oldsum);
 
 	c = [item valueForKey:"_lookup_NI_index"];
 	if (c == NULL) return NO;
-	d = [self domainAtIndex:atoi(c)];
-	if (d == nil) return NO;
+	sscanf(c, "%lu", &i);
 
-	syslock_lock(threadLock);
-	newsum = [d checksum];
-	syslock_unlock(threadLock);
+	newsum = [self checksumForIndex:i];
 
 	if (oldsum != newsum) return NO;
 	return YES;
-}
-
-/*
- * These methods do NetInfo lookups on behalf of all calls
- */
-
-- (LUDictionary *)netgroupWithName:(char *)name
-{
-	LUDictionary *item;
-	LUDictionary *itemInDomain;
-	LUNIDomain *d;
-	BOOL found;
-	unsigned int i, len;
-	LUArray *lookupChain;
-
-	found = NO;
-	item = [[LUDictionary alloc] init];
-
-	syslock_lock(threadLock);
-	len = [chain[(int)LUCategoryNetgroup] count];
-	if (len > 0)
-	{
-		lookupChain = chain[(int)LUCategoryNetgroup];
-	}
-	else
-	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
-	}
-
-	for (i = 0; i < len; i++)
-	{
-		d = [lookupChain objectAtIndex:i];
-		itemInDomain = [d netgroupWithName:name];
-		if (itemInDomain != nil)
-		{
-			found = YES;
-			[self mergeNetgroup:itemInDomain into:item];
-			[itemInDomain release];
-		}
-	}
-
-	syslock_unlock(threadLock);
-
-	if (found) return item;
-	[item release];
-	return nil;
 }
 
 - (LUDictionary *)itemWithKey:(char *)key
 	value:(char *)val
 	category:(LUCategory)cat
 {
-	LUDictionary *item = nil;
-	LUNIDomain *d;
-	unsigned int i, len;
-	LUArray *lookupChain;
+	char *path, *str, **names;
+	LUDictionary *item;
+	ni_status status;
+	ni_proplist pl;
+	ni_id dir;
+	unsigned long where;
+	BOOL tryRealName;
 
-	if (cat == LUCategoryNetgroup)
+	if (key == NULL) return nil;
+	if (val == NULL) return nil;
+	
+	path = pathForCategory[cat];
+	if (path == NULL) return nil;
+
+	str = malloc(strlen(path) + strlen(key) + strlen(val) + 3);
+	sprintf(str, "%s/%s=%s", path, key, val);
+
+	/*
+	 * Special case for user by name queries:
+	 * we check for both "name" and "realname" with the given value.
+	 */
+	tryRealName = NO;
+	if ((cat == LUCategoryUser) && (streq(key, "name")))
 	{
-		return [self netgroupWithName:val];
+		tryRealName = YES;
+		names = appendString(str, NULL);
+		free(str);
+		str = malloc(strlen(path) + strlen(val) + 11);
+		sprintf(str, "%s/realname=%s", path, val);
+		names = appendString(str, names);
 	}
 
-	syslock_lock(threadLock);
-	len = [chain[(int)cat] count];
-	if (len > 0)
+	where = IndexNull;
+	status = NI_NODIR;
+
+	syslock_lock(rpcLock);
+	if (tryRealName)
 	{
-		lookupChain = chain[(int)cat];
+		status = _ni_find_any(domain, domain_count, names, &where, &dir);
+		freeList(names);
 	}
 	else
 	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
+		status = _ni_find(domain, domain_count, str, &where, &dir);
 	}
+	syslock_unlock(rpcLock);
 
-	for (i = 0; i < len; i++)
+	free(str);
+	if (status != NI_OK) return nil;
+
+	NI_INIT(&pl);
+	syslock_lock(rpcLock);
+	status = ni_read(domain[where].handle->ni, &dir, &pl);
+	syslock_unlock(rpcLock);
+
+	if (status != NI_OK)
 	{
-		d = [lookupChain objectAtIndex:i];
-
-		item = [d itemWithKey:key value:val category:cat];
-
-		if (item != nil)
-		{
-			[self stamp:item domain:d];
-			syslock_unlock(threadLock);
-			return item;
-		}
+		system_log(LOG_ERR, "ni_read: %s", ni_error(status));
+		ni_proplist_free(&pl);
+		return nil;
 	}
 
-	syslock_unlock(threadLock);
-	return nil;
+	item = [self dictionaryForNIProplist:&pl];
+	ni_proplist_free(&pl);
+
+	return [self stamp:item index:where];
 }
 
-- (LUArray *)allItemsWithCategory:(LUCategory)cat
+- (void)allChildren:(char *)path index:(unsigned long)where append:(LUArray *)all
 {
-	LUArray *all;
-	LUArray *allInDomain;
-	LUNIDomain *d;
-	LUDictionary *vstamp;
-	unsigned int i, len;
-	char scratch[256];
-	LUArray *lookupChain;
+	ni_proplist_list l;
+	ni_id dir;
+	int i;
+	ni_status status;
+	LUDictionary *item;
 
-	all = [[LUArray alloc] init];
-	sprintf(scratch, "NIAgent: all %s", [LUAgent categoryName:cat]);
-	[all setBanner:scratch];
+	syslock_lock(rpcLock);
+	status = ni_pathsearch(domain[where].handle->ni, &dir, path);
+	syslock_unlock(rpcLock);
 
-	syslock_lock(threadLock);
-	len = [chain[(int)cat] count];
-	if (len > 0)
+	if (status != NI_OK) return;
+
+	NI_INIT(&l);
+	syslock_lock(rpcLock);
+	status = ni_listall(domain[where].handle->ni, &dir, &l);
+	syslock_unlock(rpcLock);
+
+	if (status == NI_NODIR) return;
+	if (status != NI_OK)
 	{
-		lookupChain = chain[(int)cat];
+		system_log(LOG_ERR, "ni_listall: %s", ni_error(status));
+		return;
 	}
-	else
+
+	if (l.ni_proplist_list_len == 0) return;
+	
+	for (i = 0; i < l.ni_proplist_list_len; i++)
 	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
+		item = [self dictionaryForNIProplist:&(l.ni_proplist_list_val[i])];
+		if (item == nil) continue;
+
+		[all addObject:item];
+		[item release];
 	}
 
-	for (i = 0; i < len; i++)
+	ni_proplist_list_free(&l);
+}
+
+- (void)lookupChildren:(char *)path key:(char *)key value:(char *)val index:(unsigned long)where append:(LUArray *)all
+{
+	ni_proplist l;
+	ni_idlist idl;
+	ni_id dir;
+	int i;
+	ni_status status;
+	LUDictionary *item;
+
+	syslock_lock(rpcLock);
+	status = ni_pathsearch(domain[where].handle->ni, &dir, path);
+	syslock_unlock(rpcLock);
+
+	if (status != NI_OK) return;
+
+	NI_INIT(&idl);
+	syslock_lock(rpcLock);
+	status = ni_lookup(domain[where].handle->ni, &dir, key, val, &idl);
+	syslock_unlock(rpcLock);
+
+	if (status == NI_NODIR) return;
+	if (status != NI_OK)
 	{
-		d = [lookupChain objectAtIndex:i];
-
-		vstamp = [[LUDictionary alloc] init];
-		[vstamp setBanner:"NIAgent validation stamp"];
-		[all addValidationStamp:[self stamp:vstamp domain:d]];
-		[vstamp release];
-
-		allInDomain = [d allItemsWithCategory:cat];
-
-		[self allStamp:allInDomain domain:d addToList:all];
-		if (allInDomain != nil) [allInDomain release];
+		system_log(LOG_ERR, "ni_lookup: %s", ni_error(status));
+		ni_idlist_free(&idl);
+		return;
 	}
-	syslock_unlock(threadLock);
-	return all;
+
+	if (idl.ni_idlist_len == 0) return;
+	
+	for (i = 0; i < idl.ni_idlist_len; i++)
+	{
+		dir.nii_object = idl.ni_idlist_val[i];
+
+		NI_INIT(&l);
+		syslock_lock(rpcLock);
+		status = ni_read(domain[where].handle->ni, &dir, &l);
+		syslock_unlock(rpcLock);
+		
+		item = [self dictionaryForNIProplist:&l];
+		ni_proplist_free(&l);
+		if (item == nil) continue;
+
+		[all addObject:item];
+		[item release];
+	}
+
+	ni_idlist_free(&idl);
 }
 
 - (LUArray *)allItemsWithCategory:(LUCategory)cat key:(char *)key value:(char *)val
 {
+	char *path;
 	LUArray *all;
-	LUArray *allInDomain;
-	LUNIDomain *d;
-	unsigned int i, j, n, len;
-	LUArray *lookupChain;
+	LUDictionary *vstamp;
+	unsigned long i;
+	char str[128];
+
+	path = pathForCategory[cat];
+	if (path == NULL) return nil;
 
 	all = [[LUArray alloc] init];
 
-	syslock_lock(threadLock);
-	len = [chain[(int)cat] count];
-	if (len > 0)
+	for (i = 0; i < domain_count; i++)
 	{
-		lookupChain = chain[(int)cat];
-	}
-	else
-	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
+		if (key == NULL) [self allChildren:path index:i append:all];
+		else [self lookupChildren:path key:key value:val index:i append:all];
+
+		vstamp = [[LUDictionary alloc] init];
+		sprintf(str, "V-0x%08x", (int)vstamp);
+		[vstamp setBanner:str];
+
+		[self stamp:vstamp index:i];
+		[all addValidationStamp:vstamp];
+		[vstamp release];
 	}
 
-	for (i = 0; i < len; i++)
-	{
-		d = [lookupChain objectAtIndex:i];
-		allInDomain = [d allEntitiesForCategory:cat key:key value:val selectedKeys:NULL];
-		if (allInDomain == nil) continue;
-
-		n = [allInDomain count];
-		for (j = 0; j < n; j++)
-		{
-			[all addObject:[allInDomain objectAtIndex:j]];
-		}
-		[allInDomain release];
-	}
-	syslock_unlock(threadLock);
 	return all;
 }
 
+- (LUArray *)allItemsWithCategory:(LUCategory)cat
+{
+	return [self allItemsWithCategory:cat key:NULL value:NULL];
+}
+
+/*
+ * Faster query for NetInfo searches.
+ */
 - (LUArray *)query:(LUDictionary *)pattern category:(LUCategory)cat
 {
 	LUArray *all, *list;
-	char *key, *val;
-	unsigned int where, len;
+	int i, len;
+	char *p, *k, *v;
 
-	if (pattern == nil) return [self allItemsWithCategory:cat];
+	if (pattern == nil) return [self allItemsWithCategory:cat key:NULL value:NULL];
+
 	len = [pattern count];
-	if (len == 0) return [self allItemsWithCategory:cat];
+	if (len == 0) return [self allItemsWithCategory:cat key:NULL value:NULL];
 
-	/*
-	 * Find a key with a non-null value.
-	 * Ignore "_lookup_*" keys.
-	 */
-	
-	key = NULL;
-	val = NULL;
-	where = 0;
+	k = NULL;
+	v = NULL;
 
-	while (key == NULL)
+	/* Use "name" key if given (it has a good chance of matching fewer records) */
+	i = [pattern indexForKey:"name"];
+	if (i != IndexNull)
 	{
-		key = [pattern keyAtIndex:where];
-		if (strncmp(key, "_lookup_", 8))
-		{
-			/* A "real" key.  Check the value. */
-			val = [pattern valueAtIndex:where];
-			if (val != NULL) break;
-		}
-
-		key = NULL;
-		where++;
-		if (where >= len) break;
+		k = [pattern keyAtIndex:i];
+		v = [pattern valueAtIndex:i];
 	}
-	if (key == NULL) return [self allItemsWithCategory:cat];
 
-	all = [self allItemsWithCategory:cat key:key value:val];
+	/* If there was no "name" key, use first key without "_lookup_" prefix */
+	for (i = 0; (i < len) && (k == NULL); i++)
+	{
+		p = [pattern keyAtIndex:i];
+		if (!strncmp(p, "_lookup_", 8)) continue;
+
+		k = p;
+		v = [pattern valueAtIndex:i];
+	}
 	
+	all = [self allItemsWithCategory:cat key:k value:v];
+
 	list = nil;
 	if (all != nil)
 	{
 		list = [all filter:pattern];
+		if (list != nil)
+		{
+			len = [all validationStampCount];
+			for (i = 0; i < len; i++)
+			{
+				[list addValidationStamp:[all validationStampAtIndex:i]];
+			}
+		}
 		[all release];
 	}
 
 	return list;
 }
 
-- (LUArray *)allGroupsWithUser:(char *)name
-{
-	LUArray *all;
-	LUArray *allInDomain;
-	LUNIDomain *d;
-	LUDictionary *vstamp;
-	unsigned int i, len;
-	unsigned int j, jlen;
-	LUArray *lookupChain;
-
-	all = [[LUArray alloc] init];
-	syslock_lock(threadLock);
-	len = [chain[(int)LUCategoryInitgroups] count];
-	if (len > 0)
-	{
-		lookupChain = chain[(int)LUCategoryInitgroups];
-	}
-	else
-	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
-	}
-
-	for (i = 0; i < len; i++)
-	{
-		d = [lookupChain objectAtIndex:i];
-
-		vstamp = [[LUDictionary alloc] init];
-		[vstamp setBanner:"NIAgent validation stamp"];
-		[all addValidationStamp:[self stamp:vstamp domain:d]];
-		[vstamp release];
-
-		allInDomain = [d allGroupsWithUser:name];
-		jlen = 0;
-		if (allInDomain != nil) jlen = [allInDomain count];
-		for (j = 0; j < jlen; j++)
-		{
-			[all addObject:
-				[self stamp:[allInDomain objectAtIndex:j] domain:d]];
-		}
-		if (allInDomain != nil) [allInDomain release];
-	}
-	syslock_unlock(threadLock);
-	return all;
-}
-
-- (LUDictionary *)serviceWithName:(char *)name
-	protocol:(char *)prot
-{
-	LUDictionary *item = nil;
-	LUNIDomain *d;
-	unsigned int i, len;
-	LUArray *lookupChain;
-
-	syslock_lock(threadLock);
-	len = [chain[(int)LUCategoryService] count];
-	if (len > 0)
-	{
-		lookupChain = chain[(int)LUCategoryService];
-	}
-	else
-	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
-	}
-
-	for (i = 0; i < len; i++)
-	{
-		d = [lookupChain objectAtIndex:i];
-		item = [d serviceWithName:name protocol:prot];
-		if (item != nil)
-		{
-			[self stamp:item domain:d];
-			syslock_unlock(threadLock);
-			return item;
-		}
-	}
-
-	syslock_unlock(threadLock);
-	return nil;
-}
-
-- (LUDictionary *)serviceWithNumber:(int *)number
-	protocol:(char *)prot
-{
-	LUDictionary *item = nil;
-	LUNIDomain *d;
-	unsigned int i, len;
-	LUArray *lookupChain;
-
-	syslock_lock(threadLock);
-	len = [chain[(int)LUCategoryService] count];
-	if (len > 0)
-	{
-		lookupChain = chain[(int)LUCategoryService];
-	}
-	else
-	{
-		lookupChain = globalChain;
-		len = [lookupChain count];
-	}
-
-	for (i = 0; i < len; i++)
-	{
-		d = [lookupChain objectAtIndex:i];
-		item = [d serviceWithNumber:number protocol:prot];
-		if (item != nil)
-		{
-			[self stamp:item domain:d];
-			syslock_unlock(threadLock);
-			return item;
-		}
-	}
-
-	syslock_unlock(threadLock);
-	return nil;
-}
-
 /*
- * Custom lookups 
+ * Custom lookup for security options
+ *
+ * Special case: "all" enables all security options
  */
 - (BOOL)isSecurityEnabledForOption:(char *)option
 {
-	LUNIDomain *d;
-	unsigned int i, len;
+	ni_id dir;
+	ni_status status;
+	unsigned long i, j;
+	ni_namelist nl;
 
-	syslock_lock(threadLock);
-	len = [globalChain count];
-	for (i = 0; i < len; i++)
+	if (option == NULL) return NO;
+
+	dir.nii_object = 0;
+
+	for (i = 0; i < domain_count; i++)
 	{
-		d = [globalChain objectAtIndex:i];
-		if ([d isSecurityEnabledForOption:option])
+		NI_INIT(&nl);
+		syslock_lock(rpcLock);
+		status = ni_lookupprop(domain[i].handle->ni, &dir, "security_options", &nl);
+		syslock_unlock(rpcLock);
+
+		if (status != NI_OK)
 		{
-			syslock_unlock(threadLock);
-			return YES;
+			ni_namelist_free(&nl);
+			continue;
 		}
+
+		for (j = 0; j < nl.ni_namelist_len; j++)
+		{
+			if (streq(nl.ni_namelist_val[j], option) || streq(nl.ni_namelist_val[j], "all"))
+			{
+				ni_namelist_free(&nl);
+				return YES;
+			}
+		}
+
+		ni_namelist_free(&nl);
 	}
 
-	syslock_unlock(threadLock);
-	return NO;
-}
-
-- (BOOL)isNetwareEnabled
-{
-	LUNIDomain *d;
-	unsigned int i, len;
-
-	syslock_lock(threadLock);
-	len = [globalChain count];
-	for (i = 0; i < len; i++)
-	{
-		d = [globalChain objectAtIndex:i];
-		if ([d checkNetwareEnabled])
-		{
-			syslock_unlock(threadLock);
-			return YES;
-		}
-	}
-
-	syslock_unlock(threadLock);
 	return NO;
 }
 

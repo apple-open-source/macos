@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
  */
 
 /*
- * $Id: typemanager.c,v 1.1.1.1 2001/01/25 04:59:56 wsanchez Exp $
+ * $Id: typemanager.c,v 1.1.1.2 2001/07/19 00:20:01 zarzycki Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
@@ -219,19 +219,63 @@ ExceptionType * TypeManager_FindException(/*TypeManager * pTypeManager, */
 	return pException;
 }
 
-/* find an operation in an interface based on case-insensitive name */
-OperationType * InterfaceType_FindOperation(InterfaceType * pInterface, 
-		const char * name)
+
+	
+/* 
+   find an operation in an interface tree, 
+   recursing into inherited interfaces  
+*/
+static CORBA_boolean
+findoperation_recurse( IDL_tree tree, const char *name,
+		       IdlInfo *pIdlInfo )
 {
-	OperationType * pOperation = orbit_new(OperationType);
-	CORBA_boolean success = orbit_find_type(
-			pInterface->mIdlInfo.mType, name, IDLN_OP_DCL, &pOperation->mIdlInfo);
-	if (!success)
-	{
-		orbit_delete(pOperation);
-		pOperation = NULL;
+	IDL_tree inherited;
+	CORBA_boolean success;
+
+	success = orbit_find_type( IDL_INTERFACE(tree).body,
+				   name, IDLN_OP_DCL, 
+				   pIdlInfo );
+	if ( success ) 
+		return CORBA_TRUE;
+
+	for ( inherited = IDL_INTERFACE(tree).inheritance_spec;
+	      inherited != NULL;
+	      inherited = IDL_LIST(inherited).next ) {
+		IDL_tree ident = IDL_LIST(inherited).data;
+		InterfaceType *iface;
+
+		iface = TypeManager_FindInterface( IDL_IDENT(ident).repo_id );
+		success = findoperation_recurse( iface->mIdlInfo.mType, 
+						 name, 
+						 pIdlInfo );
+		orbit_delete( iface );
+
+		if ( success )
+			return CORBA_TRUE;
+
+		zend_error( E_WARNING, "operation %s not found in iface %s\n", 
+			    name, IDL_IDENT(ident).repo_id );
 	}
-	return pOperation;
+
+	return CORBA_FALSE;
+}
+
+/* find an operation in an interface based on case-insensitive name */
+OperationType * InterfaceType_FindOperation( InterfaceType * pInterface, 
+					     const char * name )
+{
+	OperationType *pOperation = orbit_new(OperationType);
+	IDL_tree tree = pInterface->mIdlInfo.mType;
+	CORBA_boolean success;
+
+	success = findoperation_recurse( tree, name, 
+					 &pOperation->mIdlInfo );
+	
+	if ( success )
+		return pOperation;
+
+	orbit_delete(pOperation);
+	return NULL;
 }
 
 /* find an attribute in an interface based on case-insensitive name */

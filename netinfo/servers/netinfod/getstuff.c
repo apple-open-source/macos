@@ -62,6 +62,12 @@
 
 #define NAME_LOCAL_BIND_ATTEMPTS "localBindAttempts"
 
+#define NAME_PORT "port"
+#define NAME_PORT_TCP "tcp_port"
+#define NAME_PORT_UDP "udp_port"
+
+static ni_status binding_status = NI_FAILED;
+
 /*
  * Lookup "name"s address - returns it in net format
  */
@@ -237,6 +243,48 @@ static int network_match(struct in_addr n, struct in_addr h)
 
 	if (net.s_byte[2] != host.s_byte[2]) return (0);
 	return (1);
+}
+
+bool_t is_desktop(void *ni)
+{
+	ni_id root;
+	int i;
+	bool_t d;
+	ni_namelist nl;
+	ni_status status;
+
+	status = ni_root(ni, &root);
+	if (status != NI_OK)
+	{
+		system_log(LOG_ERR,
+			"trusted_networks for tag %s: cannot get root - %s",
+			ni_tagname(ni), ni_error(status));
+		return TRUE;
+	}
+
+	NI_INIT(&nl);
+	if (ni_lookupprop(ni, &root, NAME_TRUSTED_NETWORKS, &nl) != NI_OK)
+	{
+		/*  Property doesn't exist, so we allow external connections */
+		return FALSE;
+	}
+
+	if (nl.ni_namelist_len == 0)
+	{
+		/* Empty trusted_networks: no network connections */
+		ni_namelist_free(&nl);
+		return TRUE;
+	}
+
+	/* Check for any non-loopback entries */
+	d = TRUE;
+	for (i = 0; (i < nl.ni_namelist_len) && (d == 1); i++)
+	{
+		if (!strncmp(nl.ni_namelist_val[i], "127", 3)) continue;
+		d = FALSE;
+	}
+
+	return d;
 }
 
 int is_trusted_network(void *ni, struct sockaddr_in *host)
@@ -565,3 +613,43 @@ get_sanitycheck(void *ni)
 {
 	return get_boolForKey(ni, NAME_SANITYCHECK, FALSE);
 }
+
+unsigned short
+get_port(void *ni, char *proto)
+{
+	unsigned short p;
+
+	if (proto == NULL)
+	{
+		p = get_intForKey(ni, NAME_PORT, 0, 0, 65535);
+		return p;
+	}
+
+	if (!strcmp(proto, "tcp"))
+	{
+		p = get_intForKey(ni, NAME_PORT_TCP, 0, 0, 65535);
+		if (p != 0) return p;
+	}
+	else if (!strcmp(proto, "udp"))
+	{
+		p = get_intForKey(ni, NAME_PORT_UDP, 0, 0, 65535);
+		if (p != 0) return p;
+	}
+	else return 0;
+
+	p = get_intForKey(ni, NAME_PORT, 0, 0, 65535);
+	return p;
+}
+
+ni_status
+get_binding_status(void)
+{
+	return binding_status;
+}
+
+void
+set_binding_status(ni_status stat)
+{
+	binding_status = stat;
+}
+	

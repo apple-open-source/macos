@@ -33,7 +33,7 @@ Additionally the source code from the tarball will need to be copied onto an MVS
 (later referred to simply as "Open Edition") for compiling.
 So here are all the details on how to get Apache and how to get it where it needs to be:
 <ol>
-   <li><A HREF="http://www.apache.org/dist/">Download</A>
+   <li><A HREF="http://www.apache.org/dist/httpd/">Download</A>
        the gzipped Apache files (the "tarball") to your PC.
        The file name on the web site will be something like <i>apache_1.3.x.tar.gz</i>.
        <br><font color=red size=4>TIP: </font>Be sure to keep the <i>.tar.gz</i> extension
@@ -132,7 +132,7 @@ are case sensitive, and must be made from the "src" directory.
     group.  Additional modules contributed by members or third parties with specific
     needs or functions are available at
     <A 
-HREF="http://www.apache.org/dist/contrib/modules/">http://www.apache.org/dist/contrib/modules/</A>.
+HREF="http://www.apache.org/dist/httpd/contrib/modules/">http://www.apache.org/dist/httpd/contrib/modules/</A>.
     There are instructions on that page for linking these modules into the core Apache
     code.
     <BR><BR>
@@ -226,7 +226,7 @@ HREF="http://www.apache.org/dist/contrib/modules/">http://www.apache.org/dist/co
     The default behavior is to let Apache check the server status (active/inactive) with ZINET
     and shut itself down when appropriate.  This default behavior also includes checking the activation number.
     ZINET can now perform these functions instead of Apache by using the DAEMON model
-    <i>(PUT12 with APARs PJ25761 &amp; PJ27363 required).</i>
+    <i>(PUT11 with APARs PJ25761 &amp; PJ27363 required).</i>
     This model offers increased reliability and is preferred over the NOLISTEN model.
     If Apache goes down while running under the NOLISTEN model, ZINET will not reactivate it nor alert
     the operator.<br><br>
@@ -313,6 +313,17 @@ HREF="http://www.apache.org/dist/contrib/modules/">http://www.apache.org/dist/co
 
     ZINET ADD S-APACHE PGM-<EM>pppp</EM> MODEL-NOLISTEN
     or ZINET ADD S-APACHE PGM-<EM>pppp</EM> MODEL-DAEMON USER-root <A HREF="#daemon">(see notes above regarding the DAEMON model)</A></PRE>
+
+    <font color=red size=4>TIP: </font>Logic changes implemented with
+    PUT11 cause ZINET to <em>not</em> restart NOLISTEN servers after
+    <tt>ZOLDR ACT</tt> and <tt>ZOLDR DEACT</tt> entries.
+    This means that Apache running as NOLISTEN on a PUT11 or later
+    system will exit whenever any <tt>ZOLDR ACT</tt> or
+    <tt>ZOLDR DEACT</tt> entry is made.  Therefore at PUT11 you should
+    switch to the DAEMON model and ensure that you have APARs PJ25761
+    and PJ27363 applied.
+  <br><br>
+
   Please refer to <EM>IBM Transaction Processing Facility Transmission Control
   Protocol/Internet Protocol Version 4 Release 1</EM> for more information
   on ZCLAW, INETD, and TFTP.

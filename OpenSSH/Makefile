@@ -9,9 +9,9 @@ Project               = openssh
 ProjectName           = OpenSSH
 UserType              = Administrator
 ToolType              = Services
-Extra_CC_Flags        = -Wno-precomp -Dcrc32=crcsum32 # crc32() symbol conflicts with zlib (!)
+Extra_CC_Flags        = -no-cpp-precomp -Dcrc32=crcsum32 # crc32() symbol conflicts with zlib (!)
 Extra_LD_Flags        = -L. -Lopenbsd-compat
-Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/local/include/openssl
+Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/local/include/openssl --with-random=/dev/urandom
 Extra_Install_Flags   = sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 
 GnuAfterInstall = install-startup-item

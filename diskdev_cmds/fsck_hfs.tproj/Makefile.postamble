@@ -104,7 +104,11 @@ FSCK_STRINGFILE = fsck.strings
 
 after_install:
 	mkdir -p $(DSTROOT)$(HFS_INSTALLDIR)/Contents/Resources/English.lproj
-	awk -f makestrings strings.c > $(DSTROOT)$(HFS_INSTALLDIR)/Contents/Resources/English.lproj/$(FSCK_STRINGFILE)
+	#awk -f makestrings strings.c > $(DSTROOT)$(HFS_INSTALLDIR)/Contents/Resources/English.lproj/$(FSCK_STRINGFILE)
+	#FIXME	The above line was commented out and the line below added to work around a non-unicode strings file
+	#FIXME	verification failure.  The correct fix is to fix the above line so that fsck.strings is converted
+	#FIXME	to unicode when it is generated.  The workaround is to install a freeze-dried version of fsck.strings
+	cp $(FSCK_STRINGFILE) $(DSTROOT)$(HFS_INSTALLDIR)/Contents/Resources/English.lproj/$(FSCK_STRINGFILE)
 	chown -Rf root:wheel $(DSTROOT)$(HFS_INSTALLDIR)/Contents
 	find $(DSTROOT)$(HFS_INSTALLDIR)/Contents -type d -exec chmod 755 {} \;
 	find $(DSTROOT)$(HFS_INSTALLDIR)/Contents -type f -exec chmod 644 {} \;

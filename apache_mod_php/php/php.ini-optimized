@@ -57,6 +57,10 @@ output_handler		=		; You can redirect all of the output of your scripts to a fun
 							; will be transparently compressed for browsers that support gzip or
 							; deflate encoding.  Setting an output handler automatically turns on
 							; output buffering.
+zlib.output_compression = Off	; Transparent output compression using the zlib library
+								; Valid values for this option are 'off', 'on', or a specific buffer size
+								; to be used for compression (default is 4KB)
+
 implicit_flush		= Off	; Implicit flush tells PHP to tell the output layer to flush itself
 							; automatically after every output block.  This is equivalent to
 							; calling the PHP function flush() after each and every call to print()
@@ -178,6 +182,14 @@ warn_plus_overloading	=	Off		; warn if the + operator is used with strings
 ;;;;;;;;;;;;;;;;;
 ; Data Handling ;
 ;;;;;;;;;;;;;;;;;
+
+;arg_separator.output = "&amp;"	; The separator used in PHP generated URLs to separate arguments.
+								; Default is "&".
+
+;arg_separator.input = ";&"		; List of separator(s) used by PHP to parse input URLs into variables.
+								; Default is "&". 
+								; NOTE: Every character in this directive is considered as separator!                 
+
 variables_order		=	"GPCS"	; This directive describes the order in which PHP registers
 								; GET, POST, Cookie, Environment and Built-in variables (G, P,
 								; C, E & S respectively, often referred to as EGPCS or GPC).
@@ -237,7 +249,8 @@ upload_max_filesize = 2M		    ; Maximum allowed size for uploaded files
 ;;;;;;;;;;;;;;;;;;
 ; Fopen wrappers ;
 ;;;;;;;;;;;;;;;;;;
-allow_url_fopen = On                ; Wheter to allow trating URLs like http:... or ftp:... like files
+allow_url_fopen = On                ; Whether to allow the treatment of URLs (like http:// or ftp://) as files
+;from="john@doe.com"                ; Define the anonymous ftp password (your email address)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -279,8 +292,7 @@ allow_url_fopen = On                ; Wheter to allow trating URLs like http:...
 ;extension=php_java.dll
 ;extension=php_ldap.dll
 ;extension=php_mhash.dll
-;extension=php_mssql65.dll
-;extension=php_mssql70.dll
+;extension=php_mssql.dll
 ;extension=php_oci8.dll
 ;extension=php_openssl.dll
 ;extension=php_oracle.dll
@@ -489,6 +501,13 @@ pfpro.defaulttimeout		=	30	; default timeout in seconds
 [Sockets]
 sockets.use_system_read		=	Off	; Use the system read() function instead of
 						; the php_read() wrapper.
+[com]
+;com.typelib_file = 				; path to a file containing GUIDs, IIDs or filenames of files with TypeLibs
+;com.allow_dcom			=	true	; allow Distributed-COM calls
+
+[Printer]
+;printer.default_printer = ""
+
 ; Local Variables:
 ; tab-width: 4
 ; End:

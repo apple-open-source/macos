@@ -30,6 +30,9 @@
    within structs.  */
 #define MASK_ALIGN_MAC68K	0x200000
 #define TARGET_ALIGN_MAC68K	(target_flags & MASK_ALIGN_MAC68K)
+/* Compatibility mode with Mac OS X release 1.0.   */
+#define MASK_ALIGN_MACOSX1	0x400000
+#define TARGET_ALIGN_MACOSX1	(target_flags & MASK_ALIGN_MACOSX1)
 
 /* Macros related to the switches which enable or disable generation
    of code that assumes that functions that are called by name can be
@@ -42,6 +45,8 @@
   {"no-align-mac68k",	- MASK_ALIGN_MAC68K},				\
   {"align-power",	- MASK_ALIGN_MAC68K},				\
   {"no-align-power",	MASK_ALIGN_MAC68K},				\
+  {"align-macosx1",	MASK_ALIGN_MACOSX1},				\
+  {"no-align-macosx1",	- (MASK_ALIGN_MAC68K | MASK_ALIGN_MACOSX1)},	\
   {"long-branch",	MASK_LONG_BRANCH},				\
   {"no-long-branch",	- MASK_LONG_BRANCH},
 
@@ -339,7 +344,7 @@ extern void apple_output_ascii ();
 
 #undef  ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-{ ASM_OUTPUT_ALIGN (FILE, 1); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
+{ ASM_OUTPUT_ALIGN (FILE, 2); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -382,7 +387,8 @@ extern char *language_string;
   (! symbolic_operand (X)		\
    || machopic_operand_p (X)		\
    || ((GET_CODE(X) == SYMBOL_REF) &&	\
-       (SYMBOL_REF_FLAG(X) || !strcmp (language_string, "GNU C++"))))
+       (SYMBOL_REF_FLAG(X) || !strcmp (language_string, "GNU C++") \
+       || !strcmp (language_string, "GNU Obj-C++"))))
 
 /* Output before instructions.  */
 
@@ -428,10 +434,6 @@ extern char *language_string;
 #define ASM_OUTPUT_FLOAT(FILE,VALUE)		\
   fprintf (FILE, "\t.single 0d%.20e\n", (VALUE))
 
-/* Not clear if we need to override ASM_OUTPUT_ADDR_VEC_ELT and 
- * ASM_OUTPUT_ADDR_DIFF_ELT from rs6000.h as was done in cc-218.
- */
-
 /* For AltiVec, BIGGEST_ALIGNMENT is 128.
    ROUND_TYPE_ALIGN is required for doubleword alignment of
    structures which have a 'double' as their first member.
@@ -449,29 +451,56 @@ extern int flag_altivec;
    <tur29May99> Make ADJUST_FIELD_ALIGN align on 16-byte boundary
                 when we've got a vector. 
    <tur15Jul99> Because of the kernel 32-bit alignment problems, only
-		align vector fields to COMPUTED, otherwise 32-bits.  */
-
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-              ? get_inner_array_type (FIELD) \
-              : TREE_TYPE (FIELD)) == SVmode \
-   ? (COMPUTED) : MIN ((COMPUTED), 32))
+		align vector fields to COMPUTED, otherwise 32-bits. 
+   <FF27Jun01>  Simplified in alignment clean up.  */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)		\
+  (((COMPUTED) == RS6000_VECTOR_ALIGNMENT)		\
+   ? RS6000_VECTOR_ALIGNMENT				\
+   : MIN ((COMPUTED), 32))
 
 #undef ROUND_TYPE_ALIGN
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.
-   <tur28May99> adjusted so vectors are similarly treated (a la MrC.) */
+   <tur28May99> Adjusted so vectors are similarly treated (a la MrC.)
+   <FF27Jun01>  Fixed many incompatibilities with OS 9 alignment  */
+
+extern int round_type_align (union tree_node*, int, int); /* macosx.c  */
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && (DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode 	\
-    || DECL_MODE (TYPE_FIELDS (STRUCT)) == SVmode)	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)),		\
-	((DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode) ? \
-		RS6000_DOUBLE_ALIGNMENT : RS6000_VECTOR_ALIGNMENT)) \
-   : MAX ((COMPUTED), (SPECIFIED)))
+  round_type_align(STRUCT, COMPUTED, SPECIFIED)
+
+/* For stor-layout.c : no matter what MAXIMUM_FIELD_ALIGNMENT is set to,
+   vectors *MUST* have 128-bit alignment.  */
+
+#define __PIN_ALIGN_TO_MAX(DESIRED)			\
+	(((DESIRED) == RS6000_VECTOR_ALIGNMENT) ? RS6000_VECTOR_ALIGNMENT : \
+		MIN ((DESIRED), (unsigned) maximum_field_alignment))
+ 
+/* Define to add warnings for mismatched alignment and sizes of records using
+   the new rules and the older OS X 10.0.x rules.  */
+
+#define APPLE_ALIGN_CHECK
+#ifdef APPLE_ALIGN_CHECK
+/* warn_osx1_size_align - 1: warn about struct size changes,
+			  2: warn about field alignment changes.  */
+extern int warn_osx1_size_align;
+extern unsigned get_type_size_as_int (const union tree_node *);
+extern int type_has_different_size_in_osx1 (const union tree_node *);
+extern const char *get_type_name_string (const union tree_node *);
+extern void apple_align_check (union tree_node *rec, unsigned const_size,
+			int osx1_size_delta, union tree_node *var_size);
+#endif
+/* Optional warnings for sub-optimal field alignment.  For OS X, misaligned
+   floating point fields will cause horrendously expensive kernel traps.  */
+
+#define WARN_POOR_FIELD_ALIGN(FIELD, ALIGN)				\
+	do {								\
+	  tree t = (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE)	\
+		? get_inner_array_type (FIELD) : TREE_TYPE (FIELD);	\
+	  if ((TYPE_MODE (t) == SFmode && ALIGN % 32 != 0)		\
+	     || (TYPE_MODE (t) == DFmode && ALIGN % 32 != 0))		\
+	    warning_with_decl (FIELD, "`%s' has non-optimal alignment"	\
+		" (%d bytes, should be 4)", (ALIGN % 32) / 8);		\
+	} while (0)
 
 
 #define RELOAD_PIC_REGISTER reload_ppc_pic_register()
@@ -582,6 +611,66 @@ extern void machopic_define_decl (); /* machopic.c  */
   case CONST_DOUBLE:						\
     return 0;
 
+/* If no code is generated for the exception_receiver or 
+   nonlocal_goto_receiver patterns, don't bother emitting them; this
+   results in a much nicer jump optimiser pass.  */
+
+#define NO_EH_RECEIVER_CODE_NECESSARY_P()	(flag_pic)
+
+#define EH_CLEANUPS_SEPARATE_SECTION
+
+/* 01Jul2001: Attempt to get EH cleanup code in a separate section.
+   I now do this by adding extra note types.  */
+
+#ifdef EH_CLEANUPS_SEPARATE_SECTION
+
+#define EXTRA_NOTE_NAMES	, "NOTE_INSN_EH_CLEANUP_BEG",		\
+				  "NOTE_INSN_EH_CLEANUP_END"
+
+/* rtl.h: NOTE_INSN_BASIC_BLOCK is -20.  */
+#define NOTE_INSN_EH_CLEANUP_BEG	-21
+#define NOTE_INSN_EH_CLEANUP_END	-22
+
+#define NOTE_EH_CLEANUP_BEG_P(INSN)					\
+	(GET_CODE (INSN) == NOTE					\
+	 && NOTE_LINE_NUMBER (INSN) == NOTE_INSN_EH_CLEANUP_BEG)
+#define NOTE_EH_CLEANUP_END_P(INSN)					\
+	(GET_CODE (INSN) == NOTE					\
+	 && NOTE_LINE_NUMBER (INSN) == NOTE_INSN_EH_CLEANUP_END)
+
+extern void prune_and_graft_eh_cleanup_info ();
+
+/* rs6000_reorg is not used anymore.  */
+#undef MACHINE_DEPENDENT_REORG
+#define MACHINE_DEPENDENT_REORG(INSNS)	prune_and_graft_eh_cleanup_info (INSNS)
+
+/* Used in final_scan_insn ().  */
+extern const char begin_apple_cleanup_section_name_tag[],
+		  end_apple_cleanup_section_name_tag[];
+
+#define PREPROCESS_INTERNAL_LABEL(FILE, LABEL)				\
+  do {									\
+    if (flag_separate_eh_cleanup_section) {				\
+      const char *name = LABEL_NAME (LABEL);				\
+      if (name == begin_apple_cleanup_section_name_tag			\
+	  || name == end_apple_cleanup_section_name_tag)		\
+	handle_eh_tagged_label (FILE, LABEL);				\
+    }									\
+  } while (0)
+
+/* Deliberately screw up shorten-branches if we're in a different section.  */
+#define EH_LABEL_ALIGN_VALUE	15
+#define LABEL_ALIGN(LABEL)						\
+	((LABEL_NAME (LABEL) == begin_apple_cleanup_section_name_tag)	\
+		? get_eh_label_align_value (LABEL) : 0)
+
+#undef ASM_OUTPUT_ALIGN
+#define ASM_OUTPUT_ALIGN(FILE,LOG)					\
+  if ((LOG) != 0 && (LOG) != EH_LABEL_ALIGN_VALUE)			\
+    fprintf (FILE, "\t.align %d\n", (LOG))   
+
+#endif	/* EH_CLEANUPS_SEPARATE_SECTION  */
+
 /* Mach-O PPC DWARF2 exception-handling support.  */
 
 #ifdef DWARF2_UNWIND_INFO
@@ -597,29 +686,50 @@ extern void machopic_define_decl (); /* machopic.c  */
 /* Mark R13-31,F14-F31,CR2-CR4,LR,V20-V31,VRSAVE as requiring preservation.
    Mark R0-R12,F0-F13,CR0-CR1,CR5-CR7,V0-V19 as initially undefined.
 
+   26Apr01: Mark CR5 (reg 73) as requiring preservation.  It's not supposed
+   to be used.
+
    I am unsure what to do about FLAG_ALTIVEC for now -- is it possible to
-   only mention vector regs when it's turned on?  */
+   mention vector regs here only when it's on? (tur01Jul2001: Apparently.)  */
 
 #define DWARF2_TARGET_CALLING_CONVENTION()			\
 	{							\
 	  dwarf2out_same_value_regs (NULL, 13, 31);		\
 	  dwarf2out_same_value_regs (NULL, 46, 63);		\
-	  dwarf2out_same_value_regs (NULL, 70, 72);		\
+	  dwarf2out_same_value_regs (NULL, 70, 73);		\
 	  dwarf2out_same_value_regs (NULL, 65, 65);		\
-	  if (1 || flag_altivec) {				\
-	    dwarf2out_same_value_regs (NULL, 98, 109);		\
+	  if (flag_altivec) {					\
 	    dwarf2out_same_value_regs (NULL, 77, 77);		\
+	    dwarf2out_same_value_regs (NULL, 98, 109);		\
 	  }							\
 	  dwarf2out_undefined_regs (NULL, 0, 12);		\
 	  dwarf2out_undefined_regs (NULL, 32, 45);		\
 	  dwarf2out_undefined_regs (NULL, 68, 69);		\
-	  dwarf2out_undefined_regs (NULL, 73, 75);		\
+	  dwarf2out_undefined_regs (NULL, 74, 75);		\
 	  if (!TARGET_POWERPC)	/* MQ  */			\
 	    dwarf2out_undefined_regs (NULL, 64, 64);		\
-	  if (1 || flag_altivec)				\
+	  if (flag_altivec)					\
 	    dwarf2out_undefined_regs (NULL, 78, 97);		\
 	  dwarf2out_def_cfa (NULL, 1, RS6000_DEF_CFA_FRAMESIZE);\
 	}
+
+/* TARGET_EH_REG_SET_P should return 1 if REG, being restored from a stack
+   frame during exception unwinding, requires treatment other than just being
+   copied up to the caller's frame or set immediately.  Altivec's VRsave is
+   just such a reg as the caller may not have a stack slot, and there is no
+   mechanism for gcc to get or set it.  (It's only ever set/restored in
+   prologs and epilogs.)
+
+   DO_TARGET_EH_REG_SET should actually do the copy, setting REG immediately.
+   Is there an interrupt window problem here?  */
+   
+#define TARGET_EH_REG_SET_P(REG)	((REG) == 77)
+#define DO_TARGET_EH_REG_SET(REG, MEMADDR)			\
+	do {							\
+	  unsigned long vrs = *(unsigned long *)(MEMADDR);	\
+	  if ((REG) != 77) abort ();				\
+	  asm ("mtspr VRsave,%0" : /*NOOUTPUTS*/ : "r" (vrs));	\
+	} while (0)
 
 /* This vile hack checks if the opcode at PC+LEN-4 is a 'blr'.  Ugh.    
    It's how we determine which FDE table goes with a particular coalesced

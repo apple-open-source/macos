@@ -29,12 +29,13 @@
  * Written by Marc Majka
  */
 
+
 #import "Config.h"
 #import "NIAgent.h"
 #import "FFParser.h"
-#import "LUNIDomain.h"
 #import "sys.h"
 #import <NetInfo/dsutil.h>
+#import <NetInfo/nilib2.h>
 #import <string.h>
 #import <stdlib.h>
 #import <sys/types.h>
@@ -87,6 +88,7 @@ configd_running()
 	[d setValue:"default" forKey:"ConfigSource"];
 	[d setValue:"CacheAgent" forKey:"LookupOrder"];
 	[d addValue:"NIAgent" forKey:"LookupOrder"];
+	[d addValue:"DSAgent" forKey:"LookupOrder"];
 	[d setValue:"16" forKey:"MaxThreads"];
 	[d setValue:"16" forKey:"MaxIdleThreads"];
 	[d setValue:"16" forKey:"MaxIdleServers"];
@@ -103,6 +105,7 @@ configd_running()
 	[d setValue:"CacheAgent" forKey:"LookupOrder"];
 	[d addValue:"DNSAgent" forKey:"LookupOrder"];
 	[d addValue:"NIAgent" forKey:"LookupOrder"];
+	[d addValue:"DSAgent" forKey:"LookupOrder"];
 	[d release];
 
 	d = [[LUDictionary alloc] init];
@@ -120,6 +123,7 @@ configd_running()
 	[d setValue:"CacheAgent" forKey:"LookupOrder"];
 	[d addValue:"DNSAgent" forKey:"LookupOrder"];
 	[d addValue:"NIAgent" forKey:"LookupOrder"];
+	[d addValue:"DSAgent" forKey:"LookupOrder"];
 	[d release];
 
 	d = [[LUDictionary alloc] init];
@@ -133,6 +137,9 @@ configd_running()
 - (void)dealloc
 {
 	[cdict release];
+	if (sourcePath != NULL) free(sourcePath);
+	if (sourceDomainName != NULL) free(sourceDomainName);
+	
 	[super dealloc];
 }
 
@@ -170,34 +177,35 @@ configd_running()
 	ni_proplist_free(&pl);
 }
 
-- (LUDictionary *)configWithName:(char *)dname
+- (LUDictionary *)configWithName:(char *)dname fromConfig:(LUArray *)c
 {
 	int i, len;
 	LUDictionary *d;
 
-	len = [cdict count];
+	len = [c count];
 	for (i = 0; i < len; i++)
 	{
-		d = [cdict objectAtIndex:i];
-		if (streq(dname, [d banner])) return [d retain];
+		d = [c objectAtIndex:i];
+		if (streq(dname, [d banner])) return d;
 	}
 
 	return nil;
 }
 
-- (LUDictionary *)dictForAgent:(char *)agent category:(LUCategory)cat
+- (LUDictionary *)dictForAgent:(char *)agent category:(LUCategory)cat fromConfig:(LUArray *)c
 {
 	char *dname;
 	LUDictionary *d;
 
 	dname = [self configDirNameForAgent:agent category:cat];
-	d = [self configWithName:dname];
+	d = [self configWithName:dname fromConfig:c];
 	if (d == nil)
 	{
 		d = [[LUDictionary alloc] init];
 		[d setBanner:dname];
 		[d setValue:dname forKey:"_config_name"];
-		[cdict addObject:d];
+		[c addObject:d];
+		[d release];
 	}
 	freeString(dname);
 
@@ -215,9 +223,8 @@ configd_running()
 
 	dir.nii_object = d;
 
-	c = [self dictForAgent:agent category:LUCategoryNull];
+	c = [self dictForAgent:agent category:LUCategoryNull fromConfig:cdict];
 	[self readDict:c fromNetInfo:d];
-	[c release];
 
 	NI_INIT(&el);
 
@@ -241,37 +248,33 @@ configd_running()
 		c = nil;
 
 		if (streq(name, "users"))
-			c = [self dictForAgent:agent category:LUCategoryUser];
+			c = [self dictForAgent:agent category:LUCategoryUser fromConfig:cdict];
 		else if (streq(name, "groups"))
-			c = [self dictForAgent:agent category:LUCategoryGroup];
+			c = [self dictForAgent:agent category:LUCategoryGroup fromConfig:cdict];
 		else if (streq(name, "hosts"))
-			c = [self dictForAgent:agent category:LUCategoryHost];
+			c = [self dictForAgent:agent category:LUCategoryHost fromConfig:cdict];
 		else if (streq(name, "networks"))
-			c = [self dictForAgent:agent category:LUCategoryNetwork];
+			c = [self dictForAgent:agent category:LUCategoryNetwork fromConfig:cdict];
 		else if (streq(name, "services"))
-			c = [self dictForAgent:agent category:LUCategoryService];
+			c = [self dictForAgent:agent category:LUCategoryService fromConfig:cdict];
 		else if (streq(name, "protocols"))
-			c = [self dictForAgent:agent category:LUCategoryProtocol];
+			c = [self dictForAgent:agent category:LUCategoryProtocol fromConfig:cdict];
 		else if (streq(name, "rpcs"))
-			c = [self dictForAgent:agent category:LUCategoryRpc];
+			c = [self dictForAgent:agent category:LUCategoryRpc fromConfig:cdict];
 		else if (streq(name, "mounts"))
-			c = [self dictForAgent:agent category:LUCategoryMount];
+			c = [self dictForAgent:agent category:LUCategoryMount fromConfig:cdict];
 		else if (streq(name, "printers"))
-			c = [self dictForAgent:agent category:LUCategoryPrinter];
+			c = [self dictForAgent:agent category:LUCategoryPrinter fromConfig:cdict];
 		else if (streq(name, "bootparams"))
-			c = [self dictForAgent:agent category:LUCategoryBootparam];
+			c = [self dictForAgent:agent category:LUCategoryBootparam fromConfig:cdict];
 		else if (streq(name, "bootp"))
-			c = [self dictForAgent:agent category:LUCategoryBootp];
+			c = [self dictForAgent:agent category:LUCategoryBootp fromConfig:cdict];
 		else if (streq(name, "aliases"))
-			c = [self dictForAgent:agent category:LUCategoryAlias];
+			c = [self dictForAgent:agent category:LUCategoryAlias fromConfig:cdict];
 		else if (streq(name, "netgroups"))
-			c = [self dictForAgent:agent category:LUCategoryNetgroup];
+			c = [self dictForAgent:agent category:LUCategoryNetgroup fromConfig:cdict];
 
-		if (c != nil)
-		{
-			[self readDict:c fromNetInfo:el.ni_entrylist_val[i].id];
-			[c release];
-		}
+		if (c != nil) [self readDict:c fromNetInfo:el.ni_entrylist_val[i].id];
 	}
 
 	ni_entrylist_free(&el);
@@ -313,11 +316,10 @@ configd_running()
 	status = ni_addrtag(sourceDomain, &serveraddr, &servertag);
 	syslock_unlock(rpcLock);
 
-	c = [self dictForAgent:NULL category:LUCategoryNull];
+	c = [self dictForAgent:NULL category:LUCategoryNull fromConfig:cdict];
 	sprintf(str, "netinfo://%s/%s:%s", inet_ntoa(serveraddr.sin_addr), servertag, sourcePath);
 	[c setValue:str forKey:"ConfigSource"];
 	free(servertag);
-	[c release];
 
 	sprintf(str, "%s/agents", sourcePath);
 
@@ -329,6 +331,7 @@ configd_running()
 	{
 		ni_free(sourceDomain);
 		sourceDomain = NULL;
+		if (status == NI_NODIR) return YES;
 		return NO;
 	}
 
@@ -426,40 +429,39 @@ configd_running()
 		else if (streq(d->d_name, "..")) continue;
 
 		else if (streq(d->d_name, "global"))
-			c = [self dictForAgent:agent category:LUCategoryNull];
+			c = [self dictForAgent:agent category:LUCategoryNull fromConfig:cdict];
 		else if (streq(d->d_name, "users"))
-			c = [self dictForAgent:agent category:LUCategoryUser];
+			c = [self dictForAgent:agent category:LUCategoryUser fromConfig:cdict];
 		else if (streq(d->d_name, "groups"))
-			c = [self dictForAgent:agent category:LUCategoryGroup];
+			c = [self dictForAgent:agent category:LUCategoryGroup fromConfig:cdict];
 		else if (streq(d->d_name, "hosts"))
-			c = [self dictForAgent:agent category:LUCategoryHost];
+			c = [self dictForAgent:agent category:LUCategoryHost fromConfig:cdict];
 		else if (streq(d->d_name, "networks"))
-			c = [self dictForAgent:agent category:LUCategoryNetwork];
+			c = [self dictForAgent:agent category:LUCategoryNetwork fromConfig:cdict];
 		else if (streq(d->d_name, "services"))
-			c = [self dictForAgent:agent category:LUCategoryService];
+			c = [self dictForAgent:agent category:LUCategoryService fromConfig:cdict];
 		else if (streq(d->d_name, "protocols"))
-			c = [self dictForAgent:agent category:LUCategoryProtocol];
+			c = [self dictForAgent:agent category:LUCategoryProtocol fromConfig:cdict];
 		else if (streq(d->d_name, "rpcs"))
-			c = [self dictForAgent:agent category:LUCategoryRpc];
+			c = [self dictForAgent:agent category:LUCategoryRpc fromConfig:cdict];
 		else if (streq(d->d_name, "mounts"))
-			c = [self dictForAgent:agent category:LUCategoryMount];
+			c = [self dictForAgent:agent category:LUCategoryMount fromConfig:cdict];
 		else if (streq(d->d_name, "printers"))
-			c = [self dictForAgent:agent category:LUCategoryPrinter];
+			c = [self dictForAgent:agent category:LUCategoryPrinter fromConfig:cdict];
 		else if (streq(d->d_name, "bootparams"))
-			c = [self dictForAgent:agent category:LUCategoryBootparam];
+			c = [self dictForAgent:agent category:LUCategoryBootparam fromConfig:cdict];
 		else if (streq(d->d_name, "bootp"))
-			c = [self dictForAgent:agent category:LUCategoryBootp];
+			c = [self dictForAgent:agent category:LUCategoryBootp fromConfig:cdict];
 		else if (streq(d->d_name, "aliases"))
-			c = [self dictForAgent:agent category:LUCategoryAlias];
+			c = [self dictForAgent:agent category:LUCategoryAlias fromConfig:cdict];
 		else if (streq(d->d_name, "netgroups"))
-			c = [self dictForAgent:agent category:LUCategoryNetgroup];
+			c = [self dictForAgent:agent category:LUCategoryNetgroup fromConfig:cdict];
 
 		if (c != nil)
 		{
 			sprintf(str, "%s/%s", path, d->d_name);
 			f = fopen(str, "r");
 			[self readDict:c fromFile:f];
-			[c release];
 			fclose(f);
 		}
 	}
@@ -476,15 +478,14 @@ configd_running()
 
 	[self loadAgent:NULL fromFile:sourcePath];
 
-	c = [self dictForAgent:NULL category:LUCategoryNull];
+	c = [self dictForAgent:NULL category:LUCategoryNull fromConfig:cdict];
 	sprintf(str, "file:/%s", sourcePath);
 	[c setValue:str forKey:"ConfigSource"];
-	[c release];
 
 	sprintf(str, "%s/agents", sourcePath);
 
 	dir = opendir(str);
-	if (dir == NULL) return NO;
+	if (dir == NULL) return YES;
 
 	for (d = readdir(dir); d != NULL; d = readdir(dir))
 	{
@@ -528,10 +529,11 @@ configd_running()
  */
 - (void)selectConfigSource
 {
-	ni_status status;
 	void *d;
 	ni_id nid;
 	struct stat st;
+	BOOL found;
+	NIAgent *ni;
 
 	source = configSourceDefault;
 	if (sourcePath != NULL) freeString(sourcePath);
@@ -559,25 +561,33 @@ configd_running()
 		}
 	}
 
+#ifndef WE_DONT_NEED_NO_STINKING_NETINFO
+	ni = [[NIAgent alloc] init];
+
 	/* Check netinfo:/config/lookupd */
-	status = [NIAgent findDirectory:"/config/lookupd" domain:&d nidir:&nid];
-	if (status == NI_OK)
+	found = [ni findDirectory:"/config/lookupd" domain:&d nidir:&nid];
+	if (found)
 	{
 		source = configSourceNetInfo;
 		sourcePath = copyString("/config/lookupd");
-		sourceDomain = d;
+		ni_open(d, ".", &sourceDomain);
+		[ni release];
 		return;
 	}
 
 	/* Check netinfo:/locations/lookupd */
-	status = [NIAgent findDirectory:"/locations/lookupd" domain:&d nidir:&nid];
-	if (status == NI_OK)
+	found = [ni findDirectory:"/locations/lookupd" domain:&d nidir:&nid];
+	if (found)
 	{
 		source = configSourceNetInfo;
 		sourcePath = copyString("/locations/lookupd");
-		sourceDomain = d;
+		ni_open(d, ".", &sourceDomain);
+		[ni release];
 		return;
 	}
+
+	[ni release];
+#endif
 }
 
 - (BOOL)setConfigSource:(int)src path:(char *)path domain:(char *)domain
@@ -585,6 +595,14 @@ configd_running()
 	if (didSetConfig) return NO;
 
 	didSetConfig = YES;
+	
+	if (initsource == configSourceAutomatic) initsource = src;
+
+	if (sourcePath != NULL) freeString(sourcePath);
+	sourcePath = copyString(path);
+
+	if (sourceDomainName != NULL) freeString(sourceDomainName);
+	sourceDomainName = copyString(domain);
 
 	if (src == configSourceDefault) return YES;
 
@@ -595,12 +613,12 @@ configd_running()
 	else
 	{
 		source = src;
-		if (sourcePath != NULL) freeString(sourcePath);
-		sourcePath = copyString(path);
 
 		if (domain != NULL)
 		{
-			sourceDomain = [LUNIDomain handleForName:domain];
+			syslock_lock(rpcLock);
+			sourceDomain = niHandleForName(domain);
+			syslock_unlock(rpcLock);
 		}
 	}
 
@@ -612,31 +630,31 @@ configd_running()
 	return [cdict retain];
 }
 
-- (LUDictionary *)configForAgent:(char *)agent category:(LUCategory)cat
+- (LUDictionary *)configForAgent:(char *)agent category:(LUCategory)cat fromConfig:(LUArray *)c
 {
 	char *dname;
 	LUDictionary *d;
 
 	dname = [self configDirNameForAgent:agent category:cat];
-	d = [self configWithName:dname];
+	d = [self configWithName:dname fromConfig:c];
 	freeString(dname);
 
 	return d;
 }
 
-- (LUDictionary *)configGlobal
+- (LUDictionary *)configGlobal:(LUArray *)c
 {
-	return [self configForAgent:NULL category:LUCategoryNull];
+	return [self configForAgent:NULL category:LUCategoryNull fromConfig:c];
 }
 
-- (LUDictionary *)configForCategory:(LUCategory)cat
+- (LUDictionary *)configForCategory:(LUCategory)cat fromConfig:(LUArray *)c
 {
-	return [self configForAgent:NULL category:cat];
+	return [self configForAgent:NULL category:cat fromConfig:c];
 }
 
-- (LUDictionary *)configForAgent:(char *)agent
+- (LUDictionary *)configForAgent:(char *)agent fromConfig:(LUArray *)c
 {
-	return [self configForAgent:agent category:LUCategoryNull];
+	return [self configForAgent:agent category:LUCategoryNull fromConfig:c];
 }
 
 - (int)intForKey:(char *)key dict:(LUDictionary *)dict default:(int)def
@@ -693,18 +711,50 @@ configd_running()
 {
 	[super init];
 
+	generation = 0;
+
 	cdict = [[LUArray alloc] init];
-	[cdict setBanner:"Configuration Dictionary Array"];
+	[cdict setBanner:"Configuration 0"];
+	[self initDefaults];
 
 	didSetConfig = NO;
 
+	initsource = configSourceAutomatic;
 	source = configSourceAutomatic;
 	sourcePath = NULL;
+	sourceDomainName = NULL;
 	sourceDomain = NULL;
-
-	[self initDefaults];
 
 	return self;
 }
 
+- (unsigned int)generation
+{
+	return generation;
+}
+
+- (void)reset
+{
+	char *path, *domain;
+	char str[64];
+
+	generation++;
+
+	if (cdict != nil) [cdict release];
+	cdict = [[LUArray alloc] init];
+	sprintf(str, "Configuration %u", generation);
+	[cdict setBanner:str];
+	[self initDefaults];
+
+	didSetConfig = NO;
+
+	path = copyString(sourcePath);
+	domain = copyString(sourceDomainName);
+
+	[self setConfigSource:initsource path:path domain:domain];
+
+	free(path);
+	free(domain);
+}
+	
 @end

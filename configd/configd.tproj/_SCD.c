@@ -20,35 +20,47 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * June 2, 2000			Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 
 #include "configd.h"
 
 
-CFMutableDictionaryRef	sessionData          = NULL;
+CFMutableDictionaryRef	sessionData		= NULL;
 
-CFMutableDictionaryRef	cacheData            = NULL;
-CFMutableDictionaryRef	cacheData_s	     = NULL;
+CFMutableDictionaryRef	storeData		= NULL;
+CFMutableDictionaryRef	storeData_s		= NULL;
 
-CFMutableSetRef		changedKeys          = NULL;
-CFMutableSetRef		changedKeys_s        = NULL;
+CFMutableSetRef		changedKeys		= NULL;
+CFMutableSetRef		changedKeys_s		= NULL;
 
-CFMutableSetRef		deferredRemovals     = NULL;
-CFMutableSetRef		deferredRemovals_s   = NULL;
+CFMutableSetRef		deferredRemovals	= NULL;
+CFMutableSetRef		deferredRemovals_s	= NULL;
 
-CFMutableSetRef		removedSessionKeys   = NULL;
-CFMutableSetRef		removedSessionKeys_s = NULL;
+CFMutableSetRef		removedSessionKeys	= NULL;
+CFMutableSetRef		removedSessionKeys_s	= NULL;
 
-CFMutableSetRef		needsNotification    = NULL;
+CFMutableSetRef		needsNotification	= NULL;
+
+int			storeLocked		= 0;		/* > 0 if dynamic store locked */
 
 
 void
-_swapLockedCacheData()
+_swapLockedStoreData()
 {
 	void	*temp;
 
-	temp                 = cacheData;
-	cacheData            = cacheData_s;
-	cacheData_s          = temp;
+	temp                 = storeData;
+	storeData            = storeData_s;
+	storeData_s          = temp;
 
 	temp                 = changedKeys;
 	changedKeys          = changedKeys_s;
@@ -80,9 +92,9 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	CFNumberRef		refNum;
 
 	/*
-	 * Get the dictionary associated with this key out of the cache
+	 * Get the dictionary associated with this key out of the store
 	 */
-	dict = CFDictionaryGetValue(cacheData, watchedKey);
+	dict = CFDictionaryGetValue(storeData, watchedKey);
 	if (dict) {
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	} else {
@@ -137,12 +149,12 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	CFRelease(newWatcherRefs);
 
 	/*
-	 * Update the cache for this key
+	 * Update the store for this key
 	 */
-	CFDictionarySetValue(cacheData, watchedKey, newDict);
+	CFDictionarySetValue(storeData, watchedKey, newDict);
 	CFRelease(newDict);
 
-	SCDLog(LOG_DEBUG, CFSTR("  _addWatcher: %@, %@"), sessionNum, watchedKey);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _addWatcher: %@, %@"), sessionNum, watchedKey);
 
 	return;
 }
@@ -152,8 +164,8 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
  * _addRegexWatcherByKey()
  *
  * This is a CFDictionaryApplierFunction which will iterate over each key
- * defined in the "cacheData" dictionary. The arguments are the dictionary
- * key, it's associated cache dictionary, and a context structure which
+ * defined in the "storeData" dictionary. The arguments are the dictionary
+ * key, it's associated store dictionary, and a context structure which
  * includes the following:
  *
  *   1. the session which has just added a regex notification request
@@ -165,12 +177,12 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 void
 _addRegexWatcherByKey(const void *key, void *val, void *context)
 {
-	CFStringRef	cacheStr  = key;
+	CFStringRef	storeStr  = key;
 	CFDictionaryRef	info      = val;
-	mach_port_t	sessionID = ((addContextRef)context)->session->server;
+	mach_port_t	sessionID = ((addContextRef)context)->store->server;
 	regex_t		*preg     = ((addContextRef)context)->preg;
-	int		cacheKeyLen;
-	char		*cacheKey;
+	int		storeKeyLen;
+	char		*storeKey;
 	CFNumberRef	sessionNum;
 	int		reError;
 	char		reErrBuf[256];
@@ -181,22 +193,22 @@ _addRegexWatcherByKey(const void *key, void *val, void *context)
 		return;
 	}
 
-	/* convert cache key to C string */
-	cacheKeyLen = CFStringGetLength(cacheStr) + 1;
-	cacheKey    = CFAllocatorAllocate(NULL, cacheKeyLen, 0);
-	if (!CFStringGetCString(cacheStr, cacheKey, cacheKeyLen, kCFStringEncodingMacRoman)) {
-		SCDLog(LOG_DEBUG, CFSTR("CFStringGetCString: could not convert cache key to C string"));
-		CFAllocatorDeallocate(NULL, cacheKey);
+	/* convert store key to C string */
+	storeKeyLen = CFStringGetLength(storeStr) + 1;
+	storeKey    = CFAllocatorAllocate(NULL, storeKeyLen, 0);
+	if (!CFStringGetCString(storeStr, storeKey, storeKeyLen, kCFStringEncodingMacRoman)) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert store key to C string"));
+		CFAllocatorDeallocate(NULL, storeKey);
 		return;
 	}
 
-	/* compare cache key to new notification keys regular expression pattern */
-	reError = regexec(preg, cacheKey, 0, NULL, 0);
+	/* compare store key to new notification keys regular expression pattern */
+	reError = regexec(preg, storeKey, 0, NULL, 0);
 	switch (reError) {
 		case 0 :
 			/* we've got a match */
 			sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &sessionID);
-			_addWatcher(sessionNum, cacheStr);
+			_addWatcher(sessionNum, storeStr);
 			CFRelease(sessionNum);
 			break;
 		case REG_NOMATCH :
@@ -204,10 +216,10 @@ _addRegexWatcherByKey(const void *key, void *val, void *context)
 			break;
 		default :
 			reErrStrLen = regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-			SCDLog(LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
 			break;
 	}
-	CFAllocatorDeallocate(NULL, cacheKey);
+	CFAllocatorDeallocate(NULL, storeKey);
 }
 
 
@@ -216,10 +228,10 @@ _addRegexWatcherByKey(const void *key, void *val, void *context)
  *
  * This is a CFDictionaryApplierFunction which will iterate over each session
  * defined in the "sessionData" dictionary. The arguments are the session
- * key, it's associated session dictionary, , and the cache key being added.
+ * key, it's associated session dictionary, , and the store key being added.
  *
  * If an active session includes any regular expression keys which match the
- * key being added to the "cacheData" dictionary then we mark this key as being
+ * key being added to the "storeData" dictionary then we mark this key as being
  * watched by the session.
  */
 void
@@ -250,7 +262,7 @@ _addRegexWatchersBySession(const void *key, void *val, void *context)
 	newKeyLen = CFStringGetLength(addedKey) + 1;
 	newKeyStr = CFAllocatorAllocate(NULL, newKeyLen, 0);
 	if (!CFStringGetCString(addedKey, newKeyStr, newKeyLen, kCFStringEncodingMacRoman)) {
-		SCDLog(LOG_DEBUG, CFSTR("CFStringGetCString: could not convert new key to C string"));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert new key to C string"));
 		CFAllocatorDeallocate(NULL, newKeyStr);
 		return;
 	}
@@ -280,7 +292,7 @@ _addRegexWatchersBySession(const void *key, void *val, void *context)
 				break;
 			default :
 				reErrStrLen = regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-				SCDLog(LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
 				break;
 		}
 
@@ -305,12 +317,12 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	CFNumberRef		refNum;
 
 	/*
-	 * Get the dictionary associated with this key out of the cache
+	 * Get the dictionary associated with this key out of the store
 	 */
-	dict = CFDictionaryGetValue(cacheData, watchedKey);
+	dict = CFDictionaryGetValue(storeData, watchedKey);
 	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDWatchers) == FALSE)) {
 		/* key doesn't exist (isn't this really fatal?) */
-		SCDLog(LOG_DEBUG, CFSTR("_removeWatcher: key not present in dictionary."));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@, key not watched"), sessionNum, watchedKey);
 		return;
 	}
 	newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
@@ -330,7 +342,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 					CFRangeMake(0, CFArrayGetCount(newWatchers)),
 					sessionNum);
 	if (i == -1) {
-		SCDLog(LOG_DEBUG, CFSTR("_removeWatcher: no reference for session %@"), sessionNum);
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@, session not watching"), sessionNum, watchedKey);
 		CFRelease(newDict);
 		CFRelease(newWatchers);
 		CFRelease(newWatcherRefs);
@@ -364,14 +376,14 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 
 	if (CFDictionaryGetCount(newDict) > 0) {
 		/* if this key is still active */
-		CFDictionarySetValue(cacheData, watchedKey, newDict);
+		CFDictionarySetValue(storeData, watchedKey, newDict);
 	} else {
 		/* no information left, remove the empty dictionary */
-		CFDictionaryRemoveValue(cacheData, watchedKey);
+		CFDictionaryRemoveValue(storeData, watchedKey);
 	}
 	CFRelease(newDict);
 
-	SCDLog(LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@"), sessionNum, watchedKey);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@"), sessionNum, watchedKey);
 
 	return;
 }
@@ -381,8 +393,8 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
  * _removeRegexWatcherByKey()
  *
  * This is a CFDictionaryApplierFunction which will iterate over each key
- * defined in the "cacheData" dictionary. The arguments are the dictionary
- * key, it's associated cache dictionary, and a context structure which
+ * defined in the "storeData" dictionary. The arguments are the dictionary
+ * key, it's associated store dictionary, and a context structure which
  * includes the following:
  *
  *   1. the session which has just removed a regex notification request
@@ -394,14 +406,14 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 void
 _removeRegexWatcherByKey(const void *key, void *val, void *context)
 {
-	CFStringRef	cacheStr  = key;
+	CFStringRef	storeStr  = key;
 	CFDictionaryRef	info      = val;
-	mach_port_t	sessionID = ((removeContextRef)context)->session->server;
+	mach_port_t	sessionID = ((removeContextRef)context)->store->server;
 	regex_t		*preg     = ((removeContextRef)context)->preg;
 	CFNumberRef	sessionNum;
 	CFArrayRef	watchers;
-	int		cacheKeyLen;
-	char		*cacheKey;
+	int		storeKeyLen;
+	char		*storeKey;
 	int		reError;
 	char		reErrBuf[256];
 	int		reErrStrLen;
@@ -423,31 +435,31 @@ _removeRegexWatcherByKey(const void *key, void *val, void *context)
 	}
 
 	/* convert key to C string */
-	cacheKeyLen = CFStringGetLength(cacheStr) + 1;
-	cacheKey    = CFAllocatorAllocate(NULL, cacheKeyLen, 0);
-	if (!CFStringGetCString(cacheStr, cacheKey, cacheKeyLen, kCFStringEncodingMacRoman)) {
-		SCDLog(LOG_DEBUG, CFSTR("CFStringGetCString: could not convert key to C string"));
-		CFAllocatorDeallocate(NULL, cacheKey);
+	storeKeyLen = CFStringGetLength(storeStr) + 1;
+	storeKey    = CFAllocatorAllocate(NULL, storeKeyLen, 0);
+	if (!CFStringGetCString(storeStr, storeKey, storeKeyLen, kCFStringEncodingMacRoman)) {
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert key to C string"));
+		CFAllocatorDeallocate(NULL, storeKey);
 		CFRelease(sessionNum);
 		return;
 	}
 
 	/* check if this key matches the regular expression */
-	reError = regexec(preg, cacheKey, 0, NULL, 0);
+	reError = regexec(preg, storeKey, 0, NULL, 0);
 	switch (reError) {
 		case 0 :
 			/* we've got a match */
-			_removeWatcher(sessionNum, cacheStr);
+			_removeWatcher(sessionNum, storeStr);
 			break;
 		case REG_NOMATCH :
 			/* no match */
 			break;
 		default :
 			reErrStrLen = regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-			SCDLog(LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
 			break;
 	}
-	CFAllocatorDeallocate(NULL, cacheKey);
+	CFAllocatorDeallocate(NULL, storeKey);
 	CFRelease(sessionNum);
 }
 
@@ -457,10 +469,10 @@ _removeRegexWatcherByKey(const void *key, void *val, void *context)
  *
  * This is a CFDictionaryApplierFunction which will iterate over each session
  * defined in the "sessionData" dictionary. The arguments are the session
- * key, it's associated session dictionary, and the cache key being removed.
+ * key, it's associated session dictionary, and the store key being removed.
  *
  * If an active session includes any regular expression keys which match the
- * key being removed from the "cacheData" dictionary then we clear this keys
+ * key being removed from the "storeData" dictionary then we clear this keys
  * reference of being watched.
  */
 void
@@ -491,7 +503,7 @@ _removeRegexWatchersBySession(const void *key, void *val, void *context)
 	oldKeyLen = CFStringGetLength(removedKey) + 1;
 	oldKeyStr = CFAllocatorAllocate(NULL, oldKeyLen, 0);
 	if (!CFStringGetCString(removedKey, oldKeyStr, oldKeyLen, kCFStringEncodingMacRoman)) {
-		SCDLog(LOG_DEBUG, CFSTR("CFStringGetCString: could not convert old key to C string"));
+		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("CFStringGetCString: could not convert old key to C string"));
 		CFAllocatorDeallocate(NULL, oldKeyStr);
 		return;
 	}
@@ -521,7 +533,7 @@ _removeRegexWatchersBySession(const void *key, void *val, void *context)
 				break;
 			default :
 				reErrStrLen = regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-				SCDLog(LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
 				break;
 		}
 

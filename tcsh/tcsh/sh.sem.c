@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.sem.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.sem.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.sem.c: I/O redirections and job forking. A touchy issue!
  *	     Most stuff with builtins is incorrect
@@ -37,13 +37,13 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.sem.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
+RCSID("$Id: sh.sem.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
 
 #include "tc.h"
 #include "tw.h"
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 #include "nt.const.h"
-#endif /*WINNT*/
+#endif /*WINNT_NATIVE*/
 
 #ifdef CLOSE_ON_EXEC
 # ifndef SUNOS4
@@ -56,7 +56,7 @@ RCSID("$Id: sh.sem.c,v 1.1.1.1 1999/04/23 01:59:55 wsanchez Exp $")
 #if defined(__sparc__) || defined(sparc)
 # if !defined(MACH) && SYSVREL == 0 && !defined(Lynx) && !defined(BSD4_4) && !defined(linux)
 #  include <vfork.h>
-# endif /* !MACH && SYSVREL == 0 && !Lynx && !BSD4_4 */
+# endif /* !MACH && SYSVREL == 0 && !Lynx && !BSD4_4 && !linux */
 #endif /* __sparc__ || sparc */
 
 #ifdef VFORK
@@ -116,9 +116,9 @@ execute(t, wanttty, pipein, pipeout)
     if (t == 0) 
 	return;
 
-#ifdef WINNT
+#ifdef WINNT_NATIVE
     {
-        if ((varval(STRNTslowexec) != STRNULL) &&
+        if ((varval(STRNTslowexec) == STRNULL) &&
             !t->t_dcdr && !t->t_dcar && !t->t_dflg && !didfds &&
             (intty || intact) && (t->t_dtyp == NODE_COMMAND) &&
 	    !isbfunc(t)) {
@@ -129,7 +129,7 @@ execute(t, wanttty, pipein, pipeout)
                 return;
         }
     }
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 
     /*
      * Ed hutchins@sgi.com & Dominic dbg@sgi.com
@@ -164,9 +164,9 @@ execute(t, wanttty, pipein, pipeout)
 	pathname = short2str(sCName);
 	/* if this is a dir, tack a "cd" on as the first arg */
 	if ((stat(pathname, &stbuf) != -1 && S_ISDIR(stbuf.st_mode))
-#ifdef WINNT
+#ifdef WINNT_NATIVE
 	    || (pathname[0] && pathname[1] == ':' && pathname[2] == '\0')
-#endif /* WINNT */
+#endif /* WINNT_NATIVE */
 	) {
 	    Char *vCD[2];
 	    Char **ot_dcom = t->t_dcom;
@@ -349,7 +349,7 @@ execute(t, wanttty, pipein, pipeout)
 	 * We have to fork for eval too.
 	 */
 	    (bifunc && (t->t_dflg & F_PIPEIN) != 0 &&
-	     bifunc->bfunct == (bfunc_t)doeval))
+	     bifunc->bfunct == (bfunc_t)doeval)) {
 #ifdef VFORK
 	    if (t->t_dtyp == NODE_PAREN ||
 		t->t_dflg & (F_REPEAT | F_AMPERSAND) || bifunc)
@@ -586,6 +586,7 @@ execute(t, wanttty, pipein, pipeout)
 
 	    }
 #endif /* VFORK */
+	}
 	if (pid != 0) {
 	    /*
 	     * It would be better if we could wait for the whole job when we

@@ -276,7 +276,7 @@ __uqtoa(val, endp, base, octzero, xdigs)
 #define	BUF		(MAXEXP+MAXFRACT+1)	/* + decimal point */
 #define	DEFPREC		6
 
-static char *cvt __P((double, int, int, char *, int *, int, int *));
+static char *cvt __P((double, int, int, char *, int *, int, int *, char **));
 static int exponent __P((char *, int, int));
 
 #else /* no FLOATING_POINT */
@@ -322,6 +322,7 @@ vfprintf(fp, fmt0, ap)
 	int expsize = 0;	/* character count for expstr */
 	int ndig;		/* actual number of digits returned by cvt */
 	char expstr[7];		/* buffer for exponent string */
+	char *dtoaresult;	/* buffer allocated by dtoa */
 #endif
 	u_long	ulval = 0;	/* integer arguments %[diouxX] */
 	u_quad_t uqval = 0;	/* %q integers */
@@ -428,8 +429,9 @@ vfprintf(fp, fmt0, ap)
         } else { \
 		val = GETARG (int); \
         }
-        
-
+#ifdef FLOATING_POINT
+	dtoaresult = NULL;
+#endif
 	/* FLOCKFILE(fp); */
 	/* sorry, fprintf(read_only_file, "") returns EOF, not 0 */
 	if (cantwrite(fp)) {
@@ -621,7 +623,7 @@ fp_begin:		if (prec == -1)
 			}
 			flags |= FPT;
 			cp = cvt(_double, prec, flags, &softsign,
-				&expt, ch, &ndig);
+				&expt, ch, &ndig, &dtoaresult);
 			if (ch == 'g' || ch == 'G') {
 				if (expt <= -4 || expt > prec)
 					ch = (ch == 'g') ? 'e' : 'E';
@@ -877,6 +879,10 @@ number:			if ((dprec = prec) >= 0)
 done:
 	FLUSH();
 error:
+#ifdef FLOATING_POINT
+	if (dtoaresult != NULL)
+		free(dtoaresult);
+#endif
 	if (__sferror(fp))
 		ret = EOF;
 	/* FUNLOCKFILE(fp); */
@@ -911,7 +917,7 @@ error:
  * Find all arguments when a positional parameter is encountered.  Returns a
  * table, indexed by argument number, of pointers to each arguments.  The
  * initial argument table should be an array of STATIC_ARG_TBL_SIZE entries.
- * It will be replaces with a malloc-ed on if it overflows.
+ * It will be replaces with a malloc-ed one if it overflows.
  */ 
 static void
 __find_arguments (fmt0, ap, argtable)
@@ -937,8 +943,8 @@ __find_arguments (fmt0, ap, argtable)
 #define ADDTYPE(type) \
 	((nextarg >= tablesize) ? \
 		__grow_type_table(nextarg, &typetable, &tablesize) : 0, \
-	typetable[nextarg++] = type, \
-	(nextarg > tablemax) ? tablemax = nextarg : 0)
+	(nextarg > tablemax) ? tablemax = nextarg : 0, \
+	typetable[nextarg++] = type)
 
 #define	ADDSARG() \
 	((flags&LONGINT) ? ADDTYPE(T_LONG) : \
@@ -1191,33 +1197,38 @@ __grow_type_table (nextarg, typetable, tablesize)
 	unsigned char **typetable;
 	int *tablesize;
 {
-	unsigned char *oldtable = *typetable;
-	int newsize = *tablesize * 2;
+	unsigned char *const oldtable = *typetable;
+	const int oldsize = *tablesize;
+	unsigned char *newtable;
+	int newsize = oldsize * 2;
 
-	if (*tablesize == STATIC_ARG_TBL_SIZE) {
-		*typetable = (unsigned char *)
-		    malloc (sizeof (unsigned char) * newsize);
-		bcopy (oldtable, *typetable, *tablesize);
+	if (newsize < nextarg + 1)
+		newsize = nextarg + 1;
+	if (oldsize == STATIC_ARG_TBL_SIZE) {
+		if ((newtable = malloc (newsize)) == NULL)
+			abort();	/* XXX handle better */
+		bcopy (oldtable, newtable, oldsize);
 	} else {
-		*typetable = (unsigned char *)
-		    realloc (typetable, sizeof (unsigned char) * newsize);
-
+		if ((newtable = realloc (oldtable, newsize)) == NULL)
+			abort();	/* XXX handle better */
 	}
-	memset (&typetable [*tablesize], T_UNUSED, (newsize - *tablesize));
+	memset (&newtable [oldsize], T_UNUSED, (newsize - oldsize));
 
+	*typetable = newtable;
 	*tablesize = newsize;
 }
 
 
 #ifdef FLOATING_POINT
 
-extern char *__dtoa __P((double, int, int, int *, int *, char **));
+extern char *__dtoa __P((double, int, int, int *, int *, char **, char **));
 
 static char *
-cvt(value, ndigits, flags, sign, decpt, ch, length)
+cvt(value, ndigits, flags, sign, decpt, ch, length, dtoaresultp)
 	double value;
 	int ndigits, flags, *decpt, ch, *length;
 	char *sign;
+	char **dtoaresultp;
 {
 	int mode, dsgn;
 	char *digits, *bp, *rve;
@@ -1239,7 +1250,7 @@ cvt(value, ndigits, flags, sign, decpt, ch, length)
 		*sign = '-';
 	} else
 		*sign = '\000';
-	digits = __dtoa(value, mode, ndigits, decpt, &dsgn, &rve);
+	digits = __dtoa(value, mode, ndigits, decpt, &dsgn, &rve, dtoaresultp);
 	if ((ch != 'g' && ch != 'G') || flags & ALT) {
 		/* print trailing zeros */
 		bp = digits + ndigits;

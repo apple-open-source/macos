@@ -20,12 +20,12 @@ HFILES =\
 CFILES =\
 	alert.c event.c getstuff.c index.c index_manager.c listops.c multi_call.c\
 	ni.c ni_dir.c ni_file.c ni_globals.c ni_lookupprop.c ni_main.c\
-	ni_prot_proc.c ni_svc_run.c ni_svc_tcp.c notify.c proxy_pids.c\
+	ni_prot_proc.c ni_svc_run.c notify.c proxy_pids.c\
 	ranstrcmp.c readall.c safe_stdio.c sanitycheck.c strstore.c 
 
 OTHERSRCS =\
 	Makefile.preamble Makefile Makefile.postamble\
-	bootparam_prot.x ipconfig.defs netinfod.8 ni_prot.x nibind_prot.x\
+	netinfod.8 ni_prot.x nibind_prot.x\
 	rpcgen_HACK.sed
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -4,7 +4,7 @@
 # Synopsis: Abstract superclass for Header and CPPClass classes
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: 12/9/99
+# Last Updated: $Date: 2001/06/06 18:02:45 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -50,9 +50,6 @@ if ($^O =~ /MacOS/i) {
 }
 ################ General Constants ###################################
 my $debugging = 0;
-my $copyrightOwner = "2000 Apple Computer, Inc.";
-my $defaultFrameName = "index.html";
-my $compositePageName = "CompositePage.html";
 my $theTime = time();
 my ($sec, $min, $hour, $dom, $moy, $year, @rest);
 ($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
@@ -60,6 +57,48 @@ $moy++;
 $year += 1900;
 my $dateStamp = "$moy/$dom/$year";
 ######################################################################
+
+
+# class variables and accessors
+{
+    my $_copyrightOwner;
+    my $_defaultFrameName;
+    my $_compositePageName;
+    my $_apiUIDPrefix;
+    
+    sub copyrightOwner {    
+        my $class = shift;
+        if (@_) {
+            $_copyrightOwner = shift;
+        }
+        return $_copyrightOwner;
+    }
+
+    sub defaultFrameName {    
+        my $class = shift;
+        if (@_) {
+            $_defaultFrameName = shift;
+        }
+        return $_defaultFrameName;
+    }
+
+    sub compositePageName {    
+        my $class = shift;
+        if (@_) {
+            $_compositePageName = shift;
+        }
+        return $_compositePageName;
+    }
+
+    sub apiUIDPrefix {    
+        my $class = shift;
+        if (@_) {
+            $_apiUIDPrefix = shift;
+        }
+        return $_apiUIDPrefix;
+    }
+}
+
 
 sub new {
     my($param) = shift;
@@ -409,11 +448,14 @@ sub addToVars {
     return @{ $self->{VARS} };
 }
 
-
 ##################################################################
 
 sub createFramesetFile {
     my $self = shift;
+    my $docNavigatorComment = $self->docNavigatorComment();
+    my $class = ref($self);
+    my $defaultFrameName = $class->defaultFrameName();
+
     my $filename = $self->name();
     my $outDir = $self->outputDir();
     
@@ -421,18 +463,27 @@ sub createFramesetFile {
     my $rootFileName = $self->name();
     $rootFileName =~ s/(.*)\.h/$1/; 
     $rootFileName = &safeName($rootFileName);
-	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile. \n$!\n";
+    open(OUTFILE, ">$outputFile") || die "Can't write $outputFile. \n$!\n";
     if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
-	print OUTFILE "<html><head><title>Draft Documentation for $filename</title></head>\n";
-	print OUTFILE "<frameset cols=\"190,100%\">\n";
-	print OUTFILE "<frame src=\"toc.html\" name=\"toc\">\n";
-	print OUTFILE "<frame src=\"$rootFileName.html\" name=\"doc\">\n";
-	print OUTFILE "</frameset></html>\n";
-	close OUTFILE;
+    print OUTFILE "<html><head><title>Documentation for $filename</title></head>\n";
+    print OUTFILE "<frameset cols=\"190,100%\">\n";
+    print OUTFILE "<frame src=\"toc.html\" name=\"toc\">\n";
+    print OUTFILE "<frame src=\"$rootFileName.html\" name=\"doc\">\n";
+    print OUTFILE "</frameset></html>\n";
+    print OUTFILE "$docNavigatorComment\n";
+    close OUTFILE;
+}
+
+# Overridden by subclasses to return HTML comment that identifies the 
+# index file (Header vs. Class, name, etc.)
+sub docNavigatorComment {
+    return "";
 }
 
 sub createContentFile {
     my $self = shift;
+    my $class = ref($self);
+    my $copyrightOwner = $class->copyrightOwner();
     my $headerName = $self->name();    
     my $rootFileName = $headerName;    
     $rootFileName =~ s/(.*)\.h/$1/; 
@@ -448,21 +499,25 @@ sub createContentFile {
     my $headerDiscussion = $self->discussion();    
     my $headerAbstract = $self->abstract();  
     if ((length($headerDiscussion)) || (length($headerAbstract))) {
-		print OUTFILE "<HTML><HEAD><TITLE>Draft Inside Macintosh Reference</TITLE></HEAD>\n<BODY bgcolor=\"#ffffff\">\n";
+		print OUTFILE "<HTML><HEAD><TITLE>API Documentation</TITLE></HEAD>\n<BODY bgcolor=\"#ffffff\">\n";
 		print OUTFILE "<H1>$headerName</H1><hr>\n";
 		if (length($headerAbstract)) {
 		    print OUTFILE "<b>Abstract: </b>$headerAbstract<hr><br>\n";    
 		}
-		print OUTFILE "$headerDiscussion<br><br>\n";    
-	    print OUTFILE "<p>&#169; $copyrightOwner &#151; (Last Updated $dateStamp)</p>\n";
-		print OUTFILE "</BODY>\n</HTML>\n";
+		print OUTFILE "$headerDiscussion<br><br>\n";
     } else {
-        warn "No header-wide comment found. Creating dummy file for default content page.\n";
-		print OUTFILE "<HTML><HEAD><TITLE>Draft Inside Macintosh Reference</TITLE></HEAD>\n<BODY bgcolor=\"#ffffff\">\n";
-		print OUTFILE "<H1>Draft Documentation</H1>\n";
-		print OUTFILE "<hr>This placeholder should be replaced with the actual default content page of the frameset.<br><hr>\n";    
-		print OUTFILE "</BODY>\n</HTML>\n";
+        # warn "No header-wide comment found. Creating dummy file for default content page.\n";
+		print OUTFILE "<HTML><HEAD><TITLE>API Documentation</TITLE></HEAD>\n<BODY bgcolor=\"#ffffff\">\n";
+		print OUTFILE "<H1>Documentation for $headerName</H1>\n";
+		print OUTFILE "<hr>Use the links in the table of contents to the left to access documentation.<br>\n";    
     }
+	print OUTFILE "<hr><br><center>";
+	print OUTFILE "&#169; $copyrightOwner &#151; " if (length($copyrightOwner));
+	print OUTFILE "(Last Updated $dateStamp)\n";
+	print OUTFILE "<br>";
+	print OUTFILE "<font size =\"-1\">HTML documentation generated by <a href=\"http://www.opensource.apple.com/projects\" target=\"_blank\">HeaderDoc</a></font>\n";    
+	print OUTFILE "</center>\n";
+	print OUTFILE "</BODY>\n</HTML>\n";
 	close OUTFILE;
 }
 
@@ -531,6 +586,9 @@ sub writeHeaderElements {
 
 sub writeHeaderElementsToCompositePage { # All API in a single HTML page -- for printing
     my $self = shift;
+    my $class = ref($self);
+    my $compositePageName = $class->compositePageName();
+
     my $rootOutputDir = $self->outputDir();
     my $name = $self->name();
     my $compositePageString = $self->_getCompositePageString();
@@ -548,6 +606,22 @@ sub _getCompositePageString {
     my $compositePageString;
     my $contentString;
     
+    my $abstract = $self->abstract();
+    if (length($abstract)) {
+	    $compositePageString .= "<h2>Abstract</h2>\n";
+	    $compositePageString .= $abstract;
+    }
+
+    my $discussion = $self->discussion();
+    if (length($discussion)) {
+	    $compositePageString .= "<h2>Discussion</h2>\n";
+	    $compositePageString .= $discussion;
+    }
+    
+    if ((length($abstract)) || (length($discussion))) {
+	    $compositePageString .= "<hr><br>";
+    }
+
     $contentString= $self->_getFunctionDetailString();
     if (length($contentString)) {
 	    $compositePageString .= "<h2>Functions</h2>\n";
@@ -599,43 +673,8 @@ sub _getFunctionDetailString {
     my $contentString = "";
 
     foreach my $obj (sort objName @funcObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $abstract = $obj->abstract();
-        my $declaration = $obj->declarationInHTML();
-        my @params = $obj->taggedParameters();
-        my $result = $obj->result();
-        
-        $contentString .= "<a name=\"//apple_ref/c/func/$name\"></a>\n"; # apple_ref marker
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-	    if (length($abstract)) {
-            $contentString .= "<b>Abstract:</b> $abstract\n";
-        }
-        $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    my $arrayLength = @params;
-	    if ($arrayLength > 0) {
-	        my $paramContentString;
-	        foreach my $element (@params) {
-	            my $pName = $element->name();
-	            my $pDesc = $element->discussion();
-	            if (length ($pName)) {
-	                $paramContentString .= "<tr><td align = \"center\"><tt>$pName</tt></td><td>$pDesc</td><tr>\n";
-	            }
-	        }
-	        if (length ($paramContentString)){
-		        $contentString .= "<h4>Parameters</h4>\n";
-		        $contentString .= "<blockquote>\n";
-		        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
-		        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	            $contentString .= $paramContentString;
-		        $contentString .= "</table>\n</blockquote>\n";
-		    }
-	    }
-	    if (length($result)) {
-            $contentString .= "<b>Result:</b> $result\n";
-        }
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -652,15 +691,8 @@ sub _getConstantDetailString {
     my $contentString;
 
     foreach my $obj (sort objName @constantObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        
-        $contentString .= "<a name=\"//apple_ref/c/data/$name\"></a>\n"; # apple_ref marker
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-        $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -677,35 +709,8 @@ sub _getTypedefDetailString {
     my $contentString;
 
     foreach my $obj (sort objName @typedefObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        my @fields = $obj->fields();
-        my $fieldHeading;
-        if ($obj->isFunctionPointer()) {
-            $fieldHeading = "Parameters";
-        } else {
-            $fieldHeading = "Fields";
-        }
-        
-        $contentString .= "<a name=\"//apple_ref/c/tdef/$name\"></a>\n"; # apple_ref marker
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-        $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    my $arrayLength = @fields;
-	    if ($arrayLength > 0) {
-	        $contentString .= "<h4>$fieldHeading</h4>\n";
-	        $contentString .= "<blockquote>\n";
-	        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
-	        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	        foreach my $element (@fields) {
-	            my $fName = $element->name();
-	            my $fDesc = $element->discussion();
-	            $contentString .= "<tr><td align = \"center\"><tt>$fName</tt></td><td>$fDesc</td><tr>\n";
-	        }
-	        $contentString .= "</table>\n</blockquote>\n";
-	    }
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -722,29 +727,8 @@ sub _getStructDetailString {
     my $contentString;
 
     foreach my $obj (sort objName @structObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        my @fields = $obj->fields();
-        
-        $contentString .= "<a name=\"//apple_ref/c/tag/$name\"></a>\n"; # apple_ref marker
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-        $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    my $arrayLength = @fields;
-	    if ($arrayLength > 0) {
-	        $contentString .= "<h4>Fields</h4>\n";
-	        $contentString .= "<blockquote>\n";
-	        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
-	        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	        foreach my $element (@fields) {
-	            my $fName = $element->name();
-	            my $fDesc = $element->discussion();
-	            $contentString .= "<tr><td align = \"center\"><tt>$fName</tt></td><td>$fDesc</td><tr>\n";
-	        }
-	        $contentString .= "</table>\n</blockquote>\n";
-	    }
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -761,38 +745,8 @@ sub _getVarDetailString {
     my $contentString;
 
     foreach my $obj (sort objName @varObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        my @fields = $obj->fields();
-        my $fieldHeading = "Fields";
-        if ($obj->can('isFunctionPointer')) {
-        	if ($obj->isFunctionPointer()) {
-            	$fieldHeading = "Parameters";
-        	}
-        }
-        
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-        $contentString .= "<blockquote><pre>$declaration</var></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    my $arrayLength = @fields;
-	    if ($arrayLength > 0) {
-	        $contentString .= "<h4>$fieldHeading</h4>\n";
-	        $contentString .= "<blockquote>\n";
-	        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
-	        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	        foreach my $element (@fields) {
-	            my $fName;
-	            my $fDesc;
-	            $element =~ s/^\s+|\s+$//g;
-	            $element =~ /(\w*)\s+(.*)/;
-	            $fName = $1;
-	            $fDesc = $2;
-	            $contentString .= "<tr><td align = \"center\"><tt>$fName</tt></td><td>$fDesc</td><tr>\n";
-	        }
-	        $contentString .= "</table>\n</blockquote>\n";
-	    }
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -809,29 +763,8 @@ sub _getEnumDetailString {
     my $contentString;
 
     foreach my $obj (sort objName @enumObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        my @constants = $obj->constants();
-        
-        $contentString .= "<a name=\"//apple_ref/c/tag/$name\"></a>\n"; # apple_ref marker
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-        $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    my $arrayLength = @constants;
-	    if ($arrayLength > 0) {
-	        $contentString .= "<h4>Constants</h4>\n";
-	        $contentString .= "<blockquote>\n";
-	        $contentString .= "<table border = \"1\"  width = \"90%\">\n";
-	        $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-	        foreach my $element (@constants) {
-	            my $cName = $element->name();
-	            my $cDesc = $element->discussion();
-	            $contentString .= "<tr><td align = \"center\"><a name=\"//apple_ref/c/econst/$cName\"><tt>$cName</tt></a></td><td>$cDesc</td><tr>\n";
-	        }
-	        $contentString .= "</table>\n</blockquote>\n";
-	    }
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -848,16 +781,8 @@ sub _getPDefineDetailString {
     my $contentString;
 
     foreach my $obj (sort objName @pDefineObjs) {
-        my $name = $obj->name();
-        my $desc = $obj->discussion();
-        my $declaration = $obj->declarationInHTML();
-        my $abstract = $obj->abstract();
-        
-        $contentString .= "<h3><a name=\"$name\">$name</a></h3>\n";
-        if (length($abstract)) {$contentString .= "<p>$abstract</p>\n";};
-        $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
-        $contentString .= "<p>$desc</p>\n";
-	    $contentString .= "<hr>\n";
+        my $documentationBlock = $obj->documentationBlock();
+        $contentString .= $documentationBlock;
     }
     return $contentString;
 }
@@ -871,21 +796,25 @@ sub writeExportsWithName {
     my $parametersFile = $exportsDir.$pathSeparator.$name.".ptab";
     my $structsFile = $exportsDir.$pathSeparator.$name.".stab";
     my $fieldsFile = $exportsDir.$pathSeparator.$name.".mtab";
+    my $enumeratorsFile = $exportsDir.$pathSeparator.$name.".ktab";
     my $funcString;
     my $paramString;
     my $dataTypeString;
-    my $fieldString;
+    my $typesFieldString;
+    my $enumeratorsString;
     
 	if (! -e $exportsDir) {
 		unless (mkdir ("$exportsDir", 0777)) {die ("Can't create output folder $exportsDir. $!");};
     }
     ($funcString, $paramString) = $self->_getFunctionsAndParamsExportString();
-    ($dataTypeString, $fieldString) = $self->_getDataTypesAndFieldsExportString();
+    ($dataTypeString, $typesFieldString) = $self->_getDataTypesAndFieldsExportString();
+    $enumeratorsString = $self->_getEnumeratorsExportString();
     
     $self->_createExportFile($functionsFile, $funcString);
     $self->_createExportFile($parametersFile, $paramString);
     $self->_createExportFile($structsFile, $dataTypeString);
-    $self->_createExportFile($fieldsFile, $fieldString);
+    $self->_createExportFile($fieldsFile, $typesFieldString);
+    $self->_createExportFile($enumeratorsFile, $enumeratorsString);
 }
 
 sub _getFunctionsAndParamsExportString {
@@ -906,7 +835,14 @@ sub _getFunctionsAndParamsExportString {
         my @taggedParams = $obj->taggedParameters();
         my @parsedParams = $obj->parsedParameters();
         my $result = $obj->result();
-        my $funcID = DBLookup->functionIDForName($funcName);
+        my $funcID = HeaderDoc::DBLookup->functionIDForName($funcName);
+        # unused fields--declaring them for visibility in the string below
+        my $managerID = "";
+        my $funcEnglishName = "";
+        my $specialConsiderations = "";
+        my $versionNotes = "";
+        my $groupName = "";
+        my $order = "";
         
         # Replace single internal carriage returns in fields with one space
         # headerDoc2HTML already changes two \n's to \n<br><br>\n, so we'll
@@ -915,7 +851,7 @@ sub _getFunctionsAndParamsExportString {
      		$string =~ s/\n<br><br>\n/\n\n/g;
      		$string =~ s/([^\n])\n([^\n])/$1 $2/g;
         }
-        $tmpString = "$sep$funcID$sep$funcName$sep$abstract$sep$desc$sep$result$sep$sep";
+        $tmpString = $managerID.$sep.$funcID.$sep.$funcName.$sep.$funcEnglishName.$sep.$abstract.$sep.$desc.$sep.$result.$sep.$specialConsiderations.$sep.$versionNotes.$sep.$groupName.$sep.$order;
         $tmpString = &convertCharsForFileMaker($tmpString);
         $tmpString =~ s/$sep/\t/g;
         push (@funcLines, "$tmpString");
@@ -953,7 +889,7 @@ sub _getFunctionsAndParamsExportString {
 	     		$disc =~ s/([^\n])\n([^\n])/$1 $2/g;
 	        	my $tmpParamString = "";
 	        	
-	        	$tmpParamString = "$sep$funcID$sep$funcName$sep$pos$sep$disc$sep$paramName$sep$type";
+	        	$tmpParamString = $funcID.$sep.$funcName.$sep.$pos.$sep.$disc.$sep.$sep.$sep.$paramName.$sep.$type;
         		$tmpParamString = &convertCharsForFileMaker($tmpParamString);
         		$tmpParamString =~ s/$sep/\t/g;
 	        	push (@paramLines, "$tmpParamString");
@@ -982,14 +918,18 @@ sub _getDataTypesAndFieldsExportString {
     my $tmpString = "";
     my $contentString = "";
     
-    # get Enums
+    # unused fields -- here for clarity
+    my $englishName = "";
+    my $specialConsiderations = "";
+    my $versionNotes = "";
+    
+    # get Enumerations
     foreach my $obj (sort objName @enums) {
         my $name = $obj->name();
         my $desc = $obj->discussion();
         my $abstract = $obj->abstract();
         my $declaration = $obj->declaration();
-        my @constants = $obj->constants();
-        my $enumID = DBLookup->typeIDForName($name);
+        my $enumID = HeaderDoc::DBLookup->typeIDForName($name);
         
         # Replace single internal carriage returns in fields with one space
         # headerDoc2HTML already changes two \n's to \n<br><br>\n, so we'll
@@ -998,40 +938,17 @@ sub _getDataTypesAndFieldsExportString {
      		$string =~ s/\n<br><br>\n/\n\n/g;
      		$string =~ s/([^\n])\n([^\n])/$1 $2/g;
         }
-        $tmpString = "$sep$enumID$sep$name$sep$abstract$sep$desc$sep$sep$sep\n";
+        $tmpString = $enumID.$sep.$name.$sep.$englishName.$sep.$abstract.$sep.$desc.$sep.$specialConsiderations.$sep.$versionNotes."\n";
         $tmpString = &convertCharsForFileMaker($tmpString);
         $tmpString =~ s/$sep/\t/g;
         push (@dataTypeLines, "$tmpString");
-        if (@constants) {
-        	foreach my $field (@constants) {
-        	    my $fName = $field->name();
-        	    my $discussion = $field->discussion();
-        	    my $pos = 0;
-        	    
-	     		$discussion =~ s/\n<br><br>\n/\n\n/g;
-	     		$discussion =~ s/([^\n])\n([^\n])/$1 $2/g;
-        	    $pos = $self->_positionOfNameInEnum($fName, $declaration);
-		        if (!$pos) {
-		        	print "---------------------------------------------------------------------------\n";
-		        	warn "Tagged parameter '$fName' not found in declaration of enum $name.\n";
-		        	warn "Declaration for $name is:\n$declaration\n";
-		        	print "---------------------------------------------------------------------------\n";
-		        	$pos = "UNKNOWN_POSITION";
-		        }
-	        	my $tmpFieldString = "";
-	        	$tmpFieldString = "$sep$enumID$sep$name$sep$pos$sep$discussion$sep$fName$sep";
-        		$tmpFieldString = &convertCharsForFileMaker($tmpFieldString);
-        		$tmpFieldString =~ s/$sep/\t/g;
-	        	push (@fieldLines, "$tmpFieldString");
-        	}
-        }
     }
     # get Constants
     foreach my $obj (sort objName @constants) {
         my $name = $obj->name();
         my $desc = $obj->discussion();
         my $abstract = $obj->abstract();
-        my $constID = DBLookup->typeIDForName($name);
+        my $constID = HeaderDoc::DBLookup->typeIDForName($name);
         
         # Replace single internal carriage returns in fields with one space
         # headerDoc2HTML already changes two \n's to \n<br><br>\n, so we'll
@@ -1040,7 +957,7 @@ sub _getDataTypesAndFieldsExportString {
      		$string =~ s/\n<br><br>\n/\n\n/g;
      		$string =~ s/([^\n])\n([^\n])/$1 $2/g;
         }
-        $tmpString = "$sep$constID$sep$name$sep$abstract$sep$desc$sep$sep$sep\n";
+        $tmpString = $constID.$sep.$name.$sep.$englishName.$sep.$abstract.$sep.$desc.$sep.$specialConsiderations.$sep.$versionNotes."\n";
         $tmpString = &convertCharsForFileMaker($tmpString);
         $tmpString =~ s/$sep/\t/g;
         push (@dataTypeLines, "$tmpString");
@@ -1052,7 +969,7 @@ sub _getDataTypesAndFieldsExportString {
         my $abstract = $obj->abstract();
         my $declaration = $obj->declaration();
         my @fields = $obj->fields();
-        my $structID = DBLookup->typeIDForName($name);
+        my $structID = HeaderDoc::DBLookup->typeIDForName($name);
         
         # Replace single internal carriage returns in fields with one space
         # headerDoc2HTML already changes two \n's to \n<br><br>\n, so we'll
@@ -1061,7 +978,7 @@ sub _getDataTypesAndFieldsExportString {
      		$string =~ s/\n<br><br>\n/\n\n/g;
      		$string =~ s/([^\n])\n([^\n])/$1 $2/g;
         }
-        $tmpString = "$sep$structID$sep$name$sep$abstract$sep$desc$sep$sep$sep\n";
+        $tmpString = $structID.$sep.$name.$sep.$englishName.$sep.$abstract.$sep.$desc.$sep.$specialConsiderations.$sep.$versionNotes."\n";
         $tmpString = &convertCharsForFileMaker($tmpString);
         $tmpString =~ s/$sep/\t/g;
         push (@dataTypeLines, "$tmpString");
@@ -1083,7 +1000,7 @@ sub _getDataTypesAndFieldsExportString {
 		        	$pos = "UNKNOWN_POSITION";
 		        }
 	        	my $tmpFieldString = "";
-	        	$tmpFieldString = "$sep$structID$sep$name$sep$pos$sep$discussion$sep$fName$sep";
+	        	$tmpFieldString = $structID.$sep.$name.$sep.$pos.$sep.$discussion.$sep.$sep.$sep.$fName;
         		$tmpFieldString = &convertCharsForFileMaker($tmpFieldString);
         		$tmpFieldString =~ s/$sep/\t/g;
 	        	push (@fieldLines, "$tmpFieldString");
@@ -1098,13 +1015,16 @@ sub _getDataTypesAndFieldsExportString {
         my $declaration = $obj->declaration();
         my @fields = $obj->fields();
         my $isFunctionPointer = $obj->isFunctionPointer();
-        my $typedefID = DBLookup->typeIDForName($name);
+        my $typedefID = HeaderDoc::DBLookup->typeIDForName($name);
         
+        # Replace single internal carriage returns in fields with one space
+        # headerDoc2HTML already changes two \n's to \n<br><br>\n, so we'll
+        # just remove the breaks
         foreach my $string ($desc, $abstract, $declaration) {
      		$string =~ s/\n<br><br>\n/\n\n/g;
      		$string =~ s/([^\n])\n([^\n])/$1 $2/g;
         }
-        $tmpString = "$sep$typedefID$sep$name$sep$abstract$sep$desc$sep$sep$sep\n";
+        $tmpString = $typedefID.$sep.$name.$sep.$englishName.$sep.$abstract.$sep.$desc.$sep.$specialConsiderations.$sep.$versionNotes."\n";
         $tmpString = &convertCharsForFileMaker($tmpString);
         $tmpString =~ s/$sep/\t/g;
         push (@dataTypeLines, "$tmpString");
@@ -1129,7 +1049,7 @@ sub _getDataTypesAndFieldsExportString {
 		        	$pos = "UNKNOWN_POSITION";
 		        }
 	        	my $tmpFieldString = "";
-	        	$tmpFieldString = "$sep$typedefID$sep$name$sep$pos$sep$discussion$sep$fName$sep";
+	        	$tmpFieldString = $typedefID.$sep.$name.$sep.$pos.$sep.$discussion.$sep.$sep.$sep.$fName;
         		$tmpFieldString = &convertCharsForFileMaker($tmpFieldString);
         		$tmpFieldString =~ s/$sep/\t/g;
 	        	push (@fieldLines, "$tmpFieldString");
@@ -1141,6 +1061,53 @@ sub _getDataTypesAndFieldsExportString {
 	$dataTypeString .= "\n";
 	$fieldString .= "\n";
     return ($dataTypeString, $fieldString);
+}
+
+
+sub _getEnumeratorsExportString {
+    my $self = shift;
+    my @enums = $self->enums();
+    my @fieldLines;
+    my $fieldString;
+
+    my $sep = "<tab>";       
+    my $tmpString = "";
+    my $contentString = "";
+    
+    # get Enumerations
+    foreach my $obj (sort objName @enums) {
+        my $name = $obj->name();
+        my @constants = $obj->constants();
+        my $declaration = $obj->declaration();
+        my $enumID = HeaderDoc::DBLookup->typeIDForName($name);
+        
+        if (@constants) {
+        	foreach my $enumerator (@constants) {
+        	    my $fName = $enumerator->name();
+        	    my $discussion = $enumerator->discussion();
+        	    my $pos = 0;
+        	    
+	     		$discussion =~ s/\n<br><br>\n/\n\n/g;
+	     		$discussion =~ s/([^\n])\n([^\n])/$1 $2/g;
+        	    $pos = $self->_positionOfNameInEnum($fName, $declaration);
+		        if (!$pos) {
+		        	print "---------------------------------------------------------------------------\n";
+		        	warn "Tagged parameter '$fName' not found in declaration of enum $name.\n";
+		        	warn "Declaration for $name is:\n$declaration\n";
+		        	print "---------------------------------------------------------------------------\n";
+		        	$pos = "UNKNOWN_POSITION";
+		        }
+	        	my $tmpFieldString = "";
+	        	$tmpFieldString = $enumID.$sep.$name.$sep.$pos.$sep.$discussion.$sep.$sep.$sep.$fName;
+        		$tmpFieldString = &convertCharsForFileMaker($tmpFieldString);
+        		$tmpFieldString =~ s/$sep/\t/g;
+	        	push (@fieldLines, "$tmpFieldString");
+        	}
+        }
+    }
+    $fieldString = join ("\n", @fieldLines);
+	$fieldString .= "\n";
+    return $fieldString;
 }
 
 # this is simplistic is various ways--should be made more robust.
@@ -1221,6 +1188,8 @@ sub _createExportFile {
 
 sub _createHTMLOutputFile {
     my $self = shift;
+    my $class = ref($self);
+    my $copyrightOwner = $class->copyrightOwner();
     my $outputFile = shift;    
     my $fileString = shift;    
     my $heading = shift;    
@@ -1229,7 +1198,10 @@ sub _createHTMLOutputFile {
     if ($^O =~ /MacOS/i) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
 	print OUTFILE "<html><head><title>$heading</title></head><body bgcolor=\"#ffffff\"><font face=\"Geneva,Arial,Helvtica\"><h1>$heading</h1></font><hr><br>\n";
 	print OUTFILE $fileString;
-    print OUTFILE "<p>&#169; $copyrightOwner &#151; (Last Updated $dateStamp)</p>\n";
+    print OUTFILE "<p>";
+    print OUTFILE "<p>&#169; $copyrightOwner &#151; " if (length($copyrightOwner));
+    print OUTFILE "(Last Updated $dateStamp)\n";
+    print OUTFILE "</p>";
 	print OUTFILE "</body></html>\n";
 	close OUTFILE;
 }

@@ -10,7 +10,6 @@
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
         PUBLIC_HEADERS = (); 
-        SUBPROJECTS = (QuartzDisplay); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

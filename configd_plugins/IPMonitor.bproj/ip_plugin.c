@@ -34,8 +34,18 @@
  *
  * November 15, 2000	Dieter Siegmund (dieter@apple.com)
  * - changed to use new configuration model
+ *
+ * March 19, 2001	Dieter Siegmund (dieter@apple.com)
+ * - use service state instead of interface state
+ *
+ * July 16, 2001	Allan Nathanson <ajn@apple.com>
+ * - update to public SystemConfiguration.framework APIs
+ *
+ * August 28, 2001	Dieter Siegmund (dieter@apple.com)
+ * - specify the interface name when installing the default route
+ * - this ensures that default traffic goes to the highest priority
+ *   service when multiple interfaces are configured to be on the same subnet
  */
-
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -45,12 +55,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/route.h>
+#include <net/if.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define	SYSTEMCONFIGURATION_NEW_API
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
 
 #define USE_FLAT_FILES	"UseFlatFiles"
 
@@ -59,75 +71,32 @@
 #define IP_LIST(ip)	IP_CH(ip)[0],IP_CH(ip)[1],IP_CH(ip)[2],IP_CH(ip)[3]
 
 /* debug output on/off */
-static boolean_t 		S_debug;
+static boolean_t 		S_debug = 0;
 
-/* dictionary to hold per-interface state: key is the interface name  */
-static CFMutableDictionaryRef	S_ifstate_dict = NULL;
-static CFMutableDictionaryRef	S_service_ifname_dict = NULL;
+/* dictionary to hold per-service state: key is the serviceID */
+static CFMutableDictionaryRef	S_service_state_dict = NULL;
+
+/* if set, a PPP interface overrides the primary */
+static boolean_t		S_ppp_override_primary = TRUE;
 
 /* if set, create empty netinfo config file instead of removing it */
 static boolean_t		S_empty_netinfo = TRUE;
 
-/* if set, a PPP interface override the primary */
-static boolean_t		S_ppp_override_primary = TRUE;
-
-/* the name of the current primary interface */
-static CFStringRef		S_ifn_primary = NULL;
+/* the current primary serviceID */
+static CFStringRef		S_primary_serviceID = NULL;
 
 static CFStringRef		S_state_global_ipv4 = NULL;
 static CFStringRef		S_state_global_dns = NULL;
 static CFStringRef		S_state_global_netinfo = NULL;
 static CFStringRef		S_state_global_proxies = NULL;
+static CFStringRef		S_state_service_prefix = NULL;
+static CFStringRef		S_setup_global_ipv4 = NULL;
 static CFStringRef		S_setup_global_netinfo = NULL;
 static CFStringRef		S_setup_global_proxies = NULL;
-static CFStringRef		S_state_interface_prefix = NULL;
 static CFStringRef		S_setup_service_prefix = NULL;
 
 #define VAR_RUN_RESOLV_CONF		"/var/run/resolv.conf"
 #define VAR_RUN_NICONFIG_LOCAL_XML	"/var/run/niconfig_local.xml"
-
-static __inline__ CFTypeRef
-isA_CFType(CFTypeRef obj, CFTypeID type)
-{
-    if (obj == NULL)
-	return (NULL);
-
-    if (CFGetTypeID(obj) != type) {
-	return (NULL);
-    }
-    return (obj);
-}
-
-static __inline__ CFTypeRef
-isA_CFDictionary(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFDictionaryGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFArray(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFArrayGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFString(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFStringGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFBoolean(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFBooleanGetTypeID()));
-}
-
-static __inline__ CFTypeRef
-isA_CFNumber(CFTypeRef obj)
-{
-    return (isA_CFType(obj, CFNumberGetTypeID()));
-}
-
 
 static void
 my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
@@ -156,100 +125,16 @@ my_CFRelease(void * t)
     return;
 }
 
-static void
-my_SCDHandleRelease(SCDHandleRef * handle)
-{
-    if (handle && *handle) {
-	SCDHandleRelease(*handle);
-	*handle = NULL;
-    }
-    return;
-}
-
 static CFDictionaryRef
-my_SCDGet(SCDSessionRef session, CFStringRef key)
+my_SCDCopy(SCDynamicStoreRef session, CFStringRef key)
 {
-    SCDHandleRef		data = NULL;
-    CFDictionaryRef 		dict = NULL;
-    SCDStatus			status;
+    CFDictionaryRef 	dict;
 
-    status = SCDGet(session, key, &data);
-    if (status == SCD_OK) {
-	dict = SCDHandleGetData(data);
-	dict = isA_CFDictionary(dict);
-	if (dict) {
-	    CFRetain(dict);
-	}
-	my_SCDHandleRelease(&data);
+    dict = SCDynamicStoreCopyValue(session, key);
+    if (isA_CFDictionary(dict) == NULL) {
+	my_CFRelease(&dict);
     }
-    return (dict);
-}
-
-static __inline__ void
-serviceID_remove(CFTypeRef serviceID)
-{
-    CFDictionaryRemoveValue(S_service_ifname_dict, serviceID);
-    return;
-}
-
-static __inline__ void
-serviceID_remove_ifname(CFTypeRef ifname)
-{
-    CFIndex		count = CFDictionaryGetCount(S_service_ifname_dict);
-    CFIndex 		i;
-    void * *		keys;
-    void * *		values;
-
-    if (count == 0) {
-	return;
-    }
-
-    keys = (void * *)malloc(sizeof(void *) * count);
-    values = (void * *)malloc(sizeof(void *) * count);
-
-    if (keys == NULL || values == NULL) {
-	goto done;
-    }
-    CFDictionaryGetKeysAndValues(S_service_ifname_dict, keys, values);
-    for (i = 0; i < count; i++) {
-	CFStringRef		serviceID = keys[i];
-	CFStringRef		ifn = values[i];
-
-	if (CFEqual(ifname, ifn)) {
-	    CFDictionaryRemoveValue(S_service_ifname_dict, serviceID);
-	}
-    }
- done:
-    if (keys)
-	free(keys);
-    if (values)
-	free(values);
-    return;
-}
-
-static __inline__ void
-serviceID_add(CFTypeRef serviceID, CFTypeRef ifname)
-{
-    CFDictionarySetValue(S_service_ifname_dict, serviceID, ifname);
-    return;
-}
-
-static void
-serviceID_add_list(CFArrayRef list, CFTypeRef ifname)
-{
-    int i;
-
-    for (i = 0; i < CFArrayGetCount(list); i++) {
-	CFTypeRef serviceID = CFArrayGetValueAtIndex(list, i);
-	serviceID_add(serviceID, ifname);
-    }
-    return;
-}
-
-static __inline__ CFTypeRef
-serviceID_get_ifname(CFTypeRef serviceID)
-{
-    return (CFDictionaryGetValue(S_service_ifname_dict, serviceID));
+    return dict;
 }
 
 static struct in_addr
@@ -261,7 +146,7 @@ cfstring_to_ip(CFStringRef str)
     int			n;
     CFRange		range;
 
-    if (str == NULL)
+    if (isA_CFString(str) == NULL)
 	return ip;
 
     range = CFRangeMake(0, CFStringGetLength(str));
@@ -333,7 +218,7 @@ append_netinfo_arrays(CFDictionaryRef dict, CFMutableArrayRef ni_addrs,
     if (isA_CFDictionary(dict) == NULL)
 	return;
 
-    addrs 
+    addrs
 	= isA_CFArray(CFDictionaryGetValue(dict,
 					   kSCPropNetNetInfoServerAddresses));
     tags = isA_CFArray(CFDictionaryGetValue(dict,
@@ -356,31 +241,57 @@ append_netinfo_arrays(CFDictionaryRef dict, CFMutableArrayRef ni_addrs,
     return;
 }
 
-static CFStringRef
-get_broadcast_address(CFDictionaryRef ipv4_dict)
+static void
+append_netinfo_broadcast_addresses(CFDictionaryRef netinfo_dict,
+				   CFDictionaryRef ipv4_dict,
+				   CFMutableArrayRef ni_addrs,
+				   CFMutableArrayRef ni_tags)
 {
-    struct in_addr	addr = { 0 };
-    CFArrayRef 		arr;
-    CFStringRef		broadcast = NULL;
-    struct in_addr	mask = { 0 };
+    CFArrayRef		addrs;
+    CFIndex		addrs_count;
+    CFIndex		i;
+    CFArrayRef		masks;
+    CFIndex 		masks_count;
+    CFStringRef		tag;
 
-    arr = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
-					   kSCPropNetIPv4Addresses));
-    if (arr && CFArrayGetCount(arr))
-	addr = cfstring_to_ip(CFArrayGetValueAtIndex(arr, 0));
-    arr = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
-					   kSCPropNetIPv4SubnetMasks));
-    if (arr && CFArrayGetCount(arr))
-	mask = cfstring_to_ip(CFArrayGetValueAtIndex(arr, 0));
-    if (addr.s_addr && mask.s_addr) {
-	struct in_addr 		b;
-
-	b.s_addr = htonl(ntohl(addr.s_addr) | ~ntohl(mask.s_addr));
-	broadcast = CFStringCreateWithFormat(NULL, NULL,
-					     CFSTR(IP_FORMAT),
-					     IP_LIST(&b));
+    tag = CFDictionaryGetValue(netinfo_dict,
+			       kSCPropNetNetInfoBroadcastServerTag);
+    tag = isA_CFString(tag);
+    if (tag == NULL) {
+	tag = kSCValNetNetInfoDefaultServerTag;
     }
-    return (broadcast);
+    addrs = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
+					     kSCPropNetIPv4Addresses));
+    masks = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
+					     kSCPropNetIPv4SubnetMasks));
+    if (addrs == NULL || masks == NULL) {
+	return;
+    }
+    masks_count = CFArrayGetCount(masks);
+    addrs_count = CFArrayGetCount(addrs);
+    if (addrs_count != masks_count) {
+	return;
+    }
+
+    for (i = 0; i < addrs_count; i++) {
+	struct in_addr	addr = { 0 };
+	CFStringRef	broadcast = NULL;
+	struct in_addr	mask = { 0 };
+
+	addr = cfstring_to_ip(CFArrayGetValueAtIndex(addrs, i));
+	mask = cfstring_to_ip(CFArrayGetValueAtIndex(masks, i));
+	if (addr.s_addr && mask.s_addr) {
+	    struct in_addr 		b;
+
+	    b.s_addr = htonl(ntohl(addr.s_addr) | ~ntohl(mask.s_addr));
+	    broadcast = CFStringCreateWithFormat(NULL, NULL,
+						 CFSTR(IP_FORMAT),
+						 IP_LIST(&b));
+	    CFArrayAppendValue(ni_addrs, broadcast);
+	    CFArrayAppendValue(ni_tags, tag);
+	}
+    }
+    return;
 }
 
 CFTypeRef
@@ -404,19 +315,25 @@ highest_serviceID(CFArrayRef list, CFArrayRef order)
 }
 
 static CFDictionaryRef
-make_netinfo_dict(SCDSessionRef session, CFStringRef state_key, 
-		  CFDictionaryRef ipv4_dict, 
-		  CFDictionaryRef setup_dict)
+make_netinfo_dict(SCDynamicStoreRef session,
+		  CFStringRef state_key,
+		  CFStringRef setup_key,
+		  CFDictionaryRef ipv4_dict)
 {
-    CFMutableDictionaryRef	ni_dict = NULL;
     boolean_t			has_manual = FALSE;
     boolean_t			has_broadcast = FALSE;
     boolean_t			has_dhcp = FALSE;
     CFIndex			i;
     CFArrayRef			m = NULL;
     CFMutableArrayRef		ni_addrs = NULL;
+    CFMutableDictionaryRef	ni_dict = NULL;
     CFMutableArrayRef		ni_tags = NULL;
-	
+    CFDictionaryRef		setup_dict;
+
+    setup_dict = my_SCDCopy(session, setup_key);
+    if (setup_dict == NULL) {
+	goto netinfo_done;
+    }
     m = isA_CFArray(CFDictionaryGetValue(setup_dict,
 					 kSCPropNetNetInfoBindingMethods));
     if (m == NULL) {
@@ -431,7 +348,7 @@ make_netinfo_dict(SCDSessionRef session, CFStringRef state_key,
     /* find out which are configured */
     for (i = 0; i < CFArrayGetCount(m); i++) {
 	CFStringRef method = CFArrayGetValueAtIndex(m, i);
-	
+
 	if (CFEqual(method,
 		    kSCValNetNetInfoBindingMethodsManual)) {
 	    has_manual = TRUE;
@@ -446,33 +363,20 @@ make_netinfo_dict(SCDSessionRef session, CFStringRef state_key,
 	}
     }
     if (has_dhcp) {
-	CFDictionaryRef	state_dict;
+	CFDictionaryRef		state_dict;
 
-	state_dict = my_SCDGet(session, state_key);
+	state_dict = my_SCDCopy(session, state_key);
 	if (state_dict) {
 	    append_netinfo_arrays(state_dict, ni_addrs, ni_tags);
-	    my_CFRelease(&state_dict);
 	}
+	my_CFRelease(&state_dict);
     }
     if (has_manual) {
 	append_netinfo_arrays(setup_dict, ni_addrs, ni_tags);
     }
     if (has_broadcast) {
-	CFStringRef		addr;
-	    
-	addr = get_broadcast_address(ipv4_dict);
-	if (addr) {
-	    CFStringRef		tag;
-	    tag = CFDictionaryGetValue(setup_dict,
-				       kSCPropNetNetInfoBroadcastServerTag);
-	    tag = isA_CFString(tag);
-	    if (tag == NULL) {
-		tag = kSCValNetNetInfoDefaultServerTag;
-	    }
-	    CFArrayAppendValue(ni_addrs, addr);
-	    CFArrayAppendValue(ni_tags, tag);
-	    CFRelease(addr);
-	}
+	append_netinfo_broadcast_addresses(setup_dict, ipv4_dict,
+					   ni_addrs, ni_tags);
     }
     if (CFArrayGetCount(ni_addrs) == 0) {
 	goto netinfo_done;
@@ -487,80 +391,65 @@ make_netinfo_dict(SCDSessionRef session, CFStringRef state_key,
  netinfo_done:
     my_CFRelease(&ni_addrs);
     my_CFRelease(&ni_tags);
+    my_CFRelease(&setup_dict);
     return (ni_dict);
 }
 
 static boolean_t
-get_changes(SCDSessionRef session, CFStringRef ifn_cf,
+get_changes(SCDynamicStoreRef session, CFStringRef serviceID,
 	    CFStringRef pkey, CFArrayRef order, CFDictionaryRef * dict)
 {
-    CFMutableDictionaryRef	if_dict = NULL;
-    CFDictionaryRef		ipv4_dict;
     CFDictionaryRef		prot_dict = NULL;
-    CFStringRef			serviceID = NULL;
-    CFArrayRef			serviceIDs = NULL;
+    CFMutableDictionaryRef	service_dict = NULL;
     boolean_t			something_changed = FALSE;
+    CFDictionaryRef		setup_dict = NULL;
+    CFStringRef			setup_key = NULL;
+    CFDictionaryRef		state_dict = NULL;
     CFStringRef			state_key = NULL;
 
     { /* create a modifyable dictionary, a copy or a new one */
 	CFDictionaryRef		d = NULL;
-	d = CFDictionaryGetValue(S_ifstate_dict, ifn_cf);
+	d = CFDictionaryGetValue(S_service_state_dict, serviceID);
 	if (d == NULL) {
-	    if_dict
+	    service_dict
 		= CFDictionaryCreateMutable(NULL, 0,
 					    &kCFTypeDictionaryKeyCallBacks,
 					    &kCFTypeDictionaryValueCallBacks);
-	    if (if_dict == NULL)
+	    if (service_dict == NULL)
 		goto done;
 	}
 	else {
-	    if_dict = CFDictionaryCreateMutableCopy(NULL, 0, d);
-	    if (if_dict == NULL)
+	    service_dict = CFDictionaryCreateMutableCopy(NULL, 0, d);
+	    if (service_dict == NULL) {
 		goto done;
+	    }
 	}
     }
-    state_key = SCDKeyCreateNetworkInterfaceEntity(kSCCacheDomainState,
-						   ifn_cf,
-						   pkey);
-    if (state_key == NULL) {
+    state_key
+	= SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+						      kSCDynamicStoreDomainState,
+						      serviceID,
+						      pkey);
+    setup_key
+	= SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+						      kSCDynamicStoreDomainSetup,
+						      serviceID,
+						      pkey);
+    if (state_key == NULL || setup_key == NULL) {
 	goto done;
     }
 
     if (CFEqual(pkey, kSCEntNetIPv4)) {
 	CFMutableDictionaryRef	dict = NULL;
 	CFStringRef		router = NULL;
-	CFDictionaryRef		setup_dict = NULL;
-	CFStringRef		setup_key = NULL;
-	
-	serviceID_remove_ifname(ifn_cf);
-	ipv4_dict = my_SCDGet(session, state_key);
-	if (ipv4_dict == NULL) {
-	    goto ipv4_done;
-	}
-	dict = CFDictionaryCreateMutableCopy(NULL, 0, ipv4_dict);
-	my_CFRelease(&ipv4_dict);
-	if (dict == NULL) {
-	    goto ipv4_done;
-	}
-	serviceIDs = CFDictionaryGetValue(dict, 
-					  kSCCachePropNetServiceIDs);
-	serviceIDs = isA_CFArray(serviceIDs);
-	if (serviceIDs == NULL || CFArrayGetCount(serviceIDs) == 0) {
-	    goto ipv4_done;
-	}
-	serviceID_add_list(serviceIDs, ifn_cf);
-	serviceID = highest_serviceID(serviceIDs, order);
-	if (serviceID == NULL) {
-	    goto ipv4_done;
-	}
-	setup_key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, 
-						     serviceID, pkey);
-	if (setup_key == NULL) {
-	    goto ipv4_done;
 
+	state_dict = my_SCDCopy(session, state_key);
+	if (state_dict == NULL) {
+	    goto ipv4_done;
 	}
-	setup_dict = my_SCDGet(session, setup_key);
-	if (setup_dict) {
+	setup_dict = my_SCDCopy(session, setup_key);
+	dict = CFDictionaryCreateMutableCopy(NULL, 0, state_dict);
+	if (dict && setup_dict) {
 	    router = CFDictionaryGetValue(setup_dict,
 					  kSCPropNetIPv4Router);
 	    if (router) {
@@ -568,25 +457,17 @@ get_changes(SCDSessionRef session, CFStringRef ifn_cf,
 				     kSCPropNetIPv4Router,
 				     router);
 	    }
-
 	}
-	my_CFRelease(&setup_dict);
-
     ipv4_done:
-	my_CFRelease(&setup_key);
 	prot_dict = dict;
     }
     else {
-	ipv4_dict = CFDictionaryGetValue(if_dict, kSCEntNetIPv4);
+	CFDictionaryRef		ipv4_dict;
+
+	ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
 	if (ipv4_dict == NULL) {
 	    goto else_done;
 	}
-	serviceIDs = CFDictionaryGetValue(ipv4_dict, 
-					  kSCCachePropNetServiceIDs);
-	serviceIDs = isA_CFArray(serviceIDs);
-	if (serviceIDs)
-	    serviceID = highest_serviceID(serviceIDs, order);
-
 	if (CFEqual(pkey, kSCEntNetDNS)) {
 	    CFMutableDictionaryRef	dict = NULL;
 	    boolean_t			got_info = FALSE;
@@ -595,21 +476,13 @@ get_changes(SCDSessionRef session, CFStringRef ifn_cf,
 		kSCPropNetDNSServerAddresses,
 		kSCPropNetDNSSearchDomains,
 		kSCPropNetDNSDomainName,
+		kSCPropNetDNSSortList,
 		NULL,
 	    };
-	    CFDictionaryRef		setup_dict = NULL;
-	    CFDictionaryRef		state_dict = NULL;
-	    CFStringRef			setup_key = NULL;
-	    
-	    state_dict = my_SCDGet(session, state_key);
-	    if (serviceID) {
-		setup_key 
-		    = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-						       serviceID, pkey);
-		if (setup_key) {
-		    setup_dict = my_SCDGet(session, setup_key);
-		}
-	    }
+
+	    state_dict = my_SCDCopy(session, state_key);
+	    setup_dict = my_SCDCopy(session, setup_key);
+
 	    if (state_dict == NULL && setup_dict == NULL) {
 		goto dns_done;
 	    }
@@ -621,6 +494,7 @@ get_changes(SCDSessionRef session, CFStringRef ifn_cf,
 	    }
 	    for (i = 0; list[i]; i++) {
 		CFTypeRef	val = NULL;
+
 		if (setup_dict) {
 		    val = CFDictionaryGetValue(setup_dict, list[i]);
 		}
@@ -632,81 +506,50 @@ get_changes(SCDSessionRef session, CFStringRef ifn_cf,
 		    CFDictionarySetValue(dict, list[i], val);
 		}
 	    }
-	    if (got_info) {
-		CFRetain(dict);
-		prot_dict = dict;
+	    if (got_info == FALSE) {
+		my_CFRelease(&dict);
 	    }
 	dns_done:
-	    my_CFRelease(&dict);
-	    my_CFRelease(&setup_key);
-	    my_CFRelease(&setup_dict);
-	    my_CFRelease(&state_dict);
+	    prot_dict = dict;
 	}
 	else if (CFEqual(pkey, kSCEntNetNetInfo)) {
-	    CFDictionaryRef	setup_dict = NULL;
-	    CFStringRef		setup_key = NULL;
-	    
-	    if (serviceID) {
-		setup_key 
-		    = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-						       serviceID, pkey);
-		if (setup_key) {
-		    setup_dict = my_SCDGet(session, setup_key);
-		}
-	    }
-	    if (setup_dict == NULL) {
-		goto netinfo_done;
-	    }
-	    prot_dict = make_netinfo_dict(session, state_key, 
-					  ipv4_dict, setup_dict);
-	netinfo_done:
-	    my_CFRelease(&setup_dict);
-	    my_CFRelease(&setup_key);
+	    prot_dict = make_netinfo_dict(session, state_key, setup_key,
+					  ipv4_dict);
 	}
 	else {
-	    CFDictionaryRef		setup_dict = NULL;
-	    CFStringRef			setup_key = NULL;
-	    
-	    if (serviceID) {
-		setup_key 
-		    = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-						       serviceID, pkey);
-		if (setup_key) {
-		    setup_dict = my_SCDGet(session, setup_key);
-		}
-	    }
-	    /* if there's nothing defined in setup, try state */
-	    if (setup_dict == NULL) {
-		prot_dict = my_SCDGet(session, state_key);
+	    setup_dict = my_SCDCopy(session, setup_key);
+	    if (setup_dict) {
+		prot_dict = CFRetain(setup_dict);
 	    }
 	    else {
-		prot_dict = setup_dict;
+		state_dict = my_SCDCopy(session, state_key);
+		if (state_dict) {
+		    prot_dict = CFRetain(state_dict);
+		}
 	    }
-	    my_CFRelease(&setup_key);
 	}
     }
+
  else_done:
     if (prot_dict == NULL) {
-	CFDictionaryRef	old = CFDictionaryGetValue(if_dict, pkey);
+	CFDictionaryRef	old = CFDictionaryGetValue(service_dict, pkey);
 	if (old) {
-	    if (S_debug) {
-		SCDLog(LOG_INFO, CFSTR("removed %@ dictionary = %@"),
-		       pkey, old);
-	    }
-	    CFDictionaryRemoveValue(if_dict, pkey);
+	    SCLog(S_debug, LOG_INFO, CFSTR("removed %@ dictionary = %@"),
+		  pkey, old);
+	    CFDictionaryRemoveValue(service_dict, pkey);
 	    something_changed = TRUE;
 	}
 	*dict = NULL;
     }
     else {
-	CFDictionaryRef	old = CFDictionaryGetValue(if_dict, pkey);
+	CFDictionaryRef	old = CFDictionaryGetValue(service_dict, pkey);
 
 	if (old == NULL || CFEqual(prot_dict, old) == FALSE) {
-	    if (S_debug) {
-		SCDLog(LOG_INFO, CFSTR("%@ dictionary\nold %@\nnew %@"),
-		       pkey, old, prot_dict);
-	    }
-	    CFDictionarySetValue(if_dict, pkey, prot_dict);
+	    SCLog(S_debug, LOG_INFO, CFSTR("%@ dictionary\nold %@\nnew %@"),
+		  pkey,
+		  (old != NULL) ? (CFTypeRef)old : (CFTypeRef)CFSTR("(NULL)"),
+		  prot_dict);
+	    CFDictionarySetValue(service_dict, pkey, prot_dict);
 	    something_changed = TRUE;
 	    *dict = prot_dict;
 	}
@@ -714,16 +557,20 @@ get_changes(SCDSessionRef session, CFStringRef ifn_cf,
 	    *dict = old;
 	}
     }
-    CFDictionarySetValue(S_ifstate_dict, ifn_cf, if_dict);
+    CFDictionarySetValue(S_service_state_dict, serviceID, service_dict);
  done:
-    my_CFRelease(&if_dict);
+    my_CFRelease(&service_dict);
     my_CFRelease(&prot_dict);
+    my_CFRelease(&setup_dict);
+    my_CFRelease(&setup_key);
+    my_CFRelease(&state_dict);
     my_CFRelease(&state_key);
     return (something_changed);
 }
 
 static boolean_t
-default_route(int cmd, struct in_addr router)
+default_route(int cmd, struct in_addr router, char * ifname,
+	      boolean_t proxy_arp)
 {
     int sockfd;
     struct {
@@ -731,19 +578,27 @@ default_route(int cmd, struct in_addr router)
 	struct sockaddr_in	dst;
 	struct sockaddr_in	gway;
 	struct sockaddr_in	mask;
+	struct sockaddr_dl	link;
     } rtmsg;
+    int len;
     int rtm_seq = 0;
 
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
-	SCDLog(LOG_INFO,
-	       CFSTR("default_route: open routing socket failed, %s"),
-	       strerror(errno));
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR("default_route: open routing socket failed, %s"),
+	      strerror(errno));
 	return (FALSE);
     }
 
     memset(&rtmsg, 0, sizeof(rtmsg));
     rtmsg.hdr.rtm_type = cmd;
-    rtmsg.hdr.rtm_flags = RTF_UP | RTF_GATEWAY | RTF_STATIC;
+    if (proxy_arp) {
+	/* if we're doing proxy arp, don't set the gateway flag */
+	rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+    }
+    else {
+	rtmsg.hdr.rtm_flags = RTF_UP | RTF_GATEWAY | RTF_STATIC;
+    }
     rtmsg.hdr.rtm_version = RTM_VERSION;
     rtmsg.hdr.rtm_seq = ++rtm_seq;
     rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
@@ -752,14 +607,26 @@ default_route(int cmd, struct in_addr router)
     rtmsg.gway.sin_len = sizeof(rtmsg.gway);
     rtmsg.gway.sin_family = AF_INET;
     rtmsg.gway.sin_addr = router;
-    rtmsg.mask.sin_len = sizeof(rtmsg.dst);
+    rtmsg.mask.sin_len = sizeof(rtmsg.mask);
     rtmsg.mask.sin_family = AF_INET;
 
-    rtmsg.hdr.rtm_msglen = sizeof(rtmsg);
-    if (write(sockfd, &rtmsg, sizeof(rtmsg)) < 0) {
-	SCDLog(LOG_INFO,
-	       CFSTR("default_route: write routing socket failed, %s"),
-	       strerror(errno));
+    len = sizeof(rtmsg);
+    if (ifname) {
+	rtmsg.link.sdl_len = sizeof(rtmsg.link);
+	rtmsg.link.sdl_family = AF_LINK;
+	rtmsg.link.sdl_nlen = strlen(ifname);
+	rtmsg.hdr.rtm_addrs |= RTA_IFP;
+	bcopy(ifname, rtmsg.link.sdl_data, rtmsg.link.sdl_nlen);
+    }
+    else {
+	/* no link information */
+	len -= sizeof(rtmsg.link);
+    }
+    rtmsg.hdr.rtm_msglen = len;
+    if (write(sockfd, &rtmsg, len) < 0) {
+	SCLog(TRUE, LOG_DEBUG,
+	      CFSTR("default_route: write routing socket failed, %s"),
+	      strerror(errno));
 	close(sockfd);
 	return (FALSE);
     }
@@ -772,36 +639,24 @@ static boolean_t
 default_route_delete()
 {
     struct in_addr ip_zeroes = { 0 };
-    return (default_route(RTM_DELETE, ip_zeroes));
+    return (default_route(RTM_DELETE, ip_zeroes, NULL, FALSE));
 }
 
 static boolean_t
-default_route_add(struct in_addr router)
+default_route_add(struct in_addr router, char * ifname, boolean_t proxy_arp)
 {
-    return (default_route(RTM_ADD, router));
+    return (default_route(RTM_ADD, router, ifname, proxy_arp));
 }
 
-
-static __inline__ void
-remove_router_key(SCDSessionRef session)
-{
-    (void)SCDRemove(session, S_state_global_ipv4);
-    return;
-}
 
 static void
-set_router(struct in_addr router)
+set_router(struct in_addr router, char * ifname, boolean_t proxy_arp)
 {
     /* assign the new default route */
     (void)default_route_delete();
-    (void)default_route_add(router);
-    return;
-}
-
-static __inline__ void
-remove_dns_key(SCDSessionRef session)
-{
-    (void)SCDRemove(session, S_state_global_dns);
+    if (router.s_addr) {
+	(void)default_route_add(router, ifname, proxy_arp);
+    }
     return;
 }
 
@@ -812,15 +667,7 @@ empty_dns()
 }
 
 static void
-remove_dns(SCDSessionRef session)
-{
-    empty_dns();
-    remove_dns_key(session);
-    return;
-}
-
-static void
-empty_netinfo(SCDSessionRef session)
+empty_netinfo(SCDynamicStoreRef session)
 {
     if (S_empty_netinfo == FALSE) {
 	(void)unlink(VAR_RUN_NICONFIG_LOCAL_XML);
@@ -837,31 +684,11 @@ empty_netinfo(SCDSessionRef session)
     return;
 }
 
-static __inline__ void
-remove_netinfo_key(SCDSessionRef session)
-{
-    (void)SCDRemove(session, S_state_global_netinfo);
-    return;
-}
-
-static __inline__ void
-remove_proxies_key(SCDSessionRef session)
-{
-    (void)SCDRemove(session, S_state_global_proxies);
-    return;
-}
-
 static void
-remove_netinfo(SCDSessionRef session)
-{
-    empty_netinfo(session);
-    remove_netinfo_key(session);
-    return;
-}
-
-static void
-set_dns(CFArrayRef val_search_domains, CFStringRef val_domain_name,
-	CFArrayRef val_servers)
+set_dns(CFArrayRef val_search_domains,
+	CFStringRef val_domain_name,
+	CFArrayRef val_servers,
+	CFArrayRef val_sortlist)
 {
     FILE * f = fopen(VAR_RUN_RESOLV_CONF "-", "w");
 
@@ -899,6 +726,19 @@ set_dns(CFArrayRef val_search_domains, CFStringRef val_domain_name,
 			IP_LIST(&server));
 	    }
 	}
+
+	if (val_sortlist) {
+	    char 	addrmask[256];
+
+	    fprintf(f, "sortlist");
+	    for (i = 0; i < CFArrayGetCount(val_sortlist); i++) {
+		cfstring_to_cstring(CFArrayGetValueAtIndex(val_sortlist, i),
+				    addrmask, sizeof(addrmask));
+		fprintf(f, " %s", addrmask);
+	    }
+	    fprintf(f, "\n");
+	}
+
 	fclose(f);
 	rename(VAR_RUN_RESOLV_CONF "-", VAR_RUN_RESOLV_CONF);
     }
@@ -918,6 +758,7 @@ set_netinfo(CFDictionaryRef dict)
 	    CFIndex	len = CFDataGetLength(contents);
 
 	    write(fd, CFDataGetBytePtr(contents), len);
+	    CFRelease(contents);
 	}
 	close(fd);
 	rename(VAR_RUN_NICONFIG_LOCAL_XML "-", VAR_RUN_NICONFIG_LOCAL_XML);
@@ -926,57 +767,79 @@ set_netinfo(CFDictionaryRef dict)
 }
 
 static void
-remove_global(SCDSessionRef session)
+remove_global(SCDynamicStoreRef session)
 {
-    /* update the information in the system */
+    CFMutableArrayRef remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+    /* router */
     (void)default_route_delete();
+    CFArrayAppendValue(remove, S_state_global_ipv4);
+
+    /* dns */
     empty_dns();
+    CFArrayAppendValue(remove, S_state_global_dns);
+
+    /* netinfo */
     empty_netinfo(session);
+    CFArrayAppendValue(remove, S_state_global_netinfo);
 
-    /* update the cache (atomically) */
-    (void)SCDLock(session);
-    remove_router_key(session);
-    remove_dns_key(session);
-    remove_netinfo_key(session);
-    remove_proxies_key(session);
-    (void)SCDUnlock(session);
+    /* proxies */
+    CFArrayAppendValue(remove, S_state_global_proxies);
 
+    /* update cache (atomically) */
+    SCDynamicStoreSetMultiple(session, NULL, remove, NULL);
+    CFRelease(remove);
     return;
 }
 
-static __inline__ SCDStatus
-update_cache_key(SCDSessionRef session, CFStringRef key, SCDHandleRef data)
+boolean_t
+router_is_our_address(CFStringRef router, CFArrayRef addr_list)
 {
-    (void)SCDRemove(session, key);
-    if (data) {
-	return (SCDAdd(session, key, data));
+    int 		i;
+    struct in_addr	r = cfstring_to_ip(router);
+
+    for (i = 0; i < CFArrayGetCount(addr_list); i++) {
+	struct in_addr	ip;
+
+	ip = cfstring_to_ip(CFArrayGetValueAtIndex(addr_list, i));
+	if (r.s_addr == ip.s_addr) {
+	    return (TRUE);
+	}
     }
-    return (SCD_OK);
+    return (FALSE);
 }
 
 static void
-update_global(SCDSessionRef session, CFStringRef primary,
+update_global(SCDynamicStoreRef session, CFStringRef primary,
 	      boolean_t ipv4_changed, boolean_t dns_changed,
 	      boolean_t netinfo_changed, boolean_t proxies_changed)
 {
-    SCDHandleRef		dns_data = NULL;
-    CFDictionaryRef 		if_dict;
-    SCDHandleRef		ipv4_data = NULL;
-    SCDHandleRef		netinfo_data = NULL;
-    SCDHandleRef		proxies_data = NULL;
+    CFMutableArrayRef		keys_remove;
+    CFMutableDictionaryRef	keys_set;
+    CFDictionaryRef 		service_dict;
 
-    if_dict = CFDictionaryGetValue(S_ifstate_dict, primary);
-    if (if_dict == NULL) {
+    service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
+    if (service_dict == NULL) {
 	return;
     }
 
+    keys_remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    keys_set    = CFDictionaryCreateMutable(NULL, 0,
+					     &kCFTypeDictionaryKeyCallBacks,
+					     &kCFTypeDictionaryValueCallBacks);
+
     if (ipv4_changed) {
 	CFDictionaryRef		ipv4_dict = NULL;
+	boolean_t		proxy_arp = FALSE;
 
-	ipv4_dict = CFDictionaryGetValue(if_dict, kSCEntNetIPv4);
+	ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
 
 	if (ipv4_dict) {
+	    CFArrayRef			addrs = NULL;
 	    CFMutableDictionaryRef 	dict = NULL;
+	    CFStringRef			if_name = NULL;
+	    char			ifn[IFNAMSIZ + 1] = { '\0' };
+	    char *			ifn_p = NULL;
 	    CFStringRef			val_router = NULL;
 
 	    dict = CFDictionaryCreateMutable(NULL, 0,
@@ -987,189 +850,198 @@ update_global(SCDSessionRef session, CFStringRef primary,
 	    }
 	    val_router = CFDictionaryGetValue(ipv4_dict, kSCPropNetIPv4Router);
 
-	    /* if no router is defined, use the first interface address */
-	    if (val_router == NULL) {
-		CFArrayRef	arr;
-		arr = CFDictionaryGetValue(ipv4_dict,
-					   kSCPropNetIPv4Addresses);
-		arr = isA_CFArray(arr);
-		if (arr && CFArrayGetCount(arr) > 0) {
-		    val_router = CFArrayGetValueAtIndex(arr, 0);
+	    addrs = CFDictionaryGetValue(ipv4_dict,
+					 kSCPropNetIPv4Addresses);
+	    addrs = isA_CFArray(addrs);
+	    if (addrs && CFArrayGetCount(addrs) > 0) {
+		if (val_router == NULL) {
+		    /* no router defined, use the first interface address */
+		    val_router = CFArrayGetValueAtIndex(addrs, 0);
 		    val_router = isA_CFString(val_router);
+		    if (val_router)
+			proxy_arp = TRUE;
+		}
+		else {
+		    /* do proxy ARP if router is an interface address */
+		    proxy_arp = router_is_our_address(val_router, addrs);
 		}
 	    }
-	    
 	    if (val_router) {
 		CFDictionarySetValue(dict, kSCPropNetIPv4Router,
 				     val_router);
 	    }
-	    CFDictionarySetValue(dict, kSCCachePropNetPrimaryInterface, 
-				 primary);
-	    ipv4_data = SCDHandleInit();
-	    if (ipv4_data == NULL) {
-		SCDLog(LOG_ERR, CFSTR("update_global: SCDHandleInit failed"));
-		CFRelease(dict);
-		goto done;
+	    if_name = CFDictionaryGetValue(ipv4_dict, CFSTR("InterfaceName"));
+	    if (if_name) {
+		CFDictionarySetValue(dict, 
+				     kSCDynamicStorePropNetPrimaryInterface,
+				     if_name);
+		if (CFStringGetCString(if_name, ifn, sizeof(ifn),
+				       kCFStringEncodingMacRoman)) {
+		    ifn_p = ifn;
+		}
 	    }
-	    SCDHandleSetData(ipv4_data, dict);
+	    CFDictionarySetValue(dict, CFSTR("PrimaryService"), primary);
+	    CFDictionarySetValue(keys_set, S_state_global_ipv4, dict);
 	    CFRelease(dict);
 	    /* route add default ... */
 	    if (val_router) {
-		set_router(cfstring_to_ip(val_router));
+		set_router(cfstring_to_ip(val_router), ifn_p, proxy_arp);
 	    }
 	}
 	else {
+	    CFArrayAppendValue(keys_remove, S_state_global_ipv4);
 	    (void)default_route_delete();
 	}
     }
     if (dns_changed) {
 	CFDictionaryRef		dict;
 
-	dict = CFDictionaryGetValue(if_dict, kSCEntNetDNS);
+	dict = CFDictionaryGetValue(service_dict, kSCEntNetDNS);
 	if (dict == NULL) {
 	    empty_dns();
+	    CFArrayAppendValue(keys_remove, S_state_global_dns);
 	}
 	else {
-	    set_dns(CFDictionaryGetValue(dict,
-					 kSCPropNetDNSSearchDomains),
-		    CFDictionaryGetValue(dict,
-					 kSCPropNetDNSDomainName),
-		    CFDictionaryGetValue(dict,
-					 kSCPropNetDNSServerAddresses));
-	    dns_data = SCDHandleInit();
-	    if (dns_data == NULL) {
-		SCDLog(LOG_ERR, CFSTR("update_global: SCDHandleInit failed"));
-		goto done;
-	    }
-	    SCDHandleSetData(dns_data, dict);
+	    set_dns(CFDictionaryGetValue(dict, kSCPropNetDNSSearchDomains),
+		    CFDictionaryGetValue(dict, kSCPropNetDNSDomainName),
+		    CFDictionaryGetValue(dict, kSCPropNetDNSServerAddresses),
+		    CFDictionaryGetValue(dict, kSCPropNetDNSSortList));
+	    CFDictionarySetValue(keys_set, S_state_global_dns, dict);
 	}
     }
     if (netinfo_changed) {
 	CFDictionaryRef		dict = NULL;
 
-	dict = CFDictionaryGetValue(if_dict, kSCEntNetNetInfo);
+	dict = CFDictionaryGetValue(service_dict, kSCEntNetNetInfo);
 	if (dict) {
 	    CFRetain(dict);
 	}
 	else {
-	    CFDictionaryRef 	global;
 	    CFDictionaryRef	ipv4_dict = NULL;
 
-	    global = my_SCDGet(session, S_setup_global_netinfo);
-	    ipv4_dict = CFDictionaryGetValue(if_dict, kSCEntNetIPv4);
+	    ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
 
-	    if (global && ipv4_dict) {
+	    if (ipv4_dict) {
 		CFStringRef		state_key = NULL;
 
-		state_key 
-		    = SCDKeyCreateNetworkInterfaceEntity(kSCCacheDomainState,
-							 primary,
-							 kSCEntNetNetInfo);
-		dict = make_netinfo_dict(session, state_key, ipv4_dict, 
-					 global);
+		state_key
+		    = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								  kSCDynamicStoreDomainState,
+								  primary,
+								  kSCEntNetNetInfo);
+		dict = make_netinfo_dict(session, state_key,
+					 S_setup_global_netinfo,
+					 ipv4_dict);
 		my_CFRelease(&state_key);
 	    }
-	    my_CFRelease(&global);
 	}
 
 	if (dict == NULL) {
 	    empty_netinfo(session);
+	    CFArrayAppendValue(keys_remove, S_state_global_netinfo);
 	}
 	else {
 	    set_netinfo(dict);
-	    netinfo_data = SCDHandleInit();
-	    if (netinfo_data == NULL) {
-		my_CFRelease(&dict);
-		SCDLog(LOG_ERR, CFSTR("update_global: SCDHandleInit failed"));
-		goto done;
-	    }
-	    SCDHandleSetData(netinfo_data, dict);
+	    CFDictionarySetValue(keys_set, S_state_global_netinfo, dict);
 	    my_CFRelease(&dict);
 	}
     }
     if (proxies_changed) {
 	CFDictionaryRef		dict = NULL;
 
-	dict = CFDictionaryGetValue(if_dict, kSCEntNetProxies);
+	dict = CFDictionaryGetValue(service_dict, kSCEntNetProxies);
 	if (dict) {
 	    CFRetain(dict);
 	}
 	else {
-	    dict = my_SCDGet(session, S_setup_global_proxies);
+	    dict = my_SCDCopy(session, S_setup_global_proxies);
 	}
-	if (dict) {
-	    proxies_data = SCDHandleInit();
-	    if (proxies_data == NULL) {
-		my_CFRelease(&dict);
-		SCDLog(LOG_ERR, CFSTR("update_global: SCDHandleInit failed"));
-		goto done;
-	    }
-	    SCDHandleSetData(proxies_data, dict);
+	if (dict == NULL) {
+	    CFArrayAppendValue(keys_remove, S_state_global_proxies);
+	}
+	else {
+	    CFDictionarySetValue(keys_set, S_state_global_proxies, dict);
 	    my_CFRelease(&dict);
 	}
     }
     /* update the cache (atomically) */
-    SCDLock(session);
-    if (ipv4_changed) {
-	(void)update_cache_key(session, S_state_global_ipv4, ipv4_data);
-    }
-    if (dns_changed) {
-	(void)update_cache_key(session, S_state_global_dns, dns_data);
-    }
-    if (netinfo_changed) {
-	(void)update_cache_key(session, S_state_global_netinfo, netinfo_data);
-    }
-    if (proxies_changed) {
-	(void)update_cache_key(session, S_state_global_proxies, proxies_data);
-    }
-    SCDUnlock(session);
+    SCDynamicStoreSetMultiple(session, keys_set, keys_remove, NULL);
  done:
-    my_SCDHandleRelease(&ipv4_data);
-    my_SCDHandleRelease(&dns_data);
-    my_SCDHandleRelease(&netinfo_data);
-    my_SCDHandleRelease(&proxies_data);
+    my_CFRelease(&keys_set);
+    my_CFRelease(&keys_remove);
     return;
 }
 
 static unsigned int
-get_interface_rank(CFArrayRef arr, CFStringRef ifn_cf)
+get_service_rank(CFArrayRef arr, CFStringRef serviceID)
 {
-    CFIndex i;
+    CFDictionaryRef	d;
+    CFIndex 		i;
+    CFDictionaryRef	ipv4_dict;
 
-    if (ifn_cf != NULL) {
-	/* PPP override: make ppp* look the best */
-	/* Hack: we should be using the type of the interface, not its name */
-	if (CFStringHasPrefix(ifn_cf, CFSTR("ppp"))
-	    && S_ppp_override_primary == TRUE) {
+    if (serviceID == NULL) {
+	goto done;
+    }
+    d = CFDictionaryGetValue(S_service_state_dict, serviceID);
+    if (d == NULL) {
+	goto done;
+    }
+
+    ipv4_dict = CFDictionaryGetValue(d, kSCEntNetIPv4);
+    if (ipv4_dict) {
+	CFStringRef	if_name;
+	CFNumberRef    	override = NULL;
+
+	if_name = CFDictionaryGetValue(ipv4_dict, CFSTR("InterfaceName"));
+	if (S_ppp_override_primary == TRUE
+	    && if_name != NULL
+	    && CFStringHasPrefix(if_name, CFSTR("ppp"))) {
+	    /* PPP override: make ppp* look the best */
+	    /* Hack: should use interface type, not interface name */
 	    return (0);
 	}
-	if (arr != NULL) {
-	    for (i = 0; i < CFArrayGetCount(arr); i++) {
-		CFStringRef ifname;
-		CFStringRef serviceID = CFArrayGetValueAtIndex(arr, i);
+	/* check for the "OverridePrimary" property */
+	override = CFDictionaryGetValue(ipv4_dict,
+					CFSTR("OverridePrimary"));
+	if (isA_CFNumber(override) != NULL) {
+	    int		val = 0;
 
-		ifname = serviceID_get_ifname(serviceID);
-		if (ifname && CFEqual(ifn_cf, ifname)) {
-		    return (i + 1);
-		}
+	    CFNumberGetValue(override,  kCFNumberIntType, &val);
+	    if (val != 0) {
+		return (0);
 	    }
 	}
     }
 
+    if (serviceID != NULL && arr != NULL) {
+	for (i = 0; i < CFArrayGetCount(arr); i++) {
+	    CFStringRef s = isA_CFString(CFArrayGetValueAtIndex(arr, i));
+
+	    if (s == NULL) {
+		continue;
+	    }
+	    if (CFEqual(serviceID, s)) {
+		return (i + 1);
+	    }
+	}
+    }
+
+ done:
     /* return an arbitrarily large number */
     return (1024 * 1024);
 }
 
 static CFStringRef
-elect_new_primary(SCDSessionRef session, CFArrayRef order)
-{  
-    CFIndex		count = CFDictionaryGetCount(S_ifstate_dict);
+elect_new_primary(SCDynamicStoreRef session, CFArrayRef order)
+{
+    CFIndex		count;
     CFIndex 		i;
     void * *		keys;
     CFStringRef		new_primary = NULL;
     unsigned int 	primary_index = 0;
     void * *		values;
 
+    count = CFDictionaryGetCount(S_service_state_dict);
     if (count == 0) {
 	return (NULL);
     }
@@ -1181,45 +1053,35 @@ elect_new_primary(SCDSessionRef session, CFArrayRef order)
 	goto done;
     }
 
-    CFDictionaryGetKeysAndValues(S_ifstate_dict, keys, values);
+    CFDictionaryGetKeysAndValues(S_service_state_dict, keys, values);
 
     for (i = 0; i < count; i++) {
-	CFStringRef		ifn_cf = keys[i];
-	CFDictionaryRef		if_dict = values[i];
-	unsigned int		if_index;
+	struct in_addr		addr = { 0 };
+	CFArrayRef 		arr;
 	CFDictionaryRef 	ipv4_dict = NULL;
+	CFStringRef		serviceID = keys[i];
+	CFDictionaryRef		service_dict = values[i];
+	unsigned int		service_index;
 
-	if (CFEqual(ifn_cf, CFSTR("lo0"))) {
-	    /* don't bother with loopback */
+	ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
+	if (ipv4_dict == NULL) {
 	    continue;
 	}
-
-	ipv4_dict = CFDictionaryGetValue(if_dict, kSCEntNetIPv4);
-	if (ipv4_dict == NULL)
-	    continue;
-
-	if (ipv4_dict) {
-	    struct in_addr	addr = { 0 };
-	    CFArrayRef 		arr;
-
-	    arr = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
-						   kSCPropNetIPv4Addresses));
-	    if (arr && CFArrayGetCount(arr))
-		addr = cfstring_to_ip(CFArrayGetValueAtIndex(arr, 0));
-	    if (addr.s_addr == 0) {
-		if (S_debug) {
-		    SCDLog(LOG_INFO, CFSTR("%@ has no address, ignoring"),
-			   ifn_cf);
-		}
-		continue;
-	    }
+	arr = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
+					       kSCPropNetIPv4Addresses));
+	if (arr && CFArrayGetCount(arr)) {
+	    addr = cfstring_to_ip(CFArrayGetValueAtIndex(arr, 0));
 	}
-	if_index = get_interface_rank(order, ifn_cf);
-	if (new_primary == NULL || if_index < primary_index) {
+	if (addr.s_addr == 0) {
+	    SCLog(S_debug, LOG_INFO, CFSTR("%@ has no address, ignoring"), serviceID);
+	    continue;
+	}
+	service_index = get_service_rank(order, serviceID);
+	if (new_primary == NULL || service_index < primary_index) {
 	    my_CFRelease(&new_primary);
-	    CFRetain(ifn_cf);
-	    new_primary = ifn_cf;
-	    primary_index = if_index;
+	    CFRetain(serviceID);
+	    new_primary = serviceID;
+	    primary_index = service_index;
 	}
     }
  done:
@@ -1230,117 +1092,71 @@ elect_new_primary(SCDSessionRef session, CFArrayRef order)
     return (new_primary);
 }
 
-static void
-ip_handle_change(SCDSessionRef session, CFArrayRef order, CFStringRef ifn_cf)
+static boolean_t
+ip_handle_change(SCDynamicStoreRef session, CFArrayRef order, CFStringRef serviceID)
 {
     boolean_t		dns_changed = FALSE;
     CFDictionaryRef	dns_dict = NULL;
-    unsigned int	if_index = -1;
+    boolean_t		election_needed = FALSE;
     boolean_t		ipv4_changed = FALSE;
     CFDictionaryRef 	ipv4_dict = NULL;
     boolean_t		ni_changed = FALSE;
     CFDictionaryRef 	ni_dict = NULL;
     boolean_t		proxies_changed = FALSE;
     CFDictionaryRef 	proxies_dict = NULL;
-    CFArrayRef		val_dns_servers = NULL;
+    unsigned int	service_index = -1;
 
-    if (CFEqual(ifn_cf, CFSTR("lo0"))) {
-	/* don't bother with loopback */
-	return;
-    }
     ipv4_changed
-	= get_changes(session, ifn_cf, kSCEntNetIPv4, order, &ipv4_dict);
+	= get_changes(session, serviceID, kSCEntNetIPv4, order, &ipv4_dict);
 
-    if_index = get_interface_rank(order, ifn_cf);
+    service_index = get_service_rank(order, serviceID);
     if (ipv4_dict) {
 	struct in_addr		addr = { 0 };
 	CFArrayRef 		arr;
 
-	if (S_debug) {
-	    SCDLog(LOG_INFO, CFSTR("IPv4 %@ = %@"),
-		   ifn_cf, ipv4_dict);
-	}
+	SCLog(S_debug, LOG_INFO, CFSTR("IPv4 %@ = %@"), serviceID, ipv4_dict);
 	arr = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
 					       kSCPropNetIPv4Addresses));
 	if (arr && CFArrayGetCount(arr))
 	    addr = cfstring_to_ip(CFArrayGetValueAtIndex(arr, 0));
 
 	if (addr.s_addr == 0) {
-	    if (S_debug) {
-		SCDLog(LOG_INFO, CFSTR("%@ has no IP address, ignoring"),
-		       ifn_cf);
-	    }
-	    goto done;
+	    SCLog(S_debug, LOG_INFO, CFSTR("%@ has no IP address"), serviceID);
+	    ipv4_dict = NULL;
 	}
     }
-    dns_changed = get_changes(session, ifn_cf, kSCEntNetDNS, order, &dns_dict);
-    if (dns_dict) {
-	if (S_debug) {
-	    SCDLog(LOG_INFO, CFSTR("DNS %@ = %@"), ifn_cf, dns_dict);
-	}
-	val_dns_servers
-	    = isA_CFArray(CFDictionaryGetValue(dns_dict,
-					       kSCPropNetDNSServerAddresses));
-    }
-    ni_changed = get_changes(session, ifn_cf, kSCEntNetNetInfo, order, 
+    dns_changed = get_changes(session, serviceID, kSCEntNetDNS, order,
+			      &dns_dict);
+    SCLog(S_debug && dns_dict, LOG_INFO, CFSTR("DNS %@ = %@"), serviceID, dns_dict);
+    ni_changed = get_changes(session, serviceID, kSCEntNetNetInfo, order,
 			     &ni_dict);
-    if (ni_dict) {
-	if (S_debug) {
-	    SCDLog(LOG_INFO, CFSTR("NetInfo %@ = %@"), ifn_cf, ni_dict);
-	}
-    }
-    proxies_changed = get_changes(session, ifn_cf, kSCEntNetProxies, order, 
+    SCLog(S_debug && ni_dict, LOG_INFO, CFSTR("NetInfo %@ = %@"), serviceID, ni_dict);
+    proxies_changed = get_changes(session, serviceID, kSCEntNetProxies, order,
 				  &proxies_dict);
-    if (proxies_dict) {
-	if (S_debug) {
-	    SCDLog(LOG_INFO, CFSTR("Proxies %@ = %@"), ifn_cf, proxies_dict);
-	}
-    }
-    if (S_ifn_primary && CFEqual(S_ifn_primary, ifn_cf)) {
+    SCLog(S_debug && proxies_dict, LOG_INFO, CFSTR("Proxies %@ = %@"), serviceID, proxies_dict);
+    if (S_primary_serviceID && CFEqual(S_primary_serviceID, serviceID)) {
 	/* currently primary */
 	if (ipv4_changed == FALSE && dns_changed == FALSE
 	    && ni_changed == FALSE && proxies_changed == FALSE)
 	    goto done;
-	if (ipv4_changed && ipv4_dict == NULL) {
-	    if (S_debug) {
-		SCDLog(LOG_INFO, CFSTR("%@ is no longer primary"), ifn_cf);
-	    }
-	    /* we're no longer primary */
-	    my_CFRelease(&S_ifn_primary);
-	    remove_global(session);
-	    S_ifn_primary = elect_new_primary(session, order);
-	    if (S_ifn_primary) {
-		SCDLog(LOG_INFO, CFSTR("%@ is new primary"), S_ifn_primary);
-		update_global(session, S_ifn_primary, TRUE, TRUE, TRUE, TRUE);
-	    }
-	}
-	else {
-	    update_global(session, S_ifn_primary, ipv4_changed,
+	if (ipv4_dict) {
+	    update_global(session, serviceID, ipv4_changed,
 			  dns_changed, ni_changed, proxies_changed);
+	}
+	if (ipv4_changed) {
+	    election_needed = TRUE;
 	}
     }
     else {
-	unsigned int	primary_index;
-
-	primary_index = get_interface_rank(order, S_ifn_primary);
-
-	if (ipv4_dict && (S_ifn_primary == NULL || if_index < primary_index)) {
-	    if (S_debug) {
-		SCDLog(LOG_INFO, CFSTR("%@ is new primary"), ifn_cf);
-	    }
-	    my_CFRelease(&S_ifn_primary);
-	    CFRetain(ifn_cf);
-	    S_ifn_primary = ifn_cf;
-	    update_global(session, S_ifn_primary, TRUE, TRUE, TRUE, TRUE);
-	}
+	election_needed = TRUE;
     }
  done:
-    return;
+    return (election_needed);
 }
 
 
 static CFArrayRef
-get_service_order(SCDSessionRef session)
+get_service_order(SCDynamicStoreRef session)
 {
     CFArrayRef	 		order = NULL;
     CFNumberRef		 	ppp_override = NULL;
@@ -1348,9 +1164,11 @@ get_service_order(SCDSessionRef session)
     CFStringRef 		ipv4_key = NULL;
     CFDictionaryRef 		ipv4_dict = NULL;
 
-    ipv4_key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, 
-					       kSCEntNetIPv4);
-    ipv4_dict = my_SCDGet(session, ipv4_key);
+    ipv4_key
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainSetup,
+						     kSCEntNetIPv4);
+    ipv4_dict = my_SCDCopy(session, ipv4_key);
     if (ipv4_dict != NULL) {
 	order = CFDictionaryGetValue(ipv4_dict, kSCPropNetServiceOrder);
 	order = isA_CFArray(order);
@@ -1358,12 +1176,11 @@ get_service_order(SCDSessionRef session)
 	    CFRetain(order);
 	}
 	/* get ppp override primary */
-	ppp_override = CFDictionaryGetValue(ipv4_dict, 
+	ppp_override = CFDictionaryGetValue(ipv4_dict,
 					    kSCPropNetPPPOverridePrimary);
 	ppp_override = isA_CFNumber(ppp_override);
 	if (ppp_override != NULL) {
-	    CFNumberGetValue(ppp_override, 
-			     kCFNumberIntType, &ppp_val);
+	    CFNumberGetValue(ppp_override, kCFNumberIntType, &ppp_val);
 	}
 	S_ppp_override_primary = (ppp_val != 0) ? TRUE : FALSE;
     }
@@ -1376,50 +1193,36 @@ get_service_order(SCDSessionRef session)
     return (order);
 }
 
-static boolean_t
-ip_handler(SCDSessionRef session, void * arg)
+static void
+ip_handler(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 {
     CFStringRef		change;
-    CFArrayRef		changes = NULL;
     CFIndex		count;
     static boolean_t	first = TRUE;
     boolean_t		flat_file_changed = FALSE;
+    boolean_t		global_ipv4_changed = FALSE;
     boolean_t		global_netinfo_changed = FALSE;
     boolean_t		global_proxies_changed = FALSE;
     int			i;
-    CFMutableArrayRef	if_changes = NULL;
-    CFStringRef		ifl_key = NULL;
+    CFMutableArrayRef	service_changes = NULL;
     CFArrayRef		service_order = NULL;
-    boolean_t		service_order_changed = FALSE;
-    SCDStatus		status;
 
-    status = SCDNotifierGetChanges(session, &changes);
-    if (status != SCD_OK || changes == NULL) {
-	return (TRUE);
-    }
     count = CFArrayGetCount(changes);
     if (count == 0) {
 	goto done;
     }
     service_order = get_service_order(session);
-    if (S_debug) {
-	SCDLog(LOG_INFO, CFSTR("ip_handler changes: %@ (%d)"), changes,
-	       count);
-	if (service_order) {
-	    SCDLog(LOG_INFO, CFSTR("ip_handler service_order: %@ "), 
-		   service_order);
-	}
-    }
-    ifl_key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, 
-					      kSCEntNetIPv4);
-    if_changes = CFArrayCreateMutable(NULL, 0, 
-				      &kCFTypeArrayCallBacks);
-    if (ifl_key == NULL || if_changes == NULL)
+    SCLog(S_debug, LOG_INFO, CFSTR("ip_handler changes: %@ (%d)"), changes, count);
+    SCLog(S_debug && service_order, LOG_INFO,
+	  CFSTR("ip_handler service_order: %@ "), service_order);
+    service_changes = CFArrayCreateMutable(NULL, 0,
+					   &kCFTypeArrayCallBacks);
+    if (service_changes == NULL)
 	goto done;
     for (i = 0; i < count; i++) {
 	change = CFArrayGetValueAtIndex(changes, i);
-	if (CFEqual(change, ifl_key)) {
-	    service_order_changed = TRUE;
+	if (CFEqual(change, S_setup_global_ipv4)) {
+	    global_ipv4_changed = TRUE;
 	}
 	else if (CFEqual(change, S_setup_global_netinfo)) {
 	    global_netinfo_changed = TRUE;
@@ -1430,91 +1233,97 @@ ip_handler(SCDSessionRef session, void * arg)
 	else if (CFStringHasSuffix(change, CFSTR(USE_FLAT_FILES))) {
 	    flat_file_changed = TRUE;
 	}
-	else if (CFStringHasPrefix(change, S_state_interface_prefix)) {
-	    CFStringRef ifn = parse_component(change, 
-					      S_state_interface_prefix);
-	    if (ifn) {
-		my_CFArrayAppendUniqueValue(if_changes, ifn);
-		CFRelease(ifn);
+	else if (CFStringHasPrefix(change, S_state_service_prefix)) {
+	    CFStringRef serviceID = parse_component(change,
+						    S_state_service_prefix);
+	    if (serviceID) {
+		my_CFArrayAppendUniqueValue(service_changes, serviceID);
+		CFRelease(serviceID);
 	    }
 	}
 	else if (CFStringHasPrefix(change, S_setup_service_prefix)) {
-	    CFStringRef serviceID = parse_component(change, 
+	    CFStringRef serviceID = parse_component(change,
 						    S_setup_service_prefix);
 	    if (serviceID) {
-		CFStringRef ifn = serviceID_get_ifname(serviceID);
-		if (ifn) {
-		    my_CFArrayAppendUniqueValue(if_changes, ifn);
-		}
+		my_CFArrayAppendUniqueValue(service_changes, serviceID);
 		CFRelease(serviceID);
 	    }
 	}
     }
     if (flat_file_changed) {
-	SCDHandleRef	data = NULL;
-	CFStringRef	key;
+	CFPropertyListRef	data = NULL;
+	CFStringRef		key;
 
-	key = SCDKeyCreate(CFSTR("%@" USE_FLAT_FILES), kSCCacheDomainSetup);
-	status = SCDGet(session, key, &data);
+	key = SCDynamicStoreKeyCreate(NULL,
+				      CFSTR("%@" USE_FLAT_FILES),
+				      kSCDynamicStoreDomainSetup);
+	data = SCDynamicStoreCopyValue(session, key);
 	my_CFRelease(&key);
-	if (status == SCD_OK) {
+	if (data) {
 	    S_empty_netinfo = FALSE;
-	    my_SCDHandleRelease(&data);
+	    CFRelease(data);
 	}
 	else {
 	    S_empty_netinfo = TRUE;
 	}
     }
     if (first) {
-	remove_netinfo(session);
+	/* initialize netinfo state */
+	empty_netinfo(session);
+	(void)SCDynamicStoreRemoveValue(session, S_state_global_netinfo);
 	first = FALSE;
     }
-    for (i = 0; i < CFArrayGetCount(if_changes); i++) {
-	ip_handle_change(session, service_order, 
-			 CFArrayGetValueAtIndex(if_changes, i));
+    for (i = 0; i < CFArrayGetCount(service_changes); i++) {
+	if (ip_handle_change(session, service_order,
+			     CFArrayGetValueAtIndex(service_changes, i))
+		== TRUE) {
+	    global_ipv4_changed = TRUE;
+	}
     }
 
-    if (service_order_changed && service_order) {
+    if (global_ipv4_changed && service_order) {
 	CFStringRef new_primary;
 
-	if (S_debug) {
-	    SCDLog(LOG_INFO,
-		   CFSTR("iphandler: the interface list changed"));
-	}
+	SCLog(S_debug, LOG_INFO,
+	      CFSTR("iphandler: running service election"));
 	new_primary = elect_new_primary(session, service_order);
 	if (new_primary) {
-	    if (S_ifn_primary && CFEqual(new_primary, S_ifn_primary)) {
-		if (S_debug) {
-		    SCDLog(LOG_INFO, CFSTR("%@ is still primary"),
-			   new_primary);
-		}
+	    if (S_primary_serviceID
+		&& CFEqual(new_primary, S_primary_serviceID)) {
+		SCLog(S_debug, LOG_INFO, CFSTR("%@ is still primary"),
+		      new_primary);
 		my_CFRelease(&new_primary);
 	    }
 	    else {
-		my_CFRelease(&S_ifn_primary);
-		S_ifn_primary = new_primary;
+		my_CFRelease(&S_primary_serviceID);
+		S_primary_serviceID = new_primary;
 		remove_global(session);
-		update_global(session, S_ifn_primary, TRUE, TRUE, TRUE, TRUE);
-		if (S_debug) {
-		    SCDLog(LOG_INFO, CFSTR("%@ is the new primary"),
-			   S_ifn_primary);
-		}
+		update_global(session, S_primary_serviceID,
+			      TRUE, TRUE, TRUE, TRUE);
+		SCLog(S_debug, LOG_INFO, CFSTR("%@ is the new primary"),
+		      S_primary_serviceID);
+	    }
+	}
+	else {
+	    if (S_primary_serviceID) {
+		SCLog(S_debug, LOG_INFO, CFSTR("%@ is no longer primary"),
+		      S_primary_serviceID);
+		my_CFRelease(&S_primary_serviceID);
+		remove_global(session);
 	    }
 	}
     }
 
     if (global_netinfo_changed || global_proxies_changed) {
-	if (S_ifn_primary) {
-	    update_global(session, S_ifn_primary, FALSE, FALSE, 
+	if (S_primary_serviceID) {
+	    update_global(session, S_primary_serviceID, FALSE, FALSE,
 			  global_netinfo_changed, global_proxies_changed);
 	}
     }
  done:
-    my_CFRelease(&ifl_key);
-    my_CFRelease(&if_changes);
+    my_CFRelease(&service_changes);
     my_CFRelease(&service_order);
-    my_CFRelease(&changes);
-    return (TRUE);
+    return;
 }
 
 
@@ -1530,99 +1339,163 @@ ip_plugin_init()
     };
     int			i;
     CFStringRef		key;
-     SCDSessionRef	session = NULL;
-    SCDStatus 		status;
+    CFMutableArrayRef	keys = NULL;
+    CFMutableArrayRef	patterns = NULL;
+    CFRunLoopSourceRef	rls = NULL;
+    SCDynamicStoreRef	session = NULL;
 
-    S_state_global_ipv4    
-	= SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainState, kSCEntNetIPv4);
-    S_state_global_dns     
-	= SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainState, kSCEntNetDNS);
-    S_state_global_netinfo 
-	= SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainState, 
-					  kSCEntNetNetInfo);
-    S_state_global_proxies 
-	= SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainState, 
-					  kSCEntNetProxies);
-    S_setup_global_netinfo 
-	= SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, 
-					  kSCEntNetNetInfo);
+    session = SCDynamicStoreCreate(NULL, CFSTR("IPMonitor"), ip_handler, NULL);
+    if (session == NULL) {
+	SCLog(TRUE, LOG_ERR, CFSTR("ip_plugin_init SCDynamicStoreCreate failed: %s"),
+	      SCErrorString(SCError()));
+	return;
+    }
+    S_state_global_ipv4
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainState,
+						     kSCEntNetIPv4);
+    S_state_global_dns
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainState,
+						     kSCEntNetDNS);
+    S_state_global_netinfo
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainState,
+						     kSCEntNetNetInfo);
+    S_state_global_proxies
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainState,
+						     kSCEntNetProxies);
+    S_setup_global_ipv4
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainSetup,
+						     kSCEntNetIPv4);
+    S_setup_global_netinfo
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainSetup,
+						     kSCEntNetNetInfo);
     S_setup_global_proxies
-	= SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, 
-					  kSCEntNetProxies);
-    S_state_interface_prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"),
-					    kSCCacheDomainState, 
-					    kSCCompNetwork,
-					    kSCCompInterface);
-    S_setup_service_prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"),
-					    kSCCacheDomainSetup, 
-					    kSCCompNetwork,
-					    kSCCompService);
-    S_ifstate_dict
-      = CFDictionaryCreateMutable(NULL, 0,
-				  &kCFTypeDictionaryKeyCallBacks,
-				  &kCFTypeDictionaryValueCallBacks);
-    S_service_ifname_dict
-      = CFDictionaryCreateMutable(NULL, 0,
-				  &kCFTypeDictionaryKeyCallBacks,
-				  &kCFTypeDictionaryValueCallBacks);
-    if (S_ifstate_dict == NULL
-	|| S_service_ifname_dict == NULL
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainSetup,
+						     kSCEntNetProxies);
+    S_state_service_prefix
+	= SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@/"),
+				  kSCDynamicStoreDomainState,
+				  kSCCompNetwork,
+				  kSCCompService);
+    S_setup_service_prefix
+	= SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@/"),
+				  kSCDynamicStoreDomainSetup,
+				  kSCCompNetwork,
+				  kSCCompService);
+    S_service_state_dict
+	= CFDictionaryCreateMutable(NULL, 0,
+				    &kCFTypeDictionaryKeyCallBacks,
+				    &kCFTypeDictionaryValueCallBacks);
+
+    if (S_service_state_dict == NULL
 	|| S_state_global_ipv4 == NULL
 	|| S_state_global_dns == NULL
 	|| S_state_global_netinfo == NULL
 	|| S_state_global_proxies == NULL
+	|| S_setup_global_ipv4 == NULL
 	|| S_setup_global_netinfo == NULL
 	|| S_setup_global_proxies == NULL
-	|| S_state_interface_prefix == NULL
+	|| S_state_service_prefix == NULL
 	|| S_setup_service_prefix == NULL) {
-	SCDLog(LOG_ERR,
-	       CFSTR("ip_plugin_init: couldn't allocate cache keys"));
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR("ip_plugin_init: couldn't allocate cache keys"));
 	return;
     }
-    status = SCDOpen(&session, CFSTR("IPMonitor"));
-    if (status != SCD_OK) {
-	SCDLog(LOG_ERR, CFSTR("ip_plugin_init SCDOpen failed: %s"),
-	       SCDError(status));
+
+    keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (keys == NULL || patterns == NULL) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR("ip_plugin_init: couldn't allocate notification keys/patterns"));
 	return;
     }
-    S_debug = SCDOptionGet(session, kSCDOptionDebug);
+
     /* add notifiers for any IPv4, DNS, or NetInfo changes in state or setup */
     for (i = 0; entities[i]; i++) {
-	key = SCDKeyCreateNetworkInterfaceEntity(kSCCacheDomainState,
-						 kSCCompAnyRegex,
-						 entities[i]);
-	status = SCDNotifierAdd(session, key, kSCDRegexKey);
+	key = SCDynamicStoreKeyCreateNetworkServiceEntity(
+		NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, entities[i]);
+	CFArrayAppendValue(patterns, key);
 	CFRelease(key);
-	key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup,
-					       kSCCompAnyRegex,
-					       entities[i]);
-	status = SCDNotifierAdd(session, key, kSCDRegexKey);
+	key = SCDynamicStoreKeyCreateNetworkServiceEntity(
+		NULL, kSCDynamicStoreDomainSetup, kSCCompAnyRegex, entities[i]);
+	CFArrayAppendValue(patterns, key);
 	CFRelease(key);
     }
 
     /* add notifier for setup global netinfo */
-    status = SCDNotifierAdd(session, S_setup_global_netinfo, 0);
+    CFArrayAppendValue(keys, S_setup_global_netinfo);
 
     /* add notifier for ServiceOrder/PPPOverridePrimary changes for IPv4 */
-    key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
-    status = SCDNotifierAdd(session, key, 0);
+    key = SCDynamicStoreKeyCreateNetworkGlobalEntity(
+		NULL, kSCDynamicStoreDomainSetup, kSCEntNetIPv4);
+    CFArrayAppendValue(keys, key);
     CFRelease(key);
 
     /* add notifier flat file */
-    key = SCDKeyCreate(CFSTR("%@" USE_FLAT_FILES), kSCCacheDomainSetup);
-    status = SCDNotifierAdd(session, key, 0);
+    key = SCDynamicStoreKeyCreate(
+		NULL, CFSTR("%@" USE_FLAT_FILES), kSCDynamicStoreDomainSetup);
+    CFArrayAppendValue(keys, key);
     CFRelease(key);
 
-    SCDNotifierInformViaCallback(session, ip_handler, NULL);
-    remove_dns(session);
+    if (!SCDynamicStoreSetNotificationKeys(session, keys, patterns)) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR("ip_plugin_init SCDynamicStoreSetNotificationKeys failed: %s"),
+	      SCErrorString(SCError()));
+	goto done;
+    }
 
+    rls = SCDynamicStoreCreateRunLoopSource(NULL, session, 0);
+    if (rls == NULL) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR("ip_plugin_init SCDynamicStoreCreateRunLoopSource failed: %s"),
+	      SCErrorString(SCError()));
+	goto done;
+    }
+
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+
+    /* initialize dns configuration */
+    empty_dns();
+    (void)SCDynamicStoreRemoveValue(session, S_state_global_dns);
+
+  done:
+    my_CFRelease(&keys);
+    my_CFRelease(&patterns);
+    my_CFRelease(&session);
     return;
 }
 
 void
-start(const char *bundleName, const char *bundleDir)
+load(CFBundleRef bundle, Boolean bundleVerbose)
 {
+    if (bundleVerbose) {
+	S_debug = 1;
+    }
+
     ip_plugin_init();
     return;
 }
+
+
+#ifdef  MAIN
+int
+main(int argc, char **argv)
+{
+    _sc_log     = FALSE;
+    _sc_verbose = (argc > 1) ? TRUE : FALSE;
+
+    load(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
+    CFRunLoopRun();
+    /* not reached */
+    exit(0);
+    return 0;
+}
+#endif
 

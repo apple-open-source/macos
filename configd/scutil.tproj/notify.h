@@ -20,6 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #ifndef _NOTIFY_H
 #define _NOTIFY_H
 
@@ -27,15 +37,20 @@
 
 __BEGIN_DECLS
 
-void	do_notify_list		__P((int argc, char **argv));
-void	do_notify_add		__P((int argc, char **argv));
-void	do_notify_remove	__P((int argc, char **argv));
-void	do_notify_changes	__P((int argc, char **argv));
-void	do_notify_wait		__P((int argc, char **argv));
-void	do_notify_callback	__P((int argc, char **argv));
-void	do_notify_signal	__P((int argc, char **argv));
-void	do_notify_file		__P((int argc, char **argv));
-void	do_notify_cancel	__P((int argc, char **argv));
+void	storeCallback		(SCDynamicStoreRef	store,
+				 CFArrayRef		changedKeys,
+				 void			*info);
+
+void	do_notify_list		(int argc, char **argv);
+void	do_notify_add		(int argc, char **argv);
+void	do_notify_remove	(int argc, char **argv);
+void	do_notify_changes	(int argc, char **argv);
+void	do_notify_watch		(int argc, char **argv);
+void	do_notify_wait		(int argc, char **argv);
+void	do_notify_callback	(int argc, char **argv);
+void	do_notify_signal	(int argc, char **argv);
+void	do_notify_file		(int argc, char **argv);
+void	do_notify_cancel	(int argc, char **argv);
 
 __END_DECLS
 

@@ -1,4 +1,4 @@
-.\" Copyright (c) 1998 Apple Computer, Inc.
+.\" Copyright (c) 2001 Apple Computer, Inc.
 .\"
 .TH FDISK 8 "Mar 30, 1998"
 .UC 4
@@ -8,7 +8,7 @@
 .SH NAME
 fdisk \- examine or change DOS partitioning information
 .SH SYNOPSIS
-.B /usr/etc/fdisk
+.B /usr/sbin/fdisk
 .B <raw-device>
 [
 inquiry
@@ -145,6 +145,10 @@ The following actions are allowed:
 .TP 6
 .B \-removePartitioning
 Zeros out the bootsector, eliminating the partition table and boot program.  Prepares the disk so that Darwin will install on the entire disk.
+
+.TP 6
+.B \-bootPlusUFS
+Partitions the disk with 8 megs reserved for the booter (partition type 0xAB) and the remainder used for Darwin.  The booter partition is set active.
 
 .TP 6
 .B \-dosPlusUFS <megsForDos>

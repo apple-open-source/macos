@@ -20,57 +20,37 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * November 9, 2000		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+
 #include <mach/mach.h>
 #include <mach/notify.h>
 #include <mach/mach_error.h>
 #include <pthread.h>
 
-#include "SCDPrivate.h"
-
-
-__private_extern__ mach_msg_id_t
-_waitForMachMessage(mach_port_t port)
-{
-	kern_return_t 		status;
-	mach_msg_empty_rcv_t	*buf;
-
-	mach_msg_size_t		size = sizeof(mach_msg_empty_t) + MAX_TRAILER_SIZE;
-
-	status = vm_allocate(mach_task_self(), (vm_address_t *)&buf, size, TRUE);
-	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
-		return -1;
-	}
-
-	status = mach_msg(&buf->header,			/* msg */
-			  MACH_RCV_MSG,			/* options */
-			  0,				/* send_size */
-			  size,				/* rcv_size */
-			  port,				/* rcv_name */
-			  MACH_MSG_TIMEOUT_NONE,	/* timeout */
-			  MACH_PORT_NULL);		/* notify */
-	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("mach_msg(): %s"), mach_error_string(status));
-		return -1;
-	}
-
-	return buf->header.msgh_id;
-}
-
-
 void
-_showMachPortStatus()
+__showMachPortStatus()
 {
 #ifdef	DEBUG
 	/* print status of in-use mach ports */
-	if (SCDOptionGet(NULL, kSCDOptionDebug) && SCDOptionGet(NULL, kSCDOptionVerbose)) {
+	if (_sc_debug) {
 		kern_return_t		status;
 		mach_port_name_array_t	ports;
 		mach_port_type_array_t	types;
 		int			pi, pn, tn;
 		CFMutableStringRef	str;
 
-		SCDLog(LOG_DEBUG, CFSTR("----------"));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("----------"));
 
 		/* report on ALL mach ports associated with this task */
 		status = mach_port_names(mach_task_self(), &ports, &pn, &types, &tn);
@@ -97,11 +77,11 @@ _showMachPortStatus()
 				*rp = '\0';
 				CFStringAppendFormat(str, NULL, CFSTR(" %d%s"), ports[pi], rights);
 			}
-			SCDLog(LOG_DEBUG, CFSTR("Task ports (n=%d):%@"), pn, str);
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("Task ports (n=%d):%@"), pn, str);
 			CFRelease(str);
 		} else {
 			/* log (but ignore) errors */
-			SCDLog(LOG_DEBUG, CFSTR("mach_port_names(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_names(): %s"), mach_error_string(status));
 		}
 	}
 #endif	/* DEBUG */
@@ -110,7 +90,7 @@ _showMachPortStatus()
 
 
 void
-_showMachPortReferences(mach_port_t port)
+__showMachPortReferences(mach_port_t port)
 {
 #ifdef	DEBUG
 	kern_return_t		status;
@@ -120,39 +100,39 @@ _showMachPortReferences(mach_port_t port)
 	mach_port_urefs_t	refs_pset	= 0;
 	mach_port_urefs_t	refs_dead	= 0;
 
-	SCDLog(LOG_DEBUG, CFSTR("user references for mach port %d"), port);
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("user references for mach port %d"), port);
 
 	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND,      &refs_send);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_SEND): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_SEND): %s"), mach_error_string(status));
 		return;
 	}
 
 	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE,   &refs_recv);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_RECEIVE): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_RECEIVE): %s"), mach_error_string(status));
 		return;
 	}
 
 	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_SEND_ONCE): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_SEND_ONCE): %s"), mach_error_string(status));
 		return;
 	}
 
 	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET,  &refs_pset);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_PORT_SET): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_PORT_SET): %s"), mach_error_string(status));
 		return;
 	}
 
 	status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
 	if (status != KERN_SUCCESS) {
-		SCDLog(LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_DEAD_NAME): %s"), mach_error_string(status));
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  mach_port_get_refs(MACH_PORT_RIGHT_DEAD_NAME): %s"), mach_error_string(status));
 		return;
 	}
 
-	SCDLog(LOG_DEBUG,
+	SCLog(_sc_verbose, LOG_DEBUG,
 	       CFSTR("  send = %d, receive = %d, send once = %d, port set = %d, dead name = %d"),
 	       refs_send,
 	       refs_recv,

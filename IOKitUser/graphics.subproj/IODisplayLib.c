@@ -27,15 +27,18 @@
 #include <stdlib.h>
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFBundlePriv.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
 #include <IOKit/graphics/IOGraphicsEngine.h>
+#include <IOKit/ndrvsupport/IOMacOSVideo.h>
 #include <IOKit/iokitmig.h>
 
-#include <IOKit/ndrvsupport/IOMacOSVideo.h>
+#include "IOGraphicsLibPrivate.h"
 
 #define DEBUGPARAMS	0
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -75,155 +78,82 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
     return( err );
 }
 
-#if !defined(DARWIN)
 
-static void
-UnscrambleBytes( UInt8 * data, CFIndex dataSize, UInt32 key )
+static CFMutableDictionaryRef
+IODisplayCreateOverrides( IOOptionBits options, 
+                            IODisplayVendorID vendor, IODisplayProductID product,
+                            UInt32 serialNumber, CFAbsoluteTime manufactureDate )
 {
-    UInt32	index;
-    UInt8 *	keyBytes = (UInt8 *) &key;
 
-    for ( index = 0; index < dataSize; index++ )
-        data[index] =
-            ~data[index] ^ keyBytes[ index % sizeof(UInt32) ];
-}
+    char			path[256];
+    vm_offset_t 		bytes;
+    vm_size_t			byteLen;
+    CFDataRef			data;
+    CFTypeRef			obj = 0;
+    CFMutableDictionaryRef	dict = 0;
+    IOReturn			err;
 
-#endif
+    if( 0 == (options & kIODisplayMatchingInfo)) {
 
-static void
-AddLocalString( CFMutableDictionaryRef displayDict, CFStringRef displayKey,
-                const char * cString, CFStringRef localKey, CFStringEncoding encoding )
-{                
-    CFMutableDictionaryRef	dict;
-    CFStringRef 		string;
+        sprintf( path, "/System/Library/Displays/Overrides"
+                        "/" kDisplayVendorID "-%lx"
+                        "/" kDisplayProductID "-%lx",
+                        vendor, product );
+    
+        err = readFile( path, &bytes, &byteLen );
+    
+        if( kIOReturnSuccess == err) {
+        
+            data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
+                                        (const UInt8 *) bytes, byteLen, kCFAllocatorNull );
+            if( data) {
+                obj = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data,
+                                                    kCFPropertyListImmutable,
+                                                    (CFStringRef *) NULL );
+                CFRelease( data );
+            }
+            vm_deallocate( mach_task_self(), bytes, byteLen );
+        }
 
-    string = CFStringCreateWithCString( kCFAllocatorDefault, cString,
-                                        encoding );
-
-    dict = (CFMutableDictionaryRef) CFDictionaryGetValue(displayDict, displayKey);
+        if( obj) {
+            if( CFDictionaryGetTypeID() == CFGetTypeID( obj )) {
+                dict = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, obj);
+                CFRelease( obj );
+            } else if( CFArrayGetTypeID() == CFGetTypeID( obj )) {
+                // match serial numbers etc
+            }
+        }
+    }
     if( !dict)
         dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
                     &kCFTypeDictionaryKeyCallBacks,
                     &kCFTypeDictionaryValueCallBacks);
 
-    CFDictionarySetValue( dict, localKey, string );
-    CFRelease( string );
-    if( !CFDictionaryGetValue( displayDict, displayKey )) {
-        CFDictionarySetValue( displayDict, displayKey, dict );
-        CFRelease( dict );
-    }
-}
-
-static CFDictionaryRef
-IODisplayCreateOverrides( IODisplayVendorID vendor, IODisplayProductID product,
-                            UInt32 serialNumber, CFAbsoluteTime manufactureDate )
-{
-
-    char		path[256];
-    vm_offset_t 	bytes;
-    vm_size_t		byteLen;
-    CFDataRef		data;
-    CFTypeRef		obj = 0;
-    CFDictionaryRef	dict = 0;
-    IOReturn		err;
-
-    sprintf( path, "/System/Library/Displays/Overrides"
-                    "/" kDisplayVendorID "-%lx"
-                    "/" kDisplayProductID "-%lx",
-                    vendor, product );
-    err = readFile( path, &bytes, &byteLen );
-
-    if( kIOReturnSuccess == err) {
+    if( dict) do {
+        CFStringRef string;
+        CFURLRef   url;
+        CFBundleRef bdl;
     
-        data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
-                                    (const UInt8 *) bytes, byteLen, kCFAllocatorNull );
-        if( data) {
-            obj = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data,
-                                                kCFPropertyListImmutable,
-                                                (CFStringRef *) NULL );
-            CFRelease( data );
-#if !defined(DARWIN)
-            if( !obj) {
-                UnscrambleBytes( (UInt8 *) bytes, byteLen,
-                                ((vendor & 0xffff) << 16) | (product & 0xffff));
-                data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
-                                    (const UInt8 *) bytes, byteLen, kCFAllocatorNull );
-                if( data) {
-                    obj = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data,
-                                                            kCFPropertyListImmutable,
-                                                            (CFStringRef *) NULL );
-                    CFRelease( data );
-                }
-            }
-#endif
+        sprintf( path, "/System/Library/Displays/Overrides");
+//                            "/" kDisplayVendorID "-%lx", vendor );
+    
+        string = CFStringCreateWithCString( kCFAllocatorDefault, path,
+                                            kCFStringEncodingMacRoman );
+        if( !string)
+            continue;
+        url = CFURLCreateWithString( kCFAllocatorDefault, string, NULL);
+        if( !url)
+            continue;
+        bdl = CFBundleCreate( kCFAllocatorDefault, url);
+        if( bdl) {
+            CFDictionarySetValue( dict, CFSTR(kDisplayBundleKey), bdl);
+            CFRelease(bdl);
         }
-        vm_deallocate( mach_task_self(), bytes, byteLen );
-    }
-
-    if( obj) {
-        if( CFDictionaryGetTypeID() == CFGetTypeID( obj )) {
-            dict = obj;
-        } else if( CFArrayGetTypeID() == CFGetTypeID( obj )) {
-            // match serial numbers etc
-        }
-    }
+    
+    } while( false );
 
     return( dict );
 }
-
-struct EDIDDetailedTimingDesc {
-    UInt16	clock;
-    UInt8	horizActive;
-    UInt8	horizBlanking;
-    UInt8	horizHigh;
-    UInt8	verticalActive;
-    UInt8	verticalBlanking;
-    UInt8	verticalHigh;
-    UInt8	horizSyncOffset;
-    UInt8	horizSyncWidth;
-    UInt8	verticalSyncOffsetWidth;
-    UInt8	syncHigh;
-    UInt8	horizImageSize;
-    UInt8	verticalImageSize;
-    UInt8	imageSizeHigh;
-    UInt8	horizBorder;
-    UInt8	verticalBorder;
-    UInt8	flags;
-};
-typedef struct EDIDDetailedTimingDesc EDIDDetailedTimingDesc;
-
-struct EDIDGeneralDesc {
-    UInt16	flag1;
-    UInt8	flag2;
-    UInt8	type;
-    UInt8	flag3;
-    UInt8	data[13];
-};
-typedef struct EDIDGeneralDesc EDIDGeneralDesc;
-
-union EDIDDesc {
-    EDIDDetailedTimingDesc	timing;
-    EDIDGeneralDesc		general;
-};
-typedef union EDIDDesc EDIDDesc;
-
-struct EDID {
-    UInt8	header[8];
-    UInt8	vendorProduct[4];
-    UInt8	serialNumber[4];
-    UInt8	weekOfManufacture;
-    UInt8	yearOfManufacture;
-    UInt8	version;
-    UInt8	revision;
-    UInt8	displayParams[5];
-    UInt8	colorCharacteristics[10];
-    UInt8	establishedTimings[3];
-    UInt16	standardTimings[8];
-    EDIDDesc	descriptors[4];
-    UInt8	extension;
-    UInt8	checksum;
-};
-typedef struct EDID EDID;
 
 static void
 EDIDInfo( struct EDID * edid,
@@ -297,6 +227,139 @@ EDIDName( EDID * edid, char * name )
         *oname++ = 0;
 
     return( ok );
+}
+
+struct MakeOneLocalContext {
+    CFBundleRef		   bdl;
+    CFMutableDictionaryRef dict;
+    CFStringRef		   key;
+};
+
+static void MakeOneLocalization( const void * item, void * context )
+{
+    struct MakeOneLocalContext * ctx = (struct MakeOneLocalContext *) context;
+    CFStringRef		value = NULL;
+    CFDictionaryRef	stringTable = NULL;
+    CFURLRef		url;
+    CFDataRef		tableData = NULL;
+    CFStringRef		errStr;
+    SInt32		errCode;
+
+    url = CFBundleCopyResourceURLForLocalization( ctx->bdl,
+                                CFSTR("Localizable"), CFSTR("strings"), NULL, item );
+    if (url && CFURLCreateDataAndPropertiesFromResource( kCFAllocatorDefault,
+                                url, &tableData, NULL, NULL, &errCode)) {
+        stringTable = CFPropertyListCreateFromXMLData( kCFAllocatorDefault,
+                                tableData, kCFPropertyListImmutable, &errStr);
+        if (errStr)
+            CFRelease( errStr);
+        CFRelease( tableData);
+    }
+    if( url)
+        CFRelease(url);
+    if( stringTable)
+        value = CFDictionaryGetValue(stringTable, ctx->key);
+    if (!value)
+        value = ctx->key;
+
+    {
+        SInt32		 languageCode, regionCode, scriptCode;
+        CFStringEncoding stringEncoding;
+        if( CFBundleGetLocalizationInfoForLocalization( item, &languageCode, &regionCode,
+                                                        &scriptCode, &stringEncoding )) {
+            item = CFBundleCopyLocalizationForLocalizationInfo( languageCode, regionCode,
+                                                        scriptCode, stringEncoding );
+        } else
+            item = CFRetain(item);
+    }
+
+    CFDictionarySetValue( ctx->dict, item, value );
+    CFRelease( item );
+
+    if( stringTable)
+        CFRelease( stringTable );
+}
+
+static void GenerateProductName( CFMutableDictionaryRef dict,
+                                        EDID * edid, SInt32 displayType )
+{
+    CFStringRef		key;
+    CFBundleRef		bdl;
+    CFArrayRef		localizations;
+    struct MakeOneLocalContext ctx;
+    static const char * type2Name[] = {
+        NULL,				// 000 kUnknownConnect
+        NULL,				// 001 kUnknownConnect
+        "Color LCD",			// 002 kPanelTFTConnect
+        NULL,				// 003 kFixedModeCRTConnect
+        "Multiple Scan Display",	// 004 kMultiModeCRT1Connect
+        "Multiple Scan Display",	// 005 kMultiModeCRT2Connect
+        "Multiple Scan Display",	// 006 kMultiModeCRT3Connect
+        "Multiple Scan Display",	// 007 kMultiModeCRT4Connect
+        NULL,				// 008 kModelessConnect
+        "Full-Page Display",		// 009 kFullPageConnect
+        "VGA Display",			// 010 kVGAConnect
+        "Television",			// 011 kNTSCConnect
+        "Television",			// 012 kPALConnect
+        NULL,				// 013 kHRConnect
+        "Color LCD",			// 014 kPanelFSTNConnect
+        "Two-Page Display",		// 015 kMonoTwoPageConnect
+        "Two-Page Display",		// 016 kColorTwoPageConnect
+        NULL,				// 017 kColor16Connect
+        NULL,				// 018 kColor19Connect
+        NULL,				// 019 kGenericCRT
+        "Color LCD",			// 020 kGenericLCD
+        NULL,				// 021 kDDCConnect
+        NULL				// 022 kNoConnect
+    };
+
+    key = CFDictionaryGetValue( dict, CFSTR(kDisplayProductName));
+    if( key) {
+        if( CFStringGetTypeID() != CFGetTypeID( key ))
+            return;
+        CFRetain(key);
+    }
+    bdl = (CFBundleRef) CFDictionaryGetValue( dict, CFSTR(kDisplayBundleKey));
+
+    if( !key) {
+        char sbuf[ 128 ];
+        const char * name = NULL;
+
+        if( EDIDName(edid, sbuf))
+            name = sbuf;
+        else {
+
+            if( displayType < (sizeof( type2Name) / sizeof(type2Name[0])))
+                name = type2Name[displayType];
+            if( !name)
+                name = "Unknown Display";
+        }
+
+        key = CFStringCreateWithCString( kCFAllocatorDefault, name,
+                                            kCFStringEncodingMacRoman );
+        if( !key)
+            return;
+    }
+
+    if( bdl) {
+        ctx.bdl = bdl;
+        ctx.dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
+                        &kCFTypeDictionaryKeyCallBacks,
+                        &kCFTypeDictionaryValueCallBacks);
+        ctx.key = key;
+    
+        localizations = CFBundleCopyBundleLocalizations( bdl);
+        CFArrayApplyFunction( localizations,
+                            CFRangeMake(0, CFArrayGetCount(localizations)),
+                            &MakeOneLocalization,
+                            &ctx);
+    
+        CFDictionarySetValue( dict, CFSTR(kDisplayProductName), ctx.dict);
+    
+        CFRelease( localizations );
+        CFRelease( ctx.dict );
+    }
+    CFRelease( key );
 }
 
 static void
@@ -434,17 +497,21 @@ CheckTimingWithRange( VDDisplayTimingRangeRec * range,
 {
     UInt64	pixelClock;
     UInt64	rate;
-    UInt32	hTotal, vTotal;
+    UInt64	hTotal, vTotal;
+
+    if( kDigitalSignalMask & timing->csSignalConfig)
+        return( false);
 
 //    if( 0 == (range->csTimingRangeSyncFlags & (1 << (timing->csSignalLevels))))
 //        return( false);
-
-    if( 0 == (range->csTimingRangeSignalLevels & (1 << (timing->csSignalLevels))))
-        return( false);
+//    if( 0 == (range->csTimingRangeSignalLevels & (1 << (timing->csSignalLevels))))
+//        return( false);
 
     pixelClock = timing->csPixelClock;
-    hTotal = (timing->csHorizontalActive + timing->csHorizontalBlanking);
-    vTotal = (timing->csVerticalActive + timing->csVerticalBlanking);
+    hTotal  = timing->csHorizontalActive;
+    hTotal += timing->csHorizontalBlanking;
+    vTotal  = timing->csVerticalActive;
+    vTotal += timing->csVerticalBlanking;
 
     if( (pixelClock > range->csMaxPixelClock)
      || (pixelClock < range->csMinPixelClock))
@@ -539,6 +606,13 @@ CheckTimingWithRange( VDDisplayTimingRangeRec * range,
     return( true );
 }
 
+Boolean
+IOCheckTimingWithRange( const void * range,
+                        const IODetailedTimingInformationV2 * timing )
+{
+    return( CheckTimingWithRange( (VDDisplayTimingRangeRec *) range, (VDDetailedTimingRec *) timing));
+}
+
 static CFDataRef
 PreflightDetailedTiming( io_connect_t connect,
                             VDDetailedTimingRec * timing,
@@ -596,11 +670,12 @@ EDIDDescToDetailedTiming( io_connect_t connect,
 }
 
 void
-IODisplayInstallDetailedTimings( io_connect_t connect )
+IODisplayInstallDetailedTimings( IOFBConnectRef connectRef )
 {
     IOReturn			err;
     int				i;
-    io_service_t		service = 0;
+    io_connect_t		connect = connectRef->connect;
+    io_service_t		service = connectRef->framebuffer;
     EDID *			edid;
     CFDictionaryRef		dict = 0;
     CFDataRef			fbRange = 0;
@@ -608,14 +683,10 @@ IODisplayInstallDetailedTimings( io_connect_t connect )
     CFMutableArrayRef		finalArray = 0;
     CFArrayRef			array;
     CFIndex			count;
-    VDDisplayTimingRangeRec	displayRange;
-    Boolean			ok;
+    VDDisplayTimingRangeRec *	displayRange;
+    VDDisplayTimingRangeRec	localDisplayRange;
 
     do {
-
-        err = IOConnectGetService( connect, &service );
-        if( kIOReturnSuccess != err)
-            continue;
 
         array = (CFArrayRef) IORegistryEntryCreateCFProperty( service, 
                                     CFSTR(kIOFBDetailedTimingsKey),
@@ -650,11 +721,13 @@ IODisplayInstallDetailedTimings( io_connect_t connect )
             continue;
 
         // EDID timing range
-        MaxTimingRangeRec( &displayRange );
-	for( i = 0, ok = false; (!ok) && i < 4; i++ )
-            ok = EDIDDescToDisplayTimingRangeRec( edid, 
-                                &edid->descriptors[i].general,
-                                &displayRange );
+        data = (CFDataRef) CFDictionaryGetValue( dict, CFSTR("trng"));
+        if( data)
+            displayRange = (VDDisplayTimingRangeRec *) CFDataGetBytePtr(data);
+        else {
+            MaxTimingRangeRec( &localDisplayRange );
+            displayRange = &localDisplayRange;
+        }
 
         // override timing recs
         array = (CFArrayRef) CFDictionaryGetValue( dict, CFSTR("dspc"));
@@ -670,7 +743,7 @@ IODisplayInstallDetailedTimings( io_connect_t connect )
             data = EDIDDescToDetailedTiming( connect,
                             edid, (EDIDDetailedTimingDesc *) CFDataGetBytePtr(data),
                             (VDDisplayTimingRangeRec *) CFDataGetBytePtr(fbRange),
-                            &displayRange );
+                            displayRange );
             if( data) {
                 CFArrayAppendValue( finalArray, data );
                 CFRelease( data );
@@ -679,11 +752,16 @@ IODisplayInstallDetailedTimings( io_connect_t connect )
 
         // EDID timing recs
 	for( i = 0; i < 4; i++ ) {
+
+            if( i && (0 == bcmp( &edid->descriptors[0].timing,
+                                 &edid->descriptors[i].timing,
+                                 sizeof( EDIDDetailedTimingDesc))))
+                continue;
             data = EDIDDescToDetailedTiming( connect,
                                 edid,
                                 &edid->descriptors[i].timing,
                                 (VDDisplayTimingRangeRec *) CFDataGetBytePtr(fbRange),
-                                &displayRange );
+                                displayRange );
             if( data) {
                 CFArrayAppendValue( finalArray, data );
                 CFRelease( data );
@@ -719,8 +797,6 @@ IODisplayInstallDetailedTimings( io_connect_t connect )
         CFRelease(finalArray);
     if( fbRange)
         CFRelease(fbRange);
-    if( service)
-        IOObjectRelease(service);
 }
 
 SInt32
@@ -797,32 +873,47 @@ IODisplayForFramebuffer(
     return( service );
 }
 
+enum {
+    /* Used by default calibrator (should we show brightness panel) */
+    kDisplayGestaltBrightnessAffectsGammaMask	= (1 << 0),
+    kDisplayGestaltViewAngleAffectsGammaMask	= (1 << 1)
+};
+
 CFDictionaryRef
 IODisplayCreateInfoDictionary(
 	io_service_t		framebuffer,
 	IOOptionBits		options )
 {
-    IOReturn		kr;
-    io_service_t	service = 0;
-    CFDataRef		data = 0;
-    CFNumberRef		num;
-    CFMutableDictionaryRef	dict;
-    CFDictionaryRef	regDict;
-    CFDictionaryRef	ovrDict = 0;
-    SInt32		sint;
-    UInt8		low;
-    float		fnum;
-    EDID *		edid = 0;
-    IODisplayVendorID	vendor = 0;
-    IODisplayProductID	product = 0;
-    UInt32		serialNumber = 0;
-    CFAbsoluteTime	manufactureDate;
-    io_string_t		path;
+    IOReturn			kr;
+    io_service_t		service = 0;
+    CFDataRef			data = 0;
+    CFNumberRef			num;
+    CFMutableDictionaryRef	dict = 0;
+    CFDictionaryRef		regDict;
+    CFTypeRef			obj;
+    SInt32			sint;
+    UInt8			low;
+    float			fnum;
+    EDID *			edid = 0;
+    IODisplayVendorID		vendor = 0;
+    IODisplayProductID		product = 0;
+    SInt32			displayType = 0;
+    UInt32			serialNumber = 0;
+    CFAbsoluteTime		manufactureDate;
+    io_string_t			path;
+    int				i;
+    VDDisplayTimingRangeRec	displayRange;
 
     bzero( &manufactureDate, sizeof(manufactureDate) );
 
-    if( !(service = IODisplayForFramebuffer( framebuffer, options)))
-	return( 0 );
+    if( !(service = IODisplayForFramebuffer( framebuffer, options))) {
+	dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
+                                            &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks );
+        if( dict)
+            CFDictionarySetValue( dict, CFSTR(kIODisplayLocationKey), CFSTR("unknown"));
+        return( dict );
+    }
 
     do {
 
@@ -839,17 +930,21 @@ IODisplayCreateInfoDictionary(
         if( num)
             CFNumberGetValue( num, kCFNumberSInt32Type, &product );
 
-        num = CFDictionaryGetValue( regDict, CFSTR("AppleDisplayType") );
+        num = CFDictionaryGetValue( regDict, CFSTR(kAppleDisplayTypeKey) );
         if( num) {
-            CFNumberGetValue( num, kCFNumberSInt32Type, &sint );
-            if( sint == 10) {
-                vendor = kDisplayVendorIDUnknown;
+            CFNumberGetValue( num, kCFNumberSInt32Type, &displayType );
+            if( (vendor == kDisplayVendorIDUnknown) && (displayType == 10))
                 product = kDisplayProductIDGeneric;
-            }
         }
 
         data = CFDictionaryGetValue( regDict, CFSTR(kIODisplayEDIDKey) );
 
+#if SPOOF_EDID
+#warning SPOOF_EDID
+        data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
+                                            spoofEDID, 128, kCFAllocatorNull );
+        vendor = product = 0;
+#endif
         if( !data)
             continue;
         edid = (EDID *) CFDataGetBytePtr( data );
@@ -866,24 +961,17 @@ IODisplayCreateInfoDictionary(
         product = kDisplayProductIDGeneric;
     } // </hack>
 
-    if( 0 == (options & kIODisplayMatchingInfo))
-        ovrDict = IODisplayCreateOverrides( vendor, product,
-                                            serialNumber, manufactureDate );
-    if( ovrDict)
-        dict = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, ovrDict);
-    else
-        dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
-                    &kCFTypeDictionaryKeyCallBacks,
-                    &kCFTypeDictionaryValueCallBacks);
+    dict = IODisplayCreateOverrides( options, vendor, product,
+                                        serialNumber, manufactureDate );
 
 #define makeInt( key, value )	\
 	num = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &value );	\
 	CFDictionarySetValue( dict, key,  num );					\
 	CFRelease( num );
 
-#define makeFloat( key )	\
+#define addFloat( key )	\
 	num = CFNumberCreate( kCFAllocatorDefault, kCFNumberFloatType, &fnum  );	\
-	CFDictionarySetValue( dict, key, num );						\
+	CFDictionaryAddValue( dict, key, num );						\
 	CFRelease( num );
 
     do {
@@ -923,24 +1011,49 @@ IODisplayCreateInfoDictionary(
         else
             edid = 0;
 
-        // if !exist add name
-        if( !CFDictionaryGetValue( dict, CFSTR(kDisplayProductName))) {
+        obj = CFDictionaryGetValue( regDict, CFSTR(kIODisplayConnectFlagsKey) );
+        if( obj)
+            CFDictionarySetValue( dict, CFSTR(kIODisplayConnectFlagsKey), obj );
 
-            char sbuf[ 128 ];
-            char * name;
+        if( IOObjectConformsTo( service, "IOBacklightDisplay"))
+            CFDictionarySetValue( dict, CFSTR(kIODisplayHasBacklightKey), kCFBooleanTrue );
 
-            if( EDIDName(edid, sbuf))
-                name = sbuf;
-            else
-                name = "Unknown Display";
+        data = CFDictionaryGetValue( dict, CFSTR("dmdg") );
+        if( data)
+            sint = *((SInt32 *) CFDataGetBytePtr(data));
+        else
+            sint = kDisplayGestaltBrightnessAffectsGammaMask;
 
-            AddLocalString( dict, CFSTR(kDisplayProductName),
-                                name,
-                                CFSTR("en"), kCFStringEncodingMacRoman );
-        }
+        if( kDisplayGestaltBrightnessAffectsGammaMask & sint)
+            CFDictionaryAddValue( dict, CFSTR(kDisplayBrightnessAffectsGamma), kCFBooleanTrue );
+        if( kDisplayGestaltViewAngleAffectsGammaMask & sint)
+            CFDictionaryAddValue( dict, CFSTR(kDisplayViewAngleAffectsGamma), kCFBooleanTrue );
+
+        GenerateProductName( dict, edid, displayType );
 
         if( !edid)
             continue;
+
+        if( 0x80 & edid->displayParams[0])
+            CFDictionarySetValue( dict, CFSTR(kIODisplayIsDigitalKey), kCFBooleanTrue );
+
+        if( !CFDictionaryGetValue( dict, CFSTR("trng"))) {
+            // EDID timing range
+            for( i = 0; i < 4; i++ ) {
+                if( EDIDDescToDisplayTimingRangeRec( edid, 
+                                    &edid->descriptors[i].general,
+                                    &displayRange )) {
+                                    
+                    data = CFDataCreate( kCFAllocatorDefault,
+                                (UInt8 *) &displayRange, sizeof(displayRange));
+                    if( data) {
+                        CFDictionarySetValue(dict, CFSTR("trng"), data);
+                        CFRelease(data);
+                    }
+                    break;
+                }
+            }
+        }
 
 	sint = edid->weekOfManufacture;
 	makeInt( CFSTR( kDisplayWeekOfManufacture ), sint );
@@ -957,45 +1070,43 @@ IODisplayCreateInfoDictionary(
 
         fnum = (edid->colorCharacteristics[2] << 2) | ((low >> 6) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayRedPointX ) );
+        addFloat( CFSTR( kDisplayRedPointX ) );
         fnum = (edid->colorCharacteristics[3] << 2) | ((low >> 4) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayRedPointY ) );
+        addFloat( CFSTR( kDisplayRedPointY ) );
 
         fnum = (edid->colorCharacteristics[4] << 2) | ((low >> 2) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayGreenPointX ) );
+        addFloat( CFSTR( kDisplayGreenPointX ) );
         fnum = (edid->colorCharacteristics[5] << 2) | ((low >> 0) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayGreenPointY ) );
+        addFloat( CFSTR( kDisplayGreenPointY ) );
 
         low = edid->colorCharacteristics[1];
 
         fnum = (edid->colorCharacteristics[6] << 2) | ((low >> 6) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayBluePointX ) );
+        addFloat( CFSTR( kDisplayBluePointX ) );
         fnum = (edid->colorCharacteristics[7] << 2) | ((low >> 4) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayBluePointY ) );
+        addFloat( CFSTR( kDisplayBluePointY ) );
 
         fnum = (edid->colorCharacteristics[8] << 2) | ((low >> 2) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayWhitePointX ) );
+        addFloat( CFSTR( kDisplayWhitePointX ) );
         fnum = (edid->colorCharacteristics[9] << 2) | ((low >> 0) & 3);
         fnum /= (1 << 10);
-        makeFloat( CFSTR( kDisplayWhitePointY ) );
+        addFloat( CFSTR( kDisplayWhitePointY ) );
 
         fnum = edid->displayParams[3];
         fnum = (fnum + 100.0) / 100.0;
-        makeFloat( CFSTR( kDisplayWhiteGamma ) );
+        addFloat( CFSTR( kDisplayWhiteGamma ) );
 
     } while( false );
 
     if( regDict)
         CFRelease( regDict );
-    if( ovrDict)
-        CFRelease( ovrDict );
-
+        
     return( dict );
 }
 
@@ -1005,11 +1116,11 @@ IODisplayCopyParameters(
 	IOOptionBits	  options,
         CFDictionaryRef * params )
 {
-    if( !(service = IODisplayForFramebuffer( service, options)))
-	return( kIOReturnUnsupported );
-
-    *params = IORegistryEntryCreateCFProperty( service, CFSTR(kIODisplayParametersKey),
-                                            kCFAllocatorDefault, kNilOptions );
+    if( (service = IODisplayForFramebuffer( service, options)))
+        *params = IORegistryEntryCreateCFProperty( service, CFSTR(kIODisplayParametersKey),
+                                                    kCFAllocatorDefault, kNilOptions );
+    else
+        *params = 0;
 
     return( *params ? kIOReturnSuccess : kIOReturnUnsupported );
 }

@@ -11,6 +11,10 @@
   This document summarizes all important changes between major mod_ssl
   versions, i.e. between 2.x and 2.(x+1).
 
+  Major Changes with mod_ssl 2.8:
+    o  Upgrade to Apache 1.3.{17,18,19,20}
+    o  Various Bugfixes and Cleanups
+
   Major Changes with mod_ssl 2.7:
     o  Added experimental support for OpenSSL's crypto device support
     o  Completely removed RSAref support

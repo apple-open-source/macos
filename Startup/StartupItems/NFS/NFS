@@ -20,21 +20,6 @@ ConsoleMessage "Mounting remote file systems"
 nfsiod -n 4 
 
 ##
-# Mount static remote file systems.
-##
-
-if ! mount -at nfs; then
-    echo "Warning: Some remote file systems may not be available"
-fi
-
-##
-# Start the automounter
-##
-if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
-    automount -m /Network/Servers -fstab
-fi
-
-##
 # Set up NFS server.
 ##
 
@@ -42,7 +27,7 @@ fi
 # exports NetInfo directory), then start the NFS daemons (which service
 # NFS requests) and the mount server (which services NFS mount requests).
 
-# Clear the table of exported file systems.
+# Clear the table of exported filesystems.
 rm -f /var/db/mountdtab
 
 exports=$(niutil -list . /exports 2> /dev/null | wc -w)
@@ -50,5 +35,16 @@ exports=$(niutil -list . /exports 2> /dev/null | wc -w)
 if [ "${exports}" -gt 0 ]; then
     ConsoleMessage "Starting Network File System server"
     mountd
-    nfsd -t -u -n 6
+
+	# If the NetInfo config/nfsd directory contains startup args for nfsd, use those.
+	arguments=`niutil -readprop . /config/nfsd arguments`
+	nfsd ${arguments:-"-t -u -n 6"}
+fi
+
+##
+# Start the automounter
+##
+
+if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
+    automount -m /Network/Servers -fstab -m /automount -static
 fi

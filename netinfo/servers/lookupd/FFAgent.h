@@ -39,7 +39,6 @@
 
 @interface FFAgent : LUAgent
 {
-	LUDictionary *stats;
 	char *etcDir;
 	FFParser *parser;
 	syslock *threadLock;

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 31;
+	objectVersion = 32;
 	objects = {
 		00FE5D69FEF9E35F11CA2CB3 = {
 			children = (
@@ -103,8 +103,6 @@
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXToolTarget;
@@ -168,8 +166,6 @@
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			buildToolPath = /usr/bin/gnumake;
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXLegacyTarget;
@@ -193,6 +189,31 @@
 				);
 			};
 		};
+//000
+//001
+//002
+//003
+//004
+//030
+//031
+//032
+//033
+//034
+		03A30260005AB89DC02AAC07 = {
+			isa = PBXFileReference;
+			path = VersionCompatibilityNotes;
+			refType = 4;
+		};
+//030
+//031
+//032
+//033
+//034
+//060
+//061
+//062
+//063
+//064
 		06AA5EC2FF4B5F9311CA2CB7 = {
 			isa = PBXExecutableFileReference;
 			path = mkjambase;
@@ -203,6 +224,16 @@
 			path = jam;
 			refType = 3;
 		};
+//060
+//061
+//062
+//063
+//064
+//070
+//071
+//072
+//073
+//074
 		07B3C7DFFFA7A65311CA2CEA = {
 			buildRules = (
 			);
@@ -222,6 +253,16 @@
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
+//070
+//071
+//072
+//073
+//074
+//3C0
+//3C1
+//3C2
+//3C3
+//3C4
 		3C561387FEEF59C211CA2CB3 = {
 			buildStyles = (
 				07B3C7DFFFA7A65311CA2CEA,
@@ -230,7 +271,7 @@
 			isa = PBXProject;
 			mainGroup = 3C561388FEEF59C211CA2CB3;
 			productRefGroup = 3C561389FEEF59C211CA2CB3;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				3C5613D6FEEF59C211CA2CB3,
 				00FE5D97FEF9EFA211CA2CB3,
@@ -239,6 +280,7 @@
 		};
 		3C561388FEEF59C211CA2CB3 = {
 			children = (
+				03A30260005AB89DC02AAC07,
 				3C561389FEEF59C211CA2CB3,
 				3C56138BFEEF59C211CA2CB3,
 				00FE5D86FEF9E95711CA2CB3,
@@ -768,6 +810,7 @@
 				3C561411FEEF59C211CA2CB3,
 			);
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 61;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
@@ -778,9 +821,9 @@
 				PRODUCT_NAME = jam;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = PBX;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);

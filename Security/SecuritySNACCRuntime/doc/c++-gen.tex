@@ -1,0 +1,720 @@
+% file: .../doc/c++-gen.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/c++-gen.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: c++-gen.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:51  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:35  rj
+% first check-in
+%
+
+\chapter{\label{c++-code-gen-chapter}C++ Code Generation}
+
+\section{\label{intro-C++-section}Introduction}
+
+The C++ backend of snacc was designed after the C backend had been
+written.  The basic model that the generated C++ uses is similar to
+that of the generated C, but benefits from the object oriented features of
+C++.  This was my first real foray into C++ which may be evident from
+some of the design.
+
+As with C, two files are generated for each ASN.1 module, a {\ufn .C}
+and a {\ufn .h} file.
+
+Some cleaner designs were rejected either due to their poor
+performance or the inability of the available C++ compiler to handle
+those features.
+
+Tags and lengths would fit nicely into their own classes but
+performance was considerably worse than the technique used in the C
+environment.  The C design was retained in the C++ model for its
+superior performance.
+
+For error management C++'s {\C try} and {\C throw} are obvious
+replacements for the {\C setjmp} and {\C longjmp} used by the C
+decoders. Unfortunately this is a newer C++ feature and is not yet
+supported by gcc.
+
+C++ templates are very attractive for type safe lists (for SET OF and
+SEQUENCE OF) without duplicating code.  Template support was shaky in
+gcc at the time the generated code was being tested so they were
+rejected. Instead, each list generates its own new class with all of
+the standard list routines.
+
+As with the C code generation chapter, we will use the EX1 module to
+help illustrate some of the code generation.  The following is the
+same EX1 module used in the C section.
+
+\begin{ASNcode}
+EX1 DEFINITIONS ::=\\
+BEGIN\\
+\\
+anOidVal      OBJECT IDENTIFIER ::= \{ joint-iso-ccitt 40 foobar(29) \}\\
+theSameOidVal OBJECT IDENTIFIER ::= \{ 2 40 29 \}\\
+anIntVal      INTEGER ::= 1\\
+aBoolVal      BOOLEAN ::= TRUE\\
+\\
+T1 ::= SEQUENCE\\
+\{\+\\
+  INTEGER OPTIONAL,\\
+  OCTET STRING OPTIONAL,\\
+  ENUMERATED \{ a(0), b(1), c(2) \},\\
+  SEQUENCE OF INTEGER,\\
+  SEQUENCE \{ id OBJECT IDENTIFIER, value OCTET STRING \},\\
+  CHOICE \{ INTEGER, OBJECT IDENTIFIER \}\-\\
+\}\\
+\\
+END
+\end{ASNcode}
+
+The C++ backend to snacc is in the {\ufn \dots/compiler/back-ends/c++-gen/} directory if you want to alter it.
+
+\section{\label{naming-C++-section}ASN.1 to C++ Naming Conventions}
+
+The C++ name for a type or value is the same as its ASN.1 name with
+any hyphens converted to underscores.
+
+When an ASN.1 type or value name (after converting any hyphens to
+underscores) conflicts with a C++ keyword or the name of a type in
+another ASN.1 module (name clashes within the same ASN.1 scope are
+considered errors and are detected earlier), the resulting C++ class
+name will be the conflicting name with digits appended to it.
+
+Empty field names in SETs, SEQUENCEs, and CHOICEs will be filled.  The
+field name is derived from the type name for that field. The library
+types such as INTEGER etc. have default field names defined by the
+compiler (see {\ufn \dots/compiler/back-ends/c-gen/rules.c} and
+{\ufn \dots/compiler/back-ends/c++-gen/rules.c}).
+The first letter of the field name is in lower case.
+Empty field names should be fixed properly by adding them to the ASN.1 source.
+
+New type definitions will be generated for SETs, SEQUENCEs, CHOICEs,
+ENUMERATED, INTEGERs with named numbers and BIT STRINGs with named bits
+whose definitions are embedded in other SET, SEQUENCE, SET OF,
+SEQUENCE OF, or CHOICE definitions.  The name of the new type
+is derived from the name of the type in which it was embedded and will
+be made unique by appending digits if necessary.
+
+\section{\label{type-gen-C++-section}ASN.1 to C++ Class Translation}
+
+This section describes how C++ classes are used to represent each
+ASN.1 type.  First, the general characteristics of each ASN.1 type's
+C++ class will be discussed followed by how the aggregate types (SETs,
+SEQUENCEs, CHOICEs, SET OFs, and SEQUENCE OFs) are represented.  The
+representations of non-aggregate types (INTEGER, BOOLEAN, OCTET
+STRING, BIT STRING, OBJECT IDENTIFIER) and ANY and ANY DEFINED BY
+types are presented in the next chapter since they form part of the
+C++ ASN.1 runtime library.
+
+Every ASN.1 type is represented by a C++ class with the following
+characteristics:
+\newcounter{saveenumi}
+\begin{enumerate}
+  \item it inherits from the {\C AsnType} base class
+  \item it has a parameterless constructor
+  \item it has a copy constructor
+  \item it has a destructor
+  \item it has a clone method, {\C Clone}
+  \item it has an assignment operator
+  \item it has a content encode and decode method, {\C BEncContent} and {\C BDecContent}
+  \item it has a PDU encode and decode method, {\C BEnc} and {\C BDec}
+  \item it has a top level interfaces to the PDU encode and decode methods (handles the {\C setjmp} etc.) for the user, {\C BEncPdu} and {\C BDecPdu}
+  \item it has a print method, {\C Print}, a virtual function that gets called from a global <\/<-operator
+  \setcounter{saveenumi}{\value{enumi}}
+\end{enumerate}
+If the metacode has been enabled:
+\begin{enumerate}
+  \setcounter{enumi}{\value{saveenumi}}
+  \item it has a virtual function {\C \_getdesc} that returns the classes meta description% (only if metacode is enabled)
+  \item if it is a structured type, it has a virtual function {\C \_getref} that returns a pointer to one of its components/members, specified through its name% (only if metacode is enabled)
+  \setcounter{saveenumi}{\value{enumi}}
+\end{enumerate}
+If the Tcl code has been enabled:
+\begin{enumerate}
+  \setcounter{enumi}{\value{saveenumi}}
+  \item it has a virtual function {\C TclGetDesc} to access the metacode's {\C \_getdesc} routine from Tcl% (only if Tcl code is enabled)
+  \item it has a virtual function {\C TclGetVal} to retrieve an instance's value% (only if Tcl code is enabled)
+  \item it has a virtual function {\C TclSetVal} to change an instance's value% (only if Tcl code is enabled)
+  \item for SET, SEQUENCE, SET OF and SEQUENCE of: it has a virtual function {\C TclUnsetVal} to clear OPTIONAL members or to delete list elements, respectively% (only if Tcl code is enabled)
+\end{enumerate}
+
+The following C++ fragment shows the class features listed above in greater
+detail.
+\begin{Ccode}
+class Foo: public AsnType\\
+\{\+\\
+  \dots // data members\\
+\\
+\<public:\\
+          \>\>Foo();\\
+          \>\>Foo (const Foo \&);\\
+          \>\>\~{}Foo();\\
+  AsnType \>\>*Clone() const;\\
+  Foo     \>\>\&operator = (const Foo \&);\\
+\\
+  // content encode and decode routines\\
+  AsnLen  \>\>BEncContent (BUF\_TYPE b);\\
+  void    \>\>BDecContent (BUF\_TYPE b, AsnTag tag, AsnLen elmtLen,\\
+                     \`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  // PDU (tags/lengths/content) encode and decode routines\\
+  AsnLen  \>\>BEnc (BUF\_TYPE b);\\
+  void    \>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  // methods most likely to be used by your code.\\
+  // Returns non-zero for success\\
+  int     \>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int     \>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void    \>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  const AsnTypeDesc  \>\>*\_getdesc() const;\\
+  AsnType            \>\>*\_getref (const char *membername, bool create = false);\\
+\<\#if TCL\\
+  int                \>\>TclGetDesc (Tcl\_DString *) const;\\
+  int                \>\>TclGetVal (Tcl\_Interp *) const;\\
+  int                \>\>TclSetVal (Tcl\_Interp *, const char *valstr);\\
+  int                \>\>TclUnsetVal (Tcl\_Interp *, const char *membername);\\
+\<\#endif\\
+\<\#endif\\
+\<\};
+\end{Ccode}
+
+{\C BEnc} and {\C BDec} are PDU encode and decode methods.
+{\C BEnc} encodes the tag and length pairs for the object's type as
+well as the content (the object's value) to the given buffer,
+{\C b}, and returns the number of bytes written to the buffer for
+the encoding.
+
+{\C BDec} decodes the expected tag and length pairs as well as the
+content of the object it is invoked upon from the given buffer,
+{\C b}, and increments {\C bytesDecoded}  by the byte length of
+the tag(s), length(s) and value decoded.  The {\C env} parameter
+will be used with {\C longjmp} if any decoding error occurs.
+Decoding errors can be reported via {\C longjmp} from any of the
+routines that {\C BDec} calls, such as {\C BDecContent};
+{\C BDec} will call {\C longjmp} directly if the value does not
+have the correct tag(s).
+
+{\C BEncContent} and {\C BDecContent} only deal with the content
+of the type their object represents.  {\C BEncContent} encodes the
+object's value to the given buffer, {\C b}.
+
+{\C BDecContent} decodes the object's value from the given buffer,
+{\C b}.  The last tag and length pair on the content must be passed in
+via the {\C tag} and {\C elmtLen} parameters.  The {\C tag},
+although always present, will only be used when decoding OCTET STRING and
+BIT STRING related types, to determine whether the encoding is
+constructed.  The {\C elmtLen} is the length of the content and may
+be the indefinite length form.  {\C bytesDecoded} is incremented by
+the actual number of bytes in the content; this is normally the same
+as {\C elmtLen} unless the indefinite length form was decoded.  The
+{\C env} parameter will be used with {\C longjmp} if any decoding
+error occurs.  The possible decoding errors depend on the type that is
+being decoded.
+
+{\C BEncPdu} and {\C BDecPdu} are top-level interfaces to the PDU
+encode and decode routines.  They present the simplest interface;
+they return TRUE if the operation succeeded and FALSE if an error
+occurred.   Note that the {\C BDecPdu} routine sets up the
+{\C env} parameter using {\C setjmp} for any {\C longjmp} calls
+that may occur.  If you call {\C BDec} or {\C BDecContent}
+directly from your code, you must use {\C setjmp} to setup the
+{\C env} parameter.  {\C BEncPdu} checks for any buffer writing
+errors and {\C BDecPdu} checks for any buffer reading errors.
+
+The {\C Print} method prints the object's value in ASN.1 value
+notation.  When printing SETs and SEQUENCEs, a global variable
+is used for the current indent.
+
+The {\C AsnType} base class, parameterless constructor and
+{\C Clone} method are required by the ANY and ANY DEFINED BY type
+handling mechanism explained in Sections \ref{asntype-C++-section} and
+\ref{any-C++-section}.  In brief, the {\C AsnType} provides a base type
+that has virtual {\C BEnc}, {\C BDec} and {\C Clone} routines.
+The {\C Clone} routine is used to generate a new instance (not a
+copy) of the object that it is invoked on.  This allows the ANY
+DEFINED BY type decoder to create a new object of the correct type
+from one stored in a hash table, when decoding (the {\C Clone}
+routine calls the parameterless constructor).  The virtual {\C BEnc}
+and {\C BDec} are called from {\C AsnAny} {\C BEnc} and
+{\C BDec} methods.
+
+The meta routines and the Tcl interface will be described in chapters \ref{meta-chapter} and \ref{tcl-if-chapter}, respectively.
+
+\subsection{\label{C++-set-seq-section}SET and SEQUENCE}
+
+SET and SEQUENCE types generate classes that have their components as
+public data members.  This makes accessing the components similar to
+referencing the fields of a C struct.  For example the {\C T1} type in
+module EX1 will produce the following C++ class:
+
+\begin{Ccode}
+class T1: public AsnType\\
+\{\\
+public:\+\\
+  AsnInt    \>\>*integer;\\
+  AsnOcts   \>\>*octs;\\
+  T1Enum    \>\>t1Enum;\\
+  T1SeqOf   \>\>t1SeqOf;\\
+  T1Seq     \>\>*t1Seq;\\
+  T1Choice  \>\>*t1Choice;\\
+\\
+            \>\>T1();\\
+%  {\\
+%    /* init optional/default elements to NULL */\\
+%    integer = NULL;\\
+%    octs = NULL;\\
+%  }\\
+	    \>\>T1 (const T1 \&);\\
+	    \>\>\~{}T1();\\
+%  AsnType *Clone() { return new T1; }\\
+  AsnType   \>\>*Clone() const;\\
+\\
+  T1        \>\>\&operator = (const T1 \&);\\
+\\
+  AsnLen    \>\>BEnc (BUF\_TYPE b);\\
+  void      \>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen    \>\>BEncContent (BUF\_TYPE b);\\
+  void      \>\>BDecContent (BUF\_TYPE b, AsnTag tag, AsnLen elmtLen,\\
+                         \`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int       \>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int       \>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void      \>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnSequenceTypeDesc     \\
+				\>\>\_desc;\\
+  static const AsnSequenceMemberDesc   \\
+				\>\>mdescs[];\\
+  const AsnTypeDesc             \>\>*\_getdesc() const;\\
+  AsnType                       \>\>*\_getref (const char *membername, bool create = false);\\
+\\
+\<\#if TCL\\
+  int                   \>\>TclGetDesc (Tcl\_DString *) const;\\
+  int                   \>\>TclGetVal (Tcl\_Interp *) const;\\
+  int                   \>\>TclSetVal (Tcl\_Interp *, const char *valstr);\\
+  int                   \>\>TclUnsetVal (Tcl\_Interp *, const char *membname);\\
+\<\#endif // TCL\\
+\<\#endif // META\\
+\<\};
+\end{Ccode}
+
+All OPTIONAL components in a SET or SEQUENCE are referenced by pointer.
+The constructor will automatically set OPTIONAL fields to {\C NULL}\@.  The
+other methods are as described at the beginning of this section.
+
+SETs and SEQUENCEs must contain all non-OPTIONAL components and
+SEQUENCEs must be ordered, otherwise an error is reported.  Tagging
+errors are also reported.  All detected errors abort the decoding
+process via {\C longjmp}.
+
+\subsection{\label{C++-choice-section}CHOICE}
+
+Each CHOICE type generates a class that has an anonymous union to hold the
+components of the CHOICE and a {\C choiceId} field to indicate which
+component is present.
+
+Anonymous (un-named) unions allow you to reference the choice components
+with just the field name of the component; this makes referencing the
+contents of a CHOICE the same a referencing the contents of a SET or
+SEQUENCE\@.
+
+The {\C choiceId} field contains a value in the {\C ChoiceIdEnum}
+that indicates the CHOICE field that is present.  The names in the
+enumeration are derived from the field names of the CHOICE components.
+
+When building a local value to be encoded, you must be sure to set the
+{\C choiceId} such that it corresponds to the value in the union.  The
+decoder will set the {\C choiceId} when decoding incoming values.
+
+Tagging errors are reported and abort the decoding process via
+{\C longjmp}.
+
+The following C++ class is produced for the CHOICE in the EX1 module.
+
+\begin{Ccode}
+class T1Choice: public AsnType\\
+\{\\
+public:\+\\
+  enum ChoiceIdEnum\\
+  \{\+\\
+    integerCid = 0,\\
+    oidCid = 1\-\\
+  \};\\
+\\
+  enum ChoiceIdEnum \>\>choiceId;\\
+  union\\
+  \{\+\\
+    AsnInt   \>*integer;\\
+    AsnOid   \>*oid;\-\\
+  \};\\
+\\
+             \>\>T1Choice();\\
+	     \>\>T1Choice (const T1Choice \&);\\
+	     \>\>\~{}T1Choice();\\
+  AsnType    \>\>*Clone() const;\\
+\\
+  T1Choice   \>\>\&operator = (const T1Choice \&);\\
+\\
+  AsnLen     \>\>BEncContent (BUF\_TYPE b);\\
+  void       \>\>BDecContent (BUF\_TYPE b, AsnTag tag, AsnLen elmtLen,\\
+                          \`AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  AsnLen     \>\>BEnc (BUF\_TYPE b);\\
+  void       \>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+  int        \>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+  int        \>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+  void       \>\>Print (ostream \&os) const;\\
+\\
+\<\#if META\\
+  static const AsnChoiceTypeDesc        \>\>\_desc;\\
+  static const AsnChoiceMemberDesc      \\
+					\>\>\_mdescs[];\\
+\\
+  const AsnTypeDesc             \>\>*\_getdesc() const;\\
+  AsnType                       \>\>*\_getref (const char *membername, bool create = false);\\
+\\
+\<\#if TCL\\
+  int                   \>\>TclGetDesc (Tcl\_DString *) const;\\
+  int                   \>\>TclGetVal (Tcl\_Interp *) const;\\
+  int                   \>\>TclSetVal (Tcl\_Interp *, const char *valstr);\\
+\<\#endif // TCL\\
+\<\#endif // META\\
+\<\};
+\end{Ccode}
+
+
+
+\subsection{\label{C++-set-of-section}SET OF and SEQUENCE OF}
+
+Each SET OF and SEQUENCE OF type produces its own list class, unlike
+the C backend which uses a single generic list type for all lists.
+This makes the C++ list routines type safe which allows the C++
+compiler to detect more programmer errors.
+
+C++ templates should be used to reduce the code duplication when they
+become widespread and reliably implemented.  The duplicated list
+handling methods may bloat the size of the generated code.
+
+Any tagging errors are reported and abort the decoding process via
+{\C longjmp}.
+
+From the EX1 ASN.1 module the following list is produced:
+\begin{Ccode}
+class T1SeqOf: public AsnType\\
+\{\\
+protected:\+\\
+    unsigned long int\>\>count;\\
+    struct AsnListElmt\\
+    \{\+\\
+        struct AsnListElmt \>*next;\\
+        struct AsnListElmt \>*prev;\\
+        AsnInt             \>*elmt;\-\\
+    \}                   \>\>*first, *curr, *last;\\
+\\
+\<public:\\
+                         \>\>T1SeqOf() \{ count = 0; first = curr = last = NULL; \}\\
+                         \>\>\~{}T1SeqOf();\\
+    AsnType              \>\>*Clone() const;\\
+\\
+    void                 \>\>SetCurrElmt (unsigned long int index);\\
+    unsigned long int    \>\>GetCurrElmtIndex();\\
+    void                 \>\>SetCurrToFirst();\\
+    void                 \>\>SetCurrToLast();\\
+\\
+    // reading member fcns\\
+    int                  \>\>Count() const;\\
+    AsnInt               \>\>*First() const;\\
+    AsnInt               \>\>*Last() const;\\
+    AsnInt               \>\>*Curr() const;\\
+    AsnInt               \>\>*Next() const;\\
+    AsnInt               \>\>*Prev() const;\\
+\\
+    // routines that move the curr elmt\\
+    AsnInt               \>\>*GoNext();\\
+    AsnInt               \>\>*GoPrev();\\
+\\
+    // write \& alloc fcns--returns new elmt\\
+    AsnInt               \>\>*Append();  // add elmt to end of list\\
+    AsnInt               \>\>*Prepend(); // add elmt to beginning of list\\
+    AsnInt               \>\>*InsertBefore(); // insert elmt before current elmt\\
+    AsnInt               \>\>*InsertAfter();  // insert elmt after current elmt\\
+\\
+    // write \& alloc \& copy--returns list after copying elmt\\
+    T1SeqOf              \>\>\&AppendCopy (AsnInt \&elmt);  // add elmt to end of list\\
+    T1SeqOf              \>\>\&PrependCopy (AsnInt \&elmt); // add elmt to beginning of list\\
+    T1SeqOf              \>\>\&InsertBeforeAndCopy (AsnInt \&elmt); // insert elmt before current elmt\\
+    T1SeqOf              \>\>\&InsertAfterAndCopy (AsnInt \&elmt); // insert elmt after current elmt\\
+\\
+    // removing the current elmt from the list\\
+    void                 \>\>RemoveCurrFromList();\\
+\\
+    // encode and decode routines\\
+    AsnLen               \>\>BEncContent (BUF\_TYPE b);\\
+    void                 \>\>BDecContent (BUF\_TYPE b, AsnTag tag, AsnLen elmtLen,\\
+                         \` AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+    AsnLen               \>\>BEnc (BUF\_TYPE b);\\
+    void                 \>\>BDec (BUF\_TYPE b, AsnLen \&bytesDecoded, ENV\_TYPE env);\\
+\\
+    int                  \>\>BEncPdu (BUF\_TYPE b, AsnLen \&bytesEncoded);\\
+    int                  \>\>BDecPdu (BUF\_TYPE b, AsnLen \&bytesDecoded);\\
+\\
+    void                 \>\>Print (ostream \&os);\\
+\\
+\<\#if META\\
+  static const AsnListTypeDesc  \>\>\_desc;\\
+  const AsnTypeDesc             \>\>*\_getdesc() const;\\
+  AsnType                       \>\>*\_getref (const char *index, bool create = false);\\
+\\
+\<\#if TCL\\
+  int                   \>\>TclGetDesc (Tcl\_DString *) const;\\
+  int                   \>\>TclGetVal (Tcl\_Interp *) const;\\
+  int                   \>\>TclSetVal (Tcl\_Interp *, const char *valstr);\\
+  int                   \>\>TclUnsetVal (Tcl\_Interp *, const char *valstr);\\
+\<\#endif // TCL\\
+\<\#endif // META\\
+\<\};
+\end{Ccode}
+
+Each list is doubly linked to allow simple reverse traversal for
+backwards encoding.  The {\C prev} pointer will be {\C NULL} for the
+first element of the list and the {\C next} pointer will be {\C NULL} for
+the last element of the list.
+
+Each list maintains a pointer to the current element of the list.
+Several routines are provided to manipulate the current item.  Since
+there is only one current pointer, you may have to save and restore
+the current pointer with the {\C GetCurrElmtIndex} and
+{\C SetCurrElmt} methods if you call routines that deal with the
+list while iterating through it.
+
+In addition to the standard encode, decode and print methods, some
+list utility routines are included in each list class.  They are
+fairly simple and are described briefly here.
+
+\begin{Ccode}
+void \>\>\>SetCurrElmt (unsigned long int index);
+\end{Ccode}
+This sets the current pointer to the element with the given index.
+Indexes start at zero, that is, the first element in the list has an
+index of zero.  If the given index is greater than or equal to the
+number of elements in the list, the current pointer is set to the last
+element of the list.
+
+\begin{Ccode}
+unsigned long int \>\>\>GetCurrElmtIndex();
+\end{Ccode}
+This returns the index of the current element.  If the current pointer
+is {\C NULL} (or does not reference an element of the list, which is an
+error condition), the index returned will be greater than or equal to
+the number of elements in the list (indexes start at zero so this is
+an invalid index).
+
+
+\begin{Ccode}
+void \>\>\>SetCurrToFirst();
+\end{Ccode}
+This sets the current pointer to the first element of the list. If the
+list is empty, it is set to {\C NULL}\@.
+\begin{Ccode}
+void \>\>\>SetCurrToLast();
+\end{Ccode}
+This sets the current pointer to the last element of the list. If the
+list is empty, it is set to {\C NULL}\@.
+
+
+\begin{Ccode}
+int \>\>\>Count() const;
+\end{Ccode}
+This returns the number of elements in the list.
+
+\begin{Ccode}
+AsnInt \>\>\>*First() const;\\
+AsnInt \>\>\>*Last() const;\\
+AsnInt \>\>\>*Curr() const;\\
+AsnInt \>\>\>*Next() const;\\
+AsnInt \>\>\>*Prev() const;
+\end{Ccode}
+The above routines return a pointer to the list element that the
+routine name indicates.  They return {\C NULL} if the requested element is
+not present.  For example {\C First} will return a pointer to the
+first element in the list or {\C NULL} if the list is empty.  These
+routines do not affect the state of the list; the current pointer and
+the count remain the same.
+
+\begin{Ccode}
+AsnInt \>\>\>*GoNext();\\
+AsnInt \>\>\>*GoPrev();
+\end{Ccode}
+These routines change the current pointer to the next/previous element
+and return a pointer to that element.  If the current element is {\C NULL} or
+points to the last element, {\C GetNext} returns {\C NULL}\@. Similarly, if
+the current element is {\C NULL} or points to the first element, {\C GetPrev}
+returns {\C NULL}\@.
+
+
+\begin{Ccode}
+AsnInt \>\>\>*Append();
+\end{Ccode}
+This allocates a new list element, appends it to the end of the list
+and returns a pointer to the new list element.  Notice that you must
+set the value of the returned list element.
+
+\begin{Ccode}
+AsnInt \>\>\>*Prepend();
+\end{Ccode}
+This allocates a new list element, prepends it to the beginning of the
+list and returns a pointer to the new list element. You must set the
+value of the returned list element.
+
+\begin{Ccode}
+AsnInt \>\>\>*InsertBefore();
+\end{Ccode}
+This allocates a new list element, inserts it before the current list
+element and returns a pointer to the new list element.  You must set
+the value of the returned list element.  If the current pointer is
+{\C NULL}, the new element is placed at the beginning of the list.
+
+\begin{Ccode}
+AsnInt \>\>\>*InsertAfter();
+\end{Ccode}
+This allocates a new list element, inserts it after the current list
+element and returns a pointer to the new list element.  You must set
+the value of the returned list element.  If the current pointer is
+{\C NULL}, the new element is placed at the end of the list.
+
+\begin{Ccode}
+T1SeqOf \>\>\>\&AppendCopy (AsnInt \&elmt);\\
+T1SeqOf \>\>\>\&PrependCopy (AsnInt \&elmt);\\
+T1SeqOf \>\>\>\&InsertBeforeAndCopy (AsnInt \&elmt);\\
+T1SeqOf \>\>\>\&InsertAfterAndCopy (AsnInt \&elmt);
+\end{Ccode}
+These are similar to the {\C Append}, {\C Prepend},
+{\C InsertBefore} and {\C InsertAfter} routines except that a
+copy of the given element's value is placed in the list and the list
+itself is returned.
+
+\subsection{\label{C++-enumerated-section}ENUMERATED, Named Numbers and Named Bits}
+
+The C++ type generator encapsulates each ENUMERATED type, INTEGER
+with named numbers and BIT STRING with named bits in a new class that
+inherits from the proper base class and defines the named elements.
+This provides a separate scope for these identifiers so their symbol
+will be exactly the same as their ASN.1 counterpart.  Currently these
+identifiers are not checked for conflicts with C++ keywords, so you
+may have to modify some of them in the ASN.1 modules.
+
+Inheritance is used for attaching ENUMERATED, named number and named
+bit information.  ENUMERATED types inherit from the {\C AsnEnum} class,
+INTEGERs with named number types inherit from the {\C AsnInt} class and BIT
+STRINGs with named bits inherit from the {\C AsnBits} class.
+
+If the tagging on the type is different from the type it inherits
+from, the PDU encode and decode methods are re-defined with the
+correct tags to override the PDU encode and decode methods of the base
+class.
+
+As with the other types, any tagging errors are reported and abort the
+decoding process via {\C longjmp}.  No range checking is done on the
+decoded values although it would be easy to provide a new
+{\C BDecContent} method in the new class that calls the base class's
+and then checks the range of the result.
+
+\begin{Ccode}
+/* ENUMERATED { a(0), b(1), c(2) } */\\
+class T1Enum: public AsnEnum\\
+\{\\
+public:\\
+\#if TCL\\
+         \>               \>\>T1Enum(): AsnEnum (\_nmdescs[0].value) \{\}\\
+\#else\\
+         \>               \>\>T1Enum(): AsnEnum () \{\}\\
+\#endif\+\\
+                          \>\>T1Enum (int i): AsnEnum (i) \{\}\\
+  enum\\
+  \{\+\\
+    a = 0,\\
+    b = 1,\\
+    c = 2\-\\
+  \};\\
+\\
+\<\#if META\\
+  static const AsnNameDesc      \>\>\_nmdescs[];\\
+  static const AsnEnumTypeDesc  \>\>\_desc;\\
+  const AsnTypeDesc             \>\>*\_getdesc() const;\\
+\<\#endif // META\\
+\<\};
+\end{Ccode}
+
+\section{\label{val-gen-C++-section}ASN.1 to C++ Value Translation}
+
+C++ {\C const} values are used to hold ASN.1 defined values.  C++
+values will be produced for INTEGER, BOOLEAN and OBJECT IDENTIFIER
+ASN.1 values.  An {\C extern} declaration for each {\C const} value is
+written at the end of the header file of the value's module.  The
+{\C const} values are defined at the beginning of the {\ufn .C} file
+of the value's module.  The {\C extern} declarations are at the end
+of the header file so that any required class definitions are
+available.
+
+The following is from the end of the header file generated for the EX1
+module:
+\begin{Ccode}
+extern const AsnOid  \>\>\>anOidVal;\\
+extern const AsnOid  \>\>\>theSameOidVal;\\
+extern const AsnInt  \>\>\>anIntVal;\\
+extern const AsnBool \>\>\>aBoolVal;
+% \\ extern const AsnInt  \>\>\>foobar;
+\end{Ccode}
+
+The following is from the beginning of the {\ufn .C} file generated
+for the EX1 module:
+\begin{Ccode}
+const AsnOid  \>\>\>anOidVal (2, 40, 29);\\
+const AsnOid  \>\>\>theSameOidVal (2, 40, 29);\\
+const AsnInt  \>\>\>anIntVal (1);\\
+const AsnBool \>\>\>aBoolVal (true);
+% \\ const AsnInt  \>\>\>foobar (29);
+\end{Ccode}
+
+The C++ constructor mechanism is used to generate these values.  This
+mechanism is superior to C static initialization because it allows C++
+code to be run to initialize the values.
+
+\section{\label{compiler-dir-C++-section}Compiler Directives}
+Compiler directives are ignored by the C++ backend of snacc.  If you want
+to implement them, look at the {\C FillCxxTypeDefInfo} routine in
+file {\ufn \dots/compiler/back-ends/c++-gen/types.c}.  Then look at the
+way it is done for the C backend (file
+{\ufn \dots/compiler/back-ends/c-gen/type-info.c})
+
+\section{\label{compiling-gen-C++-section}Compiling the Generated C++ Code}
+
+When compiling the generated C++ code you will need:
+\begin{enumerate}
+\item
+  The include directory where the files from {\ufn \dots/c++-lib/inc/} have been installed in your include path so that the C++ sources can include these library header files.
+  The header files should be included with statements like {\C \#include <snacc/c++/asn-incl.h>} and your C++ compiler should be supplied with {\ufn -I/usr/local/include} in case snacc got installed under {\ufn /usr/local/}.
+\item
+  to link with the C++ ASN.1 runtime library, {\ufn \dots/c++-lib/libasn1c++.a}.
+  In case snacc got installed under {\ufn /usr/local/}, your linker may need to be supplied with {\ufn -L/usr/local/lib} and {\ufn -lasn1c++} as arguments.
+\item
+  to link with the math library ({\ufn -lm}), since the ASN.1 REAL type's encode and decode routine use some math routines.
+\end{enumerate}
+
+See the example in {\ufn \dots/c++-examples/simple/} for a complete
+example. The makefile and main routines are probably the most
+important.  There are several other examples in the
+{\ufn \dots/c++-examples/} directory.

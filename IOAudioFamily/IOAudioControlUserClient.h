@@ -38,13 +38,31 @@ protected:
     IOAudioControl *			audioControl;
     IOAudioNotificationMessage *	notificationMessage;
 
-    IOExternalMethod	methods[IOAUDIOCONTROL_NUM_CALLS];
-
     virtual IOReturn clientClose();
     virtual IOReturn clientDied();
 
-    virtual IOReturn setControlValue(UInt32 value);
-    virtual IOReturn getControlValue(UInt32 *value);
+protected:
+    struct ExpansionData { };
+    
+    ExpansionData *reserved;
+    
+private:
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 0);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 1);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 2);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 3);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 4);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 5);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 6);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 7);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 8);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 9);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 10);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 11);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 12);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 13);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 14);
+    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 15);
 
 public:
     static IOAudioControlUserClient *withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type);
@@ -52,10 +70,7 @@ public:
     virtual bool initWithAudioControl(IOAudioControl *control, task_t owningTask, void *securityID, UInt32 type);
     virtual void free();
 
-    virtual IOExternalMethod *getExternalMethodForIndex(UInt32 index);
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon);
-
-    virtual IOReturn setProperties(OSObject *properties);
 
     virtual void sendValueChangeNotification();
 };

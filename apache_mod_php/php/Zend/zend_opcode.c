@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -251,19 +251,14 @@ static void zend_update_extended_info(zend_op_array *op_array CLS_DC)
 					opline++;
 					continue;
 				}
-				opline->lineno = (opline+1)->lineno;
+				if (opline+1<end) {
+					opline->lineno = (opline+1)->lineno;
+				}
 			} else {
 				opline->opcode = ZEND_NOP;
 			}
 		}
 		opline++;
-	}
-	opline = get_next_op(op_array CLS_CC);
-	opline->opcode = ZEND_EXT_STMT;
-	SET_UNUSED(opline->op1);
-	SET_UNUSED(opline->op2);
-	if (op_array->last>0) {
-		opline->lineno= op_array->opcodes[op_array->last-2].lineno;
 	}
 }
 
@@ -279,7 +274,7 @@ static void zend_extension_op_array_handler(zend_extension *extension, zend_op_a
 
 int pass_two(zend_op_array *op_array)
 {
-	zend_op *opline=op_array->opcodes, *end=opline+op_array->last;
+	zend_op *opline, *end;
 	CLS_FETCH();
 
 	if (op_array->type!=ZEND_USER_FUNCTION && op_array->type!=ZEND_EVAL_CODE) {
@@ -291,12 +286,15 @@ int pass_two(zend_op_array *op_array)
 	if (CG(handle_op_arrays)) {
 		zend_llist_apply_with_argument(&zend_extensions, (void (*)(void *, void *)) zend_extension_op_array_handler, op_array);
 	}
-	while (opline<end) {
-		if (opline->op1.op_type==IS_CONST) {
+
+	opline = op_array->opcodes;
+	end = opline + op_array->last;
+	while (opline < end) {
+		if (opline->op1.op_type == IS_CONST) {
 			opline->op1.u.constant.is_ref = 1;
 			opline->op1.u.constant.refcount = 2; /* Make sure is_ref won't be reset */
 		}
-		if (opline->op2.op_type==IS_CONST) {
+		if (opline->op2.op_type == IS_CONST) {
 			opline->op2.u.constant.is_ref = 1;
 			opline->op2.u.constant.refcount = 2;
 		}

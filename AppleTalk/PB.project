@@ -8,7 +8,7 @@
             "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/bsd/netat", 
             "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Headers/bsd/netat"
         ); 
-        H_FILES = (at_paths.h, at_proto.h, at_rwlock.h); 
+        H_FILES = (at_paths.h, at_proto.h); 
         OTHER_LINKED = (
             adsp_socket.c, 
             asp_if.c, 
@@ -18,7 +18,6 @@
             at_get_rsp.c, 
             at_look.c, 
             at_open.c, 
-            at_rwlock.c, 
             at_snd_dev.c, 
             at_snd_req.c, 
             at_snd_rsp.c, 

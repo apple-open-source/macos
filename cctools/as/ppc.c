@@ -15,6 +15,9 @@
 #include "input-scrub.h"
 #include "sections.h"
 
+/* relocation type for internal assembler use only */
+#define PPC_RELOC_BR14_predicted (127)
+
 /*
  * Set if -no_ppc601 is specified or .no_pcc601 is seen.  It flags all 601
  * uses as errors.
@@ -231,53 +234,53 @@ static const struct macros ppc_macros[] = {
     { "mr.\n",     "or. $0,$1,$1\n" },
     { "not\n",     "nor $0,$1,$1\n" },
     { "not.\n",    "nor. $0,$1,$1\n" },
-    { "extldi\n",  "rldicr $0,$1,$3,$2-1\n" },
-    { "extldi.\n", "rldicr. $0,$1,$3,$2-1\n" },
-    { "extrdi\n",  "rldicl $0,$1,$2+$3,64-$2\n" },
-    { "extrdi.\n", "rldicl. $0,$1,$2+$3,64-$2\n" },
-    { "insrdi\n",  "rldimi $0,$1,64-($3+$2),$3\n" },
-    { "insrdi.\n", "rldimi. $0,$1,64-($3+$2),$3\n" },
+    { "extldi\n",  "rldicr $0,$1,$3,($2)-1\n" },
+    { "extldi.\n", "rldicr. $0,$1,$3,($2)-1\n" },
+    { "extrdi\n",  "rldicl $0,$1,($2)+($3),64-($2)\n" },
+    { "extrdi.\n", "rldicl. $0,$1,($2)+($3),64-($2)\n" },
+    { "insrdi\n",  "rldimi $0,$1,64-(($3)+($2)),$3\n" },
+    { "insrdi.\n", "rldimi. $0,$1,64-(($3)+($2)),$3\n" },
     { "rotldi\n",  "rldicl $0,$1,$2,0\n" },
     { "rotldi.\n", "rldicl. $0,$1,$2,0\n" },
-    { "rotrdi\n",  "rldicl $0,$1,64-$2,0\n" },
-    { "rotrdi.\n", "rldicl. $0,$1,64-$2,0\n" },
+    { "rotrdi\n",  "rldicl $0,$1,64-($2),0\n" },
+    { "rotrdi.\n", "rldicl. $0,$1,64-($2),0\n" },
     { "rotld\n",   "rldcl $0,$1,$2,0\n" },
     { "rotld.\n",  "rldcl. $0,$1,$2,0\n" },
-    { "sldi\n",    "rldicr $0,$1,$2,63-$2\n" },
-    { "sldi.\n",   "rldicr. $0,$1,$2,63-$2\n" },
-    { "srdi\n",    "rldicl $0,$1,64-$2,$2\n" },
-    { "srdi.\n",   "rldicl. $0,$1,64-$2,$2\n" },
+    { "sldi\n",    "rldicr $0,$1,$2,63-($2)\n" },
+    { "sldi.\n",   "rldicr. $0,$1,$2,63-($2)\n" },
+    { "srdi\n",    "rldicl $0,$1,64-($2),$2\n" },
+    { "srdi.\n",   "rldicl. $0,$1,64-($2),$2\n" },
     { "clrldi\n",  "rldicl $0,$1,0,$2\n" },
     { "clrldi.\n", "rldicl. $0,$1,0,$2\n" },
-    { "clrrdi\n",  "rldicr $0,$1,0,63-$2\n" },
-    { "clrrdi.\n", "rldicr. $0,$1,0,63-$2\n" },
-    { "clrlsldi\n","rldic $0,$1,$3,$2-$3\n" },
-    { "clrlsldi.\n","rldic. $0,$1,$3,$2-$3\n" },
+    { "clrrdi\n",  "rldicr $0,$1,0,63-($2)\n" },
+    { "clrrdi.\n", "rldicr. $0,$1,0,63-($2)\n" },
+    { "clrlsldi\n","rldic $0,$1,$3,($2)-($3)\n" },
+    { "clrlsldi.\n","rldic. $0,$1,$3,($2)-($3)\n" },
 
-    { "extlwi\n",  "rlwinm $0,$1,$3,0,$2-1\n" },
-    { "extlwi.\n", "rlwinm. $0,$1,$3,0,$2-1\n" },
-    { "extrwi\n",  "rlwinm $0,$1,$2+$3,32-$2,31\n" },
-    { "extrwi.\n", "rlwinm. $0,$1,$2+$3,32-$2,31\n" },
-    { "inslwi\n",  "rlwimi $0,$1,32-$3,$3,($3+$2)-1\n" },
-    { "inslwi.\n", "rlwimi. $0,$1,32-$3,$3,($3+$2)-1\n" },
-    { "insrwi\n",  "rlwimi $0,$1,32-($3+$2),$3,($3+$2)-1\n" },
-    { "insrwi.\n", "rlwimi. $0,$1,32-($3+$2),$3,($3+$2)-1\n" },
+    { "extlwi\n",  "rlwinm $0,$1,$3,0,($2)-1\n" },
+    { "extlwi.\n", "rlwinm. $0,$1,$3,0,($2)-1\n" },
+    { "extrwi\n",  "rlwinm $0,$1,($2)+($3),32-($2),31\n" },
+    { "extrwi.\n", "rlwinm. $0,$1,($2)+($3),32-($2),31\n" },
+    { "inslwi\n",  "rlwimi $0,$1,32-($3),$3,(($3)+($2))-1\n" },
+    { "inslwi.\n", "rlwimi. $0,$1,32-($3),$3,(($3)+($2))-1\n" },
+    { "insrwi\n",  "rlwimi $0,$1,32-(($3)+($2)),$3,(($3)+($2))-1\n" },
+    { "insrwi.\n", "rlwimi. $0,$1,32-(($3)+($2)),$3,(($3)+($2))-1\n" },
     { "rotlwi\n",  "rlwinm $0,$1,$2,0,31\n" },
     { "rotlwi.\n", "rlwinm. $0,$1,$2,0,31\n" },
-    { "rotrwi\n",  "rlwinm $0,$1,32-$2,0,31\n" },
-    { "rotrwi.\n", "rlwinm. $0,$1,32-$2,0,31\n" },
+    { "rotrwi\n",  "rlwinm $0,$1,32-($2),0,31\n" },
+    { "rotrwi.\n", "rlwinm. $0,$1,32-($2),0,31\n" },
     { "rotlw\n",   "rlwnm $0,$1,$2,0,31\n" },
     { "rotlw.\n",  "rlwnm. $0,$1,$2,0,31\n" },
-    { "slwi\n",    "rlwinm $0,$1,$2,0,31-$2\n" },
-    { "slwi.\n",   "rlwinm. $0,$1,$2,0,31-$2\n" },
-    { "srwi\n",    "rlwinm $0,$1,32-$2,$2,31\n" },
-    { "srwi.\n",   "rlwinm. $0,$1,32-$2,$2,31\n" },
+    { "slwi\n",    "rlwinm $0,$1,$2,0,31-($2)\n" },
+    { "slwi.\n",   "rlwinm. $0,$1,$2,0,31-($2)\n" },
+    { "srwi\n",    "rlwinm $0,$1,32-($2),$2,31\n" },
+    { "srwi.\n",   "rlwinm. $0,$1,32-($2),$2,31\n" },
     { "clrlwi\n",  "rlwinm $0,$1,0,$2,31\n" },
     { "clrlwi.\n", "rlwinm. $0,$1,0,$2,31\n" },
-    { "clrrwi\n",  "rlwinm $0,$1,0,0,31-$2\n" },
-    { "clrrwi.\n", "rlwinm. $0,$1,0,0,31-$2\n" },
-    { "clrlslwi\n","rlwinm $0,$1,$3,$2-$3,31-$3\n" },
-    { "clrlslwi.\n","rlwinm. $0,$1,$3,$2-$3,31-$3\n" },
+    { "clrrwi\n",  "rlwinm $0,$1,0,0,31-($2)\n" },
+    { "clrrwi.\n", "rlwinm. $0,$1,0,0,31-($2)\n" },
+    { "clrlslwi\n","rlwinm $0,$1,$3,($2)-($3),31-($3)\n" },
+    { "clrlslwi.\n","rlwinm. $0,$1,$3,($2)-($3),31-($3)\n" },
 
     { "mtxer\n",   "mtspr 1,$0\n"},
     { "mfxer\n",   "mfspr $0,1\n"},
@@ -297,21 +300,21 @@ static const struct macros ppc_macros[] = {
     { "mfsrr0\n",  "mfspr $0,26\n"},
     { "mtsrr1\n",  "mtspr 27,$0\n"},
     { "mfsrr1\n",  "mfspr $0,27\n"},
-    { "mtsprg\n",  "mtspr 272+$0,$1\n"},
-    { "mfsprg\n",  "mfspr $0,272+$1\n"},
+    { "mtsprg\n",  "mtspr 272+($0),$1\n"},
+    { "mfsprg\n",  "mfspr $0,272+($1)\n"},
     { "mtasr\n",   "mtspr 280,$0\n"},
     { "mfasr\n",   "mfspr $0,280\n"},
     { "mfear\n",   "mfspr $0,282\n"},
     { "mtear\n",   "mtspr 282,$0\n"},
     { "mfpvr\n",   "mfspr $0,287\n"},
-    { "mtibatu\n", "mtspr 528+2*$0,$1\n"},
-    { "mfibatu\n", "mfspr $0,528+2*$1\n"},
-    { "mtibatl\n", "mtspr 529+2*$0,$1\n"},
-    { "mfibatl\n", "mfspr $0,529+2*$1\n"},
-    { "mtdbatu\n", "mtspr 536+2*$0,$1\n"},
-    { "mfdbatu\n", "mfspr $0,536+2*$1\n"},
-    { "mtdbatl\n", "mtspr 537+2*$0,$1\n"},
-    { "mfdbatl\n", "mfspr $0,537+2*$1\n"},
+    { "mtibatu\n", "mtspr 528+2*($0),$1\n"},
+    { "mfibatu\n", "mfspr $0,528+2*($1)\n"},
+    { "mtibatl\n", "mtspr 529+2*($0),$1\n"},
+    { "mfibatl\n", "mfspr $0,529+2*($1)\n"},
+    { "mtdbatu\n", "mtspr 536+2*($0),$1\n"},
+    { "mfdbatu\n", "mfspr $0,536+2*($1)\n"},
+    { "mtdbatl\n", "mtspr 537+2*($0),$1\n"},
+    { "mfdbatl\n", "mfspr $0,537+2*($1)\n"},
 
     { "subi\n",    "addi $0,$1,-($2)\n"},
     { "subis\n",   "addis $0,$1,-($2)\n"},
@@ -387,6 +390,11 @@ static char *parse_num(
     long max_width_zero,
     long zero_only,
     long signed_num);
+static char *parse_mbe(
+    char *param,
+    struct ppc_insn *insn,
+    struct ppc_opcode *format,
+    unsigned long parcnt);
 static char *parse_sh(
     char *param,
     struct ppc_insn *insn,
@@ -834,7 +842,9 @@ char *op)
 		as_bad("instruction is optional for the PowerPC (not "
 		       "allowed without -force_cpusubtype_ALL option)");
 	    }
-	    if(format->cpus == VMX){
+	    if(format->cpus == VMX &&
+	       (archflag_cpusubtype != CPU_SUBTYPE_POWERPC_7400 &&
+	        archflag_cpusubtype != CPU_SUBTYPE_POWERPC_7450)){
 		as_bad("vector instruction is optional for the PowerPC (not "
 		       "allowed without -force_cpusubtype_ALL option)");
 	    }
@@ -916,6 +926,7 @@ char *op)
 		    insn.reloc);
 	    break;
 	case PPC_RELOC_BR14:
+	case PPC_RELOC_BR14_predicted:
 	    fix_new(frag_now,
 		    thisfrag - frag_now->fr_literal,
 		    4,
@@ -1025,6 +1036,9 @@ char prediction)
 	    case NUM0:
 		param = parse_num(param, insn, format, parcnt, 1, 0, 0);
 		break;
+	    case MBE:
+		param = parse_mbe(param, insn, format, parcnt);
+		break;
 	    case ZERO:
 		param = parse_num(param, insn, format, parcnt, 0, 1, 0);
 		break;
@@ -1052,8 +1066,10 @@ char prediction)
 		/*
 		 * Set the Y_BIT assuming the displacement is non-negitive.
 		 * If the displacement is negitive then the Y_BIT is flipped
-		 * in md_number_to_imm().
+		 * in md_number_to_imm() if the reloc is
+		 * PPC_RELOC_BR14_predicted.
 		 */
+		insn->reloc = PPC_RELOC_BR14_predicted;
 		if(prediction == '+')
 		    insn->opcode |= Y_BIT;
 		else{ /* prediction == '-' */
@@ -1794,6 +1810,104 @@ long signed_num)
 
 static
 char *
+parse_mbe(
+char *param,
+struct ppc_insn *insn,
+struct ppc_opcode *format,
+unsigned long parcnt)
+{
+    int val;
+    char *saveptr, save_c;
+    expressionS exp;
+    segT seg;
+
+	if (parcnt == 4 && *param == '\0')
+	  return param;
+
+	saveptr = input_line_pointer;
+	input_line_pointer = param;
+	while(*param != ',' && *param != '\0')
+		param++;
+	save_c = *param;
+	*param = '\0';
+	seg = expression(&exp);
+	try_to_make_absolute(&exp);
+	seg = exp.X_seg;
+	*param = save_c;
+	input_line_pointer = saveptr;
+
+	val = exp.X_add_number;
+	if(seg != SEG_ABSOLUTE){
+	    error_param_message = "Parameter error: expression must be "
+				  "absolute (parameter %lu)";
+	    return(NULL);
+	}
+	/* Note that we need to allow all 32-bit values for val. */
+
+	/* Look for the special case. */
+
+	if (parcnt == 3 && *param == '\0')
+	  {
+	    unsigned long uval, mask;
+	    int mb, me, mx, count, last;
+
+	    uval = val;
+
+	    mb = 0;
+	    me = 32;
+	    if ((uval & 1) != 0)
+	      last = 1;
+	    else
+	      last = 0;
+	    count = 0;
+
+	    /* mb: location of last 0->1 transition */
+	    /* me: location of last 1->0 transition */
+	    /* count: # transitions */
+
+	    for (mx = 0, mask = 1 << 31; mx < 32; ++mx, mask >>= 1)
+	      {
+		if ((uval & mask) && !last)
+		  {
+		    ++count;
+		    mb = mx;
+		    last = 1;
+		  }
+		else if (!(uval & mask) && last)
+		  {
+		    ++count;
+		    me = mx;
+		    last = 0;
+		  }
+	      }
+	    if (me == 0)
+	      me = 32;
+	  
+	    if (count != 2 && (count != 0 || ! last))
+	      {
+		return NULL;
+	      }
+
+	    insn->opcode |= (mb & ((1 << format->ops[parcnt].width)-1)) <<
+	      format->ops[parcnt].offset;
+	    insn->opcode |= ((me - 1) & ((1 << format->ops[parcnt+1].width)-1)) <<
+	      format->ops[parcnt+1].offset;
+
+	    return param;
+	  }
+
+	    if((parcnt == 3 || parcnt == 4)){
+		insn->opcode |= (val & ((1 << format->ops[parcnt].width)-1)) <<
+				format->ops[parcnt].offset;
+		return((parcnt == 3 ? param+1 : param));
+	    }
+
+	return(NULL);
+
+}
+
+static
+char *
 parse_sh(
 char *param,
 struct ppc_insn *insn,
@@ -1997,6 +2111,7 @@ int nsect)
 	    break;
 
 	case PPC_RELOC_BR14:
+	case PPC_RELOC_BR14_predicted:
 	    if((val & 0xffff8000) && ((val & 0xffff8000) != 0xffff8000))
 		as_warn("Fixup of %ld too large for field width of 16 bits",
                         val);
@@ -2006,7 +2121,10 @@ int nsect)
 	     * Note PPC_RELOC_BR14 are only used with bc, "branch conditional"
 	     * instructions.  The Y_BIT was previously set assuming the
 	     * displacement is non-negitive. If the displacement is negitive
-	     * then the Y_BIT is flipped.
+	     * then the Y_BIT is flipped if the prediction was specified (the
+	     * reloc type is PPC_RELOC_BR14_predicted).  If the prediction was
+	     * not specified (the reloc type is PPC_RELOC_BR14) then the bit
+	     * must remain cleared as per the PowerPC book.
 	     */
 	    if((val & 0x00008000) != 0){
 		opcode = buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
@@ -2018,7 +2136,8 @@ int nsect)
 		 * based on the sign of the displacement.
 		 */
 		if(((opcode) & 0x02800000) != 0x02800000){
-		    opcode ^= Y_BIT;
+		    if(fixP->fx_r_type == PPC_RELOC_BR14_predicted)
+			opcode ^= Y_BIT;
 		    buf[0] = opcode >> 24;
 		    buf[1] = opcode >> 16;
 		    buf[2] = opcode >> 8;
@@ -2029,6 +2148,9 @@ int nsect)
 		val += 4;
 	    buf[2] = val >> 8;
 	    buf[3] |= val & 0xfc;
+	    /* change any PPC_RELOC_BR14_predicted back to PPC_RELOC_BR14
+	       before it is used to create a relocation entry. */
+	    fixP->fx_r_type = PPC_RELOC_BR14;
 	    break;
 
 	case PPC_RELOC_BR24:

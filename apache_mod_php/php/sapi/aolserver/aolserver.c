@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
  * - CGI/1.1 conformance
  */
 
-/* $Id: aolserver.c,v 1.1.1.3 2001/01/25 05:00:36 wsanchez Exp $ */
+/* $Id: aolserver.c,v 1.1.1.4 2001/07/19 00:20:55 zarzycki Exp $ */
 
 /* conflict between PHP and AOLserver headers */
 #define Debug php_Debug
@@ -93,15 +93,22 @@ static void php_ns_config(php_ns_context *ctx, char global);
 static int
 php_ns_sapi_ub_write(const char *str, uint str_length)
 {
-	int sent_bytes;
+	int n;
+	uint sent = 0;
 	NSLS_FETCH();
 
-	sent_bytes = Ns_ConnWrite(NSG(conn), (void *) str, str_length);
+	while (str_length > 0) {
+		n = Ns_ConnWrite(NSG(conn), (void *) str, str_length);
 
-	if (sent_bytes != str_length)
-		php_handle_aborted_connection();
+		if (n == -1)
+			php_handle_aborted_connection();
+
+		str += n;
+		sent += n;
+		str_length -= n;
+	}
 	
-	return sent_bytes;
+	return sent;
 }
 
 /*
@@ -211,7 +218,7 @@ static void php_info_aolserver(ZEND_MODULE_INFO_FUNC_ARGS)
 	NSLS_FETCH();
 	
 	php_info_print_table_start();
-	php_info_print_table_row(2, "SAPI module version", "$Id: aolserver.c,v 1.1.1.3 2001/01/25 05:00:36 wsanchez Exp $");
+	php_info_print_table_row(2, "SAPI module version", "$Id: aolserver.c,v 1.1.1.4 2001/07/19 00:20:55 zarzycki Exp $");
 	php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
 	php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
 	php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -368,7 +375,7 @@ php_ns_sapi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 
 /* this structure is static (as in "it does not change") */
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct aolserver_sapi_module = {
 	"aolserver",
 	"AOLserver",
 
@@ -606,15 +613,15 @@ int Ns_ModuleInit(char *server, char *module)
 	php_ns_context *ctx;
 	
 	tsrm_startup(1, 1, 0, NULL);
-	sapi_startup(&sapi_module);
-	sapi_module.startup(&sapi_module);
+	sapi_startup(&aolserver_sapi_module);
+	sapi_module.startup(&aolserver_sapi_module);
 	
 	/* TSRM is used to allocate a per-thread structure */
 	ns_globals_id = ts_allocate_id(sizeof(ns_globals_struct), NULL, NULL);
 	
 	/* the context contains data valid for all threads */
 	ctx = malloc(sizeof *ctx);
-	ctx->sapi_module = &sapi_module;
+	ctx->sapi_module = &aolserver_sapi_module;
 	ctx->ns_server = strdup(server);
 	ctx->ns_module = strdup(module);
 	

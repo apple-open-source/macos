@@ -478,7 +478,7 @@ gai_files(struct lu_dict *q, struct lu_dict **list)
 		memset(d, 0, sizeof(struct lu_dict));
 
 		if (s->s_name != NULL) d->name = strdup(s->s_name);
-		sprintf(str, "%u", s->s_port);
+		sprintf(str, "%u", ntohl(s->s_port));
 		d->port = strdup(str);
 		if (s->s_proto != NULL) d->protocol = strdup(s->s_proto);
 
@@ -665,6 +665,7 @@ freeaddrinfo(struct addrinfo *a)
 	while (a != NULL)
 	{
 		next = a->ai_next;
+		if (a->ai_addr != NULL) free(a->ai_addr);
 		if (a->ai_canonname != NULL) free(a->ai_canonname);
 		free(a);
 		a = next;
@@ -1053,7 +1054,8 @@ static int
 gai_serv(const char *servname, const struct addrinfo *hints, struct addrinfo **res)
 {
 	struct lu_dict *list, *d;
-	int port, proto, family, socktype, setcname, wantv4, wantv6;
+	int proto, family, socktype, setcname, wantv4, wantv6;
+	unsigned short port;
 	char *loopv4, *loopv6;
 	struct addrinfo *a;
 	struct in_addr a4;
@@ -1097,7 +1099,7 @@ gai_serv(const char *servname, const struct addrinfo *hints, struct addrinfo **r
 		/* We only want records with port and protocol specified */
 		if ((d->port == NULL) || (d->protocol == NULL)) continue;
 
-		port = atoi(d->port);
+		port = htons(atoi(d->port));
 		proto = IPPROTO_UDP;
 		socktype = SOCK_DGRAM;
 		if (!strcasecmp(d->protocol, "tcp"))
@@ -1320,7 +1322,7 @@ gai_nodeserv_lookupd(const char *nodename, const char *servname, const struct ad
 }
 
 static void
-gai_node_pp(const char *nodename, int port, int proto, int family, int setcname, struct addrinfo **res)
+gai_node_pp(const char *nodename, unsigned short port, int proto, int family, int setcname, struct addrinfo **res)
 {
 	struct lu_dict *list, *d;
 	int i, wantv4, wantv6, a_list_count, socktype;
@@ -1425,8 +1427,9 @@ static int
 gai_nodeserv(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
 {
 	struct lu_dict *srv_list, *node_list, *s, *n;
-	int numerichost, family, port, proto, setcname;
+	int numerichost, family, proto, setcname;
 	int wantv4, wantv6, i, j, gotmx, p_list_count;
+	unsigned short port;
 	char *cname;
 	struct sockaddr **p_list;
 	struct sockaddr_in *sa4;
@@ -1466,7 +1469,7 @@ gai_nodeserv(const char *nodename, const char *servname, const struct addrinfo *
 			if (s->port == NULL) continue;
 			if (s->protocol == NULL) continue;
 
-			i = atoi(s->port);
+			i = htons(atoi(s->port));
 			j = IPPROTO_UDP;
 			if (!strcmp(s->protocol, "tcp")) j = IPPROTO_TCP;
 			gai_node_pp(s->target, i, j, family, setcname, res);
@@ -1518,7 +1521,7 @@ gai_nodeserv(const char *nodename, const char *servname, const struct addrinfo *
 		if (s->port == NULL) continue;
 		if (s->protocol == NULL) continue;
 
-		i = atoi(s->port);
+		i = htons(atoi(s->port));
 		j = IPPROTO_UDP;
 		if (!strcmp(s->protocol, "tcp")) j = IPPROTO_TCP;
 

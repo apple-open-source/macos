@@ -20,72 +20,75 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
+/*
+ * Modification History
+ *
+ * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * - public API conversion
+ *
+ * January 2, 2001		Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
 
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/SCValidation.h>
 
 CFStringRef
-SCDKeyCreateConsoleUser()
+SCDynamicStoreKeyCreateConsoleUser(CFAllocatorRef allocator)
 {
-	return SCDKeyCreate(CFSTR("%@/%@/%@"),
-			    CFSTR("state:"),	// FIXME!!! (should be kSCCacheDomainState)
-			    kSCCompUsers,
-			    kSCEntUsersConsoleUser);
+	return SCDynamicStoreKeyCreate(allocator,
+				       CFSTR("%@/%@/%@"),
+				       kSCDynamicStoreDomainState,
+				       kSCCompUsers,
+				       kSCEntUsersConsoleUser);
 }
 
 
-SCDStatus
-SCDConsoleUserGet(char *user, int userlen, uid_t *uid, gid_t *gid)
+CFStringRef
+SCDynamicStoreCopyConsoleUser(SCDynamicStoreRef	store,
+			      uid_t		*uid,
+			      gid_t		*gid)
 {
-	CFDictionaryRef	dict;
-	SCDHandleRef	handle	= NULL;
-	CFStringRef	key;
-	SCDSessionRef	session	= NULL;
-	SCDStatus	status;
+	CFStringRef		consoleUser	= NULL;
+	CFDictionaryRef		dict		= NULL;
+	CFStringRef		key;
+	SCDynamicStoreRef	mySession	= store;
 
-	/* get current user */
-	status = SCDOpen(&session, CFSTR("SCDConsoleUserGet"));
-	if (status != SCD_OK) {
-		goto done;
-	}
-
-	key = SCDKeyCreateConsoleUser();
-	status = SCDGet(session, key, &handle);
-	CFRelease(key);
-	if (status != SCD_OK) {
-		goto done;
-	}
-
-	dict = SCDHandleGetData(handle);
-
-	if (user && (userlen > 0)) {
-		CFStringRef	consoleUser;
-
-		bzero(user, userlen);
-		if (CFDictionaryGetValueIfPresent(dict,
-						  kSCPropUsersConsoleUserName,
-						  (void **)&consoleUser)) {
-			CFIndex		len;
-			CFRange		range;
-
-			range = CFRangeMake(0, CFStringGetLength(consoleUser));
-			(void)CFStringGetBytes(consoleUser,
-					       range,
-					       kCFStringEncodingMacRoman,
-					       0,
-					       FALSE,
-					       user,
-					       userlen,
-					       &len);
+	if (!store) {
+		mySession = SCDynamicStoreCreate(NULL,
+						 CFSTR("SCDynamicStoreCopyConsoleUser"),
+						 NULL,
+						 NULL);
+		if (!mySession) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+			return NULL;
 		}
 	}
+
+	key  = SCDynamicStoreKeyCreateConsoleUser(NULL);
+	dict = SCDynamicStoreCopyValue(mySession, key);
+	CFRelease(key);
+	if (!isA_CFDictionary(dict)) {
+		_SCErrorSet(kSCStatusNoKey);
+		goto done;
+	}
+
+	consoleUser = CFDictionaryGetValue(dict, kSCPropUsersConsoleUserName);
+	consoleUser = isA_CFString(consoleUser);
+	if (!consoleUser) {
+		_SCErrorSet(kSCStatusNoKey);
+		goto done;
+	}
+
+	CFRetain(consoleUser);
 
 	if (uid) {
 		CFNumberRef	num;
 		SInt32		val;
 
-		if (CFDictionaryGetValueIfPresent(dict,
-						  kSCPropUsersConsoleUserUID,
-						  (void **)&num)) {
+		num = CFDictionaryGetValue(dict, kSCPropUsersConsoleUserUID);
+		if (isA_CFNumber(num)) {
 			if (CFNumberGetValue(num, kCFNumberSInt32Type, &val)) {
 				*uid = (uid_t)val;
 			}
@@ -96,9 +99,8 @@ SCDConsoleUserGet(char *user, int userlen, uid_t *uid, gid_t *gid)
 		CFNumberRef	num;
 		SInt32		val;
 
-		if (CFDictionaryGetValueIfPresent(dict,
-						  kSCPropUsersConsoleUserGID,
-						  (void **)&num)) {
+		num = CFDictionaryGetValue(dict, kSCPropUsersConsoleUserGID);
+		if (isA_CFNumber(num)) {
 			if (CFNumberGetValue(num, kCFNumberSInt32Type, &val)) {
 				*gid = (gid_t)val;
 			}
@@ -107,30 +109,39 @@ SCDConsoleUserGet(char *user, int userlen, uid_t *uid, gid_t *gid)
 
     done :
 
-	if (handle)	SCDHandleRelease(handle);
-	if (session)	(void) SCDClose(&session);
-	return status;
+	if (!store && mySession)	CFRelease(mySession);
+	if (dict)			CFRelease(dict);
+	return consoleUser;
+
 }
 
 
-SCDStatus
-SCDConsoleUserSet(const char *user, uid_t uid, gid_t gid)
+Boolean
+SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
+			     const char		*user,
+			     uid_t		uid,
+			     gid_t		gid)
 {
 	CFStringRef		consoleUser;
-	CFMutableDictionaryRef	dict	= NULL;
-	SCDHandleRef		handle	= NULL;
-	CFStringRef		key	= SCDKeyCreateConsoleUser();
+	CFMutableDictionaryRef	dict		= NULL;
+	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
+	SCDynamicStoreRef	mySession	= store;
 	CFNumberRef		num;
-	SCDSessionRef		session	= NULL;
-	SCDStatus		status;
+	Boolean			ok		= TRUE;
 
-	status = SCDOpen(&session, CFSTR("SCDConsoleUserSet"));
-	if (status != SCD_OK) {
-		goto done;
+	if (!store) {
+		mySession = SCDynamicStoreCreate(NULL,
+						 CFSTR("SCDynamicStoreSetConsoleUser"),
+						 NULL,
+						 NULL);
+		if (!mySession) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+			return FALSE;
+		}
 	}
 
 	if (user == NULL) {
-		(void)SCDRemove(session, key);
+		ok = SCDynamicStoreRemoveValue(mySession, key);
 		goto done;
 	}
 
@@ -151,22 +162,12 @@ SCDConsoleUserSet(const char *user, uid_t uid, gid_t gid)
 	CFDictionarySetValue(dict, kSCPropUsersConsoleUserGID, num);
 	CFRelease(num);
 
-	handle = SCDHandleInit();
-	SCDHandleSetData(handle, dict);
-
-	status = SCDLock(session);
-	if (status != SCD_OK) {
-		goto done;
-	}
-	(void)SCDRemove(session, key);
-	(void)SCDAdd   (session, key, handle);
-	status = SCDUnlock(session);
+	ok = SCDynamicStoreSetValue(mySession, key, dict);
 
     done :
 
-	if (dict)	CFRelease(dict);
-	if (handle)	SCDHandleRelease(handle);
-	if (key)	CFRelease(key);
-	if (session)	(void) SCDClose(&session);
-	return status;
+	if (dict)			CFRelease(dict);
+	if (key)			CFRelease(key);
+	if (!store && mySession)	CFRelease(mySession);
+	return ok;
 }

@@ -361,12 +361,22 @@ S_ipinuse(void * arg, struct in_addr ip)
 
 #define DHCPD_CREATOR		"dhcpd"
 
-static __inline__ u_char *
+static char *
 S_get_hostname(void * hostname_opt, int hostname_opt_len, struct in_addr iaddr)
 {
+
     if (hostname_opt && hostname_opt_len > 0) {
-	u_char * hostname = malloc(hostname_opt_len + 1);
-	bcopy(hostname_opt, hostname, hostname_opt_len);
+      	int		i;
+	char * 		h = (char *)hostname_opt;
+	char * 		hostname = malloc(hostname_opt_len + 1);
+
+	for (i = 0; i < hostname_opt_len; i++) {
+	    char 	ch = h[i];
+	    if (ch == 0 || ch == '\n') {
+		ch = '.';
+	    }
+	    hostname[i] = ch;
+	}
 	hostname[hostname_opt_len] = '\0';
 	return (hostname);
     }
@@ -494,10 +504,11 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
     subnet = [subnets acquireIpSupernet:&iaddr 
 		      ClientType:DHCP_CLIENT_TYPE Func:S_ipinuse 
 		      Arg:time_in_p];
-    if (subnet == nil
-	&& DHCPLeases_reclaim(&S_leases, if_p, rq->dp_giaddr, 
-			      time_in_p, &iaddr)) {
-	subnet = [subnets entry:iaddr];
+    if (subnet == nil) {
+	if (DHCPLeases_reclaim(&S_leases, if_p, rq->dp_giaddr, 
+			       time_in_p, &iaddr)) {
+	    subnet = [subnets entry:iaddr];
+	}
 	if (subnet == nil) {
 	    if (debug) {
 		printf("no ip addresses\n");
@@ -874,9 +885,6 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      if (binding != dhcp_binding_none_e) {
 		  if (binding == dhcp_binding_temporary_e) {
 		      S_set_lease(&entry->pl, lease_time_expiry, &modified);
-		      ni_delete_prop(&entry->pl, NIPROP_DHCP_RELEASED, 
-				     &modified);
-
 		  }
 	      }
 	      else { /* create a new host entry */
@@ -1082,7 +1090,6 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      ni_delete_prop(&entry->pl, NIPROP_IDENTIFIER, &modified);
 	      ni_delete_prop(&entry->pl, NIPROP_HWADDR, &modified);
 	      ni_delete_prop(&entry->pl, NIPROP_DHCP_LEASE, &modified);
-	      ni_delete_prop(&entry->pl, NIPROP_DHCP_RELEASED, &modified);
 	      ni_set_prop(&entry->pl, NIPROP_DHCP_DECLINED, 
 			  idstr, &modified);
 	      syslog(LOG_INFO, "dhcpd: IP %s declined by %s",
@@ -1095,11 +1102,12 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
       }
       case dhcp_msgtype_release_e: {
 	  if (binding == dhcp_binding_temporary_e) {
-	      if (debug)
-		  printf("marking host %s as released\n", 
+	      if (debug) {
+		  printf("%s released by client, setting expiration to now\n", 
 			 inet_ntoa(iaddr));
-	      /* mark host as released so we can re-use the address */
-	      ni_set_prop(&entry->pl, NIPROP_DHCP_RELEASED, idstr, &modified);
+	      }
+	      /* set the lease expiration time to now */
+	      S_set_lease(&entry->pl, time_in_p->tv_sec, &modified);
 	  }
 	  break;
       }

@@ -5,9 +5,9 @@
     English_RESOURCES = {}; 
     FILESTABLE = {
         English_OTHER_RESOURCES = (Localizable.strings); 
-        FRAMEWORKS = (); 
+        FRAMEWORKS = (CoreFoundation.framework, Security.framework); 
         HEADERSEARCH = (..); 
-        H_FILES = (DiskArbitration.h, DiskArbitrationTypes.h); 
+        H_FILES = (DiskArbitration.h, DiskArbitrationTypes.h, DiskArbitrationPublicAPI.h); 
         OTHER_LINKED = (DiskArbitration.c); 
         OTHER_RESOURCES = (); 
         OTHER_SOURCES = (
@@ -18,8 +18,8 @@
             ServerToClient.defs, 
             CustomInfo.plist
         ); 
-        PROJECT_HEADERS = (DiskArbitration.h, DiskArbitrationTypes.h); 
-        PUBLIC_HEADERS = (DiskArbitrationTypes.h, DiskArbitration.h); 
+        PROJECT_HEADERS = (DiskArbitration.h, DiskArbitrationTypes.h, DiskArbitrationPublicAPI.h); 
+        PUBLIC_HEADERS = (DiskArbitrationTypes.h, DiskArbitration.h, DiskArbitrationPublicAPI.h); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

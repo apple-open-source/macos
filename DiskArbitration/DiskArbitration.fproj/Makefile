@@ -15,7 +15,8 @@ English_RESOURCES = Localizable.strings
 
 LANGUAGES = English
 
-HFILES = DiskArbitration.h DiskArbitrationTypes.h
+HFILES = DiskArbitration.h DiskArbitrationTypes.h\
+         DiskArbitrationPublicAPI.h
 
 CFILES = DiskArbitration.c
 
@@ -38,9 +39,12 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I..
 NEXTSTEP_PB_LDFLAGS = -sectorder __TEXT __text /usr/local/lib/OrderFiles/DiskArbitration.order
-PUBLIC_HEADERS = DiskArbitrationTypes.h DiskArbitration.h
+FRAMEWORKS = -framework CoreFoundation -framework Security
+PUBLIC_HEADERS = DiskArbitrationTypes.h DiskArbitration.h\
+                 DiskArbitrationPublicAPI.h
 
-PROJECT_HEADERS = DiskArbitration.h DiskArbitrationTypes.h
+PROJECT_HEADERS = DiskArbitration.h DiskArbitrationTypes.h\
+                  DiskArbitrationPublicAPI.h
 
 
 

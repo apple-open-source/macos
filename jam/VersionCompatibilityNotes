@@ -1,0 +1,11 @@
+This file lists all compatibility issues in ToolSupport for version 1.0 and beyond.
+
+If you are adding code that has compatibility impact, be sure to list it here.
+
+Entries in this file should look like this:
+
+- <username>:<ISO date> Description of issue, including files affected and a comment string to search for to tfind the relevant code.  Comment strings should be like: "COMPATIBILITY:<username>:<ISO date> <short unique description>"
+
+============================ jam ============================
+
+

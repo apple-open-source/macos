@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,6 +15,10 @@
    | Authors: Stanislav Malyshev <stas@php.net>                           |
    +----------------------------------------------------------------------+
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -99,6 +103,21 @@ static void _php_gmpnum_free(zend_rsrc_list_entry *rsrc);
 #define GMP_ROUND_PLUSINF   1
 #define GMP_ROUND_MINUSINF  2
 
+static void *gmp_emalloc(size_t size)
+{
+	return emalloc(size);
+}
+
+static void *gmp_erealloc(void *ptr, size_t old_size, size_t new_size)
+{
+	return erealloc(ptr, new_size);
+}
+
+static void gmp_efree(void *ptr, size_t size)
+{
+	efree(ptr);
+}
+
 ZEND_MINIT_FUNCTION(gmp)
 {
 /* Remove comments if you have entries in php.ini
@@ -110,6 +129,9 @@ ZEND_MINIT_FUNCTION(gmp)
 	REGISTER_LONG_CONSTANT("GMP_ROUND_ZERO", GMP_ROUND_ZERO, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("GMP_ROUND_PLUSINF", GMP_ROUND_PLUSINF, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("GMP_ROUND_MINUSINF", GMP_ROUND_MINUSINF, CONST_CS | CONST_PERSISTENT);
+
+	mp_set_memory_functions(gmp_emalloc, gmp_erealloc, gmp_efree);
+
 	return SUCCESS;
 }
 
@@ -440,6 +462,11 @@ ZEND_FUNCTION(gmp_strval)
 			break;
 	}
 
+	if(base < 2 || base > 36) {
+		zend_error(E_WARNING, "Bad base for conversion: %d", base);
+		RETURN_FALSE;
+	}
+
 	num_len = mpz_sizeinbase(*gmpnum, base);
 	out_string = emalloc(num_len+2);
 	if(mpz_sgn(*gmpnum) < 0) {
@@ -512,7 +539,7 @@ ZEND_FUNCTION(gmp_div_qr)
 }
 /* }}} */
 
-/* {{{ proto array gmp_div_r(resource a, resource b [, int round])
+/* {{{ proto resource gmp_div_r(resource a, resource b [, int round])
    Divide a by b, returns reminder only */
 ZEND_FUNCTION(gmp_div_r)
 {
@@ -548,7 +575,7 @@ ZEND_FUNCTION(gmp_div_r)
 }
 /* }}} */
 
-/* {{{ proto array gmp_div_q(resource a, resource b [, int round])
+/* {{{ proto resource gmp_div_q(resource a, resource b [, int round])
    Divide a by b, returns quotient only */
 ZEND_FUNCTION(gmp_div_q)
 {
@@ -631,7 +658,7 @@ ZEND_FUNCTION(gmp_fact)
 }
 /* }}} */
 
-/* {{{ proto resource gmp_powm(resource base, int exp)
+/* {{{ proto resource gmp_pow(resource base, int exp)
    Raise base to power exp */
 ZEND_FUNCTION(gmp_pow)
 {
@@ -747,12 +774,12 @@ ZEND_FUNCTION(gmp_perfect_square)
 
 	FETCH_GMP_ZVAL(gmpnum_a, a_arg);
 
-	RETURN_BOOL(mpz_perfect_square_p(*gmpnum_a));
+	RETURN_BOOL((mpz_perfect_square_p(*gmpnum_a)!=0));
 }
 /* }}} */
 
-/* {{{ proto bool gmp_prob_prime(resource a[, int reps])
-   Checks if a is a "probably prime" */
+/* {{{ proto int gmp_prob_prime(resource a[, int reps])
+   Checks if a is "probably prime" */
 ZEND_FUNCTION(gmp_prob_prime)
 {
 	zval **gmpnumber_arg, **reps_arg;
@@ -772,11 +799,11 @@ ZEND_FUNCTION(gmp_prob_prime)
 			reps = Z_LVAL_PP(reps_arg);
 			break;
 		case 1:
-			reps = 25;
+			reps = 10;
 			break;
 	}
 
-	RETURN_BOOL(mpz_probab_prime_p(*gmpnum_a, reps));
+	RETURN_LONG(mpz_probab_prime_p(*gmpnum_a, reps));
 }
 /* }}} */
 
@@ -851,7 +878,7 @@ ZEND_FUNCTION(gmp_invert)
 }
 /* }}} */
 
-/* {{{ proto resource gmp_jacobi(resource a, resource b)
+/* {{{ proto int gmp_jacobi(resource a, resource b)
    Computes Jacobi symbol */
 ZEND_FUNCTION(gmp_jacobi)
 {
@@ -859,7 +886,7 @@ ZEND_FUNCTION(gmp_jacobi)
 }
 /* }}} */
 
-/* {{{ proto resource gmp_legendre(resource a, resource b)
+/* {{{ proto int gmp_legendre(resource a, resource b)
    Computes Legendre symbol */
 ZEND_FUNCTION(gmp_legendre)
 {
@@ -958,7 +985,7 @@ ZEND_FUNCTION(gmp_or)
 }
 /* }}} */
 
-/* {{{ proto resource gmp_or(resource a)
+/* {{{ proto resource gmp_com(resource a)
    Calculates one's complement of a */
 ZEND_FUNCTION(gmp_com)
 {

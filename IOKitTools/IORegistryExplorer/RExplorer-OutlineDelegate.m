@@ -88,38 +88,41 @@
         id obj = @"";
 
         if ([item isKindOfClass:[NSDictionary class]]) {
-            obj = @"Dictionary";
+                obj = NSLocalizedString(@"Dictionary", @"");
         } else if ([item isKindOfClass:[NSArray class]]) {
-            obj = @"Array";
+                obj = NSLocalizedString(@"Array", @"");
         } else if ([item isKindOfClass:[NSString class]]) {
-            obj = @"String";
+                obj = NSLocalizedString(@"String", @"");
         } else if ([item isKindOfClass:[NSData class]]) {
-            obj = @"Data";
+                obj = NSLocalizedString(@"Data", @"");
         } else if ([item isKindOfClass:[NSDate class]]) {
-            obj = @"Date";
-        //} else if (CFGetTypeID(item) == CFBooleanGetTypeID()) {
+                obj = NSLocalizedString(@"Date", @"");
         } else if ([item isKindOfClass:[RBool class]]) {
-            obj = @"Boolean";
+                obj = NSLocalizedString(@"Boolean", @"");
         } else if ([item isKindOfClass:[NSNumber class]]) {
-            obj = @"Number";
+                obj = NSLocalizedString(@"Number", @"");
         }
         return obj;
     } else {
 
         if ([item isKindOfClass:[NSArray class]]) {
-            return [NSString stringWithFormat:@"(%d Objects)", [item count]];
+                if ([item count] == 1) {
+                        return [NSString stringWithFormat:NSLocalizedString(@"(%d Object)", @""), [item count]];
+                } else {
+                        return [NSString stringWithFormat:NSLocalizedString(@"(%d Objects)" ,@""), [item count]];
+                }
         } else if ([item isKindOfClass:[NSDictionary class]]) {
-            return [NSString stringWithFormat:@"(%d Key/Value Pairs)", [item count]];
+                if ([item count] == 1) {
+                        return [NSString stringWithFormat:NSLocalizedString(@"(%d Key/Value Pair)", @""), [item count]];
+                } else {
+                        return [NSString stringWithFormat:NSLocalizedString(@"(%d Key/Value Pairs)", @""), [item count]];
+                }
         } else if ([item isKindOfClass:[NSData class]]) {
             return [self CFDataShow:item];
-            //return [item description];
-        } /*else if (CFGetTypeID(item) == CFBooleanGetTypeID()) {
-            if ([[item description] isEqualToString:@"0"]) {
-                return @"No";
-            } else {
-                return @"Yes";
-            }
-        } */
+        } else if ([item isKindOfClass:[NSNumber class]]) {
+            long long val = [item longLongValue];
+            return [NSString stringWithFormat:@"%s (%#qx)", [[item description] cString],val];
+        }
         
         return [item description];
     }

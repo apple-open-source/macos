@@ -1,0 +1,61 @@
+ISSUES with cdsa verson 2 Datastore Library
+
+DL_DataGetFromUniqueRecordId
+
+* Which value of CSSM_QUERYFLAGS should this call assume?  In other words if fetching the Data of a Key item should this call return a reference key or a raw key.
+
+* What if the record has been modified by another caller since it was last retrieved.  This call should be able to update the CSSM_UNIQUE_RECORD_PTR passed in.  Or otherwise indicate that the record that a particular attribute is being requested for has changed.
+
+DL_DbCreate v/s DL_CreateRelation
+
+* Why not change CSSM_DBINFO to use the same data structures as DL_CreateRelation does.  Currently CSSM_DBINFO uses CSSM_DB_RECORD_ATTRIBUTE_INFO, CSSM_DB_RECORD_INDEX_INFO and CSSM_DB_PARSING_MODULE_INFO the first 2 contains less information than the CSSM_DB_SCHEMA_ATTRIBUTE_INFO and CSSM_DB_SCHEMA_INDEX_INFO fields used by DL_CreateRelation.  There is no equivalent for the information provided at Database creation time containd in the CSSM_DB_PARSING_MODULE_INFO inside the CSSM_DBINFO.
+
+I purpose we change everything to using the same data structures (CSSM_DB_SCHEMA_ATTRIBUTE_INFO and CSSM_DB_SCHEMA_INDEX_INFO since they are richer).  This would make the CSSM_DB_RECORD_ATTRIBUTE_INFO structure obsolete.
+
+Also note that CSSM_DB_SCHEMA_ATTRIBUTE_INFO does not contain an CSSM_DB_ATTRIBUTE_NAME_FORMAT field and neither should the CSSM_DB_SCHEMA_ATTRIBUTE_INFO relation since each attribute will have the 3 types of names given at creation time.  The CSSM_DB_ATTRIBUTE_NAME_FORMAT need only be used to retrieve an attribute using a particular name format.
+
+DL_DataGetFirst
+
+* CSSM_SELECTION_PREDICATE (which is part of CSSM_QUERY) contains a CSSM_DB_ATTRIBUTE_DATA.  What are the intended semantics for a CSSM_SELECTION_PREDICATE containing a CSSM_DB_ATTRIBUTE_DATA with NumberOfValues not equal to 1?
+
+DL_DataGetFirst, DL_DataGetNext and DL_DataGetFromUniqueRecordId
+
+* The AttributeFormat specified when retrieving an attribute must match that in the schema.
+	-or-
+* When retrieving an attribute the AttributeFormat for that attribute is returned.
+
+From the description of these calls it is not clear which of the two options above is the intended one.  I vote for the second option.
+
+DL_DataInsert and DL_DataModify
+
+* The AttributeFormat specified when specifying an attribute must match that in the schema otherwise CSSMERR_DL_INCOMPATIBLE_FIELD_FORMAT is returned.
+
+This should be a added to the description of these calls.
+
+DL_DataDelete
+
+* From the description of this function it would seem that is does an implicit CSSM_DL_FreeUniqueRecord().  Is this correct?
+
+
+General
+
+* What is the difference between a single valued and multi-valued attribute?  How do you indicate that an attribute is to be multi-valued?
+
+These terms are used in the description of DL_DataModify and in other places.  However there is nothing in the schema to indicate whether an attribute is single valued or multi valued.  If an attribute has one value and DL_DataModify is called with the CSSM_DB_MODIFY_ATTRIBUTE_ADD ModifyMode it is unclear whether the current value should be replaced with a new one or the passed in value should be added to the values of the attribute (bring the NumberOfValues for that attribute up to 2).
+
+How is this supposed to (or intended to) work?
+
+Error codes
+
+* When for example passing a value for a CSSM_DB_ATTRIBUTE_FORMAT or CSSM_DB_ATTRIBUTE_FORMAT_UINT32 with a length other than 1 2 or 4 we need an error code to indicate this.  I suggest something like:
+
+    #define CSSMERR_DL_INVALID_VALUE (CSSM_DL_BASE_DL_ERROR + 47)
+
+	A value specified for an attribute was not of the correct form.
+
+
+New Issues:
+
+Page 471:
+CSSM_DB_CONJUNCTIVE
+What is the intented semantic of CSSM_DB_NONE?  It only makes sense when a single SelectionPredicate is specified in which case using either CSSM_DB_AND or CSSM_DB_OR would do just fine instead.

@@ -36,22 +36,18 @@ includes
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "ppp_msg.h"
-#include "../Family/PPP.kmodproj/ppp.h"
-
-#define	SYSTEMCONFIGURATION_NEW_API
+#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
+#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
+#include <SystemConfiguration/v1Compatibility.h>
+#include <SystemConfiguration/SCSchemaDefinitions.h>
+#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
-#include "fsm.h"
-#include "lcp.h"
-#include "ipcp.h"
-#include "chap.h"
-#include "upap.h"
+#include "ppp_msg.h"
+#include "../Family/if_ppplink.h"
 #include "ppp_client.h"
 #include "ppp_option.h"
 #include "ppp_manager.h"
-#include "ppp_utils.h"
-#include "link.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -65,29 +61,13 @@ Forward Declarations
 static __inline__ CFTypeRef isA_CFType(CFTypeRef obj, CFTypeID type);
 static __inline__ CFTypeRef isA_CFDictionary(CFTypeRef obj);
 static __inline__ void my_CFRelease(CFTypeRef obj);
-static u_int8_t getNumber(CFDictionaryRef service, CFStringRef property, u_int32_t *outval);
-static u_int8_t getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int16_t maxlen);
 static CFStringRef parse_component(CFStringRef key, CFStringRef prefix);
-static CFArrayRef getEntityAll(SCDSessionRef session, CFStringRef entity);
-static CFTypeRef getEntity(SCDSessionRef session, CFStringRef serviceID, CFStringRef entity);
-//static CFStringRef getStringProperty(SCDSessionRef session, CFStringRef serviceID, CFStringRef entity, CFStringRef property);
-static void setFromString(struct opt_str *dst, CFDictionaryRef service, CFStringRef property);
-static void setFromLong(struct opt_long *dst, CFDictionaryRef service, CFStringRef property,
-                        u_long min, u_long max, u_long def);
 static u_int32_t CFStringAddrToLong(CFStringRef string);
-static void display_options(struct options *opts);
-static void display_str_opt (u_char *name, struct opt_str *option);
-static void display_long_opt (u_char *name, struct opt_long *option);
-static void fill_options(SCDSessionRef session, CFStringRef serviceID, CFDictionaryRef service, struct options *opts);
 static boolean_t cache_notifier(SCDSessionRef session, void * arg);
 
-static void init_options (struct options *opts);
-static void default_options (struct options *opts);
-//static u_long getServiceID(u_char *service);
-static void fill_pppoe_options(CFDictionaryRef service, struct options *opts);
-static void fill_tty_options(CFDictionaryRef service, struct options *opts);
-static void apply_options(struct ppp *ppp);
 static void reorder_services(SCDSessionRef session);
+static int process_servicestate(SCDSessionRef session, CFStringRef serviceID);
+static int process_servicesetup(SCDSessionRef session, CFStringRef serviceID);
 
 
 /* -----------------------------------------------------------------------------
@@ -103,11 +83,10 @@ must be called when session cache has been setup
 void options_init_all(SCDSessionRef session)
 {
     SCDStatus		status;
-    CFStringRef         key;
+    CFStringRef         serviceID, key, prefix;
     CFArrayRef		services;
     u_int32_t 		i;
-    u_short		pppoe = 0, pppserial = 0;
-    
+
     gLoggedInUser[0] = 0;
     SCDConsoleUserGet(gLoggedInUser, sizeof(gLoggedInUser), 0, 0);
 
@@ -130,72 +109,122 @@ void options_init_all(SCDSessionRef session)
     key = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
     status = SCDNotifierAdd(session, key, 0);
     CFRelease(key);
+    
+    /* install the notifier for user login/logout */
     key = SCDKeyCreateConsoleUser();
     status = SCDNotifierAdd(session, key, 0);
     CFRelease(key);
+    
+    /* install the notifier for the cache/state changes */
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainState, kSCCompAnyRegex, kSCEntNetPPP);
+    status = SCDNotifierAdd(session, key, kSCDRegexKey);
+    CFRelease(key);
+
+    /* let's say we want to be informed via call back for the changes */
     SCDNotifierInformViaCallback(session, cache_notifier, NULL);
 
     /* read the initial configured interfaces */
-    services = getEntityAll(session, kSCEntNetPPP);
-    if (services == NULL)
-        return;
-
-    for (i = 0; i < CFArrayGetCount(services); i++) {
-        CFDictionaryRef		service = NULL, subservice = NULL, interface = NULL;
-        CFStringRef         	subtype = NULL, serviceID = NULL;
-        struct ppp 		*ppp = NULL;
-
-        service = CFArrayGetValueAtIndex(services, i);
-        if (!service)
-            goto loop_done;
-        serviceID = CFDictionaryGetValue(service, CFSTR("SERVICEID"));        
-        if (!serviceID)
-            goto loop_done;
-        interface = getEntity(session, serviceID, kSCEntNetInterface);
-        if (!interface)
-            goto loop_done;
-
-        /* kSCPropNetServiceSubType contains the entity key Modem, PPPoE, or L2TP */
-        subtype = CFDictionaryGetValue(interface, kSCPropNetInterfaceSubType);
-        if (!subtype)
-            goto loop_done;
-
-        if (CFStringCompare(subtype, kSCValNetInterfaceSubTypePPPoE, 0) == kCFCompareEqualTo) 
-            ppp = ppp_new("pppoe", pppoe++, APPLE_IF_FAM_PPP_PPPoE,  CFStringGetIntValue(serviceID));
-        else if (CFStringCompare(subtype, kSCValNetInterfaceSubTypePPPSerial, 0) == kCFCompareEqualTo)
-            ppp = ppp_new("ppp", pppserial++, APPLE_IF_FAM_PPP_SERIAL, CFStringGetIntValue(serviceID));
-
-        if (!ppp)
-            goto loop_done;
-
-       // retrieve the default options 
-        init_options(&ppp->def_options);
-        default_options(&ppp->def_options);
-        fill_options(session, serviceID, service, &ppp->def_options);
-        setFromString(&(ppp->def_options.dev.name), interface, kSCPropNetInterfaceDeviceName);
-       switch (ppp->subfamily) { 
-            case APPLE_IF_FAM_PPP_PPPoE:
-                subservice = getEntity(session, serviceID, kSCEntNetPPPoE);
-                if (subservice)
-                    fill_pppoe_options(subservice, &ppp->def_options);
-                break;
-            case APPLE_IF_FAM_PPP_SERIAL:
-                subservice = getEntity(session, serviceID, kSCEntNetModem);
-                if (subservice)
-                    fill_tty_options(subservice, &ppp->def_options);
-                break;
+    prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService);
+    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, kSCEntNetPPP);
+    status = SCDList(session, key, kSCDRegexKey, &services);
+    if (status == SCD_OK) {
+        for (i = 0; i < CFArrayGetCount(services); i++) {
+            serviceID = parse_component(CFArrayGetValueAtIndex(services, i), prefix);
+            if (serviceID) {
+                process_servicesetup(session, serviceID);            
+                CFRelease(serviceID);
+            }
         }
-        display_options(&ppp->def_options);
-        apply_options(ppp);
-
-loop_done:            
-        my_CFRelease(interface);
-	my_CFRelease(subservice);
+        my_CFRelease(services);
     }
     
-    my_CFRelease(services);
+    my_CFRelease(prefix);
+    my_CFRelease(key);
     reorder_services(session);
+    ppp_postupdatesetup();
     //ppp_printlist();
+}
+
+/* -----------------------------------------------------------------------------
+install the cache notification and read the initilal configured interfaces
+must be called when session cache has been setup
+----------------------------------------------------------------------------- */
+int process_servicesetup(SCDSessionRef session, CFStringRef serviceID)
+{
+    CFDictionaryRef	service = NULL, subservice = NULL, interface;
+    CFStringRef         subtype = NULL, iftype = NULL;
+    struct ppp 		*ppp;
+
+    ppp = ppp_findbyserviceID(serviceID);
+
+    interface = getEntity(session, kSCCacheDomainSetup, serviceID, kSCEntNetInterface);
+    if (interface)
+        iftype = CFDictionaryGetValue(interface, kSCPropNetInterfaceType);
+
+    if (!interface || 
+        (iftype && (CFStringCompare(iftype, kSCValNetInterfaceTypePPP, 0) != kCFCompareEqualTo))) {
+        // check to see if service has disappear
+        if (ppp) {
+            //SCDLog(LOG_INFO, CFSTR("Service has disappear : %@"), serviceID);
+            ppp_dispose(ppp);
+        }
+        goto done;
+    }
+
+    service = getEntity(session, kSCCacheDomainSetup, serviceID, kSCEntNetPPP);
+    if (!service)	// should we allow creating PPP configuration without PPP dictionnary ?
+        goto done;
+
+    /* kSCPropNetServiceSubType contains the entity key Modem, PPPoE, or L2TP */
+    subtype = CFDictionaryGetValue(interface, kSCPropNetInterfaceSubType);
+    if (!subtype)
+        goto done;
+    
+    //SCDLog(LOG_INFO, CFSTR("change appears, subtype = %d, serviceID = %@\n"), subtype, serviceID);
+
+    if (ppp && CFStringCompare(subtype, ppp->subtypeRef, 0) != kCFCompareEqualTo) {
+        // subtype has changed
+        ppp_dispose(ppp);
+        ppp = 0;
+    }
+
+    // check to see if it is a new service
+    if (!ppp) {
+        ppp = ppp_new(serviceID, subtype);
+        if (!ppp)
+            goto done;
+    }
+
+    ppp_updatesetup(ppp, service);
+       
+done:            
+    my_CFRelease(interface);
+    my_CFRelease(service);
+    my_CFRelease(subservice);
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+install the cache notification and read the initilal configured interfaces
+must be called when session cache has been setup
+----------------------------------------------------------------------------- */
+int process_servicestate(SCDSessionRef session, CFStringRef serviceID)
+{
+    CFDictionaryRef	service = NULL;
+    struct ppp 		*ppp;
+
+    ppp = ppp_findbyserviceID(serviceID);
+    if (!ppp)
+        return 0;
+
+    service = getEntity(session, kSCCacheDomainState, serviceID, kSCEntNetPPP);
+    if (!service)
+        return 0;
+
+    ppp_updatestate(ppp, service);
+       
+    CFRelease(service);
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -203,7 +232,7 @@ loop_done:
 void reorder_services(SCDSessionRef session)
 {
     CFDictionaryRef	ip_dict = NULL;
-    CFStringRef		key;
+    CFStringRef		key, serviceID;
     CFArrayRef		serviceorder;
     SCDHandleRef	handle = NULL;
     int 		i;
@@ -217,11 +246,10 @@ void reorder_services(SCDSessionRef session)
                 serviceorder = CFDictionaryGetValue(ip_dict, kSCPropNetServiceOrder);        
                 if (serviceorder) {
                     for (i = 0; i < CFArrayGetCount(serviceorder); i++) {
-                        CFStringRef serviceID = NULL;
     
                         serviceID = CFArrayGetValueAtIndex(serviceorder, i);
                         
-                        ppp = ppp_findbyserviceID(CFStringGetIntValue(serviceID));
+                        ppp = ppp_findbyserviceID(serviceID);
                         if (ppp) {
                             ppp_setorder(ppp, 0xffff);
                         }
@@ -235,83 +263,48 @@ void reorder_services(SCDSessionRef session)
 }
 
 /* -----------------------------------------------------------------------------
-remove cache notifier
------------------------------------------------------------------------------ */
-void options_dispose_all(SCDSessionRef session)
-{
-
-}
-
-/* -----------------------------------------------------------------------------
-return the id associated to the service C string
-for example, for the service "Setup:/Network/Service/2/PPP", id = 2
------------------------------------------------------------------------------ */
-u_long getServiceID(u_char *service)
-{
-    u_long 	m = 10, id = 0, len = strlen(service);
-    u_char 	*p = &service[len - 1];
-    
-    while ((len-- > 1) && (*p-- != '/'));
-    if (len--) {
-        id = (*p--) - '0';
-        while (len-- && (*p != '/')) {
-            id += ((*p--) - '0') * m;
-            m *= 10;
-        }
-    }
-    return id;
-}
-
-/* -----------------------------------------------------------------------------
-return if a user is currently logged in
------------------------------------------------------------------------------ */
-u_char isUserLoggedIn() 
-{
-    return gLoggedInUser[0] != 0;
-}
-
-/* -----------------------------------------------------------------------------
 the configd cache/setup has changed
 ----------------------------------------------------------------------------- */
 boolean_t cache_notifier(SCDSessionRef session, void * arg)
 {
     CFArrayRef          changes = NULL;
-    CFStringRef		prefix = NULL;
+    CFStringRef		prefixsetup = NULL, prefixstate = NULL;
     SCDStatus           status;
-    u_long		i, doreorder = 0;
+    u_long		i, doreorder = 0, dopostsetup = 0;
     char 		str[32];
 
     status = SCDNotifierGetChanges(session, &changes);
     if (status != SCD_OK || changes == NULL) 
         return TRUE;
     
-    prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"),
-                        kSCCacheDomainSetup, kSCCompNetwork, kSCCompService);
+    prefixsetup = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService);
+    prefixstate = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainState, kSCCompNetwork, kSCCompService);
 
     //SCDLog(LOG_INFO, CFSTR("ppp_setup_change Changes: %@"), changes);
     
     for (i = 0; i < CFArrayGetCount(changes); i++) {
 
-        CFStringRef		change = NULL, serviceID = NULL, subtype = NULL, iftype = NULL, globalip = NULL, user = NULL;
-        CFDictionaryRef 	service = NULL, subservice = NULL, interface = NULL;
-        struct ppp 		*ppp = NULL;
-        u_short 		pppsubtype;
+        CFStringRef	change = NULL, serviceID = NULL, globalip = NULL, user = NULL;
         
         change = CFArrayGetValueAtIndex(changes, i);
 
-        // Check for change of console user
+        // --------- Check for change of console user --------- 
         user = SCDKeyCreateConsoleUser();
         if (user && CFStringCompare(change, user, 0) == kCFCompareEqualTo) {
             str[0] = 0;
             status = SCDConsoleUserGet(str, sizeof(str), 0, 0);
-            if (status != SCD_OK)
+            if (status == SCD_OK)
+                ppp_login();	// key appeared, user logged in
+            else
                 ppp_logout();	// key disappeared, user logged out
+            
             strncpy(gLoggedInUser, str, sizeof(gLoggedInUser));
             CFRelease(user);
             continue;
         }
+	my_CFRelease(user);
 
-        // Check for change in service order
+        // ---------  Check for change in service order --------- 
         globalip = SCDKeyCreateNetworkGlobalEntity(kSCCacheDomainSetup, kSCEntNetIPv4);
         if (globalip && CFStringCompare(change, globalip, 0) == kCFCompareEqualTo) {
             // can't just reorder the list now 
@@ -320,349 +313,37 @@ boolean_t cache_notifier(SCDSessionRef session, void * arg)
             CFRelease(globalip);
             continue;
         }
-
-        // Check for change in other entities
-        serviceID = parse_component(change, prefix);
-        if (!serviceID)
-            goto loop_done;
-
-        ppp = ppp_findbyserviceID(CFStringGetIntValue(serviceID));
-
-        interface = getEntity(session, serviceID, kSCEntNetInterface);      
-        if (interface)
-            iftype = CFDictionaryGetValue(interface, kSCPropNetInterfaceType);
-                  
-        if (!interface || 
-            (iftype && (CFStringCompare(iftype, kSCValNetInterfaceTypePPP, 0) != kCFCompareEqualTo))) {
-            // check to see if service has disappear
-            if (ppp) {
-                //SCDLog(LOG_INFO, CFSTR("Service has disappear : %@"), serviceID);
-                init_options(&ppp->def_options);
-                default_options(&ppp->def_options);
-                ppp_dispose(ppp);
-            }
-            goto loop_done;
-        }
-
-        service = getEntity(session, serviceID, kSCEntNetPPP);
-        if (!service)	// should we allow creating PPP configuration without PPP dictionnary ?
-            goto loop_done;
-        
-         /* kSCPropNetServiceSubType contains the entity key Modem, PPPoE, or L2TP */
-        subtype = CFDictionaryGetValue(interface, kSCPropNetInterfaceSubType);
-        if (!subtype)
-            goto loop_done;
-        
-        if (CFStringCompare(subtype, kSCValNetInterfaceSubTypePPPoE, 0) == kCFCompareEqualTo)
-            pppsubtype = APPLE_IF_FAM_PPP_PPPoE;
-        else if (CFStringCompare(subtype, kSCValNetInterfaceSubTypePPPSerial, 0) == kCFCompareEqualTo)
-            pppsubtype = APPLE_IF_FAM_PPP_SERIAL;
-        else 
-            goto loop_done;  // not a ppp interface
-            
-        // check to see if it is a new service
-        if (!ppp) {
-            switch (pppsubtype) {
-                case APPLE_IF_FAM_PPP_PPPoE:
-                    ppp = ppp_new("pppoe", ppp_findfreeunit(APPLE_IF_FAM_PPP_PPPoE),
-                        APPLE_IF_FAM_PPP_PPPoE,  CFStringGetIntValue(serviceID));
-                    break;
-                case APPLE_IF_FAM_PPP_SERIAL:
-                    ppp = ppp_new("ppp", ppp_findfreeunit(APPLE_IF_FAM_PPP_SERIAL),
-                        APPLE_IF_FAM_PPP_SERIAL, CFStringGetIntValue(serviceID));
-                    break;
-            }
-        }
-        
-        if (!ppp) 
-            goto loop_done;
-
-        // retrieve the default options 
-        init_options(&ppp->def_options);
-        default_options(&ppp->def_options);
-        fill_options(session, serviceID, service, &ppp->def_options);
-        setFromString(&(ppp->def_options.dev.name), interface, kSCPropNetInterfaceDeviceName);
-        switch (ppp->subfamily) { 
-            case APPLE_IF_FAM_PPP_PPPoE:
-                subservice = getEntity(session, serviceID, kSCEntNetPPPoE);
-                if (subservice)
-                    fill_pppoe_options(subservice, &ppp->def_options);
-                break;
-            case APPLE_IF_FAM_PPP_SERIAL:
-                subservice = getEntity(session, serviceID, kSCEntNetModem);
-                if (subservice)
-                    fill_tty_options(subservice, &ppp->def_options);
-                break;
-        }
-        display_options(&ppp->def_options);
-        apply_options(ppp);
-
-loop_done:
-	my_CFRelease(serviceID);
-	my_CFRelease(service);
-	my_CFRelease(subservice);
-	my_CFRelease(interface);
-	my_CFRelease(user);
 	my_CFRelease(globalip);
+
+        // --------- Check for change in other entities (state or setup) --------- 
+        serviceID = parse_component(change, prefixsetup);
+        if (serviceID) {
+            process_servicesetup(session, serviceID);
+            CFRelease(serviceID);
+            dopostsetup = 1;
+            continue;
+        }
+        
+        serviceID = parse_component(change, prefixstate);
+        if (serviceID) {
+            process_servicestate(session, serviceID);
+            CFRelease(serviceID);
+            continue;
+        }
+        
     }
 
-    my_CFRelease(prefix);
+    my_CFRelease(prefixsetup);
+    my_CFRelease(prefixstate);
     my_CFRelease(changes);
+
     if (doreorder) {
         reorder_services(session);
         //ppp_printlist();
     }
+    if (dopostsetup)
+        ppp_postupdatesetup();
     return TRUE;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void apply_options(struct ppp *ppp)
-{
-
-    if (ppp->phase == PPP_IDLE) {
-        ppp_reinit(ppp, 3);
-    }
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void init_options (struct options *opts)
-{
-    
-    memset (opts, 0, sizeof (struct options));
-}
-
-/* -----------------------------------------------------------------------------
-need to read the default options from the database
------------------------------------------------------------------------------ */
-void default_options (struct options *opts)
-{
-    
-    // defaults for lcp part
-    set_long_opt(&opts->lcp.pcomp, OPT_LCP_PCOMP_DEF, 0, 1, 1);
-    set_long_opt(&opts->lcp.accomp, OPT_LCP_ACCOMP_DEF, 0, 1, 1);
-    set_long_opt(&opts->lcp.mru, OPT_LCP_MRU_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->lcp.mtu, OPT_LCP_MRU_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->lcp.rcaccm, OPT_LCP_RCACCM_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->lcp.txaccm, OPT_LCP_TXACCM_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->lcp.echo, (((u_long)OPT_LCP_ECHOINTERVAL_DEF) << 16) + OPT_LCP_ECHOFAILURE_DEF , 0, 0xFFFFFFFF, 0);
-
-    // defaults for ipcp part
-    set_long_opt(&opts->ipcp.hdrcomp, OPT_IPCP_HDRCOMP_DEF, 0, 1, 1);
-    set_long_opt(&opts->ipcp.localaddr, 0, 0, 1, 1);
-    set_long_opt(&opts->ipcp.remoteaddr, 0, 0, 1, 1);
-   set_long_opt(&opts->ipcp.useserverdns,OPT_IPCP_USESERVERDNS_DEF, 0, 1, 1);
-    set_long_opt(&opts->ipcp.serverdns1, 0, 0, 1, 1);
-    set_long_opt(&opts->ipcp.serverdns2, 0, 0, 1, 1);
-
-    // defaults for sec part
-    set_long_opt(&opts->auth.proto, OPT_AUTH_PROTO_DEF, 0, 1, 1);
-
-    // defaults for dev part
-    set_str_opt(&opts->dev.name, OPT_DEV_NAME_DEF, strlen(OPT_DEV_NAME_DEF));
-    set_long_opt(&opts->dev.speed, OPT_DEV_SPEED_DEF, 0, 0xFFFFFFFF, 1);
-    set_str_opt(&opts->dev.connectscript, OPT_DEV_CONNECTSCRIPT_DEF, strlen(OPT_DEV_CONNECTSCRIPT_DEF));
-    set_long_opt(&opts->dev.speaker, OPT_DEV_SPEAKER_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->dev.dialmode, OPT_DEV_DIALMODE_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->dev.pulse, OPT_DEV_PULSE_DEF, 0, 0xFFFFFFFF, 1);
-    //set_str_opt(&opts->dev.connectprgm, OPT_DEV_CONNECTPRGM_DEF, strlen(OPT_DEV_CONNECTPRGM_DEF));
-
-    // defaults for comm part
-    set_long_opt(&opts->comm.terminalmode, OPT_COMM_TERMINALMODE_DEF, 0, 0xFFFFFFFF, 1);
-    set_str_opt(&opts->comm.terminalscript, "", strlen(""));
-    //set_str_opt(&opts->comm.terminalprgm, "", strlen(""));
-    set_str_opt(&opts->comm.remoteaddr, "", strlen(""));
-    set_str_opt(&opts->comm.altremoteaddr, "", strlen(""));
-    set_str_opt(&opts->comm.listenfilter, "", strlen(""));
-    set_long_opt(&opts->comm.connectdelay, OPT_COMM_CONNECTDELAY_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->comm.idletimer, OPT_COMM_IDLETIMER_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->comm.sessiontimer, OPT_COMM_SESSIONTIMER_DEF, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->comm.redialcount, 0, 0, 0xFFFFFFFF, 1);
-    set_long_opt(&opts->comm.redialinterval, 0, 0, 0xFFFFFFFF, 1);
-
-    // defaults for misc part
-    set_str_opt(&opts->misc.logfile, OPT_LOGFILE_DEF, strlen(OPT_LOGFILE_DEF));
-    set_long_opt(&opts->comm.loopback, 0, 0, 1, 1);
-    set_long_opt(&opts->misc.autoconnect, OPT_AUTOCONNECT_DEF, 0, 1, 1);
-    set_long_opt(&opts->misc.disclogout, OPT_DISCLOGOUT_DEF, 0, 1, 1);
-    set_long_opt(&opts->misc.connlogout, OPT_CONNLOGOUT_DEF, 0, 1, 1);
-    set_long_opt(&opts->misc.verboselog, OPT_VERBOSELOG_DEF, 0, 1, 1);
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void display_options(struct options *opts)
-{
-    display_long_opt("kSCPropNetPPPLCPCompressionPField", &opts->lcp.pcomp);
-    display_long_opt("kSCPropNetPPPLCPCompressionACField", &opts->lcp.accomp);
-    display_long_opt("kSCPropNetPPPLCPMRU", &opts->lcp.mru);
-    display_long_opt("kSCPropNetPPPLCPMTU", &opts->lcp.mtu);
-    display_long_opt("kSCPropNetPPPLCPReceiveACCM", &opts->lcp.rcaccm);
-    display_long_opt("kSCPropNetPPPLCPTransmitACCM", &opts->lcp.txaccm);
-    display_long_opt("kSCPropNetPPPLCPEchoInterval/Failure", &opts->lcp.echo);
-
-    // ipcp options
-    display_long_opt("kSCPropNetPPPIPCPCompressionVJ", &opts->ipcp.hdrcomp);
-    display_long_opt("kSCPropNetPPPIPCPUseServerDNS", &opts->ipcp.useserverdns);
-    display_long_opt("kSCPropNetPPPIPCPLocalAddress", &opts->ipcp.localaddr);
-    display_long_opt("kSCPropNetPPPIPCPRemoteAddress", &opts->ipcp.remoteaddr);
-
-    // auth options
-    display_str_opt("kSCPropNetPPPAuthName", &opts->auth.name);
-    display_str_opt("kSCPropNetPPPAuthPassword", &opts->auth.passwd);
-
-    // dev options
-    display_str_opt("kSCPropNetModemPortName", &opts->dev.name);
-    display_str_opt("kSCPropNetModemConnectionScript", &opts->dev.connectscript);
-    display_long_opt("kSCPropNetModemDialMode", &opts->dev.dialmode);
-    display_long_opt("kSCPropNetModemSpeaker", &opts->dev.speaker);
-    display_long_opt("kSCPropNetModemPulseDial", &opts->dev.pulse);
-
-    // comm options
-    display_str_opt("kSCPropNetPPPCommRemoteAddress", &opts->comm.remoteaddr);
-    display_str_opt("kSCPropNetPPPCommAlternateRemoteAddress", &opts->comm.altremoteaddr);
-    display_str_opt("kSCPropNetPPPCommTerminalScript", &opts->comm.terminalscript);
-    display_long_opt("kSCPropNetPPPCommTerminalWindow[Terminal Mode]", &opts->comm.terminalmode);
-    display_long_opt("kSCPropNetPPPCommConnectDelay", &opts->comm.connectdelay);
-    display_long_opt("kSCPropNetPPPCommIdleTimer", &opts->comm.idletimer);
-    display_long_opt("kSCPropNetPPPCommRedialCount", &opts->comm.redialcount);
-    display_long_opt("kSCPropNetPPPCommRedialInterval", &opts->comm.redialinterval);
-
-    // other options
-    display_long_opt("kSCPropNetPPPVerboseLogging", &opts->misc.verboselog);
-    display_str_opt("kSCPropNetPPPLogfile", &opts->misc.logfile);
-    display_long_opt("kSCPropNetPPPDialOnDemand", &opts->misc.autoconnect);
-    display_long_opt("kSCPropNetPPPDisconnectOnLogout", &opts->misc.disclogout);
-    display_long_opt("kSCPropNetPPPAllowConnectWhenLogout", &opts->misc.connlogout);
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void fill_options(SCDSessionRef session, CFStringRef serviceID, CFDictionaryRef service, struct options *opts)
-{
-    u_int32_t 		lval, lval1;
-    CFDictionaryRef 	dict;
-    CFArrayRef		array;
-    
-    // lcp options
-    setFromLong(&opts->lcp.pcomp, service, kSCPropNetPPPLCPCompressionPField, 0, 1, 1);
-    setFromLong(&opts->lcp.accomp, service, kSCPropNetPPPLCPCompressionACField, 0, 1, 1);
-    setFromLong(&opts->lcp.mru, service, kSCPropNetPPPLCPMRU, 0, 0xFFFFFFFF, 1);
-    setFromLong(&opts->lcp.mtu, service, kSCPropNetPPPLCPMTU, 0, 0xFFFFFFFF, 1);
-    setFromLong(&opts->lcp.rcaccm, service, kSCPropNetPPPLCPReceiveACCM, 0, 0xFFFFFFFF, 1);
-    setFromLong(&opts->lcp.txaccm, service, kSCPropNetPPPLCPTransmitACCM, 0, 0xFFFFFFFF, 1);
-    lval = 1;  // echo ON by default
-    getNumber(service, kSCPropNetPPPLCPEchoEnabled, &lval);
-    if (lval 
-        && getNumber(service, kSCPropNetPPPLCPEchoInterval, &lval)
-        && getNumber(service, kSCPropNetPPPLCPEchoFailure, &lval1))
-        set_long_opt(&opts->lcp.echo, (lval << 16) + lval1 , 0, 0xFFFFFFFF, 0);
-    else 
-      set_long_opt(&opts->lcp.echo, 0, 0, 0xFFFFFFFF, 0);    
-
-    // ipcp options
-    setFromLong(&opts->ipcp.hdrcomp, service, kSCPropNetPPPIPCPCompressionVJ, 0, 1, 1);
-    dict = getEntity(session, serviceID, kSCEntNetIPv4);
-    if (dict) {
-        array = CFDictionaryGetValue(dict, kSCPropNetIPv4Addresses);
-        if (array && CFArrayGetCount(array)) 
-            set_long_opt(&opts->ipcp.localaddr, 
-                CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0)), 0, 0xFFFFFFFF, 1);
-               
-        array = CFDictionaryGetValue(dict, kSCPropNetIPv4DestAddresses);
-        if (array && CFArrayGetCount(array)) 
-            set_long_opt(&opts->ipcp.remoteaddr, 
-                CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0)), 0, 0xFFFFFFFF, 1);
-        CFRelease(dict);
-    }
-    dict = getEntity(session, serviceID, kSCEntNetDNS);
-    if (dict) {
-        array = CFDictionaryGetValue(dict, kSCPropNetDNSServerAddresses);
-        if (array && CFArrayGetCount(array)) 
-            set_long_opt(&opts->ipcp.useserverdns,
-                CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0)) == 0 , 0, 1, 1);
-        CFRelease(dict);
-    }
-    
-    // auth options
-    setFromString(&opts->auth.name, service, kSCPropNetPPPAuthName);
-    setFromString(&opts->auth.passwd, service, kSCPropNetPPPAuthPassword);
-
-    // comm options
-    setFromString(&opts->comm.remoteaddr, service, kSCPropNetPPPCommRemoteAddress);
-    setFromString(&opts->comm.altremoteaddr, service, kSCPropNetPPPCommAlternateRemoteAddress);
-    //if (getNumber(service, kSCPropNetPPPCommDisplayTerminalWindow, &lval)) {
-    if (getNumber(service, kSCPropNetPPPCommDisplayTerminalWindow, &lval)) {
-        lval1 = PPP_COMM_TERM_NONE;
-        if (lval) {
-            lval1 = PPP_COMM_TERM_SCRIPT;
-            if (getNumber(service, kSCPropNetPPPCommDisplayTerminalWindow, &lval) && lval)
-                lval1 = PPP_COMM_TERM_WINDOW;
-        }
-        set_long_opt(&opts->comm.terminalmode, lval1, 0, 0xFFFFFFFF, 1);
-        setFromString(&opts->comm.terminalscript, service, kSCPropNetPPPCommTerminalScript);
-    }
-    setFromLong(&opts->comm.connectdelay, service, kSCPropNetPPPCommConnectDelay, 0, 0xFFFFFFFF, 1);
-    
-    setFromLong(&opts->misc.disclogout, service, kSCPropNetPPPDisconnectOnLogout, 0, 0xFFFFFFFF, 1);
-    setFromLong(&opts->misc.connlogout, service, CFSTR("AllowConnectWhenLogout"), 0, 0xFFFFFFFF, 1);
-    if (getNumber(service, kSCPropNetPPPDisconnectOnIdle, &lval) && lval)
-        setFromLong(&opts->comm.idletimer, service, kSCPropNetPPPDisconnectOnIdleTimer, 0, 0xFFFFFFFF, 1);
-    if (getNumber(service, kSCPropNetPPPCommRedialEnabled, &lval) && lval) {
-        setFromLong(&opts->comm.redialcount, service, kSCPropNetPPPCommRedialCount, 0, 0xFFFFFFFF, 1);
-        setFromLong(&opts->comm.redialinterval, service, kSCPropNetPPPCommRedialInterval, 0, 0xFFFFFFFF, 1);
-    }
-
-    // other options
-    setFromLong(&opts->misc.verboselog, service, kSCPropNetPPPVerboseLogging, 0, 0xFFFFFFFF, 1);
-    setFromString(&opts->misc.logfile, service, kSCPropNetPPPLogfile);
-    setFromLong(&opts->misc.autoconnect, service, kSCPropNetPPPDialOnDemand, 0, 1, 1);
-
-#if 0
-    STRING_DECL kSCPropNetPPPReminderTimer;              /* CFNumber */
-    STRING_DECL kSCPropNetPPPAlert;                      /* CFArray[CFString] */
-    /* kSCPropNetPPPAlert values */
-    STRING_DECL kSCValNetPPPAlertPassword;               /* CFString */
-    STRING_DECL kSCValNetPPPAlertReminder;               /* CFString */
-    STRING_DECL kSCValNetPPPAlertStatus;                 /* CFString */
-#endif
-
-}
-
-/* -----------------------------------------------------------------------------
-this part is dedicated to pppoe interfaces
-that's just a place holder until we have generic configurator in place
------------------------------------------------------------------------------ */
-void fill_pppoe_options(CFDictionaryRef service, struct options *opts)
-{
-
-    //setFromString(&opts->dev.name, service, kSCPropNetPPPoEPortName);
-}
-
-/* -----------------------------------------------------------------------------
-this part is dedicated to tty interfaces
------------------------------------------------------------------------------ */
-void fill_tty_options(CFDictionaryRef service, struct options *opts)
-{
-    u_long	lval;
-    CFStringRef	ref;
-    
-    //setFromString(&opts->dev.name, service, kSCPropNetModemPortName);
-    setFromLong(&opts->dev.speed, service, kSCPropNetModemSpeed, 0, 0xFFFFFFFF, 1);
-    setFromString(&opts->dev.connectscript, service, kSCPropNetModemConnectionScript);
-
-    ref  = CFDictionaryGetValue(service, kSCPropNetModemDialMode);
-    if (ref) {
-        lval = 0;
-        if (CFStringCompare(ref, kSCValNetModemDialModeIgnoreDialTone, 0) == kCFCompareEqualTo) 
-            lval = 1;
-        if (CFStringCompare(ref, kSCValNetModemDialModeManual, 0) == kCFCompareEqualTo)
-            lval = 2;
-        set_long_opt(&opts->dev.dialmode, lval, 0, 0xFFFFFFFF, 1);
-    }
-    setFromLong(&opts->dev.pulse, service, kSCPropNetModemPulseDial, 0, 0xFFFFFFFF, 1);
-    setFromLong(&opts->dev.speaker, service, kSCPropNetModemSpeaker, 0, 0xFFFFFFFF, 1);
 }
 
 /* -----------------------------------------------------------------------------
@@ -695,32 +376,28 @@ static __inline__ void my_CFRelease(CFTypeRef obj)
 }
 
 /* -----------------------------------------------------------------------------
-* Function: parse_component
-* Purpose:
-*   Given a string 'key' and a string prefix 'prefix',
-*   return the next component in the slash '/' separated
-*   key.  If no slash follows the prefix, return NULL.
-*
-* Examples:
-* 1. key = "a/b/c" prefix = "a/"
-*    returns "b"
-* 2. key = "a/b/c" prefix = "a/b/"
-*    returns NULL
+ Given a string 'key' and a string prefix 'prefix',
+ return the next component in the slash '/' separated
+ key.  If no slash follows the prefix, return NULL.
+
+ Examples:
+ 1. key = "a/b/c" prefix = "a/"    returns "b"
+ 2. key = "a/b/c" prefix = "a/b/"  returns NULL
 ----------------------------------------------------------------------------- */
 static CFStringRef parse_component(CFStringRef key, CFStringRef prefix)
 {
     CFMutableStringRef	comp;
-    CFRange			range;
+    CFRange		range;
 
-    if (CFStringHasPrefix(key, prefix) == FALSE) {
-            return NULL;
-    }
+    if (!CFStringHasPrefix(key, prefix))
+    	return NULL;
+
     comp = CFStringCreateMutableCopy(NULL, 0, key);
     CFStringDelete(comp, CFRangeMake(0, CFStringGetLength(prefix)));
     range = CFStringFind(comp, CFSTR("/"), 0);
     if (range.location == kCFNotFound) {
-            CFRelease(comp);
-            return NULL;
+        CFRelease(comp);
+        return NULL;
     }
     range.length = CFStringGetLength(comp) - range.location;
     CFStringDelete(comp, range);
@@ -729,74 +406,16 @@ static CFStringRef parse_component(CFStringRef key, CFStringRef prefix)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-CFArrayRef getEntityAll(SCDSessionRef session, CFStringRef entity)
-{
-    CFStringRef		prefix = NULL, key = NULL;
-    CFMutableArrayRef	all	= NULL;
-    CFArrayRef		arr	= NULL;
-    int			i;
-    SCDStatus		status;
-
-    prefix = SCDKeyCreate(CFSTR("%@/%@/%@/"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService);
-    key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, kSCCompAnyRegex, entity);
-
-    SCDLock(session);
-
-    all = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
-    status = SCDList(session, key, kSCDRegexKey, &arr);
-    if (status != SCD_OK || CFArrayGetCount(arr) == 0)
-        goto done;
-
-    for (i = 0; i < CFArrayGetCount(arr); i++) {
-
-        CFMutableDictionaryRef	ent_dict	= NULL;
-        CFStringRef 		ent_key		= CFArrayGetValueAtIndex(arr, i);
-        CFStringRef		serviceID	= NULL;
-
-        serviceID = parse_component(ent_key, prefix);
-        if (serviceID == NULL) 
-            goto loop_done;
-        
-        ent_dict = (CFMutableDictionaryRef)getEntity(session, serviceID, entity);
-        if (ent_dict == NULL) 
-            goto loop_done;
-        
-        // need to stuff the service id as a special property
-        CFDictionarySetValue(ent_dict, CFSTR("SERVICEID"), serviceID);
-        
-        CFArrayAppendValue(all, ent_dict);
-
-loop_done:
-        my_CFRelease(ent_dict);
-        my_CFRelease(serviceID);
-    }
-
-done:
-    my_CFRelease(prefix);
-    my_CFRelease(key);
-    my_CFRelease(arr);
-    if (all) {
-        if (CFArrayGetCount(all) == 0) {
-            CFRelease(all);
-            all = 0;
-        }
-    }
-    SCDUnlock(session);
-    return all;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-CFTypeRef getEntity(SCDSessionRef session, CFStringRef serviceID, CFStringRef entity)
+CFTypeRef getEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, CFStringRef entity)
 {
     CFTypeRef		data = NULL;
     CFStringRef		key;
     SCDHandleRef	handle = NULL;
 
     if (entity) 
-        key = SCDKeyCreateNetworkServiceEntity(kSCCacheDomainSetup, serviceID, entity);
+        key = SCDKeyCreateNetworkServiceEntity(domain, serviceID, entity);
     else 
-        key = SCDKeyCreate(CFSTR("%@/%@/%@/%@"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService, serviceID);
+        key = SCDKeyCreate(CFSTR("%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID);
     if (key) {
         if (SCDGet(session, key, &handle) == SCD_OK) {
             data  = SCDHandleGetData(handle);
@@ -814,42 +433,9 @@ CFTypeRef getEntity(SCDSessionRef session, CFStringRef serviceID, CFStringRef en
 }
 
 /* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-#if 0
-CFStringRef getStringProperty(SCDSessionRef session, CFStringRef serviceID, CFStringRef entity, CFStringRef property)
-{
-    CFStringRef		prop = NULL;
-    CFDictionaryRef	dict;
-    
-    dict = getEntity(session, serviceID, entity);
-    if (dict) { 
-        prop = CFDictionaryGetValue(dict, property);
-        if (prop)
-            prop = CFStringCreateCopy(NULL, prop);
-        CFRelease(dict);
-    }
-    return prop;
-}
-#endif
-/* -----------------------------------------------------------------------------
-get a number from the dictionnary, in service/property
------------------------------------------------------------------------------ */
-u_int8_t getNumber(CFDictionaryRef service, CFStringRef property, u_int32_t *outval)
-{
-    CFNumberRef		ref;
-
-    ref  = CFDictionaryGetValue(service, property);
-    if (ref && (CFNumberGetType(ref) == kCFNumberSInt32Type)) {
-        CFNumberGetValue(ref, kCFNumberSInt32Type, outval);
-        return 1;
-    }
-    return 0;
-}
-
-/* -----------------------------------------------------------------------------
 get a string from the dictionnary, in service/property
 ----------------------------------------------------------------------------- */
-u_int8_t getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int16_t maxlen)
+int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int16_t maxlen)
 {
     CFStringRef		string;
     CFDataRef		ref;
@@ -858,40 +444,84 @@ u_int8_t getString(CFDictionaryRef service, CFStringRef property, u_char *str, u
     ref  = CFDictionaryGetValue(service, property);
     if (ref) {
         if (CFGetTypeID(ref) == CFStringGetTypeID()) {
-           CFStringGetCString((CFStringRef)ref, str, maxlen, kCFStringEncodingUTF8 /*kCFStringEncodingMacRoman*/);
-            return 1;
+           CFStringGetCString((CFStringRef)ref, str, maxlen, kCFStringEncodingUTF8);
+            return 0;
         }
         else if (CFGetTypeID(ref) == CFDataGetTypeID()) {
            string = CFStringCreateWithCharacters(NULL, 
                     (UniChar *)CFDataGetBytePtr(ref), CFDataGetLength(ref)/sizeof(UniChar));               	    
            if (string) {
-                CFStringGetCString(string, str, maxlen, kCFStringEncodingUTF8 /*kCFStringEncodingMacRoman*/);
+                CFStringGetCString(string, str, maxlen, kCFStringEncodingUTF8);
                 CFRelease(string);
-            	return 1;
+            	return 0;
             }
         }
     }
-    return 0;
+    return -1;
+}
+
+/* -----------------------------------------------------------------------------
+get a number from the dictionnary, in service/property
+----------------------------------------------------------------------------- */
+int getNumber(CFDictionaryRef dict, CFStringRef property, u_int32_t *outval)
+{
+    CFNumberRef		ref;
+
+    ref  = CFDictionaryGetValue(dict, property);
+    if (ref && (CFNumberGetType(ref) == kCFNumberSInt32Type)) {
+        CFNumberGetValue(ref, kCFNumberSInt32Type, outval);
+        return 0;
+    }
+    return -1;
+}
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int getNumberFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property, u_int32_t *outval)
+{
+    CFTypeRef		data = NULL;
+    CFStringRef		key;
+    SCDHandleRef	handle = NULL;
+    int 		err = -1;
+
+    key = SCDKeyCreate(CFSTR("%@/%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID, entity);
+    if (key) {
+        if (SCDGet(session, key, &handle) == SCD_OK) {
+            data  = SCDHandleGetData(handle);
+            if (data) 
+                err = getNumber(data, property, outval);
+            SCDHandleRelease(handle);
+        }
+        CFRelease(key);
+    }
+    return err;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void setFromString(struct opt_str *dst, CFDictionaryRef service, CFStringRef property)
+int getStringFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property, u_char *str, u_int16_t maxlen)
 {
-    u_char	str[OPT_STR_LEN];
+    CFTypeRef		data = NULL;
+    CFStringRef		key;
+    SCDHandleRef	handle = NULL;
+    int 		err = -1;
 
-    if (getString(service, property, str, sizeof(str)))
-        set_str_opt(dst, str, strlen(str));
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-void setFromLong(struct opt_long *dst, CFDictionaryRef service, CFStringRef property, u_long min, u_long max, u_long def)
-{
-    u_int32_t  	lval;
-
-    if (getNumber(service, property, &lval))
-        set_long_opt(dst, lval, min, max, def);
+    if (serviceID)
+        key = SCDKeyCreate(CFSTR("%@/%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID, entity);
+    else
+        key = SCDKeyCreateNetworkGlobalEntity(domain, entity);
+    if (key) {
+        if (SCDGet(session, key, &handle) == SCD_OK) {
+            data  = SCDHandleGetData(handle);
+            if (data) {
+                err = getString(data, property, str, maxlen);
+            }
+            SCDHandleRelease(handle);
+        }
+        CFRelease(key);
+    }
+    return err;
 }
 
 /* -----------------------------------------------------------------------------
@@ -911,23 +541,54 @@ u_int32_t CFStringAddrToLong(CFStringRef string)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void display_str_opt (u_char *name, struct opt_str *option)
+int getAddressFromEntity(SCDSessionRef session, CFStringRef domain, CFStringRef serviceID, 
+        CFStringRef entity, CFStringRef property, u_int32_t *outval)
 {
+    CFTypeRef		data = NULL;
+    CFStringRef		key;
+    SCDHandleRef	handle = NULL;
+    int 		err = -1;
+    CFArrayRef		array;
 
-    if (option->set)
-        printf("ppp option %s = '%s'\n", name, option->str);
-    else 
-        printf("ppp option %s = %s\n", name, "--- NOT SET ---");
+    key = SCDKeyCreate(CFSTR("%@/%@/%@/%@/%@"), domain, kSCCompNetwork, kSCCompService, serviceID, entity);
+    if (key) {
+        if (SCDGet(session, key, &handle) == SCD_OK) {
+            data  = SCDHandleGetData(handle);
+            if (data) {
+                array = CFDictionaryGetValue(data, property);
+                if (array && CFArrayGetCount(array)) {
+                    *outval = CFStringAddrToLong(CFArrayGetValueAtIndex(array, 0));
+                    err = 0;
+                }
+            }
+            SCDHandleRelease(handle);
+        }
+        CFRelease(key);
+    }
+    return err;
 }
+
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void display_long_opt (u_char *name, struct opt_long *option)
+int getServiceName(SCDSessionRef session, CFStringRef serviceID, u_char *str, u_int16_t maxlen)
 {
-    if (option->set)
-        printf("ppp option %s = '%ld'\n", name, option->val);
-    else 
-        printf("ppp option %s = %s\n", name, "--- NOT SET ---");
-}
+    CFTypeRef		data = NULL;
+    CFStringRef		key;
+    SCDHandleRef	handle = NULL;
+    int 		err = -1;
 
+    key = SCDKeyCreate(CFSTR("%@/%@/%@/%@"), kSCCacheDomainSetup, kSCCompNetwork, kSCCompService, serviceID);
+    if (key) {
+        if (SCDGet(session, key, &handle) == SCD_OK) {
+            data  = SCDHandleGetData(handle);
+            if (data) {
+                err = getString(data, kSCPropUserDefinedName, str, maxlen);
+            }
+            SCDHandleRelease(handle);
+        }
+        CFRelease(key);
+    }
+    return err;
+}
 

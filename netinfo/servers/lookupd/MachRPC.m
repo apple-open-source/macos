@@ -450,7 +450,7 @@ extern char *proc_name(int);
 	t = [Thread currentThread];
 	request = (lookup_request_msg *)[t data];
 	[t setData:NULL];
-
+	
 	/*
 	 * Use the MIG server to dispatch messages.
 	 * Server functions for the MIG interface are in lookup_proc.m
@@ -710,6 +710,10 @@ extern char *proc_name(int);
 			}
 
 			system_log(LOG_DEBUG, logString);
+			name = [dict description];
+			system_log(LOG_DEBUG, name);
+			free(name);
+
 			list = [server query:dict];
 			[dict release];
 			if (list == nil) return NO;
@@ -832,7 +836,7 @@ extern char *proc_name(int);
 {
 	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"passwd"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs];
+	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
 	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
 	[xdr encodeInt:	"change"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"class"		from:item intoXdr:xdrs];
@@ -846,7 +850,7 @@ extern char *proc_name(int);
 {
 	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"passwd"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs];
+	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
 	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"realname"	from:item intoXdr:xdrs];
 	[xdr encodeString:	"home"		from:item intoXdr:xdrs];
@@ -857,7 +861,7 @@ extern char *proc_name(int);
 {
 	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"*"			intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs];
+	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
 	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
 	[xdr encodeInt:	"change"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"class"		from:item intoXdr:xdrs];
@@ -871,7 +875,7 @@ extern char *proc_name(int);
 {
 	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"*"			intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs];
+	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
 	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
 	[xdr encodeString:	"realname"	from:item intoXdr:xdrs];
 	[xdr encodeString:	"home"		from:item intoXdr:xdrs];

@@ -7,8 +7,8 @@
 ## ____________________________________________________________________________
 ##
 ## Annotated patch file: sslmod.patch
-## Copyright (c) 1998-2000 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 14-Oct-2000
+## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
+## Created on: 20-May-2001
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be

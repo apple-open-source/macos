@@ -1,0 +1,121 @@
+% file: .../doc/makefile.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/makefile.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: makefile.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:53  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:49  rj
+% first check-in
+%
+
+\chapter{\label{makefile-sect}Makefiles}
+
+Some of Snacc's makefiles look rather sophisticated.
+This section explains some of the tricks.
+
+\section{CVS, Dependencies and Make's Include Statement}
+
+The makefiles take advantage of the file inclusion feature.
+Since this has already been supported by UNIX System III\footnote{yes, System III, not System V R3} make (somewhen around 1980), I consider it to be pretty portable.
+If your make is crippled, either use a newer one (e.g. GNU make), or as a last resort, remove (better: comment out) the include statements and call make with the additional arguments {\ufn -f .../makehead -f makefile -f dependencies -f .../maketail}.
+
+Snacc's configuration script generates the file {\ufn makehead} which gets included by all makefiles.
+It contains a lot of definitions used by make.
+
+The dependencies have been moved out of each makefile into a separate file called {\ufn dependencies} that is not under cvs control---otherwise, the makefiles would inflate the repository unnecessarily.
+The makefiles have an include statement for their dependencies file.
+GNU make automatically makes the dependencies if the file does not exist, but other versions of {\ufn make} simply give up.
+In that case, an initial (empty) file has to be generated.
+Snacc's top level makefile does this for you if you call {\ufn make depend}.
+
+A third file that is included by almost every makefile is {\ufn \dots/maketail}.
+It holds the rules that are common to all makefiles where C/C++ code is compiled.
+
+\section{Circular Dependencies}
+
+In a normal makefile rule, a file depends upon other files.
+If any of a file's dependencies is newer, the file is remade.
+This goes well as long as the dependency graph is non-circular, but snacc is compiled from some files it has generated itself.
+This recursion can lead to one of two results: in the worse case, {\ufn make} builds the compiler because its source files are newer, builds the source files because the compiler is newer, builds the compiler because some source files are newer, and so on ad infinitum\dots{}
+Even if this endless recursion does not happen, one or two of the above steps will be made every time {\ufn make} is called.
+To avoid this waste of time, one lets the compiler generate a new source file, but when the new and the old version are identical, the old file is kept and {\ufn make} sees that the compiler is up-to-date, and the recursion is terminated.
+Of course, if the source file's contents did change, it is replaced with the new version.
+
+This is a simplified example of a normal makefile:
+
+\begin{Makefile}
+snacc:		\>tbl.h\\
+		\>\emph{compile} snacc\\
+\\
+tbl.h:		\>snacc tbl.asn1\\
+		\>./snacc \dots{} tbl.asn1\\
+\end{Makefile}
+
+Most {\ufn make} versions will complain and print a warning about this `infinite loop' or `circular dependency'.
+The first approach towards a solution could be:
+
+\begin{Makefile}
+snacc:		\>tbl.h\\
+		\>\emph{compile} snacc\\
+\\
+tbl.h:		\>snacc tbl.asn1\\
+		\>mv tbl.h tbl.h.prev\\
+		\>./snacc \dots{} tbl.asn1\\
+		\>if cmp tbl.h.prev tbl.h; then\char`\\\\
+		\>\>  echo "tbl.h hasn't changed";\char`\\\\
+		\>\>  mv tbl.h.prev tbl.h;\char`\\\\
+		\>else\char`\\\\
+		\>\>  \$(RM) tbl.h.prev;\char`\\\\
+		\>fi\\
+\end{Makefile}
+
+The effect is that you keep snacc from being remade if the contents of tbl.h did not change, but the two steps to create tbl.h and to test whether it is different from tbl.h.prev will be made every time snacc or tbl.asn1 are newer than tbl.h, which they most often will be since few of the changes to snacc will affect tbl.h's contents.
+And {\ufn make} will still complain about the recursion.
+To solve all this, another file, a stamp file is introduced.
+It separates the file's contents from its modification time:
+
+\begin{Makefile}
+snacc:		\>tbl.h\\
+		\>\emph{compile} snacc\\
+\\
+stamp-tbl:	\>snacc tbl.asn1\\
+		\>mv tbl.h tbl.h.prev\\
+		\>./snacc \dots{} tbl.asn1\\
+		\>if cmp tbl.h.prev tbl.h; then\char`\\\\
+		\>\>  echo "tbl.h hasn't changed";\char`\\\\
+		\>\>  mv tbl.h.prev tbl.h;\char`\\\\
+		\>else\char`\\\\
+		\>\>  \$(RM) tbl.h.prev;\char`\\\\
+		\>fi\\
+		\>date > \$@\\
+\\
+tbl.h:		\>stamp-tbl\\
+		\>@true\\
+\end{Makefile}
+
+The dummy command in the rule for tbl.h is necessary, since otherwise, despite stamp-tbl commands having modified tbl.h, many versions of make think that tbl.h has not been modified.
+
+If you want {\ufn tbl.h} to be remade (e.g. you have changed an option to snacc), you must delete {\ufn stamp-tbl}---{\ufn tbl.h} may (and should) be left in place.
+
+The rules in {\ufn \dots/compiler/makefile}, {\ufn \dots/c-lib/makefile} and {\ufn \dots/c++-lib/makefile} are further complicated by the fact that
+\begin{enumerate}
+  \item snacc prints the current time into the file which the comparison must take into account
+  \item if snacc has not been built it cannot be used to generate its source files---a bootstrapping version of snacc's source files has got to be supplied.
+\end{enumerate}
+
+\section{Compiling Different Libraries From One Set Of Source Files}
+
+The different libraries in {\ufn \dots/c-lib/} and {\ufn \dots/c++-lib/} get made by means of recursive calls to make with different macro settings.
+This keeps the makefiles short as it avoids a lot of duplication of file lists and rules which would be a hassle to maintain.
+The different libraries get compiled from the same set of source files, the code to be compiled is determined through {\ufn cpp} (C preprocessor) macro switches.
+
+\section{Configuration, Optional Code and Makefiles}
+
+The {\ufn \dots/configure} script looks for Tcl/Tk.
+If they are absent, there is no use in trying to compile Snacc's Tcl interface.
+For makefiles to detect whether the Tcl interface should be compiled or not, there is a file {\ufn \dots/tcl-p.c} that, after being compiled into {\ufn tcl-p}, exits with 0 (the shells' `true' value) if Tcl/Tk is present and the user has not disabled this option by setting {\C NO\_TCL} in {\ufn \dots/policy.h} to {\C 1}.
+{\ufn tcl-p} gets made automatically.

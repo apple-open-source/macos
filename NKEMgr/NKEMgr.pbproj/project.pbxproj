@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 31;
+	objectVersion = 32;
 	objects = {
 		044048CFFFF1815D11CA2C33 = {
 			buildStyles = (
@@ -114,7 +114,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.net.NKEMgr</string>
+	<string>com.apple.nke.NKEMgr</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -124,9 +124,16 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleSignature</key>
-	<string></string>
+	<string>nkem</string>
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
 </dict>
 </plist>
 ";

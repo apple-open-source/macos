@@ -76,6 +76,8 @@
 #include <netinet/in_var.h>
 #include <netinet/in_pcb.h>
 #include <netinet/ip.h>
+#include <netinet/ip_fw.h>
+#include <netinet/ip_var.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
@@ -101,9 +103,12 @@ int total_frag_header_count = 0;
 #define IPDEST_BLUE (4)
 #define IPDEST_FRAGERR (-1)
 #define IPDEST_RUNTERR (-2)
+#define IPDEST_FIREWALLERR (-3)
 #define IPSRC_INTERFACE IPDEST_INTERFACE
 #define IPSRC_X IPDEST_X
 #define IPSRC_BLUE IPDEST_BLUE
+
+#define FIREWALL_ACCEPTED (0)
 
 /*
  * IP Fragment handling:
@@ -132,6 +137,9 @@ struct fraghead {
 extern struct inpcbinfo udbinfo;
 extern struct inpcbinfo tcbinfo;
 
+/* In support of ipfw (firewall) */
+extern u_int16_t ip_divert_cookie;
+
 extern int hz;		/* in clock.c (yuck) */
 
 int check_icmp(struct icmp *);
@@ -142,6 +150,9 @@ int find_ip_dest(struct mbuf**, int, struct blueCtlBlock*, struct ifnet**);
 int lookup_frag(struct ip*, struct blueCtlBlock *ifb);
 void handle_first_frag(struct ip* ip, int inOwner, struct blueCtlBlock *ifb);
 void hold_frag(struct mbuf* m, int headerSize, struct blueCtlBlock *ifb);
+int process_firewall_in(struct mbuf** m_orig);
+int process_firewall_out(struct mbuf** m_orig, struct ifnet* ifp);
+int ipv4_detach(caddr_t  cookie);
 extern struct if_proto *dlttoproto(u_long);
 
 /*
@@ -271,7 +282,7 @@ int  ipv4_ppp_infltr(caddr_t cookie,
                  */ 
                 hold_frag(*m_orig, 0, ifb);
                 *m_orig = NULL;
-            } else
+            } else if (*m_orig != NULL)
                 /* For whatever reason, we couldn't determine the dest, send to X. */
                 destination = IPDEST_X;
         }
@@ -292,7 +303,7 @@ int  ipv4_ppp_infltr(caddr_t cookie,
                 m0 = m_dup(*m_orig, M_NOWAIT);
             
             /* Send m0 to client (blue). */
-            if (m0)
+            if (m0 && process_firewall_in(&m0) == FIREWALL_ACCEPTED && m0)
                 blue_inject(ifb, m0);
         }
     }
@@ -334,7 +345,8 @@ ipv4_ppp_outfltr(caddr_t cookie,
 #endif
             }
             /* In the case of an error, default to sending on the interface. */
-            destination = IPDEST_INTERFACE;
+            if (*m_orig != NULL)
+                destination = IPDEST_INTERFACE;
         }
         
         /* Default to the interface. */
@@ -406,7 +418,8 @@ int  ipv4_eth_infltr(caddr_t cookie,
          * Include the ethernet header before we send the packet to blue,
          * dupe it to be sent to blue, or hold it to be sent later.
          */
-        MDATA_INCLUDE_HEADER(*m_orig, sizeof(struct ether_header));
+         if (*m_orig != NULL)
+            MDATA_INCLUDE_HEADER(*m_orig, sizeof(struct ether_header));
         if (destination < 0) {
             if (destination == IPDEST_FRAGERR) {
                 /*
@@ -416,7 +429,7 @@ int  ipv4_eth_infltr(caddr_t cookie,
                  */
                 hold_frag(*m_orig, sizeof(struct ether_header), ifb);
                 *m_orig = NULL;
-            } else
+            } else if (*m_orig != NULL)
                 destination = IPDEST_X;
         } else if (destination == IPDEST_UNKNOWN)
             destination = IPDEST_X | IPDEST_BLUE;
@@ -426,6 +439,12 @@ int  ipv4_eth_infltr(caddr_t cookie,
                 *m_orig = NULL;
             } else if (destination & IPDEST_BLUE)
                 m0 = m_dup(*m_orig, M_NOWAIT);
+            /* let the firewall take a crack at stuff for classic */
+            if (m0 && header->ether_type == ETHERTYPE_IP) {
+                MDATA_REMOVE_HEADER(m0, sizeof(struct ether_header));
+                if(process_firewall_in(&m0) == FIREWALL_ACCEPTED)
+                    MDATA_INCLUDE_HEADER(m0, sizeof(struct ether_header));
+            }
             if (m0)
                 blue_inject(ifb, m0);
         }
@@ -468,7 +487,7 @@ ipv4_eth_outfltr(caddr_t cookie,
                 log(LOG_WARNING, "SIP - ipv4_eth_outfltr: received IPDEST_FRAGERR!!!");
 #endif
                 destination = IPDEST_INTERFACE;
-            } else
+            } else if (*m_orig != NULL)
                 destination = IPDEST_INTERFACE;
         }
         if (destination > 0) {
@@ -519,7 +538,7 @@ ipv4_loop_outfltr(caddr_t cookie,
         
         if ((*dest)->sa_family == AF_INET) {
             destination = find_ip_dest(m_orig, IPSRC_X, ifb, ifnet_ptr);
-            if (destination < 0)
+            if (destination < 0 && *m_orig != NULL)
                 destination = IPDEST_INTERFACE;
         }
         if (destination == IPDEST_UNKNOWN)
@@ -562,7 +581,8 @@ ipv4_loop_outfltr(caddr_t cookie,
  * what's going on here, it's commented in the functions above.
  */
 int
-si_send_eth_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
+si_send_eth_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb,
+    struct ifnet *ifp)
 {    
     if (ifb->filter[BFS_IP].BF_flags & SIP_PROTO_RCV_SHARED) {
         struct ether_header* enetHeader = NULL;
@@ -577,11 +597,18 @@ si_send_eth_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
                 MDATA_REMOVE_HEADER(*m_orig, sizeof(struct ether_header));
                 destination = find_ip_dest(m_orig, IPSRC_BLUE, ifb,
                                 &((struct ndrv_cb *)ifb->ifb_so->so_pcb)->nd_if);
+                if (*m_orig != 0) {
+                    /* Let the firewall have a crack at it. */
+                    if (process_firewall_out(m_orig, ifp) != 0)
+                        destination = IPDEST_FIREWALLERR;
+                    else
                 MDATA_INCLUDE_HEADER(*m_orig, sizeof(struct ether_header));
+                }
             } else
                 destination = IPDEST_UNKNOWN;
-        }
-        if (destination < 0 || destination == IPDEST_UNKNOWN)
+        } else
+            destination = IPDEST_RUNTERR;
+        if ((destination < 0 && *m_orig != NULL) || destination == IPDEST_UNKNOWN)
             destination = IPDEST_INTERFACE;
         if (destination > 0) {
             if (destination == IPDEST_X) {
@@ -610,7 +637,8 @@ si_send_eth_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
  * what's going on here, it's commented in the functions above
  */
 int
-si_send_ppp_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
+si_send_ppp_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb,
+                 struct ifnet *ifp)
 {
     if (ifb->filter[BFS_IP].BF_flags & SIP_PROTO_RCV_SHARED) {
         int destination = IPDEST_UNKNOWN;
@@ -618,7 +646,11 @@ si_send_ppp_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb)
                 
         destination = find_ip_dest(m_orig, IPSRC_BLUE, ifb,
                         &((struct ndrv_cb *)ifb->ifb_so->so_pcb)->nd_if);
-        if (destination < 0 || destination == IPDEST_UNKNOWN)
+        if (*m_orig != NULL) {
+            if(process_firewall_out(m_orig, ifp) != FIREWALL_ACCEPTED)
+                destination = IPDEST_FIREWALLERR;
+        }
+        if ((destination < 0 && *m_orig != NULL) || destination == IPDEST_UNKNOWN)
             destination = IPDEST_INTERFACE;
         if (destination == IPDEST_X) {
             m1 = *m_orig;
@@ -649,7 +681,7 @@ ipv4_attach_protofltr(struct ifnet *ifp, struct blueCtlBlock *ifb)
     struct dlil_pr_flt_str filter1 = {
         (caddr_t)ifb,
         0, 0,
-        0,0,0
+        0,0,ipv4_detach
     };
     struct dlil_pr_flt_str lo_filter = {
         (caddr_t)ifb,
@@ -708,13 +740,15 @@ ipv4_stop(struct blueCtlBlock *ifb)
 
     if (ifb == NULL)
         return(0);
+    
+    ifb->ipv4_stopping = 1;
     /* deregister TCP & UDP port sharing if needed */
     if (ifb->tcp_blue_owned) {
         if ((retval = in_pcb_rem_share_client(&tcbinfo, ifb->tcp_blue_owned)) != 0) {
 #if SIP_DEBUG_ERR
             log(LOG_WARNING, "STOP/TCP: %d\n", retval);
 #endif
-            return (retval);
+            goto error;
         }
     }
     ifb->tcp_blue_owned = 0;
@@ -723,7 +757,7 @@ ipv4_stop(struct blueCtlBlock *ifb)
 #if SIP_DEBUG_ERR
             log(LOG_WARNING, "STOP/UDP: %d\n", retval);
 #endif
-            return (retval);
+            goto error;
         }
     }
     ifb->udp_blue_owned = 0;
@@ -738,17 +772,20 @@ ipv4_stop(struct blueCtlBlock *ifb)
 #if SIP_DEBUG_ERR
             log(LOG_WARNING, "STOP/FILTER1: %d\n", retval);
 #endif
-        } else {
-            ifb->ipv4_proto_filter_id = 0;
-            retval = dlil_detach_filter(ifb->lo_proto_filter_id);
-            if (retval) {
-#if SIP_DEBUG_ERR
-                log(LOG_WARNING, "STOP/FILTER2: %d\n", retval);
-#endif
-            } else
-                ifb->lo_proto_filter_id = 0;
         }
     }
+    
+    if (ifb->lo_proto_filter_id) {
+        retval = dlil_detach_filter(ifb->lo_proto_filter_id);
+        if (retval) {
+#if SIP_DEBUG_ERR
+            log(LOG_WARNING, "STOP/FILTER2: %d\n", retval);
+#endif
+        }
+        else
+            ifb->lo_proto_filter_id = 0;
+    }
+    
     if (retval == 0 && ifb->fraglist_timer_on) {
         ifb->ClosePending = 1;
         retval = EBUSY;	/* Assume retval isn't changed from here down */
@@ -766,7 +803,11 @@ ipv4_stop(struct blueCtlBlock *ifb)
         }
         FREE(frag, M_TEMP);
     }
-    return(retval);
+    
+    /* Fall through */
+error:
+    ifb->ipv4_stopping = 0;
+    return retval;
 }
 
 int
@@ -1046,7 +1087,7 @@ find_ip_dest(struct mbuf** m_orig, int inSource,
     
     /* Verify we have a contiguous IP header. */
     if (do_pullup(m_orig, sizeof(struct ip)) != 0)
-        return IPDEST_UNKNOWN;
+        return IPDEST_RUNTERR; /* Oops, we just lost the packet */
     ipHeader = mtod(*m_orig, struct ip*);
     if (inSource != IPSRC_INTERFACE) {
         if (not4us(ipHeader, *ifnet_ptr))
@@ -1143,8 +1184,8 @@ find_ip_dest(struct mbuf** m_orig, int inSource,
         case IPPROTO_ICMP: {
             struct icmp* icmpHeader;
             
-            /* Make sure we have a contiguous ICMP header. */
-            if (do_pullup(m_orig, sizeof(struct icmp) + ipHeaderLength) != 0) {
+            /* Make sure we have at least the ICMP type. */
+            if (do_pullup(m_orig, sizeof(u_char) + ipHeaderLength) != 0) {
                 returnValue = IPDEST_RUNTERR;
                 break;
             }
@@ -1190,10 +1231,6 @@ find_ip_dest(struct mbuf** m_orig, int inSource,
     }
     if (returnValue == IPDEST_UNKNOWN)
         returnValue = IPDEST_INTERFACE | IPDEST_X;
-    
-    /* Strip the source out of the destination. */
-    if (returnValue > 0)
-        returnValue &= ~inSource;
     
     /*
      * In the case of the first fragment, we want to record where
@@ -1302,12 +1339,11 @@ void handle_first_frag(struct ip* ip, int inOwner, struct blueCtlBlock *ifb)
         
         /*
          * Iterate through the packets, sending them to the correct dest.
-         *
-         * !!! We should probably add code to check for an unknown owner
-         * or an error! This could leak memory if we don't. I'd make the
-         * change, but the changes already made have been aproved for CCC.
-         * I'll write up a bug.
          */
+        if ( inOwner <= 0 )
+        {
+            inOwner = IPDEST_X;
+        }
         frag->fh_owner = inOwner;
         m = frag->fh_frags.tqh_first;
         
@@ -1339,6 +1375,12 @@ void handle_first_frag(struct ip* ip, int inOwner, struct blueCtlBlock *ifb)
                     m1 = m;
                 xDataP = mtod(m1, char*);
                 m_adj(m1, frag->fh_fsize);
+            }
+            /* Let the firewall have a crack at packets destined to Classic. */
+            if (m0) {
+                MDATA_REMOVE_HEADER(m0, frag->fh_fsize);
+                if(process_firewall_in(&m0) == 0)
+                    MDATA_INCLUDE_HEADER(m0, frag->fh_fsize);
             }
             if (m0)
                 blue_inject(ifb, m0);
@@ -1373,7 +1415,8 @@ void hold_frag(struct mbuf* m, int headerSize, struct blueCtlBlock *ifb)
     struct ip* ip;
     
     if (do_pullup(&m, sizeof(struct ip) + headerSize) != 0) {
-        m_freem(m);
+        if (m != NULL)
+            m_freem(m);
         return;
     }
     ip = mtodAtOffset(m, headerSize, struct ip*);
@@ -1415,4 +1458,210 @@ void hold_frag(struct mbuf* m, int headerSize, struct blueCtlBlock *ifb)
     m->m_nextpkt = NULL;
     *(frag->fh_frags.tqh_last) = m;
     frag->fh_frags.tqh_last = &m->m_nextpkt;
+}
+
+/* Handle our filter being detached */
+int ipv4_detach(caddr_t  cookie)
+{
+    struct blueCtlBlock *ifb = (struct blueCtlBlock*)cookie;
+    
+    ifb->ipv4_proto_filter_id = 0;
+    
+    if (!ifb->ipv4_stopping)
+    {
+        /*
+         * We're being detached outside the context of
+         * ipv4_stop, call ipv4_stop to cleanup.
+         */
+        ipv4_stop(ifb);
+    }
+    
+    return 0;
+}
+
+/* 
+ * Hand an IP packet from classic to the firewall to let the
+ * firewall process it.
+ * Returns 0 if the firewall lets the packet by, non-zero and sets
+ * *m_orig to NULL if the packet was rejected or rerouted.
+ */
+int
+process_firewall_out(struct mbuf **m_orig, struct ifnet	*ifp)
+{
+    struct ip			*ip;
+    int					hlen;
+    struct sockaddr_in 	sin, *dst = &sin;
+#if DUMMYNET || IPDIVERT
+    struct sockaddr_in  *old = dst;
+#endif
+    int					off;
+    struct ip_fw_chain	*rule = NULL;
+    
+    if (ip_fw_chk_ptr == NULL)
+        return 0;
+    
+    ip = mtod(*m_orig, struct ip*);
+    hlen = ip->ip_hl << 2;
+    dst->sin_family = AF_INET;
+    dst->sin_len = sizeof(*dst);
+    dst->sin_addr = ip->ip_dst;
+    
+    off = ip_fw_chk_ptr(&ip, hlen, ifp, &ip_divert_cookie,
+                        m_orig, &rule, &dst);
+    /*
+     * On return we must do the following:
+     * m == NULL         -> drop the pkt
+     * 1<=off<= 0xffff   -> DIVERT
+     * (off & 0x10000)   -> send to a DUMMYNET pipe
+     * dst != old        -> IPFIREWALL_FORWARD
+     * off==0, dst==old  -> accept
+     * If some of the above modules is not compiled in, then
+     * we should't have to check the corresponding condition
+     * (because the ipfw control socket should not accept
+     * unsupported rules), but better play safe and drop
+     * packets in case of doubt.
+     */
+     /*
+      * Default case, firewall accepted the packet.
+      * We ignore off == 0 and dest == old check
+      * because we don't support DUMMYNET or IPFIREWALL_FORWARD
+      * in the kernel.
+      */
+#if DUMMYNET || IPDIVERT
+    if (off == 0 && dst == old && *m_orig != NULL)
+#else
+    if (*m_orig != NULL)
+#endif
+        return FIREWALL_ACCEPTED;
+    /* Firewall rejected (gobbled up) the packet. */
+    if (*m_orig == NULL)
+        return 1;
+#if DUMMYNET
+    if (off & 0x10000) {
+        /*
+         * pass the pkt to dummynet. Need to include
+         * pipe number, m, ifp, ro, hlen because these are
+         * not recomputed in the next pass.
+         * All other parameters have been already used and
+         * so they are not needed anymore.
+         * XXX note: if the ifp or ro entry are deleted
+         * while a pkt is in dummynet, we are in trouble!
+         *
+         * %%% TBD Need to compute ro
+         */
+        DBG_PRINTF(("sipfw_sosend dummynet\n"));
+        dummynet_io(off & 0xffff, DN_TO_IP_OUT, *m_orig,ifp,ro,hlen,rule);
+        *m_orig = NULL;
+        return 2;
+    }
+#endif
+#if IPDIVERT
+    if (off > 0 && off < 0x10000) { /* Divert Packet */
+        ip_divert_port = off & 0xffff;
+        ip_porotox[IPPROTO_DIVERT]->pr_input(*m_orig, 0);
+        *m_orig = NULL;
+        return 3;
+    }
+#endif
+    /* Nothing above matched, we must drop the packet. */
+    m_freem(*m_orig);
+    *m_orig = NULL;
+    
+    return 4;
+}
+
+/* 
+ * Hand an IP packet from the interface to classic to the firewall
+ * to let the firewall process it.
+ * Returns 0 if the firewall lets the packet by, non-zero and sets
+ * *m_orig to NULL if the packet was rejected or rerouted.
+ */
+int
+process_firewall_in(struct mbuf **m_orig)
+{
+    struct ip			*ip;
+    int					hlen;
+    int					off;
+    struct ip_fw_chain	*rule = NULL ;
+    
+    /*
+     * If there is no firewall or we've been "forwarded from the
+     * output side", skip the firewall the second time.
+     */
+    if (ip_fw_chk_ptr == NULL || ip_fw_fwd_addr != NULL)
+        return FIREWALL_ACCEPTED;
+    
+    ip = mtod(*m_orig, struct ip*);
+    hlen = ip->ip_hl << 2;
+    
+    off = ip_fw_chk_ptr(&ip, hlen, NULL, &ip_divert_cookie,
+                        m_orig, &rule, &ip_fw_fwd_addr);
+    /*
+     * On return we must do the following:
+     * m == NULL         -> drop the pkt
+     * 1<=off<= 0xffff   -> DIVERT
+     * (off & 0x10000)   -> send to a DUMMYNET pipe
+     * ip_fw_fwd_addr!=NULL -> IPFIREWALL_FORWARD
+     * off==0, dst==old  -> accept
+     * If some of the above modules is not compiled in, then
+     * we should't have to check the corresponding condition
+     * (because the ipfw control socket should not accept
+     * unsupported rules), but better play safe and drop
+     * packets in case of doubt.
+     */
+     /* Common case, firewall accepted the packet.
+      * Since we don't support DUMMYNET or IPFIREWALL_FORWARD
+      * We'll just ignore "off"
+      */
+#if DUMMYNET || IPFIREWALL_FORWARD || IPDIVERT
+    if (off == 0 && ip_fw_fwd_addr == NULL && *m_orig != NULL)
+#else
+    if (*m_orig != NULL)
+#endif
+        return 0;
+    /* Firewall rejected (gobbled up) the packet. */
+    if (*m_orig == NULL)
+        return 1;
+#if IPFIREWALL_FORWARD
+    /* Hack: We don't foward packets on their way to Classic */
+    /* This probably leaks packets */
+    if (ip_fw_fwd_addr) {
+#warning There is probably a leak here!
+        ip_fw_fwd_addr = NULL;
+        return 0;
+    }
+#endif
+#if DUMMYNET
+    if (off & 0x10000) {
+        /*
+         * normally we would pass the pkt to dummynet.
+         * Since this might be a duplicate (ICMP) and we already
+         * know it's supposed to go to classic, we don't support
+         * this here.
+         */
+/*      dummynet_io(off & 0xffff, DN_TO_IP_OUT, *m_orig,ifp,ro,hlen,rule);*/
+#if SIP_DEBUG_ERR
+        log(LOG_WARNING, "SharedIP: process_firewall_in, firewall wants to dummynet the packet!\n");
+#endif
+        m_freem(*m_orig);
+        *m_orig = NULL;
+        return 2;
+    }
+#endif
+#if IPDIVERT
+    if (off > 0 && off < 0x10000) { /* Divert Packet */
+/*      ip_divert_port = off & 0xffff; */
+/*      ip_porotox[IPPROTO_DIVERT]->pr_input(*m_orig, 0); */
+#if SIP_DEBUG_ERR
+        log(LOG_WARNING, "SharedIP: process_firewall_in, firewall wants to divert the packet!\n");
+#endif
+        *m_orig = NULL;
+        return 3;
+    }
+#endif
+    /* Nothing above matched, we must drop the packet. */
+    m_freem(*m_orig);
+    *m_orig = NULL;
+    
+    return 4;
 }

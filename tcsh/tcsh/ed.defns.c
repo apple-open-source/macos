@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.defns.c,v 1.1.1.1 1999/04/23 01:59:52 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.defns.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
 /*
  * ed.defns.c: Editor function definitions and initialization
  */
@@ -36,7 +36,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: ed.defns.c,v 1.1.1.1 1999/04/23 01:59:52 wsanchez Exp $")
+RCSID("$Id: ed.defns.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $")
 
 #include "ed.h"
 
@@ -277,8 +277,12 @@ PFCmd   CcFuncTbl[] = {		/* table of available commands */
 #define		F_DOSIFY_NEXT	115
 	e_dosify_prev,
 #define		F_DOSIFY_PREV	116
+	e_page_up,
+#define		F_PAGE_UP		117
+	e_page_down,
+#define		F_PAGE_DOWN		118
     0				/* DUMMY VALUE */
-#define		F_NUM_FNS	117
+#define		F_NUM_FNS	119
 
 };
 
@@ -289,6 +293,11 @@ KEYCMD  CcAltMap[NT_NUM_KEYS];		/* the alternative key map */
 #define	F_NUM_FUNCNAMES	(F_NUM_FNS + 2)
 struct KeyFuncs FuncNames[F_NUM_FUNCNAMES];
 
+#ifdef WINNT_NATIVE
+extern KEYCMD CcEmacsMap[];
+extern KEYCMD CcViMap[];
+extern KEYCMD  CcViCmdMap[];
+#else /* !WINNT_NATIVE*/
 KEYCMD  CcEmacsMap[] = {
 /* keymap table, each index into above tbl; should be 256*sizeof(KEYCMD)
    bytes long */
@@ -548,45 +557,7 @@ KEYCMD  CcEmacsMap[] = {
     F_UNASSIGNED,		/* M-| */
     F_UNASSIGNED,		/* M-} */
     F_UNASSIGNED,		/* M-~ */
-#ifndef WINNT
     F_DELWORDPREV		/* M-^? */
-#else /* WINNT */
-    F_DELWORDPREV,		/* M-^? */
-    F_UNASSIGNED,		/* f-1 */
-    F_UNASSIGNED,		/* f-2 */
-    F_UNASSIGNED,		/* f-3 */
-    F_UNASSIGNED,		/* f-4 */
-    F_UNASSIGNED,		/* f-5 */
-    F_UNASSIGNED,		/* f-6 */
-    F_UNASSIGNED,		/* f-7 */
-    F_UNASSIGNED,		/* f-8 */
-    F_UNASSIGNED,		/* f-9 */
-    F_UNASSIGNED,		/* f-10 */
-    F_UNASSIGNED,		/* f-11 */
-    F_UNASSIGNED,		/* f-12 */
-    F_UNASSIGNED,		/* f-13 */
-    F_UNASSIGNED,		/* f-14 */
-    F_UNASSIGNED,		/* f-15 */
-    F_UNASSIGNED,		/* f-16 */
-    F_UNASSIGNED,		/* f-17 */
-    F_UNASSIGNED,		/* f-18 */
-    F_UNASSIGNED,		/* f-19 */
-    F_UNASSIGNED,		/* f-20 */
-    F_UNASSIGNED,		/* f-21 */
-    F_UNASSIGNED,		/* f-22 */
-    F_UNASSIGNED,		/* f-23 */
-    F_UNASSIGNED,		/* f-24 */
-    F_UNASSIGNED,		/* PgUp */
-    F_UNASSIGNED,		/* PgDn */
-    F_UNASSIGNED,		/* end */
-    F_UNASSIGNED,		/* home */
-    F_UNASSIGNED,		/* LEFT */
-    F_UNASSIGNED,		/* UP */
-    F_UNASSIGNED,		/* RIGHT */
-    F_UNASSIGNED,		/* DOWN */
-    F_UNASSIGNED,		/* INS */
-    F_UNASSIGNED		/* DEL */
-#endif /* WINNT */
 };
 
 /*
@@ -886,45 +857,7 @@ static KEYCMD  CcViMap[] = {
     F_UNASSIGNED,		/* M-| */
     F_UNASSIGNED,		/* M-} */
     F_UNASSIGNED,		/* M-~ */
-#ifndef WINNT
     F_UNASSIGNED		/* M-^? */
-#else /* WINNT */
-    F_UNASSIGNED,		/* M-^? */
-    F_UNASSIGNED,		/* f-1 */
-    F_UNASSIGNED,		/* f-2 */
-    F_UNASSIGNED,		/* f-3 */
-    F_UNASSIGNED,		/* f-4 */
-    F_UNASSIGNED,		/* f-5 */
-    F_UNASSIGNED,		/* f-6 */
-    F_UNASSIGNED,		/* f-7 */
-    F_UNASSIGNED,		/* f-8 */
-    F_UNASSIGNED,		/* f-9 */
-    F_UNASSIGNED,		/* f-10 */
-    F_UNASSIGNED,		/* f-11 */
-    F_UNASSIGNED,		/* f-12 */
-    F_UNASSIGNED,		/* f-13 */
-    F_UNASSIGNED,		/* f-14 */
-    F_UNASSIGNED,		/* f-15 */
-    F_UNASSIGNED,		/* f-16 */
-    F_UNASSIGNED,		/* f-17 */
-    F_UNASSIGNED,		/* f-18 */
-    F_UNASSIGNED,		/* f-19 */
-    F_UNASSIGNED,		/* f-20 */
-    F_UNASSIGNED,		/* f-21 */
-    F_UNASSIGNED,		/* f-22 */
-    F_UNASSIGNED,		/* f-23 */
-    F_UNASSIGNED,		/* f-24 */
-    F_UNASSIGNED,		/* PgUp */
-    F_UNASSIGNED,		/* PgDn */
-    F_UNASSIGNED,		/* end */
-    F_UNASSIGNED,		/* home */
-    F_UNASSIGNED,		/* LEFT */
-    F_UNASSIGNED,		/* UP */
-    F_UNASSIGNED,		/* RIGHT */
-    F_UNASSIGNED,		/* DOWN */
-    F_UNASSIGNED,		/* INS */
-    F_UNASSIGNED		/* DEL */
-#endif /* !WINNT */
 };
 
 KEYCMD  CcViCmdMap[] = {
@@ -1183,46 +1116,9 @@ KEYCMD  CcViCmdMap[] = {
     F_UNASSIGNED,		/* M-| */
     F_UNASSIGNED,		/* M-} */
     F_UNASSIGNED,		/* M-~ */
-#ifndef WINNT
     F_UNASSIGNED		/* M-^? */
-#else /* WINNT */
-    F_UNASSIGNED,		/* M-^? */
-    F_UNASSIGNED,		/* f-1 */
-    F_UNASSIGNED,		/* f-2 */
-    F_UNASSIGNED,		/* f-3 */
-    F_UNASSIGNED,		/* f-4 */
-    F_UNASSIGNED,		/* f-5 */
-    F_UNASSIGNED,		/* f-6 */
-    F_UNASSIGNED,		/* f-7 */
-    F_UNASSIGNED,		/* f-8 */
-    F_UNASSIGNED,		/* f-9 */
-    F_UNASSIGNED,		/* f-10 */
-    F_UNASSIGNED,		/* f-11 */
-    F_UNASSIGNED,		/* f-12 */
-    F_UNASSIGNED,		/* f-13 */
-    F_UNASSIGNED,		/* f-14 */
-    F_UNASSIGNED,		/* f-15 */
-    F_UNASSIGNED,		/* f-16 */
-    F_UNASSIGNED,		/* f-17 */
-    F_UNASSIGNED,		/* f-18 */
-    F_UNASSIGNED,		/* f-19 */
-    F_UNASSIGNED,		/* f-20 */
-    F_UNASSIGNED,		/* f-21 */
-    F_UNASSIGNED,		/* f-22 */
-    F_UNASSIGNED,		/* f-23 */
-    F_UNASSIGNED,		/* f-24 */
-    F_UNASSIGNED,		/* PgUp */
-    F_UNASSIGNED,		/* PgDn */
-    F_UNASSIGNED,		/* end */
-    F_UNASSIGNED,		/* home */
-    F_UNASSIGNED,		/* LEFT */
-    F_UNASSIGNED,		/* UP */
-    F_UNASSIGNED,		/* RIGHT */
-    F_UNASSIGNED,		/* DOWN */
-    F_UNASSIGNED,		/* INS */
-    F_UNASSIGNED		/* DEL */
-#endif /* !WINNT */
 };
+#endif /* WINNT_NATIVE */
 
 
 void
@@ -1230,7 +1126,7 @@ editinit()
 {
     struct KeyFuncs *f;
 
-#if defined(NLS_CATALOGS) || defined(WINNT)
+#if defined(NLS_CATALOGS) || defined(WINNT_NATIVE)
     int i;
 
     for (i = 0; i < F_NUM_FUNCNAMES; i++)
@@ -1855,6 +1751,15 @@ editinit()
     f->name = "e_dosify_prev";
     f->func = F_DOSIFY_PREV;
     f->desc = CSAVS(3, 118, "(win32 only)Convert each '/' in previous word to '\\\\'");
+    f++;
+    f->name = "e_page_up";
+    f->func = F_PAGE_UP;
+    f->desc = CSAVS(3, 118, "(win32 only)Page visible console window up");
+    f++;
+    f->name = "e_page_down";
+    f->func = F_PAGE_DOWN;
+    f->desc = CSAVS(3, 118, "(win32 only)Page visible console window down");
+
 
     f++;
     f->name = NULL;
@@ -1945,7 +1850,7 @@ ed_InitMetaBindings()
     cstr.len = 2;
     for (i = 0200; i <= 0377; i++) {
 	if (map[i] != F_INSERT && map[i] != F_UNASSIGNED && map[i] != F_XKEY) {
-#ifndef _OSD_POSIX
+#ifdef IS_ASCII
 	    buf[1] = i & ASCII;
 #else
 	    buf[1] = _toebcdic[_toascii[i] & ASCII];
@@ -2021,7 +1926,7 @@ ed_InitMaps()
 {
     if (MapsAreInited)
 	return;
-#ifdef _OSD_POSIX
+#ifndef IS_ASCII
     /* This machine has an EBCDIC charset. The assumptions made for the
      * initialized keymaps therefore don't hold, since they are based on
      * ASCII (or ISO8859-1).
@@ -2045,7 +1950,7 @@ ed_InitMaps()
 	    }
 	}
     }
-#endif /* _OSD_POSIX */
+#endif /* !IS_ASCII */
 
 #ifdef VIDEFAULT
     ed_InitVIMaps();

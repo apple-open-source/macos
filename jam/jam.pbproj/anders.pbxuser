@@ -45,26 +45,26 @@
 		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{962, 710}";
+				ContentSize = "{962, 658}";
 				LeftSlideOut = {
-					Frame = "{{0, 23}, {962, 657}}";
+					Frame = "{{0, 23}, {962, 635}}";
 					Split0 = {
 						ActiveTab = 2;
-						Frame = "{{25, 0}, {937, 657}}";
+						Frame = "{{25, 0}, {937, 635}}";
 						Split0 = {
-							Frame = "{{0, 221}, {937, 436}}";
+							Frame = "{{0, 221}, {937, 414}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
 							Debugger = {
-								Frame = "{{0, 18}, {484, 190}}";
+								Frame = "{{0, 0}, {484, 208}}";
 								Split0 = {
-									Frame = "{{0, 25}, {484, 165}}";
+									Frame = "{{0, 25}, {484, 183}}";
 									Split0 = {
-										Frame = "{{0, 0}, {236, 165}}";
+										Frame = "{{0, 0}, {236, 183}}";
 									};
 									Split1 = {
-										Frame = "{{245, 0}, {239, 165}}";
+										Frame = "{{245, 0}, {239, 183}}";
 									};
 									SplitCount = 2;
 								};
@@ -75,13 +75,13 @@
 								TabCount = 1;
 							};
 							Frame = "{{0, 0}, {484, 208}}";
-							LauncherConfigVersion = 3;
+							LauncherConfigVersion = 4;
 						};
 						Tab1 = {
 							Frame = "{{0, 0}, {484, 208}}";
-							LauncherConfigVersion = 2;
+							LauncherConfigVersion = 3;
 							Runner = {
-								Frame = "{{0, 18}, {484, 190}}";
+								Frame = "{{0, 0}, {484, 208}}";
 							};
 						};
 						Tab2 = {
@@ -116,7 +116,7 @@
 					};
 					TabCount = 4;
 				};
-				WindowLoc = "{25, 8}";
+				WindowLoc = "{575, 0}";
 			};
 		};
 	};

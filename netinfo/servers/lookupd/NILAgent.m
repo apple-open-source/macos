@@ -54,19 +54,19 @@ static NILAgent *_sharedNILAgent = nil;
 	[super init];
 
 	timeToLive = DefaultTimeToLive;
-	config = [configManager configForAgent:"NILAgent"];
+	config = [configManager configForAgent:"NILAgent" fromConfig:configurationArray];
 	if (config != nil)
 	{
 		if ([config valueForKey:"TimeToLive"] != NULL)
 			timeToLive = [config unsignedLongForKey:"TimeToLive"];
-			[config release];
 	}
 
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"NILAgent statistics"];
-	[stats setValue:"Negative_Records" forKey:"information_system"];
-
 	return self;
+}
+
+- (LUAgent *)initWithArg:(char *)arg
+{
+	return [self init];
 }
 
 + (NILAgent *)alloc
@@ -86,11 +86,6 @@ static NILAgent *_sharedNILAgent = nil;
 	return _sharedNILAgent;
 }
 
-- (const char *)serviceName
-{
-	return "Negative Records";
-}
-
 - (const char *)shortName
 {
 	return "NIL";
@@ -98,26 +93,9 @@ static NILAgent *_sharedNILAgent = nil;
 
 - (void)dealloc
 {
-	if (stats != nil) [stats release];
-
 	system_log(LOG_DEBUG, "Deallocated NILAgent 0x%08x\n", (int)self);
-
 	[super dealloc];
-
 	_sharedNILAgent = nil;
-}
-
-- (LUDictionary *)statistics
-{
-	return stats;
-}
-
-- (void)resetStatistics
-{
-	if (stats != nil) [stats release];
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"NILAgent statistics"];
-	[stats setValue:"Negative_Records" forKey:"information_system"];
 }
 
 - (BOOL)isValid:(LUDictionary *)item

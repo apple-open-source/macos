@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,12 +15,16 @@
    | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
    +----------------------------------------------------------------------+
 */
-/* $Id: setup.c,v 1.1.1.1 2001/01/25 04:59:22 wsanchez Exp $ */
+/* $Id: setup.c,v 1.1.1.2 2001/07/19 00:19:15 zarzycki Exp $ */
 
 #ifdef COMPILE_DL_IISFUNC
 #define HAVE_IISFUNC 1
 #endif
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_globals.h"
 #include "ext/standard/info.h"
@@ -93,7 +97,7 @@ PHP_RSHUTDOWN_FUNCTION(iisfunc)
 PHP_MINFO_FUNCTION(iisfunc)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "IIS Admin Functions support", "enabled");
+	php_info_print_table_row(2, "IIS Admin Functions support", "enabled");
 
 	php_info_print_table_end();
 }

@@ -2105,8 +2105,11 @@ make_thunk (function, delta)
       DECL_ARTIFICIAL (thunk) = 1;
 
 #ifdef HAVE_COALESCED_SYMBOLS
-      /* We could make coalesced thunks, but since they're only 2 insns
-	 long, we don't bother.  */
+      /* Even though thunks are only 2 insns long, we still coalesce 'em
+	 so that the final image has only one copy; we can thereby avoid
+	 touching pages we shouldn't really need to.  */
+
+      MARK_THUNK_COALESCED (thunk);
 #endif
 
       /* So that finish_file can write out any thunks that need to be: */

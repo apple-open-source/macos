@@ -21,6 +21,7 @@
 #include <dev/disk.h>
 
 #include <machine/byte_order.h>
+#include <CoreFoundation/CFString.h>
 
 #define fromLE16 NXSwapLittleShortToHost
 #define fromLE32 NXSwapLittleIntToHost
@@ -33,8 +34,49 @@
 #define UMOUNT_COMMAND		"/sbin/umount"
 #define KEXTLOAD_COMMAND	"/sbin/kextload"
 #define FS_KEXT_DIR		"/System/Library/Extensions/udf.kext"
-#define MAX_LABEL		31
 #define ISO_BLOCKSIZE		2048
+#define VOL_ID_OFFSET 		24
+#define VOL_ID_LENGTH		32
+#define OSTA_COMPRESSED		8
+#define OSTA_UNCOMPRESSED	16
+
+/*
+ * Unicode to UTF-8 conversion determines the MAXLABEL size here. To figure out
+ * just what that value is we used the following information:
+ *
+ * Typically one of the decomposition chars is basic ASCII so it takes up 1
+ * byte in UTF-8.
+ *
+ * The worst case won't happen in practice.  For the languages we support
+ * (Tier 1 and Tier 2) the worst cases are shown below.
+ *
+ * The worst case Latin expansion for a single Unicode char would be...
+ *     Encoding     Size                       Example
+ *     ===============================================
+ *     Unicode:     1 char (2 bytes)           0x01D7
+ *     Decomposed:  3 chars (6 bytes)          0x0055 0x0308 0x0301
+ *     UTF-8:       5 bytes (1 + 2 + 2)        0x55 0xCC 0x88 0xCC 0x81
+ * 
+ * The worst case Japanese expansion for a single Unicode char would be...
+ *     Unicode:     1 char (2 bytes)           0x30D7
+ *     Decomposed:  2 chars (4 bytes)          0x30D5 0x309A
+ *     UTF-8:       6 bytes (3 + 3)            0xDY 0x8Y 0x8Y 0xDY 0x8Y 0x8Y
+ *
+ * The worst case Hanguk expansion for a single Unicode char would be ..
+ *     Unicode:     1 char  (2 bytes)          0xAC01
+ *     Decomposed:  3 chars (6 bytes)          0x1100 0x1161 0x11A8
+ *     UTF-8:       9 bytes                    0xDY 0x8Y 0x8Y 0xDY 0x8Y 0x8Y 0xDY 0x8Y 0x8Y
+ *
+ *     So the actual worst case is (# Unicode chars) * 9
+ *
+ * The volume label on a UDF disk is stored in a 32 byte DString. This leaves
+ * space for 15 unicode characters ((32 - length byte - compression byte)/2).
+ *
+ * So MAXLABEL needs to be 15 * 9 to take care of the worst case possible,
+ * plus one additional byte for the null terminator.
+ *
+ */
+ #define MAX_LABEL		136
 
 /* globals */
 const char	*progname;	/* our program name, from argv[0] */
@@ -164,12 +206,64 @@ bsum(unsigned char *s, unsigned len)
 	return(sum);
 }
 
+
+/*
+ * skip over any illegal characters in the string adjusting the name 
+ * pointer and length of the string as you go.
+ */
+void
+consumeIllegal( char **name, int * maxLength )
+{
+	char *s = *name;
+	int len = *maxLength;
+	
+	while ( len ) {
+		if ((*s != '/') && (*s != '\0'))
+			break;
+		s++; len--;
+	}
+	*name = s; *maxLength = len;
+}
+
+
+/*
+ * Check to see if the name byte of the DString passed in is correct
+ * Some of the early disks we have seen had a zero in the length field
+ * If we find a zero length, we do a backward crawl to see where the 
+ * name actually ends and return that value.
+ */
+int
+validateLength( char *bytes, int fieldLen )
+{
+	char *end = &bytes[fieldLen - 1];
+	int length = *end;
+	
+	
+	if ( length == 0 ) {
+		bytes++;	// Skip over the OSTA compression byte
+		while ( end != bytes ) {
+			if (*end != '\0') break;
+			end--;
+		}
+		length = end + 1 - bytes;
+	} 
+	else length -= 1; 	// remove OSTA compression byte from length
+	
+	return length;
+}
+
+
+
 int
 label_get(int fd, unsigned sectorsize, unsigned sector, char *label)
 {
 	unsigned char	*buf = malloc(sectorsize);
 	int	found = 0;
-	unsigned char *s, *t, *u;
+	CFStringRef volumeName;
+	char *defaultName = "Unknown";
+	char *src, *dst;
+	char theChar;
+	int namelength;
 
 	if (debug) printf("looking for AVDP @ sector %d\n", sector);
 
@@ -231,22 +325,40 @@ label_get(int fd, unsigned sectorsize, unsigned sector, char *label)
 			 * then autodiskmount's mkdir will fail.
 			 * Also note we don't trust the length byte.
 			 */
-			/* first a backcrawl to avoid trailing nulls */
-			for (s = buf+54; s > buf+25; s--)
-				if (*s != '\0')
-					break;
-			if (debug) printf("last nonull is buf[%d]\n", s-buf);
-			for (t = buf+25, u = label; t <= s; u++) {
-				if (*t != '/' && *t != '\0') {
-					*u = *t++;
-					continue;
-				}
-				while ((*t == '/' || *t == '\0') && t <= s) {
-					*u = '_';
-					t++;
+
+			namelength = validateLength( &buf[VOL_ID_OFFSET], VOL_ID_LENGTH ); // Get the number of bytes in Volume Identifier
+		
+			/*
+			 * Now check to see if the label is unicode.
+			 */
+			if ( buf[VOL_ID_OFFSET] == OSTA_UNCOMPRESSED ) {
+				volumeName = CFStringCreateWithCharacters(NULL, (UniChar*) &buf[VOL_ID_OFFSET+1], namelength/2 );
+				if ( volumeName != NULL ) {
+					(void) CFStringGetCString(volumeName, label, MAX_LABEL-1, kCFStringEncodingUTF8);
+					CFRelease(volumeName);
+					namelength = strlen(label);
 				}
 			}
-			*u = '\0';
+			else if ( buf[VOL_ID_OFFSET] == OSTA_COMPRESSED ) {
+				memcpy(label, &buf[VOL_ID_OFFSET+1], namelength);
+				label[namelength] = '\0';
+			}
+			else {
+				namelength = strlen(defaultName);
+				strcpy(label, defaultName);
+			}
+
+			// Now replace runs of '/' or '\0' with a single '_'
+			src = dst = label;
+			while ( namelength-- > 0 ) {
+				theChar = *src++;
+				if ( (theChar == '/') || (theChar == '\0') ) {
+					consumeIllegal(&src, &namelength);
+					theChar = '_';
+				}
+				*(dst++) = theChar;
+			}
+			*dst = '\0';
 			found = 1;
 			break;
 		}
@@ -383,7 +495,7 @@ main(int argc, const char *argv[])
 	
 	case FSUC_MOUNT: {
 		const char *kextargs[] = {KEXTLOAD_COMMAND, FS_KEXT_DIR, NULL};
-		const char *mountargs[7];
+		const char *mountargs[11];
 
 		mountargs[0] = MOUNT_COMMAND;
 		mountargs[1] = "-t";
@@ -391,9 +503,18 @@ main(int argc, const char *argv[])
 		mountargs[3] = "-r";
 		if (argc >= 4 && !strcmp(argv[4], DEVICE_WRITABLE))
 			mountargs[3] = "-w";
-		mountargs[4] = devpath;
-		mountargs[5] = argv[2];
-		mountargs[6] = NULL;
+
+                //  UDF should not be mounted setuid
+                mountargs[4] = "-o";
+                mountargs[5] = "nosuid";
+
+                //  UDF should not be mounted dev
+                mountargs[6] = "-o";
+                mountargs[7] = "nodev";
+
+                mountargs[8] = devpath;
+                mountargs[9] = argv[2];
+                mountargs[10] = NULL;
 
 		sprintf(devpath, "%s%s", DEV_PREFIX, argv[1]);
 		safe_execv(kextargs); /* better here than in mount_udf */

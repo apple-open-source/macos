@@ -1,0 +1,407 @@
+% file: .../doc/intro-1.1.tex
+
+% $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/doc/intro-1.1.tex,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+% $Log: intro-1.1.tex,v $
+% Revision 1.1.1.1  2001/05/18 23:14:10  mb
+% Move from private repository to open source repository
+%
+% Revision 1.1.1.1  1999/03/16 18:05:53  aram
+% Originals from SMIME Free Library.
+%
+% Revision 1.1  1997/01/01 22:47:28  rj
+% first check-in
+%
+
+\chapter{\label{intro-1.1}Introduction to Snacc Release~1.1}
+
+Snacc compiles ASN.1 \cite{X.208} (Abstract Syntax Notation One)
+modules into C, C++ or type tables.  The generated C or C++ code
+contains equivalent data structures and routines to convert values
+between the internal (C or C++) representation and the corresponding
+BER \cite{X.209} (Basic Encoding Rules) format.  The name ``snacc'' is
+an acronym for ``Sample Neufeld ASN.1 to C/C++ Compiler''.
+
+This compiler was written so I could do some encoding performance
+research for my M.Sc.  See \cite{Sample93-1}, or \cite{Sample93-2} for
+the results of that research.  A techreport will soo be available
+via ftp from UBC, in the same directory as snacc.
+
+The ASN.1 data structure language can specify complex types such as
+lists and recursively defined types. BER data values are defined
+independently of any computer architecture, providing a universal data
+value representation that is useful for sharing data in heterogeneous
+networks.
+
+The process of converting an ASN.1 value from its C or C++
+representation into an equivalent BER data value is called encoding
+and the reverse process is called decoding.  This document was written
+assuming that the reader is familiar ASN.1 and BER.  Further
+information on ASN.1 and BER can be found in \cite{ASN.1Book},
+\cite{ASN.1Overview}, \cite{X.208} and \cite{X.209}.
+
+Compiling ASN.1 into C is not a new idea but many other tools such as
+UBC's CASN1 \cite{CASN1}, ISODE's PEPY/POSY \cite{ISODE}, and
+commercial tools either do not parse ASN.1 '90, produce slow encoders
+and decoders or are outrageously expensive. The aim of this tool is to
+provide an ASN.1 compiler that parses ASN.1 '90, produces efficient
+encoding and decoding routines and is freely available.  Effort has
+been made to make the generated encoders and decoders relatively easy
+to fit into different software environments.
+
+The table driven encoders are useful for certain applications such as
+protocol testing.  They are also useful if you need to dynamically
+load new ASN.1 definitions.  It is also fairly simple to write your
+own special ASN.1 tools based on tables (e.g. a protocol tester that
+verifies that values conform to a given ASN.1 type definition).  The
+price of the flexibility is speed; they are slower (~4 times) than the
+compiled C and C++ versions.
+
+Some of snacc's features include:
+\begin {itemize}
+\item {parses CCITT ASN.1 '90 including  subtype notation}
+\item {can compile and link inter-dependent ASN.1 modules (IMPORTS/EXPORTS)}
+\item {some X.400 and SNMP macros are parsed}
+
+\item {macro {\em definitions} do not generate syntax errors but are
+are not processed. The macro definitions are retained as a string
+internally (if you want to modify the compiler to process them).}
+
+\item {value notation is parsed. OBJECT IDENTIFIERs, INTEGERs
+and BOOLEANs are translated to C/C++ values. Any other value in \{\}'s
+is kept as a string internally (if you want to modify the compiler to
+process them).}
+
+\item {optionally supports ``;'' separated type or value definitions
+      in the ASN.1 source. This is useful for dealing with some macros and
+      other language ambiguities that introduce parsing problems.}
+\item {ANY DEFINED BY types are supported via the SNMP OBJECT-TYPE macro}
+\end{itemize}
+
+\section{\label{old-install-section}Installing snacc}
+
+First of all, if you haven't already done so, un-archive snacc to
+produce the directory {\em snacc} and its contents.  The following tools
+are required to compile snacc:
+\begin{itemize}
+\item {\verb$lex$ or GNU's \verb$flex$ (\verb$flex$ is recommended)}
+\item {\verb$yacc$ or GNU's \verb$bison$ (\verb$bison$ is recommended)}
+\item {a C compiler and \verb$make$}
+\end{itemize}
+
+Some versions of \verb$yacc$ will choke due to the large size of the
+\verb$asn1.yacc$ file, however, I have had no problems with \verb$bison$.
+Our \verb$yacc$ grammar for ASN.1 has 61 shift/reduce errors and 2
+reduce/reduce errors.  Most of these errors were introduced when
+certain macros were added to the compiler.  Some of the shift/reduce
+errors will require you to follow the offending macro in the ASN.1
+module with a semi-colon.  The reduce/reduce errors were introduced by
+macros that have ``Type or Value Lists'' because the NULL Type and
+NULL values use the same symbol, ``NULL''.  This is not a problem
+since no real processing is done with the macros in question at the
+present.
+
+\verb$Lex$ will work for the \verb$asn1.lex$ file but \verb$flex$ will typically
+produce a smaller executable.  Most versions of \verb$lex$ have a small
+maximum token size that will cause problems for long tokens in the
+ASN.1 source files, such as quoted strings.  To avoid this problem,
+increase the \verb$YYLMAX$ value in the generated {\em lex.yy.c} file to at least
+2048.  \verb$Flex$ does not seem to have this problem.
+
+The compiler and library C code has been written to support ANSI or
+non-ANSI C\@.  ANSI C is used by default; this can be configured in
+\verb$snacc/c_include/asn_config.h$.
+
+By default, the compiler's makefiles use \verb$flex$, \verb$bison$ and
+\verb$gcc$.  If you wish to change these, edit the following files:
+
+\begin{verbatim}
+snacc/src/makefile
+snacc/src/c_lib/makefile
+snacc/src/back_ends/c_gen/makefile
+snacc/src/back_ends/c++_gen/makefile
+\end{verbatim}
+
+The C runtime library uses \verb$gcc$, and its makefile is
+\verb$snacc/c_lib/makefile$.  The C++ runtime library uses \verb$g++$
+(\verb$gcc-2.2.3$) and its makefile is \verb$snacc/c++_lib/makefile$.
+The type table library makefile uses \verb$gcc$ and is
+\verb$snacc/tbl_lib/makefile$.
+
+Finally, to compile \verb$snacc$ and the C and C++ runtime libraries,
+type the following at the shell prompt:
+
+\begin{verbatim}
+%1 cd snacc
+%2 make all
+\end{verbatim}
+
+If you wish to install only the C (including type tables) or only the
+C++ versions of the library, type \verb$make c$ or \verb$make c++$,
+respectively, instead of \verb$make all$.  If the make succeeds, the
+snacc binary, {\em snacc}, should be in the \verb$snacc/bin/$
+directory, the C runtime libraries, {\em libasn1csbuf.a}, {\em
+libasn1cebuf.a}, and {\em libasn1cmbuf.a}, should be in the
+\verb$snacc/c_lib$ and the C++ runtime library, {\em libasn1c++.a}
+should be in the \verb$snacc/c++_lib$.  The type table library, {\em
+libasn1tbl.a} will be in \verb$snacc/tbl_lib$.  The type table tools,
+{\em ptbl}, {\em pval} and {\em mkchdr} will be in \verb$snacc/bin$.
+The \verb$.o$ and other junk files will have been removed.
+
+After compiling the libraries, you can test the library routines with
+\linebreak \verb$snacc/c_examples/test_lib/test_lib$ or \linebreak
+\verb$snacc/c++_examples/test_lib/test_lib$.  These programs run
+simple encoding and decoding tests on all of the library types.  You
+can test the snacc compiler with the other examples.
+
+A manual page that contains information on running snacc can be found in
+\verb$snacc/doc/snacc.1$.  This should be installed in section~1 of
+the manual.  You can use \verb$nroff -man snacc.1$ to view it if you
+don't want to install it.
+
+
+\section{\label{old-run-section}Running snacc}
+
+Snacc is typically invoked from the shell command line and has the synopsis:
+\begin{verbatim}
+snacc [-h] [-P] [-t] [-e] [-d] [-p] [-f]
+      [ -c | -C | -T <table output file>]
+      [-u <useful types ASN.1 file>]
+      [-mf <max file name len>]
+      [-l <neg number>]
+      <ASN.1 file list>
+\end{verbatim}
+
+Snacc generates C or C++ source code for BER encode and decode
+routines as well as print and free routines for each type in the given
+ASN.1 modules.  Alternatively, snacc can produce type tables that can
+be used for table based/interpreted encoding and decoding.  The type
+table based methods tend to be slower than their C or C++ counterparts
+but they tend use less memory (table size vs. C/C++ object code).
+
+Most of the 1990~ASN.1 features are parsed although some do not affect
+the generated code.  Fairly rigourous error checking is performed on
+the ASN.1 source; any errors detected will be reported (printed to
+\verb$stderr$).
+
+Each file in the ASN.1 file list should contain a complete ASN.1
+module.  ASN.1 modules that use the IMPORTS feature must be compiled
+together (specify all necessary modules in the ASN.1 file list).  The
+generated source files will include each module's header file in the
+command line order.  This makes it important to order the modules from
+least dependent to most dependent on the command line to avoid type
+ordering problems. Currently, snacc assumes that each ASN.1 file
+given on the command line depends on all of the others on the command
+line.  No attempt is made to only include the header files from
+modules referenced in the import list for that module.
+
+If the target language is C, snacc will generate a \verb$.h$ and
+\verb$.c$ file for each specified ASN.1 module.  If the target
+language is C++, snacc will generate a \verb$.h$ and \verb$.C$ file
+for each module.  The generated file names will be derived from the
+module names.
+
+The command line options are:
+% zap bullet for items
+%\def\labelitemi{}
+
+\begin{description}
+\item[-h    ] {short for ``help'', prints a synopsis of snacc
+and exits.}
+
+\item[-c    ] {causes snacc to generate C source code.
+This is the default behaviour of snacc if neither of the \verb$-c$ or
+\verb$-C$ options are given.  Only one of the \verb$-c$, \verb$-C$ or
+\verb$-T$ options should be specified.}
+
+\item[-C    ] {causes snacc to generate C++ source code.}
+
+\item[-T {\em file}] {causes snacc to generate type tables and
+write them to the given file {\em file}.}
+
+\item[-P    ] {causes snacc to print the parsed ASN.1
+modules to \verb$stdout$ after the types have been linked, sorted, and
+processed.  This option is useful for debugging snacc and observing
+the modifications snacc performs on the types to make code generation
+simpler.}
+\end{description}
+
+The options, \verb$-t, -v, -e, -d, -p,$ and \verb$-f$ affect
+what types and routines go into the generated source code.
+These options do not affect type table generation. If none of
+them are given on the command line, snacc assumes that all of them are
+in effect.  For example, if you do not need the Free or Print
+routines, you should give the \verb$-t -v -e -d$ options to snacc.
+This lets you trim the size of the generated code by removing
+unnecessary routines; the code generated from large ASN.1
+specifications can produce very large binaries.
+
+\begin{description}
+\item[-t    ] {causes snacc to generate type definitions in the
+target language for each ASN.1 type.}
+
+\item[-v    ] {causes snacc to generate value definitions in the
+target language for each ASN.1 value.  Currently value definitions are
+limited to INTEGERs, BOOLEANs and OBJECT IDENTIFIERs.}
+
+\item[-e    ] {causes snacc to generate encode routines in the
+target language for each ASN.1 type.}
+
+\item[-d    ] {causes snacc to generate decode routines in the
+target language for each ASN.1 type.}
+
+\item[-p    ] {causes snacc to generate print routines in the
+target language for each ASN.1 type.}
+
+\item[-f    ] {causes snacc to generate free routines in the
+target language for each ASN.1 type.  This option only works when the
+target language is C\@.  The free routines hierarchically free C values.
+A more efficient approach is to use the provided nibble-memory system.
+The nibble memory permits freeing an entire decoded value without
+traversing the decoded value.  This is the default memory allocator
+used by snacc generated decoders.  See file
+\verb$snacc/c_include/asn_config.h$ to change the default memory
+system.  For more information on the memory management see Section~\ref{lib-mem-C-section}.}
+
+\item[-u {\em file}] {causes snacc to read the useful types
+definitions from the ASN.1 module in file {\em file}
+for linking purposes.  For some ASN.1 specifications, such as SNMP,
+the useful types are not needed.  The types in the given useful types
+file are globally available to all modules; a useful type definition
+is overridden by a local or explicitly imported type with the same
+name. The useful type module can be found in
+\verb$snacc/asn1specs/asn-useful.asn1$ and contains:
+
+
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\setlength{\parsep}{0pt}
+\nspace{0}
+\item ObjectDesccriptor
+\item NumericString
+\item PrintableString
+\item TeletexString
+\item T61String
+\item VideoTexString
+\item IA5String
+\item GraphicString
+\item ISO646String
+\item GeneralString
+\item UTCTime
+\item GeneralizedTime
+\item EXTERNAL
+\end{itemize}}
+
+
+\item[-mf {\em number}] {causes the names of the generated source
+files to have a maximum length of {\em number} characters, including
+their suffix.  The {\em number} argument must be at least~3.  This option
+is useful for supporting operating systems that only support short
+file names.  A better solution is to shorten the module name of each
+ASN.1 module.}
+
+\item[-l {\em number}] {this is fairly obscure but may be useful.  Each
+error that the decoders can report is given an id number.  The number
+{\em number} is where the error ids start decreasing from as they are
+assigned to errors.  The default is -100 if this option is not given.
+Avoid using a number in the range -100 to 0 since they may conflict
+with the library routines' error ids.  If you are re-compiling the
+useful types for the library use -50.  Another use of this option is
+to integrate newly generated code with older code; if done correctly,
+the error ids will not conflict.}
+
+\end{description}
+
+Since ASN.1 has different scoping rules than C and C++, some name munging
+is done for types, named-numbers etc. to eliminate conflicts.
+Some capitalization schemes were chosen to fit common C programming
+style.  For all names, dashes in the ASN.1 source are converted to
+underscores.  See Sections \ref{naming-C-section} and \ref{naming-C++-section}
+for more naming information.
+
+The module name is used as a base name for the generated source file
+names.  It will be put into lowercase and dashes will be replaced with
+underscores.  Module names that result in file names longer than
+specified with the \verb$-mf$ option will be truncated.  If the
+\verb$-mf$ option was not given, file names will be truncated if they
+are too long for the target file system. You may want to shorten long
+module names to meaningful abbreviations. This will avoid file name
+conflicts for module names that are truncated to the same substring.
+Any module name and file name conflicts will be reported.
+
+If your ASN.1 modules have syntactic or semantic errors, each error
+will be printed to \verb$stderr$ along with the file name and line number of
+where it occurred. These errors are usable by GNU emacs compiling
+tools.  See the next chapter for more information on the types of
+errors snacc can detect.
+
+More errors can be detected and reported in a single compile if type
+and value definitions are separated by semi-colons.  Separating type
+and value definitions with semi-colons is not required, and if used,
+need not be used to separate all type and value definitions.
+Semi-colons are necessary after some macros that introduce ambiguity.
+In general, if you get a parse error you can't figure out, try
+separating the surrounding type/value definitions with semicolons.
+
+
+\subsection{Known Bugs}
+
+Snacc has problems with the following case:
+
+\begin{verbatim}
+Foo ::= SEQUENCE
+{
+    id IdType,
+    val ANY DEFINED BY id
+}
+
+IdType ::= CHOICE
+{
+    a INTEGER,
+    b OBJECT IDENTIFIER
+}
+\end{verbatim}
+
+The error checking pass will print an error to the effect that the id
+type must be INTEGER or OBJECT IDENTIFER\@.  To fix this you must modify
+the error checking pass as well as the code generation pass.  To be
+cheap about it, disable/fix the error checking and hand modify the
+generated code.
+
+The hashing code used for handling ANY DEFINED BY id to type mappings
+will encounter problems if the hash table goes more than four levels
+deep (I think this is unlikely).  To fix this just add linear chaining
+at fourth level.
+
+On the deficiency side of things, the C++ classes really need to have
+free methods defined for them. (Unless you have replaced new with
+something like nibble memory)
+
+\section{\label{old-bug-section}Reporting Bugs and Your Own Improvements}
+
+This (1.1) is the final release of snacc (I have finished my M.Sc).
+Gerald Neufeld \verb$<neufeld@cs.ubc.ca>$ was my supervisor but he
+does not have time to deal with support (it is all my code anyway).
+Luckily, a colleague has kindly offered to receive the bug reports and
+to coordinate work done by others (i.e.  you).  His name is Barry
+Brachman \verb$<brachman@cs.ubc.ca>$.  He did not write the code
+(35,000+ lines of C) but he has used snacc for X.500 work.  He may be
+able to point you to someone who has fixed or encountered the same
+bug.  Anyway, be nice to him, it's not his job.
+
+Even though this is the second release of snacc, bugs are still
+likely.  In fact, this release was quite rushed so there are probably
+lots of stupid installation bugs etc.  If you find some bugs or have
+other comments, please send email to \verb$snacc-bugs@cs.ubc.ca$
+(these will get to Barry and Gerald).  Please include the offending
+ASN.1 source, the command line options you were using and the hardware
+and operating system configuration.
+
+If you are really keen and hack in new goodies, please share.  Send
+them to Barry or \verb$snacc-bugs@cs.ubc.ca$. Look in
+\verb$snacc/README.future$ for things you could work on.
+
+As I mentioned, I have entered the real world. I am now working with
+Open Systems Solutions (based in New Jersey).  If your application
+needs a commercially developed and supported ASN.1 compiler, try
+calling 1-609-987-9073 (Yeah, I know this is a plug, but it's a good
+company).

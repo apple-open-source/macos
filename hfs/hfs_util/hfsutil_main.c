@@ -103,6 +103,12 @@ char gUnmountCommand[] = "/sbin/umount";
 char gReadOnlyOption[] = "-r";
 char gReadWriteOption[] = "-w";
 
+char gSuidOption[] = "suid";
+char gNoSuidOption[] = "nosuid";
+
+char gDevOption[] = "dev";
+char gNoDevOption[] = "nodev";
+
 char gUsePermissionsOption[] = "perm";
 char gIgnorePermissionsOption[] = "noperm";
 
@@ -144,14 +150,14 @@ int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 
 static void	DoDisplayUsage( const char * argv[] );
 static void	DoFileSystemFile( char * theFileNameSuffixPtr, char * theContentsPtr );
-static int	DoMount( char * theDeviceNamePtr, const char * theMountPointPtr, boolean_t isLocked );
+static int	DoMount( char * theDeviceNamePtr, const char * theMountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev );
 static int 	DoProbe( char * theDeviceNamePtr );
 static int 	DoUnmount( const char * theMountPointPtr );
 static int	DoGetUUIDKey( const char * theDeviceNamePtr );
 static int	DoChangeUUIDKey( const char * theDeviceNamePtr );
 static int	DoAdopt( const char * theDeviceNamePtr );
 static int	DoDisown( const char * theDeviceNamePtr );
-static int	ParseArgs( int argc, const char * argv[], const char ** actionPtr, const char ** mountPointPtr, boolean_t * isEjectablePtr, boolean_t * isLockedPtr );
+static int	ParseArgs( int argc, const char * argv[], const char ** actionPtr, const char ** mountPointPtr, boolean_t * isEjectablePtr, boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr );
 
 static int	GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate);
 static int	SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
@@ -216,9 +222,11 @@ int main (int argc, const char *argv[])
     const char			*	mountPointPtr = NULL;
     int						result = FSUR_IO_SUCCESS;
     boolean_t				isLocked = 0;	/* reasonable assumptions */
+    boolean_t				isSetuid = 0;	/* reasonable assumptions */
+    boolean_t				isDev = 0;	/* reasonable assumptions */
 
     /* Verify our arguments */
-    if ( (result = ParseArgs( argc, argv, & actionPtr, & mountPointPtr, & gIsEjectable, & isLocked )) != 0 ) {
+    if ( (result = ParseArgs( argc, argv, & actionPtr, & mountPointPtr, & gIsEjectable, & isLocked, &isSetuid, &isDev )) != 0 ) {
         goto AllDone;
     }
 
@@ -247,7 +255,7 @@ int main (int argc, const char *argv[])
 
         case FSUC_MOUNT:
         case FSUC_MOUNT_FORCE:
-            result = DoMount(blockDeviceName, mountPointPtr, isLocked);
+            result = DoMount(blockDeviceName, mountPointPtr, isLocked, isSetuid, isDev);
             break;
 
         case FSUC_UNMOUNT:
@@ -297,10 +305,12 @@ Output -
 returns FSUR_IO_SUCCESS everything is cool else one of several other FSUR_xyz error codes.
 *********************************************************************** */
 static int
-DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked)
+DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev)
 {
 	int pid;
-	char *isLockedstr;
+        char *isLockedstr;
+        char *isSetuidstr;
+        char *isDevstr;
 	char *permissionsOption;
 	int result = FSUR_IO_FAIL;
 	union wait status;
@@ -378,7 +388,9 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked)
 	
 	pid = fork();
 	if (pid == 0) {
-		isLockedstr = isLocked ? gReadOnlyOption : gReadWriteOption;
+                isLockedstr = isLocked ? gReadOnlyOption : gReadWriteOption;
+                isSetuidstr = isSetuid ? gSuidOption : gNoSuidOption;
+                isDevstr = isDev ? gDevOption : gNoDevOption;
 		
 		permissionsOption =
 			(targetVolumeStatus & VOLUME_USEPERMISSIONS) ? gUsePermissionsOption : gIgnorePermissionsOption;
@@ -394,10 +406,11 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked)
 		fprintf(stderr, "hfs.util: %s %s -o -x -o %s -o %s -o -u=unknown,-g=unknown,-m=0777 -t %s %s %s ...\n",
 							gMountCommand, isLockedstr, encodeopt, permissionsOption, gHFS_FS_NAME, deviceNamePtr, mountPointPtr);
 #endif
-		(void) execl(gMountCommand, gMountCommand, isLockedstr,
-			    "-o", encodeopt, "-o", permissionsOption,
-			    "-o", "-u=unknown,-g=unknown,-m=0777",
-			    "-t", gHFS_FS_NAME, deviceNamePtr, mountPointPtr, NULL);
+                (void) execl(gMountCommand, gMountCommand, isLockedstr, "-o", isSetuidstr, "-o", isDevstr,
+                                        "-o", encodeopt, "-o", permissionsOption,
+                                        "-o", "-u=unknown,-g=unknown,-m=0777",
+                                        "-t", gHFS_FS_NAME, deviceNamePtr, mountPointPtr, NULL);
+                
 
 		/* IF WE ARE HERE, WE WERE UNSUCCESFULL */
 		return (FSUR_IO_FAIL);
@@ -765,6 +778,7 @@ flagsArg:
         (these are ignored for CDROMs)
         either "readonly" OR "writable"
         either "removable" OR "fixed"
+        either "nosuid" or "suid"
 
 examples:
 	hfs.util -p disk0s2 removable writable
@@ -780,11 +794,12 @@ Output -
 static int
 ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 	const char ** mountPointPtr, boolean_t * isEjectablePtr,
-	boolean_t * isLockedPtr)
+          boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr)
 {
     int			result = FSUR_INVAL;
     int			deviceLength;
     int			index;
+    int 		mounting = 0;
 
     /* Must have at least 3 arguments and the action argument must start with a '-' */
     if ( (argc < 3) || (argv[1][0] != '-') ) {
@@ -815,13 +830,14 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
             
         case FSUC_MOUNT:
         case FSUC_MOUNT_FORCE:
-            /* action Mount and ForceMount require 6 arguments (need the mountpoint and the flags) */
-            if ( argc < 6 ) {
+            /* action Mount and ForceMount require 7 arguments (need the mountpoint and the flags) */
+            if ( argc < 7 ) {
                 DoDisplayUsage( argv );
                 goto Return;
             } else {
                 * mountPointPtr = argv[3];
                 index = 4;
+                mounting = 1;
             }
             break;
         
@@ -872,6 +888,28 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
         } else {
             printf("hfs.util: ERROR: unrecognized flag (readonly/writable) argv[%d]='%s'\n",index,argv[index+1]);
         }
+
+        if (mounting) {
+                    /* Flags: suid/nosuid. */
+                    if ( 0 == strcmp(argv[index+2],"suid") ) {
+                        * isSetuidPtr = 1;
+                    } else if ( 0 == strcmp(argv[index+2],"nosuid") ) {
+                        * isSetuidPtr = 0;
+                    } else {
+                        printf("hfs.util: ERROR: unrecognized flag (suid/nosuid) argv[%d]='%s'\n",index,argv[index+2]);
+                    }
+
+                    /* Flags: dev/nodev. */
+                    if ( 0 == strcmp(argv[index+3],"dev") ) {
+                        * isDevPtr = 1;
+                    } else if ( 0 == strcmp(argv[index+3],"nodev") ) {
+                        * isDevPtr = 0;
+                    } else {
+                        printf("hfs.util: ERROR: unrecognized flag (dev/nodev) argv[%d]='%s'\n",index,argv[index+3]);
+                    }
+        }
+
+
     }
 
     result = 0;
@@ -1605,6 +1643,7 @@ readAt( int fd, void * bufPtr, off_t offset, ssize_t length )
     void *		rawData = NULL;
     off_t		rawOffset;
     ssize_t		rawLength;
+    ssize_t		dataOffset = 0;
     int			result = FSUR_IO_SUCCESS;
 
     if (ioctl(fd, DKIOCBLKSIZE, &blocksize) < 0) {
@@ -1616,7 +1655,8 @@ readAt( int fd, void * bufPtr, off_t offset, ssize_t length )
     }
     /* put offset and length in terms of device blocksize */
     rawOffset = offset / blocksize * blocksize;
-    rawLength = ((length + blocksize - 1) / blocksize) * blocksize;
+    dataOffset = offset - rawOffset;
+    rawLength = ((length + dataOffset + blocksize - 1) / blocksize) * blocksize;
     rawData = malloc(rawLength);
     if (rawData == NULL) {
 		result = FSUR_IO_FAIL;
@@ -1637,7 +1677,7 @@ readAt( int fd, void * bufPtr, off_t offset, ssize_t length )
         result = FSUR_IO_FAIL;
         goto Return;
     }
-    bcopy(rawData + (offset - rawOffset), bufPtr, length);
+    bcopy(rawData + dataOffset, bufPtr, length);
 
 Return:
     if (rawData) {
@@ -1663,6 +1703,7 @@ writeAt( int fd, void * bufPtr, off_t offset, ssize_t length )
     void *		rawData = NULL;
     off_t		rawOffset;
     ssize_t		rawLength;
+    ssize_t		dataOffset = 0;
     int			result = FSUR_IO_SUCCESS;
 
     if (ioctl(fd, DKIOCBLKSIZE, &blocksize) < 0) {
@@ -1674,7 +1715,8 @@ writeAt( int fd, void * bufPtr, off_t offset, ssize_t length )
     }
     /* put offset and length in terms of device blocksize */
     rawOffset = offset / blocksize * blocksize;
-    rawLength = ((length + blocksize - 1) / blocksize) * blocksize;
+    dataOffset = offset - rawOffset;
+    rawLength = ((length + dataOffset + blocksize - 1) / blocksize) * blocksize;
     rawData = malloc(rawLength);
     if (rawData == NULL) {
 		result = FSUR_IO_FAIL;
@@ -1699,7 +1741,7 @@ writeAt( int fd, void * bufPtr, off_t offset, ssize_t length )
 	    }
 	};
 	
-    bcopy(bufPtr, rawData + (offset - rawOffset), length);	/* Copy in the new data */
+    bcopy(bufPtr, rawData + dataOffset, length);	/* Copy in the new data */
     
     deviceoffset = lseek( fd, rawOffset, SEEK_SET );
     if ( deviceoffset != rawOffset ) {

@@ -369,6 +369,10 @@ IOReturn IOHIDQueueClass::getNextEvent (
     // check entry size
     IODataQueueEntry * nextEntry = IODataQueuePeek(fQueueMappedMemory);
 
+	// if queue empty, then stop
+	if (nextEntry == NULL)
+		return kIOReturnUnderrun;
+
 #if 0
     printf ("IODataQueuePeek: %lx\n", (UInt32) nextEntry);
     if (nextEntry)

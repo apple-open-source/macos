@@ -77,6 +77,7 @@ typedef struct
 	String *hostOSVersion;
 	int hostOSVersionMajor;
 	int hostOSVersionMinor;
+	int afpLoaded;
 }
 
 - (Controller *)init:(char *)dir;
@@ -101,6 +102,7 @@ typedef struct
 - (Server *)serverWithName:(String *)name;
 
 - (void)timeout;
+- (void)unmountAutomounts:(int)use_force;
 - (void)reInit;
 - (unsigned int)attemptUnmount:(Vnode *)v;
 - (void)printTree;

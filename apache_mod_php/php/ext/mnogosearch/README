@@ -1,0 +1,17 @@
+$Source: /cvs/Darwin/Services/apache_mod_php/php/ext/mnogosearch/README,v $
+$Id: README,v 1.1.1.1 2001/07/19 00:19:24 zarzycki Exp $
+
+mnoGoSearch extension module for PHP4.
+
+For details please refer to http://search.mnogo.ru
+
+If used with mysql you should not use bundled mysql library 
+in the php distribution. You should use native mysql 
+library. To do this you should compile php with specefying mysql-dir
+(for example --with-mysql=/usr, not --with-mysql).
+
+  TODO
+  ----
+
+Implement indexing functions of the library.
+For example retrieving, parsing, checking of the URL and so on...

@@ -39,7 +39,7 @@ extern int child_wait (int, struct target_waitstatus *);
 
 #define DISABLE_UNSETTABLE_BREAK(addr) 1
 
-extern void next_mach_try_start_dyld ();
+extern int next_mach_try_start_dyld ();
 
 #define SOLIB_ADD(filename, from_tty, targ) \
   next_mach_try_start_dyld ()

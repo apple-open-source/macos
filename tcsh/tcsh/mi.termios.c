@@ -1,12 +1,12 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/mi.termios.c,v 1.1.1.1 1999/04/23 01:59:53 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/mi.termios.c,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
 /* termios.c - fake termios interface using sgtty interface 
  * 	       by Magnus Doell and Bruce Evans.
  *
  */
 #include "sh.h"
-RCSID("$Id: mi.termios.c,v 1.1.1.1 1999/04/23 01:59:53 wsanchez Exp $")
+RCSID("$Id: mi.termios.c,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $")
 
-#ifdef _MINIX
+#if defined(_MINIX) && !defined(_MINIX_VMD)
 
 
 /* Undefine everything that clashes with sgtty.h. */
@@ -390,4 +390,4 @@ struct termios *termios_p;
 	   ioctl(filedes, TIOCSETC, (struct sgttyb *) &tcbuf) < 0 ?
 		-1 : 0;
 }
-#endif /* _MINIX */
+#endif /* _MINIX && !_MINIX_VMD */

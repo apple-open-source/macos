@@ -1,10 +1,10 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: procmailsc.man,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+.Id $Id: procmailsc.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
 .TH PROCMAILSC 5 \*(Dt BuGless
 .na
 .SH NAME
-procmailsc \- procmail weighted scoring techique
+procmailsc \- procmail weighted scoring technique
 .SH SYNOPSIS
 .RB [ * ]
 .B "w^x condition"
@@ -29,7 +29,7 @@ Whereas both
 .B w
 and
 .B x
-are real numbers between \-2147483647.0 and 2147483647.0.
+are real numbers between @MIN32@.0 and @MAX32@.0 inclusive.
 
 .SH "Weighted regular expression conditions"
 The first time the regular expression is found, it will add
@@ -71,7 +71,7 @@ section below).
 .TP
 1<x
 Every match will contribute more to the score than the previous one.
-The score will grow exponentionally.
+The score will grow exponentially.
 .TP
 x<0
 Can be utilised to favour odd or even number of matches.
@@ -157,10 +157,10 @@ more the mail is favoured, but the maximum extra score due to Elvis will
 be 4000, no matter how often he is mentioned), lots of quoted lines are
 disliked, smileys are appreciated (the score for those will reach a maximum
 of 3500), those three people usually don't send
-interesting mails, the mails should preferably be small (e.g. 2000 bytes long
+interesting mails, the mails should preferably be small (e.g., 2000 bytes long
 mails will score \-100, 4000 bytes long mails do \-800).
 As you see, if some of the uninteresting people send mail, then the mail
-still has a chance of landing in the priority folder, e.g. if it is about
+still has a chance of landing in the priority folder, e.g., if it is about
 a meeting, or if it contains at least two smileys.
 .Sx 11
 :0 @HEAD_GREP@@BODY_GREP@
@@ -240,13 +240,13 @@ that causes an overflow, procmail is at the mercy of the
 .BR pow (3)
 function in your mathematical library.
 .PP
-Floating point numbers in `engineering' format (e.g. 12e5) are not accepted.
+Floating point numbers in `engineering' format (e.g., 12e5) are not accepted.
 .SH MISCELLANEOUS
-As soon as `plus infinity' (2147483647) is reached, any subsequent
+As soon as `plus infinity' (@MAX32@) is reached, any subsequent
 .I weighted
 conditions will simply be skipped.
 .PP
-As soon as `minus infinity' (\-2147483647) is reached, the condition will
+As soon as `minus infinity' (@MIN32@) is reached, the condition will
 be considered as `no match' and the recipe will terminate early.
 .SH NOTES
 If in a regular expression weighted formula

@@ -3731,7 +3731,8 @@ output_compile_unit_die (arg)
     producer_attribute (producer);
   }
 
-  if (strcmp (language_string, "GNU C++") == 0)
+  if (strcmp (language_string, "GNU C++") == 0 
+      || strcmp (language_string, "GNU Obj-C++") == 0)
     language_attribute (LANG_C_PLUS_PLUS);
   else if (strcmp (language_string, "GNU Ada") == 0)
     language_attribute (LANG_ADA83);

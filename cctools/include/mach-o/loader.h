@@ -119,7 +119,10 @@ struct mach_header {
 					   space bindings */
 #define MH_FORCE_FLAT	0x100		/* the executable is forcing all images
 					   to use flat name space bindings */
-
+#define MH_NOMULTIDEFS	0x200		/* this umbrella guarantees no multiple
+					   defintions of symbols in its
+					   sub-images so the two-level namespace
+					   hints can alwasys be used. */
 /*
  * The load commands directly follow the mach_header.  The total size of all
  * of the commands is given by the sizeofcmds field in the mach_header.  All
@@ -140,6 +143,17 @@ struct load_command {
 	unsigned long cmd;		/* type of load command */
 	unsigned long cmdsize;		/* total size of command in bytes */
 };
+
+/*
+ * After MacOS X 10.1 when a new load command is added that is required to be
+ * understood by the dynamic linker for the image to execute properly the
+ * LC_REQ_DYLD bit will be or'ed into the load command constant.  If the dynamic
+ * linker sees such a load command it it does not understand will issue a
+ * "unknown load command required for execution" error and refuse to use the
+ * image.  Other load commands without this bit that are not understood will
+ * simply be ignored.
+ */
+#define LC_REQ_DYLD 0x80000000
 
 /* Constants for the cmd field of all load commands, the type */
 #define	LC_SEGMENT	0x1	/* segment of this file to be mapped */
@@ -163,6 +177,8 @@ struct load_command {
 #define	LC_SUB_FRAMEWORK 0x12	/* sub framework */
 #define	LC_SUB_UMBRELLA 0x13	/* sub umbrella */
 #define	LC_SUB_CLIENT	0x14	/* sub client */
+#define	LC_SUB_LIBRARY  0x15	/* sub library */
+#define	LC_TWOLEVEL_HINTS 0x16	/* two-level namespace lookup hints */
 
 /*
  * A variable length string in a load command is represented by an lc_str
@@ -359,7 +375,7 @@ struct section {
 #define SECT_OBJC_STRINGS "__selector_strs"	/* string table */
 #define SECT_OBJC_REFS "__selector_refs"	/* string table */
 
-#define	SEG_ICON	 "__ICON"	/* the NeXT icon segment */
+#define	SEG_ICON	 "__ICON"	/* the icon segment */
 #define	SECT_ICON_HEADER "__header"	/* the icon headers */
 #define	SECT_ICON_TIFF   "__tiff"	/* the icons in tiff format */
 
@@ -471,6 +487,27 @@ struct sub_umbrella_command {
 	unsigned long	cmd;		/* LC_SUB_UMBRELLA */
 	unsigned long	cmdsize;	/* includes sub_umbrella string */
 	union lc_str 	sub_umbrella;	/* the sub_umbrella framework name */
+};
+
+/*
+ * A dynamically linked shared library may be a sub_library of another shared
+ * library.  If so it will be linked with "-sub_library library_name" where
+ * Where "library_name" is the name of the sub_library shared library.  When
+ * staticly linking when -twolevel_namespace is in effect a twolevel namespace 
+ * shared library will only cause its subframeworks and those frameworks
+ * listed as sub_umbrella frameworks and libraries listed as sub_libraries to
+ * be implicited linked in.  Any other dependent dynamic libraries will not be
+ * linked it when -twolevel_namespace is in effect.  The primary library
+ * recorded by the static linker when resolving a symbol in these libraries
+ * will be the umbrella framework (or dynamic library). Zero or more sub_library
+ * shared libraries may be use by an umbrella framework or (or dynamic library).
+ * The name of a sub_library framework is recorded in the following structure.
+ * For example /usr/lib/libobjc_profile.A.dylib would be recorded as "libobjc".
+ */
+struct sub_library_command {
+	unsigned long	cmd;		/* LC_SUB_LIBRARY */
+	unsigned long	cmdsize;	/* includes sub_library string */
+	union lc_str 	sub_library;	/* the sub_library name */
 };
 
 /*
@@ -782,6 +819,39 @@ struct dylib_reference {
 };
 
 /*
+ * The twolevel_hints_command contains the offset and number of hints in the
+ * two-level namespace lookup hints table.
+ */
+struct twolevel_hints_command {
+    unsigned long cmd;		/* LC_TWOLEVEL_HINTS */
+    unsigned long cmdsize;	/* sizeof(struct twolevel_hints_command) */
+    unsigned long offset;	/* offset to the hint table */
+    unsigned long nhints;	/* number of hints in the hint table */
+};
+
+/*
+ * The entries in the two-level namespace lookup hints table are twolevel_hint
+ * structs.  These provide hints to the dynamic link editor where to start
+ * looking for an undefined symbol in a two-level namespace image.  The
+ * isub_image field is an index into the sub-images (sub-frameworks and
+ * sub-umbrellas list) that made up the two-level image that the undefined
+ * symbol was found in when it was built by the static link editor.  If
+ * isub-image is 0 the the symbol is expected to be defined in library and not
+ * in the sub-images.  If isub-image is non-zero it is an index into the array
+ * of sub-images for the umbrella with the first index in the sub-images being
+ * 1. The array of sub-images is the ordered list of sub-images of the umbrella
+ * that would be searched for a symbol that has the umbrella recorded as its
+ * primary library.  The table of contents index is an index into the
+ * library's table of contents.  This is used as the starting point of the
+ * binary search or a directed linear search.
+ */
+struct twolevel_hint {
+    unsigned long 
+	isub_image:8,	/* index into the sub images */
+	itoc:24;	/* index into the table of contents */
+};
+
+/*
  * The symseg_command contains the offset and size of the GNU style
  * symbol table information as described in the header file <symseg.h>.
  * The symbol roots of the symbol segments must also be aligned properly
@@ -810,7 +880,7 @@ struct ident_command {
 
 /*
  * The fvmfile_command contains a reference to a file to be loaded at the
- * specified virtual address.  (Presently, this command is reserved for NeXT
+ * specified virtual address.  (Presently, this command is reserved for
  * internal use.  The kernel ignores this command when loading a program into
  * memory).
  */

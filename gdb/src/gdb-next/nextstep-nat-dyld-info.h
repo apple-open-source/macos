@@ -6,7 +6,22 @@
 struct _bfd;
 
 typedef enum dyld_objfile_reason { 
-  dyld_reason_cached, dyld_reason_init, dyld_reason_dyld, dyld_reason_executable
+
+  dyld_reason_deallocated = 0x1, 
+
+  dyld_reason_user = 0x02,
+  dyld_reason_cached = 0x04,
+
+  dyld_reason_init = 0x08,
+  dyld_reason_executable = 0x10,
+
+  dyld_reason_dyld = 0x20,
+  dyld_reason_cfm = 0x40, 
+
+  dyld_reason_image = 0x18,
+  dyld_reason_shlib = 0xfc,
+  dyld_reason_all = 0xfe
+
 } dyld_objfile_reason;
 
 struct dyld_objfile_entry {
@@ -18,8 +33,11 @@ struct dyld_objfile_entry {
 
   CORE_ADDR dyld_addr;
   CORE_ADDR dyld_slide;
+  CORE_ADDR dyld_length;
   unsigned long dyld_index;
   int dyld_valid;
+
+  unsigned long cfm_connection;
 
   char *user_name;
 
@@ -33,7 +51,10 @@ struct dyld_objfile_entry {
   int text_name_valid;
 
   struct _bfd *abfd;
+  struct _bfd *sym_bfd;
+
   struct objfile *objfile;
+  struct objfile *sym_objfile;
 
   const char *loaded_name;
   CORE_ADDR loaded_memaddr;
@@ -42,7 +63,6 @@ struct dyld_objfile_entry {
   int loaded_addrisoffset;
   int loaded_from_memory;
   int loaded_error;
-  int loaded_flag;
 
   int load_flag;
 
@@ -89,10 +109,13 @@ PARAMS ((struct dyld_objfile_info *i));
 void dyld_objfile_info_copy
 PARAMS ((struct dyld_objfile_info *d, struct dyld_objfile_info *s));
 
+void dyld_objfile_info_copy_entries
+PARAMS ((struct dyld_objfile_info *d, struct dyld_objfile_info *s, unsigned int mask));
+
 struct dyld_objfile_entry *dyld_objfile_entry_alloc
 PARAMS ((struct dyld_objfile_info *i));
 
 void dyld_print_shlib_info
-PARAMS ((struct dyld_objfile_info *s) );
+PARAMS ((struct dyld_objfile_info *s, unsigned int reason_mask));
 
 #endif /* _NEXTSTEP_NAT_DYLD_INFO_H_ */

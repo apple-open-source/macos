@@ -1,5 +1,5 @@
 # Top level configure fragment for GNU C++.
-#   Copyright (C) 1994, 1995 Free Software Foundation, Inc.
+#   Copyright (C) 1994, 1995, 1997, 1998 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -26,10 +26,16 @@
 # stagestuff	- files to add to $(STAGESTUFF)
 # diff_excludes	- files to ignore when building diffs between two versions.
 
-language="objective-c++"
+language="objc++"
 
 compilers="cc1objplus\$(exeext)"
 
-stagestuff="cc1objplus\$(exeext)"
+stagestuff="g++\$(exeext) g++-cross\$(exeext) cc1objplus\$(exeext)"
 
-diff_excludes="obcp/obcp-parse.c -x obcp/obcp-parse.h"
+diff_excludes="-x parse.c -x parse.h"
+
+headers='$(CXX_EXTRA_HEADERS)'
+
+lib2funcs=cplib2.txt
+
+outputs=obcp/Makefile

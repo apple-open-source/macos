@@ -1,0 +1,7 @@
+Package: tcpdump
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: tcpdump.org
+Version: 3.6.2
+URL: http://www.tcpdump.org
+Build-Depends: build-base, flex, yacc, libpcap, librpcsvc-hdrs, libinfo-hdrs
+Description: 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: filepro.c,v 1.1.1.3 2001/01/25 04:59:16 wsanchez Exp $ */
+/* $Id: filepro.c,v 1.1.1.4 2001/07/19 00:19:07 zarzycki Exp $ */
 
 /*
   filePro 4.x support developed by Chad Robinson, chadr@brttech.com
@@ -26,9 +26,13 @@
   web site at http://www.fileproplus.com/
 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "safe_mode.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 #include <string.h>
 #ifdef PHP_WIN32
 #include <windows.h>
@@ -214,7 +218,7 @@ PHP_FUNCTION(filepro)
 		RETURN_FALSE;
 	}
 
-	if (!(fp = V_FOPEN(workbuf, "r"))) {
+	if (!(fp = VCWD_FOPEN(workbuf, "r"))) {
 		php_error(E_WARNING, "filePro: cannot open map: [%d] %s",
 					errno, strerror(errno));
 		RETURN_FALSE;
@@ -313,7 +317,7 @@ PHP_FUNCTION(filepro_rowcount)
 		RETURN_FALSE;
 	}
 
-	if (!(fp = V_FOPEN(workbuf, "r"))) {
+	if (!(fp = VCWD_FOPEN(workbuf, "r"))) {
 		php_error(E_WARNING, "filePro: cannot open key: [%d] %s",
 					errno, strerror(errno));
 		RETURN_FALSE;
@@ -538,7 +542,7 @@ PHP_FUNCTION(filepro_retrieve)
 		RETURN_FALSE;
 	}
 
-	if (!(fp = V_FOPEN(workbuf, "r"))) {
+	if (!(fp = VCWD_FOPEN(workbuf, "r"))) {
 		php_error(E_WARNING, "filePro: cannot open key: [%d] %s",
 					errno, strerror(errno));
 	    fclose(fp);

@@ -21,20 +21,18 @@
  */
 
 #include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
 
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 #include "ppp_msg.h"
 #include "ppp.h"
-
 
 __private_extern__
 int
@@ -93,20 +91,20 @@ PPPExec(int		ref,
 	//  send the command
 	n = write(ref, &msg, sizeof(msg));
 	if (n == -1) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec write() failed: %s"), strerror(errno));
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: %s"), strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec write() failed: wrote=%d"), n);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: wrote=%d"), n);
 		return -1;
 	}
 
 	if ((request != NULL) && (requestLen > 0)) {
 		n = write(ref, request, requestLen);
 		if (n == -1) {
-			SCDLog(LOG_ERR, CFSTR("PPPExec write() failed: %s"), strerror(errno));
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: %s"), strerror(errno));
 			return errno;
 		} else if (n != requestLen) {
-			SCDLog(LOG_ERR, CFSTR("PPPExec write() failed: wrote=%d"), n);
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec write() failed: wrote=%d"), n);
 			return -1;
 		}
 	}
@@ -114,10 +112,10 @@ PPPExec(int		ref,
 	// always expect a reply
 	n = read(ref, &msg, sizeof(msg));
 	if (n == -1) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec read() failed: error=%s"), strerror(errno));
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: error=%s"), strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec read() failed: insufficent data, read=%d"), n);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: insufficent data, read=%d"), n);
 		return -1;
 	}
 
@@ -127,11 +125,11 @@ PPPExec(int		ref,
 			// read reply
 			n = read(ref, buf, msg.m_len);
 			if (n == -1) {
-				SCDLog(LOG_ERR, CFSTR("PPPExec read() failed: error=%s"), strerror(errno));
+				SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: error=%s"), strerror(errno));
 				CFAllocatorDeallocate(NULL, buf);
 				return errno;
 			} else if (n != msg.m_len) {
-				SCDLog(LOG_ERR, CFSTR("PPPExec read() failed: insufficent data, read=%d"), n);
+				SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec read() failed: insufficent data, read=%d"), n);
 				CFAllocatorDeallocate(NULL, buf);
 				return -1;
 			}
@@ -150,6 +148,92 @@ PPPExec(int		ref,
 }
 
 
+#ifdef	NOT_NEEDED
+int
+PPPConnect(int ref, u_long link)
+{
+	int	status;
+
+	status = PPPExec(ref,
+			 link,
+			 PPP_CONNECT,
+			 NULL,
+			 0,
+			 NULL,
+			 NULL);
+	if (status != 0) {
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_CONNECT) failed: status = %d"), status);
+		return status;
+	}
+
+	return status;
+}
+
+
+int
+PPPDisconnect(int ref, u_long link)
+{
+	int	status;
+
+	status = PPPExec(ref,
+			 link,
+			 PPP_DISCONNECT,
+			 NULL,
+			 0,
+			 NULL,
+			 NULL);
+	if (status != 0) {
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_DISCONNECT) failed: status = %d"), status);
+		return status;
+	}
+
+	return status;
+}
+
+
+int
+PPPListen(int ref, u_long link)
+{
+	int	status;
+
+	status = PPPExec(ref,
+			 link,
+			 PPP_LISTEN,
+			 NULL,
+			 0,
+			 NULL,
+			 NULL);
+	if (status != 0) {
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_LISTEN) failed: status = %d"), status);
+		return status;
+	}
+
+	return status;
+}
+
+
+int
+PPPApply(int ref, u_long link)
+{
+	int	status;
+
+	status = PPPExec(ref,
+			 link,
+			 PPP_APPLY,
+			 NULL,
+			 0,
+			 NULL,
+			 NULL);
+	if (status != 0) {
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_APPLY) failed: status = %d"), status);
+		return status;
+	}
+
+	return status;
+}
+#endif	/* NOT_NEEDED */
+
+
 __private_extern__
 int
 PPPGetNumberOfLinks(int ref, u_long *nLinks)
@@ -166,7 +250,7 @@ PPPGetNumberOfLinks(int ref, u_long *nLinks)
 			    &replyBuf,
 			    &replyBufLen);
 	if (status != 0) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec() failed: status = %d"), status);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_GETNBLINKS) failed: status = %d"), status);
 		return status;
 	}
 
@@ -194,7 +278,7 @@ PPPGetLinkByIndex(int ref, int index, u_int32_t *link)
 			    &replyBuf,
 			    &replyBufLen);
 	if (status != 0) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec() failed: status = %d"), status);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_GETLINKBYINDEX) failed: status = %d"), status);
 		return status;
 	}
 
@@ -225,7 +309,7 @@ PPPGetLinkByServiceID(int ref, CFStringRef serviceID, u_int32_t *link)
 
 	status = PPPGetNumberOfLinks(ref, &nLinks);
 	if (status != 0) {
-		SCDLog(LOG_ERR, CFSTR("PPPGetNumberOfLinks() failed: %d"), status);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPGetNumberOfLinks() failed: %d"), status);
 		goto done;
 	}
 
@@ -238,7 +322,7 @@ PPPGetLinkByServiceID(int ref, CFStringRef serviceID, u_int32_t *link)
 
 		status = PPPGetLinkByIndex(ref, i, &iLink);
 		if (status != 0) {
-			SCDLog(LOG_ERR, CFSTR("PPPGetLinkByIndex() failed: %d"), status);
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPGetLinkByIndex() failed: %d"), status);
 			goto done;
 		}
 
@@ -248,7 +332,7 @@ PPPGetLinkByServiceID(int ref, CFStringRef serviceID, u_int32_t *link)
 				      &data,
 				      &dataLen);
 		if (status != 0) {
-			SCDLog(LOG_ERR, CFSTR("PPPGetOption() failed: %d"), status);
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPGetOption(PPP_OPT_SERVICEID) failed: %d"), status);
 			goto done;
 		}
 
@@ -292,7 +376,7 @@ PPPGetOption(int ref, u_long link, u_long option, void **data, u_long *dataLen)
 			    &replyBuf,
 			    &replyBufLen);
 	if (status != 0) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec() failed: status = %d"), status);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_GETOPTION) failed: status = %d"), status);
 		*data = NULL;
 		*dataLen = 0;
 		return status;
@@ -307,6 +391,40 @@ PPPGetOption(int ref, u_long link, u_long option, void **data, u_long *dataLen)
 
 	return status;
 }
+
+
+#ifdef	NOT_NEEDED
+__private_extern__
+int
+PPPSetOption(int ref, u_long link, u_long option, void *data, u_long dataLen)
+{
+	void			*buf;
+	u_long			bufLen;
+	int			status;
+
+	bufLen = sizeof(struct ppp_opt_hdr) + dataLen;
+	buf    = CFAllocatorAllocate(NULL, bufLen, 0);
+
+	bzero((struct ppp_opt_hdr *)buf, sizeof(struct ppp_opt_hdr));
+	((struct ppp_opt_hdr *)buf)->o_type = option;
+	bcopy(data, ((struct ppp_opt *)buf)->o_data, dataLen);
+
+	status = PPPExec(ref,
+			 link,
+			 PPP_SETOPTION,
+			 buf,
+			 bufLen,
+			 NULL,
+			 NULL);
+	if (status != 0) {
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_SETOPTION) failed: status = %d"), status);
+	}
+
+	CFAllocatorDeallocate(NULL, buf);
+
+	return status;
+}
+#endif	/* NOT_NEEDED */
 
 
 __private_extern__
@@ -325,7 +443,7 @@ PPPStatus(int ref, u_long link, struct ppp_status **stat)
 			    &replyBuf,
 			    &replyBufLen);
 	if (status != 0) {
-		SCDLog(LOG_ERR, CFSTR("PPPExec() failed: status = %d"), status);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("PPPExec(PPP_STATUS) failed: status = %d"), status);
 		return status;
 	}
 

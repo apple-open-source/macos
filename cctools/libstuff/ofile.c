@@ -665,7 +665,7 @@ enum bool archives_with_fat_objects)
 {
     int fd;
     struct stat stat_buf;
-    unsigned long i, j, size, magic;
+    unsigned long i, size, magic;
     kern_return_t r;
     char *addr;
     enum byte_sex host_byte_sex;
@@ -1002,11 +1002,10 @@ enum bool archives_with_fat_objects)
 		if(arch_flag != NULL){
 		    if(arch_flag->cputype != ofile->mh->cputype &&
 		       arch_flag->cpusubtype != ofile->mh->cpusubtype){
-			j = size_ar_name(ofile->member_ar_hdr);
 			error("object file: %s(%.*s) does not match specified "
 			    "arch_flag: %s passed to ofile_map()",
-			    ofile->file_name, (int)j,
-			    ofile->member_ar_hdr->ar_name, arch_flag->name);
+			    ofile->file_name, (int)ofile->member_name_size,
+			    ofile->member_name, arch_flag->name);
 			goto cleanup;
 		    }
 		}
@@ -1202,12 +1201,11 @@ unsigned long narch)
 	    if(ofile->fat_archs[ofile->narch].offset %
 	       sizeof(unsigned long) != 0){
 		if(ofile->file_type == OFILE_ARCHIVE){
-		    int i;
-		    i = size_ar_name(ofile->member_ar_hdr);
 		    error("fat file: %s(%.*s) architecture %s malformed for an "
 			  "object file (offset is not a multiple of sizeof("
-			  "unsigned long))", ofile->file_name, (int)i,
-			  ofile->member_ar_hdr->ar_name, ofile->arch_flag.name);
+			  "unsigned long))", ofile->file_name,
+			  (int)ofile->member_name_size, ofile->member_name,
+			  ofile->arch_flag.name);
 		}
 		else
 		    error("fat file: %s architecture %s malformed for an "
@@ -2502,12 +2500,14 @@ struct ofile *ofile)
     struct dylib_command *dl;
     struct sub_framework_command *sub;
     struct sub_umbrella_command *usub;
+    struct sub_library_command *lsub;
     struct sub_client_command *csub;
     struct prebound_dylib_command *pbdylib;
     struct dylinker_command *dyld;
     struct thread_command *ut;
     struct ident_command *id;
     struct routines_command *rc;
+    struct twolevel_hints_command *hints;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
@@ -2539,6 +2539,7 @@ struct ofile *ofile)
 	st = NULL;
 	dyst = NULL;
 	rc = NULL;
+	hints = NULL;
 	for(i = 0, lc = load_commands; i < mh->ncmds; i++){
 	    l = *lc;
 	    if(swapped)
@@ -2782,6 +2783,36 @@ struct ofile *ofile)
 		}
 		break;
 
+	    case LC_TWOLEVEL_HINTS:
+		if(hints != NULL){
+		    Mach_O_error(ofile, "malformed object (more than one "
+			"LC_TWOLEVEL_HINTS command)");
+		    return(CHECK_BAD);
+		}
+		hints = (struct twolevel_hints_command *)lc;
+		if(swapped)
+		    swap_twolevel_hints_command(hints, host_byte_sex);
+		if(hints->cmdsize != sizeof(struct twolevel_hints_command)){
+		    Mach_O_error(ofile, "malformed object (LC_TWOLEVEL_HINTS "
+			         "command %lu has incorrect cmdsize)", i);
+		    return(CHECK_BAD);
+		}
+		if(hints->offset > size){
+		    Mach_O_error(ofile, "truncated or malformed object "
+			"(offset field of LC_TWOLEVEL_HINTS command %lu "
+			"extends past the end of the file)", i);
+		    return(CHECK_BAD);
+		}
+		if(hints->offset +
+		   hints->nhints * sizeof(struct twolevel_hint) > size){
+		    Mach_O_error(ofile, "truncated or malformed object "
+			"(offset field plus nhints field times "
+			"sizeof(struct twolevel_hint) of LC_TWOLEVEL_HINTS "
+			" command %lu extends past the end of the file)", i);
+		    return(CHECK_BAD);
+		}
+		break;
+
 	    case LC_SYMSEG:
 		ss = (struct symseg_command *)lc;
 		if(swapped)
@@ -2874,6 +2905,23 @@ struct ofile *ofile)
 		if(usub->sub_umbrella.offset >= usub->cmdsize){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(sub_umbrella.offset field of LC_SUB_UMBRELLA command "
+			"%lu extends past the end of the file)", i);
+		    return(CHECK_BAD);
+		}
+		break;
+
+	    case LC_SUB_LIBRARY:
+		lsub = (struct sub_library_command *)lc;
+		if(swapped)
+		    swap_sub_library_command(lsub, host_byte_sex);
+		if(lsub->cmdsize < sizeof(struct sub_library_command)){
+		    Mach_O_error(ofile, "malformed object (LC_SUB_LIBRARY "
+			"command %lu has too small cmdsize field)", i);
+		    return(CHECK_BAD);
+		}
+		if(lsub->sub_library.offset >= lsub->cmdsize){
+		    Mach_O_error(ofile, "truncated or malformed object "
+			"(sub_library.offset field of LC_SUB_LIBRARY command "
 			"%lu extends past the end of the file)", i);
 		    return(CHECK_BAD);
 		}
@@ -3365,8 +3413,9 @@ struct ofile *ofile)
 			case HPPA_INTEGER_THREAD_STATE:
 			    if(count != HPPA_INTEGER_THREAD_STATE_COUNT){
 				Mach_O_error(ofile, "malformed object (count "
-				    "not HPPA_INTEGER_THREAD_STATE_COUNT for flavor "
-				    "number %lu which is a HPPA_INTEGER_THREAD_STATE "
+				    "not HPPA_INTEGER_THREAD_STATE_COUNT for "
+				    "flavor number %lu which is a "
+				    "HPPA_INTEGER_THREAD_STATE "
 				    "flavor in %s command %lu)", nflavor,
 				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				    "LC_THREAD", i);
@@ -3374,7 +3423,8 @@ struct ofile *ofile)
 			    }
 			    cpu = (struct hp_pa_integer_thread_state *)state;
 			    if(swapped)
-				swap_hppa_integer_thread_state(cpu, host_byte_sex);
+				swap_hppa_integer_thread_state(cpu,
+							       host_byte_sex);
 			    state += sizeof(struct hp_pa_integer_thread_state);
 			    break;
 			case HPPA_FRAME_THREAD_STATE:
@@ -3507,15 +3557,17 @@ struct ofile *ofile)
 		   (char *)load_commands + mh->sizeofcmds){
 		    Mach_O_error(ofile, "truncated or malformed object (cmdsize"
 			"field of LC_IDENT command %lu extends past the end of "
-			"the load commands", i);
+			"the load commands)", i);
 		    return(CHECK_BAD);
 		}
 		break;
 
+#ifndef OFI
 	    default:
 		Mach_O_error(ofile, "malformed object (unknown load command "
 			     "%lu)", i);
 		return(CHECK_BAD);
+#endif /* !defined(OFI) */
 	    }
 
 	    lc = (struct load_command *)((char *)lc + l.cmdsize);
@@ -3530,7 +3582,7 @@ struct ofile *ofile)
 	if(st == NULL){
 	    if(dyst != NULL)
 		Mach_O_error(ofile, "truncated or malformed object (contains "
-		   "LC_DYSYMTAB load command without a LC_SYMTAB load command");
+		  "LC_DYSYMTAB load command without a LC_SYMTAB load command)");
 	}
 	else{
 	    if(dyst != NULL){
@@ -3538,39 +3590,45 @@ struct ofile *ofile)
 		   dyst->ilocalsym > st->nsyms)
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(ilocalsym in LC_DYSYMTAB load command extends past "
-			"the end of the symbol table");
+			"the end of the symbol table)");
 		if(dyst->nlocalsym != 0 &&
 		   dyst->ilocalsym + dyst->nlocalsym > st->nsyms)
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(ilocalsym plus nlocalsym in LC_DYSYMTAB load command "
-			"extends past the end of the symbol table");
+			"extends past the end of the symbol table)");
 
 		if(dyst->nextdefsym != 0 &&
 		   dyst->iextdefsym > st->nsyms)
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iextdefsym in LC_DYSYMTAB load command extends past "
-			"the end of the symbol table");
+			"the end of the symbol table)");
 		if(dyst->nextdefsym != 0 &&
 		   dyst->iextdefsym + dyst->nextdefsym > st->nsyms)
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iextdefsym plus nextdefsym in LC_DYSYMTAB load "
-			"command extends past the end of the symbol table");
+			"command extends past the end of the symbol table)");
 
 		if(dyst->nundefsym != 0 &&
 		   dyst->iundefsym > st->nsyms)
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iundefsym in LC_DYSYMTAB load command extends past "
-			"the end of the symbol table");
+			"the end of the symbol table)");
 		if(dyst->nundefsym != 0 &&
 		   dyst->iundefsym + dyst->nundefsym > st->nsyms)
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(iundefsym plus nundefsym in LC_DYSYMTAB load command "
-			"extends past the end of the symbol table");
+			"extends past the end of the symbol table)");
 		if(rc != NULL){
 		    if(rc->init_module > dyst->nmodtab)
 			Mach_O_error(ofile, "malformed object (init_module in "
 			    "LC_ROUTINES load command extends past the end of "
-			    "the module table");
+			    "the module table)");
+		}
+		if(hints != NULL){
+		    if(hints->nhints != dyst->nundefsym)
+			Mach_O_error(ofile, "malformed object (nhints in "
+			    "LC_TWOLEVEL_HINTS load command not the same as "
+			    "nundefsym in LC_DYSYMTAB load command)");
 		}
 	    }
 	}

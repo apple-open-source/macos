@@ -72,10 +72,10 @@ ppc_print_properties (props)
   } else {
     printf_filtered (" A stack frame has been allocated.\n");
   }
-  if (props->alloca_reg >= 0) {
+  if (props->frameptr_reg >= 0) {
     printf_filtered 
       (" The stack pointer has been saved by alloca() in r%d.\n",
-       props->alloca_reg);
+       props->frameptr_reg);
   }
   if (props->offset < 0) {
     printf_filtered (" No registers have been saved.\n");
@@ -95,20 +95,65 @@ ppc_print_properties (props)
     if (props->saved_fpr >= 0) {
       printf_filtered
 	(" Floating-point registers r%d--r%d have been saved at offset 0x%x.\n",
-	 props->saved_gpr, 31, props->fpr_offset);
+	 props->saved_fpr, 31, props->fpr_offset);
     } else {
       printf_filtered (" No floating-point registers have been saved.\n");
     } 
   }
-  if (props->lr_saved) {
-    printf_filtered 
-      (" The link register has been saved at offset 0x%x.\n", props->lr_offset);
-  }
+  if (props->lr_saved) 
+    {
+      printf_filtered 
+        (" The link register has been saved at offset 0x%x.\n", 
+	 props->lr_offset);
+    }
+  else
+    {
+      if (props->lr_invalid != 0)
+	printf_filtered (" The link register is still valid.\n");
+      else if (props->lr_reg > -1)
+	printf_filtered (" The link register is stored in r%d.\n", props->lr_reg);
+      else
+	printf_filtered (" I have no idea where the link register is stored.\n");
+    }
+  
   if (props->cr_saved) {
     printf_filtered 
       (" The condition register has been saved at offset 0x%x.\n",
        props->cr_offset);
   }
+}
+
+struct read_memory_unsigned_int_args 
+{
+  CORE_ADDR addr;
+  int len;
+  unsigned long ret_val;
+};
+
+int wrap_read_memory_unsigned_integer (void *in_args)
+{
+  struct read_memory_unsigned_int_args *args 
+          = (struct read_memory_unsigned_int_args *) in_args;
+          
+  args->ret_val = read_memory_unsigned_integer (args->addr, args->len);
+  return 1;
+}
+
+int
+safe_read_memory_unsigned_integer (CORE_ADDR addr, int len, unsigned long *val)
+{
+    struct read_memory_unsigned_int_args args;
+    
+    args.addr = addr;
+    args.len = len;
+    
+    if (!catch_errors ((catch_errors_ftype *) wrap_read_memory_unsigned_integer,
+      &args,"", RETURN_MASK_ERROR))
+      {
+          return 0;
+      }
+    *val = args.ret_val;
+    return 1;  
 }
 
 /* return pc value after skipping a function prologue and also return
@@ -124,7 +169,17 @@ ppc_parse_instructions (start, end, props)
   int insn_count = 1; /* Some patterns occur in a particular order, so I 
                          keep the instruction count so I can match them
                          with more certainty. */
-  int could_be_save_world = 0;
+  int saw_pic_base_setup = 0;
+  int lr_reg = -1;  /* temporary cookies that we use to tell us that
+		       we have seen the lr moved into a gpr. 
+		       * Set to -1 at start.  
+		       * Set to the stw instruction for the register we
+		       see in the mflr.
+		       * Set to 0 when we see the lr get stored on the
+		       stack.  */
+  int cr_reg = -1;  /* Same as cr_reg but for condition reg. */
+  int offset2 = 0;  /* This seems redundant to me, but I am not going
+		       to bother to take it out right now.  */
 
   CHECK_FATAL (props != NULL);
   ppc_clear_function_properties (props);
@@ -138,261 +193,393 @@ ppc_parse_instructions (start, end, props)
 
   for (pc = start; (end == INVALID_ADDRESS) || (pc < end); 
        pc += 4, insn_count++) {
-
-    unsigned long op = read_memory_unsigned_integer (pc, 4);
-
-    /* Check to see if we are seeing a prolog using the save_world
-       routine to store away registers.  The pattern will be:
-
-         mflr    r0
-         li      r11,stack_size
-         bl      <save_world>
-
-       and it will occur at the very beginning of the prolog (we will set
-       could_be_save_world if we see mflr r0 as the first insn.)
-    */
-
-    if (could_be_save_world)
+    unsigned long op;
+    if (!safe_read_memory_unsigned_integer (pc, 4, &op))
       {
-	/* li r11,stack_size */ 
-	if ((op & 0xffff0000) == 0x39600000) 
+        ppc_debug ("ppc_parse_instructions: Got an error reading at 0x%lx",
+                   pc);
+        /* We got an error reading the PC, so let's get out of here... */
+        return pc;
+      }
+      
+    /* This bcl is part of the sequence:
+       
+       mflr r0 (optional - only if leaf function)
+       bcl .+4
+       mflr r31
+       mtlr r0 (do this if you stored it at the top)
+    */
+    if ((op & 0xfe000005) == 0x42000005) /* bcl .+4 another relocatable
+						 way to access global data */
+      {
+	props->lr_invalid = pc;
+        saw_pic_base_setup = 1;
+	continue;
+      }
+    /* Look at other branch instructions.  There are a couple of MacOS
+       X Special purpose routines that are used in function prologues.
+       These are:
+
+       * saveWorld: used to be used in user code to set up info for C++ 
+         exceptions, though now it is only used in throw itself.
+       * saveFP: saves the FP registers AND the lr
+       * saveVec: saves the AltiVec registers.
+       If the bl is not one of these, we are probably not in a prologue,
+       and we should get out...
+
+     */
+    else if ((op & 0xfc000003) == 0x48000001) /* bl <FN> */
+      {
+	/* Look up the pc you are branching to, and make
+	   sure it is save_world.  The instruction in the bl
+	   is bits 6-31, with the last two bits zeroed, sign extended and
+	   added to the pc. */
+	
+	struct objfile *objfile;
+	struct obj_section *osect;
+	asection *sect;
+	struct minimal_symbol *msymbol;
+	CORE_ADDR sect_addr;
+	LONGEST branch_target;
+	int recognized_fn_in_prolog = 0;
+	
+        props->lr_invalid = pc;
+	branch_target = (op & 0x03fffffc);
+
+	if ((branch_target & 0x02000000) == 0x02000000)
 	  {
-	    CORE_ADDR next_pc = pc + 4;
-	    unsigned long next_op = read_memory_unsigned_integer (next_pc, 4);
-	    if ((next_op & 0xfc000003) == 0x48000001) /* bl <save_world> */
+	    /* Sign extend the address offset */
+	    int addrsize = 26; /* The number of significant bits in the address */
+	    ULONGEST valmask;
+	    valmask = (((ULONGEST) 1) << addrsize) - 1;
+	    branch_target &= valmask;
+	    if (branch_target & (valmask ^ (valmask >> 1)))
 	      {
-		/* Look up the pc you are branching to, and make
-		   sure it is save_world.  The instruction in the bl
-		   is bits 6-31, with the last two bits zeroed, sign extended and
-		   added to the pc. */
-
-		struct objfile *objfile;
-		struct obj_section *osect;
-		asection *sect;
-		struct minimal_symbol *msymbol;
-		CORE_ADDR branch_target = (next_op & 0x03fffffc), sect_addr;
-
-		if ((branch_target & 0x02000000) == 0x02000000)
-		  branch_target |= 0xfc000000;
-		
-		branch_target += next_pc;
-
-		ALL_OBJSECTIONS (objfile, osect)
-		  {
-		    sect = osect->the_bfd_section;
-		    sect_addr = overlay_mapped_address (branch_target, sect);
-
-		    if (osect->addr <= sect_addr && sect_addr < osect->endaddr &&
-			(msymbol = lookup_minimal_symbol_by_pc_section (sect_addr, sect)))
-		      if (strcmp (SYMBOL_SOURCE_NAME (msymbol), "save_world"))
-			{
-			  could_be_save_world == 0;
-			}
-		  }
-
-		if (could_be_save_world) {
-
-		  /* save_world currently saves all the volatile registers,
-		     and saves $lr & $cr on the stack in the usual place.
-		     if gcc changes, this needs to be updated as well. */
-		  
-		  props->frameless = 0;
-		  props->alloca_saved = 0;
-		  
-		  props->lr_saved = 1;
-		  props->lr_offset = 8;
-		  props->lr_reg = 0;
-		  
-		  props->cr_saved = 1;
-		  props->cr_offset = 4;
-		  props->cr_reg = 0;
-		  
-		  props->saved_gpr = 13;
-		  props->gpr_offset = -220;
-		  
-		  props->saved_fpr = 14;
-		  props->fpr_offset = -144;
-		  
-		  break;
-		}
+		branch_target |= ~valmask;
 	      }
-	    else
-	      could_be_save_world = 0;
+	    /* branch_target |= 0xfc000000; */
 	  }
+
+	branch_target += pc + 4;
+	
+	ALL_OBJSECTIONS (objfile, osect)
+	  {
+	    sect = osect->the_bfd_section;
+	    sect_addr = overlay_mapped_address (branch_target, sect);
+	    
+	    if (osect->addr <= sect_addr 
+		&& sect_addr < osect->endaddr 
+		&& (msymbol = lookup_minimal_symbol_by_pc_section (sect_addr, 
+								   sect)))
+	      {
+		if (strcmp (SYMBOL_SOURCE_NAME (msymbol), "save_world") == 0)
+		  {
+		    /* save_world currently saves all the volatile registers,
+		       and saves $lr & $cr on the stack in the usual place.
+		       if gcc changes, this needs to be updated as well. */
+		    
+		    props->frameless = 0;
+		    props->frameptr_used = 0;
+		    
+		    props->lr_saved = pc;
+		    props->lr_offset = 8;
+		    lr_reg = 0;
+		    
+		    props->cr_saved = 1;
+		    props->cr_offset = 4;
+		    cr_reg = 0;
+		    
+		    props->saved_gpr = 13;
+		    props->gpr_offset = -220;
+		    
+		    props->saved_fpr = 14;
+		    props->fpr_offset = -144;
+		    
+		    recognized_fn_in_prolog = 1;
+		  }
+		else if (strcmp (SYMBOL_SOURCE_NAME (msymbol), "saveFP") == 0)
+		  {
+		    unsigned long store_insn;
+		    int reg;
+
+		    /* Decode the actual branch target to find the
+		       lowest register that is stored: */
+                     if (safe_read_memory_unsigned_integer (branch_target, 4, 
+                                                            &store_insn))
+                       {
+                         ppc_debug ("ppc_parse_instructions: Got an error reading at 0x%lx",
+                                    pc);
+                         /* We got an error reading the PC, 
+                            so let's get out of here... */
+                         return pc;
+                       }
+                       
+		    reg = GET_SRC_REG (store_insn);
+		    if ((props->saved_fpr == -1) 
+			|| (props->saved_fpr > reg)) {
+		      props->saved_fpr = reg;
+		      props->fpr_offset = SIGNED_SHORT (store_insn) 
+			+ offset2;
+		    }
+		    /* The LR also gets saved in saveFP... */
+		    props->lr_saved = pc;
+		    props->lr_offset = 8;
+		    lr_reg = 0;
+		    
+		    recognized_fn_in_prolog = 1;
+		  }
+		else if (strcmp (SYMBOL_SOURCE_NAME (msymbol), "saveVec") == 0)
+		  {
+		    /* FIXME: We can't currently get the AltiVec
+		       registers, but we need to save them away for
+		       when we can. */
+
+		    recognized_fn_in_prolog = 1;
+		  }
+		break;
+	      }
+	  }
+	/* If we didn't recognize this function, we are probably not
+	   in the prologue, so let's get out of here... */
+	if (!recognized_fn_in_prolog)
+	  break;
+	else
+	  continue;
+      }
+    /* mflr is used BOTH to store away the real link register,
+       and afterwards in
+       bcl .+4
+       mflr r31
+       to set the pic base for globals.  For now, we only care
+       about the link register, and not the pic base business.
+       The link register store will ALWAYS be to r0, so ignore
+       it if it is another register.
+    */
+    else if ((op & 0xfc1fffff) == 0x7c0802a6) /* mflr Rx */
+      {
+	int target_reg = (op & 0x03e00000) >> 21;
+	if ((target_reg == 31) && saw_pic_base_setup)
+	  {
+	    props->pic_base_reg = 31;
+	  }
+	else
+	  {
+	    props->lr_reg = target_reg;
+	    lr_reg = (op & 0x03e00000) | 0x90010000;
+	  }
+
+	continue;
+      } 
+    else if ((op & 0xfc1fffff) == 0x7c0803a6) /* mtlr Rx */
+      {
+        /* We see this case when we have moved the lr aside to
+           set up the pic base, but have not saved it on the 
+           stack because we are a leaf function.  We are now
+           moving it back to the lr, so the lr is again valid */
+
+        int target_reg = (op & 0x03e00000) >> 21;
+        if (!props->lr_saved 
+            && (props->lr_reg > -1))
+          {
+            props->lr_valid_again = pc;
+          }
+      }
+    else if ((op & 0xfc1fffff) == 0x7c000026)  /* mfcr Rx */
+      {
+	/* Ditto for the cr move, we always use r0 for temp store
+	   in the prologue.
+	*/
+	
+	int target_reg = (op & 0x03e000000) >> 21;
+	if (target_reg == 0)
+	  {
+	    cr_reg = (op & 0x03e00000) | 0x90010000;
+	  }
+	continue;
+      } 
+    else if ((op & 0xfc1f0000) == 0xd8010000)  /* stfd Rx,NUM(r1) */
+      {
+	int reg = GET_SRC_REG (op);
+	if ((props->saved_fpr == -1) || (props->saved_fpr > reg)) {
+	  props->saved_fpr = reg;
+	  props->fpr_offset = SIGNED_SHORT (op) + offset2;
+	}
+	continue;
+      } 
+    else if (((op & 0xfc1f0000) == 0xbc010000)
+	       /* stm Rx, NUM(r1) */
+	       || ((op & 0xfc1f0000) == 0x90010000 
+		   /* st rx,NUM(r1), rx >= r13 */
+		   && (op & 0x03e00000) >= 0x01a00000)) 
+      {
+	int reg = GET_SRC_REG (op);
+	if ((props->saved_gpr == -1) || (props->saved_gpr > reg)) {
+	  props->saved_gpr = reg;
+	  props->gpr_offset = SIGNED_SHORT (op) + offset2;
+	}
+	continue;
       }
 
-    if ((op & 0xfc1fffff) == 0x7c0802a6) { /* mflr Rx */
-      props->lr_reg = (op & 0x03e00000) | 0x90010000;
-      if (insn_count == 1)
-	could_be_save_world = 1;
-      continue;
-    } else if ((op & 0xfc1fffff) == 0x7c000026) { /* mfcr Rx */
-      props->cr_reg = (op & 0x03e00000) | 0x90010000;
-      continue;
-
-    } else if ((op & 0xfc1f0000) == 0xd8010000) { /* stfd Rx,NUM(r1) */
-      int reg = GET_SRC_REG (op);
-      if ((props->saved_fpr == -1) || (props->saved_fpr > reg)) {
-	props->saved_fpr = reg;
-	props->fpr_offset = SIGNED_SHORT (op) + props->offset2;
+    /* If we saw a mflr, then we set lr_reg to the stw insn that would 
+       match the register mflr moved the lr to.  Otherwise it is 0 or
+       -1 so it won't match this... */
+    else if ((op & 0xffff0000) == lr_reg) 
+      { 
+	/* st Rx,NUM(r1) where Rx == lr */
+	props->lr_saved = pc;
+	props->lr_offset = SIGNED_SHORT (op) + offset2;
+	lr_reg = 0;
+	continue;
+	
       }
-      continue;
-
-    } else if (((op & 0xfc1f0000) == 0xbc010000) || /* stm Rx, NUM(r1) */
-	       ((op & 0xfc1f0000) == 0x90010000 && /* st rx,NUM(r1), rx >= r13 */
-		(op & 0x03e00000) >= 0x01a00000)) {
-      int reg = GET_SRC_REG (op);
-      if ((props->saved_gpr == -1) || (props->saved_gpr > reg)) {
-	props->saved_gpr = reg;
-	props->gpr_offset = SIGNED_SHORT (op) + props->offset2;
+    else if ((op & 0xffff0000) == cr_reg) 
+      { 
+	/* st Rx,NUM(r1) where Rx == cr */
+	props->cr_saved = 1;
+	props->cr_offset = SIGNED_SHORT (op) + offset2;
+	cr_reg = 0;
+	continue;
+	
+      } 
+    /* This is moving the stack pointer to the top of the new stack
+       when the frame is < 32K */
+    else if ((op & 0xffff0000) == 0x94210000) 
+      { /* stu r1,NUM(r1) */
+	props->frameless = 0;
+	props->offset = SIGNED_SHORT (op);
+	offset2 = props->offset;
+	continue;
+	
+      } 
+    /* The next three instructions are used to set up the stack when
+       the frame is >= 32K */
+    else if ((op & 0xffff0000) == 0x3c000000) 
+      { 
+	/* addis 0,0,NUM, (i.e. lis r0, NUM) used for >= 32k frames */
+	props->offset = (op & 0x0000ffff) << 16;
+	props->frameless = 0;
+	continue;
+	
+      } 
+    else if ((op & 0xffff0000) == 0x60000000) 
+      { 
+	/* ori 0,0,NUM, 2nd half of >= 32k frames */
+	props->offset |= (op & 0x0000ffff);
+	props->frameless = 0;
+	continue;
+	
+      } 
+    else if (op == 0x7c21016e) 
+      { /* stwux 1,1,0 */
+	props->frameless = 0;
+	offset2 = props->offset;
+	continue;
       }
-      continue;
+    /* Gcc on MacOS X uses r30 for the frame pointer */
+    else if (op == 0x7c3e0b78)  /* mr r30, r1 */
+      {
+	props->frameptr_used = 1;
+	props->frameptr_reg = 30;
+	continue;
+	
+      } 
+    /* store parameters in stack via frame pointer - Using r31 */
+    else if ((props->frameptr_used && props->frameptr_reg == 30) &&
+	       ((op & 0xfc1f0000) == 0x901e0000 || /* st rx,NUM(r1) */
+		(op & 0xfc1f0000) == 0xd81e0000 || /* stfd Rx,NUM(r1) */
+		(op & 0xfc1f0000) == 0xfc1e0000))  /* frsp, fp?,NUM(r1) */
+	{
+	  continue;
 
-    } else if ((op & 0xffff0000) == 0x3c000000) { /* addis 0,0,NUM, used for >= 32k frames */
-      props->offset = (op & 0x0000ffff) << 16;
-      props->frameless = 0;
-      continue;
+	} 
+    /* These ones are not used in Apple's gcc for function prologues
+       so far as I can tell.  I am keeping them around since we support
+       other compilers, but this way we can tell which bits we need
+       to change as we change the ABI that our gcc uses... */
 
-    } else if ((op & 0xffff0000) == 0x60000000) { /* ori 0,0,NUM, 2nd half of >= 32k frames */
-      props->offset |= (op & 0x0000ffff);
-      props->frameless = 0;
-      continue;
-
-    } else if ((op & 0xffff0000) == props->lr_reg) { /* st Rx,NUM(r1) where Rx == lr */
-      props->lr_saved = 1;
-      props->lr_offset = SIGNED_SHORT (op) + props->offset2;
-      props->lr_reg = 0;
-      continue;
-
-    } else if ((op & 0xffff0000) == props->cr_reg) { /* st Rx,NUM(r1) where Rx == cr */
-      props->cr_saved = 1;
-      props->cr_offset = SIGNED_SHORT (op) + props->offset2;
-      props->cr_reg = 0;
-      continue;
-
-    } else if (op == 0x48000005) { /* bl .+4 used in -mrelocatable */
-      continue;
-
-    } else if (op == 0x48000004) { /* b .+4 (xlc) */
-      break;
-
-    } else if (((op & 0xffff0000) == 0x801e0000 || /* lwz 0,NUM(r30), used in V.4 -mrelocatable */
-		op == 0x7fc0f214) && /* add r30,r0,r30, used in V.4 -mrelocatable */
-	       props->lr_reg == 0x901e0000) {
-      continue;
-
-    } else if ((op & 0xffff0000) == 0x3fc00000 || /* addis 30,0,foo@ha, used in V.4 -mminimal-toc */
-	       (op & 0xffff0000) == 0x3bde0000) { /* addi 30,30,foo@l */
-      continue;
-
-    } else if ((op & 0xfc000000) == 0x48000000) { /* bl foo, to save fprs??? */
-
-      /* Don't skip over the subroutine call if it is not within the first
-	 three instructions of the prologue, or if it is the FIRST instruction (since
-         then we are probably just looking at a bl in ordinary code... 
-      */
-
-      if ((pc - start) > 8 || pc == start) {
+    else if (op == 0x48000005) /* bl .+4 used in -mrelocatable */
+      { 
+	continue;
+      } 
+    else if (op == 0x48000004) /* b .+4 (xlc) */
+      {
 	break;
-      }
-
-      op = read_memory_unsigned_integer (pc + 4, 4);
-
-      /* At this point, make sure this is not a trampoline function
-	 (a function that simply calls another functions, and nothing else).
-	 If the next is not a nop, this branch was part of the function
-	 prologue. */
-
-      if (op == 0x4def7b82 || op == 0) { /* crorc 15, 15, 15 */
-	break;			/* don't skip over this branch */
-      }
-
-      continue;
-
-      /* update stack pointer */
-    } else if ((op & 0xffff0000) == 0x94210000) { /* stu r1,NUM(r1) */
-      props->frameless = 0;
-      props->offset = SIGNED_SHORT (op);
-      props->offset2 = props->offset;
-      continue;
-
-    } else if (op == 0x7c21016e) { /* stwux 1,1,0 */
-      props->frameless = 0;
-      props->offset2 = props->offset;
-      continue;
-
-      /* load up minimal toc pointer */
-    } else if ((op >> 22) == 0x20f
-	       && ! props->minimal_toc_loaded) { /* l r31,... or l r30,... */
-      props->minimal_toc_loaded = 1;
-      continue;
-
-      /* store parameters in stack */
-    } else if ((op & 0xfc1f0000) == 0x90010000 || /* st rx,NUM(r1) */
+      } 
+    /* load up minimal toc pointer */
+    else if ((op >> 22) == 0x20f
+	       && ! props->minimal_toc_loaded) /* l r31,... or l r30,... */
+      { 
+	props->minimal_toc_loaded = 1;
+	continue;
+	
+      } 
+    /* store parameters in stack */
+    else if ((op & 0xfc1f0000) == 0x90010000 || /* st rx,NUM(r1) */
 	       (op & 0xfc1f0000) == 0xd8010000 || /* stfd Rx,NUM(r1) */
-	       (op & 0xfc1f0000) == 0xfc010000) { /* frsp, fp?,NUM(r1) */
-      continue;
-
-      /* store parameters in stack via frame pointer */
-    } else if (props->alloca_saved &&
+	       (op & 0xfc1f0000) == 0xfc010000) /* frsp, fp?,NUM(r1) */
+      { 
+	continue;
+	
+      }
+    /* store parameters in stack via frame pointer - Using r31 */
+    else if ((props->frameptr_used && props->frameptr_reg == 31) &&
 	       ((op & 0xfc1f0000) == 0x901f0000 || /* st rx,NUM(r1) */
 		(op & 0xfc1f0000) == 0xd81f0000 || /* stfd Rx,NUM(r1) */
-		(op & 0xfc1f0000) == 0xfc1f0000)) { /* frsp, fp?,NUM(r1) */
-      continue;
+		(op & 0xfc1f0000) == 0xfc1f0000))  /* frsp, fp?,NUM(r1) */
+	{
+	  continue;
 
-      /* Set up frame pointer */
-    } else if (op == 0x603f0000	/* oril r31, r1, 0x0 */
-	       || op == 0x7c3f0b78) { /* mr r31, r1 */
-      props->alloca_saved = 1;
-      props->alloca_reg = 31;
-      continue;
-
-      /* Set up frame pointer (this time check for r30) */
-    } else if (op == 0x603e0000	/* oril r31, r1, 0x0 */
-	       || op == 0x7c3e0b78) { /* mr r31, r1 */
-      props->alloca_saved = 1;
-      props->alloca_reg = 30;
-      continue;
-
-      /* Another way to set up the frame pointer.  */
-    } else if ((op & 0xfc1fffff) == 0x38010000) { /* addi rX, r1, 0x0 */
-      props->alloca_saved = 1;
-      props->alloca_reg = (op & ~0x38010000) >> 21;
-      continue;
-
-      /* unknown instruction */
-    } else {
-      break;
-    }
+	} 
+    /* update stack pointer */
+    else if (((op & 0xffff0000) == 0x801e0000
+		/* lwz 0,NUM(r30), used in V.4 -mrelocatable */
+		|| op == 0x7fc0f214)
+	       /* add r30,r0,r30, used in V.4 -mrelocatable */
+	       && lr_reg == 0x901e0000) 
+      {
+	continue;
+      } 
+    else if ((op & 0xffff0000) == 0x3fc00000 
+	       /* addis 30,0,foo@ha, used in V.4 -mminimal-toc */
+	       || (op & 0xffff0000) == 0x3bde0000)  /* addi 30,30,foo@l */
+      {
+	continue;
+	
+      } 
+    /* Set up frame pointer */
+    else if (op == 0x603f0000	/* oril r31, r1, 0x0 */
+	       || op == 0x7c3f0b78)  /* mr r31, r1 */
+      {
+	props->frameptr_used = 1;
+	props->frameptr_reg = 31;
+	continue;
+	
+      } 
+    /* Set up frame pointer (this time check for r30)
+       Note - I moved the "mr r30, r1" check up to the Apple uses
+       these section, just to keep this thing more managable...  */
+    else if (op == 0x603e0000)	/* oril r30, r1, 0x0 */
+      {
+	props->frameptr_used = 1;
+	props->frameptr_reg = 30;
+	continue;
+	
+      } 
+    /* Another way to set up the frame pointer.  */
+    else if ((op & 0xfc1fffff) == 0x38010000) /* addi rX, r1, 0x0 */
+      {
+	props->frameptr_used = 1;
+	props->frameptr_reg = (op & ~0x38010000) >> 21;
+	continue;
+	
+      } 
+    /* unknown instruction */
+    else 
+      {
+	break;
+      }
   }
 
-#if 0
-/* I have problems with skipping over __main() that I need to address
- * sometime. Previously, I used to use misc_function_vector which
- * didn't work as well as I wanted to be.  -MGO */
-
-  /* If the first thing after skipping a prolog is a branch to a function,
-     this might be a call to an initializer in main(), introduced by gcc2.
-     We'd like to skip over it as well. Fortunately, xlc does some extra
-     work before calling a function right after a prologue, thus we can
-     single out such gcc2 behaviour. */
-     
-
-  if ((op & 0xfc000001) == 0x48000001) { /* bl foo, an initializer function? */
-    op = read_memory_unsigned_integer (pc+4, 4);
-
-    if (op == 0x4def7b82) {		/* cror 0xf, 0xf, 0xf (nop) */
-
-      /* check and see if we are in main. If so, skip over this initializer
-         function as well. */
-
-      tmp = find_pc_misc_function (pc);
-      if (tmp >= 0 && STREQ (misc_function_vector [tmp].name, "main"))
-        return pc + 8;
-    }
-  }
-#endif /* 0 */
- 
   if (props->offset != -1) { props->offset = -props->offset; }
   
   return pc;
@@ -428,25 +615,28 @@ ppc_clear_function_properties (properties)
      ppc_function_properties *properties;
 {
   properties->offset = -1;
-  properties->offset2 = 0;
 
   properties->saved_gpr = -1;
   properties->saved_fpr = -1;
   properties->gpr_offset = 0;
   properties->fpr_offset = 0;
 
-  properties->alloca_reg = -1;
+  properties->frameptr_reg = -1;
+  properties->frameptr_used = 0;
+
   properties->frameless = 1;
 
   properties->lr_saved = 0;
   properties->lr_offset = -1;
-  properties->lr_reg = -1;
+  properties->lr_reg    = -1;
+  properties->lr_invalid  = 0;
+  properties->lr_valid_again = INVALID_ADDRESS;
 
   properties->cr_saved = 0;
   properties->cr_offset = -1;
-  properties->cr_reg = -1;
 
   properties->minimal_toc_loaded = 0;
+  properties->pic_base_reg = 0;
 }
 
 
@@ -470,8 +660,8 @@ ppc_find_function_boundaries (request, reply)
   CHECK_FATAL (reply->prologue_start != INVALID_ADDRESS);
 
   if ((reply->prologue_start % 4) != 0) { return -1; }
-  reply->body_start = ppc_parse_instructions (reply->prologue_start, INVALID_ADDRESS, &props);
-
+  reply->body_start = ppc_parse_instructions (reply->prologue_start, 
+					      INVALID_ADDRESS, &props);
   return 0;
 }
 
@@ -480,7 +670,7 @@ ppc_frame_cache_boundaries (frame, retbounds)
      struct frame_info *frame;
      struct ppc_function_boundaries *retbounds;
 {
-  if (! frame->extra_info->bounds) {
+  if (!frame->extra_info->bounds) {
 
     if (ppc_is_dummy_frame (frame)) {
 
@@ -520,70 +710,120 @@ ppc_frame_cache_boundaries (frame, retbounds)
   return 0;
 }
 
+/* ppc_frame_cache_properties - 
+ * This function creates the ppc_function_properties
+ * bit of the extra_info structure of FRAME, if it is not already
+ * present.  If RETPROPS is not NULL, it copies the properties
+ * to retprops (provided by caller).
+ * 
+ * Returns: 0 on success */
+
 int
 ppc_frame_cache_properties (frame, retprops)
      struct frame_info *frame;
      struct ppc_function_properties *retprops;
 {
-  /* FIXME: I have seen a couple of cases where this function gets called with a frame whose
-     extra_info has not been set yet.  It is always when the stack is mauled, and you try
-     to run "up" or some other such command, so I am not sure we can really recover well,
-     but at some point it might be good to look at this more closely. */
+  /* FIXME: I have seen a couple of cases where this function gets
+     called with a frame whose extra_info has not been set yet.  It is
+     always when the stack is mauled, and you try to run "up" or some
+     other such command, so I am not sure we can really recover well,
+     but at some point it might be good to look at this more
+     closely. */
 
-  CHECK (frame->extra_info);
-
-  if (! frame->extra_info->props) {
-
-    if (ppc_is_dummy_frame (frame)) {
-
-      ppc_function_properties *props;
-
-      frame->extra_info->props = (struct ppc_function_properties *)
-	obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_properties));
-      CHECK_FATAL (frame->extra_info->props != NULL);
-      ppc_clear_function_properties (frame->extra_info->props);
-      props = frame->extra_info->props;
-
-      props->offset = 0;
-      props->saved_gpr = -1;
-      props->saved_fpr = -1;
-      props->gpr_offset = -1;
-      props->fpr_offset = -1;
-      props->frameless = 0;
-      props->alloca_saved = 0;
-      props->alloca_reg = -1;
-      props->lr_saved = 1;
-      props->lr_offset = DEFAULT_LR_SAVE;
-      props->lr_reg = -1;
-      props->cr_saved = 0;
-      props->cr_offset = -1;
-      props->cr_reg = -1;
-      props->minimal_toc_loaded = 0;
-
-    } else {
-
-      int ret;
-      ppc_function_properties lprops;
-
-      ppc_clear_function_properties (&lprops);
-
-      ret = ppc_frame_cache_boundaries (frame, NULL);
-      if (ret != 0) { return ret; }
-
-      if ((frame->extra_info->bounds->prologue_start % 4) != 0) { return -1; }
-      if ((frame->pc % 4) != 0) { return -1; }
-      ppc_parse_instructions (frame->extra_info->bounds->prologue_start, frame->pc, &lprops);
-  
-      frame->extra_info->props = (struct ppc_function_properties *)
-	obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_properties));
-      CHECK_FATAL (frame->extra_info->props != NULL);
-      memcpy (frame->extra_info->props, &lprops, sizeof (ppc_function_properties));
+  if (!frame->extra_info)
+    {
+      return 1;
     }
-  }
+
+  if (! frame->extra_info->props) 
+    {
+      
+      if (ppc_is_dummy_frame (frame)) 
+	{
+	  
+	  ppc_function_properties *props;
+	  
+	  frame->extra_info->props = (struct ppc_function_properties *)
+	    obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_properties));
+	  CHECK_FATAL (frame->extra_info->props != NULL);
+	  ppc_clear_function_properties (frame->extra_info->props);
+	  props = frame->extra_info->props;
+	  
+	  props->offset = 0;
+	  props->saved_gpr = -1;
+	  props->saved_fpr = -1;
+	  props->gpr_offset = -1;
+	  props->fpr_offset = -1;
+	  props->frameless = 0;
+	  props->frameptr_used = 0;
+	  props->frameptr_reg = -1;
+	  props->lr_saved = 1;
+	  props->lr_offset = DEFAULT_LR_SAVE;
+	  props->cr_saved = 0;
+	  props->cr_offset = -1;
+	  props->minimal_toc_loaded = 0;
+	  
+	} 
+      else 
+	{
+	  
+	  int ret;
+	  ppc_function_properties lprops;
+	  
+	  ppc_clear_function_properties (&lprops);
+	  
+	  ret = ppc_frame_cache_boundaries (frame, NULL);
+	  if (ret != 0) { return ret; }
+	  
+	  if ((frame->extra_info->bounds->prologue_start % 4) != 0) { return -1; }
+	  if ((frame->pc % 4) != 0) { return -1; }
+	  ppc_parse_instructions (frame->extra_info->bounds->prologue_start, 
+				  frame->extra_info->bounds->function_end, &lprops);
+	  frame->extra_info->props = (struct ppc_function_properties *)
+	    obstack_alloc (&frame_cache_obstack, sizeof (ppc_function_properties));
+	  CHECK_FATAL (frame->extra_info->props != NULL);
+	  
+	  /* ppc_parse_instructions sometimes gets the stored pc location
+	     wrong.  However, we KNOW that for all frames but frame 0
+	     the pc is on the stack.  So force that here. */
+	  
+	  if (frame->next != NULL && !lprops.lr_saved)
+	    {
+	      lprops.lr_offset = 8;
+	      /* This is bogus, just needs to be BEFORE where we are
+		 to get the rest of the code right. */
+	      lprops.lr_saved = frame->pc - 8;
+	      lprops.lr_reg = LR_REGNUM;
+	      lprops.lr_invalid = 0;
+	      ppc_debug ("ppc_frame_cache_properties: %s\n",
+			 "thought a non-leaf frame didn't save the lr, correcting...");
+	    }
+	  
+	  memcpy (frame->extra_info->props, &lprops,
+		  sizeof (ppc_function_properties));
+	}
+    } 
+  else if (frame->next != NULL && !frame->extra_info->props->lr_saved)
+    {
+      /* We tried to correct this error from ppc_parse_instructions above,
+	 but the frame hadn't been fully set yet.  So we will do it again
+	 here... */
+      ppc_function_properties *props = frame->extra_info->props;
+      
+      props->lr_offset = 8;
+      /* This is bogus, just needs to be BEFORE where we are
+	 to get the rest of the code right. */
+      props->lr_saved = frame->pc - 8;
+      props->lr_reg = LR_REGNUM;
+      props->lr_invalid = 0;
+      ppc_debug ("ppc_frame_cache_properties: %s\n",
+		 "thought a non-leaf frame didn't save the lr, correcting...");
+      
+    }
 
   if (retprops != NULL) {
     memcpy (retprops, frame->extra_info->props, sizeof (ppc_function_properties));
   }
-
+  
   return 0;    
 }
