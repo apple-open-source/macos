@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mount_smbfs.c,v 1.23 2003/09/08 23:45:26 lindak Exp $
+ * $Id: mount_smbfs.c,v 1.23.60.1 2005/04/11 21:15:05 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -47,6 +47,9 @@
 #include <sysexits.h>
 
 #include <cflib.h>
+ 
+#include <Kerberos/KerberosLogin.h>
+#include <Kerberos/com_err.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -64,6 +67,8 @@ static struct mntopt mopts[] = {
 	{ NULL, 0, 0, 0 }
 };
 
+extern KLStatus __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess);
+static void my_com_err_proc(const char *whoami, long int code, const char *format, va_list ap);
 
 int
 main(int argc, char *argv[])
@@ -271,6 +276,27 @@ main(int argc, char *argv[])
 		if (mdata.dir_mode & S_IROTH)
 			mdata.dir_mode |= S_IXOTH;
 	}
+
+        /*
+         * If this is being done for the automounter, do *NOT* let
+         * Kerberos touch the user's home directory, as we might be
+         * trying to mount the user's home directory, and any attempt
+         * by Kerberos to touch the user's home directory in the
+         * process will cause it, and thus us, to stall waiting for
+         * the automounter to mount the user's home directory, but
+         * the automounter is waiting for *us* to finish mounting
+         * it....
+         *
+         * We also have to set the com_err hook for reporting errors
+         * to our own routine, which won't try to do fancy
+         * localization of messages or anything else that might
+         * require access to the user's home directory.
+         */
+        if (mntflags & MNT_AUTOMOUNTED) {
+               __KLSetHomeDirectoryAccess(0);
+               set_com_err_hook(my_com_err_proc);
+        }
+
 	/*
 	 * For now, let connection be private for this mount
 	 */
@@ -445,4 +471,28 @@ usage(void)
 		" path");
 
 	exit (EX_USAGE);
+}
+
+/*
+ * my_com_err_proc() - Handle com_err(3) messages by printing them without
+ * any attempt at localization, because to localize the message for the
+ * user might require that we access the user's home directory, and we
+ * might be trying to mount the user's home directory on behalf of the
+ * automounter, so any reference to the user's home directory might
+ * stall waiting for that mount to finish, which it never will because
+ * the attempt to mount it is blocked trying to log an error because it's
+ * waiting for the attempt to mount it to finish....
+ */
+static void
+my_com_err_proc(const char *whoami, long int code, const char *format, va_list ap)
+{
+    /* Make the header */
+    fprintf(stderr, "%s: ", whoami);
+
+    /* If reporting an error message, separate it. */
+    if (code)
+	fprintf(stderr, "error code %ld - ", code);
+    
+    /* Now format the actual message */
+    vfprintf(stderr, format, ap);
 }

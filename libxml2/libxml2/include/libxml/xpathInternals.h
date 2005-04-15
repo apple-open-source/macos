@@ -15,6 +15,8 @@
 #include <libxml/xmlversion.h>
 #include <libxml/xpath.h>
 
+#ifdef LIBXML_XPATH_ENABLED
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,7 +40,7 @@ extern "C" {
  */
 #define xmlXPathSetError(ctxt, err)					\
     { xmlXPatherror((ctxt), __FILE__, __LINE__, (err));			\
-      (ctxt)->error = (err); }
+      if ((ctxt) != NULL) (ctxt)->error = (err); }
 
 /**
  * xmlXPathSetArityError:
@@ -292,6 +294,7 @@ XMLPUBFUN void * XMLCALL
  * Macro to check that the number of args passed to an XPath function matches.
  */
 #define CHECK_ARITY(x)							\
+    if (ctxt == NULL) return;						\
     if (nargs != (x))							\
         XP_ERROR(XPATH_INVALID_ARITY);
 
@@ -325,20 +328,6 @@ XMLPUBFUN void * XMLCALL
 /*
  * Variable Lookup forwarding.
  */
-/**
- * xmlXPathVariableLookupFunc:
- * @ctxt:  an XPath context
- * @name:  name of the variable
- * @ns_uri:  the namespace name hosting this variable
- *
- * Prototype for callbacks used to plug variable lookup in the XPath
- * engine.
- *
- * Returns the XPath object value or NULL if not found.
- */
-typedef xmlXPathObjectPtr (*xmlXPathVariableLookupFunc) (void *ctxt,
-					 const xmlChar *name,
-					 const xmlChar *ns_uri);
 
 XMLPUBFUN void XMLCALL	
 	xmlXPathRegisterVariableLookup	(xmlXPathContextPtr ctxt,
@@ -348,20 +337,6 @@ XMLPUBFUN void XMLCALL
 /*
  * Function Lookup forwarding.
  */
-/**
- * xmlXPathFuncLookupFunc:
- * @ctxt:  an XPath context
- * @name:  name of the function
- * @ns_uri:  the namespace name hosting this function
- *
- * Prototype for callbacks used to plug function lookup in the XPath
- * engine.
- *
- * Returns the XPath function or NULL if not found.
- */
-typedef xmlXPathFunction (*xmlXPathFuncLookupFunc) (void *ctxt,
-					 const xmlChar *name,
-					 const xmlChar *ns_uri);
 
 XMLPUBFUN void XMLCALL	
 	    xmlXPathRegisterFuncLookup	(xmlXPathContextPtr ctxt,
@@ -650,4 +625,6 @@ XMLPUBFUN void XMLCALL xmlXPathNodeSetFreeNs(xmlNsPtr ns);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* LIBXML_XPATH_ENABLED */
 #endif /* ! __XML_XPATH_INTERNALS_H__ */

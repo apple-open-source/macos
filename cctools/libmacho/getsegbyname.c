@@ -23,7 +23,15 @@
 #include <mach-o/ldsyms.h>
 #include <string.h>
 #ifndef __OPENSTEP__
+
+#ifndef RLD
+#ifdef __LP64__
+extern struct mach_header_64 *_NSGetMachExecuteHeader(void);
+#else /* !defined(__LP64__) */
 #include <crt_externs.h>
+#endif /* !defined(__LP64__) */
+#endif /* !defined(RLD) */
+
 #else /* defined(__OPENSTEP__) */
 #ifdef __DYNAMIC__
 #include "mach-o/dyld.h" /* defines _dyld_lookup_and_bind() */
@@ -54,22 +62,27 @@ if ( var ## _pointer == 0) {				\
  * looks through the load commands.  Since these are mapped into the text
  * segment they are read only and thus const.
  */
+#ifndef __LP64__
+
 const struct segment_command *
 getsegbyname(
-    char *segname)
+char *segname)
 {
-	static struct mach_header *mhp = NULL;
-	struct segment_command *sgp;
-	unsigned long i;
+    static struct mach_header *mhp = NULL;
+    struct segment_command *sgp;
+    unsigned long i;
+#ifndef RLD
 #ifndef __OPENSTEP__
-	if (mhp == NULL) {
-		mhp = _NSGetMachExecuteHeader();
-	}
+	if(mhp == NULL)
+	    mhp = _NSGetMachExecuteHeader();
 #else /* defined(__OPENSTEP__) */
         DECLARE_VAR(_mh_execute_header, struct mach_header);
         SETUP_VAR(_mh_execute_header);
 	mhp = (struct mach_header *)(& USE_VAR(_mh_execute_header));
 #endif /* __OPENSTEP__ */
+#else /* defined(RLD) */
+	mhp = (struct mach_header *)(&_mh_execute_header);
+#endif /* defined(RLD) */
         
 	sgp = (struct segment_command *)
 	      ((char *)mhp + sizeof(struct mach_header));
@@ -79,5 +92,34 @@ getsegbyname(
 		    return(sgp);
 	    sgp = (struct segment_command *)((char *)sgp + sgp->cmdsize);
 	}
-	return((struct segment_command *)0);
+	return(NULL);
 }
+
+#else /* defined(__LP64__) */
+
+const struct segment_command_64 *
+getsegbyname(
+char *segname)
+{
+    static struct mach_header_64 *mhp = NULL;
+    struct segment_command_64 *sgp;
+    unsigned long i;
+
+	if(mhp == NULL)
+#ifndef RLD
+	    mhp = _NSGetMachExecuteHeader();
+#else /* defined(RLD) */
+	    mhp = (struct mach_header_64 *)(&_mh_execute_header);
+#endif /* defined(RLD) */
+        
+	sgp = (struct segment_command_64 *)
+	      ((char *)mhp + sizeof(struct mach_header_64));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT_64)
+		if(strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0)
+		    return(sgp);
+	    sgp = (struct segment_command_64 *)((char *)sgp + sgp->cmdsize);
+	}
+	return(NULL);
+}
+#endif /* defined(__LP64__) */

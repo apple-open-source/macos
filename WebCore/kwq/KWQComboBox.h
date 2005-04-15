@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,14 +26,13 @@
 #ifndef QCOMBOBOX_H_
 #define QCOMBOBOX_H_
 
-#include "KWQWidget.h"
-
-class QListBox;
+#include "KWQListBox.h"
 
 #ifdef __OBJC__
 @class KWQComboBoxAdapter;
 #else
 class KWQComboBoxAdapter;
+class NSMenuItem;
 #endif
 
 class QComboBox : public QWidget {
@@ -42,7 +41,8 @@ public:
     ~QComboBox();
     
     void clear();
-    void insertItem(const QString &text, int index=-1);
+    void appendItem(const QString &text) { appendItem(text, false); }
+    void appendGroupLabel(const QString &text) { appendItem(text, true); }
 
     int currentItem() const { return _currentItem; }
     void setCurrentItem(int);
@@ -61,15 +61,26 @@ public:
     virtual FocusPolicy focusPolicy() const;
 
     void setWritingDirection(QPainter::TextDirection);
+
+    virtual void populate();
+    void populateMenu();
     
 private:
-    bool updateCurrentItem() const;
+    void appendItem(const QString &, bool isLabel);
     const int *dimensions() const;
+    NSFont *labelFont() const;
+    void setTitle(NSMenuItem *, const KWQListBoxItem &);
     
-    KWQComboBoxAdapter *_adapter;
-    mutable float _width;
+    mutable int _width;
     mutable bool _widthGood;
+
     mutable int _currentItem;
+
+    // A vector<KWQListBoxItem> or QValueVector<KWQListBoxItem> may be more efficient for large menus.
+    QValueList<KWQListBoxItem> _items;
+    mutable bool _menuPopulated;
+
+    mutable NSFont *_labelFont;
 
     KWQSignal _activated;
 };

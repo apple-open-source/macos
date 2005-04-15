@@ -20,14 +20,21 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <mach-o/ldsyms.h>
 #include <mach-o/swap.h>
 #include <string.h>
 #ifdef __DYNAMIC__
-#include "mach-o/dyld.h" /* defines _dyld_lookup_and_bind() */
-#endif
+#include <mach-o/dyld.h> /* defines _dyld_lookup_and_bind() */
+#endif /* defined(__DYNAMIC__) */
 #ifndef __OPENSTEP__
+
+#ifdef __LP64__
+extern struct mach_header_64 *_NSGetMachExecuteHeader(void);
+#else /* !defined(__LP64__) */
 #include <crt_externs.h>
+#endif /* !defined(__LP64__) */
+
 #else /* defined(__OPENSTEP__) */
 
 #if !defined(__DYNAMIC__)
@@ -86,6 +93,43 @@ const char *sectname)
 	return((struct section *)0);
 }
 
+/*
+ * This routine returns the section structure for the named section in the
+ * named segment for the mach_header_64 pointer passed to it if it exist.
+ * Otherwise it returns zero.
+ */
+const struct section_64 *
+getsectbynamefromheader_64(
+struct mach_header_64 *mhp,
+const char *segname,
+const char *sectname)
+{
+	struct segment_command_64 *sgp;
+	struct section_64 *sp;
+	unsigned long i, j;
+        
+	sgp = (struct segment_command_64 *)
+	      ((char *)mhp + sizeof(struct mach_header_64));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT_64)
+		if(strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0 ||
+		   mhp->filetype == MH_OBJECT){
+		    sp = (struct section_64 *)((char *)sgp +
+			 sizeof(struct segment_command_64));
+		    for(j = 0; j < sgp->nsects; j++){
+			if(strncmp(sp->sectname, sectname,
+			   sizeof(sp->sectname)) == 0 &&
+			   strncmp(sp->segname, segname,
+			   sizeof(sp->segname)) == 0)
+			    return(sp);
+			sp = (struct section_64 *)((char *)sp +
+			     sizeof(struct section_64));
+		    }
+		}
+	    sgp = (struct segment_command_64 *)((char *)sgp + sgp->cmdsize);
+	}
+	return((struct section_64 *)0);
+}
 
 /*
  * This routine returns the section structure for the named section in the
@@ -155,6 +199,8 @@ getsectbynamefromheaderwithswap(
  * section in the named segment if it exist in the mach executable it is
  * linked into.  Otherwise it returns zero.
  */
+#ifndef __LP64__
+
 const struct section *
 getsectbyname(
 const char *segname,
@@ -162,9 +208,8 @@ const char *sectname)
 {
     static struct mach_header *mhp = NULL;
 #ifndef __OPENSTEP__
-	if (mhp == NULL) {
+	if(mhp == NULL)
 	    mhp = _NSGetMachExecuteHeader();
-	}
 #else /* defined(__OPENSTEP__) */
 	DECLARE_VAR(_mh_execute_header, struct mach_header);
         SETUP_VAR(_mh_execute_header);
@@ -172,6 +217,22 @@ const char *sectname)
 #endif /* __OPENSTEP__ */
 	return(getsectbynamefromheader(mhp, segname, sectname));
 }
+
+#else /* defined(__LP64__) */
+
+const struct section_64 *
+getsectbyname(
+const char *segname,
+const char *sectname)
+{
+    static struct mach_header_64 *mhp = NULL;
+
+	if(mhp == NULL)
+	    mhp = _NSGetMachExecuteHeader();
+	return(getsectbynamefromheader_64(mhp, segname, sectname));
+}
+
+#endif /* defined(__LP64__) */
 
 /*
  * This routine returns the a pointer to the data for the named section in the
@@ -185,12 +246,16 @@ const char *segname,
 const char *sectname,
 unsigned long *size)
 {
-	const struct section *sp;
+#ifndef __LP64__
+    const struct section *sp;
+#else /* defined(__LP64__) */
+    const struct section_64 *sp;
+#endif /* defined(__LP64__) */
 
 	sp = getsectbyname(segname, sectname);
-	if(sp == (struct section *)0){
+	if(sp == NULL){
 	    *size = 0;
-	    return((char *)0);
+	    return(NULL);
 	}
 	*size = sp->size;
 	return((char *)(sp->addr));
@@ -200,7 +265,7 @@ unsigned long *size)
  * This routine returns the a pointer to the data for the named section in the
  * named segment if it exist in the mach header passed to it.  Also it returns
  * the size of the section data indirectly through the pointer size.  Otherwise
- *  it returns zero for the pointer and the size.
+ * it returns zero for the pointer and the size.
  */
 char *
 getsectdatafromheader(
@@ -209,15 +274,39 @@ const char *segname,
 const char *sectname,
 unsigned long *size)
 {
-	const struct section *sp;
+    const struct section *sp;
 
 	sp = getsectbynamefromheader(mhp, segname, sectname);
-	if(sp == (struct section *)0){
+	if(sp == NULL){
 	    *size = 0;
-	    return((char *)0);
+	    return(NULL);
 	}
 	*size = sp->size;
-	return((char *)(sp->addr));
+	return((char *)((unsigned long)(sp->addr)));
+}
+
+/*
+ * This routine returns the a pointer to the data for the named section in the
+ * named segment if it exist in the 64-bit mach header passed to it.  Also it
+ * returns the size of the section data indirectly through the pointer size.
+ * Otherwise it returns zero for the pointer and the size.
+ */
+char *
+getsectdatafromheader_64(
+struct mach_header_64 *mhp,
+const char *segname,
+const char *sectname,
+unsigned long *size)
+{
+    const struct section_64 *sp;
+
+	sp = getsectbynamefromheader_64(mhp, segname, sectname);
+	if(sp == NULL){
+	    *size = 0;
+	    return(NULL);
+	}
+	*size = sp->size;
+	return((char *)((unsigned long)(sp->addr)));
 }
 
 #ifdef __DYNAMIC__
@@ -236,8 +325,13 @@ const char *sectname,
 unsigned long *size)
 {
     unsigned long i, n, vmaddr_slide;
+#ifndef __LP64__
     struct mach_header *mh;
     const struct section *s;
+#else /* defined(__LP64__) */
+    struct mach_header_64 *mh;
+    const struct section_64 *s;
+#endif /* defined(__LP64__) */
     char *name, *p;
 
         n = _dyld_image_count();
@@ -250,7 +344,11 @@ unsigned long *size)
                 continue;
             mh = _dyld_get_image_header(i);
             vmaddr_slide = _dyld_get_image_vmaddr_slide(i);
+#ifndef __LP64__
             s = getsectbynamefromheader(mh, segname, sectname);
+#else /* defined(__LP64__) */
+            s = getsectbynamefromheader_64(mh, segname, sectname);
+#endif /* defined(__LP64__) */
             if(s == NULL){
                 *size = 0;
                 return(NULL);
@@ -262,3 +360,4 @@ unsigned long *size)
         return(NULL);
 }
 #endif /* __DYNAMIC__ */
+#endif /* !defined(RLD) */

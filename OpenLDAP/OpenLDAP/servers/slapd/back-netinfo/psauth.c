@@ -528,10 +528,8 @@ int GetRSAPublicKey( sPSContextData *inContext, char *inData )
 //	* InitConnection
 // ---------------------------------------------------------------------------
 
-int InitConnection(sPSContextData* pContext, sSASLContext *saslContext, char* psName, char* rsakey)
+int InitConnection(sPSContextData* pContext, sSASLContext *saslContext, char* psName, char* rsakey, sasl_callback_t callbacks[5])
 {
-	static sasl_callback_t callbacks[5];
-
 	long result;
 	sasl_security_properties_t secprops = {0,65535,4096,0,NULL,NULL};
 	char hexHash[34];
@@ -977,6 +975,7 @@ int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData)
 	sPSServerEntry anEntry;
 	struct in_addr inetAddr;
 	struct hostent *hostEnt;
+	sasl_callback_t callbacks[5];
 	
 	bzero( &context, sizeof(sPSContextData) );
 	CleanContextData ( &context );
@@ -1046,7 +1045,7 @@ int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData)
 	}
 	context.serverProvidedFromNode = anEntry;
 	
-    result = InitConnection(&context, &saslContext, serverAddr, rsaKey);
+    result = InitConnection(&context, &saslContext, serverAddr, rsaKey, callbacks);
     if (result != kAuthNoError)
 		break;
         

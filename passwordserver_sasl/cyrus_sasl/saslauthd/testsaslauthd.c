@@ -2,7 +2,7 @@
  * Rob Siemborski
  */
 /* 
- * Copyright (c) 2002 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,72 +57,21 @@
 #endif
 #include <assert.h>
 
-extern int errno;
+#include "globals.h"
+#include "utils.h"
 
-/*
- * Keep calling the writev() system call with 'fd', 'iov', and 'iovcnt'
- * until all the data is written out or an error occurs.
- */
-static int retry_writev(int fd, struct iovec *iov, int iovcnt)
-{
-    int n;
-    int i;
-    int written = 0;
-    static int iov_max =
-#ifdef MAXIOV
-	MAXIOV
-#else
-#ifdef IOV_MAX
-	IOV_MAX
-#else
-	8192
-#endif
-#endif
-	;
-    
-    for (;;) {
-	while (iovcnt && iov[0].iov_len == 0) {
-	    iov++;
-	    iovcnt--;
-	}
-
-	if (!iovcnt) return written;
-
-	n = writev(fd, iov, iovcnt > iov_max ? iov_max : iovcnt);
-	if (n == -1) {
-	    if (errno == EINVAL && iov_max > 10) {
-		iov_max /= 2;
-		continue;
-	    }
-	    if (errno == EINTR) continue;
-	    return -1;
-	}
-
-	written += n;
-
-	for (i = 0; i < iovcnt; i++) {
-	    if (iov[i].iov_len > (unsigned) n) {
-		iov[i].iov_base = (char *)iov[i].iov_base + n;
-		iov[i].iov_len -= n;
-		break;
-	    }
-	    n -= iov[i].iov_len;
-	    iov[i].iov_len = 0;
-	}
-
-	if (i == iovcnt) return written;
-    }
-}
-
+/* make utils.c happy */
+int flags = LOG_USE_STDERR;
 
 /*
  * Keep calling the read() system call with 'fd', 'buf', and 'nbyte'
  * until all the data is read in or an error occurs.
  */
-int retry_read(int fd, void *buf, unsigned nbyte)
+int retry_read(int fd, void *inbuf, unsigned nbyte)
 {
     int n;
     int nread = 0;
+    char *buf = (char *)inbuf;
 
     if (nbyte == 0) return 0;
 
@@ -135,7 +84,7 @@ int retry_read(int fd, void *buf, unsigned nbyte)
 
 	nread += n;
 
-	if (nread >= (int) nbyte) return nread;
+	if (n >= (int) nbyte) return nread;
 
 	buf += n;
 	nbyte -= n;
@@ -222,11 +171,15 @@ static int saslauthd_verify_password(const char *saslauthd_path,
     arg.rbuf = response;
     arg.rsize = sizeof(response);
 
-    door_call(s, &arg);
+    if(door_call(s, &arg) != 0) {
+	printf("NO \"door_call failed\"\n");
+	return -1;	
+    }
 
     assert(arg.data_size < sizeof(response));
     response[arg.data_size] = '\0';
 
+    close(s);
 #else
     s = socket(AF_UNIX, SOCK_STREAM, 0);
     if (s == -1) {
@@ -304,9 +257,13 @@ main(int argc, char *argv[])
   const char *errstr = NULL;
   int result;
   char *user_domain = NULL;
+  int repeat = 0;
 
-  while ((c = getopt(argc, argv, "p:u:r:s:f:")) != EOF)
+  while ((c = getopt(argc, argv, "p:u:r:s:f:R:")) != EOF)
       switch (c) {
+      case 'R':
+	  repeat = atoi(optarg);
+	  break;
       case 'f':
 	  path = optarg;
 	  break;
@@ -332,13 +289,20 @@ main(int argc, char *argv[])
 
   if (flag_error) {
     (void)fprintf(stderr,
-		 "%s: usage: %s -u username -p password\n"
-		 "              [-r realm] [-s servicename] [-f socket path]\n",
+		  "%s: usage: %s -u username -p password\n"
+		  "              [-r realm] [-s servicename]\n"
+		  "              [-f socket path] [-R repeatnum]\n",
 		  argv[0], argv[0]);
     exit(1);
   }
 
-  /* saslauthd-authenticated login */
-  return saslauthd_verify_password(path, user, password, service, realm);
+  if (!repeat) repeat = 1;
+  for (c = 0; c < repeat; c++) {
+      /* saslauthd-authenticated login */
+      printf("%d: ", c);
+      result = saslauthd_verify_password(path, user, password, service, realm);
+  }
+  return result;
 }
+
 

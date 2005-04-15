@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <mach/mach.h> /* first to get rid of pre-comp warning */
 #include <stdio.h>
 #include "stuff/arch.h"
@@ -43,3 +44,4 @@ arch_usage(void)
 	}
 	fprintf(stderr, "\n");
 }
+#endif /* !defined(RLD) */

@@ -2,7 +2,7 @@
  * Rob Earhart
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,16 +68,15 @@
 #undef STATIC_GSSAPIV2
 #undef STATIC_KERBEROS4
 #undef STATIC_LOGIN
+#undef STATIC_MYSQL
+#undef STATIC_NTLM
 #undef STATIC_OTP
 #undef STATIC_PLAIN
-#undef STATIC_SRP
 #undef STATIC_SASLDB
+#undef STATIC_SRP
 
 /* This is where plugins will live at runtime */
 #undef PLUGINDIR
-
-/* Do we need a leading _ for dlsym? */
-#undef DLSYM_NEEDS_UNDERSCORE
 
 /* Make autoheader happy */
 #undef WITH_SYMBOL_UNDERSCORE
@@ -89,14 +88,14 @@
 #undef WITH_DES
 #undef WITH_SSL_DES
 
+/* what about OpenSSL? */
+#undef HAVE_OPENSSL
+
 /* should we support srp_setpass */
 #undef DO_SRP_SETPASS
 
 /* do we have OPIE for server-side OTP support? */
 #undef HAVE_OPIE
-
-/* should we support otp_setpass */
-#undef DO_OTP_SETPASS
 
 /* Do we have kerberos for plaintext password checking? */
 #undef HAVE_KRB
@@ -109,6 +108,9 @@
 
 /* what flavor of GSSAPI are we using? */
 #undef HAVE_GSS_C_NT_HOSTBASED_SERVICE
+
+/* does GSSAPI provide GSS_C_NT_USER_NAME? */
+#undef HAVE_GSS_C_NT_USER_NAME
 
 /* do we have gssapi.h or gssapi/gssapi.h? */
 #undef HAVE_GSSAPI_H
@@ -152,9 +154,6 @@
 /* do we have a preferred mechanism, or should we just pick the highest ssf? */
 #undef PREFER_MECH
 
-/* do we have a wierd location of db.h? */
-#undef HAVE_DB3_DB_H
-
 /* define if your compile has __attribute__ */
 #undef HAVE___ATTRIBUTE__
 
@@ -170,7 +169,27 @@
 /* do we have sys/uio.h? */
 #undef HAVE_SYS_UIO_H
 
-/* define if your system has getnameinfo() */
+/* do we have sys/param.h? */
+#undef HAVE_SYS_PARAM_H
+
+/* do we have sysexits.h? */
+#undef HAVE_SYSEXITS_H
+
+/* stdarg.h? varargs.h? */
+#undef HAVE_STDARG_H
+#undef HAVE_VARARGS_H
+
+/* Do we need a leading _ for dlsym? */
+#undef DLSYM_NEEDS_UNDERSCORE
+
+/* Does libtool support shared libs on this system? */
+#undef HAVE_DLFCN_H
+#undef DO_DLOPEN
+
+/* Should we try to dlopen stuff when we are staticly compiled? */
+#undef TRY_DLOPEN_WHEN_STATIC
+
+/* define if your system has getaddrinfo() */
 #undef HAVE_GETADDRINFO
 
 /* define if your system has getnameinfo() */
@@ -185,6 +204,12 @@
 /* do we have socklen_t? */
 #undef HAVE_SOCKLEN_T
 #undef HAVE_SOCKADDR_SA_LEN
+
+/* do we use doors for IPC? */
+#undef USE_DOORS
+
+/* SASL's concept of DEV_RANDOM */
+#undef SASL_DEV_RANDOM
 
 @BOTTOM@
 
@@ -201,9 +226,10 @@ struct iovec {
 #endif
 
 /* location of the random number generator */
-#ifndef DEV_RANDOM
-#define DEV_RANDOM "/dev/random"
+#ifdef DEV_RANDOM
+#undef DEV_RANDOM
 #endif
+#define DEV_RANDOM SASL_DEV_RANDOM
 
 /* if we've got krb_get_err_txt, we might as well use it;
    especially since krb_err_txt isn't in some newer distributions
@@ -237,7 +263,9 @@ struct iovec {
 #include <sys/socket.h>
 #ifndef WIN32
 # include <netdb.h>
-# include <sys/param.h>
+# ifdef HAVE_SYS_PARAM_H
+#  include <sys/param.h>
+# endif
 #else /* WIN32 */
 # include <winsock.h>
 #endif /* WIN32 */
@@ -273,8 +301,31 @@ struct sockaddr_storage {
 #include "gai.h"
 #endif
 
+/* Defined in RFC 1035. max strlen is only 253 due to length bytes. */
+#ifndef MAXHOSTNAMELEN
+#define        MAXHOSTNAMELEN  255
+#endif
+
+#ifndef HAVE_SYSEXITS_H
+#include "exits.h"
+#else
+#include "sysexits.h"
+#endif
+
 #ifndef	NI_WITHSCOPEID
 #define	NI_WITHSCOPEID	0
+#endif
+
+/* Get the correct time.h */
+#if TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
 #endif
 
 #endif /* CONFIG_H */

@@ -1,0 +1,181 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>SQUATTER</title>
+</head>
+<body>
+
+<h1 align=center>SQUATTER</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:19 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>squatter &minus; create SQUAT indexes for mailboxes</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>squatter</b> [ <b>&minus;C</b> <i>config-file</i> ] [
+<b>&minus;r</b> ] [ <b>&minus;s</b> ] [ <b>&minus;a</b> ] [
+<b>&minus;v</b> ] <i>mailbox</i>...</p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Squatter</i> creates a new SQUAT index for one or more
+IMAP mailboxes. The SQUAT index is a unified index of all of
+the header and body text of each message a given mailbox.
+This index is used to significantly reduce IMAP SEARCH times
+on a mailbox.</p>
+<!-- INDENTATION -->
+<p><i>Squatter</i> creates an index of ALL messages in the
+mailbox, not just those since the last time that it was run
+(i.e., it does NOT do incremental updates). Any messages
+appended to the mailbox after <i>squatter</i> is run, will
+NOT be included in the index. To include new messages in the
+index, <i>squatter</i> must be run again. For large and
+active mailboxes, it is recommended to run <i>squatter</i>
+periodically as an EVENT in <i>cyrus.conf</i>(5)</p>
+<!-- INDENTATION -->
+<p><b>NOTE:</b> Messages and mailboxes that have not been
+indexed CAN still be SEARCHed, just not as quickly as those
+with a SQUAT index.</p>
+<!-- INDENTATION -->
+<p><i>Squatter</i> reads its configuration options out of
+the <i>imapd.conf</i>(5) file unless specified otherwise by
+<b>-C</b>.</p>
+</td>
+</table></p>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>config-file</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Read configuration options from <i>config-file</i>.</p>
+</td>
+</table>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;r</b></p>
+</td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>Recursively create indexes for all sub-mailboxes of the
+mailboxes or mailbox prefixes given as arguments.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;s</b></p>
+</td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>Skip mailboxes whose index file is older than their
+current squat file (within a small time delta).</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;a</b></p>
+</td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>Only create indexes for mailboxes which have the shared
+<i>/vendor/cmu/cyrus-imapd/squat</i> annotation set to
+&quot;true&quot;.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>The value of the <b>/vendor/cmu/cyrus-imapd/squat</b>
+annotation is inherited by all children of the given
+mailbox, so an entire mailbox tree can be indexed (or not
+indexed) by setting a single annotation on the root of that
+tree with a value of &quot;true&quot; (or
+&quot;false&quot;). If a mailbox does not have a
+<b>/vendor/cmu/cyrus-imapd/squat</b> annotation set on it
+(or does not inherit one), then the mailbox is not indexed.
+In other words, the implicit value of
+<b>/vendor/cmu/cyrus-imapd/squat</b> is
+&quot;false&quot;.</p>
+</td>
+</table></p>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;v</b></p>
+</td>
+<td width="13%"></td>
+<td width="72%">
+
+<p>Increase the verbosity of progress/status messages.</p>
+</td>
+</table></p>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf /etc/cyrus.conf</b></p></td>
+</table></p>
+<hr>
+</body>
+</html>

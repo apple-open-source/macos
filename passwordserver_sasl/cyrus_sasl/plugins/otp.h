@@ -1,9 +1,9 @@
 /* OTP SASL plugin
  * Ken Murchison
- * $Id: otp.h,v 1.2 2002/05/22 17:57:03 snsimon Exp $
+ * $Id: otp.h,v 1.3 2004/07/07 22:50:32 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

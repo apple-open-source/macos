@@ -27,15 +27,20 @@ MAKEFILE = library.make
 NEXTSTEP_INSTALLDIR = $(USRLIBDIR)
 WINDOWS_INSTALLDIR = /Library/Frameworks
 PDO_UNIX_INSTALLDIR = /Library/Frameworks
-LIBS = -lc -ldyld -linfo -lkvm -lm -lmacho\
+LIBSYSTEM_LIBS = -lc -ldyld -linfo -lkvm -lm -lmacho\
        -lnotify -lstreams -lunc -lkeymgr -lpoll -ldl
-DEBUG_LIBS = $(LIBS)
-PROF_LIBS = $(LIBS)
+#DEBUG_LIBS = $(LIBS)
+#PROF_LIBS = $(LIBS)
 
+ifdef ALTUSRLOCALLIBSYSTEM
+LIBSYS = $(ALTUSRLOCALLIBSYSTEM)
+else
+LIBSYS = $(NEXT_ROOT)/usr/local/lib/system
+endif
 
-LIBRARY_PATHS = -L$(NEXT_ROOT)/usr/local/lib/system
+LIBRARY_PATHS = -L$(LIBSYS)
 NEXTSTEP_PB_CFLAGS = -Wall -Werror -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
-NEXTSTEP_PB_LDFLAGS = -nostdlib -all_load
+NEXTSTEP_PB_LDFLAGS = -nostdlib -all_load -multi_module -Wl,-search_paths_first
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

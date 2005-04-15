@@ -120,8 +120,7 @@ WERROR cli_srvsvc_net_share_enum(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 	switch(info_level) {
 	case 1:
-		ctr->share.info1 = (SRV_SHARE_INFO_1 *)talloc(
-			mem_ctx, sizeof(SRV_SHARE_INFO_1) * ctr->num_entries);
+		ctr->share.info1 = TALLOC_ARRAY(mem_ctx, SRV_SHARE_INFO_1, ctr->num_entries);
 		
 		memset(ctr->share.info1, 0, sizeof(SRV_SHARE_INFO_1));
 
@@ -148,8 +147,7 @@ WERROR cli_srvsvc_net_share_enum(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 
 		break;
 	case 2:
-		ctr->share.info2 = (SRV_SHARE_INFO_2 *)talloc(
-			mem_ctx, sizeof(SRV_SHARE_INFO_2) * ctr->num_entries);
+		ctr->share.info2 = TALLOC_ARRAY(mem_ctx, SRV_SHARE_INFO_2, ctr->num_entries);
 		
 		memset(ctr->share.info2, 0, sizeof(SRV_SHARE_INFO_2));
 
@@ -181,7 +179,130 @@ WERROR cli_srvsvc_net_share_enum(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 				init_unistr2(&info2->info_2_str.uni_passwd, s, UNI_STR_TERMINATE);
 		}
 		break;
+	/* adding info-level 502 here */
+	case 502:
+		ctr->share.info502 = TALLOC_ARRAY(mem_ctx, SRV_SHARE_INFO_502, ctr->num_entries);
+		
+		memset(ctr->share.info502, 0, sizeof(SRV_SHARE_INFO_502));
+
+		for (i = 0; i < ctr->num_entries; i++) {
+			SRV_SHARE_INFO_502 *info502 = &ctr->share.info502[i];
+			char *s;
+			
+			/* Copy pointer crap */
+			memcpy(&info502->info_502, &r.ctr.share.info502[i].info_502, 
+			       sizeof(SH_INFO_502));
+
+			/* Duplicate strings */
+
+			s = unistr2_tdup(mem_ctx, &r.ctr.share.info502[i].info_502_str.uni_netname);
+			if (s)
+				init_unistr2(&info502->info_502_str.uni_netname, s, UNI_STR_TERMINATE);
+
+			s = unistr2_tdup(mem_ctx, &r.ctr.share.info502[i].info_502_str.uni_remark);
+			if (s)
+				init_unistr2(&info502->info_502_str.uni_remark, s, UNI_STR_TERMINATE);
+
+			s = unistr2_tdup(mem_ctx, &r.ctr.share.info502[i].info_502_str.uni_path);
+			if (s)
+				init_unistr2(&info502->info_502_str.uni_path, s, UNI_STR_TERMINATE);
+
+			s = unistr2_tdup(mem_ctx, &r.ctr.share.info502[i].info_502_str.uni_passwd);
+			if (s)
+				init_unistr2(&info502->info_502_str.uni_passwd, s, UNI_STR_TERMINATE);
+		
+			info502->info_502_str.sd = dup_sec_desc(mem_ctx, r.ctr.share.info502[i].info_502_str.sd);
+		}
+		break;
 	}
+ done:
+	prs_mem_free(&qbuf);
+	prs_mem_free(&rbuf);
+
+	return result;
+}
+
+WERROR cli_srvsvc_net_share_get_info(struct cli_state *cli,
+				     TALLOC_CTX *mem_ctx,
+				     const char *sharename,
+				     uint32 info_level,
+				     SRV_SHARE_INFO *info)
+{
+	prs_struct qbuf, rbuf;
+	SRV_Q_NET_SHARE_GET_INFO q;
+	SRV_R_NET_SHARE_GET_INFO r;
+	WERROR result = W_ERROR(ERRgeneral);
+
+	ZERO_STRUCT(q);
+	ZERO_STRUCT(r);
+
+	/* Initialise parse structures */
+
+	prs_init(&qbuf, MAX_PDU_FRAG_LEN, mem_ctx, MARSHALL);
+	prs_init(&rbuf, 0, mem_ctx, UNMARSHALL);
+
+	/* Initialise input parameters */
+
+	init_srv_q_net_share_get_info(&q, cli->srv_name_slash, sharename,
+				      info_level);
+
+	/* Marshall data and send request */
+
+	if (!srv_io_q_net_share_get_info("", &q, &qbuf, 0) ||
+	    !rpc_api_pipe_req(cli, SRV_NET_SHARE_GET_INFO, &qbuf, &rbuf))
+		goto done;
+
+	/* Unmarshall response */
+
+	if (!srv_io_r_net_share_get_info("", &r, &rbuf, 0))
+		goto done;
+
+	result = r.status;
+
+	if (!W_ERROR_IS_OK(result))
+		goto done;
+
+	ZERO_STRUCTP(info);
+
+	info->switch_value = info_level;
+
+	switch(info_level) {
+	case 502:
+	{
+		SRV_SHARE_INFO_502 *info502 = &info->share.info502;
+		SH_INFO_502_STR *info502_str = &info502->info_502_str;
+		
+		char *s;
+
+		info->share.info502 = r.info.share.info502;
+
+		/* Duplicate strings */
+
+		s = unistr2_tdup(mem_ctx, &info502_str->uni_netname);
+		if (s)
+			init_unistr2(&info502_str->uni_netname,
+				     s, UNI_STR_TERMINATE);
+
+		s = unistr2_tdup(mem_ctx, &info502_str->uni_remark);
+		if (s)
+			init_unistr2(&info502_str->uni_remark,
+				     s, UNI_STR_TERMINATE);
+
+		s = unistr2_tdup(mem_ctx, &info502_str->uni_path);
+		if (s)
+			init_unistr2(&info502_str->uni_path,
+				     s, UNI_STR_TERMINATE);
+
+		s = unistr2_tdup(mem_ctx, &info502_str->uni_passwd);
+		if (s)
+			init_unistr2(&info502_str->uni_passwd,
+				     s, UNI_STR_TERMINATE);
+
+		info502_str->sd = dup_sec_desc(mem_ctx, info502_str->sd);
+		break;
+	}
+	}
+
  done:
 	prs_mem_free(&qbuf);
 	prs_mem_free(&rbuf);
@@ -233,7 +354,8 @@ WERROR cli_srvsvc_net_share_add(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 				const char *netname, uint32 type, 
 				const char *remark, uint32 perms, 
 				uint32 max_uses, uint32 num_uses, 
-				const char *path, const char *passwd)
+				const char *path, const char *passwd,
+				int level, SEC_DESC *sd)
 {
 	prs_struct qbuf, rbuf;
 	SRV_Q_NET_SHARE_ADD q;
@@ -249,7 +371,8 @@ WERROR cli_srvsvc_net_share_add(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	prs_init(&rbuf, 0, mem_ctx, UNMARSHALL);
 
 	init_srv_q_net_share_add(&q,cli->srv_name_slash, netname, type, remark,
-				 perms, max_uses, num_uses, path, passwd);
+				 perms, max_uses, num_uses, path, passwd, 
+				 level, sd);
 
 	/* Marshall data and send request */
 
@@ -366,8 +489,7 @@ WERROR cli_srvsvc_net_file_enum(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	
 	switch(file_level) {
 	case 3:
-		ctr->file.info3 = (SRV_FILE_INFO_3 *)talloc(
-			mem_ctx, sizeof(SRV_FILE_INFO_3) * ctr->num_entries);
+		ctr->file.info3 = TALLOC_ARRAY(mem_ctx, SRV_FILE_INFO_3, ctr->num_entries);
 
 		memset(ctr->file.info3, 0, 
 		       sizeof(SRV_FILE_INFO_3) * ctr->num_entries);

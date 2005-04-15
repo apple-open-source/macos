@@ -429,8 +429,11 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 		
 			IOFireWireBus::DCLTaskInfoAux	infoAux ;
 			{
-				infoAux.version = 0 ;
-				infoAux.u.v0.bufferMemoryMap = bufferMap ;
+				infoAux.version = 2 ;
+
+				infoAux.u.v2.bufferMemoryMap = bufferMap ;
+				infoAux.u.v2.workloop = params->options & kFWIsochPortUseSeparateKernelThread ? createRealtimeThread() : NULL ;
+				infoAux.u.v2.options = params->options ;
 			}
 			
 			IOFireWireBus::DCLTaskInfo info = { 0, 0, 0, 0, 0, 0, & infoAux } ;
@@ -444,7 +447,14 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 
 			bufferMap->release() ;		// retained by DCL program
 			bufferMap = NULL ;
-			
+
+			if (  infoAux.u.v2.workloop )
+			{
+				// If we created a custom workloop, it will be retained by the program...
+				// We can release our reference...
+				infoAux.u.v2.workloop->release() ;
+			}
+						
 			DebugLogCond( !program, "createDCLProgram returned nil\n" ) ;
 		}
 
@@ -1049,4 +1059,33 @@ IOFWUserLocalIsochPort :: userNotify (
 	program->release() ;
 	
 	return error ? error : notify( (IOFWDCLNotificationType)notificationType, (DCLCommand**)dcls, numDCLs ) ;
+}
+
+IOWorkLoop *
+IOFWUserLocalIsochPort :: createRealtimeThread()
+{
+	IOWorkLoop * workloop = IOWorkLoop::workLoop() ;
+	if ( workloop )
+	{
+		// Boost isoc workloop into realtime range
+		thread_time_constraint_policy_data_t	constraints;
+		AbsoluteTime							time;
+		
+		nanoseconds_to_absolutetime(625000, &time);
+		constraints.period = AbsoluteTime_to_scalar(&time);
+		nanoseconds_to_absolutetime(60000, &time);
+		constraints.computation = AbsoluteTime_to_scalar(&time);
+		nanoseconds_to_absolutetime(1250000, &time);
+		constraints.constraint = AbsoluteTime_to_scalar(&time);
+
+		constraints.preemptible = TRUE;
+
+		{
+			IOThread thread;
+			thread = workloop->getThread();
+			thread_policy_set( thread, THREAD_TIME_CONSTRAINT_POLICY, (thread_policy_t) & constraints, THREAD_TIME_CONSTRAINT_POLICY_COUNT );			
+		}
+	}
+	
+	return workloop ;
 }

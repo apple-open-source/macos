@@ -103,6 +103,7 @@ static void announce_local_master_browser_to_domain_master_browser( struct work_
 {
 	pstring outbuf;
 	unstring myname;
+	unstring dmb_name;
 	char *p;
 
 	if(ismyip(work->dmb_addr)) {
@@ -135,8 +136,10 @@ static void announce_local_master_browser_to_domain_master_browser( struct work_
 					work->work_group );
 	}
 
+	/* Target name for send_mailslot must be in UNIX charset. */
+	pull_ascii_nstring(dmb_name, sizeof(dmb_name), work->dmb_name.name);
 	send_mailslot(True, BROWSE_MAILSLOT, outbuf,PTR_DIFF(p,outbuf),
-		global_myname(), 0x0, work->dmb_name.name, 0x0, 
+		global_myname(), 0x0, dmb_name, 0x0, 
 		work->dmb_addr, FIRST_SUBNET->myip, DGRAM_PORT);
 }
 
@@ -321,7 +324,7 @@ static void find_domain_master_name_query_success(struct subnet_record *subrec,
 	/* Setup the userdata_struct - this is copied so we can use
 	a stack variable for this. */
 
-	if((userdata = (struct userdata_struct *)malloc(size)) == NULL) {
+	if((userdata = (struct userdata_struct *)SMB_MALLOC(size)) == NULL) {
 		DEBUG(0, ("find_domain_master_name_query_success: malloc fail.\n"));
 		return;
 	}

@@ -1,9 +1,10 @@
 /* staticopen.h
  * Rob Siemborski
- * $Id: staticopen.h,v 1.2 2002/05/22 17:56:56 snsimon Exp $
+ * Howard Chu
+ * $Id: staticopen.h,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,41 +43,38 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
-#ifndef __hpux
-#include <dlfcn.h>
-#endif /* !__hpux */
-#include <stdlib.h>
-#include <limits.h>
-#include <sys/param.h>
-#include <sasl.h>
-#include "saslint.h"
+typedef enum {
+	UNKNOWN = 0, SERVER = 1, CLIENT = 2, AUXPROP = 3, CANONUSER = 4
+} _sasl_plug_type;
+
+typedef struct {
+	_sasl_plug_type type;
+	char *name;
+	sasl_client_plug_init_t *plug;
+} _sasl_plug_rec;
 
 /* For static linking */
 #define SPECIFIC_CLIENT_PLUG_INIT_PROTO( x ) \
-int x##_client_plug_init(const sasl_utils_t *utils, \
-                         int maxversion, int *out_version, \
-			 sasl_client_plug_t **pluglist, \
-                         int *plugcount, \
-                         const char *plugname)
+sasl_client_plug_init_t x##_client_plug_init
 
 #define SPECIFIC_SERVER_PLUG_INIT_PROTO( x ) \
-int x##_server_plug_init(const sasl_utils_t *utils, \
-                         int maxversion, int *out_version, \
-			 sasl_server_plug_t **pluglist, \
-                         int *plugcount, \
-                         const char *plugname)
+sasl_server_plug_init_t x##_server_plug_init
 
 #define SPECIFIC_AUXPROP_PLUG_INIT_PROTO( x ) \
-int x##_auxprop_plug_init(const sasl_utils_t *utils, \
-		     	  int maxversion, int *out_version, \
-		     	  sasl_auxprop_plug_t **plug, \
-			  const char *plugname)
+sasl_auxprop_init_t x##_auxprop_plug_init
+
+#define SPECIFIC_CANONUSER_PLUG_INIT_PROTO( x ) \
+sasl_canonuser_init_t x##_canonuser_plug_init
 
 /* Static Compillation Foo */
-#define SPECIFIC_CLIENT_PLUG_INIT( x ) x##_client_plug_init
-#define SPECIFIC_SERVER_PLUG_INIT( x ) x##_server_plug_init
-#define SPECIFIC_AUXPROP_PLUG_INIT( x ) x##_auxprop_plug_init
+#define SPECIFIC_CLIENT_PLUG_INIT( x, n )\
+	{ CLIENT, n, x##_client_plug_init }
+#define SPECIFIC_SERVER_PLUG_INIT( x, n )\
+	{ SERVER, n, (sasl_client_plug_init_t *)x##_server_plug_init }
+#define SPECIFIC_AUXPROP_PLUG_INIT( x, n )\
+	{ AUXPROP, n, (sasl_client_plug_init_t *)x##_auxprop_plug_init }
+#define SPECIFIC_CANONUSER_PLUG_INIT( x, n )\
+	{ CANONUSER, n, (sasl_client_plug_init_t *)x##_canonuser_plug_init }
 
 #ifdef STATIC_ANONYMOUS
 extern SPECIFIC_SERVER_PLUG_INIT_PROTO( anonymous );
@@ -102,6 +100,14 @@ extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( kerberos4 );
 extern SPECIFIC_SERVER_PLUG_INIT_PROTO( login );
 extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( login );
 #endif
+#ifdef STATIC_NTLM
+extern SPECIFIC_SERVER_PLUG_INIT_PROTO( ntlm );
+extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( ntlm );
+#endif
+#ifdef STATIC_OTP
+extern SPECIFIC_SERVER_PLUG_INIT_PROTO( otp );
+extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( otp );
+#endif
 #ifdef STATIC_PLAIN
 extern SPECIFIC_SERVER_PLUG_INIT_PROTO( plain );
 extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( plain );
@@ -110,10 +116,59 @@ extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( plain );
 extern SPECIFIC_SERVER_PLUG_INIT_PROTO( srp );
 extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( srp );
 #endif
-#ifdef STATIC_OTP
-extern SPECIFIC_SERVER_PLUG_INIT_PROTO( otp );
-extern SPECIFIC_CLIENT_PLUG_INIT_PROTO( otp );
-#endif
 #ifdef STATIC_SASLDB
 extern SPECIFIC_AUXPROP_PLUG_INIT_PROTO( sasldb );
 #endif
+#ifdef STATIC_SQL
+extern SPECIFIC_AUXPROP_PLUG_INIT_PROTO( sql );
+#endif
+
+_sasl_plug_rec _sasl_static_plugins[] = {
+#ifdef STATIC_ANONYMOUS
+	SPECIFIC_SERVER_PLUG_INIT( anonymous, "ANONYMOUS" ),
+	SPECIFIC_CLIENT_PLUG_INIT( anonymous, "ANONYMOUS" ),
+#endif
+#ifdef STATIC_CRAMMD5
+	SPECIFIC_SERVER_PLUG_INIT( crammd5, "CRAM-MD5" ),
+	SPECIFIC_CLIENT_PLUG_INIT( crammd5, "CRAM-MD5" ),
+#endif
+#ifdef STATIC_DIGESTMD5
+	SPECIFIC_SERVER_PLUG_INIT( digestmd5, "DIGEST-MD5" ),
+	SPECIFIC_CLIENT_PLUG_INIT( digestmd5, "DIGEST-MD5" ),
+#endif
+#ifdef STATIC_GSSAPIV2
+	SPECIFIC_SERVER_PLUG_INIT( gssapiv2, "GSSAPI" ),
+	SPECIFIC_CLIENT_PLUG_INIT( gssapiv2, "GSSAPI" ),
+#endif
+#ifdef STATIC_KERBEROS4
+	SPECIFIC_SERVER_PLUG_INIT( kerberos4, "KERBEROS_V4" ),
+	SPECIFIC_CLIENT_PLUG_INIT( kerberos4, "KERBEROS_V4" ),
+#endif
+#ifdef STATIC_LOGIN
+	SPECIFIC_SERVER_PLUG_INIT( login, "LOGIN" ),
+	SPECIFIC_CLIENT_PLUG_INIT( login, "LOGIN" ),
+#endif
+#ifdef STATIC_NTLM
+	SPECIFIC_SERVER_PLUG_INIT( ntlm, "NTLM" ),
+	SPECIFIC_CLIENT_PLUG_INIT( ntlm, "NTLM" ),
+#endif
+#ifdef STATIC_OTP
+	SPECIFIC_SERVER_PLUG_INIT( otp, "OTP" ),
+	SPECIFIC_CLIENT_PLUG_INIT( otp, "OTP" ),
+#endif
+#ifdef STATIC_PLAIN
+	SPECIFIC_SERVER_PLUG_INIT( plain, "PLAIN" ),
+	SPECIFIC_CLIENT_PLUG_INIT( plain, "PLAIN" ),
+#endif
+#ifdef STATIC_SRP
+	SPECIFIC_SERVER_PLUG_INIT( srp, "SRP" ),
+	SPECIFIC_CLIENT_PLUG_INIT( srp, "SRP" ),
+#endif
+#ifdef STATIC_SASLDB
+	SPECIFIC_AUXPROP_PLUG_INIT( sasldb, "SASLDB" ),
+#endif
+#ifdef STATIC_SQL
+	SPECIFIC_AUXPROP_PLUG_INIT( sql, "SQL" ),
+#endif
+	{ UNKNOWN, NULL, NULL }
+};

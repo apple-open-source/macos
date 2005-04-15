@@ -26,12 +26,6 @@
 
 #include "includes.h"
 
-#ifdef WITH_OPENDIRECTORY
-#include <DirectoryService/DirServices.h>
-#include <DirectoryService/DirServicesConst.h>
-#include <DirectoryService/DirServicesUtils.h>
-#endif
-
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_RPC_SRV
 
@@ -53,6 +47,7 @@ static void init_net_r_req_chal(NET_R_REQ_CHAL *r_c,
 
 #define ERROR_NO_SUCH_DOMAIN   0x54b
 #define ERROR_NO_LOGON_SERVERS 0x51f
+#define NO_ERROR               0x0
 
 /*************************************************************************
  net_reply_logon_ctrl:
@@ -110,24 +105,66 @@ NTSTATUS _net_logon_ctrl2(pipes_struct *p, NET_Q_LOGON_CTRL2 *q_u, NET_R_LOGON_C
         uint32 flags = 0x0;
         uint32 pdc_connection_status = 0x0;
         uint32 logon_attempts = 0x0;
-        uint32 tc_status = ERROR_NO_LOGON_SERVERS;
-        const char *trusted_domain = "test_domain";
+        uint32 tc_status;
+	fstring servername, domain, dc_name, dc_name2;
+	struct in_addr dc_ip;
 
-        DEBUG(0, ("*** net long ctrl2 %d, %d, %d\n",
-                  q_u->function_code, q_u->query_level, q_u->switch_value));
+	/* this should be \\global_myname() */
+	unistr2_to_ascii(servername, &q_u->uni_server_name, sizeof(servername));
 
-	DEBUG(6,("_net_logon_ctrl2: %d\n", __LINE__));
+	r_u->status = NT_STATUS_OK;
+	
+	tc_status = ERROR_NO_SUCH_DOMAIN;
+	fstrcpy( dc_name, "" );
+	
+	switch ( q_u->function_code ) {
+		case NETLOGON_CONTROL_TC_QUERY:
+			unistr2_to_ascii(domain, &q_u->info.info6.domain, sizeof(domain));
+				
+			if ( !is_trusted_domain( domain ) )
+				break;
+				
+			if ( !get_dc_name( domain, NULL, dc_name2, &dc_ip ) ) {
+				tc_status = ERROR_NO_LOGON_SERVERS;
+				break;
+			}
 
+			fstr_sprintf( dc_name, "\\\\%s", dc_name2 );
+				
+			tc_status = NO_ERROR;
+			
+			break;
+			
+		case NETLOGON_CONTROL_REDISCOVER:
+			unistr2_to_ascii(domain, &q_u->info.info6.domain, sizeof(domain));
+				
+			if ( !is_trusted_domain( domain ) )
+				break;
+				
+			if ( !get_dc_name( domain, NULL, dc_name2, &dc_ip ) ) {
+				tc_status = ERROR_NO_LOGON_SERVERS;
+				break;
+			}
 
-	/* set up the Logon Control2 response */
-	init_net_r_logon_ctrl2(r_u, q_u->query_level,
-			       flags, pdc_connection_status, logon_attempts,
-			       tc_status, trusted_domain);
+			fstr_sprintf( dc_name, "\\\\%s", dc_name2 );
+				
+			tc_status = NO_ERROR;
+			
+			break;
+			
+		default:
+			/* no idea what this should be */
+			DEBUG(0,("_net_logon_ctrl2: unimplemented function level [%d]\n",
+				q_u->function_code));
+	}
+	
+	/* prepare the response */
+	
+	init_net_r_logon_ctrl2( r_u, q_u->query_level, flags, 
+		pdc_connection_status, logon_attempts, tc_status, dc_name );
 
         if (lp_server_role() == ROLE_DOMAIN_BDC)
                 send_sync_message();
-
-	DEBUG(6,("_net_logon_ctrl2: %d\n", __LINE__));
 
 	return r_u->status;
 }
@@ -239,7 +276,7 @@ NTSTATUS _net_req_chal(pipes_struct *p, NET_Q_REQ_CHAL *q_u, NET_R_REQ_CHAL *r_u
 
 	/* create a server challenge for the client */
 	/* Set these to random values. */
-	generate_random_buffer(p->dc.srv_chal.data, 8, False);
+	generate_random_buffer(p->dc.srv_chal.data, 8);
 	
 	memcpy(p->dc.srv_cred.challenge.data, p->dc.srv_chal.data, 8);
 
@@ -284,14 +321,15 @@ NTSTATUS _net_auth(pipes_struct *p, NET_Q_AUTH *q_u, NET_R_AUTH *r_u)
 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
 
 #ifdef WITH_OPENDIRECTORY
-	if (p->dc.challenge_sent ) {
+	if (p->dc.challenge_sent) {
+
 		/* from client / server challenges and md4 password, generate sess key */
 		if (lp_opendirectory()) {
 			//check acct_ctrl flags
 			become_root();
 			dirStatus = opendirectory_cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal, mach_acct, p->dc.sess_key, NULL);
 			unbecome_root();
-			DEBUG(2, ("_net_auth opendirectory_cred_session_key [%d]\n", dirStatus));
+			DEBUG(4, ("_net_auth opendirectory_cred_session_key [%d]\n", dirStatus));
 		} else if (get_md4pw((char *)p->dc.md4pw, mach_acct)) {
 			cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
 					 p->dc.md4pw, p->dc.sess_key);
@@ -299,7 +337,7 @@ NTSTATUS _net_auth(pipes_struct *p, NET_Q_AUTH *q_u, NET_R_AUTH *r_u)
 			status = NT_STATUS_ACCESS_DENIED;
 			goto exit;
 		}
-			
+		
 		/* check that the client credentials are valid */
 		if (cred_assert(&q_u->clnt_chal, p->dc.sess_key, &p->dc.clnt_cred.challenge, srv_time)) {
 			
@@ -350,7 +388,8 @@ exit:
 	} else {
 		status = NT_STATUS_ACCESS_DENIED;
 	}
-#endif	
+#endif
+	
 	/* set up the LSA AUTH response */
 	init_net_r_auth(r_u, &srv_cred, status);
 
@@ -394,33 +433,31 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 	}
 
 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
-
 #ifdef WITH_OPENDIRECTORY
-	DEBUG(0, ("_net_auth_2 for [%s]\n", mach_acct));
 	if (p->dc.challenge_sent) {
+		
 		/* from client / server challenges and md4 password, generate sess key */
 		if (lp_opendirectory()) {
 			//check acct_ctrl flags
 			become_root();
 			dirStatus = opendirectory_cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal, mach_acct, p->dc.sess_key, NULL);
 			unbecome_root();
-			DEBUG(2, ("_net_auth_2 opendirectory_cred_session_key [%d]\n", dirStatus));
+			DEBUG(4, ("_net_auth_2 opendirectory_cred_session_key [%d]\n", dirStatus));
 		} else if (get_md4pw((char *)p->dc.md4pw, mach_acct)) {
-			DEBUG(0, ("_net_auth_2 use account hash \n"));
-			cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
-					 p->dc.md4pw, p->dc.sess_key);
+		cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
+				 p->dc.md4pw, p->dc.sess_key);
 		} else {
 			DEBUG(0, ("_net_auth_2 CAN NOT COMPUTE SESSION KEY \n"));
 			status = NT_STATUS_ACCESS_DENIED;
 			goto exit;
 		}
-
+		
 		/* check that the client credentials are valid */
 		if (cred_assert(&q_u->clnt_chal, p->dc.sess_key, &p->dc.clnt_cred.challenge, srv_time)) {
 			
 			/* create server challenge for inclusion in the reply */
 			cred_create(p->dc.sess_key, &p->dc.srv_cred.challenge, srv_time, &srv_cred);
-			
+
 			/* copy the received client credentials for use next time */
 			memcpy(p->dc.clnt_cred.challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
 			memcpy(p->dc.srv_cred .challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
@@ -436,6 +473,7 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 	} else {
 		status = NT_STATUS_ACCESS_DENIED;
 	}
+	
 exit:
 #else
 	if (p->dc.challenge_sent && get_md4pw((char *)p->dc.md4pw, mach_acct)) {
@@ -497,6 +535,7 @@ NTSTATUS _net_srv_pwset(pipes_struct *p, NET_Q_SRV_PWSET *q_u, NET_R_SRV_PWSET *
 	unsigned char pwd[16];
 	int i;
 	uint32 acct_ctrl;
+	const uchar *old_pw;
 #ifdef WITH_OPENDIRECTORY
 	tDirStatus dirStatus = eDSNullParameter;
 #endif
@@ -537,12 +576,12 @@ NTSTATUS _net_srv_pwset(pipes_struct *p, NET_Q_SRV_PWSET *q_u, NET_R_SRV_PWSET *
 		return NT_STATUS_ACCOUNT_DISABLED;
 	}
 
-	DEBUG(100,("Server password set : new given value was :\n"));
-	for(i = 0; i < 16; i++)
-		DEBUG(100,("%02X ", q_u->pwd[i]));
-	DEBUG(100,("\n"));
-
 	cred_hash3( pwd, q_u->pwd, p->dc.sess_key, 0);
+
+	DEBUG(100,("Server password set : new given value was :\n"));
+	for(i = 0; i < sizeof(pwd); i++)
+		DEBUG(100,("%02X ", pwd[i]));
+	DEBUG(100,("\n"));
 
 #ifdef WITH_OPENDIRECTORY
 	if (lp_opendirectory()) {
@@ -558,27 +597,37 @@ NTSTATUS _net_srv_pwset(pipes_struct *p, NET_Q_SRV_PWSET *q_u, NET_R_SRV_PWSET *
 		}
 	} else {
 #endif
-	/* lies!  nt and lm passwords are _not_ the same: don't care */
-	if (!pdb_set_lanman_passwd (sampass, pwd, PDB_CHANGED)) {
-		pdb_free_sam(&sampass);
-		return NT_STATUS_NO_MEMORY;
-	}
 
-	if (!pdb_set_nt_passwd     (sampass, pwd, PDB_CHANGED)) {
-		pdb_free_sam(&sampass);
-		return NT_STATUS_NO_MEMORY;
-	}
+	old_pw = pdb_get_nt_passwd(sampass);
 
-	if (!pdb_set_pass_changed_now     (sampass)) {
-		pdb_free_sam(&sampass);
-		/* Not quite sure what this one qualifies as, but this will do */
-		return NT_STATUS_UNSUCCESSFUL; 
+	if (old_pw && memcmp(pwd, old_pw, 16) == 0) {
+		/* Avoid backend modificiations and other fun if the 
+		   client changed the password to the *same thing* */
+
+		ret = True;
+	} else {
+
+		/* LM password should be NULL for machines */
+		if (!pdb_set_lanman_passwd (sampass, NULL, PDB_CHANGED)) {
+			pdb_free_sam(&sampass);
+			return NT_STATUS_NO_MEMORY;
+		}
+		
+		if (!pdb_set_nt_passwd     (sampass, pwd, PDB_CHANGED)) {
+			pdb_free_sam(&sampass);
+			return NT_STATUS_NO_MEMORY;
+		}
+		
+		if (!pdb_set_pass_changed_now     (sampass)) {
+			pdb_free_sam(&sampass);
+			/* Not quite sure what this one qualifies as, but this will do */
+			return NT_STATUS_UNSUCCESSFUL; 
+		}
+		
+		become_root();
+		ret = pdb_update_sam_account (sampass);
+		unbecome_root();
 	}
- 
-	become_root();
-	ret = pdb_update_sam_account (sampass);
-	unbecome_root();
- 
 	if (ret)
 		status = NT_STATUS_OK;
 #ifdef WITH_OPENDIRECTORY
@@ -640,7 +689,7 @@ NTSTATUS _net_sam_logon(pipes_struct *p, NET_Q_SAM_LOGON *q_u, NET_R_SAM_LOGON *
 	SAM_ACCOUNT *sampw;
 	struct auth_context *auth_context = NULL;
 	        
-	usr_info = (NET_USER_INFO_3 *)talloc(p->mem_ctx, sizeof(NET_USER_INFO_3));
+	usr_info = TALLOC_P(p->mem_ctx, NET_USER_INFO_3);
 	if (!usr_info)
 		return NT_STATUS_NO_MEMORY;
 

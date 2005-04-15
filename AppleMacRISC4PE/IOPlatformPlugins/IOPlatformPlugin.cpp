@@ -1852,34 +1852,7 @@ void IOPlatformPlugin::coreDump(void)
 	char *p;
 	IOPlatformSensor * sensor;
 	IOPlatformControl * control;
-
-	if (sensors)
-	{
-		count = sensors->getCount();
-		for (i=0; i<count; i++)
-		{
-			//DLOG("IOPlatformPlugin::setProperties sensor %d\n", i);
-
-			if ((sensor = OSDynamicCast(IOPlatformSensor, sensors->getObject(i))) != NULL)
-			{
-				sensor->setCurrentValue( sensor->forceAndFetchCurrentValue() );
-			}
-		}
-	}
-
-	if (controls)
-	{
-		count = controls->getCount();
-		for (i=0; i<count; i++)
-		{
-			//DLOG("IOPlatformPlugin::setProperties control %d\n", i);
-
-			if ((control = OSDynamicCast(IOPlatformControl, controls->getObject(i))) != NULL)
-			{
-				control->setCurrentValue( control->forceAndFetchCurrentValue() );
-			}
-		}
-	}
+	SInt32 val;
 
 	if (properties = dictionaryWithProperties())
 	{
@@ -1917,28 +1890,30 @@ void IOPlatformPlugin::coreDump(void)
 						sprintf(p, " Id:%d", osnum->unsigned32BitValue());
 						p += strlen(p);
 					}
-					if (osnum = OSDynamicCast(OSNumber, dict->getObject("target-value")))
+
+					if ( osnum && ( control = lookupControlByID( osnum ) ) )
 					{
-						UInt32 val = osnum->unsigned32BitValue();
+						control->sendForceUpdate();
+						val = control->getTargetValue();
 						if (type == 1) // PWM fan
 							sprintf(p, " TGT:%d", (val*100)/255);
 						else // slew, RPM, or unknown
 							sprintf(p, " TGT:%d", val);
 						p += strlen(p);
-					}
-					if (osnum = OSDynamicCast(OSNumber, dict->getObject("current-value")))
-					{
-						sprintf(p, " CUR:%d", osnum->unsigned32BitValue());
+						
+						val = control->fetchCurrentValue();
+						sprintf(p, " CUR:%d", val);
 						p += strlen(p);
-					}
-					if (osnum = OSDynamicCast(OSNumber, dict->getObject("force-control-target-value")))
-					{
-						UInt32 val = osnum->unsigned32BitValue();
-						if (type == 1) // PWM fan
-							sprintf(p, " Forced:%d", (val*100)/255);
-						else // slew, RPM, or unknown
-							sprintf(p, " Forced:%d", val);
-						p += strlen(p);
+
+						if (osnum = OSDynamicCast(OSNumber, dict->getObject("force-control-target-value")))
+						{
+							val = osnum->unsigned32BitValue();
+							if (type == 1) // PWM fan
+								sprintf(p, " Forced:%d", (val*100)/255);
+							else // slew, RPM, or unknown
+								sprintf(p, " Forced:%d", val);
+							p += strlen(p);
+						}
 					}
 					sprintf(p, "\n");
 					IOLog(buf);
@@ -1987,9 +1962,11 @@ void IOPlatformPlugin::coreDump(void)
 						sprintf(p, " Id:%d", osnum->unsigned32BitValue());
 						p += strlen(p);
 					}
-					if (osnum = OSDynamicCast(OSNumber, dict->getObject("current-value")))
+
+					if ( osnum && ( sensor = lookupSensorByID( osnum ) ) )
 					{
-						UInt32 val = osnum->unsigned32BitValue();
+						sensor->sendForceUpdate();
+						val = sensor->getCurrentValue().sensValue;
 						if (type == 0)
 							sprintf(p, " CUR:%d", val);
 						else

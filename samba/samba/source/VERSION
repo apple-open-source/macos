@@ -19,19 +19,7 @@
 ########################################################
 SAMBA_VERSION_MAJOR=3
 SAMBA_VERSION_MINOR=0
-SAMBA_VERSION_RELEASE=5
-
-########################################################
-# If a official release has a serious bug              #
-# a security release will have 'a' sufffix             #
-#                                                      #
-# so SAMBA's version will be                           #
-# <MAJOR>.<MINOR>.<RELEASE><REVISION>                  #
-#                                                      #
-# e.g. SAMBA_VERSION_PRE_RELEASE=a                     #
-#  ->  "2.2.8a"                                        #
-########################################################
-SAMBA_VERSION_REVISION=
+SAMBA_VERSION_RELEASE=10
 
 ########################################################
 # For 'pre' releases the version will be               #

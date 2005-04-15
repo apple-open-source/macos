@@ -132,7 +132,7 @@ find_again:
 		return NULL;
 	}
 
-	if ((conn=(connection_struct *)talloc_zero(mem_ctx, sizeof(*conn)))==NULL) {
+	if ((conn=TALLOC_ZERO_P(mem_ctx, connection_struct))==NULL) {
 		DEBUG(0,("talloc_zero() failed!\n"));
 		return NULL;
 	}
@@ -161,6 +161,7 @@ void conn_close_all(void)
 	connection_struct *conn, *next;
 	for (conn=Connections;conn;conn=next) {
 		next=conn->next;
+		set_current_service(conn, 0, True);
 		close_cnum(conn, conn->vuid);
 	}
 }

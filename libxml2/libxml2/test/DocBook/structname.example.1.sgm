@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-The <structname>tm</structname> structure, returned by
-<function>_get_tm</function>, contains complete information
-about the current time of day.
-</para>

@@ -1,0 +1,106 @@
+Performance Notes
+
+    Performance issues for you to consider. If you never expect to have
+    more than 100 simultaneous users, chances are any hardware you have
+    will be fine. If you plan on having thousands or more users, please be
+    sure to review this section. 
+
+    If your configuration directory is not /var/imap, adjust accordingly. 
+
+      * /var/imap/proc - After a successful login, the imapd creates a file
+        in /var/imap/proc that is its unix process id. It also contains the
+        name of any SELECT'd mailbox. The file is deleted when the user
+        logs out. 
+
+        Given the potential load, this is a good candidate to move
+        elsewhere. This can be done by symlink'ing the directory to another
+        partition. We symlink it to a directory on a memory/viritual memory
+        filesystem (specifically Solaris' tmpfs). If you use a tmpfs type
+        filesystem, make sure that you have sufficient memory/swap to do
+        this. 
+
+        Some people don't care about this information and just #ifdef out
+        the code. We probably should add a configure option to do this. 
+      * /var/imap/mailboxes.db - The mailboxes list is often the ultimate
+        source of contention between imap processes, especially if clients
+        are inefficient about their use of the LIST command. For this
+        reason it is often better to use the skiplist backend which is
+        optimized for enumeration of the database, as opposed to the
+        default, Berkeley DB (use --with-mboxlist-db=skiplist). 
+
+        Mika Iisakkila (mika.iisakkila@pingrid.fi) writes: Nevertheless,
+        you can also tweak the Berkeley backend if you want to or have to
+        stick with it. Cyrus doesn't do anything to increase the BDB cache
+        size, and the default (256 kB) is way too small for any reasonably
+        large site. With some 50000 mailboxes and random operations, I
+        found the hit rate for default BDB cache to be 70-80%. After
+        growing the cache size to 2M, hit rate approached 99% and disk
+        traffic was greatly reduced since most of the operations are reads
+        anyway. Therefore processes could complete their work and release
+        their locks much more quickly, and the dreaded "DBERROR: xxx
+        lockers" messages stayed at a comfortable level. You can modify the
+        source (/lib/cyrusdb_db3.c, the setting is commented out) or you
+        can put a DB_CONFIG file under /var/imap/db with the appropriate
+        setting. Read more about this in the Berkeley docs before trying
+        it, typos and incorrect settings can cause havoc. 
+      * /var/imap/deliverdb - Unless you disable duplicate delivery
+        suppression, each time a mail message is delivered it needs to lock
+        the database and check to see if the message-id has been seen
+        already. If you require really high throughput delivery, you may
+        want to disable this feature. 
+
+        We run with it enabled and it doesn't significantly impact our
+        performance. 
+      * /var/spool/mqueue - Sendmail can be pretty harsh on the spool
+        partition. Having this on a separate disk is usually a good idea.
+        Consider using LMTP and delivering from a separate machine. 
+      * Unused SASL mechanisms - If you just build the SASL library and
+        copied all the mechanisms into /usr/lib/sasl2, the imapd will try
+        to use them and allocate some amount of memory. In general, the
+        operating system will swap out those pages but you may be
+        allocating more swap space than you need. So, look in
+        /usr/lib/sasl2 and if you don't plan on using those mechanisms,
+        don't leave them there. 
+      * You may want to increase the listen queue value when starting up
+        the master process. For example, you may want to do this if you see
+        the Listen queue drop counter increasing quickly. For example,
+        under Solaris, look at the variable tcpListenDrop (from netstat -sP
+        tcp). 
+      * Database recovery. If restarting the server takes a long time due
+        to the cyrusdb database recovery procedure (this is usually true if
+        you have a large number of deliveries) you should look into
+        shortening the interval between checkpoints, controlled by the
+        cyrusdb event in /etc/cyrus.conf. We run checkpoints every 5
+        minutes; the current suggested install interval is 30 minutes. 
+      * Some filesystems support the noatime mount option. The server does
+        not use the atime information so you can go ahead and enable this
+        feature. 
+      * Depending on your syslog configuration and usage volume, Cyrus may
+        generate thousands of syslog messages. On Linux, syslog performance
+        can be greatly improved by disabling synchronous logging (disabling
+        fsync() after each message). Prepending filenames in
+        /etc/syslog.conf with a "-", e.g., "/var/log/maillog" becomes
+        "-/var/log/maillog", disables syslog's fsync() call after each log
+        message. If you log many messages those fsync()s will kill your I/O
+        throughput. Note that if you do not need the detail provided by the
+        LOG_DEBUG level, then not logging these messages can significantly
+        reduces the amount of log entries that cyrus makes. 
+
+    In general, there's no magic bullet for performance. It depends on your
+    hardware, your operating system, and how your users use the system. In
+    general, an imapd process takes up anywhere from 256 Kbytes of memory
+    to 512 Kbytes when it is first fired up. CPU has not been a big deal,
+    but it may become more important as the imap sessions are encrypted and
+    now that searching may be more frequent. Disk I/O is probably the most
+    important and having a hardware RAID subsystem with an amount of
+    write-back cache would be a good thing. 
+
+    Finally, if you are talking about less than 100 interactive users it is
+    likely that any relatively modern hardware can support it. If you are
+    talking about having more than 1000 interactive users, you should know
+    how to predict your utilization, go overboard on hardware, be willing
+    to suffer growing pains, or be able to hire someone that can help. 
+
+    There are a number of good performance tuning articles out for Solaris
+    by Adrian Cockcroft. Go to your favorite search engine and look for his
+    name. 

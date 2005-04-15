@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,8 +49,10 @@
 #include "stuff/bool.h"
 #include "stuff/bytesex.h"
 #include "stuff/macosx_deployment_target.h"
+#include "stuff/unix_standard_mode.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "fvmlibs.h"
 #include "dylibs.h"
@@ -130,6 +132,15 @@ pass2(void)
     kern_return_t r;
 
 	/*
+	 * In UNIX standard conformance mode we are not allowed to replace
+	 * a file that is not writeable.
+	 */
+	if(get_unix_standard_mode() == TRUE && 
+	   access(outputfile, F_OK) == 0 &&
+	   access(outputfile, W_OK) == -1)
+	    system_fatal("can't write output file: %s", outputfile);
+
+	/*
 	 * Create the output file.  The unlink() is done to handle the problem
 	 * when the outputfile is not writable but the directory allows the
 	 * file to be removed (since the file may not be there the return code
@@ -152,7 +163,7 @@ pass2(void)
 	 */
 	if(output_mach_header.flags & MH_NOUNDEFS ||
 	   (has_dynamic_linker_command && output_for_dyld))
-	    mode = (stat_buf.st_mode & 0777) | 0111;
+	    mode = (stat_buf.st_mode & 0777) | (0111 & ~umask(0));
 	else
 	    mode = (stat_buf.st_mode & 0777) & ~0111;
 	if(fchmod(fd, mode) == -1)
@@ -667,6 +678,11 @@ unsigned long size)
 	if(flush == FALSE)
 	    return;
 
+/*
+if(offset == 588824 && size != 0)
+printf("in output_flush() offset = %lu size = %lu\n", offset, size);
+*/
+
 	if(offset + size > output_size)
 	    fatal("internal error: output_flush(offset = %lu, size = %lu) out "
 		  "of range for output_size = %lu", offset, size, output_size);
@@ -910,7 +926,7 @@ final_output_flush(void)
 		write_size = block->size;
 	    }
 	    if(block->next != NULL)
-		fatal("internal error: more then one block in final list");
+		fatal("internal error: more than one block in final list");
 	}
 	if(write_size != 0){
 #ifdef DEBUG
@@ -1117,9 +1133,8 @@ output_headers(void)
 			dl->cmd = LC_LOAD_DYLIB;
 		    }
 		}
-		else{
+		else
 		    dl->cmd = LC_LOAD_DYLIB;
-		}
 	    }
 	    header_offset += mdl->dl->cmdsize;
 	    mdl = mdl->next;

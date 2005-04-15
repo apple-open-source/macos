@@ -32,6 +32,7 @@
 #import "kjs_window.h"
 
 #import "KWQAssertions.h"
+#import "KWQFoundationExtras.h"
 #import "KWQKHTMLPart.h"
 
 using DOM::DocumentImpl;
@@ -49,13 +50,20 @@ using KJS::SavedBuiltins;
     doc->ref();
     document = doc;
     document->setInPageCache(YES);
+    parseMode = document->parseMode();
     document->view()->ref();
+    mousePressNode = static_cast<KWQKHTMLPart *>(document->part())->mousePressNode();
+    if (mousePressNode) {
+        mousePressNode->ref();
+    }
     URL = new KURL(u);
     windowProperties = wp;
     locationProperties = lp;
     interpreterBuiltins = ib;
     return self;
 }
+
+- (DOM::DocumentImpl::ParseMode)parseMode { return parseMode; }
 
 - (void)setPausedActions: (QMap<int, KJS::ScheduledAction*> *)pa
 {
@@ -84,6 +92,7 @@ using KJS::SavedBuiltins;
 - (void)clear
 {
     document = 0;
+    mousePressNode = 0;
 
     delete URL;
     URL = 0;
@@ -100,16 +109,54 @@ using KJS::SavedBuiltins;
 {
     // Should only ever invalidate once.
     ASSERT(document);
+    ASSERT(document->view());
     ASSERT(!document->inPageCache());
 
-    document->view()->deref();
-    document->deref();
-
+    if (document && document->view()) {
+        document->view()->deref();
+        document->deref();
+    }
+    
     [self clear];
 }
 
 - (void)dealloc
 {
+    if (document) {
+        ASSERT(document->inPageCache());
+        ASSERT(document->view());
+
+        KHTMLView *view = document->view();
+
+        KWQKHTMLPart::clearTimers(view);
+
+        bool detached = document->renderer() == 0;
+        document->setInPageCache(NO);
+        if (detached) {
+            document->detach();
+        }
+        document->deref();
+        
+        if (mousePressNode) {
+            mousePressNode->deref();
+        }
+        
+        if (view) {
+            view->clearPart();
+            view->deref();
+        }
+    }
+
+    [self clear];
+
+    [super dealloc];
+}
+
+- (void)finalize
+{
+    // FIXME: This work really should not be done at deallocation time.
+    // We need to do it at some well-defined time instead.
+
     if (document) {
         ASSERT(document->inPageCache());
         ASSERT(document->view());
@@ -133,12 +180,17 @@ using KJS::SavedBuiltins;
 
     [self clear];
 
-    [super dealloc];
+    [super finalize];
 }
 
 - (DocumentImpl *)document
 {
     return document;
+}
+
+- (DOM::NodeImpl *)mousePressNode
+{
+    return mousePressNode;
 }
 
 - (KURL *)URL

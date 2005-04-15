@@ -41,6 +41,7 @@
 #include <kurl.h>
 #include <kdebug.h>
 
+using namespace DOM;
 using namespace khtml;
 
 HTMLBaseElementImpl::HTMLBaseElementImpl(DocumentPtr *doc)
@@ -57,7 +58,7 @@ NodeImpl::Id HTMLBaseElementImpl::id() const
     return ID_BASE;
 }
 
-void HTMLBaseElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLBaseElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
@@ -70,7 +71,7 @@ void HTMLBaseElementImpl::parseAttribute(AttributeImpl *attr)
 	process();
 	break;
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -165,7 +166,7 @@ void HTMLLinkElementImpl::setDisabledState(bool _disabled)
     }
 }
 
-void HTMLLinkElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLLinkElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch (attr->id())
     {
@@ -186,10 +187,10 @@ void HTMLLinkElementImpl::parseAttribute(AttributeImpl *attr)
         process();
         break;
     case ATTR_DISABLED:
-        setDisabledState(attr->val() != 0);
+        setDisabledState(!attr->isNull());
         break;
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -298,6 +299,11 @@ void HTMLLinkElementImpl::sheetLoaded()
         getDocument()->stylesheetLoaded();
 }
 
+bool HTMLLinkElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    return attr->id() == ATTR_HREF;
+}
+
 // -------------------------------------------------------------------------
 
 HTMLMetaElementImpl::HTMLMetaElementImpl(DocumentPtr *doc) : HTMLElementImpl(doc)
@@ -313,7 +319,7 @@ NodeImpl::Id HTMLMetaElementImpl::id() const
     return ID_META;
 }
 
-void HTMLMetaElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLMetaElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
@@ -328,7 +334,7 @@ void HTMLMetaElementImpl::parseAttribute(AttributeImpl *attr)
     case ATTR_NAME:
       break;
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -361,6 +367,11 @@ NodeImpl::Id HTMLScriptElementImpl::id() const
     return ID_SCRIPT;
 }
 
+bool HTMLScriptElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    return attr->id() == ATTR_SRC;
+}
+
 // -------------------------------------------------------------------------
 
 HTMLStyleElementImpl::HTMLStyleElementImpl(DocumentPtr *doc) : HTMLElementImpl(doc)
@@ -380,18 +391,18 @@ NodeImpl::Id HTMLStyleElementImpl::id() const
 }
 
 // other stuff...
-void HTMLStyleElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLStyleElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch (attr->id())
     {
     case ATTR_TYPE:
-        m_type = attr->value().lower();
+        m_type = attr->value().domString().lower();
         break;
     case ATTR_MEDIA:
         m_media = attr->value().string().lower();
         break;
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 

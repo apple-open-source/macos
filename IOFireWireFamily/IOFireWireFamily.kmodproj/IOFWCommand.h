@@ -288,6 +288,7 @@ protected:
 		void *	fSubclassMembers;
 		int		fMaxSpeed;
 		int		fAckCode;
+		UInt32	fResponseCode;
 	} 
 	MemberVariables;
 
@@ -356,7 +357,13 @@ public:
 	
 	void setAckCode( int ack );
 	int getAckCode( void );
-		
+
+	void setRetries( int retries);
+	int getMaxRetries( void );
+
+	void setResponseCode( UInt32 rcode );
+	UInt32 getResponseCode( void ) const;
+			
 private:
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 1);

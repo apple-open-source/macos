@@ -25,6 +25,9 @@
  * HISTORY
  *
  *	$Log: IOFWDCLProgram.cpp,v $
+ *	Revision 1.24.10.3  2005/03/08 03:48:47  collin
+ *	*** empty log message ***
+ *	
  *	Revision 1.24.10.2  2004/09/14 00:43:29  niels
  *	*** empty log message ***
  *	
@@ -239,8 +242,9 @@ IODCLProgram :: init ( IOFireWireBus :: DCLTaskInfo * info)
 				}
 
 				case 1 :
+				case 2 :
 				{
-					fBufferMem = info->auxInfo->u.v1.bufferMemoryMap ;
+					fBufferMem = info->auxInfo->u.v1.bufferMemoryMap ;	// handles version 2 also
 					if ( fBufferMem )
 					{
 						fBufferMem->retain() ;
@@ -248,6 +252,7 @@ IODCLProgram :: init ( IOFireWireBus :: DCLTaskInfo * info)
 					
 					break ;
 				}
+				
 				default :
 					ErrorLog( "unsupported version found in info->auxInfo!\n" ) ;
 					success = false ;

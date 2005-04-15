@@ -1,0 +1,59 @@
+$Id: README,v 1.5 2004/11/24 16:48:15 shadow Exp $
+
+CMU Sieve 2.1
+-------------
+
+This code is typically distributed as part of Cyrus imapd 1.6 and higher.
+This code will be configured and compiled from the cyrus-imapd directory.
+
+Notes on implementation
+-----------------------
+
+This is an implementation of a simple Sieve API.  This API is
+well-suited for incorporating in other programs, but is not
+extensible.  (If there is interest, we may implement an extensible API
+in the future.)
+
+If you wish to compile Sieve without compiling all of imapd, you'll
+have to create a Makefile for it.  I recommend you use Makefile.in as
+a guide.
+
+It should compile without libcyrus, but then it does not implement the
+"address" test.	 That's just too much work to do when I have a neato
+library to do it for me.
+
+There's a simple "test" application included, which is not built by
+default (type "make test" to build it).  It expects:
+
+test <message> <script>
+
+And prints out the actions taken or errors encountered.  (This
+implementation will attempt all the actions or no actions.)
+
+Questions and comments to:
+Derrick Brashear (shadow+sieve@andrew.cmu.edu)
+
+References:
+
+[SIEVE] Showalter, T., "Sieve: A Mail Filtering Language",
+RFC 3028, January, 2001.
+
+[VACATION] Showalter, T., "Sieve: Vacation Extension",
+draft-showalter-sieve-vacation-04.txt, August, 2000.
+
+[IMAPFLAGS] Melnikov, A., "Sieve -- IMAP flag extension",
+draft-melnikov-sieve-imapflags-03.txt, July, 2000.
+
+[NOTIFY] Martin, T., Segmuller, W.,
+"Sieve -- An extension for providing instant notifications",
+draft-martin-sieve-notify-01.txt, June, 2001.
+
+[REGEX] Murchison, K., "Sieve: Regular Expression Extension",
+draft-murchison-sieve-regex-04.txt, August, 2001.
+
+[RELATIONAL] Segmuller, W., "Sieve Extension: Relational Tests",
+RFC 3431, December 2002.
+
+[SUBADDR] Murchison, K., "Sieve Email Filtering -- Subaddress Extension",
+RFC 3598, September 2003.
+

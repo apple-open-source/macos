@@ -24,9 +24,6 @@
 extern int Protocol;
 extern int smb_read_error;
 extern int global_oplock_break;
-extern BOOL case_sensitive;
-extern BOOL case_preserve;
-extern BOOL short_case_preserve;
 extern struct current_user current_user;
 
 static const char *known_nt_pipes[] = {
@@ -61,11 +58,12 @@ static char *nttrans_realloc(char **ptr, size_t size)
 	if (ptr==NULL)
 		smb_panic("nttrans_realloc() called with NULL ptr\n");
 		
-	tptr = Realloc_zero(*ptr, size);
+	tptr = SMB_REALLOC(*ptr, size);
 	if(tptr == NULL) {
 		*ptr = NULL;
 		return NULL;
 	}
+	memset(tptr,'\0',size);
 
 	*ptr = tptr;
 
@@ -274,33 +272,33 @@ static BOOL saved_short_case_preserve;
  Save case semantics.
 ****************************************************************************/
 
-static void set_posix_case_semantics(uint32 file_attributes)
+static void set_posix_case_semantics(connection_struct *conn, uint32 file_attributes)
 {
 	if(!(file_attributes & FILE_FLAG_POSIX_SEMANTICS))
 		return;
 
-	saved_case_sensitive = case_sensitive;
-	saved_case_preserve = case_preserve;
-	saved_short_case_preserve = short_case_preserve;
+	saved_case_sensitive = conn->case_sensitive;
+	saved_case_preserve = conn->case_preserve;
+	saved_short_case_preserve = conn->short_case_preserve;
 
 	/* Set to POSIX. */
-	case_sensitive = True;
-	case_preserve = True;
-	short_case_preserve = True;
+	conn->case_sensitive = True;
+	conn->case_preserve = True;
+	conn->short_case_preserve = True;
 }
 
 /****************************************************************************
  Restore case semantics.
 ****************************************************************************/
 
-static void restore_case_semantics(uint32 file_attributes)
+static void restore_case_semantics(connection_struct *conn, uint32 file_attributes)
 {
 	if(!(file_attributes & FILE_FLAG_POSIX_SEMANTICS))
 		return;
 
-	case_sensitive = saved_case_sensitive;
-	case_preserve = saved_case_preserve;
-	short_case_preserve = saved_short_case_preserve;
+	conn->case_sensitive = saved_case_sensitive;
+	conn->case_preserve = saved_case_preserve;
+	conn->short_case_preserve = saved_short_case_preserve;
 }
 
 /****************************************************************************
@@ -654,7 +652,7 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 
 		if(!dir_fsp->is_directory) {
 
-			srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), 0, STR_TERMINATE, &status);
+			srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), 0, STR_TERMINATE, &status,False);
 			if (!NT_STATUS_IS_OK(status)) {
 				END_PROFILE(SMBntcreateX);
 				return ERROR_NT(status);
@@ -696,14 +694,14 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 			dir_name_len++;
 		}
 
-		srvstr_get_path(inbuf, rel_fname, smb_buf(inbuf), sizeof(rel_fname), 0, STR_TERMINATE, &status);
+		srvstr_get_path(inbuf, rel_fname, smb_buf(inbuf), sizeof(rel_fname), 0, STR_TERMINATE, &status,False);
 		if (!NT_STATUS_IS_OK(status)) {
 			END_PROFILE(SMBntcreateX);
 			return ERROR_NT(status);
 		}
 		pstrcat(fname, rel_fname);
 	} else {
-		srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), 0, STR_TERMINATE, &status);
+		srvstr_get_path(inbuf, fname, smb_buf(inbuf), sizeof(fname), 0, STR_TERMINATE, &status,False);
 		if (!NT_STATUS_IS_OK(status)) {
 			END_PROFILE(SMBntcreateX);
 			return ERROR_NT(status);
@@ -762,10 +760,26 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 	 * Check if POSIX semantics are wanted.
 	 */
 		
-	set_posix_case_semantics(file_attributes);
+	set_posix_case_semantics(conn, file_attributes);
 		
 	unix_convert(fname,conn,0,&bad_path,&sbuf);
-		
+
+	/* FAKE_FILE is a special case */
+	if (fake_file_type == FAKE_FILE_TYPE_NONE) {
+		/* Normal file. */
+		if (bad_path) {
+			restore_case_semantics(conn, file_attributes);
+			END_PROFILE(SMBntcreateX);
+			return ERROR_NT(NT_STATUS_OBJECT_PATH_NOT_FOUND);
+		}
+		/* All file access must go through check_name() */
+		if (!check_name(fname,conn)) {
+			restore_case_semantics(conn, file_attributes);
+			END_PROFILE(SMBntcreateX);
+			return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRbadpath);
+		}
+	}
+
 	/* 
 	 * If it's a request for a directory open, deal with it separately.
 	 */
@@ -781,7 +795,7 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 
 		fsp = open_directory(conn, fname, &sbuf, desired_access, smb_open_mode, smb_ofun, &smb_action);
 			
-		restore_case_semantics(file_attributes);
+		restore_case_semantics(conn, file_attributes);
 
 		if(!fsp) {
 			END_PROFILE(SMBntcreateX);
@@ -847,7 +861,7 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 				 */
 
 				if (create_options & FILE_NON_DIRECTORY_FILE) {
-					restore_case_semantics(file_attributes);
+					restore_case_semantics(conn, file_attributes);
 					SSVAL(outbuf, smb_flg2, 
 					      SVAL(outbuf,smb_flg2) | FLAGS2_32_BIT_ERROR_CODES);
 					END_PROFILE(SMBntcreateX);
@@ -858,20 +872,25 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 				fsp = open_directory(conn, fname, &sbuf, desired_access, smb_open_mode, smb_ofun, &smb_action);
 				
 				if(!fsp) {
-					restore_case_semantics(file_attributes);
+					restore_case_semantics(conn, file_attributes);
 					END_PROFILE(SMBntcreateX);
 					return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRnoaccess);
 				}
 			} else {
 
-				restore_case_semantics(file_attributes);
+				restore_case_semantics(conn, file_attributes);
 				END_PROFILE(SMBntcreateX);
+				if (open_was_deferred(SVAL(inbuf,smb_mid))) {
+					/* We have re-scheduled this call. */
+					clear_cached_errors();
+					return -1;
+				}
 				return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRnoaccess);
 			}
 		} 
 	}
 		
-	restore_case_semantics(file_attributes);
+	restore_case_semantics(conn, file_attributes);
 		
 	file_len = sbuf.st_size;
 	fmode = dos_mode(conn,fname,&sbuf);
@@ -889,7 +908,7 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 	allocation_size |= (((SMB_BIG_UINT)IVAL(inbuf,smb_ntcreate_AllocationSize + 4)) << 32);
 #endif
 	if (allocation_size && (allocation_size > (SMB_BIG_UINT)file_len)) {
-		fsp->initial_allocation_size = SMB_ROUNDUP(allocation_size,SMB_ROUNDUP_ALLOCATION_SIZE);
+		fsp->initial_allocation_size = smb_roundup(allocation_size);
 		if (fsp->is_directory) {
 			close_file(fsp,False);
 			END_PROFILE(SMBntcreateX);
@@ -902,7 +921,7 @@ create_options = 0x%x root_dir_fid = 0x%x\n", flags, desired_access, file_attrib
 			return ERROR_NT(NT_STATUS_DISK_FULL);
 		}
 	} else {
-		fsp->initial_allocation_size = SMB_ROUNDUP(((SMB_BIG_UINT)file_len),SMB_ROUNDUP_ALLOCATION_SIZE);
+		fsp->initial_allocation_size = smb_roundup((SMB_BIG_UINT)file_len);
 	}
 
 	/* 
@@ -1013,7 +1032,7 @@ static int do_nt_transact_create_pipe( connection_struct *conn, char *inbuf, cha
 		return ERROR_DOS(ERRDOS,ERRnoaccess);
 	}
 
-	srvstr_get_path(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE, &status);
+	srvstr_get_path(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE, &status, False);
 	if (!NT_STATUS_IS_OK(status)) {
 		return ERROR_NT(status);
 	}
@@ -1062,7 +1081,7 @@ static NTSTATUS set_sd(files_struct *fsp, char *data, uint32 sd_len, uint32 secu
 	TALLOC_CTX *mem_ctx;
 	BOOL ret;
 	
-	if (sd_len == 0) {
+	if (sd_len == 0 || !lp_nt_acl_support(SNUM(fsp->conn))) {
 		return NT_STATUS_OK;
 	}
 
@@ -1216,7 +1235,7 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 			return ERROR_DOS(ERRDOS,ERRbadfid);
 
 		if(!dir_fsp->is_directory) {
-			srvstr_get_path(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE, &status);
+			srvstr_get_path(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE, &status, False);
 			if (!NT_STATUS_IS_OK(status)) {
 				return ERROR_NT(status);
 			}
@@ -1249,14 +1268,14 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 
 		{
 			pstring tmpname;
-			srvstr_get_path(inbuf, tmpname, params+53, sizeof(tmpname), parameter_count-53, STR_TERMINATE, &status);
+			srvstr_get_path(inbuf, tmpname, params+53, sizeof(tmpname), parameter_count-53, STR_TERMINATE, &status, False);
 			if (!NT_STATUS_IS_OK(status)) {
 				return ERROR_NT(status);
 			}
 			pstrcat(fname, tmpname);
 		}
 	} else {
-		srvstr_get_path(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE, &status);
+		srvstr_get_path(inbuf, fname, params+53, sizeof(fname), parameter_count-53, STR_TERMINATE, &status, False);
 		if (!NT_STATUS_IS_OK(status)) {
 			return ERROR_NT(status);
 		}
@@ -1285,11 +1304,20 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 	 * Check if POSIX semantics are wanted.
 	 */
 
-	set_posix_case_semantics(file_attributes);
+	set_posix_case_semantics(conn, file_attributes);
     
 	RESOLVE_DFSPATH(fname, conn, inbuf, outbuf);
 
 	unix_convert(fname,conn,0,&bad_path,&sbuf);
+	if (bad_path) {
+		restore_case_semantics(conn, file_attributes);
+		return ERROR_NT(NT_STATUS_OBJECT_PATH_NOT_FOUND);
+	}
+	/* All file access must go through check_name() */
+	if (!check_name(fname,conn)) {
+		restore_case_semantics(conn, file_attributes);
+		return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRbadpath);
+	}
     
 	/*
 	 * If it's a request for a directory open, deal with it separately.
@@ -1313,7 +1341,7 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 		fsp = open_directory(conn, fname, &sbuf, desired_access, smb_open_mode, smb_ofun, &smb_action);
 
 		if(!fsp) {
-			restore_case_semantics(file_attributes);
+			restore_case_semantics(conn, file_attributes);
 			return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRnoaccess);
 		}
 
@@ -1336,7 +1364,7 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 				 */
 
 				if (create_options & FILE_NON_DIRECTORY_FILE) {
-					restore_case_semantics(file_attributes);
+					restore_case_semantics(conn, file_attributes);
 					SSVAL(outbuf, smb_flg2, SVAL(outbuf,smb_flg2) | FLAGS2_32_BIT_ERROR_CODES);
 					return ERROR_NT(NT_STATUS_FILE_IS_A_DIRECTORY);
 				}
@@ -1345,11 +1373,16 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 				fsp = open_directory(conn, fname, &sbuf, desired_access, smb_open_mode, smb_ofun, &smb_action);
 				
 				if(!fsp) {
-					restore_case_semantics(file_attributes);
+					restore_case_semantics(conn, file_attributes);
 					return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRnoaccess);
 				}
 			} else {
-				restore_case_semantics(file_attributes);
+				restore_case_semantics(conn, file_attributes);
+				if (open_was_deferred(SVAL(inbuf,smb_mid))) {
+					/* We have re-scheduled this call. */
+					clear_cached_errors();
+					return -1;
+				}
 				return set_bad_path_error(errno, bad_path, outbuf, ERRDOS,ERRnoaccess);
 			}
 		} 
@@ -1361,7 +1394,7 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 
 		if (fmode & aDIR) {
 			close_file(fsp,False);
-			restore_case_semantics(file_attributes);
+			restore_case_semantics(conn, file_attributes);
 			return ERROR_DOS(ERRDOS,ERRnoaccess);
 		} 
 
@@ -1382,13 +1415,14 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 	 * Now try and apply the desired SD.
 	 */
 
-	if (sd_len && !NT_STATUS_IS_OK(status = set_sd( fsp, data, sd_len, ALL_SECURITY_INFORMATION))) {
+	if (lp_nt_acl_support(SNUM(conn)) && sd_len &&
+			!NT_STATUS_IS_OK(status = set_sd( fsp, data, sd_len, ALL_SECURITY_INFORMATION))) {
 		close_file(fsp,False);
-		restore_case_semantics(file_attributes);
+		restore_case_semantics(conn, file_attributes);
 		return ERROR_NT(status);
 	}
 	
-	restore_case_semantics(file_attributes);
+	restore_case_semantics(conn, file_attributes);
 
 	/* Save the requested allocation size. */
 	allocation_size = (SMB_BIG_UINT)IVAL(params,12);
@@ -1396,7 +1430,7 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 	allocation_size |= (((SMB_BIG_UINT)IVAL(params,16)) << 32);
 #endif
 	if (allocation_size && (allocation_size > file_len)) {
-		fsp->initial_allocation_size = SMB_ROUNDUP(allocation_size,SMB_ROUNDUP_ALLOCATION_SIZE);
+		fsp->initial_allocation_size = smb_roundup(allocation_size);
 		if (fsp->is_directory) {
 			close_file(fsp,False);
 			END_PROFILE(SMBntcreateX);
@@ -1408,7 +1442,7 @@ static int call_nt_transact_create(connection_struct *conn, char *inbuf, char *o
 			return ERROR_NT(NT_STATUS_DISK_FULL);
 		}
 	} else {
-		fsp->initial_allocation_size = SMB_ROUNDUP(((SMB_BIG_UINT)file_len),SMB_ROUNDUP_ALLOCATION_SIZE);
+		fsp->initial_allocation_size = smb_roundup((SMB_BIG_UINT)file_len);
 	}
 
 	/* Realloc the size of parameters and data we will return */
@@ -1494,6 +1528,155 @@ int reply_ntcancel(connection_struct *conn,
 }
 
 /****************************************************************************
+ Copy a file.
+****************************************************************************/
+
+static NTSTATUS copy_internals(connection_struct *conn, char *oldname, char *newname, uint16 attrs)
+{
+	BOOL bad_path_oldname = False;
+	BOOL bad_path_newname = False;
+	SMB_STRUCT_STAT sbuf1, sbuf2;
+	pstring last_component_oldname;
+	pstring last_component_newname;
+	files_struct *fsp1,*fsp2;
+	uint16 fmode;
+	int access_mode;
+	int smb_action;
+	SMB_OFF_T ret=-1;
+	int close_ret;
+	NTSTATUS status = NT_STATUS_OK;
+
+	ZERO_STRUCT(sbuf1);
+	ZERO_STRUCT(sbuf2);
+
+	/* No wildcards. */
+	if (ms_has_wild(newname) || ms_has_wild(oldname)) {
+		return NT_STATUS_OBJECT_PATH_SYNTAX_BAD;
+	}
+
+	if (!CAN_WRITE(conn))
+		return NT_STATUS_MEDIA_WRITE_PROTECTED;
+
+	unix_convert(oldname,conn,last_component_oldname,&bad_path_oldname,&sbuf1);
+	if (bad_path_oldname) {
+		return NT_STATUS_OBJECT_PATH_NOT_FOUND;
+	}
+
+	/* Quick check for "." and ".." */
+	if (last_component_oldname[0] == '.') {
+		if (!last_component_oldname[1] || (last_component_oldname[1] == '.' && !last_component_oldname[2])) {
+			return NT_STATUS_OBJECT_NAME_INVALID;
+		}
+	}
+
+        /* Source must already exist. */
+	if (!VALID_STAT(sbuf1)) {
+		return NT_STATUS_OBJECT_NAME_NOT_FOUND;
+	}
+	if (!check_name(oldname,conn)) {
+		return NT_STATUS_ACCESS_DENIED;
+	}
+
+	/* Ensure attributes match. */
+	fmode = dos_mode(conn,oldname,&sbuf1);
+	if ((fmode & ~attrs) & (aHIDDEN | aSYSTEM))
+		return NT_STATUS_NO_SUCH_FILE;
+
+	unix_convert(newname,conn,last_component_newname,&bad_path_newname,&sbuf2);
+	if (bad_path_newname) {
+		return NT_STATUS_OBJECT_PATH_NOT_FOUND;
+	}
+
+	/* Quick check for "." and ".." */
+	if (last_component_newname[0] == '.') {
+		if (!last_component_newname[1] || (last_component_newname[1] == '.' && !last_component_newname[2])) {
+			return NT_STATUS_OBJECT_NAME_INVALID;
+		}
+	}
+
+	/* Disallow if newname already exists. */
+	if (VALID_STAT(sbuf2)) {
+		return NT_STATUS_OBJECT_NAME_COLLISION;
+	}
+
+	if (!check_name(newname,conn)) {
+		return NT_STATUS_ACCESS_DENIED;
+	}
+
+	/* No links from a directory. */
+	if (S_ISDIR(sbuf1.st_mode)) {
+		return NT_STATUS_FILE_IS_A_DIRECTORY;
+	}
+
+	/* Ensure this is within the share. */
+	if (!reduce_name(conn, oldname) != 0) {
+		return NT_STATUS_ACCESS_DENIED;
+	}
+
+	DEBUG(10,("copy_internals: doing file copy %s to %s\n", oldname, newname));
+
+        fsp1 = open_file_shared1(conn,oldname,&sbuf1,FILE_READ_DATA,SET_DENY_MODE(DENY_ALL)|SET_OPEN_MODE(DOS_OPEN_RDONLY),
+			(FILE_FAIL_IF_NOT_EXIST|FILE_EXISTS_OPEN),FILE_ATTRIBUTE_NORMAL,0,
+			&access_mode,&smb_action);
+
+	if (!fsp1) {
+		status = NT_STATUS_ACCESS_DENIED;
+		if (unix_ERR_class == ERRDOS && unix_ERR_code == ERRbadshare)
+			status = NT_STATUS_SHARING_VIOLATION;
+		unix_ERR_class = 0;
+		unix_ERR_code = 0;
+		unix_ERR_ntstatus = NT_STATUS_OK;
+		return status;
+	}
+
+	fsp2 = open_file_shared1(conn,newname,&sbuf2,FILE_WRITE_DATA,SET_DENY_MODE(DENY_ALL)|SET_OPEN_MODE(DOS_OPEN_WRONLY),
+			(FILE_CREATE_IF_NOT_EXIST|FILE_EXISTS_FAIL),fmode,INTERNAL_OPEN_ONLY,
+			&access_mode,&smb_action);
+
+	if (!fsp2) {
+		status = NT_STATUS_ACCESS_DENIED;
+		if (unix_ERR_class == ERRDOS && unix_ERR_code == ERRbadshare)
+			status = NT_STATUS_SHARING_VIOLATION;
+		unix_ERR_class = 0;
+		unix_ERR_code = 0;
+		unix_ERR_ntstatus = NT_STATUS_OK;
+		close_file(fsp1,False);
+		return status;
+	}
+
+	if (sbuf1.st_size)
+		ret = vfs_transfer_file(fsp1, fsp2, sbuf1.st_size);
+
+	/*
+	 * As we are opening fsp1 read-only we only expect
+	 * an error on close on fsp2 if we are out of space.
+	 * Thus we don't look at the error return from the
+	 * close of fsp1.
+	 */
+	close_file(fsp1,False);
+
+	/* Ensure the modtime is set correctly on the destination file. */
+	fsp2->pending_modtime = sbuf1.st_mtime;
+
+	close_ret = close_file(fsp2,False);
+
+	/* Grrr. We have to do this as open_file_shared1 adds aARCH when it
+	   creates the file. This isn't the correct thing to do in the copy case. JRA */
+	file_set_dosmode(conn, newname, fmode, &sbuf2);
+
+	if (ret < (SMB_OFF_T)sbuf1.st_size) {
+		return NT_STATUS_DISK_FULL;
+	}
+
+	if (close_ret != 0) {
+		status = map_nt_error_from_unix(close_ret);
+		DEBUG(3,("copy_internals: Error %s copy file %s to %s\n",
+			nt_errstr(status), oldname, newname));
+	}
+	return status;
+}
+
+/****************************************************************************
  Reply to a NT rename request.
 ****************************************************************************/
 
@@ -1510,13 +1693,8 @@ int reply_ntrename(connection_struct *conn,
 
 	START_PROFILE(SMBntrename);
 
-	if ((rename_type != RENAME_FLAG_RENAME) && (rename_type != RENAME_FLAG_HARD_LINK)) {
-		END_PROFILE(SMBntrename);
-		return ERROR_NT(NT_STATUS_ACCESS_DENIED);
-	}
-
 	p = smb_buf(inbuf) + 1;
-	p += srvstr_get_path(inbuf, oldname, p, sizeof(oldname), 0, STR_TERMINATE, &status);
+	p += srvstr_get_path(inbuf, oldname, p, sizeof(oldname), 0, STR_TERMINATE, &status, True);
 	if (!NT_STATUS_IS_OK(status)) {
 		END_PROFILE(SMBntrename);
 		return ERROR_NT(status);
@@ -1528,8 +1706,13 @@ int reply_ntrename(connection_struct *conn,
 		return ERROR_NT(NT_STATUS_ACCESS_DENIED);
 	}
 
+	if (ms_has_wild(oldname)) {
+		END_PROFILE(SMBntrename);
+		return ERROR_NT(NT_STATUS_OBJECT_PATH_SYNTAX_BAD);
+	}
+
 	p++;
-	p += srvstr_get_path(inbuf, newname, p, sizeof(newname), 0, STR_TERMINATE, &status);
+	p += srvstr_get_path(inbuf, newname, p, sizeof(newname), 0, STR_TERMINATE, &status, False);
 	if (!NT_STATUS_IS_OK(status)) {
 		END_PROFILE(SMBntrename);
 		return ERROR_NT(status);
@@ -1540,14 +1723,31 @@ int reply_ntrename(connection_struct *conn,
 	
 	DEBUG(3,("reply_ntrename : %s -> %s\n",oldname,newname));
 	
-	if (rename_type == RENAME_FLAG_RENAME) {
-		status = rename_internals(conn, oldname, newname, attrs, False);
-	} else {
-		status = hardlink_internals(conn, oldname, newname);
+	switch(rename_type) {
+		case RENAME_FLAG_RENAME:
+			status = rename_internals(conn, oldname, newname, attrs, False);
+			break;
+		case RENAME_FLAG_HARD_LINK:
+			status = hardlink_internals(conn, oldname, newname);
+			break;
+		case RENAME_FLAG_COPY:
+			status = copy_internals(conn, oldname, newname, attrs);
+			break;
+		case RENAME_FLAG_MOVE_CLUSTER_INFORMATION:
+			status = NT_STATUS_INVALID_PARAMETER;
+			break;
+		default:
+			status = NT_STATUS_ACCESS_DENIED; /* Default error. */
+			break;
 	}
 
 	if (!NT_STATUS_IS_OK(status)) {
 		END_PROFILE(SMBntrename);
+		if (open_was_deferred(SVAL(inbuf,smb_mid))) {
+			/* We have re-scheduled this call. */
+			clear_cached_errors();
+			return -1;
+		}
 		return ERROR_NT(status);
 	}
 
@@ -1633,7 +1833,7 @@ static int call_nt_transact_rename(connection_struct *conn, char *inbuf, char *o
 	fsp = file_fsp(params, 0);
 	replace_if_exists = (SVAL(params,2) & RENAME_REPLACE_IF_EXISTS) ? True : False;
 	CHECK_FSP(fsp, conn);
-	srvstr_get_path(inbuf, new_name, params+4, sizeof(new_name), -1, STR_TERMINATE, &status);
+	srvstr_get_path(inbuf, new_name, params+4, sizeof(new_name), -1, STR_TERMINATE, &status, True);
 	if (!NT_STATUS_IS_OK(status)) {
 		return ERROR_NT(status);
 	}
@@ -1942,7 +2142,7 @@ static int call_nt_transact_ioctl(connection_struct *conn, char *inbuf, char *ou
 			return ERROR_NT(NT_STATUS_NO_MEMORY);
 		}
 
-		shadow_data = (SHADOW_COPY_DATA *)talloc_zero(shadow_mem_ctx,sizeof(SHADOW_COPY_DATA));
+		shadow_data = TALLOC_ZERO_P(shadow_mem_ctx,SHADOW_COPY_DATA);
 		if (shadow_data == NULL) {
 			DEBUG(0,("talloc_zero() failed!\n"));
 			return ERROR_NT(NT_STATUS_NO_MEMORY);
@@ -2253,6 +2453,10 @@ static int call_nt_transact_get_user_quota(connection_struct *conn, char *inbuf,
 			}
 
 			sid_len = IVAL(pdata,4);
+			/* Ensure this is less than 1mb. */
+			if (sid_len > (1024*1024)) {
+				return ERROR_DOS(ERRDOS,ERRnomem);
+			}
 
 			if (data_count < 8+sid_len) {
 				DEBUG(0,("TRANSACT_GET_USER_QUOTA_FOR_SID: requires %d >= %lu bytes data\n",data_count,(unsigned long)(8+sid_len)));
@@ -2508,14 +2712,20 @@ due to being in oplock break state.\n", (unsigned int)function_code ));
 		goto bad_param;
 	}
     
+	/* Don't allow more than 128mb for each value. */
+	if ((total_parameter_count > (1024*1024*128)) || (total_data_count > (1024*1024*128))) {
+		END_PROFILE(SMBnttrans);
+		return ERROR_DOS(ERRDOS,ERRnomem);
+	}
+
 	/* Allocate the space for the setup, the maximum needed parameters and data */
 
 	if(setup_count > 0)
-		setup = (char *)malloc(setup_count);
+		setup = (char *)SMB_MALLOC(setup_count);
 	if (total_parameter_count > 0)
-		params = (char *)malloc(total_parameter_count);
+		params = (char *)SMB_MALLOC(total_parameter_count);
 	if (total_data_count > 0)
-		data = (char *)malloc(total_data_count);
+		data = (char *)SMB_MALLOC(total_data_count);
  
 	if ((total_parameter_count && !params)  || (total_data_count && !data) ||
 				(setup_count && !setup)) {

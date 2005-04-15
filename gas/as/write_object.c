@@ -3,6 +3,7 @@
 #include <sys/file.h>
 #include <libc.h>
 #include <mach/mach.h>
+#include "stuff/target_arch.h"
 #include "stuff/openstep_mach.h"
 #include <mach-o/loader.h>
 #include <mach-o/reloc.h>
@@ -36,29 +37,35 @@
 #include "xmalloc.h"
 #include "input-scrub.h"
 #ifdef I860
-#define RELOC_SECTDIFF	I860_RELOC_SECTDIFF
-#define RELOC_PAIR	I860_RELOC_PAIR
+#define RELOC_SECTDIFF		I860_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	I860_RELOC_SECTDIFF
+#define RELOC_PAIR		I860_RELOC_PAIR
 #endif
 #ifdef M88K
-#define RELOC_SECTDIFF	M88K_RELOC_SECTDIFF
-#define RELOC_PAIR	M88K_RELOC_PAIR
+#define RELOC_SECTDIFF		M88K_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	M88K_RELOC_SECTDIFF
+#define RELOC_PAIR		M88K_RELOC_PAIR
 #endif
 #ifdef PPC
-#define RELOC_SECTDIFF	PPC_RELOC_SECTDIFF
-#define RELOC_PAIR	PPC_RELOC_PAIR
+#define RELOC_SECTDIFF		PPC_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	PPC_RELOC_LOCAL_SECTDIFF
+#define RELOC_PAIR		PPC_RELOC_PAIR
 #define PPC_RELOC_BR14_predicted (0x10 | PPC_RELOC_BR14)
 #endif
 #ifdef HPPA
-#define RELOC_SECTDIFF	HPPA_RELOC_SECTDIFF
-#define RELOC_PAIR	HPPA_RELOC_PAIR
+#define RELOC_SECTDIFF		HPPA_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	HPPA_RELOC_SECTDIFF
+#define RELOC_PAIR		HPPA_RELOC_PAIR
 #endif
 #ifdef SPARC
-#define RELOC_SECTDIFF	SPARC_RELOC_SECTDIFF
-#define RELOC_PAIR	SPARC_RELOC_PAIR
+#define RELOC_SECTDIFF		SPARC_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	SPARC_RELOC_SECTDIFF
+#define RELOC_PAIR		SPARC_RELOC_PAIR
 #endif
 #if defined(M68K) || defined(I386)
-#define RELOC_SECTDIFF	GENERIC_RELOC_SECTDIFF
-#define RELOC_PAIR	GENERIC_RELOC_PAIR
+#define RELOC_SECTDIFF		GENERIC_RELOC_SECTDIFF
+#define RELOC_LOCAL_SECTDIFF	GENERIC_RELOC_LOCAL_SECTDIFF
+#define RELOC_PAIR		GENERIC_RELOC_PAIR
 #endif
 
 /*
@@ -112,8 +119,8 @@ write_object(
 char *out_file_name)
 {
     /* The structures for Mach-O relocatables */
-    struct mach_header		header;
-    struct segment_command	reloc_segment;
+    mach_header_t		header;
+    segment_command_t		reloc_segment;
     struct symtab_command	symbol_table;
     struct dysymtab_command	dynamic_symbol_table;
     unsigned long		section_type, *indirect_symbols;
@@ -142,6 +149,7 @@ char *out_file_name)
     char *symbol_name;
     int fd;
     unsigned long local;
+    struct stat stat_buf;
 
 #ifdef I860
 	I860_tweeks();
@@ -182,7 +190,7 @@ char *out_file_name)
 	layout_symbols((long *)&nsyms, (long *)&strsize);
 
 	/* fill in the Mach-O header */
-	header.magic = MH_MAGIC;
+	header.magic = MH_MAGIC_VALUE;
 	header.cputype = md_cputype;
 	if(archflag_cpusubtype != -1)
 	    header.cpusubtype = archflag_cpusubtype;
@@ -194,8 +202,8 @@ char *out_file_name)
 	header.sizeofcmds = 0;
 	if(nsects != 0){
 	    header.ncmds += 1;
-	    header.sizeofcmds += sizeof(struct segment_command) +
-				 nsects * sizeof(struct section);
+	    header.sizeofcmds += sizeof(segment_command_t) +
+				 nsects * sizeof(section_t);
 	}
 	if(nsyms != 0){
 	    header.ncmds += 1;
@@ -208,17 +216,22 @@ char *out_file_name)
 	else
 	    strsize = 0;
 	header.flags = 0;
+	if(subsections_via_symbols == TRUE)
+	    header.flags |= MH_SUBSECTIONS_VIA_SYMBOLS;
+#ifdef ARCH64
+	header.reserved = 0;
+#endif
 
 	/* fill in the segment command */
-	memset(&reloc_segment, '\0', sizeof(struct segment_command));
-	reloc_segment.cmd = LC_SEGMENT;
-	reloc_segment.cmdsize = sizeof(struct segment_command) +
-				nsects * sizeof(struct section);
+	memset(&reloc_segment, '\0', sizeof(segment_command_t));
+	reloc_segment.cmd = LC_SEGMENT_VALUE;
+	reloc_segment.cmdsize = sizeof(segment_command_t) +
+				nsects * sizeof(section_t);
 	/* leave reloc_segment.segname full of zeros */
 	reloc_segment.vmaddr = 0;
 	reloc_segment.vmsize = 0;
 	reloc_segment.filesize = 0;
-	offset = header.sizeofcmds + sizeof(struct mach_header);
+	offset = header.sizeofcmds + sizeof(mach_header_t);
 	reloc_segment.fileoff = offset;
 	reloc_segment.maxprot = VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
 	reloc_segment.initprot= VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
@@ -325,7 +338,7 @@ char *out_file_name)
 	else
 	    symbol_table.symoff = offset;
 	symbol_table.nsyms = nsyms;
-	offset += symbol_table.nsyms * sizeof(struct nlist);
+	offset += symbol_table.nsyms * sizeof(nlist_t);
 
 	/* fill in the string table fields of the symtab_command */
 	if(strsize == 0)
@@ -355,31 +368,31 @@ char *out_file_name)
 	offset = 0;
 
 	/* put the mach_header in the buffer */
-	memcpy(output_addr + offset, &header, sizeof(struct mach_header));
+	memcpy(output_addr + offset, &header, sizeof(mach_header_t));
 	if(host_byte_sex != md_target_byte_sex)
-	    swap_mach_header((struct mach_header *)(output_addr + offset),
-			     md_target_byte_sex);
-	offset += sizeof(struct mach_header);
+	    swap_mach_header_t((mach_header_t *)(output_addr + offset),
+			       md_target_byte_sex);
+	offset += sizeof(mach_header_t);
 
 	/* put the segment_command in the buffer */
 	if(nsects != 0){
 	    memcpy(output_addr + offset, &reloc_segment,
-		   sizeof(struct segment_command));
+		   sizeof(segment_command_t));
 	    if(host_byte_sex != md_target_byte_sex)
-		swap_segment_command((struct segment_command *)
-				     (output_addr + offset),
-				     md_target_byte_sex);
-	    offset += sizeof(struct segment_command);
+		swap_segment_command_t((segment_command_t *)
+				       (output_addr + offset),
+				       md_target_byte_sex);
+	    offset += sizeof(segment_command_t);
 	}
 
 	/* put the segment_command's section structures in the buffer */
 	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
 	    memcpy(output_addr + offset, &(frchainP->frch_section),
-		   sizeof(struct section));
+		   sizeof(section_t));
 	    if(host_byte_sex != md_target_byte_sex)
-		swap_section((struct section *)(output_addr + offset), 1,
-				     md_target_byte_sex);
-	    offset += sizeof(struct section);
+		swap_section_t((section_t *)(output_addr + offset), 1,
+			       md_target_byte_sex);
+	    offset += sizeof(section_t);
 	}
 
 	/* put the symbol_command in the buffer */
@@ -431,7 +444,7 @@ char *out_file_name)
 	offset = symbol_table.symoff;
 	for(symbolP = symbol_rootP; symbolP; symbolP = symbolP->sy_next){
 	    if((symbolP->sy_type & N_EXT) == 0){
-		symbol_name = symbolP->sy_nlist.n_un.n_name;
+		symbol_name = symbolP->sy_name;
 		symbolP->sy_nlist.n_un.n_strx = symbolP->sy_name_offset;
 		if(symbolP->expression != 0) {
 		    expressionS *exp;
@@ -442,30 +455,30 @@ char *out_file_name)
 			exp->X_subtract_symbol->sy_value;
 		}
 		memcpy(output_addr + offset, (char *)(&symbolP->sy_nlist),
-		       sizeof(struct nlist));
-		symbolP->sy_nlist.n_un.n_name = symbol_name;
-		offset += sizeof(struct nlist);
+		       sizeof(nlist_t));
+		symbolP->sy_name = symbol_name;
+		offset += sizeof(nlist_t);
 	    }
 	}
 	for(i = 0; i < nextdefsym; i++){
-	    symbol_name = extdefsyms[i]->sy_nlist.n_un.n_name;
+	    symbol_name = extdefsyms[i]->sy_name;
 	    extdefsyms[i]->sy_nlist.n_un.n_strx = extdefsyms[i]->sy_name_offset;
 	    memcpy(output_addr + offset, (char *)(&extdefsyms[i]->sy_nlist),
-	           sizeof(struct nlist));
-	    extdefsyms[i]->sy_nlist.n_un.n_name = symbol_name;
-	    offset += sizeof(struct nlist);
+	           sizeof(nlist_t));
+	    extdefsyms[i]->sy_name = symbol_name;
+	    offset += sizeof(nlist_t);
 	}
 	for(j = 0; j < nundefsym; j++){
-	    symbol_name = undefsyms[j]->sy_nlist.n_un.n_name;
+	    symbol_name = undefsyms[j]->sy_name;
 	    undefsyms[j]->sy_nlist.n_un.n_strx = undefsyms[j]->sy_name_offset;
 	    memcpy(output_addr + offset, (char *)(&undefsyms[j]->sy_nlist),
-	           sizeof(struct nlist));
-	    undefsyms[j]->sy_nlist.n_un.n_name = symbol_name;
-	    offset += sizeof(struct nlist);
+	           sizeof(nlist_t));
+	    undefsyms[j]->sy_name = symbol_name;
+	    offset += sizeof(nlist_t);
 	}
 	if(host_byte_sex != md_target_byte_sex)
-	    swap_nlist((struct nlist *)(output_addr + symbol_table.symoff),
-		       symbol_table.nsyms, md_target_byte_sex);
+	    swap_nlist_t((nlist_t *)(output_addr + symbol_table.symoff),
+		         symbol_table.nsyms, md_target_byte_sex);
 
 	/*
 	 * Put the relocation entries for each section in the buffer.
@@ -571,7 +584,14 @@ char *out_file_name)
          */
 	if(bad_error != 0)
 	    return;
-	(void)unlink(out_file_name);
+	/*
+	 * Avoid doing the unlink() on special files, just unlink regular files
+	 * that exist.
+	 */
+	if(stat(out_file_name, &stat_buf) != -1){
+	    if(stat_buf.st_mode & S_IFREG)
+		(void)unlink(out_file_name);
+	}
 	if((fd = open(out_file_name, O_WRONLY | O_CREAT | O_TRUNC, 0666)) == -1)
 	    as_fatal("can't create output file: %s", out_file_name);
 	if(write(fd, output_addr, output_size) != (int)output_size)
@@ -665,7 +685,7 @@ symbolP = symbol_find_or_make(isymbolP->isy_name);
 		if(section_type == S_SYMBOL_STUBS)
 		    stride = frchainP->frch_section.reserved2;
 		else
-		    stride = sizeof(unsigned long);
+		    stride = sizeof(signed_target_addr_t);
 		if(frchainP->frch_section.size / stride != count)
 		    as_warn("missing indirect symbols for section (%s,%s)",
 			    frchainP->frch_section.segname,
@@ -974,6 +994,11 @@ struct relocation_info *riP)
 #endif
 		riP->r_length = 2;
 		break;
+#if defined(ARCH64)
+	    case 8:
+		riP->r_length = 3;
+		break;
+#endif /* defined(ARCH64) */
 	    default:
 		layout_file = fixP->file;
 		layout_line = fixP->line;
@@ -1047,7 +1072,10 @@ struct relocation_info *riP)
 				 "fx_subsy != 0 in fix_to_relocation_info()",
 				 fixP->fx_r_type);
 		    }
-		    sectdiff = RELOC_SECTDIFF;
+		    if((!(fixP->fx_addsy->sy_type & N_EXT)) && flagseen['k'])
+			sectdiff = RELOC_LOCAL_SECTDIFF;
+		    else
+			sectdiff = RELOC_SECTDIFF;
 		}
 		memset(&sri, '\0',sizeof(struct scattered_relocation_info));
 		sri.r_scattered = 1;
@@ -1061,7 +1089,8 @@ struct relocation_info *riP)
 
 		sri.r_type      = RELOC_PAIR;
 		sri.r_value     = fixP->fx_subsy->sy_value;
-		if(sectdiff == RELOC_SECTDIFF)
+		if(sectdiff == RELOC_SECTDIFF ||
+		   sectdiff == RELOC_LOCAL_SECTDIFF)
 		    sri.r_address = 0;
 #ifdef PPC
 		else if(sectdiff == PPC_RELOC_HI16_SECTDIFF ||
@@ -1112,7 +1141,12 @@ struct relocation_info *riP)
 	     * value (symbol + offset).  This is because the relocation must be
 	     * based on the value of the symbol not the value of the expression.
 	     * Thus a scattered relocation entry that encodes the address of the
-	     * symbol is used when the offset is non-zero.
+	     * symbol is used when the offset is non-zero.  Unfortunately this
+	     * encoding only allows for 24 bits in the r_address field and can
+	     * overflow.  So it if it would overflow we don't create a
+	     * scattered relocation entry and hope the offset does not reach
+	     * out of the block or the linker will not be doing scattered
+	     * loading on this symbol in this object file.
 	     */
 #if !defined(I860)
 	    /*
@@ -1123,6 +1157,7 @@ struct relocation_info *riP)
 	     * by two references to two different symbols.
 	     */
 	    if(fixP->fx_offset != 0 &&
+	       (riP->r_address & 0xff000000) == 0 &&
 	       ((symbolP->sy_type & N_TYPE) & ~N_EXT) != N_ABS
 #ifdef M68K
 	       /*
@@ -1195,6 +1230,11 @@ struct relocation_info *riP)
 		case 4:
 		    riP->r_length = 2;
 		    break;
+#if defined(ARCH64)
+                case 8:
+                    riP->r_length = 3;
+                    break;
+#endif /* defined(ARCH64) */
 		default:
 		    as_fatal("Bad fx_size (0x%x) in fix_to_relocation_info()\n",
 			     fixP->fx_size);

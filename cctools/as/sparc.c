@@ -37,6 +37,7 @@
 
 /* careful, this file includes data *declarations* */
 #include "sparc-opcode.h"
+#include "stuff/target_arch.h"
 #include <mach-o/sparc/reloc.h>
 
 /* From GNU ansidecl.h */
@@ -165,7 +166,7 @@ struct sparc_it
   {
     char *error;
     unsigned long opcode;
-    struct nlist *nlistp;
+    nlist_t *nlistp;
     expressionS exp;
     int pcrel;
     char pcrel_reloc;	/* do relocation? */
@@ -1141,7 +1142,7 @@ md_atof (type, litP, sizeP)
 void
 md_number_to_chars (buf, val, n)
      char *buf;
-     long val;
+     signed_target_addr_t val;
      int n;
 {
   // sigh, all architectures do this..,
@@ -1166,7 +1167,7 @@ md_number_to_chars (buf, val, n)
 
 
 void
-md_number_to_imm(unsigned char *buf, long val, int size, fixS *fixP, int nsect)
+md_number_to_imm(unsigned char *buf, signed_target_addr_t val, int size, fixS *fixP, int nsect)
 {
 
   /* handle the most common case quickly */

@@ -1,6 +1,3 @@
-#ifndef khtmlpart_p_h
-#define khtmlpart_p_h
-
 /* This file is part of the KDE project
  *
  * Copyright (C) 1998, 1999 Torben Weis <weis@kde.org>
@@ -26,6 +23,10 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
+
+#ifndef khtmlpart_p_h
+#define khtmlpart_p_h
+
 #include <kcursor.h>
 #include <klibloader.h>
 #include <kxmlguifactory.h>
@@ -40,9 +41,13 @@
 #include "khtml_iface.h"
 #include "khtml_settings.h"
 #include "misc/decoder.h"
+#include "misc/formdata.h"
 #include "java/kjavaappletcontext.h"
 #include "ecma/kjs_proxy.h"
+#include "css/css_valueimpl.h"
 #include "dom/dom_misc.h"
+#include "editing/htmlediting.h"
+#include "editing/selection.h"
 
 namespace KIO
 {
@@ -77,11 +82,11 @@ namespace khtml
     bool m_bPreloaded;
     KURL m_workingURL;
     Type m_type;
-    QStringList m_params;
+    QStringList m_paramNames;
+    QStringList m_paramValues;
     bool m_bNotify;
   };
-
-};
+}
 
 class FrameList : public QValueList<khtml::ChildFrame>
 {
@@ -114,6 +119,7 @@ public:
     m_kjs_lib = 0;
     m_job = 0L;
     m_bComplete = true;
+    m_bLoadingMainResource = false;
     m_bLoadEventEmitted = true;
     m_bUnloadEventEmitted = true;
     m_cachePolicy = KIO::CC_Verify;
@@ -125,14 +131,12 @@ public:
     m_bCleared = false;
     m_zoomFactor = 100;
     m_bDnd = true;
-    m_startOffset = m_endOffset = 0;
-    m_startBeforeEnd = true;
 #if !APPLE_CHANGES
     m_linkCursor = KCursor::handCursor();
-#endif
     m_loadedObjects = 0;
     m_totalObjectCount = 0;
     m_jobPercent = 0;
+#endif
     m_haveEncoding = false;
     m_activeFrame = 0L;
 #if !APPLE_CHANGES
@@ -158,7 +162,12 @@ public:
     m_bPluginsOverride = false;
     m_onlyLocalReferences = false;
 
-    m_inEditMode = DOM::FlagNone;
+    m_caretBlinkTimer = 0;
+    m_caretVisible = false;
+    m_caretBlinks = true;
+    m_caretPaint = true;
+    
+    m_typingStyle = 0;
 
     m_metaRefreshEnabled = true;
     m_bHTTPRefresh = false;
@@ -190,11 +199,11 @@ public:
             m_ssl_in_use = part->d->m_ssl_in_use;
 #endif
             m_onlyLocalReferences = part->d->m_onlyLocalReferences;
-            m_inEditMode = part->d->m_inEditMode;
             m_zoomFactor = part->d->m_zoomFactor;
         }
     }
 
+    m_isFocused = false;
     m_focusNodeNumber = -1;
     m_focusNodeRestored = false;
     m_opener = 0;
@@ -216,6 +225,8 @@ public:
 #ifndef Q_WS_QWS
     delete m_javaContext;
 #endif
+    if (m_typingStyle)
+        m_typingStyle->deref();
   }
 
   FrameList m_frames;
@@ -279,6 +290,7 @@ public:
 #endif
 
   bool m_bComplete:1;
+  bool m_bLoadingMainResource:1;
   bool m_bLoadEventEmitted:1;
   bool m_bUnloadEventEmitted:1;
   bool m_haveEncoding:1;
@@ -296,6 +308,7 @@ public:
   RedirectionScheduled m_scheduledRedirection;
   double m_delayRedirect;
   QString m_redirectURL;
+  QString m_redirectReferrer;
   int m_scheduledHistoryNavigationSteps;
 
 #if !APPLE_CHANGES
@@ -324,8 +337,10 @@ public:
 
   int m_zoomFactor;
 
+#if !APPLE_CHANGES
   int m_findPos;
   DOM::NodeImpl *m_findNode;
+#endif
 
   QString m_strSelectedURL;
   QString m_strSelectedURLTarget;
@@ -335,7 +350,7 @@ public:
   {
     const char *submitAction;
     QString submitUrl;
-    QByteArray submitFormData;
+    khtml::FormData submitFormData;
     QString target;
     QString submitContentType;
     QString submitBoundary;
@@ -346,31 +361,32 @@ public:
   bool m_bMousePressed;
   DOM::Node m_mousePressNode; //node under the mouse when the mouse was pressed (set in the mouse handler)
 
-#if APPLE_CHANGES
-  DOM::Node m_initialSelectionStart;
-  long m_initialSelectionStartOffset;
-  DOM::Node m_initialSelectionEnd;
-  long m_initialSelectionEndOffset;
-  bool m_selectionInitiatedWithDoubleClick:1;
-  bool m_selectionInitiatedWithTripleClick:1;
-  bool m_mouseMovedSinceLastMousePress:1;
-#endif
-  DOM::Node m_selectionStart;
-  long m_startOffset;
-  DOM::Node m_selectionEnd;
-  long m_endOffset;
+  khtml::ETextGranularity m_selectionGranularity;
+  bool m_beganSelectingText;
+#if !APPLE_CHANGES
   QString m_overURL;
   QString m_overURLTarget;
+#endif
 
-  bool m_startBeforeEnd:1;
+  khtml::Selection m_selection;
+  khtml::Selection m_dragCaret;
+  khtml::Selection m_mark;
+  int m_caretBlinkTimer;
+
+  bool m_caretVisible:1;
+  bool m_caretBlinks:1;
+  bool m_caretPaint:1;
   bool m_bDnd:1;
   bool m_bFirstData:1;
   bool m_bClearing:1;
   bool m_bCleared:1;
   bool m_bSecurityInQuestion:1;
   bool m_focusNodeRestored:1;
+  bool m_isFocused:1;
 
-  TristateFlag m_inEditMode;
+  khtml::EditCommandPtr m_lastEditCommand;
+  int m_xPosForVerticalArrowNavigation;
+  DOM::CSSMutableStyleDeclarationImpl *m_typingStyle;
 
   int m_focusNodeNumber;
 
@@ -381,14 +397,12 @@ public:
 
 #if !APPLE_CHANGES
   QCursor m_linkCursor;
-#endif
   QTimer m_scrollTimer;
 
   unsigned long m_loadedObjects;
   unsigned long m_totalObjectCount;
   unsigned int m_jobPercent;
 
-#if !APPLE_CHANGES
   KHTMLFind *m_findDialog;
 
   struct findState
@@ -416,6 +430,7 @@ public:
   bool m_cancelWithLoadInProgress;
 
   QTimer m_lifeSupportTimer;
+  
 };
 
 #endif

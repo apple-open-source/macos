@@ -100,7 +100,8 @@ extern LITTLENUM_TYPE generic_bignum[];
 typedef struct {
     symbolS *X_add_symbol;	/* foo */
     symbolS *X_subtract_symbol;	/* bar */
-    long     X_add_number;	/* 42 (must be signed) */
+    signed_target_addr_t
+    X_add_number;	/* 42 (must be signed) */
     segT     X_seg;		/* What segment (expr type) */
 } expressionS;
 

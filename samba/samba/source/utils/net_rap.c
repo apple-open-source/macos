@@ -24,7 +24,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "includes.h"
-#include "../utils/net.h"
+#include "utils/net.h"
 
 /* The following messages were for error checking that is not properly 
    reported at the moment.  Which should be reinstated? */
@@ -198,7 +198,7 @@ static int rap_share_add(int argc, const char **argv)
 	if (!(cli = net_make_ipc_connection(0))) 
                 return -1;
 
-	sharename = strdup(argv[0]);
+	sharename = SMB_STRDUP(argv[0]);
 	p = strchr(sharename, '=');
 	*p = 0;
 	strlcpy(sinfo.share_name, sharename, sizeof(sinfo.share_name));

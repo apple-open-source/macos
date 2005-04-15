@@ -38,10 +38,12 @@ namespace KJS {
   class WindowFunc;
   class WindowQObject;
   class Location;
+  class Selection;
   class BarInfo;
   class History;
   class FrameArray;
   class JSEventListener;
+  class JSUnprotectedEventListener;
   class JSLazyEventListener;
 
   class Screen : public ObjectImp {
@@ -86,8 +88,8 @@ namespace KJS {
     static Window *retrieveActive(ExecState *exec);
     QGuardedPtr<KHTMLPart> part() const { return m_part; }
     virtual void mark();
-    virtual bool hasProperty(ExecState *exec, const Identifier &p) const;
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
+    virtual bool hasProperty(ExecState *exec, const Identifier &propertyName) const;
     virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
     virtual bool toBoolean(ExecState *exec) const;
     int installTimeout(const UString &handler, int t, bool singleShot);
@@ -97,10 +99,16 @@ namespace KJS {
     bool hasTimeouts();
     QMap<int, ScheduledAction*> *pauseTimeouts(const void *key);
     void resumeTimeouts(QMap<int, ScheduledAction*>*sa, const void *key);
+    
+    KJS::Interpreter *interpreter() const;
+
+    static bool isSafeScript (const KJS::ScriptInterpreter *origin, const KJS::ScriptInterpreter *target);
 #endif
     void scheduleClose();
+        
     bool isSafeScript(ExecState *exec) const;
     Location *location() const;
+    Selection *selection() const;
     BarInfo *locationbar(ExecState *exec) const;
     BarInfo *menubar(ExecState *exec) const;
     BarInfo *personalbar(ExecState *exec) const;
@@ -108,7 +116,8 @@ namespace KJS {
     BarInfo *statusbar(ExecState *exec) const;
     BarInfo *toolbar(ExecState *exec) const;
     JSEventListener *getJSEventListener(const Value &val, bool html = false);
-    JSLazyEventListener *getJSLazyEventListener(const QString &code, bool html = false);
+    JSUnprotectedEventListener *getJSUnprotectedEventListener(const Value &val, bool html = false);
+    JSLazyEventListener *getJSLazyEventListener(const QString &code, DOM::NodeImpl *node, int lineno = 0);
     void clear( ExecState *exec );
     virtual UString toString(ExecState *exec) const;
 
@@ -116,6 +125,7 @@ namespace KJS {
     void setCurrentEvent( DOM::Event *evt );
 
     QPtrDict<JSEventListener> jsEventListeners;
+    QPtrDict<JSUnprotectedEventListener> jsUnprotectedEventListeners;
     virtual const ClassInfo* classInfo() const { return &info; }
     static const ClassInfo info;
     enum { Closed, Crypto, DefaultStatus, Status, Document, Node, EventCtor, Range,
@@ -130,7 +140,7 @@ namespace KJS {
            ReleaseEvents, AddEventListener, RemoveEventListener, XMLHttpRequest, XMLSerializer,
 	   Onabort, Onblur, Onchange, Onclick, Ondblclick, Ondragdrop, Onerror, 
 	   Onfocus, Onkeydown, Onkeypress, Onkeyup, Onload, Onmousedown, Onmousemove,
-           Onmouseout, Onmouseover, Onmouseup, Onmove, Onreset, Onresize, Onscroll, 
+           Onmouseout, Onmouseover, Onmouseup, Onmove, Onreset, Onresize, Onscroll, Onsearch,
            Onselect, Onsubmit, Onunload,
            Statusbar, Toolbar };
   protected:
@@ -144,6 +154,7 @@ namespace KJS {
     History *history;
     FrameArray *frames;
     Location *loc;
+    Selection *m_selection;
     BarInfo *m_locationbar;
     BarInfo *m_menubar;
     BarInfo *m_personalbar;
@@ -166,7 +177,7 @@ namespace KJS {
     ~ScheduledAction();
     void execute(Window *window);
 
-    Object func;
+    ProtectedObject func;
     List args;
     QString code;
     bool isFunction;
@@ -214,6 +225,25 @@ namespace KJS {
   private:
     friend class Window;
     Location(KHTMLPart *p);
+    QGuardedPtr<KHTMLPart> m_part;
+  };
+
+  class Selection : public ObjectImp {
+  public:
+    ~Selection();
+    virtual Value get(ExecState *exec, const Identifier &propertyName) const;
+    virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
+    virtual Value toPrimitive(ExecState *exec, Type preferred) const;
+    virtual UString toString(ExecState *exec) const;
+    enum { AnchorNode, AnchorOffset, FocusNode, FocusOffset, BaseNode, BaseOffset, ExtentNode, ExtentOffset, 
+           IsCollapsed, _Type, EqualEqual, Collapse, CollapseToEnd, CollapseToStart, Empty, ToString, 
+           SetBaseAndExtent, SetPosition, Modify };
+    KHTMLPart *part() const { return m_part; }
+    virtual const ClassInfo* classInfo() const { return &info; }
+    static const ClassInfo info;
+  private:
+    friend class Window;
+    Selection(KHTMLPart *p);
     QGuardedPtr<KHTMLPart> m_part;
   };
 

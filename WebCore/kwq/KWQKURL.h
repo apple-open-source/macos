@@ -26,9 +26,7 @@
 #ifndef KURL_H_
 #define KURL_H_
 
-#include "KWQMemArray.h"
 #include "KWQString.h"
-#include "KWQValueList.h"
 
 class QTextCodec;
 
@@ -39,12 +37,6 @@ class QTextCodec;
 class NSData;
 class NSURL;
 #endif
-
-struct KWQIntegerPair {
-    KWQIntegerPair(int s, int e) : start(s), end(e) { }
-    int start;
-    int end;
-};
 
 class KURL {
 public:
@@ -72,8 +64,7 @@ public:
     QString ref() const;
     bool hasRef() const;
 
-    QString htmlRef() const;
-    QString encodedHtmlRef() const;
+    QString encodedHtmlRef() const { return ref(); }
 
     void setProtocol(const QString &);
     void setHost(const QString &);
@@ -81,26 +72,24 @@ public:
     void setUser(const QString &);
     void setPass(const QString &);
     void setPath(const QString &);
-    void setQuery(const QString &, int encoding_hint=0);
+    void setQuery(const QString &);
     void setRef(const QString &);
 
     QString prettyURL() const;
     
     NSURL *getNSURL() const;
     NSData *getNSData() const;
-    
-    static QString decode_string(const QString &);
+
+    bool isLocalFile() const;
+
+    static QString decode_string(const QString &, const QTextCodec * = 0);
     static QString encode_string(const QString &);
     
     friend bool operator==(const KURL &, const KURL &);
 
 private:
+    bool isHierarchical() const;
     void parse(const char *url, const QString *originalString);
-
-    static QString encodeHostname(const QString &);
-    static QString encodeHostnames(const QString &);
-    static bool findHostnameInHierarchicalURL(const QString &, int &startOffset, int &endOffset);
-    static QMemArray<KWQIntegerPair> findHostnamesInMailToURL(const QString &);
 
 #ifdef CONSTRUCT_CANONICAL_STRING
     QString _path() const;

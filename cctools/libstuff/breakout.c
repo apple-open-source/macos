@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +36,10 @@ static void breakout_internal(
     struct arch **archs,
     unsigned long *narchs,
     enum bool calculate_input_prebind_cksum,
+    struct ofile *ofile);
+static void breakout_loop_through_archive(
+    char *filename,
+    struct arch *arch,
     struct ofile *ofile);
 static void cksum_object(
     struct arch *arch,
@@ -83,6 +88,10 @@ enum bool calculate_input_prebind_cksum)
 	breakout_internal(filename, archs, narchs,
 			  calculate_input_prebind_cksum, ofile);
 	errors += previous_errors;
+	if(errors != 0){
+	    free(ofile);
+	    return(NULL);
+	}
 	return(ofile);
 }
 
@@ -113,6 +122,10 @@ enum bool calculate_input_prebind_cksum)
 	breakout_internal(filename, archs, narchs, 
 			  calculate_input_prebind_cksum, ofile);
 	errors += previous_errors;
+	if(errors != 0){
+	    free(ofile);
+	    return(NULL);
+	}
 	return(ofile);
 }
 
@@ -125,10 +138,6 @@ unsigned long *narchs,
 enum bool calculate_input_prebind_cksum,
 struct ofile *ofile)
 {
-    struct member *member;
-    enum bool flag;
-    struct ar_hdr *ar_hdr;
-    unsigned long size;
     struct arch *arch;
 
 	errors = 0;
@@ -145,83 +154,7 @@ struct ofile *ofile)
 		arch->fat_arch_name = savestr(ofile->arch_flag.name);
 
 		if(ofile->arch_type == OFILE_ARCHIVE){
-		    /* loop through archive (can be empty) */
-		    if((flag = ofile_first_member(ofile)) == TRUE){
-			/*
-			 * If the first member is a table of contents then skip
-			 * it as it is always rebuilt (so to get the time to
-			 * match the modtime so it won't appear out of date).
-			 */
-			if(ofile->member_ar_hdr != NULL &&
-			   strncmp(ofile->member_name, SYMDEF,
-				   sizeof(SYMDEF) - 1) == 0){
-			    arch->toc_long_name = (enum bool)
-						(ofile->member_name !=
-						 ofile->member_ar_hdr->ar_name);
-			    flag = ofile_next_member(ofile);
-			}
-			while(flag == TRUE){
-			    member = new_member(arch);
-			    member->type = ofile->member_type;
-			    member->ar_hdr = ofile->member_ar_hdr;
-			    member->member_name = ofile->member_name;
-			    member->member_name_size = ofile->member_name_size;
-			    member->member_long_name = (enum bool)
-						(ofile->member_name !=
-						 ofile->member_ar_hdr->ar_name);
-			    member->offset = arch->library_size;
-			    size = sizeof(struct ar_hdr) +
-				   round(ofile->member_size,
-					 sizeof(long));
-			    if(member->member_long_name == TRUE)
-				size += round(ofile->member_name_size,
-					      sizeof(long));
-			    arch->library_size += size;
-			    /*
-			     * For library members that are not a multiple of
-			     * sizeof(long) their size is incresed and '\n' are
-			     * added in writeout() to make it so.
-			     */
-			    if(ofile->member_size != 
-			       round(ofile->member_size, sizeof(long)) ||
-			       ofile->member_name_size !=
-			       round(ofile->member_name_size, sizeof(long))){
-				ar_hdr = allocate(sizeof(struct ar_hdr));
-				*ar_hdr = *(ofile->member_ar_hdr);
-	    			sprintf(ar_hdr->ar_size, "%-*ld",
-	       				(int)sizeof(ar_hdr->ar_size), size);
-				/*
-				 * This has to be done by hand because sprintf
-				 * puts a null at the end of the buffer.
-				 */
-				memcpy(ar_hdr->ar_fmag, ARFMAG,
-				       (int)sizeof(ar_hdr->ar_fmag));
-				member->ar_hdr = ar_hdr;
-			    }
-			    member->input_ar_hdr = ofile->member_ar_hdr;
-			    member->input_file_name = filename;
-			    if(ofile->member_type == OFILE_Mach_O){
-				member->object =
-					allocate(sizeof(struct object));
-				memset(member->object, '\0',
-					sizeof(struct object));
-				member->object->object_addr =
-					ofile->object_addr;
-				member->object->object_size =
-					ofile->object_size;
-				member->object->object_byte_sex =
-					ofile->object_byte_sex;
-				member->object->mh = ofile->mh;
-				member->object->load_commands =
-					ofile->load_commands;
-			    }
-			    else{ /* ofile->member_type == OFILE_UNKNOWN */
-				member->unknown_addr = ofile->member_addr;
-				member->unknown_size = ofile->member_size;
-			    }
-			    flag = ofile_next_member(ofile);
-			}
-		    }
+		    breakout_loop_through_archive(filename, arch, ofile);
 		}
 		else if(ofile->arch_type == OFILE_Mach_O){
 		    arch->object = allocate(sizeof(struct object));
@@ -229,7 +162,11 @@ struct ofile *ofile)
 		    arch->object->object_addr = ofile->object_addr;
 		    arch->object->object_size = ofile->object_size;
 		    arch->object->object_byte_sex = ofile->object_byte_sex;
+		    arch->object->mh64 = ofile->mh64;
 		    arch->object->mh = ofile->mh;
+		    arch->object->mh_filetype = ofile->mh_filetype;
+		    arch->object->mh_cputype = ofile->mh_cputype;
+		    arch->object->mh_cpusubtype = ofile->mh_cpusubtype;
 		    arch->object->load_commands = ofile->load_commands;
 		    cksum_object(arch, calculate_input_prebind_cksum);
 		}
@@ -245,77 +182,7 @@ struct ofile *ofile)
 	    arch->file_name = savestr(filename);
 	    arch->type = ofile->file_type;
 
-	    /* loop through archive (can be empty) */
-	    if((flag = ofile_first_member(ofile)) == TRUE && errors == 0){
-		/*
-		 * If the first member is a table of contents then skip
-		 * it as it is always rebuilt (so to get the time to
-		 * match the modtime so it won't appear out of date).
-		 */
-		if(ofile->member_ar_hdr != NULL &&
-		   strncmp(ofile->member_name, SYMDEF,
-			   sizeof(SYMDEF) - 1) == 0){
-		    arch->toc_long_name = (enum bool)
-					  (ofile->member_name !=
-					   ofile->member_ar_hdr->ar_name);
-		    flag = ofile_next_member(ofile);
-		}
-		while(flag == TRUE && errors == 0){
-		    member = new_member(arch);
-		    member->type = ofile->member_type;
-		    member->ar_hdr = ofile->member_ar_hdr;
-		    member->member_name = ofile->member_name;
-		    member->member_name_size = ofile->member_name_size;
-		    member->member_long_name = (enum bool)
-					(ofile->member_name !=
-					 ofile->member_ar_hdr->ar_name);
-		    member->offset = arch->library_size;
-		    size = sizeof(struct ar_hdr) +
-			   round(ofile->member_size,
-				 sizeof(long));
-		    if(member->member_long_name == TRUE)
-			size += round(ofile->member_name_size,
-				      sizeof(long));
-		    arch->library_size += size;
-		    /*
-		     * For library members that are not a multiple of
-		     * sizeof(long) their size is incresed and '\n' are
-		     * added in writeout() to make it so.
-		     */
-		    if(ofile->member_size != 
-		       round(ofile->member_size, sizeof(long)) ||
-		       ofile->member_name_size !=
-		       round(ofile->member_name_size, sizeof(long))){
-			ar_hdr = allocate(sizeof(struct ar_hdr));
-			*ar_hdr = *(ofile->member_ar_hdr);
-			sprintf(ar_hdr->ar_size, "%-*ld",
-				(int)sizeof(ar_hdr->ar_size), size);
-			/*
-			 * This has to be done by hand because sprintf
-			 * puts a null at the end of the buffer.
-			 */
-			memcpy(ar_hdr->ar_fmag, ARFMAG,
-			       (int)sizeof(ar_hdr->ar_fmag));
-			member->ar_hdr = ar_hdr;
-		    }
-		    member->input_ar_hdr = ofile->member_ar_hdr;
-		    member->input_file_name = filename;
-		    if(ofile->member_type == OFILE_Mach_O){
-			member->object = allocate(sizeof(struct object));
-			memset(member->object, '\0', sizeof(struct object));
-			member->object->object_addr = ofile->object_addr;
-			member->object->object_size = ofile->object_size;
-			member->object->object_byte_sex =ofile->object_byte_sex;
-			member->object->mh = ofile->mh;
-			member->object->load_commands = ofile->load_commands;
-		    }
-		    else{ /* ofile->member_type == OFILE_UNKNOWN */
-			member->unknown_addr = ofile->member_addr;
-			member->unknown_size = ofile->member_size;
-		    }
-		    flag = ofile_next_member(ofile);
-		}
-	    }
+	    breakout_loop_through_archive(filename, arch, ofile);
 	}
 	else if(ofile->file_type == OFILE_Mach_O && errors == 0){
 	    arch = new_arch(archs, narchs);
@@ -326,7 +193,11 @@ struct ofile *ofile)
 	    arch->object->object_addr = ofile->object_addr;
 	    arch->object->object_size = ofile->object_size;
 	    arch->object->object_byte_sex = ofile->object_byte_sex;
+	    arch->object->mh64 = ofile->mh64;
 	    arch->object->mh = ofile->mh;
+	    arch->object->mh_filetype = ofile->mh_filetype;
+	    arch->object->mh_cputype = ofile->mh_cputype;
+	    arch->object->mh_cpusubtype = ofile->mh_cpusubtype;
 	    arch->object->load_commands = ofile->load_commands;
 	    cksum_object(arch, calculate_input_prebind_cksum);
 	}
@@ -339,6 +210,129 @@ struct ofile *ofile)
 	}
 	if(errors != 0){
 	    free_archs(*archs, *narchs);
+	    *archs = NULL;
+	    *narchs = 0;
+	}
+}
+
+static
+void
+breakout_loop_through_archive(
+char *filename,
+struct arch *arch,
+struct ofile *ofile)
+{
+    struct member *member;
+    enum bool flag;
+    struct ar_hdr *ar_hdr;
+    unsigned long size, ar_name_size;
+    char ar_name_buf[sizeof(ofile->member_ar_hdr->ar_name) + 1];
+    char ar_size_buf[sizeof(ofile->member_ar_hdr->ar_size) + 1];
+
+	/* loop through archive (can be empty) */
+	if((flag = ofile_first_member(ofile)) == TRUE && errors == 0){
+	    /*
+	     * If the first member is a table of contents then skip
+	     * it as it is always rebuilt (so to get the time to
+	     * match the modtime so it won't appear out of date).
+	     * Also force it to be a long name so members can be 8 byte
+	     * aligned.
+	     */
+	    if(ofile->member_ar_hdr != NULL &&
+	       strncmp(ofile->member_name, SYMDEF,
+		       sizeof(SYMDEF) - 1) == 0){
+		arch->toc_long_name = TRUE;
+		flag = ofile_next_member(ofile);
+	    }
+	    while(flag == TRUE && errors == 0){
+		member = new_member(arch);
+		member->type = ofile->member_type;
+		member->member_name = ofile->member_name;
+		/*
+		 * Determine the size this member will have in the library which
+		 * includes the padding as a result of rounding the size of the
+		 * member.  To get all members on an 8 byte boundary (so that 
+		 * mapping in object files can be used directly) the size of the
+		 * member is CHANGED to reflect this padding.  In the UNIX
+		 * definition of archives the size of the member is never
+		 * changed but the offset to the next member is defined to be
+		 * the offset of the previous member plus the size of the
+		 * previous member rounded to 2.  So to get 8 byte boundaries
+		 * without breaking the UNIX definition of archives the size is
+		 * changed here.  As with the UNIX ar(1) program the padded
+		 * bytes will be set to the character '\n'.
+		 */
+		if(ofile->mh != NULL || ofile->mh64 != NULL)
+		    size = round(ofile->object_size, 8);
+		else
+		    size = round(ofile->member_size, 8);
+		/*
+		 * We will force the use of long names so we can make sure the
+		 * size of the name and the size of struct ar_hdr are rounded to
+		 * 8 bytes.  And that rounded size is what will be in the
+		 * ar_name with the AR_EFMT1 string.  To avoid growing the size
+		 * of names first trim the name size before rounding up.
+		 */
+		member->member_long_name = TRUE;
+		for(ar_name_size = ofile->member_name_size;
+		    ar_name_size > 1 ;
+		    ar_name_size--){
+		    if(ofile->member_name[ar_name_size - 1] != '\0')
+		       break;
+		}
+		member->member_name_size = ar_name_size;
+		ar_name_size = round(ar_name_size, 8) +
+			       (round(sizeof(struct ar_hdr), 8) -
+				sizeof(struct ar_hdr));
+		size += ar_name_size;
+		/*
+		 * Now with the output sizes of the long member name and rounded
+		 * size of the member the offset to this member can be set and
+		 * then left incremented for the next member's offset.
+		 */
+		member->offset = arch->library_size;
+		arch->library_size += sizeof(struct ar_hdr) + size;
+		/*
+		 * Since we are rounding the member size and forcing a the use
+		 * of a long name make a new ar_hdr with this information.
+		 * Note the code in writeout() will do the padding with '\n'
+		 * characters as needed.
+		 */
+		ar_hdr = allocate(sizeof(struct ar_hdr));
+		*ar_hdr = *(ofile->member_ar_hdr);
+		sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
+			(int)(sizeof(ar_hdr->ar_name) -
+			      (sizeof(AR_EFMT1) - 1)), ar_name_size);
+		memcpy(ar_hdr->ar_name, ar_name_buf,
+		      sizeof(ar_hdr->ar_name));
+		sprintf(ar_size_buf, "%-*ld",
+			(int)sizeof(ar_hdr->ar_size), size);
+		memcpy(ar_hdr->ar_size, ar_size_buf,
+		      sizeof(ar_hdr->ar_size));
+
+		member->ar_hdr = ar_hdr;
+		member->input_ar_hdr = ofile->member_ar_hdr;
+		member->input_file_name = filename;
+
+		if(ofile->member_type == OFILE_Mach_O){
+		    member->object = allocate(sizeof(struct object));
+		    memset(member->object, '\0', sizeof(struct object));
+		    member->object->object_addr = ofile->object_addr;
+		    member->object->object_size = ofile->object_size;
+		    member->object->object_byte_sex = ofile->object_byte_sex;
+		    member->object->mh64 = ofile->mh64;
+		    member->object->mh = ofile->mh;
+		    member->object->mh_filetype = ofile->mh_filetype;
+		    member->object->mh_cputype = ofile->mh_cputype;
+		    member->object->mh_cpusubtype = ofile->mh_cpusubtype;
+		    member->object->load_commands = ofile->load_commands;
+		}
+		else{ /* ofile->member_type == OFILE_UNKNOWN */
+		    member->unknown_addr = ofile->member_addr;
+		    member->unknown_size = ofile->member_size;
+		}
+		flag = ofile_next_member(ofile);
+	    }
 	}
 }
 
@@ -360,15 +354,19 @@ cksum_object(
 struct arch *arch,
 enum bool calculate_input_prebind_cksum)
 {
-    unsigned long i, buf_size;
+    unsigned long i, buf_size, ncmds;
     struct load_command *lc;
     enum byte_sex host_byte_sex;
     char *buf;
 
 	arch->object->cs = NULL;
 	lc = arch->object->load_commands;
+	if(arch->object->mh != NULL)
+	    ncmds = arch->object->mh->ncmds;
+	else
+	    ncmds = arch->object->mh64->ncmds;
 	for(i = 0;
-	    i < arch->object->mh->ncmds && arch->object->cs == NULL;
+	    i < ncmds && arch->object->cs == NULL;
 	    i++){
 	    if(lc->cmd == LC_PREBIND_CKSUM)
 		arch->object->cs = (struct prebind_cksum_command *)lc;
@@ -390,20 +388,34 @@ enum bool calculate_input_prebind_cksum)
 	buf_size = 0;
 	buf = NULL;
 	if(arch->object->object_byte_sex != host_byte_sex){
-	    buf_size = sizeof(struct mach_header) +
-		       arch->object->mh->sizeofcmds;
-	    buf = allocate(buf_size);
-	    memcpy(buf, arch->object->mh, buf_size);
-	    if(swap_object_headers(arch->object->mh,
-				   arch->object->load_commands) == FALSE)
-		return;
+	    if(arch->object->mh != NULL){
+		buf_size = sizeof(struct mach_header) +
+			   arch->object->mh->sizeofcmds;
+		buf = allocate(buf_size);
+		memcpy(buf, arch->object->mh, buf_size);
+		if(swap_object_headers(arch->object->mh,
+				       arch->object->load_commands) == FALSE)
+		    return;
+	    }
+	    else{
+		buf_size = sizeof(struct mach_header_64) +
+			   arch->object->mh64->sizeofcmds;
+		buf = allocate(buf_size);
+		memcpy(buf, arch->object->mh64, buf_size);
+		if(swap_object_headers(arch->object->mh64,
+				       arch->object->load_commands) == FALSE)
+		    return;
+	    }
 	}
 
 	arch->object->calculated_input_prebind_cksum =
 	    crc32(arch->object->object_addr, arch->object->object_size);
 
 	if(arch->object->object_byte_sex != host_byte_sex){
-	    memcpy(arch->object->mh, buf, buf_size);
+	    if(arch->object->mh != NULL)
+		memcpy(arch->object->mh, buf, buf_size);
+	    else
+		memcpy(arch->object->mh64, buf, buf_size);
 	    free(buf);
 	}
 }
@@ -462,3 +474,4 @@ struct arch *arch)
 	memset(member, '\0', sizeof(struct member));
 	return(member);
 }
+#endif /* !defined(RLD) */

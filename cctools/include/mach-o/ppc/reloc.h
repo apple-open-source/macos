@@ -59,5 +59,7 @@ enum reloc_type_ppc
     PPC_RELOC_LO16_SECTDIFF, /* follows these with subtract symbol value */
     PPC_RELOC_HA16_SECTDIFF,
     PPC_RELOC_JBSR,
-    PPC_RELOC_LO14_SECTDIFF
+    PPC_RELOC_LO14_SECTDIFF,
+    PPC_RELOC_LOCAL_SECTDIFF  /* like PPC_RELOC_SECTDIFF, but the symbol
+				 referenced was local.  */
 };

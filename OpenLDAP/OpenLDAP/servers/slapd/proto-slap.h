@@ -294,6 +294,7 @@ LDAP_SLAPD_F (int) connections_init LDAP_P((void));
 LDAP_SLAPD_F (int) connections_shutdown LDAP_P((void));
 LDAP_SLAPD_F (int) connections_destroy LDAP_P((void));
 LDAP_SLAPD_F (int) connections_timeout_idle LDAP_P((time_t));
+LDAP_SLAPD_F (void) connection_invalid_socket LDAP_P(( ber_socket_t s ));
 
 LDAP_SLAPD_F (long) connection_init LDAP_P((
 	ber_socket_t s,

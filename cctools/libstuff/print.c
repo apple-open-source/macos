@@ -20,8 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <stdio.h>
-#import "stuff/print.h"
+#ifndef RLD
+#include <stdio.h>
+#include <stdarg.h>
+#include "stuff/print.h"
 
 /*
  * All printing of all messages for ofile functions goes through this function.
@@ -51,3 +53,4 @@ const char *format,
 	vprint(format, ap);
 	va_end(ap);
 }
+#endif /* !defined(RLD) */

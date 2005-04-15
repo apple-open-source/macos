@@ -1,9 +1,9 @@
 /* sample-server.c -- sample SASL server
  * Rob Earhart
- * $Id: sample-server.c,v 1.1 2002/02/28 00:18:29 snsimon Exp $
+ * $Id: sample-server.c,v 1.2 2004/07/07 22:53:08 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,16 +45,6 @@
 #include <config.h>
 #include <limits.h>
 #include <stdio.h>
-#ifdef WIN32
-# include <winsock.h>
-__declspec(dllimport) char *optarg;
-__declspec(dllimport) int optind;
-__declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, char **valuep);
-#else /* WIN32 */
-# include <netinet/in.h>
-#endif /* WIN32 */
-#include <sasl.h>
-#include <saslutil.h>
 
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
@@ -62,6 +52,18 @@ __declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+
+#ifdef WIN32
+# include <winsock2.h>
+__declspec(dllimport) char *optarg;
+__declspec(dllimport) int optind;
+__declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, char **valuep);
+#define HAVE_GETSUBOPT
+#else /* WIN32 */
+# include <netinet/in.h>
+#endif /* WIN32 */
+#include <sasl.h>
+#include <saslutil.h>
 
 #ifndef HAVE_GETSUBOPT
 int getsubopt(char **optionp, const char * const *tokens, char **valuep);
@@ -283,7 +285,17 @@ main(int argc, char *argv[])
   int serverlast = 0;
   sasl_ssf_t *ssf;
 
-  progname = strrchr(argv[0], '/');
+#ifdef WIN32
+  /* initialize winsock */
+    WSADATA wsaData;
+
+    result = WSAStartup( MAKEWORD(2, 0), &wsaData );
+    if ( result != 0) {
+	saslfail(SASL_FAIL, "Initializing WinSockets", NULL);
+    }
+#endif
+
+  progname = strrchr(argv[0], HIER_DELIMITER);
   if (progname)
     progname++;
   else
@@ -576,13 +588,13 @@ main(int argc, char *argv[])
   if (result != SASL_OK)
     sasldebug(result, "username", NULL);
   else
-    printf("Username: %s\n", data);
+    printf("Username: %s\n", data ? data : "(NULL)");
 
   result = sasl_getprop(conn, SASL_DEFUSERREALM, (const void **)&data);
   if (result != SASL_OK)
     sasldebug(result, "realm", NULL);
   else
-    printf("Realm: %s\n", data);
+    printf("Realm: %s\n", data ? data : "(NULL)");
 
   result = sasl_getprop(conn, SASL_SSF, (const void **)&ssf);
   if (result != SASL_OK)
@@ -609,6 +621,10 @@ main(int argc, char *argv[])
     if(strcmp(recv_data,CLIENT_MSG1)!=0)
     	saslfail(1,"recive decoded server message",NULL);
  }
+
+#ifdef WIN32
+  WSACleanup();
+#endif
 
   return (EXIT_SUCCESS);
 }

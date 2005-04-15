@@ -34,7 +34,7 @@ tdbbackup \- tool for backing up and for validating the integrity of samba .tdb 
 This tool is part of the \fBsamba\fR(1) suite\&.
 
 .PP
-\fBtdbbackup\fR is a tool that may be used to backup samba \&.tdb files\&. This tool may also be used to verify the integrity of the \&.tdb files prior to samba startup, in which case, if it find file damage and it finds a prior backup it will restore the backup file\&.
+\fBtdbbackup\fR is a tool that may be used to backup samba \&.tdb files\&. This tool may also be used to verify the integrity of the \&.tdb files prior to samba startup or during normal operation\&. If it finds file damage and it finds a prior backup the backup file will be restored\&.
 
 .SH "OPTIONS"
 
@@ -56,7 +56,7 @@ The \fB\-v\fR will check the database for damages (currupt data) which if detect
 \fBGENERAL INFORMATION\fR
 
 .PP
-The \fBtdbbackup\fR utility should be run as soon as samba has shut down\&. Do NOT run this command on a live database\&. Typical usage for the command will be:
+The \fBtdbbackup\fR utility can safely be run at any time\&. It was designed so that it can be used at any time to validate the integrity of tdb files, even during Samba operation\&. Typical usage for the command will be:
 
 .PP
 tdbbackup [\-s suffix] *\&.tdb

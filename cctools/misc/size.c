@@ -212,14 +212,21 @@ char *arch_name,
 void *cookie)
 {
     struct flags *flag;
-    unsigned long seg_sum, sect_sum;
+    uint64_t seg_sum, sect_sum;
     unsigned long i, j;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
-    unsigned long text, data, objc, others, sum;
+    struct section_64 *s64;
+    uint64_t text, data, objc, others, sum;
+    uint32_t ncmds;
 
 	flag = (struct flags *)cookie;
+	if(ofile->mh != NULL)
+	    ncmds = ofile->mh->ncmds;
+	else
+	    ncmds = ofile->mh64->ncmds;
 	if(flag->m == TRUE){
 	    if(flag->nfiles > 1 || ofile->member_ar_hdr != NULL ||
 	       arch_name != NULL){
@@ -238,19 +245,19 @@ void *cookie)
 	    }
 	    lc = ofile->load_commands;
 	    seg_sum = 0;
-	    for(i = 0; i < ofile->mh->ncmds; i++){
+	    for(i = 0; i < ncmds; i++){
 		if(lc->cmd == LC_SEGMENT){
 		    sg = (struct segment_command *)lc;
 		    printf("Segment %.16s: ", sg->segname);
 		    if(flag->x == TRUE)
 			printf("0x%x", (unsigned int)sg->vmsize);
 		    else
-			printf("%lu", sg->vmsize);
+			printf("%u", sg->vmsize);
 		    if(sg->flags & SG_FVMLIB)
 			printf(" (fixed vm library segment)\n");
 		    else{
 			if(flag->l == TRUE)
-			    printf(" (vmaddr 0x%x fileoff %lu)\n",
+			    printf(" (vmaddr 0x%x fileoff %u)\n",
 				    (unsigned int)sg->vmaddr, sg->fileoff);
 			else
 			    printf("\n");
@@ -260,7 +267,7 @@ void *cookie)
 			    sizeof(struct segment_command));
 		    sect_sum = 0;
 		    for(j = 0; j < sg->nsects; j++){
-			if(ofile->mh->filetype == MH_OBJECT)
+			if(ofile->mh_filetype == MH_OBJECT)
 			    printf("\tSection (%.16s, %.16s): ",
 				   s->segname, s->sectname);
 			else
@@ -268,9 +275,9 @@ void *cookie)
 			if(flag->x == TRUE)
 			    printf("0x%x", (unsigned int)s->size);
 			else
-			    printf("%lu", s->size);
+			    printf("%u", s->size);
 			if(flag->l == TRUE)
-			    printf(" (addr 0x%x offset %lu)\n",
+			    printf(" (addr 0x%x offset %u)\n",
 				    (unsigned int)s->addr, s->offset);
 			else
 			    printf("\n");
@@ -279,17 +286,63 @@ void *cookie)
 		    }
 		    if(sg->nsects > 0){
 			if(flag->x == TRUE)
-			    printf("\ttotal 0x%x\n", (unsigned int)sect_sum);
+			    printf("\ttotal 0x%llx\n", sect_sum);
 			else
-			    printf("\ttotal %lu\n", sect_sum);
+			    printf("\ttotal %llu\n", sect_sum);
+		    }
+		}
+		else if(lc->cmd == LC_SEGMENT_64){
+		    sg64 = (struct segment_command_64 *)lc;
+		    printf("Segment %.16s: ", sg64->segname);
+		    if(flag->x == TRUE)
+			printf("0x%llx", sg64->vmsize);
+		    else
+			printf("%llu", sg64->vmsize);
+		    if(sg64->flags & SG_FVMLIB)
+			printf(" (fixed vm library segment)\n");
+		    else{
+			if(flag->l == TRUE)
+			    printf(" (vmaddr 0x%llx fileoff %llu)\n",
+				    sg64->vmaddr, sg64->fileoff);
+			else
+			    printf("\n");
+		    }
+		    seg_sum += sg64->vmsize;
+		    s64 = (struct section_64 *)((char *)sg64 +
+			    sizeof(struct segment_command_64));
+		    sect_sum = 0;
+		    for(j = 0; j < sg64->nsects; j++){
+			if(ofile->mh_filetype == MH_OBJECT)
+			    printf("\tSection (%.16s, %.16s): ",
+				   s64->segname, s64->sectname);
+			else
+			    printf("\tSection %.16s: ", s64->sectname);
+			if(flag->x == TRUE)
+			    printf("0x%llx", s64->size);
+			else
+			    printf("%llu", s64->size);
+			if(flag->l == TRUE)
+			    printf(" (addr 0x%llx offset %u)\n",
+				    s64->addr,
+				    s64->offset);
+			else
+			    printf("\n");
+			sect_sum += s64->size;
+			s64++;
+		    }
+		    if(sg64->nsects > 0){
+			if(flag->x == TRUE)
+			    printf("\ttotal 0x%llx\n", sect_sum);
+			else
+			    printf("\ttotal %llu\n", sect_sum);
 		    }
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
 	    if(flag->x == TRUE)
-		printf("total 0x%x\n", (unsigned int)seg_sum);
+		printf("total 0x%llx\n", seg_sum);
 	    else
-		printf("total %lu\n", seg_sum);
+		printf("total %llu\n", seg_sum);
 	}
 	else{
 	    text = 0;
@@ -297,10 +350,10 @@ void *cookie)
 	    objc = 0;
 	    others = 0;
 	    lc = ofile->load_commands;
-	    for(i = 0; i < ofile->mh->ncmds; i++){
+	    for(i = 0; i < ncmds; i++){
 		if(lc->cmd == LC_SEGMENT){
 		    sg = (struct segment_command *)lc;
-		    if(ofile->mh->filetype == MH_OBJECT){
+		    if(ofile->mh_filetype == MH_OBJECT){
 			s = (struct section *)((char *)sg +
 				sizeof(struct segment_command));
 			for(j = 0; j < sg->nsects; j++){
@@ -326,11 +379,39 @@ void *cookie)
 			    others += sg->vmsize;
 		    }
 		}
+		else if(lc->cmd == LC_SEGMENT_64){
+		    sg64 = (struct segment_command_64 *)lc;
+		    if(ofile->mh_filetype == MH_OBJECT){
+			s64 = (struct section_64 *)((char *)sg64 +
+				sizeof(struct segment_command_64));
+			for(j = 0; j < sg64->nsects; j++){
+			    if(strcmp(s64->segname, SEG_TEXT) == 0)
+				text += s64->size;
+			    else if(strcmp(s64->segname, SEG_DATA) == 0)
+				data += s64->size;
+			    else if(strcmp(s64->segname, SEG_OBJC) == 0)
+				objc += s64->size;
+			    else
+				others += s64->size;
+			    s64++;
+			}
+		    }
+		    else{
+			if(strcmp(sg64->segname, SEG_TEXT) == 0)
+			    text += sg64->vmsize;
+			else if(strcmp(sg64->segname, SEG_DATA) == 0)
+			    data += sg64->vmsize;
+			else if(strcmp(sg64->segname, SEG_OBJC) == 0)
+			    objc += sg64->vmsize;
+			else
+			    others += sg64->vmsize;
+		    }
+		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
-	    printf("%lu\t%lu\t%lu\t%lu\t", text, data, objc, others);
+	    printf("%llu\t%llu\t%llu\t%llu\t", text, data, objc, others);
 	    sum = text + data + objc + others;
-	    printf("%lu\t%x", sum, (unsigned int)sum);
+	    printf("%llu\t%llx", sum, sum);
 	    if(flag->nfiles > 1 || ofile->member_ar_hdr != NULL ||
 	       arch_name != NULL){
 		if(ofile->member_ar_hdr != NULL){

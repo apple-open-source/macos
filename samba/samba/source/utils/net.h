@@ -17,7 +17,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include "../utils/net_proto.h"
+#include "utils/net_proto.h"
  
 #define NET_FLAGS_MASTER 1
 #define NET_FLAGS_DMB 2
@@ -62,6 +62,11 @@ extern BOOL opt_localgroup;
 extern BOOL opt_domaingroup;
 extern const char *opt_newntname;
 extern int opt_rid;
+extern int opt_acls;
+extern int opt_attrs;
+extern int opt_timestamps;
+extern const char *opt_exclude;
+extern const char *opt_destination;
 
 extern BOOL opt_have_ip;
 extern struct in_addr opt_dest_ip;

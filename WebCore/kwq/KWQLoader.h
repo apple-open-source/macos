@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "KWQCString.h"
 #include "KWQSignal.h"
-#include "QCString.h"
+
+#if __OBJC__
+@class NSDictionary;
+@class NSString;
+@class NSURLResponse;
+#else
+class NSDictionary;
+class NSString;
+class NSURLResponse;
+#endif
 
 namespace khtml {
     class CachedObject;
@@ -37,6 +47,10 @@ namespace KIO {
     class TransferJob;
 }
 
+namespace DOM {
+    class DOMString;
+}
+
 bool KWQServeRequest(khtml::Loader *, khtml::Request *, KIO::TransferJob *);
 bool KWQServeRequest(khtml::Loader *, khtml::DocLoader *, KIO::TransferJob *);
 
@@ -44,12 +58,12 @@ QByteArray KWQServeSynchronousRequest(khtml::Loader *, khtml::DocLoader *, KIO::
 
 void KWQCheckCacheObjectStatus(khtml::DocLoader *, khtml::CachedObject *);
 bool KWQCheckIfReloading(khtml::DocLoader *loader);
-void KWQRetainResponse(void *response);
-void KWQReleaseResponse(void *response);
-void *KWQResponseMIMEType(void *response);
-void *KWQResponseHeaderString(void *response);
+bool KWQIsResponseURLEqualToURL(NSURLResponse *response, const DOM::DOMString &m_url);
+QString KWQResponseURL(NSURLResponse *response);
+NSString *KWQResponseMIMEType(NSURLResponse *response);
 int KWQNumberOfPendingOrLoadingRequests(khtml::DocLoader *dl);
-time_t KWQCacheObjectExpiresTime(khtml::DocLoader *docLoader, void *response);
+time_t KWQCacheObjectExpiresTime(khtml::DocLoader *docLoader, NSURLResponse *response);
+NSString *KWQHeaderStringFromDictionary(NSDictionary *headers, int statusCode);
 
 class KWQLoader
 {

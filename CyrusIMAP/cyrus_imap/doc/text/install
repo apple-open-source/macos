@@ -1,0 +1,44 @@
+ Installing and Configuring the Cyrus IMAP Server
+
+    The Internet Message Access Protocol (IMAP) is an Internet
+    standards-track protocol for accessing messages (mail, news, etc). The
+    IMAP server stores and provides access to messages. 
+
+    The file doc/questions.html contains a list of questions we'd like to
+    answer but haven't gotten to yet; doc/faq.html contains some answers
+    that we have thought of. Please feel free to contribute! 
+
+    Please refer to Sending Feedback if you would like to submit a bug,
+    feature request or patch. 
+
+    For detailed changes, refer to the file doc/changes in the
+    distribution. 
+
+Contents
+
+      * Upgrading From Previous Versions 
+      * Prerequisites 
+      * Authenticating Users 
+      * Compiling the IMAP Server 
+      * Configuring the IMAP Server 
+      * Testing the IMAP Server 
+      * Administering Mailboxes 
+      * Installing SIEVE 
+      * SNMP Monitoring 
+      * Cyrus and Netnews 
+      * Virtual Domains 
+      * Cyrus Murder: The IMAP Aggregator 
+      * Operating System Specific Notes 
+      * Performance Notes 
+
+Other interesting stuff
+
+    Here's some software that you may want to run with Cyrus. This software
+    isn't maintained or supported by CMU, so please ask the maintainers for
+    support. 
+
+      * Websieve, a web-based front-end for Sieve script management with
+        Cyrus. 
+      * Sendmail, the most popular MTA around. 
+      * Postfix, a popular competitor MTA. 
+

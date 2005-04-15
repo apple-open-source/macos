@@ -3,6 +3,10 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.16 release (the cctools-513 release):
+- Added an #ifdef __OPENSTEP__ around the #include <mach-o/rld.h> in getnfile.c
+  as this header does not exist on some Mac OS X systems now.
+
 Changes for the 5.12 release (the cctools-466 release):
 - Fixed the incorrect casts on the comparison of the nlist struct's n_strx field
   where the value being compared to was casted to a long.  The correct fix was

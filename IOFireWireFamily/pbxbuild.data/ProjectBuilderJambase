@@ -202,8 +202,8 @@ rule ConditionalDefinitions
 # Set global C flags, architectures, and architecture flags for linking
 GLOBAL_CFLAGS default = $(RC_NONARCH_CFLAGS) ;
 ARCHITECTURES default = $(RC_ARCHS) ;
-SUPPORTED_ARCHITECTURES default = i386 ppc ;
-VALID_ARCHS default = i386 ppc ;
+SUPPORTED_ARCHITECTURES default = i386 ppc ppc64 ;
+VALID_ARCHS default = i386 ppc ppc64 ;
 for ARCH in $(SUPPORTED_ARCHITECTURES) {
     if $(RC_$(ARCH)) = YES {
         $(ARCH) = YES ;
@@ -935,7 +935,11 @@ rule Bridget
         BRIDGET_FILE_LIST default = $(FILE_LIST)Bridget ;
         BRIDGET_CFLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;
         BRIDGET_CFLAGS on $(1) += -pipe ;
+
         # seed search paths with target-wide values
+        if $(CPP_HEADER_SYMLINKS_DIR) {
+            BRIDGET_CFLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+        }
         HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
         FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
 
@@ -1888,12 +1892,12 @@ rule BeginProduct
     HEADER_SUBDIRECTORY = $(1:B) ;
 
     # the following sequence of tests sets up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately,
-    # depending on whether we're using GCC 2.95.2, 3.1, or 3.3 (either explicitly or implicitly)
+    # depending on whether we're using GCC 2.95.2, 3.1, 3.3, or 3.5 (either explicitly or implicitly)
 
     # a hack to detect attempt to use GCC 3, and to set the 'GCC_VERSION' build setting accordingly
     if $(USE_GCC3) = YES  ||  $(USE_GCC2) = NO  ||  $(CC) = "/usr/bin/gcc3" {
         # use either the default gcc version if available or default to 3.1
-        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 {
+        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 || $(_DEFAULT_GCC_VERSION) = 3.5 {
             GCC_VERSION default = $(_DEFAULT_GCC_VERSION) ;
         }
         else {
@@ -1904,7 +1908,7 @@ rule BeginProduct
         GCC_VERSION default = 2.x ;
     }
     else {
-        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 {
+        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 || $(_DEFAULT_GCC_VERSION) = 3.5 {
             GCC_VERSION default = $(_DEFAULT_GCC_VERSION) ;
         }
         else if $(_DEFAULT_GCC_VERSION) = 2.95.2 {
@@ -1917,7 +1921,11 @@ rule BeginProduct
 
     # set up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately (this logic is temporary, and is
     # expected to be phased out once we have per-build-phase compiler choices)
-    if $(GCC_VERSION) = 3.3 {
+    if $(GCC_VERSION) = 3.5 {
+        CC default = /usr/bin/gcc-3.5 ;
+        CPLUSPLUS default = /usr/bin/g++-3.5 ;
+    }
+    else if $(GCC_VERSION) = 3.3 {
         CC default = /usr/bin/gcc-3.3 ;
         CPLUSPLUS default = /usr/bin/g++-3.3 ;
     }
@@ -2761,7 +2769,7 @@ rule ProcessHeaders
                     # use flag for picking up PFE
                     PREFIX_HEADER_CFLAGS_BASE default = --load-pch ;
                 }
-                if $(GCC_VERSION) = 3.3 {
+                if $(GCC_VERSION) = 3.3 || $(GCC_VERSION) = 3.5 {
                     # prefix file precompiled with PCH support
                     # precompile by dialect
                     for ARCH in $(ARCHS) {
@@ -2988,6 +2996,9 @@ rule PrecompileHeader
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     # extension-specific build flags
@@ -3000,7 +3011,7 @@ rule PrecompileHeader
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(OS) in MACOS DARWIN {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -3056,6 +3067,9 @@ rule MakePFEFile
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     # extension-specific build flags
@@ -3121,6 +3135,9 @@ rule MakePFEFile++
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     # extension-specific build flags
@@ -3184,6 +3201,9 @@ rule ProcessPCH
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     # extension-specific build flags
@@ -3250,6 +3270,9 @@ rule ProcessPCH++
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     # extension-specific build flags
@@ -5007,6 +5030,9 @@ rule CompileC
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
 
@@ -5027,7 +5053,7 @@ rule CompileC
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -5047,7 +5073,7 @@ rule CompileC
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -5126,6 +5152,9 @@ rule CompileCplusplus
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     # If the source file is in a subdirectory, then search that
@@ -5150,7 +5179,7 @@ rule CompileCplusplus
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -5167,7 +5196,7 @@ rule CompileCplusplus
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -5290,6 +5319,9 @@ rule CompileAssembly
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
 
@@ -5315,7 +5347,7 @@ rule CompileAssembly
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -5335,7 +5367,7 @@ rule CompileAssembly
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {
@@ -5458,6 +5490,9 @@ rule CompileFortran
         FLAGS on $(1) += -Werror ;
     }
     # seed search paths with target-wide values
+    if $(CPP_HEADER_SYMLINKS_DIR) {
+        FLAGS on $(1) += "-I$(CPP_HEADER_SYMLINKS_DIR)" ;
+    }
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
 
@@ -5478,7 +5513,7 @@ rule CompileFortran
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(GCC_VERSION) != 3.5 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -5498,7 +5533,7 @@ rule CompileFortran
         }
         else {
             if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
-                # GCC v3.3 PCH
+                # GCC v3.3 / v3.5 PCH
                 PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
             }
             else {

@@ -47,7 +47,9 @@
 >4	lelong		16		i860
 >4	lelong		17		rs6000
 >4	lelong		18		ppc
->4	lelong		>18
+# This is for INTERIM_PPC64
+>4	lelong		19		ppc64
+>4	lelong		>19
 >>4	lelong		x		architecture=%ld
 #
 0	belong		0xfeedface	Mach-O
@@ -82,5 +84,7 @@
 >4	belong		16		i860
 >4	belong		17		rs6000
 >4	belong		18		ppc
->4	belong		>18
+# This is for INTERIM_PPC64
+>4	belong		19		ppc64
+>4	belong		>19
 >>4	belong		x		architecture=%ld

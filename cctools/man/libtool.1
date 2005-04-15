@@ -1,4 +1,4 @@
-.TH LIBTOOL 1 "July 11, 2003" "Apple Computer, Inc."
+.TH LIBTOOL 1 "November 29, 2004" "Apple Computer, Inc."
 .SH NAME
 libtool \- create libraries
 .br
@@ -47,13 +47,16 @@ ranlib \- add or update the table of contents of archive libraries
 [
 .BI -arch_only " arch_type"
 ]
+[
+.B \-V
+] 
 .IR file ...
 [-filelist listfile[,dirname]]
 .br
 .sp
 .B ranlib
 [
-.B \-sactfLT
+.B \-sactfqLT
 ]
 [
 .B \-
@@ -264,6 +267,7 @@ flags are accepted and passed through:
 .B \-read_only_relocs,
 .B \-prebind,
 .B \-prebind_all_twolevel_modules,
+.B \-prebind_allow_overlap,
 .B \-noprebind,
 .B \-framework,
 .B \-weak_framework,
@@ -300,7 +304,11 @@ flags are accepted and passed through:
 .B \-multi_module,
 .B \-exported_symbols_list,
 .B \-unexported_symbols_list,
-.B \-m.
+.B \-m,
+.B \-dead_strip,
+.B \-no_dead_strip_inits_and_terms,
+.B \-executable_path,
+.B \-syslibroot.
 See the
 .IR ld (1)
 man page for details on these flags.
@@ -315,6 +323,9 @@ Verbose mode, which prints the
 commands and
 .IR lipo (1)
 commands executed.
+.TP
+.B \-V
+Print the version of libtool.
 .TP
 .BI \-filelist " listfile[,dirname]"
 The
@@ -387,6 +398,9 @@ format #1.  This option is not the default.
 Warns when the output archive is fat and
 .IR ar (1)
 will no longer be able to operate on it.
+.TP
+.B \-q
+Do nothing if a fat file would be created.
 .PP
 For compatibility, the following 
 .I ranlib

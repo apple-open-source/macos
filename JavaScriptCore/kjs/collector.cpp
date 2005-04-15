@@ -33,6 +33,13 @@
 #include <value.h>
 #include <internal.h>
 
+#if APPLE_CHANGES
+#include <pthread.h>
+#include <mach/mach_port.h>
+#include <mach/task.h>
+#include <mach/thread_act.h>
+#endif
+
 namespace KJS {
 
 // tunable parameters
@@ -110,7 +117,9 @@ void* Collector::allocate(size_t s)
     heap.usedOversizeCells++;
     heap.numLiveObjects++;
 
+#if !USE_CONSERVATIVE_GC
     ((ValueImp *)(newCell))->_flags = 0;
+#endif
     return newCell;
   }
   
@@ -158,9 +167,187 @@ void* Collector::allocate(size_t s)
   targetBlock->usedCells++;
   heap.numLiveObjects++;
 
+#if !USE_CONSERVATIVE_GC
   ((ValueImp *)(newCell))->_flags = 0;
+#endif
   return (void *)(newCell);
 }
+
+#if TEST_CONSERVATIVE_GC || USE_CONSERVATIVE_GC
+
+struct Collector::Thread {
+  Thread(pthread_t pthread, mach_port_t mthread) : posixThread(pthread), machThread(mthread) {}
+  Thread *next;
+  pthread_t posixThread;
+  mach_port_t machThread;
+};
+
+pthread_key_t registeredThreadKey;
+pthread_once_t registeredThreadKeyOnce = PTHREAD_ONCE_INIT;
+Collector::Thread *registeredThreads;
+  
+static void destroyRegisteredThread(void *data) 
+{
+  Collector::Thread *thread = (Collector::Thread *)data;
+
+  if (registeredThreads == thread) {
+    registeredThreads = registeredThreads->next;
+  } else {
+    Collector::Thread *last = registeredThreads;
+    for (Collector::Thread *t = registeredThreads->next; t != NULL; t = t->next) {
+      if (t == thread) {
+        last->next = t->next;
+          break;
+      }
+      last = t;
+    }
+  }
+
+  delete thread;
+}
+
+static void initializeRegisteredThreadKey()
+{
+  pthread_key_create(&registeredThreadKey, destroyRegisteredThread);
+}
+
+void Collector::registerThread()
+{
+  pthread_once(&registeredThreadKeyOnce, initializeRegisteredThreadKey);
+
+  if (!pthread_getspecific(registeredThreadKey)) {
+    pthread_t pthread = pthread_self();
+    Collector::Thread *thread = new Collector::Thread(pthread, pthread_mach_thread_np(pthread));
+    thread->next = registeredThreads;
+    registeredThreads = thread;
+    pthread_setspecific(registeredThreadKey, thread);
+  }
+}
+
+
+// cells are 8-byte aligned 
+#define IS_POINTER_ALIGNED(p) (((int)(p) & 7) == 0)
+
+void Collector::markStackObjectsConservatively(void *start, void *end)
+{
+  if (start > end) {
+    void *tmp = start;
+    start = end;
+    end = tmp;
+  }
+
+  assert(((char *)end - (char *)start) < 0x1000000);
+  assert(IS_POINTER_ALIGNED(start));
+  assert(IS_POINTER_ALIGNED(end));
+  
+  char **p = (char **)start;
+  char **e = (char **)end;
+  
+  while (p != e) {
+    char *x = *p++;
+    if (IS_POINTER_ALIGNED(x) && x) {
+      bool good = false;
+      for (int block = 0; block < heap.usedBlocks; block++) {
+	size_t offset = x - (char *)heap.blocks[block];
+	const size_t lastCellOffset = sizeof(CollectorCell) * (CELLS_PER_BLOCK - 1);
+	if (offset <= lastCellOffset && offset % sizeof(CollectorCell) == 0) {
+	  good = true;
+	  break;
+	}
+      }
+      
+      if (!good) {
+	int n = heap.usedOversizeCells;
+	for (int i = 0; i != n; i++) {
+	  if (x == (char *)heap.oversizeCells[i]) {
+	    good = true;
+	    break;
+	  }
+	}
+      }
+      
+      if (good && ((CollectorCell *)x)->u.freeCell.zeroIfFree != 0) {
+	ValueImp *imp = (ValueImp *)x;
+	if (!imp->marked())
+	  imp->mark();
+      }
+    }
+  }
+}
+
+void Collector::markCurrentThreadConservatively()
+{
+  jmp_buf registers;
+  setjmp(registers);
+
+  pthread_t thread = pthread_self();
+  void *stackBase = pthread_get_stackaddr_np(thread);
+  int dummy;
+  void *stackPointer = &dummy;
+  markStackObjectsConservatively(stackPointer, stackBase);
+}
+
+typedef unsigned long usword_t; // word size, assumed to be either 32 or 64 bit
+
+void Collector::markOtherThreadConservatively(Thread *thread)
+{
+  thread_suspend(thread->machThread);
+
+#if defined(__i386__)
+  i386_thread_state_t regs;
+  unsigned user_count = sizeof(regs)/sizeof(int);
+  thread_state_flavor_t flavor = i386_THREAD_STATE;
+#elif defined(__ppc__)
+  ppc_thread_state_t  regs;
+  unsigned user_count = PPC_THREAD_STATE_COUNT;
+  thread_state_flavor_t flavor = PPC_THREAD_STATE;
+#elif defined(__ppc64__)
+  ppc_thread_state64_t  regs;
+  unsigned user_count = PPC_THREAD_STATE64_COUNT;
+  thread_state_flavor_t flavor = PPC_THREAD_STATE64;
+#else
+#error Unknown Architecture
+#endif
+  // get the thread register state
+  thread_get_state(thread->machThread, flavor, (thread_state_t)&regs, &user_count);
+  
+  // scan the registers
+  markStackObjectsConservatively((void *)&regs, (void *)((char *)&regs + (user_count * sizeof(usword_t))));
+  
+  // scan the stack
+#if defined(__i386__)
+  markStackObjectsConservatively((void *)regs.esp, pthread_get_stackaddr_np(thread->posixThread));
+#elif defined(__ppc__) || defined(__ppc64__)
+  markStackObjectsConservatively((void *)regs.r1, pthread_get_stackaddr_np(thread->posixThread));
+#else
+#error Unknown Architecture
+#endif
+
+  thread_resume(thread->machThread);
+}
+
+void Collector::markStackObjectsConservatively()
+{
+  markCurrentThreadConservatively();
+
+  for (Thread *thread = registeredThreads; thread != NULL; thread = thread->next) {
+    if (thread->posixThread != pthread_self()) {
+      markOtherThreadConservatively(thread);
+    }
+  }
+}
+
+void Collector::markProtectedObjects()
+{
+  for (int i = 0; i < ProtectedValues::_tableSize; i++) {
+    ValueImp *val = ProtectedValues::_table[i].key;
+    if (val && !val->marked()) {
+      val->mark();
+    }
+  }
+}
+
+#endif
 
 bool Collector::collect()
 {
@@ -168,6 +355,30 @@ bool Collector::collect()
 
   bool deleted = false;
 
+#if TEST_CONSERVATIVE_GC
+  // CONSERVATIVE MARK: mark the root set using conservative GC bit (will compare later)
+  ValueImp::useConservativeMark(true);
+#endif
+
+#if USE_CONSERVATIVE_GC || TEST_CONSERVATIVE_GC
+  if (InterpreterImp::s_hook) {
+    InterpreterImp *scr = InterpreterImp::s_hook;
+    do {
+      //fprintf( stderr, "Collector marking interpreter %p\n",(void*)scr);
+      scr->mark();
+      scr = scr->next;
+    } while (scr != InterpreterImp::s_hook);
+  }
+
+  markStackObjectsConservatively();
+  markProtectedObjects();
+#endif
+
+#if TEST_CONSERVATIVE_GC
+  ValueImp::useConservativeMark(false);
+#endif
+
+#if !USE_CONSERVATIVE_GC
   // MARK: first mark all referenced objects recursively
   // starting out from the set of root objects
   if (InterpreterImp::s_hook) {
@@ -212,6 +423,7 @@ bool Collector::collect()
       imp->mark();
     }
   }
+#endif
 
   // SWEEP: delete everything with a zero refcount (garbage) and unmark everything else
   
@@ -230,7 +442,12 @@ bool Collector::collect()
       ValueImp *imp = (ValueImp *)(curBlock->cells + cell);
 
       if (((CollectorCell *)imp)->u.freeCell.zeroIfFree != 0) {
-	if (!imp->refcount && imp->_flags == (ValueImp::VI_GCALLOWED | ValueImp::VI_CREATED)) {
+#if USE_CONSERVATIVE_GC
+	if (!imp->_marked)
+#else
+	if (!imp->refcount && imp->_flags == (ValueImp::VI_GCALLOWED | ValueImp::VI_CREATED))
+#endif
+	{
 	  //fprintf( stderr, "Collector::deleting ValueImp %p (%s)\n", (void*)imp, typeid(*imp).name());
 	  // emulate destructing part of 'operator delete()'
 	  imp->~ValueImp();
@@ -244,7 +461,13 @@ bool Collector::collect()
 	  curBlock->freeList = (CollectorCell *)imp;
 
 	} else {
+#if USE_CONSERVATIVE_GC
+	  imp->_marked = 0;
+#elif TEST_CONSERVATIVE_GC
+	  imp->_flags &= ~(ValueImp::VI_MARKED | ValueImp::VI_CONSERVATIVE_MARKED);
+#else
 	  imp->_flags &= ~ValueImp::VI_MARKED;
+#endif
 	}
       } else {
 	minimumCellsToProcess++;
@@ -280,9 +503,13 @@ bool Collector::collect()
   while (cell < heap.usedOversizeCells) {
     ValueImp *imp = (ValueImp *)heap.oversizeCells[cell];
     
+#if USE_CONSERVATIVE_GC
+    if (!imp->_marked) {
+#else
     if (!imp->refcount && 
 	imp->_flags == (ValueImp::VI_GCALLOWED | ValueImp::VI_CREATED)) {
-      
+#endif
+
       imp->~ValueImp();
 #if DEBUG_COLLECTOR
       heap.oversizeCells[cell]->u.freeCell.zeroIfFree = 0;
@@ -303,7 +530,13 @@ bool Collector::collect()
       }
 
     } else {
+#if USE_CONSERVATIVE_GC
+      imp->_marked = 0;
+#elif TEST_CONSERVATIVE_GC
+      imp->_flags &= ~(ValueImp::VI_MARKED | ValueImp::VI_CONSERVATIVE_MARKED);
+#else
       imp->_flags &= ~ValueImp::VI_MARKED;
+#endif
       cell++;
     }
   }
@@ -344,6 +577,7 @@ int Collector::numInterpreters()
 int Collector::numGCNotAllowedObjects()
 {
   int count = 0;
+#if !USE_CONSERVATIVE_GC
   for (int block = 0; block < heap.usedBlocks; block++) {
     CollectorBlock *curBlock = heap.blocks[block];
 
@@ -363,6 +597,7 @@ int Collector::numGCNotAllowedObjects()
       ++count;
     }
   }
+#endif
 
   return count;
 }
@@ -370,6 +605,17 @@ int Collector::numGCNotAllowedObjects()
 int Collector::numReferencedObjects()
 {
   int count = 0;
+
+#if USE_CONSERVATIVE_GC
+  for (int i = 0; i < ProtectedValues::_tableSize; i++) {
+    ValueImp *val = ProtectedValues::_table[i].key;
+    if (val) {
+      ++count;
+    }
+  }
+
+#else
+
   for (int block = 0; block < heap.usedBlocks; block++) {
     CollectorBlock *curBlock = heap.blocks[block];
 
@@ -389,6 +635,7 @@ int Collector::numReferencedObjects()
         ++count;
       }
   }
+#endif
 
   return count;
 }
@@ -396,7 +643,22 @@ int Collector::numReferencedObjects()
 const void *Collector::rootObjectClasses()
 {
   CFMutableSetRef classes = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-  
+
+#if USE_CONSERVATIVE_GC
+  for (int i = 0; i < ProtectedValues::_tableSize; i++) {
+    ValueImp *val = ProtectedValues::_table[i].key;
+    if (val) {
+      const char *mangled_name = typeid(*val).name();
+      int status;
+      char *demangled_name = __cxxabiv1::__cxa_demangle (mangled_name, NULL, NULL, &status);
+      
+      CFStringRef className = CFStringCreateWithCString(NULL, demangled_name, kCFStringEncodingASCII);
+      free(demangled_name);
+      CFSetAddValue(classes, className);
+      CFRelease(className);
+    }
+  }
+#else
   for (int block = 0; block < heap.usedBlocks; block++) {
     CollectorBlock *curBlock = heap.blocks[block];
     for (int cell = 0; cell < CELLS_PER_BLOCK; cell++) {
@@ -430,6 +692,7 @@ const void *Collector::rootObjectClasses()
       CFRelease(className);
     }
   }
+#endif
   
   return classes;
 }

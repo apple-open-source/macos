@@ -8,21 +8,21 @@
 dlname='libcrammd5.2.so'
 
 # Names of this library.
-library_names='libcrammd5.2.0.1.so libcrammd5.2.so libcrammd5.so'
+library_names='libcrammd5.2.0.18.so libcrammd5.2.so libcrammd5.so'
 
 # The name of the static archive.
 old_library=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/usr/local/lib'
+dependency_libs=' -lresolv -lresolv'
 
 # Version information for libcrammd5.
 current=2
 age=0
-revision=1
+revision=18
 
 # Is this an already installed library?
-installed=yes
+installed=no
 
 # Directory that this library needs to be installed in:
 libdir='/usr/lib/sasl2'

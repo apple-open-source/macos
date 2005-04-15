@@ -1,10 +1,10 @@
 /* creates the md5global.h file. 
  *  Derived from KTH kerberos library bits.c program
  * Tim Martin 
- * $Id: makemd5.c,v 1.2 2002/05/22 17:57:09 snsimon Exp $
+ * $Id: makemd5.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

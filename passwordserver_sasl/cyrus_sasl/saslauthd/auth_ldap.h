@@ -26,3 +26,4 @@
  * END COPYRIGHT */
 
 char *auth_ldap(const char *, const char *, const char *, const char *);
+int auth_ldap_init(void);

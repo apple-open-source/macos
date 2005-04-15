@@ -1,3 +1,60 @@
+Changes for the 5.17 release (the cctools-562 release):
+- Changed swap_ppc_thread_state_t() in ppc_swap.c to use cpu->vrsave and not
+  cpu->pad.  Radar bug #3930480.
+
+Changes for the 5.17 release (the cctools-559 release):
+- Added building libmacho_kld.a built for the kernel's kld use.  Radar bug
+  #3906133.
+  - Changed the code to only compile the needed routines when RLD is defined:
+    - getsegbyname.c only compile getsegbyname() for RLD
+  - Changed the following files and ifndef RLD their entire contents:
+    arch.c, get_end.c, getsecbyname.c, hppa_swap.c,i386_swap.c, i860_swap.c,
+    m68k_swap.c, m88k_swap.c, ppc_swap.c,sparc_swap.c and swap.c .
+
+
+Changes for the 5.16 release (the cctools-546 release):
+- Changed the code to support 32-bit & 64-bit Mach-O files.  Radar bug #3780704.
+  - Changed the Makefile to no longer pass -DINTERIM_PPC64 and to set CC to
+    gcc-3.5 when RC_RELEASE is Tiger or Gordian.  Also the upper level Makefile
+    was change to edit out "-arch ppc64" from the RC_CFLAGS for the
+    ofiles_install for all builds except libmacho.
+  - Removed the INTERIM_PPC64 ifdefs in arch.c
+  - Updated the case code for CPU_TYPE_POWERPC64 in NXFindBestFatArch() in
+    arch.c to handle CPU_SUBTYPE_POWERPC_970.  Also Radar bug #3825281.
+  - Updated and added routines to getsecbyname.c, getsegbyname.c and get_end.c 
+    to compile for -arch ppc64 and new tool routines to deal with 64-bit APIs.
+    The new routines are:
+      In getsecbyname.c
+	getsectbynamefromheader_64(), getsectdatafromheader_64()
+
+Changes for the 5.16 release (the cctools-526 release):
+- Changed the types of parameters of various routines and some of their local
+  variables from unsigned long to uint32_t to match the change in the header
+  files to make 32-bit Mach-O structures 32-bit clean.  Radar bug #3744082.
+  - Changed the type of NXFindBestFatArch()'s nfat_archs argument to an uint32_t
+    and added an include of <stdint.h> to arch.c .
+  - Changed all the unsigned long parameters in swap.c routines to uint32_t and
+    many local variables.
+
+Changes for the 5.16 release (the cctools-524 release):
+- Fixed a bug in NXFindBestFatArch() in arch.c when trying to pick the lowest
+  model i386 fat arch.  The variable lowest_model was initialized to ULONG_MAX
+  when it should have been LONG_MAX as it was a signed value.
+  Radar bug #3694812.
+
+Changes for the 5.16 release (the cctools-509 release):
+- Added #ifdef INTERIM_PPC64 to the source changes to support the interim ppc64
+  file format.  And added -DINTERIM_PPC64 to the Makefile.
+
+Changes for the 5.16 release (the cctools-499.1 release):
+- Made changes to support the interim ppc64 file format.  Radar bug #3562133
+  and #3562232.
+  - Added an entry in the ArchInfoTable[] array in arch.c for ppc64 as:
+    {"ppc64",  CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC64_ALL,  NX_BigEndian,
+         "PowerPC 64-bit"},
+  - In NXFindBestFatArch() in arch.c added a case statement for
+    CPU_TYPE_POWERPC64 and the code to look for CPU_SUBTYPE_POWERPC64_ALL.
+
 Changes for the 5.12 release (the cctools-464 release):
 - Made changes to build cleanly with gcc3.3
   - Removed -Wno-precomp from the Makefile and setting RC_OS = macos

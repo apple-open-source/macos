@@ -1,7 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para OS="windows">
-You can exit most Windows applications by selecting
-<guimenuitem><accel>Q</accel>uit</guimenuitem> or
-<guimenuitem>E<accel>x</accel>it</guimenuitem> from
-the <guimenu><accel>F</>ile</guimenu> menu.
-</para>

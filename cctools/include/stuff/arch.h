@@ -30,8 +30,8 @@
  * This file contains the current known set of flags and constants for the
  * known architectures.
  */
-#import <mach/machine.h>
-#import <stuff/bytesex.h>
+#include <mach/machine.h>
+#include <stuff/bytesex.h>
 
 /*
  * The structure describing an architecture flag with the string of the flag

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -110,10 +110,17 @@ protected:
 	bool	PerformREPORTLUNS ( void );
 	void	ParseReportLUNsInformation ( SCSICmd_REPORT_LUNS_Header * buffer );
 
+	// DEPRECATED, use version with 32-bit dataSize
 	bool	RetrieveReportLUNsData (
 						SCSILogicalUnitNumber					logicalUnit,
 						UInt8 * 								dataBuffer,  
 						UInt8									dataSize );
+						
+	bool	RetrieveReportLUNsData (
+						SCSILogicalUnitNumber					logicalUnit,
+						UInt8 * 								dataBuffer,  
+						UInt32									dataSize );
+
 	UInt64	DetermineMaximumLogicalUnitNumber ( void );
 	bool	VerifyLogicalUnitPresence ( SCSILogicalUnitNumber theLogicalUnit );
 	bool	CreateLogicalUnit ( SCSILogicalUnitNumber theLogicalUnit );

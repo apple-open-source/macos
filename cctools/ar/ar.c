@@ -83,6 +83,7 @@ static char rcsid[] = "$OpenBSD: ar.c,v 1.3 1997/01/15 23:42:11 millert Exp $";
 #include "archive.h"
 #include "extern.h"
 #include "stuff/execute.h"
+#include "stuff/unix_standard_mode.h"
 
 CHDR chdr;
 u_int options;
@@ -256,14 +257,20 @@ main(argc, argv)
 
 	if(fcall != 0){
 	    retval = (*fcall)(argv);
-	    if(retval != EXIT_SUCCESS || (options & AR_S) != AR_S)
+	    if(retval != EXIT_SUCCESS ||
+	       ((options & AR_S) != AR_S &&
+	        (get_unix_standard_mode() == FALSE ||
+		 archive_opened_for_writing == 0)))
 		exit(retval);
 	}
 
-	/* run ranlib -f on the archive */
+	/* run ranlib -f or -q on the archive */
 	reset_execute_list();
 	add_execute_list("ranlib");
-	add_execute_list("-f");
+	if(options & AR_S)
+	    add_execute_list("-f");
+	else
+	    add_execute_list("-q");
 	add_execute_list(archive);
 	if(execute_list(verbose) == 0){
 	    (void)fprintf(stderr, "%s: internal ranlib command failed\n",

@@ -23,37 +23,66 @@
 #define _KJS_EVENTS_H_
 
 #include "ecma/kjs_dom.h"
+#include "ecma/kjs_html.h"
 #include "dom/dom2_events.h"
 #include "dom/dom_misc.h"
+
+namespace DOM { class ClipboardImpl; }
 
 namespace KJS {
 
   class Window;
+  class Clipboard;
+    
+  class JSAbstractEventListener : public DOM::EventListener {
+  public:
+    JSAbstractEventListener(bool _html = false);
+    virtual ~JSAbstractEventListener();
+    virtual void handleEvent(DOM::Event &evt, bool isWindowEvent);
+    virtual DOM::DOMString eventListenerType();
+    virtual Object listenerObj() const = 0;
+    virtual Object windowObj() const = 0;
+    ObjectImp *listenerObjImp() const { return listenerObj().imp(); }
+  protected:
+    bool html;
+  };
 
-  class JSEventListener : public DOM::EventListener {
+  class JSUnprotectedEventListener : public JSAbstractEventListener {
+  public:
+    JSUnprotectedEventListener(Object _listener, const Object &_win, bool _html = false);
+    virtual ~JSUnprotectedEventListener();
+    virtual Object listenerObj() const;
+    virtual Object windowObj() const;
+    void mark();
+  protected:
+    Object listener;
+    Object win;
+  };
+
+  class JSEventListener : public JSAbstractEventListener {
   public:
     JSEventListener(Object _listener, const Object &_win, bool _html = false);
     virtual ~JSEventListener();
-    virtual void handleEvent(DOM::Event &evt, bool isWindowEvent);
-    virtual DOM::DOMString eventListenerType();
     virtual Object listenerObj() const;
-    ObjectImp *listenerObjImp() const { return listenerObj().imp(); }
+    virtual Object windowObj() const;
   protected:
-    mutable Object listener;
-    bool html;
-    Object win;
+    mutable ProtectedObject listener;
+    ProtectedObject win;
   };
 
   class JSLazyEventListener : public JSEventListener {
   public:
-    JSLazyEventListener(QString _code, const Object &_win, bool _html = false);
+    JSLazyEventListener(QString _code, const Object &_win, DOM::NodeImpl *node, int lineno = 0);
     virtual void handleEvent(DOM::Event &evt, bool isWindowEvent);
     Object listenerObj() const;
+    
   private:
     void parseCode() const;
     
     mutable QString code;
     mutable bool parsed;
+    int lineNumber;
+    DOM::NodeImpl *originalNode;
   };
 
 
@@ -86,10 +115,11 @@ namespace KJS {
     enum { Type, Target, CurrentTarget, EventPhase, Bubbles,
            Cancelable, TimeStamp, StopPropagation, PreventDefault, InitEvent,
 	   // MS IE equivalents
-	   SrcElement, ReturnValue, CancelBubble };
+	   SrcElement, ReturnValue, CancelBubble, ClipboardData, DataTransfer };
     DOM::Event toEvent() const { return event; }
   protected:
     DOM::Event event;
+    mutable Clipboard *clipboard;
   };
 
   Value getDOMEvent(ExecState *exec, DOM::Event e);
@@ -131,6 +161,7 @@ namespace KJS {
     ~DOMMouseEvent();
     virtual Value tryGet(ExecState *exec,const Identifier &p) const;
     Value getValueProperty(ExecState *, int token) const;
+    virtual void mark();
     // no put - all read-only
     virtual const ClassInfo* classInfo() const { return &info; }
     static const ClassInfo info;
@@ -180,7 +211,25 @@ namespace KJS {
            InitMutationEvent };
     DOM::MutationEvent toMutationEvent() const { return static_cast<DOM::MutationEvent>(event); }
   };
-
+  
+  class Clipboard : public DOMObject {
+  friend class ClipboardProtoFunc;
+  public:
+    Clipboard(ExecState *exec, DOM::ClipboardImpl *ds);
+    ~Clipboard();
+    virtual Value tryGet(ExecState *exec, const Identifier &propertyName) const;
+    Value getValueProperty(ExecState *exec, int token) const;
+    virtual void tryPut(ExecState *exec, const Identifier &propertyName, const Value& value, int attr = None);
+    void putValue(ExecState *exec, int token, const Value& value, int /*attr*/);
+    virtual bool toBoolean(ExecState *) const { return true; }
+    virtual const ClassInfo* classInfo() const { return &info; }
+    static const ClassInfo info;
+    enum { ClearData, GetData, SetData, Types, SetDragImage, DropEffect, EffectAllowed };
+  private:
+    DOM::ClipboardImpl *clipboard;
+  };
+  
+  
 }; // namespace
 
 #endif

@@ -42,9 +42,10 @@ public:
 #endif
     virtual bool isFocusable() const;
     virtual Id id() const;
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
     virtual void defaultEventHandler(EventImpl *evt);
-    virtual void accessKeyAction();
+    virtual void accessKeyAction(bool fullAction);
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
 protected:
     bool m_hasTarget : 1;
 };
@@ -60,7 +61,10 @@ public:
     ~HTMLBRElementImpl();
 
     virtual Id id() const;
-    virtual void parseAttribute(AttributeImpl *attr);
+    
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
+    
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
 };
 
@@ -73,7 +77,9 @@ public:
     ~HTMLFontElementImpl();
 
     virtual Id id() const;
-    virtual void parseAttribute(AttributeImpl *attr);
+    
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 };
 
 }; //namespace

@@ -2,7 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -65,9 +65,11 @@ const time_t invalidDate = -1;
 // Originally, we wrote our own implementation that uses Core Foundation because of a performance problem in Mac OS X 10.2.
 // But we need to keep using this rather than the standard library functions because this handles a larger range of dates.
 
+#include <notify.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreServices/CoreServices.h>
 
+using KJS::UChar;
 using KJS::UString;
 
 #define gmtime(x) gmtimeUsingCF(x)
@@ -117,6 +119,24 @@ static CFTimeZoneRef UTCTimeZone()
 
 static CFTimeZoneRef CopyLocalTimeZone()
 {
+    // Check for a time zone notification, and tell CoreFoundation to re-get the time zone if it happened.
+    // Some day, CoreFoundation may do this itself, but for now it needs our help.
+    static bool registered = false;
+    static int notificationToken;
+    if (!registered) {
+        uint32_t status = notify_register_check("com.apple.system.timezone", &notificationToken);
+        if (status == NOTIFY_STATUS_OK) {
+            registered = true;
+        }
+    }
+    if (registered) {
+        int notified;
+        uint32_t status = notify_check(notificationToken, &notified);
+        if (status == NOTIFY_STATUS_OK && notified) {
+            CFTimeZoneResetSystem();
+        }
+    }
+
     CFTimeZoneRef zone = CFTimeZoneCopyDefault();
     if (zone) {
         return zone;
@@ -156,8 +176,12 @@ static time_t timetUsingCF(struct tm *tm, CFTimeZoneRef timeZone)
     }
 
     CFAbsoluteTime absoluteTime = CFGregorianDateGetAbsoluteTime(date, timeZone);
+    CFTimeInterval interval = absoluteTime + kCFAbsoluteTimeIntervalSince1970;
+    if (interval > LONG_MAX) {
+        interval = LONG_MAX;
+    }
 
-    return (time_t)(absoluteTime + kCFAbsoluteTimeIntervalSince1970);
+    return (time_t) interval;
 }
 
 static time_t mktimeUsingCF(struct tm *tm)
@@ -217,26 +241,72 @@ static UString formatTime(struct tm &tm)
     return UString(buffer);
 }
 
-static UString formatLocaleDate(time_t tv)
+static CFDateFormatterStyle styleFromArgString(const UString& string,CFDateFormatterStyle defaultStyle)
 {
-    LongDateTime longDateTime;
-    UCConvertCFAbsoluteTimeToLongDateTime(tv - kCFAbsoluteTimeIntervalSince1970, &longDateTime);
-
-    unsigned char string[257];
-    LongDateString(&longDateTime, longDate, string, 0);
-    string[string[0] + 1] = '\0';
-    return (char *)&string[1];
+    CFDateFormatterStyle retVal = defaultStyle;
+    if (string == "short")
+	retVal = kCFDateFormatterShortStyle;
+    else if (string == "medium")
+	retVal = kCFDateFormatterMediumStyle;
+    else if (string == "long")
+	retVal = kCFDateFormatterLongStyle;
+    else if (string == "full")
+	retVal = kCFDateFormatterFullStyle;
+    return retVal;
 }
 
-static UString formatLocaleTime(time_t tv)
+static UString formatLocaleDate(KJS::ExecState *exec,time_t tv, bool includeDate, bool includeTime, const KJS::List &args)
 {
     LongDateTime longDateTime;
     UCConvertCFAbsoluteTimeToLongDateTime(tv - kCFAbsoluteTimeIntervalSince1970, &longDateTime);
 
-    unsigned char string[257];
-    LongTimeString(&longDateTime, true, string, 0);
-    string[string[0] + 1] = '\0';
-    return (char *)&string[1];
+    CFLocaleRef locale = CFLocaleCopyCurrent();
+    
+    int argCount = args.size();
+    
+    CFDateFormatterStyle    dateStyle = (includeDate ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
+    CFDateFormatterStyle    timeStyle = (includeTime ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
+
+    UString	arg0String;
+    UString	arg1String;
+    bool	useCustomFormat = false;
+    UString	customFormatString;
+    arg0String = args[0].toString(exec);
+    if ((arg0String == "custom") && (argCount >= 2)) {
+	useCustomFormat = true;
+	customFormatString = args[1].toString(exec);
+    } else if (includeDate && includeTime && (argCount >= 2)) {
+	arg1String = args[1].toString(exec);
+	dateStyle = styleFromArgString(arg0String,dateStyle);
+	timeStyle = styleFromArgString(arg1String,timeStyle);
+    } else if (includeDate && (argCount >= 1)) {
+	dateStyle = styleFromArgString(arg0String,dateStyle);
+    } else if (includeTime && (argCount >= 1)) {
+	timeStyle = styleFromArgString(arg0String,timeStyle);
+    }
+    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, dateStyle, timeStyle);
+    if (useCustomFormat) {
+	CFStringRef	customFormatCFString = CFStringCreateWithCharacters(NULL,(UniChar*)customFormatString.data(),customFormatString.size());
+	CFDateFormatterSetFormat(formatter,customFormatCFString);
+	CFRelease(customFormatCFString);
+    }
+    CFStringRef string = CFDateFormatterCreateStringWithAbsoluteTime(NULL, formatter, tv - kCFAbsoluteTimeIntervalSince1970);
+
+    // We truncate the string returned from CFDateFormatter if it's absurdly long (> 200 characters).
+    // That's not great error handling, but it just won't happen so it doesn't matter.
+    UChar buffer[200];
+    const size_t bufferLength = sizeof(buffer) / sizeof(buffer[0]);
+    size_t length = CFStringGetLength(string);
+    assert(length <= bufferLength);
+    if (length > bufferLength)
+        length = bufferLength;
+    CFStringGetCharacters(string, CFRangeMake(0, length), reinterpret_cast<UniChar *>(buffer));
+
+    CFRelease(string);
+    CFRelease(formatter);
+    CFRelease(locale);
+    
+    return UString(buffer, length);
 }
 
 #endif // APPLE_CHANGES
@@ -325,7 +395,7 @@ Value DatePrototypeImp::get(ExecState *exec, const Identifier &propertyName) con
 
 DateProtoFuncImp::DateProtoFuncImp(ExecState *exec, int i, int len)
   : InternalFunctionImp(
-    static_cast<FunctionPrototypeImp*>(exec->interpreter()->builtinFunctionPrototype().imp())
+    static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
     ), id(abs(i)), utc(i<0)
   // We use a negative ID to denote the "UTC" variant.
 {
@@ -416,13 +486,13 @@ Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
     result = String(formatDateUTCVariant(*t) + " " + formatTime(*t));
     break;
   case ToLocaleString:
-    result = String(formatLocaleDate(tv) + " " + formatLocaleTime(tv));
+    result = String(formatLocaleDate(exec,tv, true, true,args));
     break;
   case ToLocaleDateString:
-    result = String(formatLocaleDate(tv));
+    result = String(formatLocaleDate(exec,tv, true, false,args));
     break;
   case ToLocaleTimeString:
-    result = String(formatLocaleTime(tv));
+    result = String(formatLocaleDate(exec,tv, false, true,args));
     break;
 #else
   case ToString:
@@ -465,7 +535,7 @@ Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
     break;
   case GetYear:
     // IE returns the full year even in getYear.
-    if ( exec->interpreter()->compatMode() == Interpreter::IECompat )
+    if ( exec->dynamicInterpreter()->compatMode() == Interpreter::IECompat )
       result = Number(1900 + t->tm_year);
     else
       result = Number(t->tm_year);
@@ -560,7 +630,7 @@ Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
   if (id == SetYear || id == SetMilliSeconds || id == SetSeconds ||
       id == SetMinutes || id == SetHours || id == SetDate ||
       id == SetMonth || id == SetFullYear ) {
-    time_t mktimeResult = mktime(t);
+    time_t mktimeResult = utc ? timegm(t) : mktime(t);
     if (mktimeResult == invalidDate)
       result = Number(NaN);
     else
@@ -607,7 +677,7 @@ Object DateObjectImp::construct(ExecState *exec, const List &args)
 #ifdef KJS_VERBOSE
   fprintf(stderr,"DateObjectImp::construct - %d args\n", numArgs);
 #endif
-  Value value;
+  double value;
 
   if (numArgs == 0) { // new Date() ECMA 15.9.3.3
 #if HAVE_SYS_TIMEB_H
@@ -624,14 +694,14 @@ Object DateObjectImp::construct(ExecState *exec, const List &args)
     gettimeofday(&tv, 0L);
     double utc = floor((double)tv.tv_sec * 1000.0 + (double)tv.tv_usec / 1000.0);
 #endif
-    value = Number(utc);
+    value = utc;
   } else if (numArgs == 1) {
     UString s = args[0].toString(exec);
     double d = s.toDouble();
     if (isNaN(d))
       value = parseDate(s);
     else
-      value = Number(d);
+      value = d;
   } else {
     struct tm t;
     memset(&t, 0, sizeof(t));
@@ -642,7 +712,7 @@ Object DateObjectImp::construct(ExecState *exec, const List &args)
         || (numArgs >= 5 && isNaN(args[4].toNumber(exec)))
         || (numArgs >= 6 && isNaN(args[5].toNumber(exec)))
         || (numArgs >= 7 && isNaN(args[6].toNumber(exec)))) {
-      value = Number(NaN);
+      value = NaN;
     } else {
       int year = args[0].toInt32(exec);
       t.tm_year = (year >= 0 && year <= 99) ? year : year - 1900;
@@ -655,15 +725,15 @@ Object DateObjectImp::construct(ExecState *exec, const List &args)
       int ms = (numArgs >= 7) ? args[6].toInt32(exec) : 0;
       time_t mktimeResult = mktime(&t);
       if (mktimeResult == invalidDate)
-        value = Number(NaN);
+        value = NaN;
       else
-        value = Number(mktimeResult * 1000.0 + ms);
+        value = mktimeResult * 1000.0 + ms;
     }
   }
 
-  Object proto = exec->interpreter()->builtinDatePrototype();
+  Object proto = exec->lexicalInterpreter()->builtinDatePrototype();
   Object ret(new DateInstanceImp(proto.imp()));
-  ret.setInternalValue(timeClip(value));
+  ret.setInternalValue(Number(timeClip(value)));
   return ret;
 }
 
@@ -709,7 +779,7 @@ bool DateObjectFuncImp::implementsCall() const
 Value DateObjectFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
 {
   if (id == Parse) {
-    return parseDate(args[0].toString(exec));
+    return Number(parseDate(args[0].toString(exec)));
   }
   else { // UTC
     struct tm t;
@@ -742,7 +812,7 @@ Value DateObjectFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &
 // -----------------------------------------------------------------------------
 
 
-Value KJS::parseDate(const UString &u)
+double KJS::parseDate(const UString &u)
 {
 #ifdef KJS_VERBOSE
   fprintf(stderr,"KJS::parseDate %s\n",u.ascii());
@@ -755,9 +825,9 @@ Value KJS::parseDate(const UString &u)
     fprintf(stderr,"KRFCDate_parseDate returned seconds=%d\n",seconds);
 #endif
     if ( seconds == invalidDate )
-      return Number(NaN);
+      return NaN;
     else
-      return Number(seconds * 1000.0);
+      return seconds * 1000.0;
   }
   else
   {
@@ -768,7 +838,7 @@ Value KJS::parseDate(const UString &u)
     if ( secondSlash == -1 )
     {
       fprintf(stderr,"KJS::parseDate parsing for this format isn't implemented\n%s", u.ascii());
-      return Number(NaN);
+      return NaN;
     }
     int day = u.substr(firstSlash+1,secondSlash-firstSlash-1).toULong();
     int year = u.substr(secondSlash+1).toULong();
@@ -787,10 +857,10 @@ Value KJS::parseDate(const UString &u)
 #if !APPLE_CHANGES
       fprintf(stderr,"KJS::parseDate mktime returned -1.\n%s", u.ascii());
 #endif
-      return Number(NaN);
+      return NaN;
     }
     else
-      return Number(seconds * 1000.0);
+      return seconds * 1000.0;
   }
 }
 
@@ -1129,9 +1199,12 @@ time_t KJS::KRFCDate_parseDate(const UString &_date)
 }
 
 
-Value KJS::timeClip(const Value &t)
+double KJS::timeClip(double t)
 {
-  /* TODO */
-  return t;
+    if (!isfinite(t))
+        return NaN;
+    double at = fabs(t);
+    if (at > 8.64E15)
+        return NaN;
+    return copysign(floor(at), t);
 }
-

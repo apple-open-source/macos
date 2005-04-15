@@ -1,7 +1,7 @@
 #include "des.h"
 #include "kcglue_des.h"
 
-/* $Id: kcglue_des.c,v 1.1 2002/02/28 00:08:24 snsimon Exp $
+/* $Id: kcglue_des.c,v 1.4 2005/01/10 19:17:32 snsimon Exp $
  * kclient and des have different definitions for key schedules
  * this file is to include in the kclient code without dragging in the des definitions
  */

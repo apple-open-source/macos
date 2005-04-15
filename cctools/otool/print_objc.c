@@ -22,11 +22,13 @@
  */
 #include "stdio.h"
 #include "string.h"
+#include "stuff/target_arch.h"
 #include "mach-o/loader.h"
 #include "objc/objc-runtime.h"
 #include "objc/Protocol.h"
 #include "stuff/allocate.h"
 #include "stuff/bytesex.h"
+#include "stuff/symbol.h"
 #include "ofile_print.h"
 
 struct objc_protocol
@@ -241,13 +243,13 @@ enum byte_sex target_byte_sex)
 }
 
 struct section_info {
-    struct section s;
+    section_t s;
     char *contents;
     unsigned long size;
 };
 
 static void get_objc_sections(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex object_byte_sex,
     char *object_addr,
@@ -260,7 +262,7 @@ static void get_objc_sections(
     unsigned long *sect_size);
 
 static void get_cstring_section(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex object_byte_sex,
     char *object_addr,
@@ -274,7 +276,7 @@ static enum bool print_method_list(
     struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     enum bool verbose);
 
@@ -424,12 +426,12 @@ static enum bool get_hashEntry(
  */
 void
 print_objc_segment(
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 enum bool verbose)
 {
@@ -774,7 +776,7 @@ print_objc_class:
 
 void
 print_objc_protocol_section(
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum byte_sex object_byte_sex,
 char *object_addr,
@@ -824,7 +826,7 @@ enum bool verbose)
 void
 print_objc_string_object_section(
 char *sectname,
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum byte_sex object_byte_sex,
 char *object_addr,
@@ -896,7 +898,7 @@ enum bool verbose)
  */
 void
 print_objc_runtime_setup_section(
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum byte_sex object_byte_sex,
 char *object_addr,
@@ -982,7 +984,7 @@ enum bool verbose)
 static
 void
 get_objc_sections(
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum byte_sex object_byte_sex,
 char *object_addr,
@@ -1000,8 +1002,8 @@ unsigned long *sect_size)
     unsigned long i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
-    struct segment_command sg;
-    struct section s;
+    segment_command_t sg;
+    section_t s;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1027,28 +1029,28 @@ unsigned long *sect_size)
 	    left = mh->sizeofcmds - ((char *)lc - (char *)load_commands);
 
 	    switch(lcmd.cmd){
-	    case LC_SEGMENT:
-		memset((char *)&sg, '\0', sizeof(struct segment_command));
-		size = left < sizeof(struct segment_command) ?
-		       left : sizeof(struct segment_command);
+	    case LC_SEGMENT_VALUE:
+		memset((char *)&sg, '\0', sizeof(segment_command_t));
+		size = left < sizeof(segment_command_t) ?
+		       left : sizeof(segment_command_t);
 		memcpy((char *)&sg, (char *)lc, size);
 		if(swapped)
-		    swap_segment_command(&sg, host_byte_sex);
+		    swap_segment_command_t(&sg, host_byte_sex);
 
-		p = (char *)lc + sizeof(struct segment_command);
+		p = (char *)lc + sizeof(segment_command_t);
 		for(j = 0 ; j < sg.nsects ; j++){
-		    if(p + sizeof(struct section) >
+		    if(p + sizeof(section_t) >
 		       (char *)load_commands + mh->sizeofcmds){
 			printf("section structure command extends past "
 			       "end of load commands\n");
 		    }
 		    left = mh->sizeofcmds - (p - (char *)load_commands);
-		    memset((char *)&s, '\0', sizeof(struct section));
-		    size = left < sizeof(struct section) ?
-			   left : sizeof(struct section);
+		    memset((char *)&s, '\0', sizeof(section_t));
+		    size = left < sizeof(section_t) ?
+			   left : sizeof(section_t);
 		    memcpy((char *)&s, p, size);
 		    if(swapped)
-			swap_section(&s, 1, host_byte_sex);
+			swap_section_t(&s, 1, host_byte_sex);
 
 		    if(strcmp(s.segname, SEG_OBJC) == 0){
 			*objc_sections = reallocate(*objc_sections,
@@ -1084,7 +1086,7 @@ unsigned long *sect_size)
 			(*nobjc_sections)++;
 		    }
 
-		    if(p + sizeof(struct section) >
+		    if(p + sizeof(section_t) >
 		       (char *)load_commands + mh->sizeofcmds)
 			break;
 		    p += size;
@@ -1116,7 +1118,7 @@ unsigned long *sect_size)
 static
 void
 get_cstring_section(
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum byte_sex object_byte_sex,
 char *object_addr,
@@ -1129,8 +1131,8 @@ struct section_info *cstring_section)
     unsigned long i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
-    struct segment_command sg;
-    struct section s;
+    segment_command_t sg;
+    section_t s;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1152,28 +1154,28 @@ struct section_info *cstring_section)
 	    left = mh->sizeofcmds - ((char *)lc - (char *)load_commands);
 
 	    switch(lcmd.cmd){
-	    case LC_SEGMENT:
-		memset((char *)&sg, '\0', sizeof(struct segment_command));
-		size = left < sizeof(struct segment_command) ?
-		       left : sizeof(struct segment_command);
+	    case LC_SEGMENT_VALUE:
+		memset((char *)&sg, '\0', sizeof(segment_command_t));
+		size = left < sizeof(segment_command_t) ?
+		       left : sizeof(segment_command_t);
 		memcpy((char *)&sg, (char *)lc, size);
 		if(swapped)
-		    swap_segment_command(&sg, host_byte_sex);
+		    swap_segment_command_t(&sg, host_byte_sex);
 
-		p = (char *)lc + sizeof(struct segment_command);
+		p = (char *)lc + sizeof(segment_command_t);
 		for(j = 0 ; j < sg.nsects ; j++){
-		    if(p + sizeof(struct section) >
+		    if(p + sizeof(section_t) >
 		       (char *)load_commands + mh->sizeofcmds){
 			printf("section structure command extends past "
 			       "end of load commands\n");
 		    }
 		    left = mh->sizeofcmds - (p - (char *)load_commands);
-		    memset((char *)&s, '\0', sizeof(struct section));
-		    size = left < sizeof(struct section) ?
-			   left : sizeof(struct section);
+		    memset((char *)&s, '\0', sizeof(section_t));
+		    size = left < sizeof(section_t) ?
+			   left : sizeof(section_t);
 		    memcpy((char *)&s, p, size);
 		    if(swapped)
-			swap_section(&s, 1, host_byte_sex);
+			swap_section_t(&s, 1, host_byte_sex);
 
 		    if(strcmp(s.segname, SEG_TEXT) == 0 &&
 		       strcmp(s.sectname, "__cstring") == 0){
@@ -1195,7 +1197,7 @@ struct section_info *cstring_section)
 			return;
 		    }
 
-		    if(p + sizeof(struct section) >
+		    if(p + sizeof(section_t) >
 		       (char *)load_commands + mh->sizeofcmds)
 			break;
 		    p += size;
@@ -1222,7 +1224,7 @@ unsigned long nobjc_sections,
 struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 enum bool verbose)
 {

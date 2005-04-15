@@ -11,7 +11,7 @@
 <article status="Committee Specification" xmlns:p="http://relaxng.org/ns/proofsystem">
 
 <articleinfo>
-<releaseinfo>$Id: spec_0.xml,v 1.1.1.1 2004/02/05 20:17:14 rbraun Exp $</releaseinfo>
+<releaseinfo>$Id: spec_0.xml,v 1.1 2003/03/19 21:02:29 veillard Exp $</releaseinfo>
 <title>RELAX NG Specification</title>
 <authorgroup>
 <editor>
@@ -29,7 +29,7 @@
 </authorgroup>
 <pubdate>3 December 2001</pubdate>
 <releaseinfo role="meta">
-$Id: spec_0.xml,v 1.1.1.1 2004/02/05 20:17:14 rbraun Exp $
+$Id: spec_0.xml,v 1.1 2003/03/19 21:02:29 veillard Exp $
 </releaseinfo>
 
 <copyright><year>2001</year><holder>OASIS</holder></copyright>

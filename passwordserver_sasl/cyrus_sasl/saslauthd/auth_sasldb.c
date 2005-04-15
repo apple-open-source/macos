@@ -32,21 +32,21 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: auth_sasldb.c,v 1.2 2002/05/23 18:58:39 snsimon Exp $"
+#ident "$Id: auth_sasldb.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
+#include "mechanisms.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <pwd.h>
-
 /* END PUBLIC DEPENDENCIES */
 
 #define RETURN(x) return strdup(x)
 
 
 #ifdef AUTH_SASLDB
-#include "mechanisms.h"
 #include "../include/sasl.h"
 #include "../include/saslplug.h"
 #include "../sasldb/sasldb.h"
@@ -132,7 +132,8 @@ auth_sasldb (
     char pw[1024];			/* pointer to passwd file entry */
     sasl_utils_t utils;
     int ret, outsize;
-    char *use_realm, realm_buf[MAXHOSTNAME];
+    const char *use_realm;
+    char realm_buf[MAXHOSTNAMELEN];
     /* END VARIABLES */
 
     init_lame_utils(&utils);
@@ -140,7 +141,7 @@ auth_sasldb (
     _sasl_check_db(&utils, (void *)0x1);
 
     if(!realm || !strlen(realm)) {
-	ret = gethostname(realm_buf,MAXHOSTNAME);
+	ret = gethostname(realm_buf,MAXHOSTNAMELEN);
 	if(ret) RETURN("NO");
 	use_realm = realm_buf;
     } else {

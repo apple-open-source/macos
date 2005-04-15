@@ -1,24 +1,1084 @@
-=== JavaScriptCore-125.6 ===
+=== Safari-412 ===
 
-2004-09-13  Vicki Murley <vicki@apple.com>
+=== Safari-411 ===
 
-	- fix a typo in my last change, whoops!
+=== Safari-410 ===
+
+=== Safari-409 ===
+
+=== Safari-408 ===
+
+=== Safari-407 ===
+
+2005-03-16  Jens Alfke  <jens@apple.com>
+
+        Reviewed by Kevin.
+
+	Fix for <rdar://problem/4025212> "REGRESSION (163-164): search not performed correctly; united.com"
+	JavaScript unescape("") was returning a messed-up String object that appeared identical to an empty string, but would in some cases act as 'null' when passed to native functions, in this case the Option() constructor.
+	In the implementation of unescape, the UString holding the result was not initialized to "", so it started out as a null string. If nothing was appended to it, it remained null, resulting in a JavaScript String object with some bad behaviors (namely, converting it to a DOMStringImpl results in a NULL pointer.)
+	Darin says this regression occurred when we replaced our own implementation of unescape() with code from KJS.
+
+        * kjs/function.cpp:
+        (KJS::GlobalFuncImp::call):
+
+2005-03-15  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/4053276> WebScripting protocol in WebKit cannot convert Boolean in Javascript to BOOL in Objective-C
+
+	Added JavaScript boolean to type that can be converted to
+	ObjC scalar parameters.
+
+        Reviewed by Ken Kocienda.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+
+=== Safari-406 ===
+
+=== Safari-405 ===
+
+=== Safari-403 ===
+
+=== Safari-402 ===
+
+=== Safari-401 ===
+
+=== Safari-400 ===
+
+=== Safari-188 ===
+
+2005-02-21  Darin Adler  <darin@apple.com>
+
+        * kjs/date_object.cpp: (timetUsingCF): Fixed indenting.
+
+2005-02-17  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/4003251> Safari crashed at www.icelandair.com in LiveConnect code converting a Java object to a string
+
+	Added nil check.
+
+        Reviewed by John Sullivan.
+
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::valueFromInstance):
+
+=== Safari-187 ===
+
+2005-02-11  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3985118> DOM objects not being marshaled on JS->native calls
+
+	Re-factored how 'native' wrappers for JS objects are created.  The interpreter now
+	creates these wrappers.  The WebCore subclass of the interpreter now overrides
+	createLanguageInstanceForValue() and creates a DOM ObjC wrapper for DOM objects.
+
+        Reviewed by Ken.
+
+        * bindings/c/c_utility.cpp:
+        (convertValueToNPVariant):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_objc.mm:
+        (KJS::Bindings::dispatchJNICall):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::valueFromInstance):
+        (JavaArray::valueAt):
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject _setExecutionContext:KJS::Bindings::]):
+        (+[WebScriptObject _convertValueToObjcValue:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+        * bindings/objc/WebScriptObjectPrivate.h:
+        * bindings/objc/objc_utility.h:
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertObjcValueToValue):
+        (KJS::Bindings::createObjcInstanceForValue):
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
+        (Instance::createRuntimeObject):
+        (Instance::createLanguageInstanceForValue):
+        * bindings/runtime.h:
+        * kjs/interpreter.cpp:
+        (Interpreter::createLanguageInstanceForValue):
+        * kjs/interpreter.h:
+
+=== Safari-186 ===
+
+2005-02-10  Darin Adler  <darin@apple.com>
+
+        "Reviewed" by Richard (he told me the file was obsolete).
+
+        - got rid of an obsolete file
+
+        * bindings/npsap.h: Removed.
+
+=== Safari-185 ===
+
+=== Safari-183 ===
+
+2005-02-03  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3972905> CrashTracer: ...36 crashes at com.apple.WebCore: khtml::CSSStyleSelector::applyDeclarations + 120
+
+	Revert to old (and correct) behavior of returning runtime object
+	when passed as a parameter, rather than it's corresponding DOM
+	object.
+
+        Reviewed by Chris.
+
+        * bindings/objc/WebScriptObject.mm:
+        (+[WebScriptObject _convertValueToObjcValue:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+
+=== Safari-182 ===
+
+2005-01-28  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3980389> JavaScript bindings access incorrect runtime object
+
+	Only use special 'back door' property to get the runtime object if thisObj isn't
+	already a runtime object.
+
+	<gratuitous> Cleaned up a couple of strcmp on ClassInfo name.  Used == on
+	ClassInfo pointer instead.
+
+        Reviewed by Chris.
+
+        * bindings/c/c_utility.cpp:
+        (convertValueToNPVariant):
+        * bindings/objc/WebScriptObject.mm:
+        (+[WebScriptObject _convertValueToObjcValue:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::call):
+
+=== Safari-181 ===
+
+2005-01-26  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3972522> (179-180) 40% slowdown on iBench JavaScript test
+
+	I added a member variable to ObjectImp.  This changed it's size and consequently
+	hampered the optimizations built into the garbage collector.  Objects no longer
+	fit within the allocators cell size, and thus allocation fell back to a slower
+	allocator.
+
+	As a result of this fix I also dramatically cleaned up how runtime objects are
+	accessed.  The path mostly *removes* code.
+	
+        Reviewed by Chris.
+
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::call):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::canPut):
+        (RuntimeObjectImp::hasProperty):
+        (RuntimeObjectImp::defaultValue):
+        * bindings/runtime_object.h:
+        * kjs/object.cpp:
+        (KJS::ObjectImp::ObjectImp):
+        * kjs/object.h:
+
+2005-01-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by me, changes by Han Ming Ong.
+
+        - <rdar://problem/3964302> SWB: A few files need to be updated to be compilable under GCC 4.0
+
+        * bindings/objc/WebScriptObjectPrivate.h: Make members public.
+        * kjs/lookup.h: Change "value.h" to "object.h" because we need KJS::Object to compile a template.
+
+2005-01-20  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3964634> undefined property value from binding seems to evaluate to true in an if statement
+
+	The comprehensive fix for this problem requires new API, as described in 3965326.  However,
+	given that we can't add new API at this point, the 'ObjcFallbackObjectImp' will behave
+	like and Undefined object if  invokeUndefinedMethodFromWebScript:withArguments: isn't
+	implemented on the bound object.
+
+        Reviewed by Chris.
+
+        * bindings/objc/objc_runtime.h:
+        * bindings/objc/objc_runtime.mm:
+        (ObjcFallbackObjectImp::type):
+        (ObjcFallbackObjectImp::implementsCall):
+        (ObjcFallbackObjectImp::toBoolean):
+        * bindings/testbindings.mm:
+        (+[MyFirstInterface isSelectorExcludedFromWebScript:]):
+        (+[MyFirstInterface isKeyExcludedFromWebScript:]):
+
+=== Safari-180 ===
+
+2005-01-19  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3853676> Browser Crash when accessing CCWeb Progress Page - KJS::Bindings::convertValueToJValue
+
+	Fixed the following problems with LiveConnect that are demonstrated by the application
+	described in 3853676.
+
+	1.  If a nil object is passed in an array from Java to JavaScript we will crash.
+	2.  We sometimes will incorrectly attempt to access a generic JavaScript as a Java runtime object wrapper.
+	3.  We will sometimes fail to find the correct static method ID.
+
+        Reviewed by Maciej.
+
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::convertJObjectToValue):
+        (JSObject::listFromJArray):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::valueFromInstance):
+        (JavaField::setValueToInstance):
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::getMethodID):
+        (KJS::Bindings::convertValueToJValue):
+        * bindings/runtime_array.h:
+
+2005-01-18  Richard Williamson   <rjw@apple.com>
+
+	Fixed several issues all arising from analysis of plugin detection code at ifilm.com:
+
+	Fixed <rdar://problem/3958592> can't script plug-ins if plug-in is invoked with <object> element instead of <embed>
+	Fixed <rdar://problem/3958597> <object> elements with IDs do not show up as named properties of the document
+	Fixed <rdar://problem/3960973> DOM objects for plugin elements are not accessible
+	Fixed <rdar://problem/3958601> need an additional class ID in WebCore for the Real plug-in
+
+	We now support accessing scriptable plugin objects that are specified with <applet>, <embed>, or <object>
+	tags.  Also, if any of these elements are named they can be accessed from the document or window objects.
+	Finally, DOM methods are properties will be forwarded appropriately for the plugin's root scriptable object.
+
+        Reviewed by Chris.
+
+        * bindings/objc/objc_instance.h:
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::supportsSetValueOfUndefinedField):
+        * bindings/runtime.h:
+        (KJS::Bindings::Instance::supportsSetValueOfUndefinedField):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::RuntimeObjectImp):
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::canPut):
+        (RuntimeObjectImp::hasProperty):
+        (RuntimeObjectImp::defaultValue):
+        * bindings/runtime_object.h:
+        (KJS::RuntimeObjectImp::fallbackObject):
+        * kjs/object.cpp:
+        (KJS::ObjectImp::ObjectImp):
+        * kjs/object.h:
+        (KJS::ObjectImp::forwardingScriptMessage):
+        (KJS::ObjectImp::setForwardingScriptMessage):
+
+2005-01-18  Richard Williamson   <rjw@apple.com>
+
+	Back out a change that was incorrectly committed yesterday.
+
+        Reviewed by Chris.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+
+2005-01-17  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3753030> Need to ensure same origin for plugin binding invocations (origin security rules)
+
+	Keep track of originating execution context and target execution
+	context for native JS object wrappers, and perform appropriate
+	security checks.
+
+        Reviewed by David Harrison.
+
+        * bindings/NP_jsobject.cpp:
+        (_isSafeScript):
+        (_NPN_CreateScriptObject):
+        (_NPN_Invoke):
+        (_NPN_Evaluate):
+        (_NPN_GetProperty):
+        (_NPN_SetProperty):
+        (_NPN_RemoveProperty):
+        (_NPN_HasProperty):
+        (_NPN_HasMethod):
+        (_NPN_SetException):
+        * bindings/NP_jsobject.h:
+        * bindings/c/c_instance.cpp:
+        (CInstance::CInstance):
+        (CInstance::stringValue):
+        * bindings/c/c_instance.h:
+        * bindings/c/c_utility.cpp:
+        (convertValueToNPVariant):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::JavaInstance):
+        (JavaInstance::valueOf):
+        * bindings/jni/jni_instance.h:
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject _initializeWithObjectImp:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+        (-[WebScriptObject _initWithObjectImp:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+        (-[WebScriptObject KJS::Bindings::]):
+        (-[WebScriptObject _setOriginExecutionContext:KJS::Bindings::]):
+        (-[WebScriptObject _isSafeScript]):
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject setValue:forKey:]):
+        (-[WebScriptObject valueForKey:]):
+        (-[WebScriptObject removeWebScriptKey:]):
+        (-[WebScriptObject stringRepresentation]):
+        (-[WebScriptObject webScriptValueAtIndex:]):
+        (-[WebScriptObject setWebScriptValueAtIndex:value:]):
+        (+[WebScriptObject _convertValueToObjcValue:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+        * bindings/objc/WebScriptObjectPrivate.h:
+        * bindings/objc/objc_instance.h:
+        * bindings/objc/objc_runtime.mm:
+        (convertValueToObjcObject):
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+        * bindings/runtime.cpp:
+        (Instance::Instance):
+        (Instance::operator=):
+        * bindings/runtime.h:
+        (KJS::Bindings::Instance::Instance):
+        (KJS::Bindings::Instance::setExecutionContext):
+        (KJS::Bindings::Instance::executionContext):
+        * bindings/runtime_root.cpp:
+        (RootObject::setInterpreter):
+        * bindings/runtime_root.h:
+        * kjs/interpreter.h:
+        (KJS::Interpreter::isGlobalObject):
+        (KJS::Interpreter::interpreterForGlobalObject):
+        (KJS::Interpreter::isSafeScript):
+
+=== Safari-179 ===
+
+2005-01-13  Vicki Murley <vicki@apple.com>
+
+        Reviewed by Adele.
+
+	- fix <rdar://problem/3946836> Safari about box lists 2004 instead of 2005
+ 
+        * JavaScriptCore.pbproj/project.pbxproj: bump "2004" to "2005"
+
+2005-01-12  Richard Williamson   <rjw@apple.com>
+
+	Avoid additional work on dealloc by adding early out to
+	removeNativeReference().  (This will save time on dealloc
+	for all ObjC DOM objects.)
+
+        Reviewed by Darin.
+
+        * bindings/runtime_root.cpp:
+        (KJS::Bindings::removeNativeReference):
+
+2005-01-12  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3923356> REGRESSION: Java/JavaScript security checks working incorrectly
+
+	We were always returning the first "root" object for all runtime
+	objects.  Changed 0 in loop to i, the index.
+
+        Reviewed by David Harrison.
+
+        * bindings/runtime_root.cpp:
+        (KJS::Bindings::rootForImp):
+
+2005-01-11  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3887930> Must use new Java plug-in API to get/set fields so exception handling works (fixes many LiveConnect crashes)
+
+	Use the new dispatching API to invoke JNI, rather than calling JNI
+	directly.
+
+        Reviewed by David Harrison.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::dispatchValueFromInstance):
+        (JavaField::valueFromInstance):
+        (JavaField::dispatchSetValueToInstance):
+        (JavaField::setValueToInstance):
+        * bindings/jni/jni_runtime.h:
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::convertValueToJValue):
+
+=== Safari-178 ===
+
+=== Safari-177 ===
+
+=== Safari-176 ===
+
+2004-12-17  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Kevin.
+
+	<rdar://problem/3926869> Opening caches window after running PLT causes crash
+	
+        * kjs/protected_values.cpp:
+        (KJS::ProtectedValues::getProtectCount): Don't include simple numbers in
+	the protected value table.
+        (KJS::ProtectedValues::increaseProtectCount): Ditto.
+        (KJS::ProtectedValues::decreaseProtectCount): Ditto.
+
+2004-12-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3920764> Unimplemented String methods toLocaleLowerCase and toLocaleUpperCase
+
+        * kjs/string_object.h: Added toLocaleLowerCase and toLocaleUpperCase.
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Made locale versions be synonmyms for the
+        non-locale-specific versions.
+        * kjs/string_object.lut.h: Regenerated.
+
+2004-12-14  Richard Williamson   <rjw@apple.com>
+
+	Pass URL of plugin view when call into JNI.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_objc.mm:
+        (KJS::Bindings::dispatchJNICall):
+
+2004-12-13  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3827799> repro. crash with IBM Rational ClearCase Web under Safari (Java/LiveConnect-related)
+
+	Add support for calling static Java methods from JavaScript.
+
+        Reviewed by Maciej.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaMethod::JavaMethod):
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaMethod::isStatic):
+        * bindings/jni/jni_utility.cpp:
+        (callJNIStaticMethod):
+        (KJS::Bindings::callJNIBooleanMethod):
+        (KJS::Bindings::callJNIStaticBooleanMethod):
+        * bindings/jni/jni_utility.h:
+
+2004-12-13  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3887767> LiveConnect doesn't propagate Java exceptions back to JavaScript (prevents security suite from running)
+
+        Reviewed by John.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_objc.mm:
+        (KJS::Bindings::dispatchJNICall):
+        * bindings/jni/jni_runtime.h:
+        * bindings/jni/jni_utility.h:
+
+=== Safari-175 ===
+
+2004-12-07  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	<rdar://problem/3908017> REGRESSION (172-173): assertion in ObjectImp::construct trying to create JS error (24hourfitness.com)
+
+	The fix was to implement copy constructor and assignment operator,
+	the ones that worked on the base class did not replace the
+	defaults apparently!
+	
+        * kjs/protect.h:
+        (KJS::ProtectedValue::ProtectedValue):
+        (KJS::ProtectedValue::operator=):
+        (KJS::ProtectedObject::ProtectedObject):
+        (KJS::ProtectedObject::operator=):
+        
+	Also fixed a bug in the GC test mode that compares the results of
+	the old collector and the new collector.
+
+	* kjs/value.cpp:
+        (ValueImp::mark):
+
+=== Safari-173 ===
+
+2004-11-23  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3890385> field and method cache incorrectly capped (c bindings)
+
+        Reviewed by Ken.
+
+        * bindings/c/c_class.cpp:
+        (CClass::_commonInit):
+
+2004-11-21  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Ken.
+
+	<rdar://problem/3889696> Enable conservative garbage collection for JavaScript
+        
+	* kjs/collector.cpp:
+        (KJS::Collector::Thread::Thread):
+        (KJS::destroyRegisteredThread):
+        (KJS::initializeRegisteredThreadKey):
+        (KJS::Collector::registerThread):
+        (KJS::Collector::markStackObjectsConservatively):
+        (KJS::Collector::markCurrentThreadConservatively):
+        (KJS::Collector::markOtherThreadConservatively):
+        * kjs/collector.h:
+        * kjs/internal.cpp:
+        (lockInterpreter):
+        * kjs/value.h:
+
+=== Safari-172 ===
+
+2004-11-15  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3880561> Default string value of ObjC object in JS should be [obj description].
+
+        Reviewed by Hyatt.
+
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::stringValue):
+        * bindings/objc/objc_utility.h:
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertNSStringToString):
+        (KJS::Bindings::convertObjcValueToValue):
+
+=== Safari-171 ===
+
+2004-11-09  Chris Blumenberg  <cblu@apple.com>
+
+	Fixed: <rdar://problem/3872724> soft link against JavaVM to save ~2MB RSHRD
+
+        Reviewed by rjw.
+
+        * ChangeLog:
+        * JavaScriptCore.pbproj/project.pbxproj: don't link against JavaVM
+        * bindings/softlinking.c: Added.
+        (loadFramework): new
+        (getFunctionPointer): new
+        (JNI_GetCreatedJavaVMs): load JavaVM if not already loaded, get _JNI_GetCreatedJavaVMs symbol if we don't already have it, call JNI_GetCreatedJavaVMs
+
+=== Safari-170 ===
+
+2004-11-04  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - fixed <rdar://problem/3865365> since -[WebScriptObject dealloc] does not call [super dealloc], the build will fail due to a warning
+        - fixed behavior so that [[WebScriptObject alloc] initWithCoder:] doesn't leak WebUndefined instances
+          and incidentally so that [[WebScriptObject alloc] init] returns the single shared instance rather
+          than allocating a new one
+
+        * bindings/objc/WebScriptObject.mm: Removed some stray semicolons.
+        (+[WebUndefined allocWithZone:]): Made this the common bottleneck that returns the single instance
+        of WebUndefined, since it's the single method that normally allocates new instances. Calls super to
+        actually allocate only the very first time it's called.
+        (-[WebUndefined initWithCoder:]): Simplified to just return self (no reason to re-lookup the single
+        shared instance since there can be only one).
+        (-[WebUndefined copyWithZone:]): Ditto.
+        (-[WebUndefined retain]): Ditto.
+        (-[WebUndefined retainCount]): Use UINT_MAX constant here (matches usage in NSObject.m for retain count
+        of class).
+        (-[WebUndefined autorelease]): Simplified to just return self (see above).
+        (-[WebUndefined copy]): No need to override this since it just turns around and calls copyWithZone:.
+        (-[WebUndefined dealloc]): Added an assertion since this method should never be called. Also added
+        a call to [super dealloc] after return; to make the new -Wdealloc-check compiler happy (fixing the
+        bug mentioned above).
+        (+[WebUndefined undefined]): Reimplemented; calls allocWithZone:NULL to get to the shared instance.
+        No need to call init, since that's a no-op for this class.
+
+2004-11-03  David Harrison  <harrison@apple.com>
+
+        Reviewed by Darin.
+        
+        Eliminate the use of a marker file to determine how to build.
+
+        * .cvsignore:
+        * Makefile.am:
+
+2004-11-01  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3861469> Latest Real player crashes Safari on some sites.
+
+        Reviewed by Ken.
+
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        (CInstance::invokeDefaultMethod):
+        Initialize out parameters to void type.
+
+        * bindings/c/c_runtime.cpp:
+        (CField::valueFromInstance):
+        (CField::setValueToInstance):
+        Initialize out parameters to void type.
+        Also added additional checks to protect against classes that 
+        don't implement all functions.
+
+2004-11-01  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3861257> WebUndefined should be returned for undefined values
+
+        Reviewed by John.
+
+        * ChangeLog:
+        * bindings/objc/WebScriptObject.mm:
+        (+[WebScriptObject _convertValueToObjcValue:KJS::root:Bindings::]):
+	Added additional conversion Undefined -> WebUndefined.
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertObjcValueToValue):
+	Added additional conversion WebUndefined -> Undefined.
+
+2004-11-01  Darin Adler  <darin@apple.com>
+
+        - fixed <rdar://problem/3855573> Remove reference to "WebScriptMethods" from WebScriptObject.h comments
+
+        * bindings/objc/WebScriptObject.h: Removed unneeded #ifdef protection for multiple includes (since
+        this is an Objective-C header and we use #import for those). Fixed comments as requested in the bug
+        report to match the contents of the file.
+
+=== Safari-169 ===
+
+=== Safari-168 ===
+
+2004-10-22  Ken Kocienda  <kocienda@apple.com>
+
+        Reviewed by me
+
+        * JavaScriptCore.pbproj/project.pbxproj:  
+        Add GCC_ENABLE_OBJC_GC and GCC_FAST_OBJC_DISPATCH flags.
+
+=== Safari-167 ===
+
+2004-10-13  Richard Williamson   <rjw@apple.com>
+
+	Moved boolean checks prior to NSNumber checks.  booleans are
+	NSNumbers.
+
+	Follow on to <rdar://problem/3821515> binding layer needs to convert NSNumber-bools to js type boolean not number.
+
+        Reviewed by John.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertObjcValueToValue):
+
+2004-10-12  Richard Williamson   <rjw@apple.com>
+
+        Fixed access to DOM object via WebScriptObject API.
+        The execution context for DOM objects wasn't being found.	
+        <rdar://problem/3831372> The valueForKey method for @"offsetLeft" on a paragraph element causes a crash.
+
+        Reviewed by Chris.
+
+        * bindings/objc/WebScriptObject.mm:
+        (_didExecute):
+        (-[WebScriptObject KJS::Bindings::]):
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject setValue:forKey:]):
+        (-[WebScriptObject valueForKey:]):
+        (-[WebScriptObject stringRepresentation]):
+        * bindings/objc/WebScriptObjectPrivate.h:
+
+2004-10-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Kevin.
+
+        - fixed <rdar://problem/3804661> REGRESSION: JavaScriptCore framework now has two init routines
+
+        * bindings/NP_jsobject.cpp: Fixed unnecessarily-complex globals set up that was
+        creating an init routine.
+
+        * kjs/ustring.cpp: Changed around the UString::Rep::empty construction to not
+        require a global constructor that creates an init routine.
+
+2004-10-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Kevin.
+
+        - fixed <rdar://problem/3822618> REGRESSION (164-165): expedia.com's popup help doesn't work
+
+        * kjs/reference.cpp: (Reference::putValue): Change so that references not found in any object
+        work with the window object of the page the function is in, not the page of the caller. This
+        is what all other browsers do. This code was hidden before by the "everything is defined on
+        window object" hack in WebCore.
+
+2004-10-07  Richard Williamson   <rjw@apple.com>
+
+	Added simple JavaScript call tracing.  Very useful for
+        debugging complex pages.
+
+	Tracing is only available in development builds and is
+	enabled by:
+
+	(gdb) set traceJavaScript = 1
+
+	or programatically
+
+	setTraceJavaScript(true)
+
+	Function, args, and return values are printed to console.  Very
+	verbose.
+
+        Reviewed by Ken.
+
+        * kjs/function_object.cpp:
+        (FunctionProtoFuncImp::call):
+        * kjs/object.cpp:
+        (KJS::Object::call):
+
+=== Safari-166 ===
+
+2004-10-05  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3819234> NPN_SetException (and throwException:) isn't implemented
+
+        Reviewed by Chris.
+
+        * bindings/NP_jsobject.cpp:
+        (_NPN_SetException):
+        * bindings/npruntime.cpp:
+        (_NPN_SetExceptionWithUTF8):
+        * bindings/objc/WebScriptObject.mm:
+        (+[WebScriptObject throwException:]):
+        * kjs/internal.h:
+        (KJS::InterpreterImp::context):
+
+2004-10-05  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3821515> binding layer needs to convert NSNumber-bools to js type boolean not number
+
+        Reviewed by Ken.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertObjcValueToValue):
+
+2004-10-04  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - rolled in a fix the KDE folks did for the operations that generate HTML fragments
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Added quote marks to generated HTML.
+
+        - rolled out an old workaround we don't need any more
+
+        * JavaScriptCore.pbproj/project.pbxproj: Remove -Wno-long-double because the <math.h> issue that
+        required it is no longer there.
+
+2004-09-30  Richard Williamson  <rjw@apple.com>
+
+	Fixed <rdar://problem/3821215> NPN hasMethod and hasProperty functions should take NPObjects, not NPClass
+
+        Reviewed by Chris.
+
+        * bindings/NP_jsobject.cpp:
+        (_NPN_GetProperty):
+        (_NPN_HasProperty):
+        (_NPN_HasMethod):
+        * bindings/c/c_class.cpp:
+        (CClass::methodsNamed):
+        (CClass::fieldNamed):
+        * bindings/c/c_class.h:
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::methodsNamed):
+        * bindings/jni/jni_class.h:
+        * bindings/npruntime.h:
+        * bindings/objc/objc_class.h:
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::methodsNamed):
+        * bindings/runtime.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::hasProperty):
+
+2004-09-29  Chris Blumenberg  <cblu@apple.com>
+
+	Prepended underscores to NPN methods so that when the QT plug-in loads these symbols, it uses the non-underscore versions in WebKit. Without this, the QT plug-in was failing to load when launching Safari from the command-line.
+
+        Reviewed by rjw.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.cpp:
+        (_NPN_CreateScriptObject):
+        (_NPN_InvokeDefault):
+        (_NPN_Invoke):
+        (_NPN_Evaluate):
+        (_NPN_GetProperty):
+        (_NPN_SetProperty):
+        (_NPN_RemoveProperty):
+        (_NPN_HasProperty):
+        (_NPN_HasMethod):
+        * bindings/c/c_class.cpp:
+        (CClass::methodsNamed):
+        (CClass::fieldNamed):
+        * bindings/c/c_instance.cpp:
+        (CInstance::CInstance):
+        (CInstance::~CInstance):
+        (CInstance::operator=):
+        (CInstance::invokeMethod):
+        (CInstance::invokeDefaultMethod):
+        * bindings/c/c_runtime.cpp:
+        * bindings/c/c_runtime.h:
+        (KJS::Bindings::CField::name):
+        (KJS::Bindings::CMethod::name):
+        * bindings/npruntime.cpp:
+        (_NPN_GetStringIdentifier):
+        (_NPN_GetStringIdentifiers):
+        (_NPN_GetIntIdentifier):
+        (_NPN_IdentifierIsString):
+        (_NPN_UTF8FromIdentifier):
+        (_NPN_IntFromIdentifier):
+        (NPN_InitializeVariantWithObject):
+        (_NPN_ReleaseVariantValue):
+        (_NPN_CreateObject):
+        (_NPN_RetainObject):
+        (_NPN_ReleaseObject):
+        (_NPN_SetExceptionWithUTF8):
+        (_NPN_SetException):
+
+2004-09-26  Darin Adler  <darin@apple.com>
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Remove strange use of high() and
+        low() to get Unicode value of character, and just use unicode().
+
+2004-09-26  Darin Adler  <darin@apple.com>
+
+        - refine charAt/charCodeAt fix slightly
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Treat undefined the same was as an
+        omitted parameter, as we do everywhere else, and as other browsers do here.
+
+2004-09-26  Darin Adler  <darin@apple.com>
+
+        Reviewed by Kevin.
+
+        - fixed <rdar://problem/3816097> REGRESSION: mailblocks, and presumably many other pages, failing because variable not found
+
+        * kjs/internal.cpp: (InterpreterImp::evaluate): Process variable declarations before executing
+        the program. We were doing this properly for functions, but not entire programs.
+
+        - fixed <rdar://problem/3814706> REGRESSION: text fields in mailblocks wizards do not accept keystrokes due to use of charCodeAt()
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Changed the implementation of charAt
+        and charCodeAt to treat a missing parameter as an index of 0, rather than an invalid index.
+
+        * tests/mozilla/expected.html: Update for two tests that now pass with these changes.
+
+=== Safari-165 ===
+
+=== Safari-164 ===
+
+2004-09-14  Richard Williamson   <rjw@apple.com>
+
+        1.  Add class parameter to object allocation function.  This is somewhat redundant, given that
+        the allocation function is in the class function vector, but people wanted to use the same
+        allocation function for different classes.
+        
+        2.  Renamed NPN_Class to NPN_Invoke to match the name in the function vector.
+        
+        3.  Add support for a default function on an object.  This is a feature that ActiveX supports,
+        and will allow JavaScript code to be written that will look exactly the same for both ActiveX
+        plugins and Netscape or WebKit plugins.  There are implementations included for the 'C' and
+        'Objective-C' bindings.
+        
+        There bugs are covered by
+        
+        <rdar://problem/3776343> Support for default functions in the JavaScript bindings
+        <rdar://problem/3779186> NPN_Call needs to be renamed to NPN_Invoke
+        <rdar://problem/3674754> Need to implement latest npruntime.h
+
+        Reviewed by John.
+
+        * bindings/NP_jsobject.cpp:
+        (jsAllocate):
+        (NPN_InvokeDefault):
+        (NPN_Invoke):
+        * bindings/c/c_class.cpp:
+        * bindings/c/c_instance.cpp:
+        (CInstance::CInstance):
+        (CInstance::operator=):
+        (CInstance::invokeMethod):
+        (CInstance::invokeDefaultMethod):
+        * bindings/c/c_instance.h:
+        * bindings/c/c_runtime.cpp:
+        * bindings/c/c_runtime.h:
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeDefaultMethod):
+        * bindings/jni/jni_instance.h:
+        * bindings/npruntime.cpp:
+        (NPN_CreateObject):
+        * bindings/npruntime.h:
+        * bindings/objc/WebScriptObject.h:
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::fallbackObject):
+        * bindings/objc/objc_instance.h:
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::invokeDefaultMethod):
+        * bindings/objc/objc_runtime.h:
+        * bindings/objc/objc_runtime.mm:
+        (ObjcFallbackObjectImp::ObjcFallbackObjectImp):
+        (ObjcFallbackObjectImp::get):
+        (ObjcFallbackObjectImp::put):
+        (ObjcFallbackObjectImp::canPut):
+        (ObjcFallbackObjectImp::implementsCall):
+        (ObjcFallbackObjectImp::call):
+        (ObjcFallbackObjectImp::hasProperty):
+        (ObjcFallbackObjectImp::deleteProperty):
+        (ObjcFallbackObjectImp::defaultValue):
+        * bindings/runtime.h:
+        (KJS::Bindings::Class::fallbackObject):
+        (KJS::Bindings::Instance::getValueOfUndefinedField):
+        (KJS::Bindings::Instance::setValueOfUndefinedField):
+        (KJS::Bindings::Instance::valueOf):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::implementsCall):
+        (RuntimeObjectImp::call):
+        * bindings/runtime_object.h:
+
+2004-09-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	<rdar://problem/3794735> Gmail- sending a very long message with Safari is so slow it seems like a hang
+        
+	* kjs/string_object.cpp:
+        (StringProtoFuncImp::call): Replaced implementation of replace()
+	method with function below...
+	(replace): In order to avoid excessive allocation and copying,
+	figure out the ranges of the original string and replacement
+	strings to be assembled, instead of constantly creating new
+	strings at each substitution. The old behavior is basically O(N^2)
+	for a global replace on a pattern that matches many places in the
+	string.
+        (regExpIsGlobal): Helper function for the above.
+        (expandSourceRanges): ditto
+        (pushSourceRange): ditto
+        (expandReplacements): ditto
+        (pushReplacement): ditto
+        * kjs/ustring.cpp:
+	(KJS::UString::spliceSubstringsWithSeparators): New method that
+	pieces together substring ranges of this string together with
+	specified separators, all at one go.
+        * kjs/ustring.h:
+        (KJS::UString::Range::Range): Added new helper class to represent
+	substring choices.
+
+2004-09-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	- fixed <rdar://problem/3800315> encode-URI-test layout test is failing
+	
+        * kjs/function.cpp:
+        (KJS::GlobalFuncImp::call): Make sure to escape null
+	characters. This is a bug in the new code that made part of the
+	test fail.
+
+2004-09-13  Darin Adler  <darin@apple.com>
+
+        Reviewed by Kevin and Maciej.
+
+        - new function to support fix for DIG bug in WebCore
+
+        * kjs/scope_chain.h: Added new push function that pushes another entire scope chain.
+        * kjs/scope_chain.cpp: (KJS::ScopeChain::push): Ditto.
+
+2004-09-12  Darin Adler  <darin@apple.com>
+
+        * tests/mozilla/expected.html: Updated test results for 3 more tests that pass with the new version
+        of escape and unescape.
+
+2004-09-12  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3798209> any non-ASCII characters are garbled in the result of toLocaleString
+
+        * kjs/date_object.cpp:
+        (formatLocaleDate): Replaced two old functions that used LongDateTime with this one new function that
+        uses CFDateFormatter.
+        (DateProtoFuncImp::call): Call the new formatLocaleDate instead of both formatLocaleDate and formatLocaleTime.
+
+2004-09-09  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Richard.
+
+	<rdar://problem/3493140> REGRESSION (85-100): cedille displays %-escaped in JavaScript message at hotmail.com
+
+	* kjs/function.cpp:
+        (KJS::GlobalFuncImp::call): Replace our escape() and unescape() implementations with
+	ones from KDE KJS, which have the proper latin-1 behavior to match Win IE.
+        * kjs/lexer.cpp:
+        (Lexer::isHexDigit): Made static and non-const.
+        * kjs/lexer.h:
+
+=== Safari-163 ===
+
+2004-09-06  Darin Adler  <darin@apple.com>
+
+        * JavaScriptCore.pbproj/project.pbxproj: Bump MACOSX_DEPLOYMENT_TARGET to 10.3.
+
+=== Safari-162 ===
+
+2004-09-01  Richard Williamson   <rjw@apple.com>
+
+	Add pid to exception messages (to help debug dashboard clients).
+
+        Reviewed by Chris.
+
+        * kjs/interpreter.cpp:
+        (Interpreter::evaluate):
+
+=== Safari-161 ===
+
+2004-08-20  Richard Williamson   <rjw@apple.com>
+
+        Implemented new JNI abstraction.  We no longer invoke Java methods
+        directly with JNI, rather we call into the plugin.  This allows the
+        plugin to dispatch the call to the appropriate VM thread.  This
+        change should (will?) fix a whole class of threading related problems with
+        the Java VM.
+
+        Reviewed by Hyatt.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/c/c_instance.h:
+        (KJS::Bindings::CInstance::setExecutionContext):
+        (KJS::Bindings::CInstance::executionContext):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::JavaInstance):
+        (JavaInstance::invokeMethod):
+        (JavaInstance::setExecutionContext):
+        (JavaInstance::executionContext):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::convertJObjectToValue):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::JavaField):
+        (JavaArray::convertJObjectToArray):
+        (JavaField::valueFromInstance):
+        (JavaArray::JavaArray):
+        (JavaArray::valueAt):
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaArray::operator=):
+        (KJS::Bindings::JavaArray::executionContext):
+        * bindings/jni/jni_utility.h:
+        * bindings/objc/objc_instance.h:
+        (KJS::Bindings::ObjcInstance::setExecutionContext):
+        (KJS::Bindings::ObjcInstance::executionContext):
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
+        * bindings/runtime.h:
+        * bindings/runtime_root.h:
+        (KJS::Bindings::RootObject::nativeHandle):
+
+=== Safari-158 ===
+
+2004-08-19  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by John.
 
         * kjs/property_map.cpp:
-        (KJS::PropertyMap::put):
+        (KJS::PropertyMap::put): initialize deletedElementIndex to zero, to make the compiler happy
 
-2004-09-13  Vicki Murley <vicki@apple.com>
-
-	- initialize deletedElementIndex to 0 to make the compiler happy
-
-        * kjs/property_map.cpp:
-        (KJS::PropertyMap::put):
-
-2004-09-07  Vicki Murley <vicki@apple.com>
-
-	- merge this fix from HEAD for SUPanNavy, <rdar://problem/3773145>
-
-    2004-08-17  Darin Adler  <darin@apple.com>
+2004-08-17  Darin Adler  <darin@apple.com>
 
         Reviewed by Adele.
 
@@ -35,53 +1095,1849 @@
         deleted-element sentinels.
         (KJS::PropertyMap::checkConsistency): Check the sentinelCount.
 
-2004-09-07  Vicki Murley <vicki@apple.com>
+2004-08-16  Maciej Stachowiak  <mjs@apple.com>
 
-	- merge this fix from HEAD for SUPanNavy, <rdar://problem/3772913> 
+        Code change by Eric Albert, reviewd by me.
 
-    2004-08-04  Vicki Murley  <vicki@apple.com>
+	<rdar://problem/3571960> washingtonpost.com claims I don't have cookies enabled and won't let me read articles
+
+        * kjs/date_object.cpp:
+        (timetUsingCF): Clamp time to LONG_MAX (getting rid of time_t
+	entirely would be even better, but is not required to fix this bug.
+
+=== Safari-157 ===
+
+2004-08-16  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3581092> cash in KJS::Bindings::JSObject::eval at tcvetantcvetkov.com
+
+        Adds bullet proofing to protect against evaluation of bogus JS in all the flavors of bindings (Java, C, and ObjC).
+
+        Reviewed by Chris.
+
+        * bindings/NP_jsobject.cpp:
+        (NPN_Evaluate):
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::eval):
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject evaluateWebScript:]):
+
+2004-08-15  Richard Williamson   <rjw@apple.com>
+
+	More updates to np headers.  Implemented new NPN functions.
+
+        Reviewed by Darin.
+
+        * bindings/NP_jsobject.cpp:
+        (NPN_HasProperty):
+        (NPN_HasMethod):
+        * bindings/npapi.h:
+        * bindings/npruntime.h:
+
+2004-08-13  Darin Adler  <darin@apple.com>
+
+        - fix build so we can compile again
+
+        * bindings/npapi.h: Added. Richard forgot to check this in. The one I'm checking in here
+        is good enough so that we can compile, but it's only a stopgap measure, because I think
+        Richard has a newer one he wants to check in.
+
+2004-08-12  Richard Williamson   <rjw@apple.com>
+
+	Bring npruntime.h and friends closer to compliance with
+	latest spec.
+
+        Reviewed by Maciej.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.cpp:
+        (jsAllocate):
+        (_NPN_CreateScriptObject):
+        (NPN_Call):
+        (NPN_Evaluate):
+        (NPN_GetProperty):
+        (NPN_SetProperty):
+        (NPN_RemoveProperty):
+        * bindings/NP_jsobject.h:
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        * bindings/c/c_utility.cpp:
+        (convertNPVariantToValue):
+        * bindings/npruntime.cpp:
+        (NPN_IdentifierIsString):
+        (NPN_VariantIsVoid):
+        (NPN_VariantIsNull):
+        (NPN_VariantIsUndefined):
+        (NPN_VariantIsBool):
+        (NPN_VariantIsInt32):
+        (NPN_VariantIsDouble):
+        (NPN_VariantIsString):
+        (NPN_VariantIsObject):
+        (NPN_VariantToBool):
+        (NPN_VariantToString):
+        (NPN_VariantToInt32):
+        (NPN_VariantToDouble):
+        (NPN_VariantToObject):
+        (NPN_InitializeVariantAsVoid):
+        (NPN_InitializeVariantAsNull):
+        (NPN_InitializeVariantAsUndefined):
+        (NPN_InitializeVariantWithBool):
+        (NPN_InitializeVariantWithInt32):
+        (NPN_InitializeVariantWithDouble):
+        (NPN_InitializeVariantWithString):
+        (NPN_InitializeVariantWithStringCopy):
+        (NPN_InitializeVariantWithObject):
+        (NPN_InitializeVariantWithVariant):
+        (NPN_ReleaseVariantValue):
+        (NPN_CreateObject):
+        * bindings/npruntime.h:
+        (_NPString::):
+        (_NPString::_NPVariant::):
+        * bindings/npruntime_priv.h: Added.
+
+2004-08-12  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adele.
+
+        - fixed 3 problems with parse functions that I just wrote, fixing 3 more Mozilla JavaScript tests
+
+        * kjs/function.cpp:
+        (KJS::parseDigit): Fix typo, 'Z' instead of 'z', that prevented lowercase hex digits from working.
+        (KJS::parseInt): Add octal support. Specification says it's optional, but I guess not.
+        (KJS::parseFloat): Fix check for "0x" in parseFloat to return 0 rather than NaN. Also add code
+        to skip leading "+" or "-".
+
+=== Safari-156 ===
+
+2004-08-12  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - fixed 43 Mozilla JavaScript tests
+
+        * kjs/date_object.h: Change parseDate and timeClip to take and return doubles.
+        * kjs/date_object.cpp:
+        (DateObjectImp::construct): Change to use a timeClip function that takes and returns a double rather
+        than constructing a number object to pass to it.
+        (DateObjectFuncImp::call): Change to use a parseDate function that returns a double.
+        (KJS::parseDate): Change to return a double instead of creating the Number object here.
+        (KJS::timeClip): Implement this as specified in the language standard.
+
+        * kjs/error_object.cpp: (NativeErrorImp::NativeErrorImp): Set the DontDelete, ReadOnly, and DontEnum
+        flags on the prototype property.
+
+        * kjs/function.cpp:
+        (KJS::FunctionImp::get): Return null rather than undefined for arguments when the function is not
+        currently in scope.
+        (KJS::isStrWhiteSpace): Added. Matches specification for StrWhiteSpace. Could move it to some utility
+        file later.
+        (KJS::parseDigit): Added. Helper function for parseInt.
+        (KJS::parseInt): Added. Integer parser that puts result in a double so we're not limited to what
+        strtoll can handle. Also matches standard more closely.
+        (KJS::parseFloat): Added. Handles "0x" properly and passes flag to make empty string turn into NaN
+        instead of 0.
+        (KJS::GlobalFuncImp::call): Use the new parseInt and parseFloat.
+
+        * kjs/function_object.cpp: (FunctionPrototypeImp::FunctionPrototypeImp): Add a length property.
+
+        * kjs/lexer.h: Added error flag and sawError() function for detecting errors.
+        * kjs/lexer.cpp:
+        (Lexer::setCode): Clear error state.
+        (Lexer::lex): Set error state if the lexer encounters an error
+
+        * kjs/internal.cpp:
+        (NumberImp::toString): Roll in change from KDE version to special case 0 so we handle -0 correctly.
+        (Parser::parse): Use new lexer error method so those errors are treated like parser errors.
+
+        * kjs/math_object.cpp: (MathFuncImp::call): Change min and max to treat -0 as less than +0.
+        Change round to round values between -0.5 and -0 to -0 instead of +0.
+
+        * kjs/nodes.h: Add evaluateReference function to GroupNode.
+        * kjs/nodes.cpp: (GroupNode::evaluateReference): Pass references through groups (parenthesized
+        expressions) properly so that expressions like "delete (x.y)" work. Before, the parentheses
+        would change x.y into a value that can't be deleted as a side effect.
+
+        * kjs/string_object.cpp: Change parameter count for indexOf and lastIndexOf from 2 to 1 to match
+        the specification.
+
+        * kjs/testkjs.cpp: Rolled in changes from KDE to add a "quit" function to the test tool and
+        get rid of the fixed size limit for code.
+
+        * kjs/ustring.cpp: (KJS::UString::substr): Added optimized case for substr(0, length) so it just
+        returns the string without creating a new Rep, since I'm using substr in a place where it will
+        often be passed a 0.
+
+        * tests/mozilla/ecma/String/15.5.4.11-1.js: Fixed one wrong entry in the Unicode table I added to
+        the other day that was making a couple tests fail.
+        * tests/mozilla/ecma/String/15.5.4.12-1.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-2.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-3.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-4.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-5.js: Ditto.
+
+        * kjs/string_object.lut.h: Regenerated.
+
+2004-08-11  Darin Adler  <darin@apple.com>
+
+        - fixed a tiny problem with the UTF-16 PCRE check-in
+
+        * pcre/maketables.c: (pcre_maketables): Fix mistake in table-generating code that sometimes caused
+        the ctype_meta flag to get set in items that should not have it.
+
+        * pcre/chartables.c: Regenerated.
+
+2004-08-10  Richard Williamson   <rjw@apple.com>
+
+        Fixed <rdar://problem/3674747> Need to implement invokeUndefinedMethodFromWebScript:withArguments:
+
+	The following WebScripting methods are now supported on bound
+	objects:
+
+	- (id)invokeUndefinedMethodFromWebScript:(NSString *)name withArguments:(NSArray *)args;
+        - (void)setValue:(id)value forUndefinedKey:(NSString *)key
+        - (id)valueForUndefinedKey:(NSString *)key
+
+        Reviewed by Chris.
+
+        * bindings/c/c_class.cpp:
+        (CClass::fieldNamed):
+        * bindings/c/c_class.h:
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::fieldNamed):
+        * bindings/jni/jni_class.h:
+        * bindings/objc/objc_class.h:
+        (KJS::Bindings::ObjcClass::isa):
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::methodsNamed):
+        (ObjcClass::fieldNamed):
+        (ObjcClass::fallbackObject):
+        * bindings/objc/objc_instance.h:
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::invokeMethod):
+        (ObjcInstance::setValueOfField):
+        (ObjcInstance::setValueOfUndefinedField):
+        (ObjcInstance::getValueOfField):
+        (ObjcInstance::getValueOfUndefinedField):
+        * bindings/objc/objc_runtime.h:
+        (KJS::Bindings::ObjcField::~ObjcField):
+        (KJS::Bindings::ObjcField::ObjcField):
+        (KJS::Bindings::ObjcField::operator=):
+        (KJS::Bindings::FallbackObjectImp::classInfo):
+        * bindings/objc/objc_runtime.mm:
+        (ObjcField::ObjcField):
+        (ObjcField::name):
+        (ObjcField::type):
+        (ObjcField::valueFromInstance):
+        (ObjcField::setValueToInstance):
+        (FallbackObjectImp::FallbackObjectImp):
+        (FallbackObjectImp::get):
+        (FallbackObjectImp::put):
+        (FallbackObjectImp::canPut):
+        (FallbackObjectImp::implementsCall):
+        (FallbackObjectImp::call):
+        (FallbackObjectImp::hasProperty):
+        (FallbackObjectImp::deleteProperty):
+        (FallbackObjectImp::defaultValue):
+        * bindings/runtime.h:
+        (KJS::Bindings::Class::fallbackObject):
+        (KJS::Bindings::Instance::getValueOfUndefinedField):
+        (KJS::Bindings::Instance::setValueOfUndefinedField):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::canPut):
+        (RuntimeObjectImp::hasProperty):
+        * bindings/testbindings.mm:
+        (-[MyFirstInterface valueForUndefinedKey:]):
+        (-[MyFirstInterface setValue:forUndefinedKey:]):
+
+2004-08-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dave.
+
+        - switch PCRE to do UTF-16 directly instead of converting to/from UTF-8 for speed
+
+        * pcre/pcre.h: Added PCRE_UTF16 switch, set to 1. Added pcre_char typedef, which is char
+        or uint16_t depending on the mode, and used appropriate in the 7 public functions
+        that need to use it.
+        * pcre/pcre.c: Add UTF-16 support to all functions.
+        * pcre/study.c: Ditto.
+
+        * pcre/internal.h: Added ichar typedef, which is unsigned char or uint16_t depending on
+        the mode. Changed declarations to use symbolic constants and typedefs so we size
+        things to ichar when needed.
+
+        * pcre/maketables.c: (pcre_maketables): Change code to make tables that are
+        sized to 16-bit characters instead of 8-bit.
+
+        * pcre/get.c:
+        (pcre_copy_substring): Use pcre_char instead of char.
+        (pcre_get_substring_list): Ditto.
+        (pcre_free_substring_list): Ditto.
+        (pcre_get_substring): Ditto.
+        (pcre_free_substring): Ditto.
+
+        * pcre/dftables.c: (main): Used a bit more const, and use ICHAR sizes instead
+        of hard-coding 8-bit table sizes.
+
+        * pcre/chartables.c: Regenerated.
+
+        * kjs/ustring.h: Remove functions that convert UTF-16 to/from UTF-8 offsets.
+        * kjs/ustring.cpp: Change the shared empty string to have a unicode pointer that
+        is not null. The null string still has a null pointer. This prevents us from
+        passing a null through to the regular expression engine (which results in a null
+        error even when the string length is 0).
+
+        * kjs/regexp.cpp:
+        (KJS::RegExp::RegExp): Null-terminate the pattern and pass it.
+        (KJS::RegExp::match): Use the 16-bit string directly, no need to convert to UTF-8.
+
+2004-08-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed 28 Mozilla JavaScript tests
+
+        * kjs/array_object.cpp: (ArrayProtoFuncImp::call): Check for undefined rather than
+        checking the number of arguments for the join method.
+
+        * kjs/lexer.cpp: (Lexer::lex): Parse hexadecimal and octal constants in doubles rather
+        than integers, so we aren't limited to 32 bits.
+
+        * kjs/math_object.cpp: (MathFuncImp::call): Get rid of many unneeded special cases in
+        the implementation of the pow operation. Also simplied a case that was handling positive
+        and negative infinity separately.
+
+        * kjs/nodes.cpp: (ShiftNode::evaluate): Keep the result of shifts in a double instead of
+        putting them in a long, so that unsigned shift will work properly.
+
+        * kjs/number_object.cpp: Add the DontDelete and ReadOnly flags to the numeric constants.
+
+        * kjs/operations.cpp:
+        (KJS::isPosInf): Added an implementation inside APPLE_CHANGES that does not depend on the
+        sign of isinf; our isinf function returns +1 even for negative infinity.
+        (KJS::isNegInf): And again.
+        (KJS::relation): Put in a nice simple implementation of comparison inside APPLE_CHANGES.
+        Our floating point already handles the various infinity cases correctly.
+
+        * kjs/regexp_object.cpp:
+        (RegExpProtoFuncImp::call): Add missing return before Null() in Exec method.
+        (RegExpObjectImp::arrayOfMatches): Put undefined rather than an empty string into the
+        array in cases where we did not match.
+        (RegExpObjectImp::construct): Set the DontDelete, ReadOnly, and DontEnum flags for
+        "global", "ignoreCase", "multiline", and "source".
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): For the match method, turn a null
+        string into undefined rather than an empty string. For the slice method, handle an
+        undefined parameter for the limit properly as decribed in the specification, and add
+        the limit to one case that didn't have the limit at all. For the methods that generate
+        HTML strings, use lowercase tags instead of uppercase.
+
+        * kjs/ustring.cpp:
+        (KJS::UChar::toLower): Use u_tolower from the ICU library.
+        (KJS::UChar::toUpper): Use u_toupper from the ICU library.
+        (KJS::UString::append): Fix some math that caused a buffer overflow.
+        (KJS::convertUTF16OffsetsToUTF8Offsets): Ignore negative numbers (-1 is used as a special
+        flag) rather than converting them all to 0.
+        (KJS::convertUTF8OffsetsToUTF16Offsets): Ditto.
+
+        * tests/mozilla/jsDriver.pl: Fixed the relative links to point to our actual test files.
+
+        * tests/mozilla/ecma/String/15.5.4.11-1.js: Fixed the Unicode table in this test to match
+        the Unicode specification in a few cases where it was wrong before.
+        * tests/mozilla/ecma/String/15.5.4.11-2.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.11-3.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.11-5.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.11-6.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-1.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-2.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-3.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-4.js: Ditto.
+        * tests/mozilla/ecma/String/15.5.4.12-5.js: Ditto.
+
+        * JavaScriptCore.pbproj/project.pbxproj: Link to libicu.
+
+        * kjs/number_object.lut.h: Regenerated.
+
+2004-08-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3753467> REGRESSION (137-138): reproducible buffer overrun in UString manipulation code
+
+        * kjs/ustring.cpp: (KJS::UString::append): Fix incorrect size computation. Without it
+        we get a buffer overflow.
+
+=== Safari-155 ===
+
+2004-08-05  Richard Williamson   <rjw@apple.com>
+
+        Fixed part of 3674747.  The QT guys need this for feature freeze.
+
+        This patch implements support for the
+
+        - (id)invokeUndefinedMethodFromWebScript:(NSString *)name withArguments:(NSArray *)args
+
+        method of objects bound to JavaScript.
+
+        Reviewed by John.
+
+        * ChangeLog:
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::methodsNamed):
+        (ObjcClass::fieldNamed):
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::invokeMethod):
+        * bindings/objc/objc_runtime.h:
+        (KJS::Bindings::ObjcMethod::~ObjcMethod):
+        (KJS::Bindings::ObjcMethod::isFallbackMethod):
+        (KJS::Bindings::ObjcMethod::javaScriptName):
+        * bindings/objc/objc_runtime.mm:
+        (ObjcMethod::ObjcMethod):
+        (ObjcMethod::getMethodSignature):
+        (ObjcMethod::setJavaScriptName):
+        * bindings/testbindings.mm:
+
+2004-08-04  Vicki Murley  <vicki@apple.com>
 
         Reviewed by mjs.
  
-        - fix <rdar://problem/3649789> SAP WebGUI has problems loading first page because of parse error        
+	- fix <rdar://problem/3649789> SAP WebGUI has problems loading first page because of parse error        
 
-        * kjs/lexer.cpp:
+	* kjs/lexer.cpp:
         (Lexer::lex): if the current character is a '\' and the next character is a line terminator,
-        go to the next line and continue parsing the string (instead of failing).  This matches 
-        behavior in Mac IE and Mozilla.
+	go to the next line and continue parsing the string (instead of failing).  This matches 
+	behavior in Mac IE and Mozilla.
 
-=== JavaScriptCore-125.5 ===
+2004-08-03  Kevin Decker  <kdecker@apple.com>
 
-2004-04-16  Vicki Murley  <vicki@apple.com>
+        Reviewed by Darin.
+
+	Rolled in changes from the latest KJS sources that support additional 
+	Number.prototype functions. 
+
+	Specifically this patch covers the follow parts of the ECMA 3 spec:
+  	15.7.4.5, 15.7.4.6, and 15.7.4.7 
+	
+	Fixes:
+	<rdar://problem/3663716> missing Number.toFixed (and toPrecision, toExponential)
+	<rdar://problem/3749492> missing Number.toPrecision prototype implementation
+	<rdar://problem/3749591> missing Number.toExponential prototype implementation
+
+        * kjs/identifier.h: Added toFixed, toPrecision, and toExponential to the
+	list of supported identifiers (a macro).
+        * kjs/number_object.cpp: Implemented support for toFixed(), toPrecision(),
+	and toExponential(). 
+        (NumberPrototypeImp::NumberPrototypeImp):
+        (NumberProtoFuncImp::call):
+        * kjs/number_object.h: Added property names for toFixed, toPrecision,
+	and toExponential. 
+        (KJS::NumberProtoFuncImp::):
+        * tests/mozilla/expected.html: Update results.
+
+2004-08-03  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - added support for copying RegExp objects so 7 more Mozilla regexp tests pass
+
+        * kjs/regexp_object.cpp: (RegExpObjectImp::construct): Check for case where
+        we are supposed to just copy the regular expression object, and do so.
+        Also tighten up arguments check to handle case where an actual "undefined"
+        is passed rather than just omitting an argument.
+
+        * tests/mozilla/expected.html: Update results.
+
+2004-08-02  Darin Adler  <darin@apple.com>
+
+        * tests/mozilla/.cvsignore: Added.
+        * tests/mozilla/expected.html: Update results.
+
+2004-08-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - fixed RegExp.toString so 3 more Mozilla regexp tests pass
+
+        * kjs/regexp_object.cpp: (RegExpProtoFuncImp::call):
+        Append the flags here so more tests paseed.
+
+2004-08-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - fixed a couple things making 5 Mozilla regexp tests pass
+
+        * kjs/regexp_object.cpp: (RegExpProtoFuncImp::call): Implement toString
+        for the prototype.
+        (RegExpObjectImp::construct): Fix bug where the string "undefined" would
+        be used as the flags string when no parameter was passed.
+
+        * kjs/regexp_object.h: (KJS::RegExpPrototypeImp::classInfo):
+        Added a class info object for RegExp prototype so it can return
+        a string instead of raising an exception when converting to a string.
+
+        * tests/mozilla/expected.html: Update results.
+
+2004-08-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Kevin.
+
+        - fix crashes in mozilla tests due to mishandling NaN
+
+        * kjs/array_object.cpp: (ArrayProtoFuncImp::call): Rerranged range checks after
+        calls to toInteger so that NaN will get turned into something that fits in an integer.
+        These were the ones John already fixed, but his fix used isnan and the new fix is
+        more efficient.
+
+        * kjs/number_object.cpp: (NumberProtoFuncImp::call): Rearranged radix range checks
+        after a call to toInteger to handle NaN properly. Also removed separate check
+        for undefined that's not needed.
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): More of the same kinds of changes
+        as in the above two files, but for a lot more functions. Also changed one place with
+        an explicit check for undefined to instead just check isNaN.
+
+        * tests/mozilla/run-mozilla-tests: Changed to invoke jst using $SYMROOTS for people
+        like me who don't keep $SYMROOTS in their $PATH.
+
+=== Safari-154 ===
+
+=== Safari-153 ===
+
+2004-07-26  Kevin Decker  <kdecker@apple.com>
+
+        Changes done by Darin, reviewed by Kevin.
+
+        - changed testkjs to build in Xcode rather than from Makefile
+
+        * .cvsignore: Removed obsolete files from this list.
+        * Makefile.am: Removed code to build testkjs; we do this in Xcode now.
+        Changed to build target "All" rather than default target. This makes us
+        build the testkjs test tool.
+        * dummy.cpp: Removed.
+        * kjs/.cvsignore: Removed obsolete files from this list, including
+        the testkjs tool, which is now built in the symroots directory.
+        * kjs/testkjs.cpp: Added copyright notice that was missing, since we have
+        changed this file. Also this has the nice side effect of causing the tool
+        to be rebuilt in the new location even if there are no other changes in
+        your tree when you check this out.
+        * tests/mozilla/run-mozilla-tests: Invoke perl explicitly so this works
+        without setting the execute bit on jsDriver.pl.
+
+2004-07-22  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Darin
+	
+	Fixed <rdar://problem/3682340> (error console does not include source urls or line numbers of event exceptions). 
+
+        * kjs/function_object.cpp:
+        (FunctionObjectImp::construct):
+        * kjs/function_object.h:
+        * kjs/object.cpp:
+        (KJS::ObjectImp::construct):
+        * kjs/object.h:
+        (KJS::Object::construct):
+
+2004-07-21  Darin Adler  <darin@apple.com>
+
+        * bindings/npruntime.h: Fixed typo.
+
+2004-07-19  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Maciej.
+        
+        - bulletproofed array.slice() against NAN arguments. Harri noticed this
+        vulnerability in my patch for 3714644
+
+        * kjs/array_object.cpp:
+        (ArrayProtoFuncImp::call):
+        handle NAN parameters passed to slice() by clamping to 0 and length.
+
+2004-07-19  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3733349.  Prevent Java applet callbacks into JavaScript after applet
+	has been destroyed.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::invoke):
+        (JSObject::JSObject):
+
+2004-07-16  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Maciej.
+        
+        - fixed <rdar://problem/3714644> REGRESSION (125.8-146): bugzilla submit link 
+        hangs browser with javascript
+
+        * kjs/array_object.cpp:
+        (ArrayProtoFuncImp::call):
+        Check for undefined type for args[0] the same way we were already checking
+        for args[1]. In this case, args was zero-length, but we were treating
+        args[0] like an integer anyway. Resulted in some code looping from a NAN
+        value to 4, taking approximately forever.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        version wars
+        
+=== Safari-152 ===
+
+2004-07-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	<rdar://problem/3711474>: (REGRESSION (125-146): JavaScript 'toString(16)' is broken)
+	<rdar://problem/3644873>: (REGRESSION (125-140u): secondary list doesn't fill in at Southwest.com)
+
+        * kjs/number_object.cpp:
+        (NumberProtoFuncImp::call): Initialize radix from dradix, not from itself!
+
+2004-07-13  Kevin Decker  <kdecker@apple.com>
 
         Reviewed by kocienda.
 
-	Make this change on the branch for SUPanLavender, per Amy Rapport's request.
+	- made testkjs and JavaScriptCore a subtarget of 'All'
+	- testkjs now builds in $SYMROOTS
 
-    2004-03-03  Darin Adler  <darin@apple.com>
+        * JavaScriptCore.pbproj/project.pbxproj:
 
-        Reviewed by Vicki.
+=== Safari-151 ===
 
-        * English.lproj/InfoPlist.strings: Removed. No need to localize the version and
-        copyright string, and that's all that was in here.
-        * JavaScriptCore.pbproj/project.pbxproj: Removed InfoPlist.strings from build.
+2004-06-24  Chris Blumenberg  <cblu@apple.com>
 
-2004-04-15  Vicki Murley  <vicki@apple.com>
+	Ignore .mode1 files in JavaScriptCore.pbproj
 
-	Fix mismatched_CFBundleShortVersionStrings verification failure
+        Reviewed by kocienda.
 
-        * English.lproj/InfoPlist.strings:
+        * JavaScriptCore.pbproj/.cvsignore:
 
-=== JavaScriptCore-125~4 ===
+2004-06-23  Richard Williamson   <rjw@apple.com>
 
-2004-04-07  Vicki Murley  <vicki@apple.com>
+	Implemented changes for latest npruntime.h.
+	
+        Reviewed by Chris.
 
-        - merge fix for <rdar://problem/3612939>: Java/JavaScript LiveConnect: Null string assignment results in string value of "Null" (clone for SU) from HEAD
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.cpp:
+        (listFromVariantArgs):
+        (identiferFromNPIdentifier):
+        (_NPN_CreateScriptObject):
+        (NPN_Call):
+        (NPN_Evaluate):
+        (NPN_GetProperty):
+        (NPN_SetProperty):
+        (NPN_RemoveProperty):
+        * bindings/NP_jsobject.h:
+        * bindings/c/c_class.cpp:
+        (CClass::methodsNamed):
+        (CClass::fieldNamed):
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        * bindings/c/c_utility.cpp:
+        (convertNPVariantToValue):
+        * bindings/c/c_utility.h:
+        * bindings/npruntime.cpp:
+        (stringIdentifierEqual):
+        (stringIdentifierHash):
+        (getStringIdentifierDictionary):
+        (intIdentifierEqual):
+        (intIdentifierHash):
+        (getIntIdentifierDictionary):
+        (NPN_GetStringIdentifier):
+        (NPN_GetStringIdentifiers):
+        (NPN_GetIntIdentifier):
+        (NPN_IdentifierIsString):
+        (NPN_UTF8FromIdentifier):
+        (NPN_VariantToInt32):
+        (NPN_VariantToDouble):
+        (NPN_SetException):
+        * bindings/npruntime.h:
+        * bindings/objc/WebScriptObject.mm:
+        (+[WebScriptObject _convertValueToObjcValue:KJS::root:Bindings::]):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::~RuntimeObjectImp):
+        * bindings/runtime_root.cpp:
+        (KJS::Bindings::rootForInterpreter):
+        * bindings/testbindings.cpp:
+        (initializeIdentifiers):
+        (logMessage):
+        (setDoubleValue):
+        (setIntValue):
+        (setBooleanValue):
 
-        * bindings/jni/jni_utility.cpp:
-        (KJS::Bindings::convertValueToJValue):
+=== JavaScriptCore-146.1 ===
+
+2004-06-16  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3702287> Crash returning nil from bound ObjC
+
+	This turned out to be a show stopper for Dashboard.  Accessing a nil
+	ObjC property from JS caused a crash.  Similar to the problem
+	3696112 fixed below.
+	
+        Reviewed by Trey.
+
+        * bindings/objc/objc_runtime.mm:
+        (KJS::Bindings::ObjcField::valueFromInstance):
+
+=== Safari-146 ===
+
+2004-06-16  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3696112>: nil from an Objective-C class seems to get wrapped as a JavaScript proxy that will not print.
+
+	This turned out to be a show stopper for Dashboard.  We now
+	return Undefined() when nil is returned from a ObjC method
+	that returns an object type.
+	
+        Reviewed by Maciej.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertObjcValueToValue):
+
+=== Safari-145 ===
+
+2004-06-15  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/3695875>: Objective-C instances that are exported to JavaScript are too promiscuous
+
+	No longer need to check respondsToSelector: for
+	isSelectorExcludedFromWebScript: and isKeyExcludedFromWebScript:
+	because these now have a default implementation on NSObject.
+
+        Reviewed by Trey.
+
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::methodsNamed):
+        (ObjcClass::fieldNamed):
+
+2004-06-14  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed some things for GC that Patrick missed, or that happened after the branch
+
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject dealloc]): Moved removeNativeReference call here from private object.
+        (-[WebScriptObject finalize]): Added.
+
+        - added some missing nil checks
+
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::ObjcInstance): Check for nil.
+        (ObjcInstance::~ObjcInstance): Check for nil.
+        (ObjcInstance::operator=): Check for nil.
+
+2004-06-14  Darin Adler  <darin@apple.com>
+
+        Reviewed by me, code changes by Patrick Beard.
+
+        - fixed <rdar://problem/3671507>: (WebKit should adopt GC changes and compile with GC enabled)
+
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::ObjcInstance): Use CFRetain instead of retain.
+        (ObjcInstance::~ObjcInstance): Use CFRelease instead of release.
+        (ObjcInstance::operator=): More of the same.
+        (ObjcInstance::end): Use [pool drain] if compiling on Tiger.
+
+        * bindings/objc/objc_runtime.mm:
+        (ObjcArray::ObjcArray): Use CFRetain instead of retain.
+        (ObjcArray::~ObjcArray): Use CFRelease instead of release.
+        (ObjcArray::operator=): More of the same.
+
+        * bindings/testbindings.mm: Fixed incorrect license.
+        (main): Use [pool drain] if compiling on Tiger.
+
+=== Safari-144 ===
+
+2004-06-10  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by John.
+
+        * kjs/lexer.cpp: 
+        (Lexer::setCode):
+            - fixed <rdar://problem/3682398>: (error console line numbers are offset by 1)
+        * kjs/lexer.h:
+        (KJS::Lexer::lineNo):
+            - fixed <rdar://problem/3682398>: (error console line numbers are offset by 1)
+
+=== JavaScriptCore-143.2 ===
+
+2004-06-07  Darin Adler  <darin@apple.com>
+
+        - fixed <rdar://problem/3682489>: (JavaScriptGlue no longer compiles because Interpreter::evaluate parameters changed)
+
+        * kjs/interpreter.h: Added an overload to make JavaScriptGlue compile.
+        * kjs/interpreter.cpp: (KJS::Interpreter::evaluate): Implemented the overload.
+
+=== JavaScriptCore-143.1 ===
+
+2004-06-04  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Darin
         
-    2004-03-15  Richard Williamson   <rjw@apple.com>
+        - fixed <rdar://problem/3680594>
+
+        * kjs/object.cpp:
+        (KJS::Error::create):
+
+=== Safari-143 ===
+
+2004-06-04  Darin Adler  <darin@apple.com>
+
+        * kjs/testkjs.cpp: (main): Fix build breakage by adding URL and line number parameters.
+
+2004-06-04  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Dave.
+
+        - ObjC bindings do not (yet) pass along sourceurl or line numbers
+        - we don't have a way as of yet to accomidate line numbers and urls for dynamic javascript
+        - changed the wording of an error message
+        - the lexer, parser, and interpreter have been made "sourceURL aware"
+        - stored the url into Error
+         
+        * bindings/NP_jsobject.cpp:
+        (NPN_Evaluate):
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::eval):
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject evaluateWebScript:]):
+        * kjs/function.cpp:
+        (GlobalFuncImp::call):
+        * kjs/function_object.cpp:
+        (FunctionObjectImp::construct):
+        * kjs/internal.cpp:
+        (Parser::parse):
+        (InterpreterImp::checkSyntax):
+        (InterpreterImp::evaluate):
+        * kjs/internal.h:
+        * kjs/interpreter.cpp:
+        (Interpreter::evaluate):
+        * kjs/interpreter.h:
+        * kjs/lexer.cpp:
+        (Lexer::setCode):
+        * kjs/lexer.h:
+        (KJS::Lexer::sourceURL):
+        * kjs/nodes.cpp:
+        (Node::Node):
+        (Node::throwError):
+        (FunctionCallNode::evaluate):
+        * kjs/nodes.h:
+        * kjs/object.cpp:
+        (KJS::Error::create):
+        * kjs/object.h:
+
+2004-06-04  Richard Williamson   <rjw@apple.com>
+
+        Fixed crash when attempting to access properties on nil
+        object.
+        
+        Reviewed by John.
+
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::getClass):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        * bindings/testM.js:
+        * bindings/testbindings.mm:
+        (-[MyFirstInterface getString]):
+
+2004-05-27  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Ken.
+
+        -revised generated error message content
+        
+        * kjs/error_object.cpp:
+        (ErrorProtoFuncImp::call):
+        * kjs/internal.cpp:
+        (Parser::parse):
+        * kjs/object.cpp:
+        (KJS::Error::create):
+
+=== Safari-142 ===
+
+2004-05-27  Richard Williamson   <rjw@apple.com>
+
+        Renamed WebScriptMethods to WebScripting based on feedback from Nancy.
+
+        Reviewed by Chris.
+
+        * bindings/objc/WebScriptObject.h:
+
+2004-05-27  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - moved to new symlink technique for embedding frameworks
+
+        * JavaScriptCore.pbproj/project.pbxproj: Get rid of embed-frameworks build step
+        because we don't need it any more.
+
+2004-05-24  Richard Williamson   <rjw@apple.com>
+
+        Changed RuntimeArrayImp to inherit from ArrayInstanceImp and
+        fixed ClassInfo to correctly reflect inheritance.  This is required
+        because of the runtime checks in JSC for arrays, i.e. in
+        the Function objects apply method.
+
+        Reviewed by Ken.
+
+        * bindings/jni/jni_runtime.cpp:
+        (JavaArray::convertJObjectToArray):
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertObjcValueToValue):
+        * bindings/runtime_array.cpp:
+        (RuntimeArrayImp::RuntimeArrayImp):
+        * bindings/runtime_array.h:
+        * bindings/testM.js: Added.
+        * bindings/testbindings.mm:
+        (+[MyFirstInterface webScriptNameForSelector:]):
+        (-[MyFirstInterface logMessages:]):
+        (-[MyFirstInterface logMessage:prefix:]):
+        (-[MyFirstInterface callJSObject::]):
+
+2004-05-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3664260>: (JS needs to listen to timezone change notifications)
+
+        * kjs/date_object.cpp: (CopyLocalTimeZone): As per Chris Kane and Jordan Hubbard, use <notify.h>
+        with a hardcoded string of "com.apple.system.timezone", and do CFTimeZoneResetSystem since
+        CoreFoundation doesn't do this itself. Turns out this affects the default time zone as long as
+        it hasn't been set explicitly.
+
+=== Safari-141 ===
+
+2004-05-20  Richard Williamson   <rjw@apple.com>
+
+        Implemented WebScriptObject/DOM wrapper voodoo.  DOM wrappers
+        can now be referenced like any other WebScriptObject, meaning
+        you can do JS operations on them.
+
+        All added implementation of finalizeForWebScript.
+
+        Reviewed by Ken.
+
+        * bindings/objc/WebScriptObject.h:
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject _initializeWithObjectImp:KJS::root:Bindings::]):
+        (-[WebScriptObject _initWithObjectImp:KJS::root:Bindings::]):
+        (-[WebScriptObject KJS::]):
+        (-[WebScriptObject dealloc]):
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject setValue:forKey:]):
+        (-[WebScriptObject valueForKey:]):
+        (-[WebScriptObject stringRepresentation]):
+        * bindings/objc/WebScriptObjectPrivate.h:
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::~ObjcInstance):
+
+2004-05-19  Richard Williamson   <rjw@apple.com>
+
+        Removed extraneous tabs that were added (by XCode?).
+
+        * bindings/objc/WebScriptObject.h:
+
+2004-05-19  Darin Adler  <darin@apple.com>
+
+        - fixed headers with licenses mangled by Xcode auto-indenting
+
+        * bindings/jni/jni_jsobject.cpp:
+        * bindings/jni/jni_jsobject.h:
+        * bindings/runtime_array.h:
+        * bindings/runtime_root.cpp:
+        * bindings/runtime_root.h:
+
+2004-05-18  Richard Williamson   <rjw@apple.com>
+
+        Added exception logging.  Also check for exception and
+        set results as appropriate.
+
+        Reviewed by Maciej (partially reviewed).
+
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject setValue:forKey:]):
+        (-[WebScriptObject valueForKey:]):
+
+2004-05-18  Richard Williamson   <rjw@apple.com>
+
+        Finsished implementing support for windowScriptObject.
+        Had to make WebScriptObjectPrivate.h accessible from
+        WebCore.
+
+        Reviewed by Maciej.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/objc/WebScriptObjectPrivate.h:
+
+2004-05-18  Richard Williamson   <rjw@apple.com>
+
+        Use KVC to set/get values instead of directly accessing
+        ivars.
+
+        Reviewed by Maciej.
+
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (+[WebScriptObject _convertValueToObjcValue:KJS::root:Bindings::]):
+        * bindings/objc/objc_runtime.mm:
+        (ObjcField::valueFromInstance):
+        (convertValueToObjcObject):
+        (ObjcField::setValueToInstance):
+
+2004-05-17  Richard Williamson   <rjw@apple.com>
+
+        Implemented new API for WebScriptObject.
+
+        Fixed <rdar://problem/3657145>: (objc to javascript method calls do not cause updates.)
+        Fixed <rdar://problem/3654887>: (Update to JSC to refer to new JSObject LiveConnect object)  (w/ help from Vicki)
+
+        Reviewed by Hyatt.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::convertValueToJObject):
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::getJNIField):
+        * bindings/objc/WebScriptObject.mm:
+        (_didExecute):
+        (-[WebScriptObject _initWithObjectImp:KJS::root:Bindings::]):
+        (-[WebScriptObject KJS::]):
+        (-[WebScriptObject dealloc]):
+        (+[WebScriptObject throwException:]):
+        (listFromNSArray):
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject setValue:forKey:]):
+        (-[WebScriptObject valueForKey:]):
+        (-[WebScriptObject stringRepresentation]):
+        (+[WebScriptObject _convertValueToObjcValue:KJS::root:Bindings::]):
+        (+[WebUndefined undefined]):
+        (-[WebUndefined initWithCoder:]):
+        (-[WebUndefined encodeWithCoder:]):
+        (-[WebUndefined copyWithZone:]):
+        (-[WebUndefined retain]):
+        (-[WebUndefined release]):
+        (-[WebUndefined retainCount]):
+        (-[WebUndefined autorelease]):
+        (-[WebUndefined dealloc]):
+        (-[WebUndefined copy]):
+        (-[WebUndefined replacementObjectForPortCoder:]):
+        * bindings/objc/WebScriptObjectPrivate.h: Added.
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::methodsNamed):
+        (ObjcClass::fieldNamed):
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::invokeMethod):
+        * bindings/objc/objc_jsobject.h:
+        * bindings/objc/objc_jsobject.mm:
+        * bindings/objc/objc_runtime.mm:
+        (ObjcField::valueFromInstance):
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::JSMethodNameToObjCMethodName):
+        (KJS::Bindings::convertValueToObjcValue):
+        (KJS::Bindings::convertObjcValueToValue):
+        * bindings/runtime.cpp:
+        (Instance::setDidExecuteFunction):
+        (Instance::didExecuteFunction):
+        (Instance::setValueOfField):
+        * bindings/runtime.h:
+        * bindings/testbindings.mm:
+        (+[MyFirstInterface webScriptNameForSelector:]):
+        (-[MyFirstInterface callJSObject::]):
+
+2004-05-14  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by mjs.
+ 
+        <rdar://problem/3642427>: framework marketing number should be 2.0 for DoubleBarrel release
+
+        * JavaScriptCore.pbproj/project.pbxproj: change CFBundleShortVersionString to 2.0
+
+=== Safari-140 ===
+
+2004-05-13  Richard Williamson   <rjw@apple.com>
+
+        Fixed indentation.
+
+        Reviewed by Chris.
+
+        * ChangeLog:
+        * bindings/objc/WebScriptObject.h:
+
+2004-05-13  Richard Williamson   <rjw@apple.com>
+
+        Approved API changes.  Currently unimplemented.
+
+        Reviewed by Chris.
+
+        * ChangeLog:
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/objc/WebScriptObject.h: Added.
+        * bindings/objc/WebScriptObject.mm: Added.
+        (+[WebScriptObject throwException:]):
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject stringRepresentation]):
+        (+[WebUndefined undefined]):
+        (-[WebUndefined initWithCoder:]):
+        (-[WebUndefined encodeWithCoder:]):
+        (-[WebUndefined copyWithZone:]):
+
+2004-05-07  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by darin.
+
+        Turn off GC since it uses ppc only instructions (which breaks 
+        the B&I build).   
+    
+        * kjs/value.h: set USE_CONSERVATIVE_GC to 0
+
+=== Safari-139 ===
+
+2004-05-07  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        - add -funroll-loops=16 compiler option for approx .5% speedup on
+        HTML iBench and .5-1% speedup on JS iBench.
+        
+        * JavaScriptCore.pbproj/project.pbxproj:
+
+2004-04-25  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        Enable full conservative GC mode in addition to test mode. When
+        conservative GC is enabled, we now get an 11% speed improvement on
+        the iBench. Also fix some spots I missed before.
+
+        Specific noteworth changes:
+        
+        * kjs/collector.cpp:
+        (KJS::Collector::markStackObjectsConservatively): Check possible
+        cell pointers for 8-byte aligment and verify they are not 0.
+
+        * kjs/protected_values.cpp:
+        (KJS::ProtectedValues::increaseProtectCount): Move null-tolerance from here...
+        (KJS::ProtectedValues::decreaseProtectCount): ...and here...
+        * kjs/protect.h:
+        (KJS::gcProtectNullTolerant): ...to here...
+        (KJS::gcUnprotectNullTolerant): ...and here, because not all callers need the null
+        tolerance, and doing the check is expensive.
+
+        * kjs/protected_values.cpp:
+        (KJS::ProtectedValues::computeHash): Replace hash function with a much faster one
+        that is still very good.
+
+        * kjs/protect.h:
+        (KJS::gcProtect):
+        (KJS::gcUnprotect):
+        (KJS::ProtectedValue::ProtectedValue):
+        (KJS::ProtectedValue::~ProtectedValue):
+        (KJS::ProtectedValue::operator=):
+        (KJS::ProtectedObject::ProtectedObject):
+        (KJS::ProtectedObject::~ProtectedObject):
+        (KJS::ProtectedObject::operator=):
+        (KJS::ProtectedReference::ProtectedReference):
+        (KJS::ProtectedReference::~ProtectedReference):
+        (KJS::ProtectedReference::operator=):
+        * kjs/protected_values.cpp:
+        (KJS::ProtectedValues::getProtectCount):
+        (KJS::ProtectedValues::increaseProtectCount):
+        (KJS::ProtectedValues::decreaseProtectCount):
+        (KJS::ProtectedValues::computeHash):
+        * bindings/runtime_root.cpp:
+        (KJS::Bindings::addNativeReference):
+        (KJS::Bindings::removeNativeReference):
+        (RootObject::removeAllNativeReferences):
+        * bindings/runtime_root.h:
+        (KJS::Bindings::RootObject::~RootObject):
+        (KJS::Bindings::RootObject::setRootObjectImp):
+        * kjs/collector.cpp:
+        (KJS::Collector::allocate):
+        (KJS::Collector::collect):
+        * kjs/collector.h:
+        * kjs/internal.cpp:
+        (NumberImp::create):
+        (InterpreterImp::globalInit):
+        (InterpreterImp::globalClear):
+        (InterpreterImp::mark):
+        * kjs/list.cpp:
+        (KJS::List::derefValues):
+        (KJS::List::refValues):
+        (KJS::List::append):
+        * kjs/object.cpp:
+        (KJS::ObjectImp::setInternalValue):
+        (KJS::ObjectImp::putDirect):
+        * kjs/value.cpp:
+        (ValueImp::mark):
+        (ValueImp::marked):
+        * kjs/value.h:
+        (KJS::ValueImp::ValueImp):
+        (KJS::ValueImp::~ValueImp):
+        (KJS::ValueImp::):
+        (KJS::Value::Value):
+        (KJS::Value::~Value):
+        (KJS::Value::operator=):
+
+2004-04-30  Richard Williamson   <rjw@apple.com>
+
+        Asking an NSInvocation for it's return value when return type
+        is void throws an exception.  Added check for void return types
+        to avoid this exception.
+
+        Reviewed by Ken.
+
+        * bindings/objc/objc_instance.mm:
+        (ObjcInstance::invokeMethod):
+
+2004-04-29  Richard Williamson   <rjw@apple.com>
+
+        Fixed several bad problems with the ObjC bindings.  In particular, conversion
+        to/from JavaScriptObject (soon to be WebScriptObject) was completely broken.
+
+        Reviewed by Chris.
+
+        * bindings/objc/objc_jsobject.h:
+        * bindings/objc/objc_jsobject.mm:
+        (-[JavaScriptObject initWithObjectImp:KJS::root:Bindings::]):
+        (-[JavaScriptObject KJS::]):
+        (+[JavaScriptObject _convertValueToObjcValue:KJS::root:Bindings::]):
+        (-[JavaScriptObject call:arguments:]):
+        (-[JavaScriptObject evaluate:]):
+        (-[JavaScriptObject getMember:]):
+        (-[JavaScriptObject getSlot:]):
+        * bindings/objc/objc_runtime.mm:
+        (ObjcField::valueFromInstance):
+        (ObjcField::setValueToInstance):
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+        (KJS::Bindings::convertObjcValueToValue):
+        * bindings/runtime.h:
+        * bindings/runtime_root.cpp:
+        (KJS::Bindings::rootForInterpreter):
+        (KJS::Bindings::addNativeReference):
+        (KJS::Bindings::removeNativeReference):
+        * bindings/runtime_root.h:
+        * bindings/testbindings.mm:
+        (-[MyFirstInterface logMessage:]):
+        (-[MyFirstInterface setJSObject:]):
+        (-[MyFirstInterface callJSObject::]):
+
+2004-04-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dave.
+
+        * kjs/ustring.cpp: (KJS::UString::append): Fix one case that was allocating a buffer
+        that is 2x too big.
+
+2004-04-23  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        Implementation of conservative GC, based partly on code from
+        Darin. It's turned off for now, so it shouldn't have any effect on
+        the normal build.
+        
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * kjs/collector.cpp:
+        (KJS::Collector::markStackObjectsConservatively):
+        (KJS::Collector::markProtectedObjects):
+        (KJS::Collector::collect):
+        * kjs/collector.h:
+        * kjs/protect.h:
+        (KJS::gcProtect):
+        (KJS::gcUnprotect):
+        * kjs/protected_values.cpp: Added.
+        (KJS::ProtectedValues::getProtectCount):
+        (KJS::ProtectedValues::increaseProtectCount):
+        (KJS::ProtectedValues::insert):
+        (KJS::ProtectedValues::decreaseProtectCount):
+        (KJS::ProtectedValues::expand):
+        (KJS::ProtectedValues::shrink):
+        (KJS::ProtectedValues::rehash):
+        (KJS::ProtectedValues::computeHash):
+        * kjs/protected_values.h: Added.
+        * kjs/value.cpp:
+        (ValueImp::useConservativeMark):
+        (ValueImp::mark):
+        (ValueImp::marked):
+        * kjs/value.h:
+        (KJS::ValueImp::):
+
+=== Safari-138 ===
+
+2004-04-22  Richard Williamson   <rjw@apple.com>
+
+        Fixed build snafu (re-declaration of NPBool in npruntime.h and
+        npapi.h).
+
+        * bindings/npruntime.h:
+
+2004-04-22  Richard Williamson   <rjw@apple.com>
+
+        Updated plugin binding API to reflect latest revision from
+        working group.
+        
+        Biggest change is the introduction of NPVariant used to represent
+        value types.  NPVariant replaces the use of NPObject for the
+        exchange of values between scripting environment and native code.
+
+        Reviewed by John.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.cpp:
+        (identiferFromNPIdentifier):
+        (NPN_Call):
+        (NPN_Evaluate):
+        (NPN_GetProperty):
+        (NPN_SetProperty):
+        (NPN_ToString):
+        (NPN_GetPropertyAtIndex):
+        (NPN_SetPropertyAtIndex):
+        * bindings/c/c_class.cpp:
+        (CClass::methodsNamed):
+        (CClass::fieldNamed):
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        (CInstance::defaultValue):
+        * bindings/c/c_runtime.cpp:
+        (CField::valueFromInstance):
+        (CField::setValueToInstance):
+        * bindings/c/c_utility.cpp:
+        (convertNPStringToUTF16):
+        (convertUTF8ToUTF16):
+        (coerceValueToNPVariantStringType):
+        (convertValueToNPVariant):
+        (convertNPVariantToValue):
+        * bindings/c/c_utility.h:
+        * bindings/npruntime.cpp:
+        (NPN_GetIdentifier):
+        (NPN_GetIdentifiers):
+        (NPN_UTF8FromIdentifier):
+        (NPN_VariantIsVoid):
+        (NPN_VariantIsNull):
+        (NPN_VariantIsUndefined):
+        (NPN_VariantIsBool):
+        (NPN_VariantIsInt32):
+        (NPN_VariantIsDouble):
+        (NPN_VariantIsString):
+        (NPN_VariantIsObject):
+        (NPN_VariantToBool):
+        (NPN_VariantToString):
+        (NPN_VariantToInt32):
+        (NPN_VariantToDouble):
+        (NPN_VariantToObject):
+        (NPN_InitializeVariantAsVoid):
+        (NPN_InitializeVariantAsNull):
+        (NPN_InitializeVariantAsUndefined):
+        (NPN_InitializeVariantWithBool):
+        (NPN_InitializeVariantWithInt32):
+        (NPN_InitializeVariantWithDouble):
+        (NPN_InitializeVariantWithString):
+        (NPN_InitializeVariantWithStringCopy):
+        (NPN_InitializeVariantWithObject):
+        (NPN_InitializeVariantWithVariant):
+        (NPN_ReleaseVariantValue):
+        (NPN_CreateObject):
+        (NPN_RetainObject):
+        (NPN_ReleaseObject):
+        (NPN_IsKindOfClass):
+        (NPN_SetExceptionWithUTF8):
+        (NPN_SetException):
+        * bindings/npruntime.h:
+        (_NPString::):
+        (_NPString::_NPVariant::):
+        * bindings/testbindings.cpp:
+        (logMessage):
+        (setDoubleValue):
+        (setIntValue):
+        (setStringValue):
+        (setBooleanValue):
+        (getDoubleValue):
+        (getIntValue):
+        (getStringValue):
+        (getBooleanValue):
+        (myGetProperty):
+        (mySetProperty):
+        (myInvoke):
+        (myAllocate):
+
+2004-04-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3627473>: "REGRESSION (125-137): memory trasher in UString::append, causing many different crashes"
+
+        * kjs/ustring.cpp:
+        (KJS::UString::expandCapacity): Fix sizeof(UChar *) that should be sizeof(UChar).
+        Was resulting in a buffer 2x the needed size.
+        (KJS::UString::expandPreCapacity): Ditto.
+        (KJS::UString::append): Fix malloc that is missing a sizeof(UChar).
+
+2004-04-21  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        Preliminary change for conservative GC. Create "protected"
+        subclasses to GC-protect objects when on heap, since we will soon
+        remove the built-in refcounting of the normal wrapper classes. Use
+        them where needed.
+        
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * kjs/context.h:
+        * kjs/internal.h:
+        (KJS::InterpreterImp::globalObject):
+        * kjs/interpreter.h:
+        * kjs/property_map.cpp:
+        * kjs/reference.h:
+        * kjs/reference_list.cpp:
+
+2004-04-19  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Dave.
+
+        Optimize prepend using the shared substring optimization. Also,
+        limit the applicability of shared append and shared prepend. If
+        you overdo it, it does more harm than good, because you create a
+        bunch of strings that are disqualified from future shared
+        append/prepend, for not much immediate savings in allocate/copy
+        expense.
+        
+        * kjs/ustring.cpp:
+        (KJS::):
+        (KJS::UString::Rep::create):
+        (KJS::UString::expandedSize):
+        (KJS::UString::usedPreCapacity):
+        (KJS::UString::expandCapacity):
+        (KJS::UString::expandPreCapacity):
+        (KJS::UString::UString):
+        (KJS::UString::append):
+        (KJS::UString::operator=):
+        * kjs/ustring.h:
+        (KJS::UString::Rep::data):
+
+2004-04-16  Maciej Stachowiak  <mjs@apple.com>
+        Reviewed by Richard.
+
+        No more need for Completion or Reference to privately inherit from
+        Value, none of the superclass functionality is used.
+
+        * kjs/completion.h:
+        * kjs/reference.h:
+
+=== Safari-137 ===
+
+2004-04-16  Richard Williamson   <rjw@apple.com>
+
+        Added interpreter lock protection around object creation.
+
+        Reviewed by Chris.
+
+        * bindings/runtime.cpp:
+        (Instance::createRuntimeObject):
+
+2004-04-16  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Ken.
+
+        Another JavaScript speed improvement: use the mechanism from
+        string append optimization to make taking a substring fast, again
+        sharing the buffer.
+
+        A further 22% improvement on the 24fun string speed test.
+        
+        * kjs/ustring.cpp:
+        (KJS::):
+        (KJS::UString::Rep::create):
+        (KJS::UString::UString):
+        (KJS::UString::append):
+        (KJS::UString::operator=):
+        (KJS::UString::substr):
+        * kjs/ustring.h:
+        (KJS::UString::Rep::data):
+
+2004-04-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        - fixed <rdar://problem/3600695>: String manipulation in JavaScript 24fun test is very slow (slow)
+        - fixed <rdar://problem/3600691>: Table generation test is really slow
+        - fixed <rdar://problem/3600661>: 24fun date test is really slow
+
+        80% speedup on the string test, lesser speedups on the other two.
+        
+        Two different optimizations here:
+
+        1) Avoid large overhead of scanning strings to see if they are all
+        ASCII before numeric conversion.
+        
+        * kjs/nodes.cpp:
+        (AssignNode::evaluate): Don't convert to integer until we know for
+        sure the operation will need it. Attempting to convert strings to
+        numbers is a waste when they are being appended with +=.
+
+        2) Avoid huge cost of appending strings.
+
+        This is done by allowing multiple strings to share a buffer but
+        actually use different ranges of it. The first time a string is
+        appended to, we start leaving at least 10% extra space in the
+        buffer, so doing N appends to the same string takes O(log N)
+        mallocs instead of O(N).
+        
+        * kjs/identifier.cpp:
+        (KJS::Identifier::equal):
+        (KJS::Identifier::add):
+        * kjs/ustring.cpp:
+        (KJS::):
+        (KJS::UCharReference::operator=):
+        (KJS::UCharReference::ref):
+        (KJS::UString::Rep::create):
+        (KJS::UString::Rep::destroy):
+        (KJS::UString::expandedSize):
+        (KJS::UString::usedCapacity):
+        (KJS::UString::expandCapacity):
+        (KJS::UString::UString):
+        (KJS::UString::null):
+        (KJS::UString::append):
+        (KJS::UString::operator=):
+        (KJS::UString::toStrictUInt32):
+        (KJS::UString::detach):
+        (KJS::KJS::operator==):
+        * kjs/ustring.h:
+        (KJS::UString::Rep::data):
+        (KJS::UString::Rep::hash):
+
+2004-04-09  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+        - fix deployment build by avoiding deployment-only warning.
+
+        * kjs/scope_chain.cpp:
+        (KJS::ScopeChain::bottom):
+
+2004-04-09  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+        Changed things so that newly created objects get a prototype based
+        on the scope chain of the current function, rather than the
+        interpreter that started execution. This fixes the following bugs:
+        
+        <rdar://problem/3368523>: ARCH: wrong prototype used to create new objects (hang on lookup.atomica.com)
+        <rdar://problem/3559173>: ARCH: Cannot scan using a HP Jetdirect product (JS object prototypes bind incorrectly)
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * kjs/array_object.cpp:
+        (CompareWithCompareFunctionArguments::CompareWithCompareFunctionArguments):
+        (ArrayProtoFuncImp::ArrayProtoFuncImp):
+        (ArrayProtoFuncImp::call):
+        (ArrayObjectImp::construct):
+        * kjs/bool_object.cpp:
+        (BooleanObjectImp::construct):
+        * kjs/date_object.cpp:
+        (DateProtoFuncImp::DateProtoFuncImp):
+        (DateProtoFuncImp::call):
+        (DateObjectImp::construct):
+        * kjs/error_object.cpp:
+        (ErrorObjectImp::construct):
+        * kjs/function.cpp:
+        (FunctionImp::FunctionImp):
+        (FunctionImp::call):
+        (DeclaredFunctionImp::construct):
+        (ArgumentsImp::ArgumentsImp):
+        (GlobalFuncImp::call):
+        * kjs/function_object.cpp:
+        (FunctionProtoFuncImp::call):
+        (FunctionObjectImp::construct):
+        * kjs/internal.cpp:
+        (BooleanImp::toObject):
+        (StringImp::toObject):
+        (NumberImp::toObject):
+        (InterpreterImp::InterpreterImp):
+        (InterpreterImp::clear):
+        (InterpreterImp::interpreterWithGlobalObject):
+        * kjs/internal.h:
+        * kjs/interpreter.cpp:
+        (ExecState::lexicalInterpreter):
+        * kjs/interpreter.h:
+        (KJS::ExecState::dynamicInterpreter):
+        (KJS::ExecState::interpreter):
+        * kjs/math_object.cpp:
+        (MathFuncImp::MathFuncImp):
+        * kjs/nodes.cpp:
+        (StatementNode::hitStatement):
+        (StatementNode::abortStatement):
+        (RegExpNode::evaluate):
+        (ElementNode::evaluate):
+        (ArrayNode::evaluate):
+        (ObjectLiteralNode::evaluate):
+        (PropertyValueNode::evaluate):
+        (FunctionCallNode::evaluate):
+        (FuncDeclNode::processFuncDecl):
+        (FuncExprNode::evaluate):
+        * kjs/number_object.cpp:
+        (NumberObjectImp::construct):
+        * kjs/object.cpp:
+        (KJS::ObjectImp::defaultValue):
+        (KJS::Error::create):
+        * kjs/object_object.cpp:
+        (ObjectObjectImp::construct):
+        * kjs/reference.cpp:
+        (Reference::putValue):
+        * kjs/regexp_object.cpp:
+        (RegExpProtoFuncImp::call):
+        (RegExpObjectImp::arrayOfMatches):
+        (RegExpObjectImp::construct):
+        * kjs/scope_chain.cpp:
+        (KJS::ScopeChain::bottom):
+        * kjs/scope_chain.h:
+        * kjs/string_object.cpp:
+        (StringProtoFuncImp::StringProtoFuncImp):
+        (StringProtoFuncImp::call):
+        (StringObjectImp::construct):
+
+=== Safari-136 ===
+
+=== Safari-135 ===
+
+2004-03-31  Richard Williamson   <rjw@apple.com>
+
+        Tedious renames based on feedback from plugin-futures list.
+        NP_ functions are renamed with NPN_ prefix.
+        Types prefix renamed from NP_ to NP.
+        NPN_CreateStringWithUTF8 and NPN_SetExceptionWithUTF8 now take a length, optionally -1 if string is null terminated. 
+        
+        No review because this was just a renaming patch.
+
+        * bindings/NP_jsobject.cpp:
+        (listFromNPArray):
+        (jsAllocate):
+        (identiferFromNPIdentifier):
+        (NPN_Call):
+        (NPN_Evaluate):
+        (NPN_GetProperty):
+        (NPN_SetProperty):
+        (NPN_RemoveProperty):
+        (NPN_ToString):
+        (NPN_GetPropertyAtIndex):
+        (NPN_SetPropertyAtIndex):
+        * bindings/NP_jsobject.h:
+        * bindings/c/c_class.cpp:
+        (CClass::_commonInit):
+        (CClass::classForIsA):
+        (CClass::CClass):
+        (CClass::methodsNamed):
+        (CClass::fieldNamed):
+        * bindings/c/c_class.h:
+        * bindings/c/c_instance.cpp:
+        (CInstance::CInstance):
+        (CInstance::~CInstance):
+        (CInstance::operator=):
+        (CInstance::invokeMethod):
+        (CInstance::defaultValue):
+        * bindings/c/c_instance.h:
+        (KJS::Bindings::CInstance::getObject):
+        * bindings/c/c_runtime.cpp:
+        (CField::valueFromInstance):
+        (CField::setValueToInstance):
+        * bindings/c/c_runtime.h:
+        (KJS::Bindings::CField::CField):
+        (KJS::Bindings::CField::name):
+        (KJS::Bindings::CMethod::CMethod):
+        (KJS::Bindings::CMethod::name):
+        * bindings/c/c_utility.cpp:
+        (coerceValueToNPString):
+        (convertValueToNPValueType):
+        (convertNPValueTypeToValue):
+        * bindings/c/c_utility.h:
+        * bindings/npruntime.cpp:
+        (NPN_IdentifierFromUTF8):
+        (NPN_IsValidIdentifier):
+        (NPN_GetIdentifiers):
+        (NPN_UTF8FromIdentifier):
+        (NPN_CreateObject):
+        (NPN_RetainObject):
+        (NPN_ReleaseObject):
+        (NPN_IsKindOfClass):
+        (NPN_SetExceptionWithUTF8):
+        (NPN_SetException):
+        (numberAllocate):
+        (NPN_CreateNumberWithInt):
+        (NPN_CreateNumberWithFloat):
+        (NPN_CreateNumberWithDouble):
+        (NPN_IntFromNumber):
+        (NPN_FloatFromNumber):
+        (NPN_DoubleFromNumber):
+        (stringAllocate):
+        (NPN_CreateStringWithUTF8):
+        (NPN_CreateStringWithUTF16):
+        (NPN_DeallocateUTF8):
+        (NPN_UTF8FromString):
+        (NPN_UTF16FromString):
+        (NPN_StringLength):
+        (booleanAllocate):
+        (NPN_CreateBoolean):
+        (NPN_BoolFromBoolean):
+        (nullAllocate):
+        (NPN_GetNull):
+        (undefinedAllocate):
+        (NPN_GetUndefined):
+        (arrayAllocate):
+        (arrayDeallocate):
+        (NPN_CreateArray):
+        (NPN_CreateArrayV):
+        (NPN_ObjectAtIndex):
+        * bindings/npruntime.h:
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
+        * bindings/testbindings.cpp:
+        (initializeIdentifiers):
+        (myHasProperty):
+        (myHasMethod):
+        (myGetProperty):
+        (mySetProperty):
+        (logMessage):
+        (setDoubleValue):
+        (setIntValue):
+        (setStringValue):
+        (setBooleanValue):
+        (getDoubleValue):
+        (getIntValue):
+        (getStringValue):
+        (getBooleanValue):
+        (myInvoke):
+        (myAllocate):
+        (myInvalidate):
+        (myDeallocate):
+        (main):
+
+2004-03-31  Richard Williamson   <rjw@apple.com>
+
+        Changed references to NP_runtime.h to npruntime.h
+        
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.h:
+        * bindings/c/c_class.h:
+        * bindings/c/c_instance.h:
+        * bindings/c/c_runtime.h:
+        * bindings/c/c_utility.h:
+        * bindings/npruntime.cpp:
+
+2004-03-31  Richard Williamson   <rjw@apple.com>
+
+        Renamed NP_runtime.h to npruntime.h to match Netscape SDK.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.h:
+        * bindings/npruntime.cpp:
+
+=== Safari-134 ===
+
+2004-03-23  Richard Williamson   <rjw@apple.com>
+
+        Added implementation of KJS::Value <-> NP_Object conversion functions.
+        Augmented test program for 'C' bindings.
+        Added asserts and parameter checking to all public API.        
+
+        Reviewed by Ken.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.cpp:
+        (NP_ToString):
+        * bindings/NP_jsobject.h: Added.
+        * bindings/NP_runtime.cpp:
+        (NP_IdentifierFromUTF8):
+        (NP_IsValidIdentifier):
+        (NP_GetIdentifiers):
+        (NP_CreateObject):
+        (NP_RetainObject):
+        (NP_ReleaseObject):
+        (NP_IsKindOfClass):
+        (NP_SetExceptionWithUTF8):
+        (NP_SetException):
+        (NP_IntFromNumber):
+        (NP_FloatFromNumber):
+        (NP_DoubleFromNumber):
+        (NP_CreateStringWithUTF8):
+        (NP_CreateStringWithUTF16):
+        (NP_DeallocateUTF8):
+        (NP_UTF8FromString):
+        (NP_UTF16FromString):
+        (NP_StringLength):
+        (NP_BoolFromBoolean):
+        * bindings/NP_runtime.h:
+        * bindings/c/c_instance.cpp:
+        (CInstance::invokeMethod):
+        * bindings/c/c_utility.cpp:
+        (coerceValueToNPString):
+        (convertValueToNPValueType):
+        (convertNPValueTypeToValue):
+        * bindings/c/c_utility.h:
+        * bindings/test.js:
+        * bindings/testC.js: Added.
+        * bindings/testbindings.cpp:
+        (logMessage):
+        (setDoubleValue):
+        (setIntValue):
+        (setStringValue):
+        (setBooleanValue):
+        (getDoubleValue):
+        (getIntValue):
+        (getStringValue):
+        (getBooleanValue):
+        (myInterfaceInvoke):
+        (myInterfaceAllocate):
+
+=== Safari-133 ===
+
+2004-03-19  Darin Adler  <darin@apple.com>
+
+        Reviewed by Ken.
+
+        - fixed problem with methods like setUTCHour
+
+        * kjs/date_object.cpp: (DateProtoFuncImp::call): Fix conversion back to time_t to use the appropriate
+        GMT vs. local time function based on the utc flag.
+
+2004-03-17  Richard Williamson   <rjw@apple.com>
+
+        Added a context parameter to result callbacks use by JavaScriptObject functions.  This was a change requested by Eric Carlson on the QT plugin team.
+
+        Reviewed by Ken.
+
+        * bindings/NP_jsobject.cpp:
+        (NP_Call):
+        (NP_Evaluate):
+        (NP_GetProperty):
+        (NP_ToString):
+        (NP_GetPropertyAtIndex):
+        * bindings/NP_runtime.h:
+
+2004-03-16  Richard Williamson   <rjw@apple.com>
+
+        Fixed 3590169.  Regression (crash) caused by the switch to MethodLists.  Crash when attempting to invoke a method from JavaScript to Java that is not implemented.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::methodsNamed):
+
+2004-03-15  Richard Williamson   <rjw@apple.com>
 
         Fixed 3570854.  Don't attempt to convert Null to strings.  We
         were incorrectly converting to "Null".
@@ -93,32 +2949,578 @@
         * bindings/jni/jni_utility.cpp:
         (KJS::Bindings::convertValueToJValue):
 
-2004-03-11  Vicki Murley <vicki@apple.com>
+=== Safari-132 ===
 
-	- bump the JavaScriptCore version number to 125.3 on the Safari-1-2-branch, to match the JSC version number that is in Feldspar
+2004-03-11  Richard Williamson   <rjw@apple.com>
+
+        Stitched together the NP stuff to our language independent
+        JavaScript binding stuff.  Very close to being done.
+        
+        Added program to test C bindings (and NP stuff).  Just tests
+        properties.  Will add methods and JavaScript access, etc.
+
+        Updated Makefile.am to account for new bindings/c directory.
+
+        Change NP_UTF8 from "const char *" to "char" to allow for
+        declarations like "const NP_UTF8 *" and "NP_UTF8 *".  Ditto
+        for NP_UTF16.
+
+        Added NP_IsValidIdentifier().
+
+        Reviewed by Chris.
 
         * JavaScriptCore.pbproj/project.pbxproj:
+        * Makefile.am:
+        * bindings/NP_jsobject.cpp:
+        (identiferFromNPIdentifier):
+        (NP_Evaluate):
+        * bindings/NP_runtime.cpp:
+        (NP_IdentifierFromUTF8):
+        (NP_IsValidIdentifier):
+        (NP_GetIdentifiers):
+        (NP_UTF8FromIdentifier):
+        (NP_SetExceptionWithUTF8):
+        (NP_SetException):
+        (NP_CreateStringWithUTF8):
+        (NP_CreateStringWithUTF16):
+        (NP_UTF8FromString):
+        (NP_UTF16FromString):
+        * bindings/NP_runtime.h:
+        * bindings/c/c_class.cpp: Added.
+        (CClass::_commonDelete):
+        (CClass::_commonCopy):
+        (CClass::_commonInit):
+        (_createClassesByIsAIfNecessary):
+        (CClass::classForIsA):
+        (CClass::CClass):
+        (CClass::name):
+        (CClass::methodsNamed):
+        (CClass::fieldNamed):
+        * bindings/c/c_class.h: Added.
+        (KJS::Bindings::CClass::~CClass):
+        (KJS::Bindings::CClass::CClass):
+        (KJS::Bindings::CClass::operator=):
+        (KJS::Bindings::CClass::constructorAt):
+        (KJS::Bindings::CClass::numConstructors):
+        * bindings/c/c_instance.cpp: Added.
+        (CInstance::CInstance):
+        (CInstance::~CInstance):
+        (CInstance::operator=):
+        (CInstance::getClass):
+        (CInstance::begin):
+        (CInstance::end):
+        (CInstance::invokeMethod):
+        (CInstance::defaultValue):
+        (CInstance::stringValue):
+        (CInstance::numberValue):
+        (CInstance::booleanValue):
+        (CInstance::valueOf):
+        * bindings/c/c_instance.h: Added.
+        (KJS::Bindings::CInstance::getObject):
+        * bindings/c/c_runtime.cpp: Added.
+        (CField::valueFromInstance):
+        (CField::setValueToInstance):
+        * bindings/c/c_runtime.h: Added.
+        (KJS::Bindings::CField::CField):
+        (KJS::Bindings::CField::name):
+        (KJS::Bindings::CField::type):
+        (KJS::Bindings::CMethod::CMethod):
+        (KJS::Bindings::CMethod::name):
+        (KJS::Bindings::CMethod::numParameters):
+        * bindings/c/c_utility.cpp: Added.
+        (coerceValueToNPValueType):
+        (convertValueToNPValueType):
+        (convertNPValueTypeToValue):
+        * bindings/c/c_utility.h: Added.
+        * bindings/make_testbindings:
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
+        * bindings/runtime.h:
+        (KJS::Bindings::Instance::):
+        * bindings/testbindings.cpp: Added.
+        (initializeIdentifiers):
+        (myInterfaceHasProperty):
+        (myInterfaceHasMethod):
+        (myInterfaceGetProperty):
+        (myInterfaceSetProperty):
+        (myInterfaceInvoke):
+        (myInterfaceAllocate):
+        (myInterfaceInvalidate):
+        (myInterfaceDeallocate):
+        (GlobalImp::className):
+        (readJavaScriptFromFile):
+        (main):
 
-2004-03-11  Vicki Murley <vicki@apple.com>
+2004-03-10  Richard Williamson   <rjw@apple.com>
 
+        Made changes to support new asychronous approach to calls from
+        plugin to JavaScript
 
-- roll this change from the SUPanFeldspar branch to the Safari-1-2-branch, so that all our Feldspar changes are also in Epiphany
+        Reviewed by Chris.
 
-    2004-01-30  Richard Williamson   <rjw@apple.com>
+        * bindings/NP_jsobject.cpp:
+        (NP_Call):
+        (NP_Evaluate):
+        (NP_GetProperty):
+        (NP_ToString):
+        (NP_GetPropertyAtIndex):
+        * bindings/NP_runtime.h:
+        * bindings/make_testbindings:
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
 
-	Fixed 3542044.  Create KJS::String using UString constructor instead 
-	of passing UTF8 string to char* constructor.
+2004-03-10  Richard Williamson   <rjw@apple.com>
 
-        Reviewed by Darin.
+        Updated header to include proposed changes from
+        plugin-futures list.  Calls from plugin to JavaScript
+        are now asynchronous.
 
+        Reviewed by Chris.
+
+        * bindings/NP_runtime.h:
+
+=== Safari-131 ===
+
+2004-03-04  Richard Williamson   <rjw@apple.com>
+
+        Implementation of NP_JavaScriptObject.  This is the 'C' class
+        that wraps a JavaScript object.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_jsobject.cpp: Added.
+        (coerceValueToNPValueType):
+        (convertValueToNPValueType):
+        (convertNPValueTypeToValue):
+        (listFromNPArray):
+        (jsAllocate):
+        (jsDeallocate):
+        (identiferFromNPIdentifier):
+        (NP_Call):
+        (NP_Evaluate):
+        (NP_GetProperty):
+        (NP_SetProperty):
+        (NP_RemoveProperty):
+        (NP_ToString):
+        (NP_GetPropertyAtIndex):
+        (NP_SetPropertyAtIndex):
+        * bindings/NP_runtime.cpp:
+        (NP_ObjectAtIndex):
+        * bindings/NP_runtime.h:
+        * bindings/runtime_object.h:
+
+2004-03-04  Richard Williamson   <rjw@apple.com>
+
+        Added NP_Array implementation.  
+
+        Changed NP_Boolean to just depend on two static instances, no
+        space is required for values.
+
+        Reviewed by Chris.
+
+        * bindings/NP_runtime.cpp:
+        (NP_CreateBoolean):
+        (NP_BoolFromBoolean):
+        (arrayAllocate):
+        (arrayDeallocate):
+        (NP_CreateArray):
+        (NP_CreateArrayV):
+        (NP_ObjectAtIndex):
+        * bindings/NP_runtime.h:
+
+2004-03-03  Darin Adler  <darin@apple.com>
+
+        Reviewed by Vicki.
+
+        * English.lproj/InfoPlist.strings: Removed. No need to localize the version and
+        copyright string, and that's all that was in here.
+        * JavaScriptCore.pbproj/project.pbxproj: Removed InfoPlist.strings from build.
+
+2004-03-03  Richard Williamson   <rjw@apple.com>
+
+        More 'C' binding implementation.  Fleshed out all the
+        'primitive' data types.
+
+        Reviewed by Chris.
+
+        * bindings/NP_runtime.cpp:
+        (NP_ReleaseObject):
+        (numberAllocate):
+        (stringAllocate):
+        (stringDeallocate):
+        (NP_CreateStringWithUTF8):
+        (NP_CreateStringWithUTF16):
+        (NP_UTF8FromString):
+        (NP_UTF16FromString):
+        (NP_StringLength):
+        (booleanAllocate):
+        (booleanDeallocate):
+        (NP_CreateBoolean):
+        (NP_BoolFromBoolean):
+        (nullAllocate):
+        (nullDeallocate):
+        (NP_GetNull):
+        (undefinedAllocate):
+        (undefinedDeallocate):
+        (NP_GetUndefined):
+        * bindings/NP_runtime.h:
+
+2004-03-03  Richard Williamson   <rjw@apple.com>
+
+        More 'C' binding implementation.
+
+        Reviewed by Chris.
+
+        * bindings/NP_runtime.cpp:
+        (identifierEqual):
+        (identifierHash):
+        (getIdentifierDictionary):
+        (NP_IdentifierFromUTF8):
+        (NP_UTF8FromIdentifier):
+        (NP_CreateObject):
+        (NP_ReleaseObject):
+        (NP_IsKindOfClass):
+        (numberCreate):
+        (NP_CreateNumberWithInt):
+        (NP_CreateNumberWithFloat):
+        (NP_CreateNumberWithDouble):
+        (NP_IntFromNumber):
+        (NP_FloatFromNumber):
+        (NP_DoubleFromNumber):
+        * bindings/NP_runtime.h:
+
+2004-03-02  Richard Williamson   <rjw@apple.com>
+
+        Removed retain/release from NP_Class.  Classes will not be allowed to implement their
+        own customer retain/release scheme.
+
+        Reviewed by Chris.
+
+        * bindings/NP_runtime.cpp:
+        (NP_RetainObject):
+        (NP_ReleaseObject):
+        * bindings/NP_runtime.h:
+
+2004-03-02  Richard Williamson   <rjw@apple.com>
+
+        C binding API.  Partial implementation.
+
+        Completed ObjectiveC bindings (not based on the C API).  These will re-implemented over the C binding API, but I wanted to get this code in the tree.
+
+        Factored root object reference counting scheme.  It is now useful independent
+        of LiveConnect.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/NP_runtime.cpp: Added.
+        (NP_IdentifierFromUTF8):
+        (NP_GetIdentifiers):
+        (NP_UTF8FromIdentifier):
+        (NP_CreateObject):
+        (NP_RetainObject):
+        (NP_ReleaseObject):
+        (NP_IsKindOfClass):
+        (NP_SetException):
+        (NP_Call):
+        (NP_Evaluate):
+        (NP_GetProperty):
+        (NP_SetProperty):
+        (NP_RemoveProperty):
+        (NP_ToString):
+        (NP_GetPropertyAtIndex):
+        (NP_SetPropertyAtIndex):
+        (NP_CreateNumberWithInt):
+        (NP_CreateNumberWithFloat):
+        (NP_CreateNumberWithDouble):
+        (NP_IntFromNumber):
+        (NP_FloatFromNumber):
+        (NP_DoubleFromNumber):
+        (NP_CreateStringWithUTF8):
+        (NP_CreateStringWithUTF16):
+        (NP_UTF8FromString):
+        (NP_UTF16FromString):
+        (NP_CreateBoolean):
+        (NP_BoolFromBoolean):
+        (NP_GetNull):
+        (NP_GetUndefined):
+        (NP_CreateArray):
+        (NP_CreateArrayV):
+        (NP_ObjectAtIndex):
+        * bindings/NP_runtime.h: Added.
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::invoke):
+        (JSObject::finalize):
+        (JSObject::createNative):
+        (JSObject::convertValueToJObject):
+        * bindings/jni/jni_jsobject.h:
+        * bindings/objc/objc_jsobject.h:
+        * bindings/objc/objc_jsobject.mm:
+        (rootForView):
+        (windowJavaScriptObject):
+        (-[JavaScriptObject initWithObjectImp:KJS::root:Bindings::]):
+        (-[JavaScriptObject dealloc]):
+        (-[JavaScriptObject _convertValueToObjcValue:KJS::]):
+        (-[JavaScriptObject call:arguments:]):
+        (-[JavaScriptObject evaluate:]):
+        (-[JavaScriptObject getMember:]):
+        (-[JavaScriptObject setMember:value:]):
+        (-[JavaScriptObject removeMember:]):
+        (-[JavaScriptObject toString]):
+        (-[JavaScriptObject getSlot:]):
+        (-[JavaScriptObject setSlot:value:]):
+        * bindings/objc/objc_utility.h:
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+        * bindings/runtime_root.cpp: Added.
+        (getReferencesByRootDictionary):
+        (getReferencesDictionary):
+        (KJS::Bindings::findReferenceDictionary):
+        (KJS::Bindings::rootForImp):
+        (KJS::Bindings::addNativeReference):
+        (KJS::Bindings::removeNativeReference):
+        (completedJavaScriptAccess):
+        (initializeJavaScriptAccessLock):
+        (lockJavaScriptAccess):
+        (unlockJavaScriptAccess):
+        (RootObject::dispatchToJavaScriptThread):
+        (performJavaScriptAccess):
+        (RootObject::setFindRootObjectForNativeHandleFunction):
+        (RootObject::removeAllNativeReferences):
+        * bindings/runtime_root.h: Added.
+        (KJS::Bindings::RootObject::RootObject):
+        (KJS::Bindings::RootObject::~RootObject):
+        (KJS::Bindings::RootObject::setRootObjectImp):
+        (KJS::Bindings::RootObject::rootObjectImp):
+        (KJS::Bindings::RootObject::setInterpreter):
+        (KJS::Bindings::RootObject::interpreter):
+        (KJS::Bindings::RootObject::findRootObjectForNativeHandleFunction):
+        (KJS::Bindings::RootObject::runLoop):
+        (KJS::Bindings::RootObject::performJavaScriptSource):
+
+=== Safari-130 ===
+
+=== Safari-129 ===
+
+2004-02-18  Richard Williamson   <rjw@apple.com>
+
+        Added NSNumber/Number conversion.
+
+        Removed some unnecessary KJS:: namespace specifiers.
+
+        Reviewed by Ken.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+        (KJS::Bindings::convertObjcValueToValue):
+        * bindings/runtime_array.h:
+
+2004-02-18  Richard Williamson   <rjw@apple.com>
+
+        Added support for export NSArrays.
+
+        Updated valueAt() to take an ExecState so we can throw
+        JS exceptions.
+
+        Implemented excludeSelectorFromJavaScript: in ObjcClass.  This allows
+        ObjectiveC classes to control the visibility of their methods in 
+        JavaScript.
+
+        Reviewed by Ken.
+
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::valueFromInstance):
+        (JavaArray::valueAt):
+        * bindings/jni/jni_runtime.h:
+        * bindings/objc/objc_class.mm:
+        (ObjcClass::methodsNamed):
+        * bindings/objc/objc_runtime.h:
+        (KJS::Bindings::ObjcArray::getObjcArray):
+        * bindings/objc/objc_runtime.mm:
+        (ObjcField::valueFromInstance):
+        (ObjcField::setValueToInstance):
+        (ObjcArray::ObjcArray):
+        (ObjcArray::~ObjcArray):
+        (ObjcArray::operator=):
+        (ObjcArray::setValueAt):
+        (ObjcArray::valueAt):
+        (ObjcArray::getLength):
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+        (KJS::Bindings::convertObjcValueToValue):
+        * bindings/runtime.cpp:
+        (Instance::getValueOfField):
+        * bindings/runtime.h:
+        * bindings/runtime_array.cpp:
+        (RuntimeArrayImp::get):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+
+2004-02-17  Richard Williamson   <rjw@apple.com>
+
+        Added String <-> NSString conversion.
+        Added tests of String <-> NSString conversion to test program.
+
+        Reviewed by Chris.
+
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::convertValueToObjcValue):
+        (KJS::Bindings::convertObjcValueToValue):
+        * bindings/test.js:
+        * bindings/testbindings.mm:
+        (-[MyFirstInterface getString]):
+
+2004-02-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dave.
+
+        * JavaScriptCore.pbproj/project.pbxproj: Tweak build styles a bit, fixing OptimizedWithSymbols,
+        and removing redundant settings of things that match defaults in other build styles.
+
+2004-02-13  Richard Williamson   <rjw@apple.com>
+
+        Work towards the JavaScript ObjC bindings.  The bindings now work for 
+        simple scalar types.  testbindings.mm is an illustration of how the 
+        bindings work.
+
+        Reviewed by Ken.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * Makefile.am:
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::methodsNamed):
+        * bindings/jni/jni_class.h:
         * bindings/jni/jni_instance.cpp:
-        (JavaInstance::stringValue):
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaMethod::returnType):
+        * bindings/make_testbindings: Added.
+        * bindings/objc/objc_class.h: Added.
+        (KJS::Bindings::ObjcClass::~ObjcClass):
+        (KJS::Bindings::ObjcClass::ObjcClass):
+        (KJS::Bindings::ObjcClass::operator=):
+        (KJS::Bindings::ObjcClass::constructorAt):
+        (KJS::Bindings::ObjcClass::numConstructors):
+        * bindings/objc/objc_class.mm: Added.
+        (ObjcClass::_commonDelete):
+        (ObjcClass::_commonCopy):
+        (ObjcClass::_commonInit):
+        (_createClassesByIsAIfNecessary):
+        (ObjcClass::classForIsA):
+        (ObjcClass::ObjcClass):
+        (ObjcClass::name):
+        (ObjcClass::methodsNamed):
+        (ObjcClass::fieldNamed):
+        * bindings/objc/objc_header.h: Added.
+        * bindings/objc/objc_instance.h: Added.
+        (KJS::Bindings::ObjcInstance::getObject):
+        * bindings/objc/objc_instance.mm: Added.
+        (ObjcInstance::ObjcInstance):
+        (ObjcInstance::~ObjcInstance):
+        (ObjcInstance::operator=):
+        (ObjcInstance::begin):
+        (ObjcInstance::end):
+        (ObjcInstance::getClass):
+        (ObjcInstance::invokeMethod):
+        (ObjcInstance::defaultValue):
+        (ObjcInstance::stringValue):
+        (ObjcInstance::numberValue):
+        (ObjcInstance::booleanValue):
+        (ObjcInstance::valueOf):
+        * bindings/objc/objc_jsobject.h: Added.
+        * bindings/objc/objc_jsobject.mm: Added.
+        * bindings/objc/objc_runtime.h:
+        (KJS::Bindings::ObjcField::~ObjcField):
+        (KJS::Bindings::ObjcField::ObjcField):
+        (KJS::Bindings::ObjcField::operator=):
+        (KJS::Bindings::ObjcMethod::ObjcMethod):
+        (KJS::Bindings::ObjcMethod::~ObjcMethod):
+        (KJS::Bindings::ObjcMethod::operator=):
+        * bindings/objc/objc_runtime.mm: Added.
+        (ObjcMethod::ObjcMethod):
+        (ObjcMethod::name):
+        (ObjcMethod::numParameters):
+        (ObjcMethod::getMethodSignature):
+        (ObjcField::ObjcField):
+        (ObjcField::name):
+        (ObjcField::type):
+        (ObjcField::valueFromInstance):
+        (ObjcField::setValueToInstance):
+        * bindings/objc/objc_utility.h: Added.
+        (KJS::Bindings::):
+        * bindings/objc/objc_utility.mm: Added.
+        (KJS::Bindings::JSMethodNameToObjCMethodName):
+        (KJS::Bindings::convertValueToObjcValue):
+        (KJS::Bindings::convertObjcValueToValue):
+        (KJS::Bindings::objcValueTypeForType):
+        * bindings/runtime.cpp:
+        (MethodList::MethodList):
+        (MethodList::operator=):
+        (Instance::setValueOfField):
+        (Instance::createBindingForLanguageInstance):
+        (Instance::createRuntimeObject):
+        * bindings/runtime.h:
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::RuntimeMethodImp):
+        (RuntimeMethodImp::get):
+        (RuntimeMethodImp::call):
+        * bindings/runtime_method.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::hasProperty):
+        * bindings/test.js: Added.
+        * bindings/testbindings.mm: Added.
+        (-[MySecondInterface init]):
+        (-[MyFirstInterface init]):
+        (-[MyFirstInterface dealloc]):
+        (+[MyFirstInterface JavaScriptNameForSelector:]):
+        (-[MyFirstInterface getInt]):
+        (-[MyFirstInterface setInt:]):
+        (-[MyFirstInterface getMySecondInterface]):
+        (-[MyFirstInterface logMessage:]):
+        (GlobalImp::className):
+        (readJavaScriptFromFile):
+        (main):
 
-=== JavaScriptCore-125.2 ===
+=== Safari-128 ===
 
-2004-02-27  Vicki Murley  <vicki@apple.com>
+2004-02-08  Darin Adler  <darin@apple.com>
 
-    - roll this change onto the Safari-1-2-branch, for SUPanFeldspar
+        Reviewed by Dave.
+
+        - fixed things seen in the profile, for a total speedup of 4% on cvs-base (including changes across all projects)
+
+        * JavaScriptCorePrefix.h: Add a workaround for a bug in our system headers that prevents the <ctype.h>
+        macros from working right in C++ code that uses the <cctype> header.
+
+        * kjs/ustring.cpp:
+        (KJS::inlineUTF8SequenceLengthNonASCII): Added.
+        (KJS::UTF8SequenceLengthNonASCII): Added.
+        (KJS::inlineUTF8SequenceLength): Added.
+        (KJS::UTF8SequenceLength): Calls inlineUTF8SequenceLengthNonASCII now.
+        (KJS::decodeUTF8Sequence): Use new inlineUTF8SequenceLengthNonASCII; faster for ASCII.
+        (KJS::createSortedOffsetsArray): Add special case for 1, 2, and 3 offsets, so we don't do qsort for those.
+        (KJS::convertUTF16OffsetsToUTF8Offsets): Use new inlineUTF8SequenceLengthNonASCII; faster for ASCII.
+        (KJS::convertUTF8OffsetsToUTF16Offsets): Use new inlineUTF8SequenceLengthNonASCII; faster for ASCII.
+
+        - fixed the test program so it won't hit the interpreter lock assertion
+
+        * kjs/testkjs.cpp: (main): Just lock around the whole thing, since the test is singly threaded.
+
+=== Safari-127 ===
+
+2004-02-06  Richard Williamson   <rjw@apple.com>
+
+        Fixed 3550242 and 3546977.  The first diff prevents an assert from firing.  The second diff prevents a JavaScript exception, caused be an invalid conversion, which has a downstream consequence of preventing a valid conversion.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::toString):
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::convertValueToJValue):
 
 2004-02-02  Darin Adler  <darin@apple.com>
 
@@ -132,16 +3534,107 @@
         (ArrayObjectImp::construct): Check number as described in specification, and raise a range error if the
         number is out of range. This prevents new Array(-1) from causing trouble.
 
+        - fixed <rdar://problem/3545756>: Math.round screws up on numbers bigger than 2^31 (incorrect results on HP-35 calculator page)
+
+        * kjs/math_object.cpp: (MathFuncImp::call): Change implementation to be much simpler and not involve
+        casting to int. Results now match those in other browsers.
+
+2004-02-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3519285>: integer operations on large negative numbers yield bad results (discovered with "HTMLCrypt")
+        - fixed other related overflow issues
+
+        * kjs/value.h: Changed return types of toInteger, toInt32, toUInt32, and toUInt16.
+        * kjs/value.cpp:
+        (ValueImp::toInteger): Change to return a double, since this operation, from the ECMA specification,
+        must not restrict values to the range of a particular integer type.
+        (ValueImp::toInt32): Used a sized integer type for the result of this function, and also added
+        proper handling for negative results from fmod.
+        (ValueImp::toUInt32): Ditto.
+        (ValueImp::toUInt16): Ditto.
+        (ValueImp::dispatchToUInt32): Changed result type from unsigned to uint32_t.
+
+        * kjs/array_object.cpp: (ArrayProtoFuncImp::call): Use a double instead of an int to handle
+        out-of-integer-range values better in the slice function.
+        * kjs/internal.cpp: (KJS::roundValue): Streamline the function, handling NAN and infinity properly.
+        * kjs/number_object.cpp: (NumberProtoFuncImp::call): Use a double instead of an int to handle
+        out-of-integer-range values better in the toString function.
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Use a double instead of an int to handle
+        out-of-integer-range values better in the charAt, charCodeAt, indexOf, lastIndexOf, slice,
+        and substr functions.
+
+=== Safari-126 ===
+
+2004-01-30  Richard Williamson   <rjw@apple.com>
+
+        Fixed 3542044.  Create KJS::String using UString constructor instead of passing UTF8 string to char* constructor.
+
+        Reviewed by Darin.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::stringValue):
+
+2004-01-26  Darin Adler  <darin@apple.com>
+
+        * Makefile.am: Switch from pbxbuild to xcodebuild.
+
+2004-01-22  Richard Williamson   <rjw@apple.com>
+
+        Added stubs for ObjC language binding to JavaScript.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/jni/jni_runtime.h:
+        * bindings/objc/objc_runtime.h: Added.
+        (KJS::Bindings::ObjcParameter::ObjcParameter):
+        (KJS::Bindings::ObjcParameter::~ObjcParameter):
+        (KJS::Bindings::ObjcParameter::operator=):
+        (KJS::Bindings::ObjcParameter::type):
+        (KJS::Bindings::ObjcConstructor::ObjcConstructor):
+        (KJS::Bindings::ObjcConstructor::~ObjcConstructor):
+        (KJS::Bindings::ObjcConstructor::_commonCopy):
+        (KJS::Bindings::ObjcConstructor::operator=):
+        (KJS::Bindings::ObjcConstructor::value):
+        (KJS::Bindings::ObjcConstructor::parameterAt):
+        (KJS::Bindings::ObjcConstructor::numParameters):
+        (KJS::Bindings::ObjcField::ObjcField):
+        (KJS::Bindings::ObjcField::~ObjcField):
+        * bindings/runtime.h:
+
+2004-01-22  Richard Williamson   <rjw@apple.com>
+
+        Simplified JavaString by using UString as backing store.  This
+        revealed a bug in CString's assignment operator which I fixed.
+
+        Removed some dead code.
+ 
+        Reviewed by John.
+
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaString::JavaString):
+        (KJS::Bindings::JavaString::_commonInit):
+        (KJS::Bindings::JavaString::UTF8String):
+        (KJS::Bindings::JavaString::uchars):
+        (KJS::Bindings::JavaString::length):
+        (KJS::Bindings::JavaString::ustring):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::RuntimeObjectImp):
+        * bindings/runtime_object.h:
+        * kjs/ustring.cpp:
+        (KJS::CString::CString):
+        (KJS::CString::operator=):
+
 === Safari-125 ===
 
 === Safari-124 ===
 
 2004-01-16  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3525853.  We weren't handling mapping to overloaded Java
-	methods very well.  Even though this is undefined the other
-	browsers support it.  Also fixed a bug with returning arrays
-	from Java functions.
+        Fixed 3525853.  We weren't handling mapping to overloaded Java
+        methods very well.  Even though this is undefined the other
+        browsers support it.  Also fixed a bug with returning arrays
+        from Java functions.
 
         Reviewed by John.
 
@@ -179,8 +3672,8 @@
 
 2004-01-16  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3531229.  Another place that needs the  Push/PopLocalFrame
-	protection implemented for 3530401.
+        Fixed 3531229.  Another place that needs the  Push/PopLocalFrame
+        protection implemented for 3530401.
 
         Reviewed by John.
 
@@ -189,13 +3682,13 @@
 
 2004-01-15  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3530401.  JNI doesn't cleanup local refs created on the
-	main thread.   IMO this is a bad bug in our JMI implementation.
+        Fixed 3530401.  JNI doesn't cleanup local refs created on the
+        main thread.   IMO this is a bad bug in our JMI implementation.
 
-	To work-around the problem I explicitly delete all local refs.
-	Further, I've added Push/PopLocalFrame calls to catch any refs
-	that I may have missed.  This will guarantee that we don't leak
-	any Java references.
+        To work-around the problem I explicitly delete all local refs.
+        Further, I've added Push/PopLocalFrame calls to catch any refs
+        that I may have missed.  This will guarantee that we don't leak
+        any Java references.
 
         Reviewed by John.
 
@@ -228,9 +3721,9 @@
         * JavaScriptCore.pbproj/project.pbxproj: Update copyright date to 2004.
 
 2004-01-14  Richard Williamson   <rjw@apple.com>
-	
-	Fixed 3529466.  With recent changes to Java plugin we must no
-	longer call DeleteLocalRef().  Not a problem, it was an optimization anyway.
+        
+        Fixed 3529466.  With recent changes to Java plugin we must no
+        longer call DeleteLocalRef().  Not a problem, it was an optimization anyway.
 
         Reviewed by John.
 
@@ -241,10 +3734,9 @@
 
 2004-01-14  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3529010.
+        Fixed 3529010.
 
-	Finalize may be called on an JSObject after we've already remove all our references.  The assert in this case is firing because we've received a finalize call from Java for an instance that we no longer know about.  The fix is to check in finalize that we're getting a call on an instance that we still care about.
-
+        Finalize may be called on an JSObject after we've already remove all our references.  The assert in this case is firing because we've received a finalize call from Java for an instance that we no longer know about.  The fix is to check in finalize that we're getting a call on an instance that we still care about.
 
         Reviewed by John.
 
@@ -256,9 +3748,9 @@
 
 2004-01-13  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3528324. 
+        Fixed 3528324. 
 
-	The run loop that is used to execute JavaScript (in practice, always the main run loop) is held in a class variable.  It is set and retained once and should not be released.  Unfortunately is it being released when the 'root' object on a LiveConnect applet is released.  This has the symptom of eventually causing an deallocation of the main run loop!  Usually after about 5 instantiations/destructions of a LiveConnect applet.  The CFRelease of the run loop was removed.
+        The run loop that is used to execute JavaScript (in practice, always the main run loop) is held in a class variable.  It is set and retained once and should not be released.  Unfortunately is it being released when the 'root' object on a LiveConnect applet is released.  This has the symptom of eventually causing an deallocation of the main run loop!  Usually after about 5 instantiations/destructions of a LiveConnect applet.  The CFRelease of the run loop was removed.
 
         Reviewed by Hyatt.
 
@@ -271,7 +3763,7 @@
 
 2004-01-06  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3521814.  Finalize messages weren't being dispatched!
+        Fixed 3521814.  Finalize messages weren't being dispatched!
 
         Reviewed by John.
 
@@ -280,10 +3772,10 @@
 
 2004-01-05  Richard Williamson   <rjw@apple.com>
 
-	Added cache of JNI method IDs to minimize allocations.  This mitigates the problem
-	described by 3515579.
+        Added cache of JNI method IDs to minimize allocations.  This mitigates the problem
+        described by 3515579.
 
-	Also cleanup up logging of Java exceptions.
+        Also cleanup up logging of Java exceptions.
 
         Reviewed by John.
 
@@ -338,10 +3830,10 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-19  Richard Williamson   <rjw@apple.com>
 
-	Fixed 3515597.  When an error occurs we need
-	to make sure result values are zeroed.
+        Fixed 3515597.  When an error occurs we need
+        to make sure result values are zeroed.
 
-	Cleaned up logs by adding a newline.
+        Cleaned up logs by adding a newline.
 
         Reviewed by John.
 
@@ -358,13 +3850,13 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-17  Richard Williamson   <rjw@apple.com>
 
-	Ensure that all the symbols we export are in the KJS
-	namespace (3512245).
+        Ensure that all the symbols we export are in the KJS
+        namespace (3512245).
 
-	Also renamed JavaString.characters() to JavaString.UTF8String()
-	for enhanced clarity.
+        Also renamed JavaString.characters() to JavaString.UTF8String()
+        for enhanced clarity.
 
-	Added some sanity checking to constructor of JObjectWrapper.
+        Added some sanity checking to constructor of JObjectWrapper.
 
         Reviewed by Dave.
 
@@ -454,8 +3946,8 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-16  Richard Williamson   <rjw@apple.com>
 
-	Ack!  More assertions.  Lock ALL entry points into the interpreter!
-	(3511733).
+        Ack!  More assertions.  Lock ALL entry points into the interpreter!
+        (3511733).
 
         Reviewed by Ken.
 
@@ -471,7 +3963,7 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-15  Richard Williamson   <rjw@apple.com>
 
-	Fixed a couple of snafus and removed some logging.
+        Fixed a couple of snafus and removed some logging.
 
         Reviewed by Maciej.
 
@@ -479,22 +3971,22 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
         (Bindings::performJavaScriptAccess):
         (Bindings::completedJavaScriptAccess):
         (Bindings::dispatchToJavaScriptThread):
-	Removed some annoying JS_LOG clutter.
+        Removed some annoying JS_LOG clutter.
 
         (Bindings::RootObject::removeAllJavaReferencesForRoot):
-	Fixed allocation of key buffer that was called after it was needed.
+        Fixed allocation of key buffer that was called after it was needed.
 
         (Bindings::JSObject::invoke):
         (Bindings::JSObject::JSObject):
         (Bindings::JSObject::getMember):
         (Bindings::JSObject::getSlot):
-	Added additional interpreter locks around getMember and getSlot. 
-	These functions may cause allocation of JS impls.  
+        Added additional interpreter locks around getMember and getSlot. 
+        These functions may cause allocation of JS impls.  
 
 2003-12-15  Richard Williamson   <rjw@apple.com>
 
-	args weren't passed to 'call' invocation.  d'oh.
-	lock interpreter when we create instances of JS impls.	
+        args weren't passed to 'call' invocation.  d'oh.
+        lock interpreter when we create instances of JS impls.        
 
         Reviewed by Maciej.
 
@@ -511,8 +4003,8 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-15  Richard Williamson   <rjw@apple.com>
 
-	Last piece of LiveConnect!  This checkin adds implementation
-	of the Java to JavaScript object conversion functions.
+        Last piece of LiveConnect!  This checkin adds implementation
+        of the Java to JavaScript object conversion functions.
 
         Reviewed by John.
 
@@ -541,10 +4033,10 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-12  Richard Williamson   <rjw@apple.com>
 
-	Added implementation of stubs in JSObject.  All that
-	remains is a couple of simple conversion functions stubs and
-	we're done with LiveConnect.  Also, changed string passing to
-	JS to use uchars instead of chars.  
+        Added implementation of stubs in JSObject.  All that
+        remains is a couple of simple conversion functions stubs and
+        we're done with LiveConnect.  Also, changed string passing to
+        JS to use uchars instead of chars.  
 
         Reviewed by Maciej.
 
@@ -577,8 +4069,8 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-12  Richard Williamson   <rjw@apple.com>
 
-	Ensure that all calls from Java into JavaScript are
-	performed on a designated thread (the main thread).
+        Ensure that all calls from Java into JavaScript are
+        performed on a designated thread (the main thread).
 
         Reviewed by Ken.
 
@@ -614,19 +4106,19 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-11  Richard Williamson   <rjw@apple.com>
 
-	Added support for calling a JavaScript function from
-	Java.  Right now this only works for void func(void)
-	functions, but the conversion of args and return values
-	will come shortly.
+        Added support for calling a JavaScript function from
+        Java.  Right now this only works for void func(void)
+        functions, but the conversion of args and return values
+        will come shortly.
 
-	Cleaned up and verified reference counting scheme, and
-	dereferencing of vended JavaScript objects when applet is
-	destroyed (actually when part is destroyed).
-	
-	Removed link hack for testkjs now that the Java folks think
-	they have a solution for the 1.4.2 JavaVM link problem.  Although
-	Greg B. thinks his solution may cause problems for the 1.3.1
-	version of the VM!?!
+        Cleaned up and verified reference counting scheme, and
+        dereferencing of vended JavaScript objects when applet is
+        destroyed (actually when part is destroyed).
+        
+        Removed link hack for testkjs now that the Java folks think
+        they have a solution for the 1.4.2 JavaVM link problem.  Although
+        Greg B. thinks his solution may cause problems for the 1.3.1
+        version of the VM!?!
 
         Reviewed by Ken.
 
@@ -676,10 +4168,10 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-10  Richard Williamson   <rjw@apple.com>
 
-	Added code to manage reference counting of JavaScript
-	objects passed to Java.   Also added implementation of
-	KJS_JSCreateNativeJSObject.  This is the function that
-	provides the root object to Java (KJS::Window).
+        Added code to manage reference counting of JavaScript
+        objects passed to Java.   Also added implementation of
+        KJS_JSCreateNativeJSObject.  This is the function that
+        provides the root object to Java (KJS::Window).
 
         Reviewed by Hyatt.
 
@@ -697,16 +4189,16 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-09  Richard Williamson   <rjw@apple.com>
 
-	LiveConnect stubs that correspond to the native methods
-	on JSObject.  These will be called from the new Java plugin
-	when an instance of JSObject is instantiated and messaged.
-	When these are implemented the Java will be able to originate
-	calls into JavaScript.
+        LiveConnect stubs that correspond to the native methods
+        on JSObject.  These will be called from the new Java plugin
+        when an instance of JSObject is instantiated and messaged.
+        When these are implemented the Java will be able to originate
+        calls into JavaScript.
 
-	Also a temporary work-around added to Makefile.am to solve
-	a link problem.  The 1.4.2 JavaVM accidentally links against
-	libobjc.  This call a failure linking testkjs.  Mike Hay is
-	working with someone to fix the problem (3505587).
+        Also a temporary work-around added to Makefile.am to solve
+        a link problem.  The 1.4.2 JavaVM accidentally links against
+        libobjc.  This call a failure linking testkjs.  Mike Hay is
+        working with someone to fix the problem (3505587).
 
         Reviewed by Chris.
 
@@ -729,7 +4221,7 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
         Reviewed by John.
 
-	<rdar://problem/3505183>: JavaScriptCore should assert that interpreter is locked in collector
+        <rdar://problem/3505183>: JavaScriptCore should assert that interpreter is locked in collector
 
         * kjs/collector.cpp:
         (KJS::Collector::allocate): Assert that interpreter lock count is not 0.
@@ -737,9 +4229,9 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-08  Richard Williamson   <rjw@apple.com>
 
-	LiveConnect:  The last piece of the JavaScript side of the
-	LiveConnect implementation.  This change adds support for
-	setting/getting values from Java arrays in JavaScript.
+        LiveConnect:  The last piece of the JavaScript side of the
+        LiveConnect implementation.  This change adds support for
+        setting/getting values from Java arrays in JavaScript.
 
         Reviewed by John.
 
@@ -776,8 +4268,8 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-05  Richard Williamson   <rjw@apple.com>
 
-	LiveConnect:  Part 1 of supporting JS bindings to
-	native language arrays.
+        LiveConnect:  Part 1 of supporting JS bindings to
+        native language arrays.
 
         Reviewed by Chris.
 
@@ -795,9 +4287,9 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-04  Richard Williamson   <rjw@apple.com>
 
-	LiveConnect:  Moved defaultValue into concrete implementation because
-	more intelligent conversion can be perform with knowledge
-	of the class of the original instance.
+        LiveConnect:  Moved defaultValue into concrete implementation because
+        more intelligent conversion can be perform with knowledge
+        of the class of the original instance.
 
         Reviewed by Chris.
 
@@ -817,8 +4309,8 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-04  Richard Williamson   <rjw@apple.com>
 
-	LiveConnect:  Added support for setting the value of Java
-	fields.
+        LiveConnect:  Added support for setting the value of Java
+        fields.
 
         Reviewed by Chris.
 
@@ -846,9 +4338,9 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-04  Richard Williamson   <rjw@apple.com>
 
-	Added support for string conversions.
-	Changed various JavaString member variables to be inline.
-	Implemented defaultValue for context relevant type coercion.
+        Added support for string conversions.
+        Changed various JavaString member variables to be inline.
+        Implemented defaultValue for context relevant type coercion.
 
         Reviewed by Chris.
 
@@ -904,8 +4396,8 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-03  Richard Williamson   <rjw@apple.com>
 
-	LiveConnect:  Added support for parameter passing to Java and conversion
-	of return values.
+        LiveConnect:  Added support for parameter passing to Java and conversion
+        of return values.
 
         Reviewed by Chris.
 
@@ -932,10 +4424,10 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-02  Richard Williamson   <rjw@apple.com>
 
-	Added support for calling simple methods in Java from JavaScript.
-	(void return and no parameters).  Yay, LiveConnect lives.
+        Added support for calling simple methods in Java from JavaScript.
+        (void return and no parameters).  Yay, LiveConnect lives.
 
-	Still need write argument and return value conversion code.
+        Still need write argument and return value conversion code.
 
         Reviewed by Chris.
 
@@ -986,9 +4478,9 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
         Merged patches from Harri Porten and David Faure to fix:
 
-	<rdar://problem/3497643>: reproducible crash printing self-referential array
+        <rdar://problem/3497643>: reproducible crash printing self-referential array
         
-	* kjs/array_object.cpp:
+        * kjs/array_object.cpp:
         (ArrayProtoFuncImp::call): Break out of the loop if an exception was thrown.
         * kjs/nodes.cpp:
         (FunctionCallNode::evaluate): Move function call depth check from here...
@@ -998,7 +4490,7 @@ l2003-12-23  John Sullivan  <sullivan@apple.com>
 
 2003-12-01  Richard Williamson   <rjw@apple.com>
 
-	Fixed mistake in method signatures used to get boolean and integer fields.
+        Fixed mistake in method signatures used to get boolean and integer fields.
 
         Reviewed by Chris.
 
@@ -1036,25 +4528,25 @@ Added support for getting at Java object fields.
 
         Patch from Harri Porten, reviewed by me.
 
-	- fixed 3491712 - String slice with negative arguments does not offset from end of string
+        - fixed 3491712 - String slice with negative arguments does not offset from end of string
         
-	* kjs/string_object.cpp:
+        * kjs/string_object.cpp:
         (StringProtoFuncImp::call): Handle negative arguments as offsets from end by
-	adding length and clamping to [0,length-1].
+        adding length and clamping to [0,length-1].
 
 2003-11-21  Maciej Stachowiak  <mjs@apple.com>
 
         Patch from Harri Porten, reviewed by me.
 
-	- fixed 3491709 - using Function.apply with a primitive type as the arg list causes crash
+        - fixed 3491709 - using Function.apply with a primitive type as the arg list causes crash
         
-	* kjs/function_object.cpp:
+        * kjs/function_object.cpp:
         (FunctionProtoFuncImp::call): Nest parentheses properly.
 
 2003-11-20  Richard Williamson   <rjw@apple.com>
 
-	More LiveConnect stuff.  Primitive Java fields are now
-	accessible from JavaScript!  Yay!
+        More LiveConnect stuff.  Primitive Java fields are now
+        accessible from JavaScript!  Yay!
 
         Reviewed by Maciej.
 
@@ -1111,7 +4603,7 @@ Added support for getting at Java object fields.
 
 2003-11-20  Richard Williamson   <rjw@apple.com>
 
-	More LiveConnect stuff.
+        More LiveConnect stuff.
 
         Reviewed by Chris.
 
@@ -1140,7 +4632,7 @@ Added support for getting at Java object fields.
 
 2003-11-19  Richard Williamson   <rjw@apple.com>
 
-	More LiveConnect stuff.
+        More LiveConnect stuff.
 
         Reviewed by Ken.
 
@@ -1193,7 +4685,7 @@ Added support for getting at Java object fields.
 
 2003-11-18  Richard Williamson   <rjw@apple.com>
 
-	More live connect stubs.  We're getting close.
+        More live connect stubs.  We're getting close.
 
         Reviewed by Chris.
 
@@ -1237,16 +4729,16 @@ Added support for getting at Java object fields.
 
         Patch from Harri, reviewed by me.
 
-	- fixed 3487375 - backwards array slice causes infinite loop
+        - fixed 3487375 - backwards array slice causes infinite loop
         
-	* kjs/array_object.cpp:
+        * kjs/array_object.cpp:
         (ArrayProtoFuncImp::call):
 
 2003-11-17  Maciej Stachowiak  <mjs@apple.com>
 
         Patch from Harri Porten reviewed by me.
 
-	- fixed 3487371 - operator precedence for bitwise or, xor and and is wrong
+        - fixed 3487371 - operator precedence for bitwise or, xor and and is wrong
 
         * kjs/grammar.y: Correct the precedence.
 
@@ -1254,16 +4746,16 @@ Added support for getting at Java object fields.
 
         Reviewed by John.
 
-	- fixed 3483829 - JavaScriptCore needs workaround to compile on Merlot
-	
+        - fixed 3483829 - JavaScriptCore needs workaround to compile on Merlot
+        
         * JavaScriptCore.pbproj/project.pbxproj: Add -Wno-long-double to
-	warning flags.
+        warning flags.
 
 === Safari-114 ===
 
 2003-11-13  Richard Williamson   <rjw@apple.com>
 
-	Factored common code between copy constructor and assignment operator.
+        Factored common code between copy constructor and assignment operator.
 
         Reviewed by Chris.
 
@@ -1277,9 +4769,9 @@ Added support for getting at Java object fields.
 
 2003-11-13  Richard Williamson   <rjw@apple.com>
 
-	More LiveConnect stuff.  This checkin adds abstract classes to model
-	language runtimes and a JNI based set of concrete implementations for
-	Java.
+        More LiveConnect stuff.  This checkin adds abstract classes to model
+        language runtimes and a JNI based set of concrete implementations for
+        Java.
 
         Reviewed by Chris.
 
@@ -1367,12 +4859,12 @@ Added support for getting at Java object fields.
 
         Reviewed by John.
 
-	- fixed 3472562 - Null or Undefined variables passed to IN operator cause javascript exceptions
-	
+        - fixed 3472562 - Null or Undefined variables passed to IN operator cause javascript exceptions
+        
         * kjs/nodes.cpp:
         (ForInNode::execute): If the in value is null or undefined, bail
-	out early, since attempting to iterate its properties will throw
-	an exception.
+        out early, since attempting to iterate its properties will throw
+        an exception.
 
 2003-11-12  Darin Adler  <darin@apple.com>
 
@@ -1384,7 +4876,7 @@ Added support for getting at Java object fields.
 
 2003-11-12  Richard Williamson   <rjw@apple.com>
 
-	Added utility functions for calling JNI methods.
+        Added utility functions for calling JNI methods.
 
         Reviewed by Chris.
 
@@ -1426,7 +4918,7 @@ Added support for getting at Java object fields.
 
         Reviewed by kocienda.
 
-	- fixed <rdar://problem/3471096>: non-B&I builds should not use order files, because they cause false "regressions" in perf.
+        - fixed <rdar://problem/3471096>: non-B&I builds should not use order files, because they cause false "regressions" in perf.
 
         * JavaScriptCore.pbproj/project.pbxproj: added empty SECTORDER_FLAGS variables to the Development and Deployment build styles
 
@@ -1505,30 +4997,30 @@ Added support for getting at Java object fields.
 
         Reviewed by Ken.
 
-	- fixed 3427069 - browsing mp3.com causes leaks (KJS)
-	
+        - fixed 3427069 - browsing mp3.com causes leaks (KJS)
+        
         * kjs/string_object.cpp:
         (StringProtoFuncImp::call): Don't do an early return, since that
-	could leak a temporary regexp.
+        could leak a temporary regexp.
 
 2003-10-29  Maciej Stachowiak  <mjs@apple.com>
 
         Reviewed by Darin.
 
-	- fixed 3426076 - Leak of JS lexer data visiting http://www.ebay.com
-	
+        - fixed 3426076 - Leak of JS lexer data visiting http://www.ebay.com
+        
         * kjs/grammar.cpp:
         (yyerror): Updated the commented code.
         * kjs/grammar.y: Don't delete string and identifier tokens when done
-	with them any more, they'll get cleaned up by the lexer now.
+        with them any more, they'll get cleaned up by the lexer now.
         * kjs/internal.cpp:
         (Parser::parse): Tell lexer when done parsing.
         * kjs/lexer.cpp:
         (Lexer::Lexer): Initialize new data members.
         (Lexer::lex): Use new methods to make strings and identifiers, and
-	save them.
+        save them.
         (Lexer::makeIdentifier): Make a new Identifier and save it in an
-	auto-growing array.
+        auto-growing array.
         (Lexer::makeUString): Likewise for UStrings.
         (Lexer::doneParsing): Clean up arrays of Ifentifiers and UStrings.
         * kjs/lexer.h:
@@ -1537,12 +5029,12 @@ Added support for getting at Java object fields.
 
         Reviewed by Ken.
 
-	- fixed 3413962 -  malicious web pages can kill all future JavaScript execution by breaking recursion limit check
-	
+        - fixed 3413962 -  malicious web pages can kill all future JavaScript execution by breaking recursion limit check
+        
         * kjs/nodes.cpp:
         (FunctionCallNode::evaluate): If we're going to return early due
-	to breaking the recursion limit, make sure to lower it again, or
-	it will creep up by one each time it's exceeded.
+        to breaking the recursion limit, make sure to lower it again, or
+        it will creep up by one each time it's exceeded.
 
 2003-10-26  Darin Adler  <darin@apple.com>
 

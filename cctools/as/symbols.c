@@ -239,7 +239,8 @@ char *sym_name) /* symbol name, as a cannonical string */
 	     /* bug #50416 -O causes this not to work for:
 	     && ((symbolP->sy_desc) & (~REFERENCE_TYPE)) == 0
 	     */
-	     && (temp & (~(REFERENCE_TYPE|N_WEAK_REF|N_WEAK_DEF))) == 0
+	     && (temp & (~(REFERENCE_TYPE | N_WEAK_REF | N_WEAK_DEF |
+			   N_NO_DEAD_STRIP | REFERENCED_DYNAMICALLY))) == 0
 	     && symbolP -> sy_value == 0)
 	    {
 	      symbolP -> sy_frag  = frag_now;
@@ -261,7 +262,8 @@ char *sym_name) /* symbol name, as a cannonical string */
 	    }
 	  else
 	    {
-	      as_fatal( "Symbol \"%s\" is already defined as \"%s\"/%d.%d.%ld.",
+	      as_fatal( "Symbol \"%s\" is already defined as \"%s\"/%d.%d."
+			TA_DFMT ".",
 		      sym_name,
 		      seg_name [(int) N_TYPE_seg [symbolP -> sy_type & N_TYPE]],
 		      symbolP -> sy_other, symbolP -> sy_desc,
@@ -300,11 +302,12 @@ void
 symbol_table_insert(
 struct symbol *symbolP)
 {
-  register char *	error_string;
+  const char *	error_string;
 
   know( symbolP );
   know( symbolP -> sy_name );
-  if ( * (error_string = hash_jam (sy_hash, symbolP -> sy_name, (char *)symbolP)))
+  error_string = hash_jam (sy_hash, symbolP -> sy_name, (char *)symbolP);
+  if (error_string != NULL && error_string[0] != '\0')
     {
       as_fatal( "Inserting \"%s\" into symbol table failed: %s",
 	      symbolP -> sy_name, error_string);

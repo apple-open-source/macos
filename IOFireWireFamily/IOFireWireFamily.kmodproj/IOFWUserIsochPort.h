@@ -115,6 +115,7 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 											UInt32			numDCLs,
 											void *			data,
 											IOByteCount		dataSize ) ;
+		IOWorkLoop *				createRealtimeThread() ;
 } ;
 
 #endif //_IOKIT_IOFWUserIsochPortProxy_H

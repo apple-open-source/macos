@@ -1,11 +1,11 @@
 /* This is a proposed C API for support of SASL
  *
- *********************************IMPORTANT******************************
- * send email to chris.newman@innosoft.com and sasl-bugs@andrew.cmu.edu *
- * if you need to add new error codes, callback types, property values, *
- * etc.   It is important to keep the multiple implementations of this  *
- * API from diverging.                                                  *
- *********************************IMPORTANT******************************
+ *********************************IMPORTANT*******************************
+ * send email to chris.newman@innosoft.com and cyrus-bugs@andrew.cmu.edu *
+ * if you need to add new error codes, callback types, property values,  *
+ * etc.   It is important to keep the multiple implementations of this   *
+ * API from diverging.                                                   *
+ *********************************IMPORTANT*******************************
  *
  * Basic Type Summary:
  *  sasl_conn_t       Context for a SASL connection negotiation
@@ -63,6 +63,7 @@
  *  sasl_setpass      Change a password or add a user entry
  *  sasl_auxprop_request  Request auxiliary properties
  *  sasl_auxprop_getctx   Get auxiliary property context for connection
+ *  sasl_auxprop_store    Store a set of auxiliary properties
  *
  * Basic client model:
  *  1. client calls sasl_client_init() at startup to load plug-ins
@@ -121,10 +122,9 @@
 
 #define SASL_VERSION_MAJOR 2
 #define SASL_VERSION_MINOR 1
-#define SASL_VERSION_STEP 3
+#define SASL_VERSION_STEP 18
 
 #include "prop.h"
-#define LIBSASL_API
 
 /*************
  * Basic API *
@@ -199,6 +199,9 @@ typedef struct sasl_secret {
  */
 typedef struct sasl_rand_s sasl_rand_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /****************************
  * Configure Basic Services *
@@ -257,6 +260,7 @@ typedef unsigned sasl_ssf_t;
 /* usage flags provided to sasl_server_new and sasl_client_new:
  */
 #define SASL_SUCCESS_DATA    0x0004 /* server supports data on success */
+#define SASL_NEED_PROXY      0x0008 /* require a mech that allows proxying */
 
 /***************************
  * Security Property Types *
@@ -613,6 +617,31 @@ typedef int sasl_canon_user_t(sasl_conn_t *conn,
  * Common Client/server functions *
  **********************************/
 
+/* get sasl library version information
+ * implementation is a vendor-defined string
+ * version is a vender-defined representation of the version #
+ *
+ * this function is being deprecated in favor of sasl_version_info */
+LIBSASL_API void sasl_version(const char **implementation,
+			      int *version);
+
+/* Extended version of sasl_version().
+ *
+ * This function is to be used
+ *  for library version display and logging
+ *  for bug workarounds in old library versions
+ *
+ * The sasl_version_info is not to be used for API feature detection.
+ *
+ * All parameters are optional. If NULL is specified, the value is not returned.
+ */
+LIBSASL_API void sasl_version_info (const char **implementation,
+				const char **version_string,
+				int *version_major,
+				int *version_minor,
+				int *version_step,
+				int *version_patch);
+
 /* dispose of all SASL plugins.  Connection
  * states have to be disposed of before calling this.
  */
@@ -693,6 +722,7 @@ LIBSASL_API int sasl_getprop(sasl_conn_t *conn, int propnum,
 #define SASL_AUTHSOURCE   14	/* name of auth source last used, useful
 				 * for failed authentication tracking */
 #define SASL_MECHNAME     15    /* active mechanism name, if any */
+#define SASL_AUTHUSER     16    /* authentication/admin user */
 
 /* This returns a string which is either empty or has an error message
  * from sasl_seterror (e.g., from a plug-in or callback).  It differs
@@ -1046,6 +1076,7 @@ LIBSASL_API int sasl_setpass(sasl_conn_t *conn,
 			     unsigned flags);
 #define SASL_SET_CREATE  0x01   /* create a new entry for user */
 #define SASL_SET_DISABLE 0x02	/* disable user account */
+#define SASL_SET_NOPLAIN 0x04	/* do not store secret in plain text */
 
 /*********************************************************
  * Auxiliary Property Support -- added by cjn 1999-09-29 *
@@ -1054,7 +1085,8 @@ LIBSASL_API int sasl_setpass(sasl_conn_t *conn,
 #define SASL_AUX_END      NULL	/* last auxiliary property */
 
 /* traditional Posix items (should be implemented on Posix systems) */
-#define SASL_AUX_PASSWORD "*userPassword" /* User Password (of authid) */
+#define SASL_AUX_PASSWORD_PROP "userPassword" /* User Password */
+#define SASL_AUX_PASSWORD "*" SASL_AUX_PASSWORD_PROP /* User Password (of authid) */
 #define SASL_AUX_UIDNUM   "uidNumber"	/* UID number for the user */
 #define SASL_AUX_GIDNUM   "gidNumber"	/* GID for the user */
 #define SASL_AUX_FULLNAME "gecos"	/* full name of the user, unix-style */
@@ -1097,6 +1129,25 @@ LIBSASL_API int sasl_auxprop_request(sasl_conn_t *conn,
  */
 LIBSASL_API struct propctx *sasl_auxprop_getctx(sasl_conn_t *conn);
 
+/* Store the set of auxiliary properties for the given user.
+ * Use functions in prop.h to set the content.
+ *
+ *  conn         connection context
+ *  ctx          property context from prop_new()/prop_request()/prop_set()
+ *  user         NUL terminated user
+ *
+ * Call with NULL 'ctx' to see if the backend allows storing properties.
+ *
+ * errors
+ *  SASL_OK       -- success
+ *  SASL_NOMECH   -- can not store some/all properties
+ *  SASL_BADPARAM -- bad conn/ctx/user parameter
+ *  SASL_NOMEM    -- out of memory
+ *  SASL_FAIL     -- failed to store
+ */
+LIBSASL_API int sasl_auxprop_store(sasl_conn_t *conn,
+				   struct propctx *ctx, const char *user);
+
 /**********************
  * security layer API *
  **********************/
@@ -1128,6 +1179,9 @@ LIBSASL_API int sasl_encodev(sasl_conn_t *conn,
 /* decode a block of data received using security layer
  *  returning the input buffer if there is no security layer.
  *  output is only valid until next call to sasl_decode
+ *
+ *  if outputlen is 0 on return, than the value of output is undefined.
+ *  
  * returns:
  *  SASL_OK      -- success (returns input if no layer negotiated)
  *  SASL_NOTDONE -- security layer negotiation not finished
@@ -1136,5 +1190,9 @@ LIBSASL_API int sasl_encodev(sasl_conn_t *conn,
 LIBSASL_API int sasl_decode(sasl_conn_t *conn,
 			    const char *input, unsigned inputlen,
 			    const char **output, unsigned *outputlen);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SASL_H */

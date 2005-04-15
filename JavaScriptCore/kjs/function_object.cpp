@@ -41,6 +41,7 @@ FunctionPrototypeImp::FunctionPrototypeImp(ExecState *exec)
   : InternalFunctionImp(0)
 {
   Value protect(this);
+  putDirect(lengthPropertyName,   NumberImp::zero(),                                                       DontDelete|ReadOnly|DontEnum);
   putDirect(toStringPropertyName, new FunctionProtoFuncImp(exec, this, FunctionProtoFuncImp::ToString, 0), DontEnum);
   static const Identifier applyPropertyName("apply");
   putDirect(applyPropertyName,    new FunctionProtoFuncImp(exec, this, FunctionProtoFuncImp::Apply,    2), DontEnum);
@@ -104,7 +105,7 @@ Value FunctionProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &a
       result = String("function " + static_cast<FunctionImp*>(thisObj.imp())->name().ustring() + "()");
     }
     else {
-      result = String("(Internal function)");
+      result = String("(Internal Function)");
     }
     }
     break;
@@ -121,7 +122,7 @@ Value FunctionProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &a
 
     Object applyThis;
     if (thisArg.isA(NullType) || thisArg.isA(UndefinedType))
-      applyThis = exec->interpreter()->globalObject();
+      applyThis = exec->dynamicInterpreter()->globalObject();
     else
       applyThis = thisArg.toObject(exec);
 
@@ -157,7 +158,7 @@ Value FunctionProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &a
 
     Object callThis;
     if (thisArg.isA(NullType) || thisArg.isA(UndefinedType))
-      callThis = exec->interpreter()->globalObject();
+      callThis = exec->dynamicInterpreter()->globalObject();
     else
       callThis = thisArg.toObject(exec);
 
@@ -191,7 +192,7 @@ bool FunctionObjectImp::implementsConstruct() const
 }
 
 // ECMA 15.3.2 The Function Constructor
-Object FunctionObjectImp::construct(ExecState *exec, const List &args)
+Object FunctionObjectImp::construct(ExecState *exec, const List &args, const UString &sourceURL, int lineNumber)
 {
   UString p("");
   UString body;
@@ -211,10 +212,10 @@ Object FunctionObjectImp::construct(ExecState *exec, const List &args)
   int sid;
   int errLine;
   UString errMsg;
-  ProgramNode *progNode = Parser::parse(body.data(),body.size(),&sid,&errLine,&errMsg);
+  ProgramNode *progNode = Parser::parse(sourceURL, lineNumber, body.data(),body.size(),&sid,&errLine,&errMsg);
 
   // notify debugger that source has been parsed
-  Debugger *dbg = exec->interpreter()->imp()->debugger();
+  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
   if (dbg) {
     bool cont = dbg->sourceParsed(exec,sid,body,errLine);
     if (!cont) {
@@ -233,7 +234,7 @@ Object FunctionObjectImp::construct(ExecState *exec, const List &args)
   }
 
   ScopeChain scopeChain;
-  scopeChain.push(exec->interpreter()->globalObject().imp());
+  scopeChain.push(exec->dynamicInterpreter()->globalObject().imp());
   FunctionBodyNode *bodyNode = progNode;
 
   FunctionImp *fimp = new DeclaredFunctionImp(exec, Identifier::null(), bodyNode,
@@ -278,12 +279,19 @@ Object FunctionObjectImp::construct(ExecState *exec, const List &args)
 
   List consArgs;
 
-  Object objCons = exec->interpreter()->builtinObject();
+  Object objCons = exec->lexicalInterpreter()->builtinObject();
   Object prototype = objCons.construct(exec,List::empty());
   prototype.put(exec, constructorPropertyName, Value(fimp), DontEnum|DontDelete|ReadOnly);
   fimp->put(exec, prototypePropertyName, prototype, DontEnum|DontDelete|ReadOnly);
   return ret;
 }
+
+// ECMA 15.3.2 The Function Constructor
+Object FunctionObjectImp::construct(ExecState *exec, const List &args)
+{
+  return FunctionObjectImp::construct(exec, args, UString(), 0);
+}
+
 
 bool FunctionObjectImp::implementsCall() const
 {

@@ -40,7 +40,7 @@ public:
   virtual ~KJSProxyImpl();
   virtual QVariant evaluate(QString filename, int baseLine, const QString&str, const DOM::Node &n);
   virtual void clear();
-  virtual DOM::EventListener *createHTMLEventHandler(QString sourceUrl, QString code);
+  virtual DOM::EventListener *createHTMLEventHandler(QString sourceUrl, QString code, DOM::NodeImpl *node);
   virtual void finishedWithEvent(const DOM::Event &event);
   virtual KJS::ScriptInterpreter *interpreter();
 
@@ -115,9 +115,8 @@ QVariant KJSProxyImpl::evaluate(QString filename, int baseLine,
   KJS::Value thisNode = n.isNull() ? Window::retrieve( m_part ) : getDOMNode(m_script->globalExec(),n);
 
   UString code( str );
-  Completion comp = m_script->evaluate(code, thisNode, filename);
-  bool success = ( comp.complType() == Normal ) || ( comp.complType() == ReturnValue );
-
+  Completion comp = m_script->evaluate(filename, baseLine, code, thisNode);
+  bool success = ( comp.complType() == Normal ) || ( comp.complType() == ReturnValue );  
 #ifdef KJS_DEBUGGER
     //    KJSDebugWin::instance()->setCode(QString::null);
 #endif
@@ -130,9 +129,16 @@ QVariant KJSProxyImpl::evaluate(QString filename, int baseLine,
     if ( comp.complType() == Throw )
     {
         KJS::Interpreter::lock();
-        UString msg = comp.value().toString(m_script->globalExec());
+        UString errorMessage = comp.value().toString(m_script->globalExec());
+        int lineNumber =  comp.value().toObject(m_script->globalExec()).get(m_script->globalExec(), "line").toInt32(m_script->globalExec());
+        UString sourceURL = comp.value().toObject(m_script->globalExec()).get(m_script->globalExec(), "sourceURL").toString(m_script->globalExec());
         KJS::Interpreter::unlock();
-        kdWarning(6070) << "Script threw exception: " << msg.qstring() << endl;
+
+#if APPLE_CHANGES
+        KWQ(m_part)->addMessageToConsole(errorMessage.qstring(), lineNumber, sourceURL.qstring());
+#else
+        kdWarning(6070) << "Script threw exception: " << errorMessage.qstring() << endl;
+#endif
     }
     return QVariant();
   }
@@ -156,7 +162,7 @@ void KJSProxyImpl::clear() {
   }
 }
 
-DOM::EventListener *KJSProxyImpl::createHTMLEventHandler(QString sourceUrl, QString code)
+DOM::EventListener *KJSProxyImpl::createHTMLEventHandler(QString sourceUrl, QString code, DOM::NodeImpl *node)
 {
 #ifdef KJS_DEBUGGER
   if (KJSDebugWin::instance())
@@ -166,8 +172,7 @@ DOM::EventListener *KJSProxyImpl::createHTMLEventHandler(QString sourceUrl, QStr
 #endif
 
   initScript();
-
-  return KJS::Window::retrieveWindow(m_part)->getJSLazyEventListener(code,true);
+  return KJS::Window::retrieveWindow(m_part)->getJSLazyEventListener(code,node,m_handlerLineno);
 }
 
 void KJSProxyImpl::finishedWithEvent(const DOM::Event &event)

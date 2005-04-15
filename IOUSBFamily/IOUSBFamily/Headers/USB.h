@@ -122,7 +122,9 @@ enum {
 @discussion Maximum size in bytes allowed for one Isochronous frame
 */
 enum {
-    kUSBMaxIsocFrameReqCount = 1023 // max size (bytes) of any one Isoc frame
+    kUSBMaxFSIsocEndpointReqCount = 1023,	// max size (bytes) of any one Isoc frame for 1 FS endpoint
+	kUSBMaxHSIsocEndpointReqCount = 3072,	// max size (bytes) of any one Isoc frame for 1 HS endpoint
+	kUSBMaxHSIsocFrameCount = 7168			// max size (bytes) of all Isoc transfers in a HS frame
 };
 
 /*!

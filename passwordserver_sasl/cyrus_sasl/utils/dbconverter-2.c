@@ -1,10 +1,10 @@
 /* dbconverter-2.c -- convert libsasl v1 sasldb's to SASLv2 format
- * $Id: dbconverter-2.c,v 1.2 2002/05/23 18:57:35 snsimon Exp $
+ * $Id: dbconverter-2.c,v 1.3 2004/07/07 22:51:51 snsimon Exp $
  * Rob Siemborski
  * based on SASLv1 sasldblistusers
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -214,12 +214,16 @@ static int berkeleydb_open(const char *path,DB **mbdb)
     ret = db_create(mbdb, NULL, 0);
     if (ret == 0 && *mbdb != NULL)
     {
-	    ret = (*mbdb)->open(*mbdb, path, NULL, DB_HASH, DB_CREATE, 0664);
-	    if (ret != 0)
-	    {
-		    (void) (*mbdb)->close(*mbdb, 0);
-		    *mbdb = NULL;
-	    }
+#if DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 1
+	ret = (*mbdb)->open(*mbdb, NULL, path, NULL, DB_HASH, DB_CREATE, 0664);
+#else
+	ret = (*mbdb)->open(*mbdb, path, NULL, DB_HASH, DB_CREATE, 0664);
+#endif
+	if (ret != 0)
+	{
+	    (void) (*mbdb)->close(*mbdb, 0);
+	    *mbdb = NULL;
+	}
     }
 #endif /* DB_VERSION_MAJOR < 3 */
 
@@ -243,7 +247,7 @@ static void berkeleydb_close(DB *mbdb)
     ret = mbdb->close(mbdb, 0);
     if (ret!=0) {
 	fprintf(stderr,"error closing sasldb: %s",
-		strerror(ret));
+		db_strerror(ret));
     }
 }
 
@@ -270,7 +274,7 @@ int listusers(const char *path, listcb_t *cb)
 #endif /* DB_VERSION_MAJOR < 3 */
 
     if (result!=0) {
-	fprintf(stderr,"Making cursor failure: %s\n",strerror(result));
+	fprintf(stderr,"Making cursor failure: %s\n",db_strerror(result));
       result = SASL_FAIL;
       goto cleanup;
     }
@@ -327,7 +331,7 @@ int listusers(const char *path, listcb_t *cb)
     }
 
     if (result != DB_NOTFOUND) {
-	fprintf(stderr,"failure: %s\n",strerror(result));
+	fprintf(stderr,"failure: %s\n",db_strerror(result));
 	result = SASL_FAIL;
 	goto cleanup;
     }

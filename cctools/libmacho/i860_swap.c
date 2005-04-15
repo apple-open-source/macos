@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #import <mach-o/i860/swap.h>
 
 void
@@ -57,3 +58,4 @@ enum NXByteOrder target_byte_sex)
 	cpu->Mergelo32 = NXSwapLong(cpu->Mergelo32);
 	cpu->Mergehi32 = NXSwapLong(cpu->Mergehi32);
 }
+#endif /* !defined(RLD) */

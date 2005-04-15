@@ -1,0 +1,116 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>SYNCNEWS</title>
+</head>
+<body>
+
+<h1 align=center>SYNCNEWS</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#BUGS">BUGS</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:19 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>syncnews &minus; synchronize IMAP news mailboxes with
+active file</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>syncnews</b> [ <b>&minus;C</b> <i>config-file</i> ]
+<i>active-file</i></p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Syncnews</i> compares the list of IMAP news mailboxes
+with the news active file. News mailboxes which are not
+listed in the active file are removed. Newsgroups listed in
+the active file but not in the IMAP mailboxes file have IMAP
+mailboxes created.</p>
+<!-- INDENTATION -->
+<p>A newsgroup must have a status of
+&lsquo;&lsquo;y&rsquo;&rsquo;,
+&lsquo;&lsquo;m&rsquo;&rsquo;, or
+&lsquo;&lsquo;n&rsquo;&rsquo; to be considered listed in the
+active file.</p>
+<!-- INDENTATION -->
+<p><i>Syncnews</i> reads its configuration options out of
+the <i>imapd.conf</i>(5) file unless specified otherwise by
+<b>-C</b>.</p>
+</td>
+</table></p>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>config-file</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Read configuration options from <i>config-file</i>.</p>
+</td>
+</table>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf</b></p></td>
+</table></p>
+<a name="BUGS"></a>
+<h2>BUGS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>If a newsgroup is listed in the active file, but does not
+have the news spool directories created, <i>syncnews</i>
+will create those news spool directories in the process of
+creating the IMAP mailbox. The created directories are
+likely to then have ownership and permissions that do not
+permit the news server to write article files.</p>
+</td>
+</table></p>
+<hr>
+</body>
+</html>

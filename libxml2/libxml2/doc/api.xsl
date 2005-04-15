@@ -7,7 +7,7 @@
   extension-element-prefixes="exsl"
   exclude-result-prefixes="exsl">
 
-  <!-- Import the resto of the site stylesheets -->
+  <!-- Import the rest of the site stylesheets -->
   <xsl:import href="site.xsl"/>
 
   <!-- Generate XHTML-1.0 transitional -->
@@ -85,7 +85,7 @@
 	  <xsl:value-of select="$title"/>
 	</xsl:element>
         </head>
-        <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+        <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
           <xsl:call-template name="titlebox">
 	    <xsl:with-param name="title" select="$title"/>
 	  </xsl:call-template>
@@ -141,7 +141,7 @@
 	  <xsl:value-of select="$title"/>
 	</xsl:element>
         </head>
-        <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+        <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
           <xsl:call-template name="titlebox">
 	    <xsl:with-param name="title" select="$title"/>
 	  </xsl:call-template>
@@ -197,7 +197,7 @@
 	  <xsl:value-of select="$title"/>
 	</xsl:element>
         </head>
-        <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+        <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
           <xsl:call-template name="titlebox">
 	    <xsl:with-param name="title" select="$title"/>
 	  </xsl:call-template>
@@ -253,7 +253,7 @@
 	  <xsl:value-of select="$title"/>
 	</xsl:element>
         </head>
-        <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+        <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
           <xsl:call-template name="titlebox">
 	    <xsl:with-param name="title" select="$title"/>
 	  </xsl:call-template>
@@ -326,7 +326,7 @@
 	  <xsl:value-of select="$title"/>
 	</xsl:element>
         </head>
-        <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+        <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
           <xsl:call-template name="titlebox">
 	    <xsl:with-param name="title" select="$title"/>
 	  </xsl:call-template>

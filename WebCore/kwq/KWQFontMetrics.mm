@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 #import "KWQFont.h"
 #import "KWQLogging.h"
+#import "KWQFoundationExtras.h"
 
 #import "WebCoreTextRenderer.h"
 #import "WebCoreTextRendererFactory.h"
@@ -45,14 +46,14 @@ struct QFontMetricsPrivate
     }
     ~QFontMetricsPrivate()
     {
-        [_renderer release];
+        KWQRelease(_renderer);
     }
     id <WebCoreTextRenderer> getRenderer()
     {
         if (!_renderer) {
-            _renderer = [[[WebCoreTextRendererFactory sharedFactory]
+            _renderer = KWQRetain([[WebCoreTextRendererFactory sharedFactory]
                 rendererWithFont:_font.getNSFont()
-                usingPrinterFont:_font.isPrinterFont()] retain];
+                usingPrinterFont:_font.isPrinterFont()]);
         }
         return _renderer;
     }
@@ -64,7 +65,7 @@ struct QFontMetricsPrivate
             return;
         }
         _font = font;
-        [_renderer release];
+        KWQRelease(_renderer);
         _renderer = nil;
     }
     
@@ -290,7 +291,7 @@ float QFontMetrics::floatCharacterWidths(const QChar *uchars, int slen, int pos,
     return [data->getRenderer() floatWidthForRun:&run style:&style widths:buffer];
 }
 
-int QFontMetrics::checkSelectionPoint (QChar *s, int slen, int pos, int len, int toAdd, int letterSpacing, int wordSpacing, bool smallCaps, int x, bool reversed) const
+int QFontMetrics::checkSelectionPoint (QChar *s, int slen, int pos, int len, int toAdd, int letterSpacing, int wordSpacing, bool smallCaps, int x, bool reversed, bool includePartialGlyphs) const
 {
     if (data.isNull()) {
         ERROR("called floatWidth on an empty QFontMetrics");
@@ -298,7 +299,6 @@ int QFontMetrics::checkSelectionPoint (QChar *s, int slen, int pos, int len, int
     }
     
     CREATE_FAMILY_ARRAY(data->font(), families);
-
     WebCoreTextRun run;
     WebCoreInitializeTextRun(&run, (const UniChar *)s, slen, pos, pos+len);
     
@@ -309,8 +309,9 @@ int QFontMetrics::checkSelectionPoint (QChar *s, int slen, int pos, int len, int
     style.smallCaps = smallCaps;
     style.families = families;
     style.padding = toAdd;
+    style.rtl = reversed;
 
-    return [data->getRenderer() pointToOffset:&run style:&style position:x reversed:reversed];
+    return [data->getRenderer() pointToOffset:&run style:&style position:x reversed:reversed includePartialGlyphs:includePartialGlyphs];
 }
 
 QRect QFontMetrics::boundingRect(const QString &qstring, int len) const
@@ -327,16 +328,4 @@ QRect QFontMetrics::boundingRect(int x, int y, int width, int height, int flags,
 QSize QFontMetrics::size(int, const QString &qstring) const
 {
     return QSize(width(qstring), height());
-}
-
-int QFontMetrics::rightBearing(QChar) const
-{
-    ERROR("not yet implemented");
-    return 0;
-}
-
-int QFontMetrics::leftBearing(QChar) const
-{
-    ERROR("not yet implemented");
-    return 0;
 }

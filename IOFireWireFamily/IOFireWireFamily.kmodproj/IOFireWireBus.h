@@ -154,6 +154,16 @@ public:
 															// Can be NULL to use FireWire isochronous workloop...
 															// The workloop will be retained by the program object.
 			} v1 ;
+			
+			struct
+			{
+				IOMemoryMap * bufferMemoryMap ;				// same as 'bufferMemoryMap' from version 0, above.
+				
+				IOWorkLoop * workloop ;						// A workloop on which to run callbacks for this port..
+															// Can be NULL to use FireWire isochronous workloop...
+															// The workloop will be retained by the program object.
+				IOFWIsochPortOptions options ;				// extra options
+			} v2 ;
 		} u ;
 	} ;
 	

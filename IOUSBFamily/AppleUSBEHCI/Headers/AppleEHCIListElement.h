@@ -66,14 +66,14 @@ private:
 
 public:
 
-    virtual void 			SetPhysicalLink(IOPhysicalAddress next) = 0;
+    virtual void					SetPhysicalLink(IOPhysicalAddress next) = 0;
     virtual IOPhysicalAddress		GetPhysicalLink(void) = 0;
     virtual IOPhysicalAddress		GetPhysicalAddrWithType(void) = 0;
-    virtual void			print(int level);
+    virtual void					print(int level);
 
     IOPhysicalAddress			_sharedPhysical;			// phys address of the memory shared with the controller			
-    void *				_sharedLogical;				// logical address of the above
-    AppleEHCIListElement		*_logicalNext;				// the next element in the list
+    void *						_sharedLogical;				// logical address of the above
+    AppleEHCIListElement	*	_logicalNext;				// the next element in the list
     
 };
 
@@ -87,26 +87,26 @@ private:
 public:
 
     // constructor method
-    static AppleEHCIQueueHead 			*WithSharedMemory(EHCIQueueHeadSharedPtr sharedLogical, IOPhysicalAddress sharedPhysical);
+    static AppleEHCIQueueHead				*WithSharedMemory(EHCIQueueHeadSharedPtr sharedLogical, IOPhysicalAddress sharedPhysical);
 
     // virtual methods
-    virtual void 				SetPhysicalLink(IOPhysicalAddress next);
-    virtual IOPhysicalAddress			GetPhysicalLink(void);
-    virtual IOPhysicalAddress			GetPhysicalAddrWithType(void);
-    virtual void				print(int level);
+    virtual void							SetPhysicalLink(IOPhysicalAddress next);
+    virtual IOPhysicalAddress				GetPhysicalLink(void);
+    virtual IOPhysicalAddress				GetPhysicalAddrWithType(void);
+    virtual void							print(int level);
     
     // not a virtual method, because the return type assumes knowledge of the element type
-    EHCIQueueHeadSharedPtr			GetSharedLogical(void);
+    EHCIQueueHeadSharedPtr					GetSharedLogical(void);
     
-    EHCIGeneralTransferDescriptorPtr		qTD;
-    EHCIGeneralTransferDescriptorPtr		TailTD;
-    UInt16                                      maxPacketSize;
-    UInt8					direction;
-    UInt8					pollM1;	
-    UInt8					offset;	
-    UInt8					responseToStall;
-    UInt8					pad2;	
-
+    EHCIGeneralTransferDescriptorPtr		_qTD;
+    EHCIGeneralTransferDescriptorPtr		_TailTD;
+    UInt16                                  _maxPacketSize;
+    UInt8									_direction;
+    UInt8									_pollM1;	
+    UInt8									_offset;	
+    UInt8									_responseToStall;
+    UInt8									_pad2;
+	UInt8									_bandwidthUsed[8];
 };
 
 
@@ -120,20 +120,22 @@ private:
     
 public:
 
-    virtual void			print(int level);
+    virtual void					print(int level);
 
-    AppleEHCIIsochEndpointPtr		myEndpoint;
-    IOUSBIsocFrame 			*myFrames;
-    IOUSBIsocCompletion 		completion;
-    Boolean 				lowLatency;
-    UInt64				frameNumber;			// frame number for scheduling purposes
-    UInt32				frameIndex;			// index into the myFrames array
-    AppleEHCIIsochListElement *		doneQueueLink;			// linkage used by done queue processing
+    AppleEHCIIsochEndpointPtr		_pEndpoint;
+    IOUSBIsocFrame				*	_pFrames;
+    IOUSBIsocCompletion				_completion;
+    Boolean							_lowLatency;
+    UInt64							_frameNumber;			// frame number for scheduling purposes
+    UInt32							_frameIndex;			// index into the myFrames array
+    AppleEHCIIsochListElement *		_doneQueueLink;			// linkage used by done queue processing
 
     // pure virtual methods which must be implemented by descendants
     virtual IOReturn				UpdateFrameList(AbsoluteTime timeStamp) = 0;
     virtual IOReturn				Deallocate(AppleUSBEHCI *uim) = 0;
 };
+
+
 
 class AppleEHCIIsochTransferDescriptor : public AppleEHCIIsochListElement
 {
@@ -144,12 +146,12 @@ public:
     static AppleEHCIIsochTransferDescriptor 	*WithSharedMemory(EHCIIsochTransferDescriptorSharedPtr sharedLogical, IOPhysicalAddress sharedPhysical);
 
     // virtual methods
-    virtual void 				SetPhysicalLink(IOPhysicalAddress next);
-    virtual IOPhysicalAddress			GetPhysicalLink(void);
-    virtual IOPhysicalAddress			GetPhysicalAddrWithType(void);
+    virtual void					SetPhysicalLink(IOPhysicalAddress next);
+    virtual IOPhysicalAddress		GetPhysicalLink(void);
+    virtual IOPhysicalAddress		GetPhysicalAddrWithType(void);
     virtual IOReturn				UpdateFrameList(AbsoluteTime timeStamp);
     virtual IOReturn				Deallocate(AppleUSBEHCI *uim);
-    virtual void				print(int level);
+    virtual void					print(int level);
     
     // not a virtual method, because the return type assumes knowledge of the element type
     EHCIIsochTransferDescriptorSharedPtr	GetSharedLogical(void);
@@ -159,27 +161,28 @@ private:
     
 };
 
-
 class AppleEHCISplitIsochTransferDescriptor : public AppleEHCIIsochListElement
 {
     OSDeclareDefaultStructors(AppleEHCISplitIsochTransferDescriptor)
 
 public:
-
+	
     // constructor method
     static AppleEHCISplitIsochTransferDescriptor 	*WithSharedMemory(EHCISplitIsochTransferDescriptorSharedPtr sharedLogical, IOPhysicalAddress sharedPhysical);
 
     // virtual methods
-    virtual void 					SetPhysicalLink(IOPhysicalAddress next);
-    virtual IOPhysicalAddress				GetPhysicalLink(void);
-    virtual IOPhysicalAddress				GetPhysicalAddrWithType(void);
+    virtual void						SetPhysicalLink(IOPhysicalAddress next);
+    virtual IOPhysicalAddress			GetPhysicalLink(void);
+    virtual IOPhysicalAddress			GetPhysicalAddrWithType(void);
     virtual IOReturn					UpdateFrameList(AbsoluteTime timeStamp);
     virtual IOReturn					Deallocate(AppleUSBEHCI *uim);
-    virtual void					print(int level);
+    virtual void						print(int level);
 
     // not a virtual method, because the return type assumes knowledge of the element type
     EHCISplitIsochTransferDescriptorSharedPtr		GetSharedLogical(void);
     
+	// split Isoch specific varibles
+	bool								_isDummySITD;
 };
 
 #endif

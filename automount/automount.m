@@ -95,7 +95,9 @@ NSLMap *GlobalTargetNSLMap;
 MountProgressRecord_List gMountsInProgress = LIST_HEAD_INITIALIZER(gMountsInProgress);
 
 BOOL gForkedMountInProgress = NO;
+pid_t gForkedMountPID; 
 BOOL gForkedMount = NO;
+BOOL gSubMounter = NO;
 BOOL gBlockedMountDependency = NO;
 unsigned long gBlockingMountTransactionID;
 int gMountResult;
@@ -452,7 +454,7 @@ do_select(struct timeval *tv)
 		svc_getreqset(&x);
 	};
 
-	if (gForkedMount) exit((gMountResult < 128) ? gMountResult : ECANCELED);
+	if (gForkedMount || gSubMounter) exit((gMountResult < 128) ? gMountResult : ECANCELED);
 	
 	return n;
 }
@@ -659,12 +661,14 @@ child_exit(void)
 static void
 child_exit_sighandler(int x)
 {
-	if (gWakeupFDs[1] != -1) {
-		char request_code[1] = { REQ_MOUNTCOMPLETE };
-		
-		(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
-	} else {
-		sys_msg(debug, LOG_ERR, "child_exit_sighandler: gWakeupFDs[1] uninitialized.");
+	if (!gSubMounter) {
+		if (gWakeupFDs[1] != -1) {
+			char request_code[1] = { REQ_MOUNTCOMPLETE };
+			
+			(void)write(gWakeupFDs[1], request_code, sizeof(request_code));
+		} else {
+			sys_msg(debug, LOG_ERR, "child_exit_sighandler: gWakeupFDs[1] uninitialized.");
+		};
 	};
 }
 

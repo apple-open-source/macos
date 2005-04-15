@@ -1075,6 +1075,7 @@ exportable(struct statfs *fsp)
 	 */
 	return (!strcmp(fsp->f_fstypename, "ufs") ||
 		!strcmp(fsp->f_fstypename, "hfs") ||
+		!strcmp(fsp->f_fstypename, "acfs") ||
 		!strcmp(fsp->f_fstypename, "cd9660"));
 }
 

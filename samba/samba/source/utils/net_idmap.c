@@ -18,7 +18,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "includes.h"
-#include "../utils/net.h"
+#include "utils/net.h"
 
 
 /***********************************************************
@@ -126,7 +126,7 @@ static NTSTATUS net_idmap_fixup_hwm(void)
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
-	tdbfile = strdup(lock_path("winbindd_idmap.tdb"));
+	tdbfile = SMB_STRDUP(lock_path("winbindd_idmap.tdb"));
 	if (!tdbfile) {
 		DEBUG(0, ("idmap_init: out of memory!\n"));
 		return NT_STATUS_NO_MEMORY;

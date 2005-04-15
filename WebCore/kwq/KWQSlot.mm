@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@ using khtml::RenderFileButton;
 using khtml::RenderFormElement;
 using khtml::RenderLineEdit;
 using khtml::RenderSelect;
+using khtml::RenderSlider;
 using khtml::RenderTextArea;
 using khtml::RenderWidget;
 using khtml::RenderScrollMediator;
@@ -52,7 +53,6 @@ using KJS::XMLHttpRequestQObject;
 
 enum FunctionNumber {
     signalFinishedParsing,
-    slotAutoScroll,
     slotChildCompleted,
     slotChildCompletedWithBool,
     slotChildStarted,
@@ -63,10 +63,12 @@ enum FunctionNumber {
     slotLoaderRequestStarted,
     slotParentCompleted,
     slotParentDestroyed,
+    slotPerformSearch,
     slotRedirect,
     slotReturnPressed,
     slotSelected,
     slotSelectionChanged,
+    slotSliderValueChanged,
     slotStateChanged,
     slotSubmitFormAgain,
     slotTextChanged,
@@ -81,7 +83,7 @@ enum FunctionNumber {
     slotFinished_KHTMLPart,
     slotFinished_Loader,
     slotFinished_XMLHttpRequest,
-    slotReceivedResponse
+    slotReceivedResponse,
 };
 
 KWQSlot::KWQSlot(QObject *object, const char *member)
@@ -92,7 +94,6 @@ KWQSlot::KWQSlot(QObject *object, const char *member)
             m_function = function; \
         } else
     
-    CASE(slotAutoScroll, (), KHTMLPart)
     CASE(slotClicked, (), RenderFormElement)
     CASE(slotChildCompleted, (), KHTMLPart)
     CASE(slotChildStarted, (KIO::Job *), KHTMLPart)
@@ -101,10 +102,12 @@ KWQSlot::KWQSlot(QObject *object, const char *member)
     CASE(slotLoaderRequestDone, (khtml::DocLoader *, khtml::CachedObject *), KHTMLPart)
     CASE(slotLoaderRequestStarted, (khtml::DocLoader *, khtml::CachedObject *), KHTMLPart)
     CASE(slotParentCompleted, (), KHTMLPart)
+    CASE(slotPerformSearch, (), RenderLineEdit)
     CASE(slotRedirect, (), KHTMLPart)
     CASE(slotReturnPressed, (), RenderLineEdit)
     CASE(slotSelected, (int), RenderSelect)
     CASE(slotSelectionChanged, (), RenderSelect)
+    CASE(slotSliderValueChanged, (), RenderSlider)
     CASE(slotStateChanged, (int), RenderCheckBox)
     CASE(slotTextChanged, (), RenderTextArea)
     CASE(slotValueChanged, (int), RenderScrollMediator)
@@ -145,16 +148,17 @@ KWQSlot::KWQSlot(QObject *object, const char *member)
 	} else {
 	    m_function = slotRedirection_XMLHttpRequest;
 	}
+    } else if (KWQNamesMatch(member, SLOT(slotFinished(KIO::Job *, NSData *)))) {
+	ASSERT(dynamic_cast<khtml::Loader *>(object));
+	m_function = slotFinished_Loader;        
     } else if (KWQNamesMatch(member, SLOT(slotFinished(KIO::Job *)))) {
-	ASSERT(dynamic_cast<khtml::Loader *>(object) || dynamic_cast<KHTMLPart *>(object) || dynamic_cast<XMLHttpRequestQObject *>(object));
-	if (dynamic_cast<khtml::Loader *>(object)) {
-	    m_function = slotFinished_Loader;
-	} else if (dynamic_cast<KHTMLPart *>(object)) {
+	ASSERT(dynamic_cast<KHTMLPart *>(object) || dynamic_cast<XMLHttpRequestQObject *>(object));
+	if (dynamic_cast<KHTMLPart *>(object)) {
 	    m_function = slotFinished_KHTMLPart;
 	} else {
 	    m_function = slotFinished_XMLHttpRequest;
 	}
-    } else if (KWQNamesMatch(member, SLOT(slotReceivedResponse(KIO::Job *, void *)))) {
+    } else if (KWQNamesMatch(member, SLOT(slotReceivedResponse(KIO::Job *, NSURLResponse *)))) {
 	ASSERT(dynamic_cast<khtml::Loader *>(object));
 	m_function = slotReceivedResponse;
     } else {
@@ -178,16 +182,17 @@ void KWQSlot::call() const
     
     switch (m_function) {
         CASE(signalFinishedParsing, DocumentImpl, m_finishedParsing.call)
-        CASE(slotAutoScroll, KHTMLPart, slotAutoScroll)
         CASE(slotChildCompleted, KHTMLPart, slotChildCompleted)
         CASE(slotClicked, RenderFormElement, slotClicked)
         CASE(slotEndLifeSupport, KHTMLPart, slotEndLifeSupport)
         CASE(slotFinishedParsing, KHTMLPart, slotFinishedParsing)
         CASE(slotParentCompleted, KHTMLPart, slotParentCompleted)
         CASE(slotParentDestroyed, WindowQObject, parentDestroyed)
+        CASE(slotPerformSearch, RenderLineEdit, slotPerformSearch)
         CASE(slotRedirect, KHTMLPart, slotRedirect)
         CASE(slotReturnPressed, RenderLineEdit, slotReturnPressed)
         CASE(slotSelectionChanged, RenderSelect, slotSelectionChanged)
+        CASE(slotSliderValueChanged, RenderSlider, slotSliderValueChanged)
         CASE(slotSubmitFormAgain, KHTMLPart, submitFormAgain)
         CASE(slotTextChanged, RenderTextArea, slotTextChanged)
         CASE(slotWidgetDestructed, RenderWidget, slotWidgetDestructed)
@@ -268,9 +273,6 @@ void KWQSlot::call(Job *job) const
         case slotFinished_KHTMLPart:
             static_cast<KHTMLPart *>(m_object.pointer())->slotFinished(job);
             return;
-        case slotFinished_Loader:
-            static_cast<Loader *>(m_object.pointer())->slotFinished(job);
-            return;
         case slotFinished_XMLHttpRequest:
             static_cast<XMLHttpRequestQObject *>(m_object.pointer())->slotFinished(job);
             return;
@@ -315,7 +317,22 @@ void KWQSlot::call(Job *job, const KURL &url) const
     call();
 }
 
-void KWQSlot::call(KIO::Job *job, void *response) const
+void KWQSlot::call(KIO::Job *job, NSData *allData) const
+{
+    if (m_object.isNull()) {
+        return;
+    }
+    
+    switch (m_function) {
+        case slotFinished_Loader:
+            static_cast<Loader *>(m_object.pointer())->slotFinished(job, allData);
+            return;
+    }
+    
+    call(job);
+}
+
+void KWQSlot::call(KIO::Job *job, NSURLResponse *response) const
 {
     if (m_object.isNull()) {
         return;
@@ -326,7 +343,7 @@ void KWQSlot::call(KIO::Job *job, void *response) const
 	    static_cast<Loader *>(m_object.pointer())->slotReceivedResponse(job, response);
 	    return;
     }
-
+    
     call();
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "8byte_literals.h"
@@ -51,8 +52,10 @@
 
 /*
  * literal8_merge() merges 8 byte literals from the specified section in the
- * current object file (cur_obj).  It allocates a fine relocation map and
- * sets the fine_relocs field in the section_map to it (as well as the count).
+ * current object file (cur_obj). When redo_live is FALSE it allocates a fine
+ * relocation map and sets the fine_relocs field in the section_map to it (as
+ * well as the count).  When redo_live is TRUE it re-merges only the live
+ * cstrings based on the live bit in the previouly allocated fine_relocs.
  */
 __private_extern__
 void
@@ -60,15 +63,18 @@ literal8_merge(
 struct literal8_data *data,
 struct merged_section *ms,
 struct section *s,
-struct section_map *section_map)
+struct section_map *section_map,
+enum bool redo_live)
 {
     unsigned long nliteral8s, i;
     struct literal8 *literal8s;
     struct fine_reloc *fine_relocs;
 
 	if(s->size == 0){
-	    section_map->fine_relocs = NULL;
-	    section_map->nfine_relocs = 0;
+	    if(redo_live == FALSE){
+		section_map->fine_relocs = NULL;
+		section_map->nfine_relocs = 0;
+	    }
 	    return;
 	}
 	/*
@@ -83,25 +89,54 @@ struct section_map *section_map)
 	}
 	nliteral8s = s->size / 8;
 #ifdef DEBUG
-	data->nfiles++;
-	data->nliterals += nliteral8s;
+	if(redo_live == FALSE){
+	    data->nfiles++;
+	    data->nliterals += nliteral8s;
+	}
 #endif /* DEBUG */
 
-	fine_relocs = allocate(nliteral8s * sizeof(struct fine_reloc));
-	memset(fine_relocs, '\0', nliteral8s * sizeof(struct fine_reloc));
-
 	/*
-	 * lookup and enter each C string in the section and record the offsets
-	 * in the input file and in the output file.
+	 * We will be called the first time with redo_live == FALSE and will
+	 * just merge the cstrings from the input file and create the
+	 * fine_relocs.
 	 */
-	literal8s = (struct literal8 *)(cur_obj->obj_addr + s->offset);
-	for(i = 0; i < nliteral8s; i++){
-	    fine_relocs[i].input_offset = i * 8;
-	    fine_relocs[i].output_offset =
-					lookup_literal8(literal8s[i], data, ms);
+	if(redo_live == FALSE){
+	    fine_relocs = allocate(nliteral8s * sizeof(struct fine_reloc));
+	    memset(fine_relocs, '\0', nliteral8s * sizeof(struct fine_reloc));
+
+	    /*
+	     * lookup and enter each 8 byte literal in the section and record
+	     * the offsets in the input file and in the output file.
+	     */
+	    literal8s = (struct literal8 *)(cur_obj->obj_addr + s->offset);
+	    for(i = 0; i < nliteral8s; i++){
+		fine_relocs[i].input_offset = i * 8;
+		fine_relocs[i].output_offset =
+		    lookup_literal8(literal8s[i], data, ms);
+	    }
+	    section_map->fine_relocs = fine_relocs;
+	    section_map->nfine_relocs = nliteral8s;
 	}
-	section_map->fine_relocs = fine_relocs;
-	section_map->nfine_relocs = nliteral8s;
+	else{
+	    /*
+	     * redo_live == TRUE and this is being called a second time after
+	     * all the literals were previouly merged when -dead_strip is
+	     * specified.  So now we walk the fine_relocs and only re-merge the
+	     * live literals.
+	     */
+	    fine_relocs = section_map->fine_relocs;
+	    nliteral8s = section_map->nfine_relocs;
+	    literal8s = (struct literal8 *)(cur_obj->obj_addr + s->offset);
+	    for(i = 0; i < nliteral8s; i++){
+		if(fine_relocs[i].live == TRUE){
+		    fine_relocs[i].output_offset =
+			lookup_literal8(literal8s[i], data, ms);
+		}
+		else{
+		    fine_relocs[i].output_offset = 0;
+		}
+	    }
+	}
 }
 
 /*
@@ -116,17 +151,55 @@ literal8_order(
 struct literal8_data *data,
 struct merged_section *ms)
 {
-    unsigned long i, line_number;
+#ifndef RLD
+    unsigned long i, line_number, output_offset, nliteral8_order_lines;
     struct literal8 literal8;
+    struct literal8_order_line *literal8_order_lines;
+
+	/*
+	 * If -dead_strip is specified allocate the needed structures so that
+	 * the order of the live literals can be recreated later by
+	 * literal8_reset_live().  Allocate a literal8_order_line for each
+	 * line as the maximum that will needed.
+	 */
+	literal8_order_lines = NULL;
+	if(dead_strip == TRUE){
+	    line_number = 1;
+	    i = 0;
+	    while(i < ms->order_size){
+		while(i < ms->order_size && ms->order_addr[i] != '\n')
+		    i++;
+		if(i < ms->order_size && ms->order_addr[i] == '\n')
+		    i++;
+		line_number++;
+	    }
+	    data->literal8_load_order_data =
+		allocate(sizeof(struct literal8_load_order_data));
+	    literal8_order_lines = allocate(sizeof(struct literal8_order_line) *
+					   (line_number - 1));
+	    data->literal8_load_order_data->literal8_order_lines =
+		literal8_order_lines;
+	}
 
 	line_number = 1;
 	i = 0;
+	nliteral8_order_lines = 0;
 	while(i < ms->order_size){
 	    if(get_hex_from_sectorder(ms, &i, &(literal8.long0),
 				      line_number) == TRUE){
 		if(get_hex_from_sectorder(ms, &i, &(literal8.long1),
-					  line_number) == TRUE)
-		    (void)lookup_literal8(literal8, data, ms);
+					  line_number) == TRUE){
+		    output_offset = lookup_literal8(literal8, data, ms);
+		    if(dead_strip == TRUE){
+			literal8_order_lines[nliteral8_order_lines].
+			    literal8 = literal8;
+			literal8_order_lines[nliteral8_order_lines].
+			    line_number = line_number;
+			literal8_order_lines[nliteral8_order_lines].
+			    output_offset = output_offset;
+			nliteral8_order_lines++;
+		    }
+		}
 		else
 		    error("format error in -sectorder file: %s line %lu for "
 			  "section (%.16s,%.16s) (missing second hex number)",
@@ -139,6 +212,73 @@ struct merged_section *ms)
 		i++;
 	    line_number++;
 	}
+
+	if(dead_strip == TRUE)
+	    data->literal8_load_order_data->nliteral8_order_lines =
+		nliteral8_order_lines;
+#endif /* !defined(RLD) */
+}
+
+/*
+ * literal8_reset_live() is called when -dead_strip is specified after all the
+ * literals from the input objects are merged.  It clears out the literal8_data
+ * so the live literals can be re-merged (by later calling literal8_merge() with
+ * redo_live == TRUE.  In here we first merge in the live literals from the
+ * order file if any. 
+ */
+__private_extern__
+void
+literal8_reset_live(
+struct literal8_data *data,
+struct merged_section *ms)
+{
+#ifndef RLD
+    unsigned long i, nliteral8_order_lines, line_number;
+    struct literal8_order_line *literal8_order_lines;
+    enum bool live;
+
+	/* reset the merge section size back to zero */
+	ms->s.size = 0;
+
+	/* clear out the previously merged data */
+	literal8_free(data);
+
+	/*
+	 * If this merged section has an order file we need to re-merged only
+	 * the live literal8s from that order file.
+	 */
+	if(ms->order_filename != NULL){
+	    literal8_order_lines =
+		data->literal8_load_order_data->literal8_order_lines;
+	    nliteral8_order_lines =
+		data->literal8_load_order_data->nliteral8_order_lines;
+	    for(i = 0; i < nliteral8_order_lines; i++){
+		/*
+		 * Figure out if this literal8 order line's output_index is live
+		 * and if so re-merge the literal8 literal.
+		 */
+		live = is_literal_output_offset_live(
+			ms, literal8_order_lines[i].output_offset);
+		line_number = literal8_order_lines[i].line_number;
+		if(live){
+		    (void)lookup_literal8(literal8_order_lines[i].literal8,
+					  data, ms);
+		}
+		else{
+		    if(sectorder_detail == TRUE)
+			warning("specification of 8-byte literal in -sectorder "
+				"file: %s on line %lu for section (%.16s,%.16s)"
+				" not used (dead stripped)", ms->order_filename,
+				line_number, ms->s.segname, ms->s.sectname);
+		}
+	    }
+
+	    /* deallocate the various data structures no longer needed */
+	    free(data->literal8_load_order_data->literal8_order_lines);
+	    free(data->literal8_load_order_data);
+	    data->literal8_load_order_data = NULL;
+	}
+#endif /* !defined(RLD) */
 }
 
 /*
@@ -378,7 +518,7 @@ struct merged_section *ms)
 	    return;
 	print("literal8 section (%.16s,%.16s) contains:\n",
 	      ms->s.segname, ms->s.sectname);
-	print("    %lu merged literals \n", ms->s.size / 8);
+	print("    %u merged literals \n", ms->s.size / 8);
 	print("    from %lu files and %lu total literals from those "
 	      "files\n", data->nfiles, data->nliterals);
 	print("    average number of literals per file %g\n",

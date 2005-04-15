@@ -27,6 +27,11 @@
 
 #ifdef WITH_OPENDIRECTORY
 #include <DirectoryService/DirectoryService.h>
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+ 
+#ifdef WITH_MEMBERD
+#include <membership.h>
 #endif
 
 #include "local.h"
@@ -49,10 +54,11 @@
 #undef HAVE_TERMIOS_H
 #endif
 
-#ifdef __GNUC__
+#if (__GNUC__ >= 3 ) && (__GNUC_MINOR__ >= 1 )
 /** Use gcc attribute to check printf fns.  a1 is the 1-based index of
  * the parameter containing the format, and a2 the index of the first
- * argument.  **/
+ * argument. Note that some gcc 2.x versions don't handle this
+ * properly **/
 #define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format (__printf__, a1, a2)))
 #else
 #define PRINTF_ATTRIBUTE(a1, a2)
@@ -313,6 +319,19 @@
 #endif
 
 #ifdef HAVE_SHADOW_H
+/*
+ * HP-UX 11.X has TCP_NODELAY and TCP_MAXSEG defined in <netinet/tcp.h> which
+ * was included above.  However <rpc/rpc.h> includes <sys/xti.h> which defines
+ * them again without checking if they already exsist.  This generates
+ * two "Redefinition of macro" warnings for every single .c file that is
+ * compiled.
+ */
+#if defined(HPUX) && defined(TCP_NODELAY)
+#undef TCP_NODELAY
+#endif
+#if defined(HPUX) && defined(TCP_MAXSEG)
+#undef TCP_MAXSEG
+#endif
 #include <shadow.h>
 #endif
 
@@ -365,6 +384,19 @@
 #if defined(HAVE_SYS_SECURITY_H) && defined(HAVE_RPC_AUTH_ERROR_CONFLICT)
 #undef AUTH_ERROR
 #endif
+/*
+ * HP-UX 11.X has TCP_NODELAY and TCP_MAXSEG defined in <netinet/tcp.h> which
+ * was included above.  However <rpc/rpc.h> includes <sys/xti.h> which defines
+ * them again without checking if they already exsist.  This generates
+ * two "Redefinition of macro" warnings for every single .c file that is
+ * compiled.
+ */
+#if defined(HPUX) && defined(TCP_NODELAY)
+#undef TCP_NODELAY
+#endif
+#if defined(HPUX) && defined(TCP_MAXSEG)
+#undef TCP_MAXSEG
+#endif
 #include <rpc/rpc.h>
 #endif
 
@@ -374,6 +406,19 @@
 
 #if defined (HAVE_NETGROUP)
 #if defined(HAVE_RPCSVC_YP_PROT_H)
+/*
+ * HP-UX 11.X has TCP_NODELAY and TCP_MAXSEG defined in <netinet/tcp.h> which
+ * was included above.  However <rpc/rpc.h> includes <sys/xti.h> which defines
+ * them again without checking if they already exsist.  This generates
+ * two "Redefinition of macro" warnings for every single .c file that is
+ * compiled.
+ */
+#if defined(HPUX) && defined(TCP_NODELAY)
+#undef TCP_NODELAY
+#endif
+#if defined(HPUX) && defined(TCP_MAXSEG)
+#undef TCP_MAXSEG
+#endif
 #include <rpcsvc/yp_prot.h>
 #endif
 #if defined(HAVE_RPCSVC_YPCLNT_H)
@@ -419,13 +464,9 @@
 
 #if HAVE_GSSAPI_H
 #include <gssapi.h>
-#endif
-
-#if HAVE_GSSAPI_GSSAPI_H
+#elif HAVE_GSSAPI_GSSAPI_H
 #include <gssapi/gssapi.h>
-#endif
-
-#if HAVE_GSSAPI_GSSAPI_GENERIC_H
+#elif HAVE_GSSAPI_GSSAPI_GENERIC_H
 #include <gssapi/gssapi_generic.h>
 #endif
 
@@ -757,14 +798,13 @@ extern int errno;
 #include "ubi_sLinkList.h"
 #include "ubi_dLinkList.h"
 #include "dlinklist.h"
-#include "../tdb/tdb.h"
-#include "../tdb/spinlock.h"
-#include "../tdb/tdbutil.h"
+#include "tdb/tdb.h"
+#include "tdb/spinlock.h"
+#include "tdb/tdbutil.h"
 #include "talloc.h"
 #include "nt_status.h"
 #include "ads.h"
 #include "interfaces.h"
-#include "hash.h"
 #include "trans2.h"
 #include "nterr.h"
 #include "ntioctl.h"
@@ -1243,6 +1283,7 @@ int asprintf(char **,const char *, ...) PRINTF_ATTRIBUTE(2,3);
 
 #if !defined(HAVE_SNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
 #define snprintf smb_snprintf
+#define vsnprintf smb_vsnprintf
 #endif
 
 void sys_adminlog(int priority, const char *format_str, ...) PRINTF_ATTRIBUTE(2,3);
@@ -1297,16 +1338,35 @@ krb5_error_code krb5_set_default_tgs_ktypes(krb5_context ctx, const krb5_enctype
 krb5_error_code krb5_auth_con_setuseruserkey(krb5_context context, krb5_auth_context auth_context, krb5_keyblock *keyblock);
 #endif
 
+#ifndef HAVE_KRB5_FREE_UNPARSED_NAME
+void krb5_free_unparsed_name(krb5_context ctx, char *val);
+#endif
+
 /* Samba wrapper function for krb5 functionality. */
 void setup_kaddr( krb5_address *pkaddr, struct sockaddr *paddr);
 int create_kerberos_key_from_string(krb5_context context, krb5_principal host_princ, krb5_data *password, krb5_keyblock *key, krb5_enctype enctype);
+int create_kerberos_key_from_string_direct(krb5_context context, krb5_principal host_princ, krb5_data *password, krb5_keyblock *key, krb5_enctype enctype);
 void get_auth_data_from_tkt(DATA_BLOB *auth_data, krb5_ticket *tkt);
 krb5_const_principal get_principal_from_tkt(krb5_ticket *tkt);
 krb5_error_code krb5_locate_kdc(krb5_context ctx, const krb5_data *realm, struct sockaddr **addr_pp, int *naddrs, int get_masters);
 krb5_error_code get_kerberos_allowed_etypes(krb5_context context, krb5_enctype **enctypes);
 void free_kerberos_etypes(krb5_context context, krb5_enctype *enctypes);
 BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_context, DATA_BLOB *session_key, BOOL remote);
+krb5_error_code smb_krb5_kt_free_entry(krb5_context context, krb5_keytab_entry *kt_entry);
+krb5_principal kerberos_fetch_salt_princ_for_host_princ(krb5_context context, krb5_principal host_princ, int enctype);
+void kerberos_set_creds_enctype(krb5_creds *pcreds, int enctype);
+BOOL kerberos_compatible_enctypes(krb5_context context, krb5_enctype enctype1, krb5_enctype enctype2);
+void kerberos_free_data_contents(krb5_context context, krb5_data *pdata);
 #endif /* HAVE_KRB5 */
+
+
+#ifdef HAVE_LDAP
+
+/* function declarations not included in proto.h */
+LDAP *ldap_open_with_timeout(const char *server, int port, unsigned int to);
+
+#endif	/* HAVE_LDAP */
+
 
 /* TRUE and FALSE are part of the C99 standard and gcc, but
    unfortunately many vendor compilers don't support them.  Use True

@@ -1,0 +1,207 @@
+Cyrus IMAP Server FAQ
+
+      * Using PAM Under Linux when using PAM and shadow passwords,
+        /etc/shadow needs to be readable by the Cyrus user. 
+      * POP-Before-SMTP It is not included in the default distribution
+        because there is already a standard way of doing this with SMTP
+        AUTH. Any good MTA and/or MUA should support SMTP AUTH, so we
+        shouldn't have to create a hack in an unrelated service. However,
+        if you would like to install it anyway, we recommend using DRAC,
+        along with the patch available in contrib/drac_auth.patch. 
+      * Using NFS We don't recommend it. If you want to do it, it may
+        possibly work but you may also lose your email or have corrupted
+        cyrus.* files. You can look at the mailing list archives for more
+        information. 
+      * Using AFS/Coda We don't recommend it. It's even less likely to work
+        than NFS. If you want to do it, it may possibly work but you may
+        also lose your email or have corrupted cyrus.* files. CMU's
+        previous e-mail system, AMS, leveraged AFS extensively for storage
+        (and transit) purposes. For various reasons it didn't scale
+        particularly well and led to CMU's interest in IMAP. 
+
+        Cyrus was designed to use a local filesystem with Unix semantics
+        and a working mmap()/write() combination. AFS doesn't provide these
+        semantics so won't work correctly. 
+      * Virtual hosting - See virtual domains configuration. 
+      * dots in userids - you can have a '.' in your username IF, AND ONLY
+        IF, you use the UNIX hierarchy convention. 
+      * renaming users - Supported, but try to make sure that the user is
+        not, and can not login when doing the rename. Otherwise user-meta
+        may get corrupted and/or out of sync. 
+      * plus addressing - Plus addressing allows direct delivery to a
+        particular mailbox (other than an INBOX). This is done in two ways. 
+
+        The first way allows delivery to a subfolder of a specific user's
+        INBOX. This is done via an address of the form:
+        username+mailfolder@domain, which will deliver to the user's
+        INBOX.mailfolder folder (or altnamespace equivalent). This
+        submailbox must allow the posting user the 'p' right (generally,
+        this means 'anyone' must have the 'p' right), otherwise the message
+        will just be filed into the user's INBOX. 
+
+        The second way is to form an address like
+        [postuser]+mailfolder@domain. This will deliver into the mailbox
+        'mailfolder'. [postuser] is the string specified in the imapd.conf
+        option of the same name, and may be the empty string. As before,
+        the posting user will need to have the 'p' right on the mailbox. 
+
+        For both methods, if 'mailfolder' is more than one level deep, you
+        will need to conform to the hierarchy separator appropriate to your
+        site. 
+      * Performance/Capacity/Scaling - See the performance guide. 
+
+Troubleshooting
+
+    Q: I'm getting syslog'd messages from the master process saying
+            processes are "signaled to death by 10". What's up? 
+            
+
+            A: If you're using Berkeley DB 3.0.55, try installing some
+            patches to Berkeley DB available from
+            http://www.sleepycat.com/update/3.0.55/patch.3.0.55.html. 
+    Q: I've used saslpasswd2 to create CRAM-MD5 secrets, but imapd doesn't
+            say AUTH=CRAM-MD5. Why? 
+            
+
+            A: Make sure /etc/sasldb2 is readable by the Cyrus user. 
+    Q: I'm using "sasl_pwcheck_method: saslauthd", but authentication isn't
+            working. 
+            
+
+            A: Make sure that the saslauthd daemon is running (you'll want
+            to start it when the system boots). imapd is unable to connect
+            to saslauthd if the following message appears in the logs: 
+
+            Dec  6 12:58:57 mail3.andrew.cmu.edu imapd[1297]: cannot connect to saslauthd server
+
+            Make sure that saslauthd is running and that the cyrus user can
+            access the unix domain socket (defaults to /var/run/mux). 
+    Q: I'm getting messages about "duplicate_prune". What's wrong? 
+            
+
+            A: These messages look like 
+
+            Jan 14 13:46:24 grant ctl_deliver[9060]: duplicate_prune: opening
+              /var/imap/deliverdb/deliver-x.db: No such file or directory
+            Jan 14 13:46:24 grant ctl_deliver[9060]: duplicate_prune: opening
+              /var/imap/deliverdb/deliver-y.db: No such file or directory
+            Jan 14 13:46:24 grant ctl_deliver[9060]: duplicate_prune: opening
+              /var/imap/deliverdb/deliver-z.db: No such file or directory
+
+            These messages are normal; one file is maintained for each user
+            beginning with "x", "y", "z", etc. If you're first starting or
+            you have no users beginning with these letters, these messages
+            are completely normal and can be ignored. 
+    Q: I'm getting a message about "imapd: could not getenv(CYRUS_SERVICE);
+            exiting" in my imapd.log. What's wrong? 
+            
+
+            A: Remove all imap, pop, lmtp and sieve lines from
+            [x]inetd.conf and restart [x]inetd. Cyrus is run out of its own
+            "master" process. 
+    Q: How do I use different SSL/TLS certificates for imap and pop? 
+            
+
+            A: Specify the different certs using the appropriate options in
+            imapd.conf. Read imapd.conf(5) for details. 
+    Q: My KPOP client is complaining about TLS keys. What should I do? 
+            
+
+            A: Disable TLS for the kpop service. Either set
+            tls_pop3_cert_file to disabled in imapd.conf (which will also
+            disable SSL/TLS for pop3), or use a separate config file for
+            kpop. For example, change the kpop service in cyrus.conf to
+            something like: 
+
+            kpop    cmd="pop3d -k -C /etc/kpopd.conf" listen="kpop"
+
+            then copy /etc/imapd.conf to /etc/kpopd.conf and remove the
+            tls_* options. 
+    Q: Eudora 5.x can't connect using STARTTLS ("SSL Neogotiation Failed").
+            What should I do? 
+            
+
+            A: First, complain to QUALCOMM because their STARTTLS
+            implementation is broken. Eudora doesn't support TLSv1 (per
+            RFC2246) and Cyrus requires it. If you really need this before
+            it is fixed in Eudora, remove or comment out the following
+            lines in tls.c: 
+
+                if (tlsonly) {
+                    off |= SSL_OP_NO_SSLv2;
+                    off |= SSL_OP_NO_SSLv3;
+                }
+
+    Q: I'm getting messages in imapd.log like: 
+
+            Sep 11 17:23:55 ogg lmtpd[773]: DBERROR db3: 16 lockers
+            Sep 11 17:23:55 ogg lmtpd[1409]: DBERROR db3: 17 lockers
+            Sep 11 17:23:56 ogg lmtpd[1508]: DBERROR db3: 9 lockers
+            Sep 11 17:23:56 ogg lmtpd[776]: DBERROR db3: 9 lockers
+
+            What's wrong? 
+            
+
+            A: Nothing is wrong. These messages are logged whenever
+            Berkeley db encounters lock contention, but isn't necessarily a
+            problem by themselves. This is especially likely when you have
+            an empty or small duplicate delivery database and are receiving
+            a large volume of e-mail. 
+
+            Berkeley db 4.0 has a bug where the number of lockers isn't
+            decremented properly, causing this number to be unreliable. 
+    Q: All of the 8bit characters in the headers of messages that I receive
+            are being changed to 'X's. What's going on? 
+            
+
+            A: 8-bit characters are illegal in message headers. Following
+            the principal of "be liberal in what you accept, and strict in
+            what you send" cyrus converts them to Xs. (Without a character
+            set, having the 8-bit characters replaced with Xs is just as
+            good as having them be any other 8-bit character, especially
+            for sorting and searching). Alternatively, you can set
+            "reject8bit: t" in imapd.conf to reject the messages outright.
+            It might also be reasonable for cyrus to support the use of a
+            default character set, however thus far no one has done the
+            work to do so (it would also involve QP-encoding the corrupted
+            headers). 
+    Q: Why can't I delete any messages from my over-quota mailbox? I'm
+            using a client with a 'trash folder'. 
+            
+
+            A: Trash folders, as they are commonly implemented (as an
+            actual IMAP mailbox), do not fit the IMAP delete/expunge model
+            very well. In fact, naive client implementations will get stuck
+            in a situation where they cannot delete a message from a
+            mailbox because they try to COPY it to the trash folder before
+            deleting the message. This operation will fail due to the
+            mailbox being over quota. This is separate from the fact that a
+            specific mailbox name is not interoperable between clients (one
+            might call it 'trash', another 'Trash', another 'Recycle Bin',
+            etc) 
+
+            Given the lack of protocol support for a trash folder, this is
+            mostly a quality-of-implementation issue on the client side.
+            There are a few options here: 
+
+              * Contact your client vendor to have the broken client fixed
+                (one possibility is to have the client ask the user if they
+                wish to permanantly delete the message if the COPY
+                operation fails). 
+              * Stop using the 'trash mailbox' feature of your client (if
+                possible). 
+              * Set a separate quota root on the 'trash folders' of users.
+                This last option is significantly harder to do correctly,
+                since it assumes that all clients that make use of a trash
+                folder do so with the same folder name. 
+
+    Q: How do I stop Cyrus from advertising the DIGEST-MD5 and CRAM-MD5
+            shared secret SASL mechanisms? 
+            
+
+            A: Not really a Cyrus IMAPd question, this can be fixed by just
+            removing the SASL plugins from where Cyrus SASL installed them
+            (if no other applications require them), or by using the
+            sasl_mech_list imapd.conf option to list only the mechanisms
+            that you require. 
+

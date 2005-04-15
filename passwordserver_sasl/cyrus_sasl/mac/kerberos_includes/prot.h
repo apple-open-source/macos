@@ -1,7 +1,7 @@
 /*
  * $Source: /cvs/repository/iservers/Libraries/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/prot.h,v $
  * $Author: snsimon $
- * $Header: /cvs/repository/iservers/Libraries/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/prot.h,v 1.1 2002/02/28 00:10:31 snsimon Exp $
+ * $Header: /cvs/repository/iservers/Libraries/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/prot.h,v 1.4 2005/01/10 19:13:36 snsimon Exp $
  *
  * Copyright 1985, 1986, 1987, 1988 by the Massachusetts Institute
  * of Technology.

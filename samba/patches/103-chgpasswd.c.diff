@@ -1,6 +1,6 @@
---- samba/source/smbd/chgpasswd.c.orig	2004-07-23 14:18:13.000000000 -0700
-+++ samba/source/smbd/chgpasswd.c	2004-07-23 15:06:05.000000000 -0700
-@@ -703,7 +703,24 @@
+--- samba/source/smbd/chgpasswd.c.orig	2004-12-13 20:11:25.000000000 -0800
++++ samba/source/smbd/chgpasswd.c	2004-12-13 20:22:16.000000000 -0800
+@@ -703,7 +703,32 @@
  {
  	pstring new_passwd;
  	SAM_ACCOUNT *sampass = NULL;
@@ -20,13 +20,21 @@
 +		DEBUG(3, ("pass_oem_change: [%d]opendirectory_lmchap2changepasswd passwordFormat(%d)\n", dir_status, passwordFormat));
 +		if (eDSNoErr == dir_status)
 +			nt_status = NT_STATUS_OK;
++		else if	(eDSAuthPasswordTooShort == dir_status ||
++				eDSAuthPasswordTooLong == dir_status ||
++				eDSAuthPasswordNeedsLetter == dir_status ||
++				eDSAuthPasswordNeedsDigit == dir_status ||
++				eDSAuthPasswordChangeTooSoon == dir_status ||
++				eDSAuthPasswordQualityCheckFailed == dir_status) {
++			nt_status = NT_STATUS_PASSWORD_RESTRICTION;
++		}
 +	} else {
 +#endif
 +	nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
  						old_lm_hash_encrypted, 
  						password_encrypted_with_nt_hash, 
  						old_nt_hash_encrypted,
-@@ -720,6 +737,9 @@
+@@ -720,6 +745,9 @@
  	memset(new_passwd, 0, sizeof(new_passwd));
  
  	pdb_free_sam(&sampass);

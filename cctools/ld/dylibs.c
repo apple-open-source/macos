@@ -37,6 +37,7 @@
 
 #include "dylibs.h"
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "pass1.h"
 #include "sections.h"

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -87,3 +88,4 @@ char *format,
 	va_end(ap);
 	exit(1);
 }
+#endif /* !defined(RLD) */

@@ -5,6 +5,244 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.17 release (the cctools-572 release):
+- Fixed a bug in swap_object_headers() in swap_headers.c which was missing some
+  code to handle the ppc64 thread state.  Radar bug #4010859.
+- Fixed a bug in check_Mach_O() in ofile.c which was missing the code to handle
+  the ppc64 thread state.  Radar bug #3987993.
+
+Changes for the 5.17 release (the cctools-568 release):
+- Changed bytesex.c and swap_headers.c to remove multiply defined warnings by
+  changing all #import's to #include's and adding #undef's
+  for MACHINE_THREAD_STATE and MACHINE_THREAD_STATE_COUNT after including
+  <mach/m68k/thread_status.h> and <mach/ppc/thread_status.h>.
+
+Changes for the 5.17 release (the cctools-562 release):
+- Changed swap_ppc_thread_state_t() in bytesex.c to use cpu->vrsave and not
+  cpu->pad.  Radar bug #3930480.
+
+Changes for the 5.17 release (the cctools-559 release):
+- Change ofile_process() to simply treat a dynamic library without modules as
+  if the flat_dylib parameter were set.  Radar bug #3883039.
+- Added building libstuff_kld.a built for the kernel's kld use.  Radar bug
+  #3906133.
+  - Changed the code to only compile the needed routines when RLD is defined:
+    - best_arch.c only compile cpusubtype_combine() for RLD
+    - arch.c to only compile arch_flags[], get_arch_name_from_types(),
+      get_arch_family_from_cputype(), get_byte_sex_from_flag() and
+      get_segalign_from_flag().
+  - Changed the following files and ifndef RLD their entire contents:
+    errors.c, execute.c, fatals.c, arch_usage.c, ofile.c, print.c,
+    set_arch_flag_name.c, seg_addr_table.c, dylib_table.c, breakout.c,
+    writeout.c, checkout.c, fatal_arch.c, dylib_roots.c, SymLoc.c,
+    get_arch_from_host.c, symbol_list.c, unix_standard_mode.c,
+    vm_flush_cache.c, macosx_deployment_target.c, guess_short_name.c .
+
+Changes for the 5.17 release (the cctools-557 release):
+- Removed support for the INTERIM_PPC64.  The changes were to remove the
+  #ifdef INTERIM_PPC64 source changes in reloc.c, ofile.c, best_arch.c and
+  arch.c.  Radar bug #3600419.
+
+Changes for the 5.17 release (the cctools-554 release):
+- Fixed a bug in the swap_segment_64() routine in bytesex.c that was using
+  SWAP_LONG for the fileoff and filesize fields when it should have been using
+  SWAP_LONG_LONG. Radar bug #3891223.
+
+Changes for the 5.17 release (the cctools-552 release):
+- Changed print.c to include stdarg.h .  Radar bug #3640701.
+- Added the source file unix_standard_mode.h for the new routine
+  get_unix_standard_mode() to know when we are running in UNIX standards
+  conformance mode. Radar bug #3852702.
+- Picked up the changes to check_for_dylib() in dylib_roots.c to deal with
+  both 32-bit and 64-bit Mach-O files.  Radar bug #3861276.
+
+Changes for the 5.17 release (the cctools-551 release):
+- Added support for the ppc64 thread state.  Radar bug #3866755.
+  - Added swap_ppc_thread_state64_t() to bytesex.c .
+  - Added a case statement for swapping a PPC_THREAD_STATE64 to
+    swap_headers() in swap_headers.c .
+- Changed ofile.c to not produce a warning for archives that have 64-bit Mach-O
+  archive members that are 8 byte boundaries.  Radar bug #3818951.
+
+Changes for the 5.17 release (the cctools-549 release):
+- Fixed a bug in cpusubtype_combine() in best_arch.c that was missing the case
+  for CPU_TYPE_POWERPC64.  Radar bug #3856997.
+- Fixed the error handling in the breakout code.  In breakout_internal() at the
+  end when it detects an error it calls free_archs() it needed to clear the
+  values in *archs and *narchs before returning.  Also in both breakout_mem()
+  and breakout() a check for errors != 0 was added and if so the ofile was
+  free'ed() and NULL was returned.  Radar bug #3839049.
+
+Changes for the 5.17 release (the cctools-544 release):
+- Fixed a bug in ofile_map_from_memory() in ofile.c that was missing an "else"
+  before the if statement to check for 64-bit Mach-O files.  Radar bug #3837563.
+
+Changes for the 5.17 release (the cctools-541 release):
+- Fixed a bug in reloc_has_pair() in reloc.c that needed a case statement for
+  CPU_TYPE_POWERPC64 in all cases.  Radar bug #3829545.
+- Fixed a bug in make_table_of_contents() in writeout.c that did not correctly
+  set up the sections arrays for both 32-bit and 64-bit Mach-O files.  Radar
+  bug #3829545.
+
+Changes for the 5.17 release (the cctools-540 release):
+- Fixed a bug in dyld_order() in checkout.c that was not checking which type
+  Mach-O file before using the seg_linkedit field.  Radar bug #3829149.
+
+Changes for the 5.17 release (the cctools-539 release):
+- Changed to support 32-bit & 64-bit tools that write binaries.  Radar bug
+  #3812858.
+  - Changed breakout_internal() in breakout.c to set both the mh and the mh64
+    fields of the struct object.
+  - Changed cksum_object() and dyld_order() in breakout.c to use and set either
+    the 32-bit fields or the 64-bit fields.
+  - Changed the code in writeout.c to to test the mach header field, mh for
+    NULL, to see which type of object it has and then added/modified the code
+    to deal with both.  Also changed all rounding to 8 from 4 so members end up 
+    on a 8-byte boundary.
+- Changed symbol_string_at_end() in checkout.c to allow any object with its
+  string table not at the end but rounded to 8 bytes.  To deal with archive
+  members that are extracted from archives and end up padded.
+- Fixed a warning about temporary_archive_member_warning() in ofile.c being
+  defined but not used when ALIGNMENT_CHECKS is not defined.
+
+Changes for the 5.17 release (the cctools-535 release):
+- Changed symbol_string_at_end() in checkout.c to deal with archive members that
+  are rounded up to 8 bytes.  Since the object file maybe smaller than that the
+  check needs to check the rounded size of the string table end.  Then it
+  changes the object_size to where the string table ends so tools like strip(1)
+  that expect the string table at the end of the object will work.  Radar bug
+  #3811489.
+
+Changes for the 5.17 release (the cctools-533 release):
+- Fixed bugs in ofile_map_from_memory() and ofile_first_member() that was still
+  incorrectly using mach_header_t when it should have been using struct
+  mach_header.  That was not correctly changed as part of the changes to
+  cctools-533.
+- Temporarily changed the alignment errors of 64-bit objects in archives to be
+  a warning not an error in ofile.c in many places.  Added the file level static
+  boolean, archive_64_bit_align_warning, to be used to cause the warning to be
+  printed only once.  Also added temporarily the routine
+  temporary_archive_member_warning() to ofile.c .
+
+Changes for the 5.17 release (the cctools-533 release):
+- Changes to support 32-bit & 64-bit tools in the same binary.  Radar bug
+  #3793394.
+  - Changed the code in ofile.c to fill in and deal with the changed struct
+    ofile in "stuff/ofile.h" to have both a pointer to a 32-bit and 64-bit
+    mach header.  Also to fill in and use the fields mh_cputype, mh_cpusubtype,
+    and mh_filetype in the ofile structure.
+  - Added new swap_* routines in bytesex.h to have a routine for the
+    32-bit and 64-bit structs.
+  - Changed the breakout() code and added an ifdef ARCH64 and some code to use
+    the ofile->mh64 field to assign to the mh mach_header_t field of the arch
+    struct.
+  - Changed the writeout() code to use the new macro swap_nlist_t from
+    "stuff/target_arch.h" in 4 places.
+  - Changed swap_object_headers() in swap_headers.c to take a void * for the
+    mach_header and work with both 64-bit and 32-bit Mach-O files.
+- Fixed a problem in check_Mach_O() in ofile.c for the INTERIM_PPC64 format that
+  was missing a check for CPU_TYPE_POWERPC64 when dealing with 32-bit thread
+  commands.   Radar bug #3792737.
+
+Changes for the 5.16 release (the cctools-532 release):
+- Made more changes to support 64-bit tools. Radar bug #3600431.
+  - Changed arch.c to not ifdef the 64-bit arch types and the 32-bit arch types.
+    This is done to allow lipo(1) to use the table of values.
+  - Added swap_mach_header_64(), swap_segment_command_64() and swap_section_64()
+    routines to byteswap.c .
+
+Changes for the 5.16 release (the cctools-529 release):
+- Made changes to support 64-bit tools. Radar bug #3600431.
+  - Changed the Makefile to build libstuff64 versions to be linked with
+    64-bit tools.  The sources are compiled with -DARCH64 .
+  - Changed the Makefile to no longer build with -DINTERIM_PPC64 .
+  - Added the include "stuff/target_arch.h" to the following files:
+      breakout.c
+      bytesex.c
+      checkout.c
+      get_toc_byte_sex.c
+      ofile.c
+      ofile_get_word.c
+      swap_headers.c
+      writeout.c
+    and changed the uses of structs, constants and names that are different for
+    64-bit files to the typedefs in "stuff/target_arch.h".
+  - Added SWAP_LONG_LONG() to bytesex.c.
+  - Added bits of ifdef ARCH64 code to bytesex.c to swap the new fields and the
+    different sized fields.
+  - Added ifdef ARCH64 to arch.c and added two 64-bit arch types, ppc64 and
+    ppc970-64 to the arch_flags[] array.
+  - Changed the #ifdefs in:
+	get_byte_sex_from_flag() in arch.c
+	reloc_pair_r_type() in reloc.c
+	reloc_has_pair() in reloc.c
+    to be #if defined(INTERIM_PPC64) || defined(ARCH64) for CPU_TYPE_POWERPC64.
+  - Added ifdef ARCH64 to cpusubtype_findbestarch() in best_arch.c for
+    64-bit architectures.
+
+Changes for the 5.16 release (the cctools-528 release):
+- Support the new GENERIC_RELOC_LOCAL_SECTDIFF reloc.
+
+Changes for the 5.16 release (the cctools-527 release):
+- Support the new PPC_RELOC_LOCAL_SECTDIFF reloc.
+
+Changes for the 5.16 release (the cctools-526 release):
+- Changed a few places in ofile.c from %lu to %u to remove warnings for the
+  fields that changed in <mach-o/fat.h> from unsigned long to uint32_t.
+  Radar bug #3744082.
+
+Changes for the 5.16 release (the cctools-524 release):
+- Fixed a bug in check_sort_ranlibs() in writeout.c that caused a crash if
+  there are 0 ranlib structs to sort.  Reported in Radar bug #3451378.
+- Fixed a bug in cpusubtype_findbestarch() in best_arch.c when trying to pick
+  the lowest model i386 fat arch.  The variable lowest_model was initialized to
+  ULONG_MAX when it should have been LONG_MAX as it was a signed value. Radar
+  bug #3694812.
+
+Changes for the 5.16 release (the cctools-520 release):
+- Fixed a bug that caused otool(1) to crash when it was called with a bad fat
+  file (a java class file).  The calls to ofile_first_arch() in ofile.c was not
+  checking its return value and later causing the code to crash when it should
+  have returned in case of an error.  Radar bug #3670740.
+
+Changes for the 5.16 release (the cctools-515 release):
+- Added the installGASsrc and fromGASsrc Makefile targets to install and build
+  just the need sources to build the PowerPC assembler from the GAS sources:
+    bytesex.c
+    round.c
+  and changed the Copyright in this file to the Apple BSD License.
+  Radar bug #3657295.
+
+Changes for the 5.16 release (the cctools-513 release):
+- Changed writeout_to_mem() in writeout.c to move the local declrations of:
+    long toc_time, timestamp, index;
+  to the start of the routine so it would compile on older systems.  Also fixed
+  the intenting of the first bit of code in that routine.
+
+Changes for the 5.16 release (the cctools-512 release):
+- Fixed a bug in the change made for Radar bug #3176679 in cctools-495.3 where
+  the new writeout_to_mem() routine did not pass up the value of the boolean
+  seen_archive to the outer routine writeout().  So the outer routine never made
+  the call utime() to reset the mod time as the value of seen_archive was always
+  FALSE in the outer routine.  The change was add the parameter seen_archive
+  as a enum bool * to writeout_to_mem() in writeout.c and set the value
+  indirectly.  Then the outer routine writeout() was changed to pass the address
+  of its seen_archive variable to writeout_to_mem().  Radar bug #3645280.
+
+Changes for the 5.16 release (the cctools-509 release):
+- Added #ifdef INTERIM_PPC64 to the source changes to support the interim ppc64
+  file format.  And added -DINTERIM_PPC64 to the Makefile.
+
+Changes for the 5.16 release (the cctools-499.1 release):
+- Made changes to support the interim ppc64 file format.  Radar bug  #3562133
+  and #3562232.
+  - Added an entry in the arch_flags[] array in arch.c for ppc64 as:
+      { "ppc64",  CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC64_ALL },
+  - Updated get_byte_sex_from_flag() in arch.c to return BIG_ENDIAN_BYTE_SEX
+    for CPU_TYPE_POWERPC64.
+  - Updated cpusubtype_findbestarch() in best_arch.c for CPU_TYPE_POWERPC64
+    and its cpusubtype.
+
 Changes for the 5.13.2 release (the cctools-495.3 release):
 - Modified breakout.c to include a breakout_mem() function which will perform
   the breakout on a memory buffer, rather than reading from a file.  The 
@@ -15,6 +253,11 @@ Changes for the 5.13.2 release (the cctools-495.3 release):
   interanls of writeout() were moved to writeout_to_mem() so that writeout() 
   calls writeout_to_mem(), which produces the contents of the file, and
   writeout() writes it to the output file.  Radar bug #3176679.
+
+Changes for the 5.14 release (the cctools-496 release):
+- Added the following entry to the table in macosx_deployment_target.c :
+    { "10.4", MACOSX_DEPLOYMENT_TARGET_10_4 },
+  Radar bug #3445632.
 
 Changes for the 5.12 release (the cctools-490 release):
 - Fixed cpusubtype_findbestarch() in best_arch.c to not select a PowerPC 970

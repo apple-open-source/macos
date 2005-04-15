@@ -30,6 +30,38 @@ TODO for MacOS X:
 TODO:
 - For hppa cache flushing use FDC and FIC on the written instruction address.
 
+Changes for the 5.16 release (the cctools-526 release):
+- Fixed warnings for the changes in mach-o headers for types changing from
+  unsigned long to uint32_t and from long to int32_t.  Radar bug #3744082.
+  - Changed a number of uses of "%lu" to "%u" in images.c.
+
+Changes for the 5.16 release (the cctools-524 release):
+- Due to changes for Tiger in Radar bug #3535291 we stub out __hdtoa() and
+  __hldtoa() in dyld_init.c to allow this to build on Tiger.
+
+Changes for the 5.16 release (the cctools-511 release):
+- Cleaned up the change in cctools-495.6 for Radar bug #3626905 and removed the
+  unneeded code in link_object_module():
+	    if(object_image->image.has_coalesced_sections == FALSE)
+               goto add_undefineds;
+  and fixed the comment.
+
+Changes for the 5.16 release (the cctools-510 release):
+- Picked up the change in cctools-495.6.  Radar bug #3630920.
+
+Changes for the 5.16 release (the cctools-499.3 release):
+- Added a definition of _NSGetProgname() in dyld to be used by Libc-327
+  routines.  Radar bug #3593079.
+
+Changes for the 5.16 release (the cctools-499.2 release):
+- Added a dummy definition of __cxa_finalize() to resolve a dyld link
+  failure due to changes in Libc-326. Radar bug #3586910.
+
+Changes for the SUPanWheat 10.3.9 release (the cctools-495.9 release):
+- Fixed a problem with weak symbols for rdar bug #4062410.  If the 
+  main executable has bind-at-load set, then weak undefines were never bound
+  even if a definition was found.
+
 Changes for the SUPanLavender 10.3.4 release (the cctools-495.8 release):
 - Fixed a problem with the change for Radar bug #3622330 in cctools-494.4 in
   relocate_symbol_pointers_in_object_image() in symbols.c in that the code that
@@ -50,8 +82,9 @@ Changes for the SUPanLavender 10.3.4 release (the cctools-495.7 release):
   - In link_library_module() and link_object_module() in symbols.c if the module
     is being fully linked the new field some_modules_being_bound_fully in the
     image structure is set to TRUE.
-  - In relocate_symbol_pointers_in_library_image() in symbols.c in the test to
-    before the call resolve_non_lazy_symbol_pointers_in_image() an additional
+  - In relocate_symbol_pointers_in_library_image() and in
+    relocate_symbol_pointers_in_object_image() in symbols.c in the test before
+    the call resolve_non_lazy_symbol_pointers_in_image() an additional
     check of the image's new some_modules_being_bound_fully being FALSE is done.
     So that if some_modules_being_bound_fully is TRUE it will fall through to
     the code to set both the lazy and non-lazy symbol pointers.  Also after this

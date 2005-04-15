@@ -102,6 +102,7 @@ namespace KJS {
     Value throwError(ExecState *exec, ErrorType e, const char *msg, Value v, Node *expr);
     Value throwError(ExecState *exec, ErrorType e, const char *msg, Identifier label);
     int line;
+    UString sourceURL;
     unsigned int refcount;
     virtual int sourceId() const { return -1; }
   private:
@@ -201,7 +202,8 @@ namespace KJS {
     GroupNode(Node *g) : group(g) { }
     virtual void ref();
     virtual bool deref();
-    Value evaluate(ExecState *exec);
+    virtual Value evaluate(ExecState *exec);
+    virtual Reference evaluateReference(ExecState *exec);
     virtual void streamTo(SourceStream &s) const { group->streamTo(s); }
   private:
     Node *group;

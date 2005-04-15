@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: PowerMac8_1_SystemFansCtrlLoop.cpp,v 1.3 2004/08/31 02:36:22 dirty Exp $
+ *  File: $Id: PowerMac8_1_SystemFansCtrlLoop.cpp,v 1.4 2005/02/18 23:05:20 dirty Exp $
  *
  */
 
@@ -92,6 +92,8 @@ ControlValue PowerMac8_1_SystemFansCtrlLoop::calculateNewTarget( void ) const
 
 void PowerMac8_1_SystemFansCtrlLoop::sendNewTarget( ControlValue newTarget )
 	{
+	bool							updateCtrlLoopState = false;
+
 	targetValue = newTarget;
 
 	if ( linkedControl &&
@@ -101,7 +103,7 @@ void PowerMac8_1_SystemFansCtrlLoop::sendNewTarget( ControlValue newTarget )
 		if ( linkedControl->sendTargetValue( newTarget ) )
 			{
 			linkedControl->setTargetValue( newTarget );
-			ctrlloopState = kIOPCtrlLoopAllRegistered;
+			updateCtrlLoopState |= true;
 			}
 		else
 			{
@@ -151,13 +153,16 @@ void PowerMac8_1_SystemFansCtrlLoop::sendNewTarget( ControlValue newTarget )
 		if ( outputControl->sendTargetValue( pinnedScaledNewTarget ) )
 			{
 			outputControl->setTargetValue( pinnedScaledNewTarget );
-			ctrlloopState = kIOPCtrlLoopAllRegistered;
+			updateCtrlLoopState |= true;
 			}
 		else
 			{
 			CTRLLOOP_DLOG( "PowerMac8_1_SystemFansCtrlLoop::sendNewTarget failed to send target value to first control\n" );
 			}
 		}
+
+	if ( updateCtrlLoopState )
+		ctrlloopState = kIOPCtrlLoopAllRegistered;
 	}
 
 

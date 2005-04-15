@@ -1,10 +1,10 @@
 /* Anonymous SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: anonymous.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $
+ * $Id: anonymous.c,v 1.5 2005/01/10 19:01:37 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,14 +58,9 @@
 #include <sasl_anonymous_plugin_decl.h> 
 #endif 
 
-#ifdef WIN32
-/* This must be after sasl.h, saslutil.h */
-# include "saslANONYMOUS.h"
-#endif
-
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: anonymous.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $";
+//static const char plugin_id[] = "$Id: anonymous.c,v 1.5 2005/01/10 19:01:37 snsimon Exp $";
 
 static const char anonymous_id[] = "anonymous";
 
@@ -134,7 +129,7 @@ anonymous_server_mech_step(void *conn_context __attribute__((unused)),
 			"ANONYMOUS login: \"%s\"",
 			clientdata);
     
-    if (clientdata != clientin)
+    if (clientdata != clientin) 
 	sparams->utils->free(clientdata);
     
     result = sparams->canon_user(sparams->utils->conn,
@@ -241,7 +236,7 @@ anonymous_client_mech_step(void *conn_context,
     unsigned userlen;
     char hostname[256];
     const char *user = NULL;
-    int auth_result = SASL_OK;
+    int user_result = SASL_OK;
     int result;
     
     if (!cparams
@@ -267,12 +262,13 @@ anonymous_client_mech_step(void *conn_context,
 	return SASL_TOOWEAK;
     }
     
-    /* try to get the authid */
+    /* try to get the trace info */
     if (user == NULL) {
-	auth_result = _plug_get_authid(cparams->utils, &user, prompt_need);
+	user_result = _plug_get_userid(cparams->utils, &user, prompt_need);
 	
-	if ((auth_result != SASL_OK) && (auth_result != SASL_INTERACT))
-	    return auth_result;
+	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT)) {
+	    return user_result;
+	}
     }
     
     /* free prompts we got */
@@ -282,14 +278,14 @@ anonymous_client_mech_step(void *conn_context,
     }
     
     /* if there are prompts not filled in */
-    if (auth_result == SASL_INTERACT) {
+    if (user_result == SASL_INTERACT) {
 	/* make the prompt list */
 	result =
 	    _plug_make_prompts(cparams->utils, prompt_need,
-			       NULL, NULL,
-			       auth_result == SASL_INTERACT ?
+			       user_result == SASL_INTERACT ?
 			       "Please enter anonymous identification" : NULL,
 			       "",
+			       NULL, NULL,
 			       NULL, NULL,
 			       NULL, NULL, NULL,
 			       NULL, NULL, NULL);
@@ -298,7 +294,7 @@ anonymous_client_mech_step(void *conn_context,
 	return SASL_INTERACT;
     }
     
-    if (!user) {
+    if (!user || !*user) {
 	user = anonymous_id;
     }
     userlen = strlen(user);
@@ -352,7 +348,6 @@ static void anonymous_client_dispose(void *conn_context,
 }
 
 static const long anonymous_required_prompts[] = {
-    SASL_CB_AUTHNAME,
     SASL_CB_LIST_END
 };
 

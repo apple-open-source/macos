@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,14 +29,21 @@
 #include "KWQMap.h"
 #include "KWQObject.h"
 #include "KWQString.h"
-
 #include "KWQKURL.h"
 
 #ifdef __OBJC__
 @class KWQResourceLoader;
+@class NSData;
+@class NSURLResponse;
 #else
 class KWQResourceLoader;
+class NSData;
+class NSURLResponse;
 #endif
+
+namespace khtml {
+    class FormData;
+}
 
 namespace KIO {
 
@@ -51,8 +58,8 @@ public:
 
 class TransferJob : public Job {
 public:
-    TransferJob(const KURL &, bool reload = false, bool showProgressInfo = true);
-    TransferJob(const KURL &, const QByteArray &postData, bool showProgressInfo = true);
+    TransferJob(const KURL &, bool reload, bool deliverAllData=false);
+    TransferJob(const KURL &, const khtml::FormData &postData, bool deliverAllData=false);
     ~TransferJob();
 
     int error() const;
@@ -70,20 +77,24 @@ public:
 
     void emitData(const char *, int);
     void emitRedirection(const KURL &);
-    void emitResult();
-    void emitReceivedResponse(void *);
+    void emitResult(NSData *allData=nil);
+    void emitReceivedResponse(NSURLResponse *);
 
-    QByteArray postData() const;
+    khtml::FormData postData() const;
     QString method() const;
+
 private:
     void assembleResponseHeaders() const;
+    void retrieveCharset() const;
 
     TransferJobPrivate *d;
 
+    bool m_deliverAllData;
+    
     KWQSignal m_data;
     KWQSignal m_redirection;
     KWQSignal m_result;
-    KWQSignal m_receivedResponse;
+    KWQSignal m_receivedResponse;    
 };
 
 } // namespace KIO

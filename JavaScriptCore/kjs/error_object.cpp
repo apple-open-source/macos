@@ -66,13 +66,7 @@ Value ErrorProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &/*ar
   // toString()
   UString s;
 
-  Value v = thisObj.get(exec, "line");
-  if (v.type() != UndefinedType) {
-    s += v.toString(exec) += ": ";
-  }
-
-
-  v = thisObj.get(exec, namePropertyName);
+  Value v = thisObj.get(exec, namePropertyName);
   if (v.type() != UndefinedType) {
     s += v.toString(exec);
   }
@@ -105,7 +99,7 @@ bool ErrorObjectImp::implementsConstruct() const
 // ECMA 15.9.3
 Object ErrorObjectImp::construct(ExecState *exec, const List &args)
 {
-  Object proto = Object::dynamicCast(exec->interpreter()->builtinErrorPrototype());
+  Object proto = Object::dynamicCast(exec->lexicalInterpreter()->builtinErrorPrototype());
   ObjectImp *imp = new ObjectImp(proto);
   Object obj(imp);
 
@@ -152,7 +146,7 @@ NativeErrorImp::NativeErrorImp(ExecState *exec, FunctionPrototypeImp *funcProto,
   proto = static_cast<ObjectImp*>(prot.imp());
 
   putDirect(lengthPropertyName, NumberImp::one(), DontDelete|ReadOnly|DontEnum); // ECMA 15.11.7.5
-  putDirect(prototypePropertyName, proto, 0);
+  putDirect(prototypePropertyName, proto, DontDelete|ReadOnly|DontEnum);
 }
 
 bool NativeErrorImp::implementsConstruct() const

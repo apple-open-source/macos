@@ -1,10 +1,10 @@
 /* SASL server API implementation
  * Rob Siemborski
  * Tim Martin
- * $Id: sasldb.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $
+ * $Id: sasldb.c,v 1.5 2005/01/10 19:01:39 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -128,14 +128,75 @@ static void sasldb_auxprop_lookup(void *glob_context __attribute__((unused)),
     if (user_buf) sparams->utils->free(user_buf);
 }
 
+static int sasldb_auxprop_store(void *glob_context __attribute__((unused)),
+				sasl_server_params_t *sparams,
+				struct propctx *ctx,
+				const char *user,
+				unsigned ulen) 
+{
+    char *userid = NULL;
+    char *realm = NULL;
+    const char *user_realm = NULL;
+    int ret = SASL_FAIL;
+    const struct propval *to_store, *cur;
+    char *user_buf;
+
+    /* just checking if we are enabled */
+    if(!ctx) return SASL_OK;
+    
+    if(!sparams || !user) return SASL_BADPARAM;
+
+    user_buf = sparams->utils->malloc(ulen + 1);
+    if(!user_buf) {
+	ret = SASL_NOMEM;
+	goto done;
+    }
+
+    memcpy(user_buf, user, ulen);
+    user_buf[ulen] = '\0';
+
+    if(sparams->user_realm) {
+	user_realm = sparams->user_realm;
+    } else {
+	user_realm = sparams->serverFQDN;
+    }
+
+    ret = _plug_parseuser(sparams->utils, &userid, &realm, user_realm,
+			  sparams->serverFQDN, user_buf);
+    if(ret != SASL_OK) goto done;
+
+    to_store = sparams->utils->prop_get(ctx);
+    if(!to_store) {
+	ret = SASL_BADPARAM;
+	goto done;
+    }
+
+    for(cur = to_store; cur->name; cur++) {
+	/* We only support one value right now. */
+	ret = _sasldb_putdata(sparams->utils, sparams->utils->conn,
+			      userid, realm, cur->name,
+			      cur->values && cur->values[0] ?
+			      cur->values[0] : NULL,
+			      cur->values && cur->values[0] ?
+			      strlen(cur->values[0]) : 0);
+    }
+
+ done:
+    if (userid) sparams->utils->free(userid);
+    if (realm)  sparams->utils->free(realm);
+    if (user_buf) sparams->utils->free(user_buf);
+
+    return ret;
+}
+
 static sasl_auxprop_plug_t sasldb_auxprop_plugin = {
-    0,           /* Features */
-    0,           /* spare */
-    NULL,        /* glob_context */
-    NULL,        /* auxprop_free */
-    sasldb_auxprop_lookup, /* auxprop_lookup */
-    "sasldb",    /* name */
-    NULL         /* spare */
+    0,           		/* Features */
+    0,           		/* spare */
+    NULL,        		/* glob_context */
+    NULL,        		/* auxprop_free */
+    sasldb_auxprop_lookup,	/* auxprop_lookup */
+    "sasldb",			/* name */
+    sasldb_auxprop_store	/* auxprop_store */
 };
 
 int sasldb_auxprop_plug_init(const sasl_utils_t *utils,

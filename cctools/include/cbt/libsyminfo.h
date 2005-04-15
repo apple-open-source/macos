@@ -22,16 +22,6 @@
  */
 #include <mach/mach.h>
 
-struct selectedSymbolListInfo {
-	vm_size_t mappedFileSize;
-	void *mappedFile;
-	char *fileName;
-	char *cachedFileName;
-	int byteSex;
-	struct nlist *all_symbols;
-	struct symtab_command *st;
-};
-
 #ifndef __SymInfoTypes__
 typedef void *SymInfoList;
 typedef void *SymInfoSymbol;

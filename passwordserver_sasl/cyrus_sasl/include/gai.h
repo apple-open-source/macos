@@ -1,12 +1,12 @@
 /*
  * Mar  8, 2000 by Hajimu UMEMOTO <ume@mahoroba.org>
- * $Id: gai.h,v 1.4 2002/05/22 17:57:09 snsimon Exp $
+ * $Id: gai.h,v 1.5 2004/07/07 22:48:35 snsimon Exp $
  *
  * This module is besed on ssh-1.2.27-IPv6-1.5 written by
  * KIKUCHI Takahiro <kick@kyoto.wide.ad.jp>
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,11 +92,24 @@ struct addrinfo {
 #define NI_NUMERICSERV	8
 #endif
 
-int	getaddrinfo(const char *, const char *,
-		    const struct addrinfo *, struct addrinfo **);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef HAVE_GETNAMEINFO
 int	getnameinfo(const struct sockaddr *, socklen_t, char *,
 		    size_t, char *, size_t, int);
+#endif
+
+#ifndef HAVE_GETNAMEINFO
+int	getaddrinfo(const char *, const char *,
+		    const struct addrinfo *, struct addrinfo **);
 void	freeaddrinfo(struct addrinfo *);
 char	*gai_strerror(int);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

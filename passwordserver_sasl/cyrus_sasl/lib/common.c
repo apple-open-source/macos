@@ -1,10 +1,10 @@
 /* common.c - Functions that are common to server and clinet
  * Rob Siemborski
  * Tim Martin
- * $Id: common.c,v 1.4 2003/02/24 23:59:27 snsimon Exp $
+ * $Id: common.c,v 1.8 2005/01/20 23:02:33 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,13 @@
 #include <saslplug.h>
 #include "saslint.h"
 
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
+
 #ifdef WIN32
 /* need to handle the fact that errno has been defined as a function
    in a dll, not an extern int */
@@ -70,15 +77,27 @@
 #include <unistd.h>
 #endif
 
-static const char build_ident[] = "$Build: libsasl " PACKAGE "-" VERSION " $";
+static const char *implementation_string = "Cyrus SASL";
+
+#define	VSTR0(maj, min, step)	#maj "." #min "." #step
+#define	VSTR(maj, min, step)	VSTR0(maj, min, step)
+#define	SASL_VERSION_STRING	VSTR(SASL_VERSION_MAJOR, SASL_VERSION_MINOR, \
+				SASL_VERSION_STEP)
+
+static int _sasl_getpath(void *context __attribute__((unused)), const char **path);
+
+//static const char build_ident[] = "$Build: libsasl " PACKAGE "-" VERSION " $";
+
+/* It turns out to be convenient to have a shared sasl_utils_t */
+LIBSASL_VAR const sasl_utils_t *sasl_global_utils = NULL;
 
 /* Should be a null-terminated array that lists the available mechanisms */
-static const char **global_mech_list = NULL;
+static char **global_mech_list = NULL;
 
 void *free_mutex = NULL;
 
-void (*_sasl_client_cleanup_hook)(void) = NULL;
-void (*_sasl_server_cleanup_hook)(void) = NULL;
+int (*_sasl_client_cleanup_hook)(void) = NULL;
+int (*_sasl_server_cleanup_hook)(void) = NULL;
 int (*_sasl_client_idle_hook)(sasl_conn_t *conn) = NULL;
 int (*_sasl_server_idle_hook)(sasl_conn_t *conn) = NULL;
 
@@ -131,7 +150,7 @@ int _sasl_strdup(const char *in, char **out, size_t *outlen)
 {
   size_t len = strlen(in);
   if (outlen) *outlen = len;
-  *out=sasl_ALLOC(len + 1);
+  *out=sasl_ALLOC((unsigned) len + 1);
   if (! *out) return SASL_NOMEM;
   strcpy((char *) *out, in);
   return SASL_OK;
@@ -153,6 +172,31 @@ int _sasl_add_string(char **out, size_t *alloclen,
   *outlen += addlen;
 
   return SASL_OK;
+}
+
+/* return the version of the cyrus sasl library as compiled,
+ * using 32 bits: high byte is major version, second byte is minor version,
+ * low 16 bits are step # */
+void sasl_version(const char **implementation, int *version) 
+{
+    if(implementation) *implementation = implementation_string;
+    if(version) *version = (SASL_VERSION_MAJOR << 24) | 
+		           (SASL_VERSION_MINOR << 16) |
+		           (SASL_VERSION_STEP);
+}
+
+/* Extended version of sasl_version above */
+void sasl_version_info (const char **implementation, const char **version_string,
+		    int *version_major, int *version_minor, int *version_step,
+		    int *version_patch)
+{
+    if (implementation) *implementation = implementation_string;
+    if (version_string) *version_string = SASL_VERSION_STRING;
+    if (version_major) *version_major = SASL_VERSION_MAJOR;
+    if (version_minor) *version_minor = SASL_VERSION_MINOR;
+    if (version_step) *version_step = SASL_VERSION_STEP;
+    /* Version patch is always 0 for CMU SASL */
+    if (version_patch) *version_patch = 0;
 }
 
 /* security-encode a regular string.  Mostly a wrapper for sasl_encodev */
@@ -216,7 +260,7 @@ int sasl_encodev(sasl_conn_t *conn,
 	if(result != SASL_OK) INTERROR(conn, result);
        
 	*output = conn->encode_buf->data;
-	*outputlen = conn->encode_buf->curlen;
+	*outputlen = (unsigned) conn->encode_buf->curlen;
 
     } else {
 	result = conn->oparams.encode(conn->context, invec, numiov,
@@ -271,6 +315,10 @@ int sasl_decode(sasl_conn_t *conn,
     } else {
         result = conn->oparams.decode(conn->context, input, inputlen,
                                       output, outputlen);
+
+	/* NULL an empty buffer (for misbehaved applications) */
+	if (*outputlen == 0) *output = NULL;
+
         RETURN(conn, result);
     }
 
@@ -292,29 +340,29 @@ sasl_set_alloc(sasl_malloc_t *m,
 
 void sasl_done(void)
 {
-  if (_sasl_server_cleanup_hook)
-    _sasl_server_cleanup_hook();
-
-  if (_sasl_client_cleanup_hook)
-    _sasl_client_cleanup_hook();
-  
-  _sasl_canonuser_free();
-  _sasl_done_with_plugins();
-  
-  sasl_MUTEX_FREE(free_mutex);
-  free_mutex = NULL;
-
-  _sasl_free_utils(&sasl_global_utils);
-
-  sasl_FREE(global_mech_list);
-  global_mech_list = NULL;
-
-  /* in case of another init/done */
-  _sasl_server_cleanup_hook = NULL;
-  _sasl_client_cleanup_hook = NULL;
-
-  _sasl_client_idle_hook = NULL;
-  _sasl_server_idle_hook = NULL;
+    if (_sasl_server_cleanup_hook && _sasl_server_cleanup_hook() == SASL_OK) {
+	_sasl_server_idle_hook = NULL;
+	_sasl_server_cleanup_hook = NULL;
+    }
+    
+    if (_sasl_client_cleanup_hook && _sasl_client_cleanup_hook() == SASL_OK) {
+	_sasl_client_idle_hook = NULL;	
+	_sasl_client_cleanup_hook = NULL;
+    }
+    
+    if(_sasl_server_cleanup_hook || _sasl_client_cleanup_hook)
+	return;
+    
+    _sasl_canonuser_free();
+    _sasl_done_with_plugins();
+    
+    sasl_MUTEX_FREE(free_mutex);
+    free_mutex = NULL;
+    
+    _sasl_free_utils(&sasl_global_utils);
+    
+    if(global_mech_list) sasl_FREE(global_mech_list);
+    global_mech_list = NULL;
 }
 
 /* fills in the base sasl_conn_t info */
@@ -392,16 +440,13 @@ int _sasl_conn_init(sasl_conn_t *conn,
   RETURN(conn, SASL_OK);
 }
 
-/* It turns out to be conveinent to have a shared sasl_utils_t */
-const sasl_utils_t *sasl_global_utils = NULL;
-
-int _sasl_common_init(void)
+int _sasl_common_init(sasl_global_callbacks_t *global_callbacks)
 {
     int result;
     
     /* Setup the global utilities */
     if(!sasl_global_utils) {
-	sasl_global_utils = _sasl_alloc_utils(NULL, NULL);
+	sasl_global_utils = _sasl_alloc_utils(NULL, global_callbacks);
 	if(sasl_global_utils == NULL) return SASL_NOMEM;
     }
 
@@ -529,6 +574,12 @@ int sasl_getprop(sasl_conn_t *conn, int propnum, const void **pvalue)
       else
 	  *((const char **)pvalue) = conn->oparams.user;
       break;
+  case SASL_AUTHUSER:
+      if(! conn->oparams.authid)
+	  result = SASL_NOTDONE;
+      else
+	  *((const char **)pvalue) = conn->oparams.authid;
+      break;
   case SASL_SERVERFQDN:
       *((const char **)pvalue) = conn->serverFQDN;
       break;
@@ -626,6 +677,13 @@ int sasl_setprop(sasl_conn_t *conn, int propnum, const void *value)
   {
   case SASL_SSF_EXTERNAL:
       conn->external.ssf = *((sasl_ssf_t *)value);
+      if(conn->type == SASL_CONN_SERVER) {
+	((sasl_server_conn_t*)conn)->sparams->external_ssf =
+	  conn->external.ssf;
+      } else {
+	((sasl_client_conn_t*)conn)->cparams->external_ssf =
+	  conn->external.ssf;
+      }
       break;
 
   case SASL_AUTH_EXTERNAL:
@@ -666,10 +724,26 @@ int sasl_setprop(sasl_conn_t *conn, int propnum, const void *value)
       break;
 
   case SASL_SEC_PROPS:
-      memcpy(&(conn->props),(sasl_security_properties_t *)value,
-	     sizeof(sasl_security_properties_t));
-      break;
+  {
+      sasl_security_properties_t *props = (sasl_security_properties_t *)value;
 
+      if(props->maxbufsize == 0 && props->min_ssf != 0) {
+	  sasl_seterror(conn, 0,
+			"Attempt to disable security layers (maxoutbuf == 0) with min_ssf > 0");
+	  RETURN(conn, SASL_TOOWEAK);
+      }
+
+      conn->props = *props;
+
+      if(conn->type == SASL_CONN_SERVER) {
+	((sasl_server_conn_t*)conn)->sparams->props = *props;
+      } else {
+	((sasl_client_conn_t*)conn)->cparams->props = *props;
+      }
+
+      break;
+  }
+      
   case SASL_IPREMOTEPORT:
   {
       const char *ipremoteport = (const char *)value;
@@ -688,17 +762,23 @@ int sasl_setprop(sasl_conn_t *conn, int propnum, const void *value)
 	  if(conn->type == SASL_CONN_CLIENT) {
 	      ((sasl_client_conn_t *)conn)->cparams->ipremoteport
 		  = conn->ipremoteport;
+	      ((sasl_client_conn_t *)conn)->cparams->ipremlen =
+		  (unsigned) strlen(conn->ipremoteport);
 	  } else if (conn->type == SASL_CONN_SERVER) {
 	      ((sasl_server_conn_t *)conn)->sparams->ipremoteport
 		  = conn->ipremoteport;
+	      ((sasl_server_conn_t *)conn)->sparams->ipremlen =
+		  (unsigned) strlen(conn->ipremoteport);
 	  }
       } else {
 	  if(conn->type == SASL_CONN_CLIENT) {
 	      ((sasl_client_conn_t *)conn)->cparams->ipremoteport
 		  = NULL;
+	      ((sasl_client_conn_t *)conn)->cparams->ipremlen = 0;
 	  } else if (conn->type == SASL_CONN_SERVER) {
 	      ((sasl_server_conn_t *)conn)->sparams->ipremoteport
-		  = NULL;
+		  = NULL;	      
+	      ((sasl_server_conn_t *)conn)->sparams->ipremlen = 0;
 	  }
       }
 
@@ -723,17 +803,23 @@ int sasl_setprop(sasl_conn_t *conn, int propnum, const void *value)
 	  if(conn->type == SASL_CONN_CLIENT) {
 	      ((sasl_client_conn_t *)conn)->cparams->iplocalport
 		  = conn->iplocalport;
+	      ((sasl_client_conn_t *)conn)->cparams->iploclen
+		  = (unsigned) strlen(conn->iplocalport);
 	  } else if (conn->type == SASL_CONN_SERVER) {
 	      ((sasl_server_conn_t *)conn)->sparams->iplocalport
 		  = conn->iplocalport;
+	      ((sasl_server_conn_t *)conn)->sparams->iploclen
+		  = (unsigned) strlen(conn->iplocalport);
 	  }
       } else {
 	  if(conn->type == SASL_CONN_CLIENT) {
 	      ((sasl_client_conn_t *)conn)->cparams->iplocalport
 		  = NULL;
+	      ((sasl_client_conn_t *)conn)->cparams->iploclen = 0;
 	  } else if (conn->type == SASL_CONN_SERVER) {
 	      ((sasl_server_conn_t *)conn)->sparams->iplocalport
 		  = NULL;
+	      ((sasl_server_conn_t *)conn)->sparams->iploclen = 0;
 	  }
       }
       break;
@@ -818,7 +904,7 @@ const char *sasl_errdetail(sasl_conn_t *conn)
     snprintf(leader,128,"SASL(%d): %s: ",
 	     sasl_usererr(conn->error_code), errstr);
     
-    need_len = strlen(leader) + strlen(conn->error_buf) + 12;
+    need_len = (unsigned) (strlen(leader) + strlen(conn->error_buf) + 12);
     _buf_alloc(&conn->errdetail_buf, &conn->errdetail_buf_len, need_len);
 
     snprintf(conn->errdetail_buf, need_len, "%s%s", leader, conn->error_buf);
@@ -834,7 +920,7 @@ static int _sasl_global_getopt(void *context,
 			       const char *plugin_name,
 			       const char *option,
 			       const char ** result,
-			       size_t *len)
+			       unsigned *len)
 {
   const sasl_global_callbacks_t * global_callbacks;
   const sasl_callback_t *callback;
@@ -845,21 +931,23 @@ static int _sasl_global_getopt(void *context,
       for (callback = global_callbacks->callbacks;
 	   callback->id != SASL_CB_LIST_END;
 	   callback++) {
-	  if (callback->id == SASL_CB_GETOPT
-	      && (((sasl_getopt_t *)(callback->proc))(callback->context,
-						      plugin_name,
-						      option,
-						      result,
-						      (unsigned *)len)
-		  == SASL_OK))
-	      return SASL_OK;
+	if (callback->id == SASL_CB_GETOPT) {
+	  if (!callback->proc) return SASL_FAIL;
+	  if (((sasl_getopt_t *)(callback->proc))(callback->context,
+						  plugin_name,
+						  option,
+						  result,
+						  len)
+	      == SASL_OK)
+	    return SASL_OK;
+	}
       }
   }
-
+  
   /* look it up in our configuration file */
   *result = sasl_config_getstring(option, NULL);
   if (*result != NULL) {
-      if (len) { *len = strlen(*result); }
+      if (len) { *len = (unsigned) strlen(*result); }
       return SASL_OK;
   }
 
@@ -990,20 +1078,6 @@ _sasl_getsimple(void *context,
   default:
     return SASL_BADPARAM;
   }
-}
-
-static int
-_sasl_getpath(void *context __attribute__((unused)),
-	      const char **path)
-{
-  if (! path)
-    return SASL_BADPARAM;
-
-  *path = getenv(SASL_PATH_ENV_VAR);
-  if (! *path)
-    *path = PLUGINDIR;
-
-  return SASL_OK;
 }
 
 static int
@@ -1161,6 +1235,7 @@ _sasl_log (sasl_conn_t *conn,
   void *log_ctx;
   
   int ival;
+  unsigned int uval;
   char *cval;
   va_list ap; /* varargs thing */
 
@@ -1265,8 +1340,25 @@ _sasl_log (sasl_conn_t *conn,
 		goto done;
 
 	    done=1;
-
 	    break;
+
+	  case 'o':
+	  case 'u':
+	  case 'x':
+	  case 'X':
+	    frmt[frmtpos++]=fmt[pos];
+	    frmt[frmtpos]=0;
+	    uval = va_arg(ap, unsigned int); /* get the next arg */
+
+	    snprintf(tempbuf,20,frmt,uval); /* have snprintf do the work */
+	    /* now add the string */
+	    result = _sasl_add_string(&out, &alloclen, &outlen, tempbuf);
+	    if (result != SASL_OK)
+		goto done;
+
+	    done=1;
+	    break;
+
 	  default: 
 	    frmt[frmtpos++]=fmt[pos]; /* add to the formating */
 	    frmt[frmtpos]=0;	    
@@ -1281,7 +1373,10 @@ _sasl_log (sasl_conn_t *conn,
     }
   }
 
-  out[outlen]=0; /* put 0 at end */
+  /* put 0 at end */
+  result = _buf_alloc(&out, &alloclen, outlen+1);
+  if (result != SASL_OK) goto done;
+  out[outlen]=0;
 
   va_end(ap);    
 
@@ -1368,12 +1463,12 @@ _sasl_alloc_utils(sasl_conn_t *conn,
   utils->prop_set=&prop_set;
   utils->prop_setvals=&prop_setvals;
   utils->prop_erase=&prop_erase;
+  utils->auxprop_store=&sasl_auxprop_store;
 #endif
 
   /* Spares */
   utils->spare_fptr = NULL;
-  utils->spare_fptr1 = utils->spare_fptr2 = 
-      utils->spare_fptr3 = NULL;
+  utils->spare_fptr1 = utils->spare_fptr2 = NULL;
   
   return utils;
 }
@@ -1465,7 +1560,7 @@ _sasl_find_verifyfile_callback(const sasl_callback_t *callbacks)
 int _buf_alloc(char **rwbuf, size_t *curlen, size_t newlen) 
 {
     if(!(*rwbuf)) {
-	*rwbuf = sasl_ALLOC(newlen);
+	*rwbuf = sasl_ALLOC((unsigned)newlen);
 	if (*rwbuf == NULL) {
 	    *curlen = 0;
 	    return SASL_NOMEM;
@@ -1477,7 +1572,7 @@ int _buf_alloc(char **rwbuf, size_t *curlen, size_t newlen)
 	while(needed < newlen)
 	    needed *= 2;
 
-	*rwbuf = sasl_REALLOC(*rwbuf, needed);
+	*rwbuf = sasl_REALLOC(*rwbuf, (unsigned)needed);
 	
 	if (*rwbuf == NULL) {
 	    *curlen = 0;
@@ -1491,7 +1586,7 @@ int _buf_alloc(char **rwbuf, size_t *curlen, size_t newlen)
 
 /* for the mac os x cfm glue: this lets the calling function
    get pointers to the error buffer without having to touch the sasl_conn_t struct */
-void _sasl_get_errorbuf(sasl_conn_t *conn, char ***bufhdl, unsigned **lenhdl)
+void _sasl_get_errorbuf(sasl_conn_t *conn, char ***bufhdl, size_t **lenhdl)
 {
 	*bufhdl = &conn->error_buf;
 	*lenhdl = &conn->error_buf_len;
@@ -1520,7 +1615,7 @@ int _iovec_to_buf(const struct iovec *vec,
     for(i=0; i<numiov; i++)
 	out->curlen += vec[i].iov_len;
 
-    ret = _buf_alloc(&out->data, (size_t *)&out->reallen, out->curlen);
+    ret = _buf_alloc(&out->data, &out->reallen, out->curlen);
 
     if(ret != SASL_OK) return SASL_NOMEM;
     
@@ -1540,11 +1635,18 @@ int _iovec_to_buf(const struct iovec *vec,
 int _sasl_iptostring(const struct sockaddr *addr, socklen_t addrlen,
 		     char *out, unsigned outlen) {
     char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
-    
+    int niflags;
+
     if(!addr || !out) return SASL_BADPARAM;
 
-    getnameinfo(addr, addrlen, hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-		NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+    niflags = (NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef NI_WITHSCOPEID
+    if (addr->sa_family == AF_INET6)
+	niflags |= NI_WITHSCOPEID;
+#endif
+    if (getnameinfo(addr, addrlen, hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
+		    niflags) != 0)
+	return SASL_BADPARAM;
 
     if(outlen < strlen(hbuf) + strlen(pbuf) + 2)
 	return SASL_BUFOVER;
@@ -1582,9 +1684,10 @@ int _sasl_ipfromstring(const char *addr,
 	if (addr[i] != '\0') {
 		port = strtol(&addr[i], &endptr, 10);
 		if (endptr != NULL && *endptr != '\0')
-			return SASL_BADPARAM;
+	    return SASL_BADPARAM;
 	}
-	
+
+#if defined(__APPLE__)
 	/* getaddrinfo can be expensive, let's check for dotted IP address first */
 	rc = inet_aton(hbuf,&inetAddr);
 	if (rc==1) {
@@ -1597,22 +1700,25 @@ int _sasl_ipfromstring(const char *addr,
 			outAddr->sin_port = htons(port);
 			outAddr->sin_addr.s_addr = inetAddr.s_addr;
 		}
-	} else {
+	}
+	else
+#endif
+	{
 		memset(&hints, 0, sizeof(hints));
 		hints.ai_family = PF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
 		if (getaddrinfo(hbuf, &addr[i], &hints, &ai) != 0)
-		return SASL_BADPARAM;
-	
-		if (out) {
-		if (outlen < (unsigned)ai->ai_addrlen) {
-			freeaddrinfo(ai);
-			return SASL_BUFOVER;
+	return SASL_BADPARAM;
+
+    if (out) {
+	if (outlen < (socklen_t)ai->ai_addrlen) {
+	    freeaddrinfo(ai);
+	    return SASL_BUFOVER;
+	}
+	memcpy(out, ai->ai_addr, ai->ai_addrlen);
 		}
-		memcpy(out, ai->ai_addr, ai->ai_addrlen);
-		}
-	
+		
 		freeaddrinfo(ai);
 	}
 	
@@ -1649,7 +1755,7 @@ int _sasl_build_mechlist(void)
 	    }
 
 	    if(!flag) {
-		(*last)->next = p;
+		*last = p;
 		p->next = NULL;
 	    } else {
 		sasl_FREE(p);
@@ -1680,7 +1786,7 @@ int _sasl_build_mechlist(void)
     for (p = olist; p; p = p_next) {
 	p_next = p->next;
 
-	global_mech_list[count++] = p->d;
+	global_mech_list[count++] = (char *) p->d;
 
     	sasl_FREE(p);
     }
@@ -1690,7 +1796,7 @@ int _sasl_build_mechlist(void)
 
 const char ** sasl_global_listmech(void) 
 {
-    return global_mech_list;
+    return (const char **)global_mech_list;
 }
 
 int sasl_listmech(sasl_conn_t *conn,
@@ -1714,3 +1820,192 @@ int sasl_listmech(sasl_conn_t *conn,
     
     PARAMERROR(conn);
 }
+
+
+#ifndef WIN32
+static int
+_sasl_getpath(void *context __attribute__((unused)),
+	      const char **path)
+{
+  if (! path)
+    return SASL_BADPARAM;
+
+	/* Honor external variable only in a safe environment */
+	if (getuid() == geteuid() && getgid() == getegid())
+		*path = getenv(SASL_PATH_ENV_VAR);
+  if (! *path)
+    *path = PLUGINDIR;
+
+  return SASL_OK;
+}
+
+#else
+/* Return NULL on failure */
+static int
+_sasl_getpath(void *context __attribute__((unused)), const char **path)
+{
+    /* Open registry entry, and find all registered SASL libraries.
+     *
+     * Registry location:
+     *
+     *     SOFTWARE\\Carnegie Mellon\\Project Cyrus\\SASL Library
+     *
+     * Key - value:
+     *
+     *     "SearchPath" - value: PATH like (';' delimited) list
+     *                    of directories where to search for plugins
+     *                    The list may contain references to environment
+     *                    variables (e.g. %PATH%).
+     *
+     */
+    HKEY  hKey;
+    DWORD ret;
+    DWORD ValueType;		    /* value type */
+    DWORD cbData;		    /* value size */
+    BYTE * ValueData;		    /* value */
+    DWORD cbExpandedData;	    /* "expanded" value size */
+    BYTE * ExpandedValueData;	    /* "expanded" value */
+    char * return_value;	    /* function return value */
+    char * tmp;
+
+    /* Initialization */
+    ExpandedValueData = NULL;
+    ValueData = NULL;
+    return_value = NULL;
+
+    /* Open the registry */
+    ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+		       SASL_ROOT_KEY,
+		       0,
+		       KEY_READ,
+		       &hKey);
+
+    if (ret != ERROR_SUCCESS) { 
+		/* no registry entry */
+		*path = PLUGINDIR;
+		return SASL_OK; 
+	}
+
+    /* figure out value type and required buffer size */
+    /* the size will include space for terminating NUL if required */
+    RegQueryValueEx (hKey,
+		     SASL_PATH_SUBKEY,
+		     NULL,	    /* reserved */
+		     &ValueType,
+		     NULL,
+		     &cbData);
+ 
+    /* Only accept string related types */
+    if (ValueType != REG_EXPAND_SZ &&
+	ValueType != REG_MULTI_SZ &&
+	ValueType != REG_SZ) {
+	return_value = NULL;
+	goto CLEANUP;
+    }
+
+    /* Any high water mark? */
+    ValueData = sasl_ALLOC(cbData);
+    if (ValueData == NULL) {
+	return_value = NULL;
+	goto CLEANUP;
+    };
+
+    RegQueryValueEx (hKey,
+		     SASL_PATH_SUBKEY,
+		     NULL,	    /* reserved */
+		     &ValueType,
+		     ValueData,
+		     &cbData);
+
+    switch (ValueType) {
+    case REG_EXPAND_SZ:
+        /* : A random starting guess */
+        cbExpandedData = cbData + 1024;
+        ExpandedValueData = sasl_ALLOC(cbExpandedData);
+        if (ExpandedValueData == NULL) {
+            return_value = NULL;
+            goto CLEANUP;
+        };
+
+        cbExpandedData = ExpandEnvironmentStrings(
+                                                  ValueData,
+                                                  ExpandedValueData,
+                                                  cbExpandedData);
+
+        if (cbExpandedData == 0) {
+            /* : GetLastError() contains the reason for failure */
+            return_value = NULL;
+            goto CLEANUP;
+        }
+
+        /* : Must retry expansion with the bigger buffer */
+        if (cbExpandedData > cbData + 1024) {
+            /* : Memory leak here if can't realloc */
+            ExpandedValueData = sasl_REALLOC(ExpandedValueData, cbExpandedData);
+            if (ExpandedValueData == NULL) {
+                return_value = NULL;
+                goto CLEANUP;
+            };
+
+            cbExpandedData = ExpandEnvironmentStrings(
+                                                      ValueData,
+                                                      ExpandedValueData,
+                                                      cbExpandedData);
+
+            /* : This should not happen */
+            if (cbExpandedData == 0) {
+                /* : GetLastError() contains the reason for failure */
+                return_value = NULL;
+                goto CLEANUP;
+            }
+        }
+
+        sasl_FREE(ValueData);
+        ValueData = ExpandedValueData;
+        /* : This is to prevent automatical freeing of this block on cleanup */
+        ExpandedValueData = NULL;
+
+        break;
+
+    case REG_MULTI_SZ:
+        tmp = ValueData;
+
+        /* : We shouldn't overflow here, as the buffer is guarantied
+           : to contain at least two consequent NULs */
+        while (1) {
+            if (tmp[0] == '\0') {
+                /* : Stop the process if we found the end of the string (two consequent NULs) */
+                if (tmp[1] == '\0') {
+                    break;
+                }
+
+                /* : Replace delimiting NUL with our delimiter characted */
+                tmp[0] = PATHS_DELIMITER;
+            }
+            tmp += strlen(tmp);
+        }
+        break;
+
+    case REG_SZ:
+        /* Do nothing, it is good as is */
+        break;
+
+    default:
+        return_value = NULL;
+        goto CLEANUP;
+    }
+
+    return_value = ValueData;
+
+    CLEANUP:
+    RegCloseKey(hKey);
+    if (ExpandedValueData != NULL) sasl_FREE(ExpandedValueData);
+    if (return_value == NULL) {
+	if (ValueData != NULL) sasl_FREE(ValueData);
+    }
+    *path = return_value;
+
+	return SASL_OK;
+}
+
+#endif

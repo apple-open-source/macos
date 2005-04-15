@@ -35,13 +35,17 @@ from Mailman.Logging.Syslog import syslog
 _ = i18n._
 i18n.set_language(mm_cfg.DEFAULT_SERVER_LANGUAGE)
 
+SLASH = '/'
+
 
 
 def true_path(path):
     "Ensure that the path is safe by removing .."
-    path = path.replace('../', '')
-    path = path.replace('./', '')
-    return path[1:]
+    parts = path.split(SLASH)
+    safe = [x for x in parts if x not in ('.', '..')]
+    if parts <> safe:
+        syslog('mischief', 'Directory traversal attack thwarted')
+    return SLASH.join(safe)[1:]
 
 
 

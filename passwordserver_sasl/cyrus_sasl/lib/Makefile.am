@@ -1,6 +1,6 @@
 # Makefile.am for the SASL library
 # Rob Earhart
-# $Id: Makefile.am,v 1.2 2002/05/22 17:58:41 snsimon Exp $
+# $Id: Makefile.am,v 1.5 2005/01/10 19:13:35 snsimon Exp $
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,28 +41,27 @@
 #
 
 # Library version info - here at the top, for sanity
-sasl_version = 2:3:0
+sasl_version = 2:18:0
 
-INCLUDES=-I$(top_srcdir)/include -I$(top_srcdir)/plugins
+INCLUDES=-I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include
 
-EXTRA_DIST = windlopen.c
+EXTRA_DIST = windlopen.c staticopen.h NTMakefile
+EXTRA_LIBRARIES = libsasl2.a
+noinst_LIBRARIES = @SASL_STATIC_LIBS@
+libsasl2_a_SOURCES=
 
-common_headers = saslint.h plugin_common.h
-common_sources = auxprop.c canonusr.c checkpw.c client.c common.c config.c external.c md5.c saslutil.c server.c seterror.c plugin_common.c
+common_headers = saslint.h
+common_sources = auxprop.c canonusr.c checkpw.c client.c common.c config.c external.c md5.c saslutil.c server.c seterror.c dlopen.c ../plugins/plugin_common.c
+
+LTLIBOBJS = @LTLIBOBJS@
+LIBOBJS = @LIBOBJS@
 
 lib_LTLIBRARIES = libsasl2.la
 
-libsasl2_la_SOURCES = $(common_sources) dlopen.c $(common_headers)
+libsasl2_la_SOURCES = $(common_sources) $(common_headers)
 libsasl2_la_LDFLAGS = -version-info $(sasl_version)
-libsasl2_la_DEPENDENCIES = @LTLIBOBJS@
-libsasl2_la_LIBADD = @LTLIBOBJS@ $(SASL_DL_LIB) $(LIB_SOCKET)
-
-#static version (optional)
-lib_LIBRARIES = @SASL_STATIC_LIBS@
-EXTRA_LIBRARIES = libsasl2.a
-libsasl2_a_SOURCES = $(common_sources) staticopen.c $(common_headers) staticopen.h
-libsasl2_a_DEPENDENCIES = @LIBOBJS@ @SASL_STATIC_OBJS@ ../sasldb/libsasldb.a
-libsasl2_a_LIBADD = @LIBOBJS@ @SASL_STATIC_OBJS@ $(SASL_DB_BACKEND_STATIC)
+libsasl2_la_DEPENDENCIES = $(LTLIBOBJS)
+libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET)
 
 if MACOSX
 framedir = /Library/Frameworks/SASL2.framework
@@ -74,3 +73,21 @@ else
 install-exec-hook:
 endif
 
+libsasl2.a: libsasl2.la $(SASL_STATIC_OBJS)
+	@echo adding static plugins and dependencies
+	$(AR) cru .libs/$@ $(SASL_STATIC_OBJS)
+	@for i in ./libsasl2.la ../sasldb/libsasldb.la ../plugins/lib*.la; do \
+	if test ! -f $$i; then continue; fi; . $$i; \
+	for j in $$dependency_libs foo; do \
+	case $$j in foo) ;; \
+	-L*) for k in $$depdirs foo; do \
+	    if test $$k = $$j; then break; fi; done; \
+	  if test $$k = foo; then depdirs="$$depdirs $$j"; fi ;; \
+	-l*) for k in $$deplibs foo; do \
+	    if test $$k = $$j; then break; fi; done; \
+	  if test $$k = foo; then deplibs="$$deplibs $$j"; fi ;; \
+	esac; done; dependency_libs=""; done; \
+	sed -e "/^dependency_libs=/s%=.*%='$${depdirs}$${deplibs}'%" \
+	libsasl2.la >TMP.$$ && mv TMP.$$ libsasl2.la
+	rm -f $@
+	ln -s .libs/$@ $@

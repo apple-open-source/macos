@@ -1,0 +1,36 @@
+@c APPLE LOCAL entire file
+@node Source Code
+@unnumbered Source Code
+
+The source code for Apple's versions of GCC is available using
+anonymous CVS, from
+@samp{:pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root}
+with password @samp{anonymous}, as module @samp{gcc}, branch
+@samp{apple-ppc-branch}.
+
+For example, you can fetch the latest version by entering:
+
+@smallexample
+$ cvs -d :pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root login
+Password: anonymous
+$ cvs -d :pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root -z6 \
+  co -r apple-ppc-branch gcc
+@end smallexample
+
+Each version will be tagged based on its build number, which
+you can find by executing @samp{gcc --version}; for instance, if this prints
+
+@smallexample
+gcc (GCC) 3.3 20030304 (Apple Computer, Inc. build 1402)
+@end smallexample
+
+then the build number is 1402.  Some older compilers may require you
+use @samp{gcc -v} to obtain the build number.  Most versions are
+tagged like @samp{apple-gcc-1402}; you can find a list of suitable tags with
+a command like @samp{cvs log gcc/gcc/version.c}.  Once you have the
+tag, you can use the @samp{-r} flag to CVS, for instance
+
+@smallexample
+$ cvs -d :pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root -z6 \
+    co -r apple-gcc-1402 gcc
+@end smallexample

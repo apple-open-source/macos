@@ -139,7 +139,7 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
         
 	/* Create new domain entry */
 
-	if ((domain = (struct winbindd_domain *)malloc(sizeof(*domain))) == NULL)
+	if ((domain = SMB_MALLOC_P(struct winbindd_domain)) == NULL)
 		return NULL;
 
 	/* Fill in fields */
@@ -175,7 +175,7 @@ static struct winbindd_domain *add_trusted_domain(const char *domain_name, const
 	/* Link to domain list */
 	DLIST_ADD(_domain_list, domain);
         
-	DEBUG(1,("Added domain %s %s %s\n", 
+	DEBUG(2,("Added domain %s %s %s\n", 
 		 domain->name, domain->alt_name,
 		 &domain->sid?sid_string_static(&domain->sid):""));
         
@@ -641,11 +641,13 @@ BOOL parse_domain_user(const char *domuser, fstring domain, fstring user)
 */
 void fill_domain_username(fstring name, const char *domain, const char *user)
 {
+	strlower_m( name );
+
 	if (assume_domain(domain)) {
 		strlcpy(name, user, sizeof(fstring));
 	} else {
-		slprintf(name, sizeof(fstring) - 1, "%s%s%s",
-			 domain, lp_winbind_separator(),
+		slprintf(name, sizeof(fstring) - 1, "%s%c%s",
+			 domain, *lp_winbind_separator(),
 			 user);
 	}
 }
@@ -736,6 +738,14 @@ void winbindd_remove_client(struct winbindd_cli_state *cli)
 	_num_clients--;
 }
 
+/* Demote a client to be the last in the list */
+
+void winbindd_demote_client(struct winbindd_cli_state *cli)
+{
+	struct winbindd_cli_state *tmp;
+	DLIST_DEMOTE(_client_list, cli, tmp);
+}
+
 /* Close all open clients */
 
 void winbindd_kill_all_clients(void)
@@ -767,7 +777,7 @@ DOM_SID *rid_to_talloced_sid(struct winbindd_domain *domain,
 				    uint32 rid) 
 {
 	DOM_SID *sid;
-	sid = talloc(mem_ctx, sizeof(*sid));
+	sid = TALLOC_P(mem_ctx, DOM_SID);
 	if (!sid) {
 		smb_panic("rid_to_to_talloced_sid: talloc for DOM_SID failed!\n");
 	}

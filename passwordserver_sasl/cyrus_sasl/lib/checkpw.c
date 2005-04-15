@@ -1,10 +1,10 @@
 /* SASL server API implementation
  * Rob Siemborski
  * Tim Martin
- * $Id: checkpw.c,v 1.2 2002/05/22 17:56:55 snsimon Exp $
+ * $Id: checkpw.c,v 1.5 2005/01/10 19:13:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,7 +69,6 @@
 #include <strings.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <sys/param.h>
 #include <sys/un.h>
 #else
 #include <string.h>
@@ -93,8 +92,6 @@
 # ifdef HAVE_UNISTD_H
 #  include <unistd.h>
 # endif
-
-extern int errno;
 #endif
 
 
@@ -122,7 +119,7 @@ static int _sasl_make_plain_secret(const char *salt,
     _sasl_MD5Update(&ctx, "sasldb", 6);
     _sasl_MD5Update(&ctx, passwd, passlen);
     memcpy((*secret)->data, salt, 16);
-    memcpy((*secret)->data + 16, "\0", 1);
+    (*secret)->data[16] = '\0';
     _sasl_MD5Final((*secret)->data + 17, &ctx);
     (*secret)->len = sec_len;
     
@@ -143,7 +140,7 @@ static int auxprop_verify_password(sasl_conn_t *conn,
     int result = SASL_OK;
     sasl_server_conn_t *sconn = (sasl_server_conn_t *)conn;
     const char *password_request[] = { SASL_AUX_PASSWORD,
-				       "cmusaslsecretPLAIN",
+				       "*cmusaslsecretPLAIN",
 				       NULL };
     struct propval auxprop_values[3];
     
@@ -161,13 +158,10 @@ static int auxprop_verify_password(sasl_conn_t *conn,
     if(result != SASL_OK) return result;
 
     result = _sasl_canon_user(conn, userstr, 0,
-			      SASL_CU_AUTHID, &(conn->oparams));
+			      SASL_CU_AUTHID | SASL_CU_AUTHZID,
+			      &(conn->oparams));
     if(result != SASL_OK) return result;
     
-    result = _sasl_canon_user(conn, userstr, 0,
-			      SASL_CU_AUTHZID, &(conn->oparams));
-    if(result != SASL_OK) return result;
-
     result = prop_getnames(sconn->sparams->propctx, password_request,
 			   auxprop_values);
     if(result < 0)
@@ -221,6 +215,10 @@ static int auxprop_verify_password(sasl_conn_t *conn,
 	ret = SASL_BADAUTH;
     }
 
+    /* erase the plaintext password */
+    sconn->sparams->utils->prop_erase(sconn->sparams->propctx,
+				      password_request[0]);
+
  done:
     if (userid) sasl_FREE(userid);
     if (realm)  sasl_FREE(realm);
@@ -241,7 +239,7 @@ int _sasl_auxprop_verify_apop(sasl_conn_t *conn,
     char *userid = NULL;
     char *realm = NULL;
     unsigned char digest[16];
-    char digeststr[32];
+    char digeststr[33];
     const char *password_request[] = { SASL_AUX_PASSWORD, NULL };
     struct propval auxprop_values[2];
     sasl_server_conn_t *sconn = (sasl_server_conn_t *)conn;
@@ -264,6 +262,7 @@ int _sasl_auxprop_verify_apop(sasl_conn_t *conn,
        !auxprop_values[0].values ||
        !auxprop_values[0].values[0]) {
 	sasl_seterror(conn, 0, "could not find password");
+	ret = SASL_NOUSER;
 	goto done;
     }
     
@@ -272,6 +271,10 @@ int _sasl_auxprop_verify_apop(sasl_conn_t *conn,
     _sasl_MD5Update(&ctx, auxprop_values[0].values[0],
 		    strlen(auxprop_values[0].values[0]));
     _sasl_MD5Final(digest, &ctx);
+
+    /* erase the plaintext password */
+    sconn->sparams->utils->prop_erase(sconn->sparams->propctx,
+				      password_request[0]);
 
     /* convert digest from binary to ASCII hex */
     for (i = 0; i < 16; i++)
@@ -295,12 +298,55 @@ int _sasl_auxprop_verify_apop(sasl_conn_t *conn,
 }
 #endif /* DO_SASL_CHECKAPOP */
 
-#if defined(HAVE_PWCHECK) || defined(HAVE_SASLAUTHD)
+#if defined(HAVE_PWCHECK) || defined(HAVE_SASLAUTHD) || defined(HAVE_AUTHDAEMON)
+/*
+ * Wait for file descriptor to be writable. Return with error if timeout.
+ */
+static int write_wait(int fd, unsigned delta)
+{
+    fd_set wfds;
+    fd_set efds;
+    struct timeval tv;
+
+    /* 
+     * Wait for file descriptor fd to be writable. Retry on
+     * interruptions. Return with error upon timeout.
+     */
+    while (1) {
+	FD_ZERO(&wfds);
+	FD_ZERO(&efds);
+	FD_SET(fd, &wfds);
+	FD_SET(fd, &efds);
+	tv.tv_sec = (long) delta;
+	tv.tv_usec = 0;
+	switch(select(fd + 1, 0, &wfds, &efds, &tv)) {
+	case 0:
+	    /* Timeout. */
+	    errno = ETIMEDOUT;
+	    return -1;
+	case +1:
+	    if (FD_ISSET(fd, &wfds)) {
+		/* Success, file descriptor is writable. */
+		return 0;
+	    }
+	    return -1;
+	case -1:
+	    if (errno == EINTR || errno == EAGAIN)
+		continue;
+	default:
+	    /* Error catch-all. */
+	    return -1;
+	}
+    }
+    /* Not reached. */
+    return -1;
+}
+
 /*
  * Keep calling the writev() system call with 'fd', 'iov', and 'iovcnt'
- * until all the data is written out or an error occurs.
+ * until all the data is written out or an error/timeout occurs.
  */
-static int retry_writev(int fd, struct iovec *iov, int iovcnt)
+static int retry_writev(int fd, struct iovec *iov, int iovcnt, unsigned delta)
 {
     int n;
     int i;
@@ -325,6 +371,10 @@ static int retry_writev(int fd, struct iovec *iov, int iovcnt)
 
 	if (!iovcnt) return written;
 
+	if (delta > 0) {
+	    if (write_wait(fd, delta))
+		return -1;
+	}
 	n = writev(fd, iov, iovcnt > iov_max ? iov_max : iovcnt);
 	if (n == -1) {
 	    if (errno == EINVAL && iov_max > 10) {
@@ -338,7 +388,7 @@ static int retry_writev(int fd, struct iovec *iov, int iovcnt)
 	written += n;
 
 	for (i = 0; i < iovcnt; i++) {
-	    if (iov[i].iov_len > (unsigned) n) {
+	    if ((int) iov[i].iov_len > n) {
 		iov[i].iov_base = (char *)iov[i].iov_base + n;
 		iov[i].iov_len -= n;
 		break;
@@ -367,10 +417,8 @@ static int pwcheck_verify_password(sasl_conn_t *conn,
     int r;
     struct iovec iov[10];
     static char response[1024];
-    int start, n;
+    unsigned start, n;
     char pwpath[1024];
-    sasl_getopt_t *getopt;
-    void *context;
 
     if (strlen(PWCHECKDIR)+8+1 > sizeof(pwpath)) return SASL_FAIL;
 
@@ -394,7 +442,7 @@ static int pwcheck_verify_password(sasl_conn_t *conn,
     iov[1].iov_base = (char *)passwd;
     iov[1].iov_len = strlen(passwd)+1;
 
-    retry_writev(s, iov, 2);
+    retry_writev(s, iov, 2, 0);
 
     start = 0;
     while (start < sizeof(response) - 1) {
@@ -416,35 +464,78 @@ static int pwcheck_verify_password(sasl_conn_t *conn,
 
 #endif
 
-#ifdef HAVE_SASLAUTHD
-
-/*
- * Keep calling the read() system call with 'fd', 'buf', and 'nbyte'
- * until all the data is read in or an error occurs.
- */
-static int retry_read(int fd, void *buf, unsigned nbyte)
+#if defined(HAVE_SASLAUTHD) || defined(HAVE_AUTHDAEMON)
+static int read_wait(int fd, unsigned delta)
 {
-    int n;
-    int nread = 0;
-
-    if (nbyte == 0) return 0;
-
-    for (;;) {
-	n = read(fd, buf, nbyte);
-	if (n == -1 || n == 0) {
-	    if (errno == EINTR || errno == EAGAIN) continue;
+    fd_set rfds;
+    fd_set efds;
+    struct timeval tv;
+    /* 
+     * Wait for file descriptor fd to be readable. Retry on 
+     * interruptions. Return with error upon timeout.
+     */
+    while (1) {
+	FD_ZERO(&rfds);
+	FD_ZERO(&efds);
+	FD_SET(fd, &rfds);
+	FD_SET(fd, &efds);
+	tv.tv_sec = (long) delta;
+	tv.tv_usec = 0;
+	switch(select(fd + 1, &rfds, 0, &efds, &tv)) {
+	case 0:
+	    /* Timeout. */
+	    errno = ETIMEDOUT;
+	    return -1;
+	case +1:
+	    if (FD_ISSET(fd, &rfds)) {
+		/* Success, file descriptor is readable. */
+		return 0;
+	    }
+	    return -1;
+	case -1:
+	    if (errno == EINTR || errno == EAGAIN)
+		continue;
+	default:
+	    /* Error catch-all. */
 	    return -1;
 	}
-
-	nread += n;
-
-	if (nread >= (int) nbyte) return nread;
-
-	buf += n;
-	nbyte -= n;
     }
+    /* Not reached. */
+    return -1;
 }
 
+/*
+ * Keep calling the read() system call until all the data is read in, 
+ * timeout, EOF, or an error occurs. This function returns the number 
+ * of useful bytes, or -1 if timeout/error.
+ */
+static int retry_read(int fd, void *buf0, unsigned nbyte, unsigned delta)
+{
+    int nr;
+    unsigned nleft = nbyte;
+    char *buf = (char*) buf0;
+    
+    while (nleft >= 1) {
+	if (delta > 0) {
+	    if (read_wait(fd, delta))
+		return -1;
+	}
+	nr = read(fd, buf, nleft);
+	if (nr < 0) {
+	    if (errno == EINTR || errno == EAGAIN)
+		continue;
+	    return -1;
+	} else if (nr == 0) {
+	    break;
+	}
+      buf += nr;
+      nleft -= nr;
+    }
+    return nbyte - nleft;
+}
+#endif
+
+#ifdef HAVE_SASLAUTHD
 /* saslauthd-authenticated login */
 static int saslauthd_verify_password(sasl_conn_t *conn,
 				     const char *userid, 
@@ -461,6 +552,7 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
     void *context;
     char pwpath[sizeof(srvaddr.sun_path)];
     const char *p = NULL;
+    char *freeme = NULL;
 #ifdef USE_DOORS
     door_arg_t arg;
 #endif
@@ -479,6 +571,19 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
 	strcat(pwpath, "/mux");
     }
 
+    /* Split out username/realm if necessary */
+    if(strrchr(userid,'@') != NULL) {
+	char *rtmp;
+	
+	if(_sasl_strdup(userid, &freeme, NULL) != SASL_OK)
+	    goto fail;
+
+	userid = freeme;
+	rtmp = strrchr(userid,'@');
+	*rtmp = '\0';
+	user_realm = rtmp + 1;
+    }
+
     /*
      * build request of the form:
      *
@@ -495,7 +600,7 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
 	if (u_len + p_len + s_len + r_len + 30 > (unsigned short) sizeof(query)) {
 	    /* request just too damn big */
             sasl_seterror(conn, 0, "saslauthd request too large");
-	    return SASL_FAIL;
+	    goto fail;
 	}
 
 	u_len = htons(u_len);
@@ -523,8 +628,8 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
 #ifdef USE_DOORS
     s = open(pwpath, O_RDONLY);
     if (s < 0) {
-	sasl_seterror(conn, 0, "cannot open door to saslauthd server: %m");
-	return SASL_FAIL;
+	sasl_seterror(conn, 0, "cannot open door to saslauthd server: %m", errno);
+	goto fail;
     }
 
     arg.data_ptr = query;
@@ -534,23 +639,30 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
     arg.rbuf = response;
     arg.rsize = sizeof(response);
 
-    door_call(s, &arg);
+    if (door_call(s, &arg) < 0) {
+      /* Parameters are undefined */
+      close(s);
+      sasl_seterror(conn, 0, "door call to saslauthd server failed: %m", errno);
+      goto fail;
+    }
 
     if (arg.data_ptr != response || arg.data_size >= sizeof(response)) {
 	/* oh damn, we got back a really long response */
 	munmap(arg.rbuf, arg.rsize);
+	close(s);
 	sasl_seterror(conn, 0, "saslauthd sent an overly long response");
-	return SASL_FAIL;
+	goto fail;
     }
     response[arg.data_size] = '\0';
 
+    close(s);
 #else
     /* unix sockets */
 
     s = socket(AF_UNIX, SOCK_STREAM, 0);
     if (s == -1) {
-	sasl_seterror(conn, 0, "cannot create socket for saslauthd: %m");
-	return SASL_FAIL;
+	sasl_seterror(conn, 0, "cannot create socket for saslauthd: %m", errno);
+	goto fail;
     }
 
     memset((char *)&srvaddr, 0, sizeof(srvaddr));
@@ -560,8 +672,9 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
     {
 	int r = connect(s, (struct sockaddr *) &srvaddr, sizeof(srvaddr));
 	if (r == -1) {
-	    sasl_seterror(conn, 0, "cannot connect to saslauthd server: %m");
-	    return SASL_FAIL;
+	    close(s);
+	    sasl_seterror(conn, 0, "cannot connect to saslauthd server: %m", errno);
+	    goto fail;
 	}
     }
 
@@ -571,9 +684,10 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
 	iov[0].iov_len = query_end - query;
 	iov[0].iov_base = query;
 
-	if (retry_writev(s, iov, 1) == -1) {
+	if (retry_writev(s, iov, 1, 0) == -1) {
+	    close(s);
             sasl_seterror(conn, 0, "write failed");
-  	    return SASL_FAIL;
+	    goto fail;
   	}
     }
 
@@ -585,23 +699,23 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
 	 *
 	 * count result
 	 */
-	if (retry_read(s, &count, sizeof(count)) < (int) sizeof(count)) {
+	if (retry_read(s, &count, sizeof(count), 0) < (int) sizeof(count)) {
 	    sasl_seterror(conn, 0, "size read failed");
-	    return SASL_FAIL;
+	    goto fail;
 	}
 	
 	count = ntohs(count);
 	if (count < 2) { /* MUST have at least "OK" or "NO" */
 	    close(s);
 	    sasl_seterror(conn, 0, "bad response from saslauthd");
-	    return SASL_FAIL;
+	    goto fail;
 	}
 	
-	count = (int)sizeof(response) < count ? sizeof(response) : count;
-	if (retry_read(s, response, count) < count) {
+	count = (int)sizeof(response) <= count ? sizeof(response) - 1 : count;
+	if (retry_read(s, response, count, 0) < count) {
 	    close(s);
 	    sasl_seterror(conn, 0, "read failed");
-	    return SASL_FAIL;
+	    goto fail;
 	}
 	response[count] = '\0';
     }
@@ -609,14 +723,227 @@ static int saslauthd_verify_password(sasl_conn_t *conn,
     close(s);
 #endif /* USE_DOORS */
   
+    if(freeme) free(freeme);
+
     if (!strncmp(response, "OK", 2)) {
 	return SASL_OK;
     }
   
     sasl_seterror(conn, SASL_NOLOG, "authentication failed");
     return SASL_BADAUTH;
+
+ fail:
+    if (freeme) free(freeme);
+    return SASL_FAIL;
 }
 
+#endif
+
+#ifdef HAVE_AUTHDAEMON
+/* 
+ * Preliminary support for Courier's authdaemond.
+ */
+#define AUTHDAEMON_IO_TIMEOUT 30
+
+static int authdaemon_blocking(int fd, int block)
+{
+    int f, r;
+
+    /* Get the fd's blocking bit. */
+    f = fcntl(fd, F_GETFL, 0);
+    if (f == -1)
+	return -1;
+
+    /* Adjust the bitmap accordingly. */
+#ifndef O_NONBLOCK
+#define NB_BITMASK FNDELAY
+#else
+#define NB_BITMASK O_NONBLOCK
+#endif
+    if (block)
+	f &= ~NB_BITMASK;
+    else
+	f |=  NB_BITMASK;
+#undef NB_BITMASK
+
+    /* Adjust the fd's blocking bit. */
+    r = fcntl(fd, F_SETFL, f);
+    if (r)
+	return -1;
+
+    /* Success. */
+    return 0;
+}
+
+static int authdaemon_connect(sasl_conn_t *conn, const char *path)
+{
+    int r, s = -1;
+    struct sockaddr_un srvaddr;
+
+    if (strlen(path) >= sizeof(srvaddr.sun_path)) {
+	sasl_seterror(conn, 0, "unix socket path too large", errno);
+	goto fail;
+    }
+
+    s = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (s == -1) {
+	sasl_seterror(conn, 0, "cannot create socket for connection to Courier authdaemond: %m", errno);
+	goto fail;
+    }
+
+    memset((char *)&srvaddr, 0, sizeof(srvaddr));
+    srvaddr.sun_family = AF_UNIX;
+    strncpy(srvaddr.sun_path, path, sizeof(srvaddr.sun_path) - 1);
+
+    /* Use nonblocking unix socket connect(2). */
+    if (authdaemon_blocking(s, 0)) {
+	sasl_seterror(conn, 0, "cannot set nonblocking bit: %m", errno);
+	goto fail;
+    }
+
+    r = connect(s, (struct sockaddr *) &srvaddr, sizeof(srvaddr));
+    if (r == -1) {
+	sasl_seterror(conn, 0, "cannot connect to Courier authdaemond: %m", errno);
+	goto fail;
+    }
+
+    if (authdaemon_blocking(s, 1)) {
+	sasl_seterror(conn, 0, "cannot clear nonblocking bit: %m", errno);
+	goto fail;
+    }
+
+    return s;
+fail:
+    if (s >= 0)
+	close(s);
+    return -1;
+}
+
+static char *authdaemon_build_query(const char *service,
+				    const char *authtype,
+				    const char *user,
+				    const char *passwd)
+{
+    int sz;
+    int l = strlen(service) 
+            + 1
+            + strlen(authtype) 
+            + 1
+            + strlen(user)
+            + 1
+            + strlen(passwd) 
+            + 1;
+    char *buf, n[5];
+    if (snprintf(n, sizeof(n), "%d", l) >= (int)sizeof(n))
+	return NULL;
+    sz = strlen(n) + l + 20;
+    if (!(buf = sasl_ALLOC(sz)))
+	return NULL;
+    snprintf(buf, 
+             sz, 
+             "AUTH %s\n%s\n%s\n%s\n%s\n\n",
+             n,
+             service,
+             authtype,
+             user,
+             passwd);
+    return buf;
+}
+
+static int authdaemon_read(int fd, void *buf0, unsigned sz)
+{
+    int nr;
+    char *buf = (char*) buf0;
+    if (sz <= 1)
+	return -1;
+    if ((nr = retry_read(fd, buf0, sz - 1, AUTHDAEMON_IO_TIMEOUT)) < 0)
+	return -1;
+    /* We need a null-terminated buffer. */
+    buf[nr] = 0;
+    /* Check for overflow condition. */
+    return nr + 1 < (int)sz ? 0 : -1;
+}
+
+static int authdaemon_write(int fd, void *buf0, unsigned sz)
+{
+    int nw;
+    struct iovec io;
+    io.iov_len = sz;
+    io.iov_base = buf0;
+    nw = retry_writev(fd, &io, 1, AUTHDAEMON_IO_TIMEOUT);
+    return nw == (int)sz ? 0 : -1;
+}
+
+static int authdaemon_talk(sasl_conn_t *conn, int sock, char *authreq)
+{
+    char *str;
+    char buf[8192];
+
+    if (authdaemon_write(sock, authreq, strlen(authreq)))
+	goto _err_out;
+    if (authdaemon_read(sock, buf, sizeof(buf)))
+	goto _err_out;
+    for (str = buf; *str; ) {
+	char *sub;
+
+	for (sub = str; *str; ++str) {
+	    if (*str == '\n') {
+		*str++ = 0;
+		break;
+	    }
+	}
+	if (strcmp(sub, ".") == 0) {
+	    /* success */
+	    return SASL_OK;
+	}
+	if (strcmp(sub, "FAIL") == 0) {
+	    /* passwords do not match */
+	    sasl_seterror(conn, SASL_NOLOG, "authentication failed");
+	    return SASL_BADAUTH;
+	}
+    }
+_err_out:
+    /* catchall: authentication error */
+    sasl_seterror(conn, 0, "could not verify password");
+    return SASL_FAIL;
+}
+
+static int authdaemon_verify_password(sasl_conn_t *conn,
+				      const char *userid, 
+				      const char *passwd,
+				      const char *service,
+				      const char *user_realm __attribute__((unused)))
+{
+    const char *p = NULL;
+    sasl_getopt_t *getopt;
+    void *context;
+    int result = SASL_FAIL;
+    char *query = NULL;
+    int sock = -1;
+
+    /* check to see if the user configured a rundir */
+    if (_sasl_getcallback(conn, SASL_CB_GETOPT, &getopt, &context) == SASL_OK) {
+	getopt(context, NULL, "authdaemond_path", &p, NULL);
+    }
+    if (!p) {
+	/*
+	 * XXX should we peek at Courier's build-time config ?
+	 */
+	p = PATH_AUTHDAEMON_SOCKET;
+    }
+
+    if ((sock = authdaemon_connect(conn, p)) < 0)
+	goto out;
+    if (!(query = authdaemon_build_query(service, "login", userid, passwd)))
+	goto out;
+    result = authdaemon_talk(conn, sock, query);
+out:
+    if (sock >= 0)
+	close(sock), sock = -1;
+    if (query)
+	sasl_FREE(query), query = 0;
+    return result;
+}
 #endif
 
 #ifdef HAVE_ALWAYSTRUE
@@ -640,6 +967,9 @@ struct sasl_verify_password_s _sasl_verify_password[] = {
 #ifdef HAVE_SASLAUTHD
     { "saslauthd", &saslauthd_verify_password },
 #endif
+#ifdef HAVE_AUTHDAEMON
+    { "authdaemond", &authdaemon_verify_password },
+#endif     
 #ifdef HAVE_ALWAYSTRUE
     { "alwaystrue", &always_true },
 #endif     

@@ -20,11 +20,14 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdio.h>
 #include <limits.h>
+#endif /* RLD */
 #include <mach-o/fat.h>
 #include <stuff/best_arch.h>
 
+#ifndef RLD
 /*
  * cpusubtype_findbestarch() is passed a cputype and cpusubtype and a set of
  * fat_arch structs and selects the best one that matches (if any) and returns
@@ -44,7 +47,9 @@ struct fat_arch *fat_archs,
 unsigned long nfat_archs)
 {
     unsigned long i;
+#ifndef ARCH64
     long lowest_family, lowest_model, lowest_index;
+#endif
 
 	/*
 	 * Look for the first exact match.
@@ -60,6 +65,45 @@ unsigned long nfat_archs)
 	 * cputype dependent.
 	 */
 	switch(cputype){
+
+#ifdef ARCH64 /* 64-bit architectures */
+
+	case CPU_TYPE_POWERPC64:
+	    /*
+	     * An exact match as not found.  So for all the PowerPC64 subtypes
+	     * pick the subtype from the following order starting from a subtype
+	     * that will work (contains 64-bit instructions or altivec if
+	     * needed):
+	     *	970 (currently only the one 64-bit subtype)
+	     * For an unknown subtype pick only the ALL type if it exists.
+	     */
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_ALL:
+		/*
+		 * The CPU_SUBTYPE_POWERPC_ALL is only used by the development
+		 * environment tools when building a generic ALL type binary.
+		 * In the case of a non-exact match we pick the most current
+		 * processor.
+		 */
+	    case CPU_SUBTYPE_POWERPC_970:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_970)
+			return(fat_archs + i);
+		}
+	    default:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_ALL)
+			return(fat_archs + i);
+		}
+	    }
+	    break;
+
+#else /* !defined(ARCH64) 32-bit architectures */
+
 	case CPU_TYPE_I386:
 	    switch(cpusubtype){
 	    default:
@@ -136,7 +180,7 @@ unsigned long nfat_archs)
 	    /* if no intel cputypes found return NULL */
 	    if(lowest_family == CPU_SUBTYPE_INTEL_FAMILY_MAX + 1)
 		return(NULL);
-	    lowest_model = ULONG_MAX;
+	    lowest_model = LONG_MAX;
 	    lowest_index = -1;
 	    for(i = 0; i < nfat_archs; i++){
 		if(fat_archs[i].cputype != cputype)
@@ -317,11 +361,15 @@ unsigned long nfat_archs)
 		    return(fat_archs + i);
 	    }
 	    break;
+
+#endif /* 32-bit architectures */
+
 	default:
 	    return(NULL);
 	}
 	return(NULL);
 }
+#endif /* RLD */
 
 /*
  * cpusubtype_combine() returns the resulting cpusubtype when combining two
@@ -441,6 +489,22 @@ cpu_subtype_t cpusubtype2)
 		return(cpusubtype2);
 	    break; /* logically can't get here */
 
+	case CPU_TYPE_POWERPC64:
+	    /*
+	     * Combining with the ALL type becomes the other type.  All other
+	     * non exact matches combine to the higher value subtype.
+	     */
+	    if(cpusubtype1 == CPU_SUBTYPE_POWERPC_ALL)
+		return(cpusubtype2);
+	    if(cpusubtype2 == CPU_SUBTYPE_POWERPC_ALL)
+		return(cpusubtype1);
+
+	    if(cpusubtype1 > cpusubtype2)
+		return(cpusubtype1);
+	    else
+		return(cpusubtype2);
+	    break; /* logically can't get here */
+
 	case CPU_TYPE_VEO:
 	    /*
 	     * Combining VEO1 with VEO2 returns VEO1.  Any unknown values don't
@@ -506,6 +570,7 @@ cpu_subtype_t cpusubtype2)
 	return((cpu_subtype_t)-1); /* logically can't get here */
 }
 
+#ifndef RLD
 /*
  * cpusubtype_execute() returns TRUE if the exec_cpusubtype can be used for
  * execution on the host_cpusubtype for the specified cputype (this routine is
@@ -771,3 +836,4 @@ cpu_subtype_t exec_cpusubtype) /* can be the ALL type */
 	}
 	return(FALSE); /* logically can't get here */
 }
+#endif /* RLD */

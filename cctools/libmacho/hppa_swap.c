@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #import <mach-o/hppa/swap.h>
 
 void
@@ -117,3 +118,4 @@ enum NXByteOrder target_byte_order)
 	fp->ts_fp30 = NXSwapDouble(fp->ts_fp30);
 	fp->ts_fp31 = NXSwapDouble(fp->ts_fp31);
 }
+#endif /* !defined(RLD) */

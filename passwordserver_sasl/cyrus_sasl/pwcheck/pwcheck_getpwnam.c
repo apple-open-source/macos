@@ -1,5 +1,5 @@
 /* pwcheck_getpwnam.c -- check passwords using getpwname()
-   $Id: pwcheck_getpwnam.c,v 1.1 2002/02/28 00:38:15 snsimon Exp $
+   $Id: pwcheck_getpwnam.c,v 1.2 2004/07/07 22:53:07 snsimon Exp $
 
 Copyright 1998, 1999 Carnegie Mellon University
 

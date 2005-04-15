@@ -56,6 +56,7 @@ typedef struct ff_cache_s
 } ff_cache_t;
 
 static ff_cache_t host_cache = {-1, PTHREAD_MUTEX_INITIALIZER, 0, NULL};
+static ff_cache_t service_cache = {-1, PTHREAD_MUTEX_INITIALIZER, 0, NULL};
 
 typedef struct
 {
@@ -306,7 +307,8 @@ prep_cache(int cat, ff_cache_t *cache)
 static ff_cache_t *
 cache_for_category(int cat)
 {
-	if (cat == LUCategoryHost) return prep_cache(LUCategoryHost, &host_cache);
+	if (cat == LUCategoryHost) return prep_cache(cat, &host_cache);
+	if (cat == LUCategoryService) return prep_cache(cat, &service_cache);
 	return NULL;
 }
 
@@ -654,6 +656,14 @@ FF_validate(void *c, char *v)
 		host_cache.modtime = 0;
 	}
 
+	if ((!strcmp(fpath, "/etc/services")) && (service_cache.notify_token != -1))
+	{
+		check = 1;
+		status = notify_check(service_cache.notify_token, &check);
+		if ((status == NOTIFY_STATUS_OK) && (check == 0)) return 1;
+		service_cache.modtime = 0;
+	}
+	
 	if (stat(fpath, &st) < 0) return 0;
 	if (ts == st.st_mtime) return 1;
 

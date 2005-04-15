@@ -108,7 +108,7 @@ extern u_long rpc_xid;
 
 extern NSLMap *GlobalTargetNSLMap;
 
-void completeMount(Vnode *v, unsigned int status);
+static void completeMount(Vnode *v, unsigned int status);
 
 static gid_t
 gidForGroup(char *name)
@@ -897,10 +897,11 @@ BOOL URLIsComplete(const char *url)
 				if (mountPID) {
 					/* We are the parent process; abandon this call and let child process generate reply */
 					gForkedMountInProgress = YES;
+					gForkedMountPID = mountPID;
 					
 					/* The child process will eventually signal (SIGCHLD) when the mount is complete; mark the vnode as
 					   'mount in progress' to prevent starting more than one mount while this attempt is in progress. */
-					(void)[self recordMountInProgressFor:v mountPID:mountPID];
+					(void)[self recordMountInProgressFor:v mountPID:mountPID transactionID:rpc_xid];
 				} else {
 					/* We are the child process; continue with this call but don't fall back into the main service loop */
 					gForkedMount = YES;
@@ -1120,7 +1121,7 @@ URLMount_Failure: ;
 	
 	[urlMountType release];
 
-	if (gForkedMount) gMountResult = status;
+	if (gForkedMount || gSubMounter) gMountResult = status;
 
 	if (!gForkedMountInProgress && !gBlockedMountDependency) {
 		completeMount(v, status);
@@ -1130,7 +1131,7 @@ URLMount_Failure: ;
 	return 0;
 }
 
-void AddMountsInProgressListEntry(struct MountProgressRecord *pr)
+static void AddMountsInProgressListEntry(struct MountProgressRecord *pr)
 {
 	sigset_t curr_set;
 	sigset_t block_set;
@@ -1144,17 +1145,41 @@ void AddMountsInProgressListEntry(struct MountProgressRecord *pr)
 	sigprocmask(SIG_SETMASK, &curr_set, NULL);
 }
 
-- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID
+- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID transactionID:(u_long)transactionID
 {
 	struct MountProgressRecord *pr = [v mountInfo];
 	
 	pr->mpr_mountpid = mountPID;
 	pr->mpr_vp = [v retain];
+	pr->mpr_xid = transactionID;
 	
 	AddMountsInProgressListEntry(pr);
 }
 
-void completeMount(Vnode *v, unsigned int status)
+- (BOOL)checkMountInProgressForTransaction:(u_long)transactionID
+{
+	sigset_t curr_set;
+	sigset_t block_set;
+	struct MountProgressRecord *pr;
+	BOOL answer = NO;
+	
+	/* Update the global mounts-in-progress list with delivery of SIGCHLD blocked
+	   to avoid a race wrt. the 'gMountsInProgress' list: */
+	sigemptyset(&block_set);
+	sigaddset(&block_set, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &block_set, &curr_set);
+	LIST_FOREACH(pr, &gMountsInProgress, mpr_link) {
+		if (pr->mpr_xid == transactionID) {
+			answer = YES;
+			break;
+		};
+	};
+	sigprocmask(SIG_SETMASK, &curr_set, NULL);
+	
+	return answer;
+}
+
+static void completeMount(Vnode *v, unsigned int status)
 {
 	sys_msg(debug_mount, LOG_DEBUG, "completeMount: v = 0x%08lx, status = 0x%08lx", v, status);
 	
@@ -1197,8 +1222,8 @@ void completeMount(Vnode *v, unsigned int status)
 	sys_msg(debug_mount, LOG_DEBUG, "completeMountInProgressBy:%d, status 0x%08lx", mountPID, exitStatus);
 
 	LIST_FOREACH(pr, &gMountsInProgress, mpr_link) {
-		sys_msg(debug_mount, LOG_DEBUG, "completeMountInProgressBy:%d, status 0x%08lx pr = 0x%08lx", pr);
 		if ((pr->mpr_mountpid == mountPID) || (pr->mpr_mountpid == 0)) {
+			sys_msg(debug_mount, LOG_DEBUG, "completeMountInProgressBy:%d, transaction id = 0x%08x", mountPID, pr->mpr_xid);
 			completeMount(pr->mpr_vp, (unsigned int)WEXITSTATUS(exitStatus));
 			[pr->mpr_vp setMountInProgress:NO];
 			[pr->mpr_vp release];

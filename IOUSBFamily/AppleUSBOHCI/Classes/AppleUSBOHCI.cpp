@@ -180,7 +180,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         if(!_genCursor)
             break;
 
-        _isoCursor = IONaturalMemoryCursor::withSpecification(kUSBMaxIsocFrameReqCount,  kUSBMaxIsocFrameReqCount);
+        _isoCursor = IONaturalMemoryCursor::withSpecification(kUSBMaxFSIsocEndpointReqCount,  kUSBMaxFSIsocEndpointReqCount);
         if(!_isoCursor)
             break;
 
@@ -658,7 +658,7 @@ AppleUSBOHCI::IsochronousInitialize(void)
     //
     pED2->pShared->nextED = HostToUSBLong ((UInt32) pED->pPhysical);
     pED2->pLogicalNext = pED;
-    _isochBandwidthAvail = kUSBMaxIsocFrameReqCount;
+    _isochBandwidthAvail = kUSBMaxFSIsocEndpointReqCount;
 
     return kIOReturnSuccess;
 }

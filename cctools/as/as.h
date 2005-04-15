@@ -88,6 +88,9 @@ extern int force_cpusubtype_ALL;
 extern cpu_subtype_t archflag_cpusubtype;
 extern char *specific_archflag;
 
+/* TRUE if the .subsections_via_symbols directive was seen */
+int subsections_via_symbols;
+
 /* -I path options for .includes */
 struct directory_stack {
     struct directory_stack *next;

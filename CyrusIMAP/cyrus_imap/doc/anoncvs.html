@@ -1,0 +1,82 @@
+<html>
+  <title> Cyrus IMAP: Anonymous CVS Access </title>
+  <!-- $Id: anoncvs.html,v 1.3 2002/05/25 19:57:43 leg Exp $ -->
+  
+  <body>
+    <h1>Cyrus IMAP: Anonymous CVS Access</h1>
+
+    This file is for those who are reading Cyrus sources via anonymous CVS,
+    or those who would like to.
+    
+    If you're someone who would like to work with the source code and get more
+    frequent updates, keeping in mind that we take some liberties with proper
+    CVS use, you might want to get Cyrus via anonymous CVS.
+    
+    <blockquote>
+      <b>
+	If you're not a programmer, please don't do this.  If you're not at
+	least a little experienced with C, configure, and IMAP, please stick
+	with the tarball releases at ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/.
+      </b>
+    </blockquote>
+    
+    <p>
+      To get to the repository, get a version of CVS with client-server support
+      (anything remotely recent has this, I think) and do this:
+
+    <p>
+      <tt>
+	cvs -d :pserver:anoncvs@cvs.andrew.cmu.edu:/cvs login <br>
+        <i>(enter "anonymous" as the password)</i> <br>
+	cvs -d :pserver:anoncvs@cvs.andrew.cmu.edu:/cvs co -d cyrus-imapd
+	cyrus<br>
+
+      </tt>
+
+      (the first -d specifies the CVSROOT, in this case, our CVS server, and a
+      path to the CVS repository; co says "check out", -d says "and stick it
+      in the directory cyrus-imapd", and "cyrus" specifies the "cyrus"
+      collection).  The password is "anonymous".
+      
+    <p>
+      You will need autoconf (v2.12) to build CVS from the repository because
+      we don't keep the configure script in the repository, along with the
+      usual tools to build Cyrus (a compiler, a Unix box, a network.)
+      
+    <p>
+      Read access to the repository is availible to anyone via
+      cvs.andrew.cmu.edu.  Write access is availible to only a few people at
+      CMU.
+    
+    <p>
+      Please note that the version in the repository is not the version we are
+      running.  We have a seperate system that resembles version control for
+      releases of software on the Andrew system, and sometimes changes don't
+      get propigated back to CVS.
+    
+    <p>
+      What is here is supposed to be stable.  It's supposed to work, and
+      compile, and not have amazingly broken changes that can't possibly work.
+      But that may not be the case--and since you decided to use CVS, you
+      shouldn't complain when something doesn't work.  You should submit a
+      patch.
+      
+    <p>
+      There is no warranty on the Cyrus software.
+      There is no warranty on anything in CVS, and even less of a guarantee
+      of it working.  (There.  You've been warned.)
+      
+<p>Please refer to <a href="feedback.html">Sending Feedback</a> if you
+would like to submit a bug, feature request or (best of all) patch.
+
+    <p>
+      Thanks to Ryan Troll for putting the time in to make the CVS server
+      work and actually documenting it.
+    </p>
+
+
+<P><HR>
+last modified: $Date: 2002/05/25 19:57:43 $
+<br>
+<A HREF="index.html">Return</A> to the Cyrus IMAP Server Home Page
+</BODY></HTML>

@@ -100,28 +100,14 @@ void)
 		lex[(int)*q] |= LEX_IS_LINE_COMMENT_START;
 }
 
-int
-scrub_from_file(
-void)
-{
-	return getc(scrub_file);
-}
-
-void
-scrub_to_file(
-int ch)
-{
-	ungetc(ch, scrub_file);
-}
-
-int
+static inline int
 scrub_from_string(
 void)
 {
 	return scrub_string == scrub_last_string ? EOF : *scrub_string++;
 }
 
-void
+static inline void
 scrub_to_string(
 int ch)
 {
@@ -130,9 +116,7 @@ int ch)
 
 int
 do_scrub_next_char(
-int (*get)(void),
-void (*unget)(int ch))
-/* FILE *fp; */
+FILE *fp)
 {
 	/* State 0: beginning of normal line
 		1: After first whitespace on normal line (flush more white)
@@ -166,27 +150,27 @@ void (*unget)(int ch))
 	}
 	if(state==-2) {
 		for(;;) {
-			do ch=(*get)();
+			do ch=getc_unlocked(fp);
 			while(ch!=EOF && ch!='\n' && ch!='*');
 			if(ch=='\n' || ch==EOF)
 				return ch;
-			 ch=(*get)();
+			 ch=getc_unlocked(fp);
 			 if(ch==EOF || ch=='/')
 			 	break;
-			(*unget)(ch);
+			ungetc(ch, fp);
 		}
 		state=old_state;
 		return ' ';
 	}
 	if(state==4) {
-		ch=(*get)();
+		ch=getc_unlocked(fp);
 		if(ch==EOF || (ch>='0' && ch<='9'))
 			return ch;
 		else {
 			while(ch!=EOF && IS_WHITESPACE(ch))
-				ch=(*get)();
+				ch=getc_unlocked(fp);
 			if(ch=='"') {
-				(*unget)(ch);
+				ungetc(ch, fp);
 #if defined(M88K) || defined(PPC) || defined(HPPA)
 				out_string="@ .file ";
 #else
@@ -197,7 +181,7 @@ void (*unget)(int ch))
 				return *out_string++;
 			} else {
 				while(ch!=EOF && ch!='\n')
-					ch=(*get)();
+					ch=getc_unlocked(fp);
 #ifdef NeXT_MOD
 				/* bug fix for bug #8918, which was when
 				 * a full line comment line this:
@@ -212,7 +196,7 @@ void (*unget)(int ch))
 		}
 	}
 	if(state==5) {
-		ch=(*get)();
+		ch=getc_unlocked(fp);
 #ifdef PPC
 		if(flagseen[(int)'p'] == TRUE && ch=='\'') {
 			state=old_state;
@@ -227,7 +211,7 @@ void (*unget)(int ch))
 			return ch;
 		} else if(ch==EOF) {
  			state=old_state;
-			(*unget)('\n');
+			ungetc('\n', fp);
 #ifdef PPC
 			if(flagseen[(int)'p'] == TRUE){
 			    as_warn("End of file in string: inserted '\''");
@@ -242,13 +226,13 @@ void (*unget)(int ch))
 	}
 	if(state==6) {
 		state=5;
-		ch=(*get)();
+		ch=getc_unlocked(fp);
 		switch(ch) {
 			/* This is neet.  Turn "string
 			   more string" into "string\n  more string"
 			 */
 		case '\n':
-			(*unget)('n');
+			ungetc('n', fp);
 			add_newlines++;
 			return '\\';
 
@@ -280,33 +264,33 @@ void (*unget)(int ch))
 	}
 
 	if(state==7) {
-		ch=(*get)();
+		ch=getc_unlocked(fp);
 		state=5;
 		old_state=8;
 		return ch;
 	}
 
 	if(state==8) {
-		do ch= (*get)();
+		do ch= getc_unlocked(fp);
 		while(ch!='\n');
 		state=0;
 		return ch;
 	}
 
  flushchar:
-	ch=(*get)();
+	ch=getc_unlocked(fp);
 	switch(ch) {
 	case ' ':
 	case '\t':
-		do ch=(*get)();
+		do ch=getc_unlocked(fp);
 		while(ch!=EOF && IS_WHITESPACE(ch));
 		if(ch==EOF)
 			return ch;
 		if(IS_COMMENT(ch) || (state==0 && IS_LINE_COMMENT(ch)) || ch=='/' || IS_LINE_SEPERATOR(ch)) {
-			(*unget)(ch);
+			ungetc(ch, fp);
 			goto flushchar;
 		}
-		(*unget)(ch);
+		ungetc(ch, fp);
 		if(state==0 || state==2) {
 			state++;
 			return ' ';
@@ -319,45 +303,45 @@ void (*unget)(int ch))
 		else goto flushchar;
 
 	case '/':
-		ch=(*get)();
+		ch=getc_unlocked(fp);
 		if(ch=='*') {
 			for(;;) {
 				do {
-					ch=(*get)();
+					ch=getc_unlocked(fp);
 					if(ch=='\n')
 						add_newlines++;
 				} while(ch!=EOF && ch!='*');
-				ch=(*get)();
+				ch=getc_unlocked(fp);
 				if(ch==EOF || ch=='/')
 					break;
-				(*unget)(ch);
+				ungetc(ch, fp);
 			}
 			if(ch==EOF)
 				as_warn("End of file in '/' '*' string: */ inserted");
 
-			(*unget)(' ');
+			ungetc(' ', fp);
 			goto flushchar;
 		} else {
 #if defined(I860) || defined(M88K) || defined(PPC) || defined(I386) || \
     defined(HPPA) || defined (SPARC)
 		  if (ch == '/') {
 		    do {
-		      ch=(*get)();
+		      ch=getc_unlocked(fp);
 		    } while (ch != EOF && (ch != '\n'));
 		    if (ch == EOF)
 		      as_warn("End of file before newline in // comment");
 		    if ( ch == '\n' )	/* Push NL back so we can complete state */
-		    	(*unget)(ch);
+		    	ungetc(ch, fp);
 		    goto flushchar;
 		  }
 #endif
 			if(IS_COMMENT('/') || (state==0 && IS_LINE_COMMENT('/'))) {
-				(*unget)(ch);
+				ungetc(ch, fp);
 				ch='/';
 				goto deal_misc;
 			}
 			if(ch!=EOF)
-				(*unget)(ch);
+				ungetc(ch, fp);
 			return '/';
 		}
 		break;
@@ -377,7 +361,7 @@ void (*unget)(int ch))
 			break;
 		}
 #endif
-		ch=(*get)();
+		ch=getc_unlocked(fp);
 		if(ch==EOF) {
 			as_warn("End-of-file after a ': \\000 inserted");
 			ch=0;
@@ -396,7 +380,7 @@ void (*unget)(int ch))
 	case '\n':
 		if(add_newlines) {
 			--add_newlines;
-			(*unget)(ch);
+			ungetc(ch, fp);
 		}
 	/* Fall through.  */
 #if defined(M88K) || defined(PPC) || defined(HPPA)
@@ -410,7 +394,7 @@ void (*unget)(int ch))
 	default:
 	deal_misc:
 		if(state==0 && IS_LINE_COMMENT(ch)) {
-			do ch=(*get)();
+			do ch=getc_unlocked(fp);
 			while(ch!=EOF && IS_WHITESPACE(ch));
 			if(ch==EOF) {
 				as_warn("EOF in comment:  Newline inserted");
@@ -418,7 +402,7 @@ void (*unget)(int ch))
 			}
 			if(ch<'0' || ch>'9') {
 				if(ch!='\n'){
-					do ch=(*get)();
+					do ch=getc_unlocked(fp);
 					while(ch!=EOF && ch!='\n');
 				}
 				if(ch==EOF)
@@ -426,14 +410,14 @@ void (*unget)(int ch))
 				state=0;
 				return '\n';
 			}
-			(*unget)(ch);
+			ungetc(ch, fp);
 			old_state=4;
 			state= -1;
 			out_string=".line ";
 			return *out_string++;
 
 		} else if(IS_COMMENT(ch)) {
-			do ch=(*get)();
+			do ch=getc_unlocked(fp);
 			while(ch!=EOF && ch!='\n');
 			if(ch==EOF)
 				as_warn("EOF in comment:  Newline inserted");
@@ -457,6 +441,334 @@ void (*unget)(int ch))
 	}
 	return -1;
 }
+
+int
+do_scrub_next_char_from_string()
+{
+	/* State 0: beginning of normal line
+		1: After first whitespace on normal line (flush more white)
+		2: After first non-white on normal line (keep 1white)
+		3: after second white on normal line (flush white)
+		4: after putting out a .line, put out digits
+		5: parsing a string, then go to old-state
+		6: putting out \ escape in a "d string.
+		7: After putting out a .file, put out string.
+		8: After putting out a .file string, flush until newline.
+		-1: output string in out_string and go to the state in old_state
+		-2: flush text until a '*' '/' is seen, then go to state old_state
+	*/
+
+#ifndef NeXT_MOD	/* .include feature */
+	static state;
+	static old_state;
+	static char *out_string;
+	static char out_buf[20];
+	static add_newlines = 0;
+#endif /* NeXT_MOD .include feature */
+	int ch;
+
+	if(state==-1) {
+		ch= *out_string++;
+		if(*out_string==0) {
+			state=old_state;
+			old_state=3;
+		}
+		return ch;
+	}
+	if(state==-2) {
+		for(;;) {
+			do ch=scrub_from_string();
+			while(ch!=EOF && ch!='\n' && ch!='*');
+			if(ch=='\n' || ch==EOF)
+				return ch;
+			 ch=scrub_from_string();
+			 if(ch==EOF || ch=='/')
+			 	break;
+			scrub_to_string(ch);
+		}
+		state=old_state;
+		return ' ';
+	}
+	if(state==4) {
+		ch=scrub_from_string();
+		if(ch==EOF || (ch>='0' && ch<='9'))
+			return ch;
+		else {
+			while(ch!=EOF && IS_WHITESPACE(ch))
+				ch=scrub_from_string();
+			if(ch=='"') {
+				scrub_to_string(ch);
+#if defined(M88K) || defined(PPC) || defined(HPPA)
+				out_string="@ .file ";
+#else
+				out_string="; .file ";
+#endif
+				old_state=7;
+				state= -1;
+				return *out_string++;
+			} else {
+				while(ch!=EOF && ch!='\n')
+					ch=scrub_from_string();
+#ifdef NeXT_MOD
+				/* bug fix for bug #8918, which was when
+				 * a full line comment line this:
+				 * # 40 MP1 = M + 1
+				 * got confused with a cpp output like:
+				 * # 1 "hello.c" 1
+				 */
+				state = 0;
+#endif /* NeXT_MOD */
+				return ch;
+			}
+		}
+	}
+	if(state==5) {
+		ch=scrub_from_string();
+#ifdef PPC
+		if(flagseen[(int)'p'] == TRUE && ch=='\'') {
+			state=old_state;
+			return '\'';
+		} else
+#endif /* PPC */
+		if(ch=='"') {
+			state=old_state;
+			return '"';
+		} else if(ch=='\\') {
+			state=6;
+			return ch;
+		} else if(ch==EOF) {
+ 			state=old_state;
+			scrub_to_string('\n');
+#ifdef PPC
+			if(flagseen[(int)'p'] == TRUE){
+			    as_warn("End of file in string: inserted '\''");
+			    return '\'';
+			}
+#endif /* PPC */
+			as_warn("End of file in string: inserted '\"'");
+			return '"';
+		} else {
+			return ch;
+		}
+	}
+	if(state==6) {
+		state=5;
+		ch=scrub_from_string();
+		switch(ch) {
+			/* This is neet.  Turn "string
+			   more string" into "string\n  more string"
+			 */
+		case '\n':
+			scrub_to_string('n');
+			add_newlines++;
+			return '\\';
+
+		case '"':
+		case '\\':
+		case 'b':
+		case 'f':
+		case 'n':
+		case 'r':
+		case 't':
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+			break;
+		default:
+			as_warn("Unknown escape '\\%c' in string: Ignored",ch);
+			break;
+
+		case EOF:
+			as_warn("End of file in string: '\"' inserted");
+			return '"';
+		}
+		return ch;
+	}
+
+	if(state==7) {
+		ch=scrub_from_string();
+		state=5;
+		old_state=8;
+		return ch;
+	}
+
+	if(state==8) {
+		do ch= scrub_from_string();
+		while(ch!='\n');
+		state=0;
+		return ch;
+	}
+
+ flushchar:
+	ch=scrub_from_string();
+	switch(ch) {
+	case ' ':
+	case '\t':
+		do ch=scrub_from_string();
+		while(ch!=EOF && IS_WHITESPACE(ch));
+		if(ch==EOF)
+			return ch;
+		if(IS_COMMENT(ch) || (state==0 && IS_LINE_COMMENT(ch)) || ch=='/' || IS_LINE_SEPERATOR(ch)) {
+			scrub_to_string(ch);
+			goto flushchar;
+		}
+		scrub_to_string(ch);
+		if(state==0 || state==2) {
+			state++;
+			return ' ';
+		}
+#ifdef PPC
+		if(flagseen[(int)'p'] == TRUE && state == 3){
+			return ' ';
+		}
+#endif
+		else goto flushchar;
+
+	case '/':
+		ch=scrub_from_string();
+		if(ch=='*') {
+			for(;;) {
+				do {
+					ch=scrub_from_string();
+					if(ch=='\n')
+						add_newlines++;
+				} while(ch!=EOF && ch!='*');
+				ch=scrub_from_string();
+				if(ch==EOF || ch=='/')
+					break;
+				scrub_to_string(ch);
+			}
+			if(ch==EOF)
+				as_warn("End of file in '/' '*' string: */ inserted");
+
+			scrub_to_string(' ');
+			goto flushchar;
+		} else {
+#if defined(I860) || defined(M88K) || defined(PPC) || defined(I386) || \
+    defined(HPPA) || defined (SPARC)
+		  if (ch == '/') {
+		    do {
+		      ch=scrub_from_string();
+		    } while (ch != EOF && (ch != '\n'));
+		    if (ch == EOF)
+		      as_warn("End of file before newline in // comment");
+		    if ( ch == '\n' )	/* Push NL back so we can complete state */
+		    	scrub_to_string(ch);
+		    goto flushchar;
+		  }
+#endif
+			if(IS_COMMENT('/') || (state==0 && IS_LINE_COMMENT('/'))) {
+				scrub_to_string(ch);
+				ch='/';
+				goto deal_misc;
+			}
+			if(ch!=EOF)
+				scrub_to_string(ch);
+			return '/';
+		}
+		break;
+
+	case '"':
+		old_state=state;
+		state=5;
+		return '"';
+		break;
+
+	case '\'':
+#ifdef PPC
+		if(flagseen[(int)'p'] == TRUE){
+			old_state=state;
+			state=5;
+			return '\'';
+			break;
+		}
+#endif
+		ch=scrub_from_string();
+		if(ch==EOF) {
+			as_warn("End-of-file after a ': \\000 inserted");
+			ch=0;
+		}
+		sprintf(out_buf,"(%d)",ch&0xff);
+		old_state=state;
+		state= -1;
+		out_string=out_buf;
+		return *out_string++;
+
+	case ':':
+		if(state!=3)
+			state=0;
+		return ch;
+
+	case '\n':
+		if(add_newlines) {
+			--add_newlines;
+			scrub_to_string(ch);
+		}
+	/* Fall through.  */
+#if defined(M88K) || defined(PPC) || defined(HPPA)
+	case '@':
+#else
+	case ';':
+#endif
+		state=0;
+		return ch;
+
+	default:
+	deal_misc:
+		if(state==0 && IS_LINE_COMMENT(ch)) {
+			do ch=scrub_from_string();
+			while(ch!=EOF && IS_WHITESPACE(ch));
+			if(ch==EOF) {
+				as_warn("EOF in comment:  Newline inserted");
+				return '\n';
+			}
+			if(ch<'0' || ch>'9') {
+				if(ch!='\n'){
+					do ch=scrub_from_string();
+					while(ch!=EOF && ch!='\n');
+				}
+				if(ch==EOF)
+					as_warn("EOF in Comment: Newline inserted");
+				state=0;
+				return '\n';
+			}
+			scrub_to_string(ch);
+			old_state=4;
+			state= -1;
+			out_string=".line ";
+			return *out_string++;
+
+		} else if(IS_COMMENT(ch)) {
+			do ch=scrub_from_string();
+			while(ch!=EOF && ch!='\n');
+			if(ch==EOF)
+				as_warn("EOF in comment:  Newline inserted");
+			state=0;
+			return '\n';
+
+		} else if(state==0) {
+			state=2;
+			return ch;
+		} else if(state==1) {
+			state=2;
+			return ch;
+		} else {
+			return ch;
+
+		}
+	case EOF:
+		if(state==0)
+			return ch;
+		as_warn("End-of-File not at end of a line");
+	}
+	return -1;
+}
+
 
 #ifdef NeXT_MOD	/* .include feature */
 void
@@ -496,20 +808,6 @@ scrub_context_data *save_buffer_ptr)
 const char md_comment_chars[] = "|";
 const char md_line_comment_chars[] = "#";
 
-int
-get(
-void)
-{
-	return(getc(stdin));
-}
-
-void
-unget(
-int ch)
-{
-	ungetc(ch, stdin);
-}
-
 #ifdef PPC
 /* ['x'] TRUE if "-x" seen. */
 char flagseen[128] = { 0 };
@@ -527,7 +825,7 @@ char *envp[])
 	    flagseen[(int)'p'] = TRUE;
 #endif
 
-	while((ch = do_scrub_next_char(get, unget)) != EOF)
+	while((ch = do_scrub_next_char(stdin)) != EOF)
 	    putc(ch, stdout);
 	return(0);
 }

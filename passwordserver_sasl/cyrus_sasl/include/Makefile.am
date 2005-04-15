@@ -42,7 +42,7 @@
 #
 ################################################################
 
-noinst_HEADERS = gai.h
+noinst_HEADERS = gai.h exits.h
 
 saslincludedir = $(includedir)/sasl
 saslinclude_HEADERS = hmac-md5.h md5.h md5global.h sasl.h saslplug.h saslutil.h prop.h
@@ -54,6 +54,8 @@ makemd5_SOURCES = makemd5.c
 md5global.h: makemd5
 	-rm -f md5global.h
 	./makemd5 md5global.h
+
+EXTRA_DIST = NTMakefile
 
 if MACOSX
 framedir = /Library/Frameworks/SASL2.framework

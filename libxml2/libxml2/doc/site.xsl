@@ -341,6 +341,7 @@
       <li><a href="examples/index.html" style="font-weight:bold">Code Examples</a></li>
       <li><a href="html/index.html" style="font-weight:bold">API Menu</a></li>
       <li><a href="guidelines.html">XML Guidelines</a></li>
+      <li><a href="ChangeLog.html">Recent Changes</a></li>
     </ul>
   </xsl:variable>
   <xsl:variable name="develtoc">
@@ -355,6 +356,7 @@
       <li><a href="guidelines.html">XML Guidelines</a></li>
       <li><a href="tutorial/index.html">Tutorial</a></li>
       <li><a href="xmlreader.html">The Reader Interface</a></li>
+      <li><a href="ChangeLog.html">ChangeLog</a></li>
       <xsl:for-each select="/html/body/h2">
         <xsl:variable name="filename">
           <xsl:call-template name="docfilename">
@@ -605,7 +607,7 @@ A:link, A:visited, A:active { text-decoration: underline }
             <xsl:value-of select="$title"/>
           </xsl:element>
         </head>
-        <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+        <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
           <xsl:call-template name="titlebox">
             <xsl:with-param name="title" select="$title"/>
           </xsl:call-template>
@@ -669,7 +671,7 @@ A:link, A:visited, A:active { text-decoration: underline }
   <xsl:template match="body">
     <xsl:variable name="firsth2" select="./h2[1]"/>
     <xsl:variable name="rest2" select="./h2[position()&gt;1]"/>
-    <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+    <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
       <xsl:call-template name="titlebox">
         <xsl:with-param name="title" select="'libxml'"/>
       </xsl:call-template>

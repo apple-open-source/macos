@@ -1,6 +1,6 @@
-/* $Id: common.h,v 1.1 2002/02/28 00:18:29 snsimon Exp $ */
+/* $Id: common.h,v 1.2 2004/07/07 22:53:07 snsimon Exp $ */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

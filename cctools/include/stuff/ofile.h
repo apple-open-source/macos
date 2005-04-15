@@ -28,6 +28,7 @@
 #define __private_extern__ __declspec(private_extern)
 #endif
 
+#include "stuff/target_arch.h"
 #import <ar.h>
 #ifndef AR_EFMT1
 #define	AR_EFMT1	"#1/"		/* extended format #1 */
@@ -81,10 +82,13 @@ struct ofile {
 
     /* If this structure is currently referencing a dynamic library module 
        these are valid and filled in. */
-    struct dylib_module *modtab;    /* the module table */
+    struct dylib_module *modtab;    /* the 32-bit module table */
+    struct dylib_module_64 *modtab64;/* the 64-bit module table */
     unsigned long nmodtab;	    /* the number of module table entries */
-    struct dylib_module		    /* pointer to the dylib_module for this */
-	*dylib_module;		    /*  module. */
+    struct dylib_module		    /* pointer to the 32-bit dylib_module for */
+	*dylib_module;		    /*  this module. */
+    struct dylib_module_64	    /* pointer to the 64-bit dylib_module for */
+	*dylib_module64;	    /*  this module. */
     char *dylib_module_name;	    /* the name of the module */
 
     /* If this structure is currently referencing an object file these are
@@ -93,9 +97,14 @@ struct ofile {
     char *object_addr;		    /* the address of the object file */
     unsigned long object_size;	    /* the size of the object file */
     enum byte_sex object_byte_sex;  /* the byte sex of the object file */
-    struct mach_header *mh;	    /* the mach_header of the object file */
+    struct mach_header *mh;	    /* the mach_header of 32-bit object file */
+    struct mach_header_64 *mh64;    /* the mach_header of 64-bit object file */
     struct load_command		    /* the start of the load commands */
 	*load_commands;
+    /* these copied from the mach header above */
+    cpu_type_t mh_cputype;	    /* cpu specifier */
+    cpu_subtype_t mh_cpusubtype;    /* machine specifier */
+    uint32_t mh_filetype;	    /* type of file */
 };
 
 __private_extern__ void ofile_process(

@@ -22,11 +22,13 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include "stuff/target_arch.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/sparc/reloc.h>
 #include "stuff/bytesex.h"
+#include "stuff/symbol.h"
 #include "otool.h"
 #include "ofile_print.h"
 #include "../as/sparc-opcode.h"
@@ -203,7 +205,7 @@ enum bool
 label_symbol(
 unsigned long addr,
 enum bool colon_and_newline,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols)
 {
     long high, low, mid;
@@ -212,13 +214,13 @@ unsigned long nsorted_symbols)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].n_value == addr){
-		printf("%s", sorted_symbols[mid].n_un.n_name);
+	    if(sorted_symbols[mid].nl.n_value == addr){
+		printf("%s", sorted_symbols[mid].name);
 		if(colon_and_newline == TRUE)
 		    printf(":\n");
 		return TRUE;
 	    }
-	    if(sorted_symbols[mid].n_value > addr){
+	    if(sorted_symbols[mid].nl.n_value > addr){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }
@@ -241,9 +243,9 @@ print_symbolic(
 	       unsigned int pc,
 	       struct relocation_info *relocs,
 	       unsigned long nrelocs,
-	       struct nlist *symbols,
+	       nlist_t *symbols,
 	       unsigned long nsymbols,
-	       struct nlist *sorted_symbols,
+	       struct symbol *sorted_symbols,
 	       unsigned long nsorted_symbols,
 	       char *strings,
 	       unsigned long strings_size,
@@ -488,15 +490,15 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
 unsigned long *indirect_symbols,
 unsigned long nindirect_symbols,
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum bool verbose)
 {

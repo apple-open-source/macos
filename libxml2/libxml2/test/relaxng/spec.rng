@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="iso-8859-1"?>
-<!-- $Id: spec.rng,v 1.1.1.1 2004/02/05 20:17:14 rbraun Exp $ -->
+<!-- $Id: spec.rng,v 1.1 2003/03/19 21:02:29 veillard Exp $ -->
 <grammar xmlns="http://relaxng.org/ns/structure/1.0"
          datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes"
           xmlns:p="http://relaxng.org/ns/proofsystem">

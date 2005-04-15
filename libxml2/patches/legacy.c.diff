@@ -1,0 +1,11 @@
+--- ../../libxml2.pristine/libxml2-2.6.14/legacy.c	2004-09-11 02:44:04.000000000 -0700
++++ legacy.c	2004-11-29 10:08:29.000000000 -0800
+@@ -85,7 +85,7 @@
+ {
+ }
+ 
+-static const char *xmlFeaturesList[] = {
++static const char * const xmlFeaturesList[] = {
+     "validate",
+     "load subset",
+     "keep blanks",

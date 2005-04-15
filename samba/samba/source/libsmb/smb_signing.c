@@ -42,12 +42,19 @@ struct smb_basic_signing_context {
 	struct outstanding_packet_lookup *outstanding_packet_list;
 };
 
-static void store_sequence_for_reply(struct outstanding_packet_lookup **list, 
+static BOOL store_sequence_for_reply(struct outstanding_packet_lookup **list, 
 				     uint16 mid, uint32 reply_seq_num)
 {
 	struct outstanding_packet_lookup *t;
 
-	t = smb_xmalloc(sizeof(*t));
+	/* Ensure we only add a mid once. */
+	for (t = *list; t; t = t->next) {
+		if (t->mid == mid) {
+			return False;
+		}
+	}
+
+	t = SMB_XMALLOC_P(struct outstanding_packet_lookup);
 	ZERO_STRUCTP(t);
 
 	t->mid = mid;
@@ -65,6 +72,7 @@ static void store_sequence_for_reply(struct outstanding_packet_lookup **list,
 	DLIST_ADD(*list, t);
 	DEBUG(10,("store_sequence_for_reply: stored seq = %u mid = %u\n",
 			(unsigned int)reply_seq_num, (unsigned int)mid ));
+	return True;
 }
 
 static BOOL get_sequence_for_reply(struct outstanding_packet_lookup **list,
@@ -247,6 +255,7 @@ static void simple_packet_signature(struct smb_basic_signing_context *data,
 	const size_t offset_end_of_sig = (smb_ss_field + 8);
 	unsigned char sequence_buf[8];
 	struct MD5Context md5_ctx;
+	unsigned char key_buf[16];
 
 	/*
 	 * Firstly put the sequence number into the first 4 bytes.
@@ -268,8 +277,14 @@ static void simple_packet_signature(struct smb_basic_signing_context *data,
 	MD5Init(&md5_ctx);
 
 	/* intialise with the key */
-	MD5Update(&md5_ctx, data->mac_key.data, 
-		  data->mac_key.length); 
+	/* NB. When making and verifying SMB signatures, Windows apparently
+		zero-pads the key to 128 bits if it isn't long enough.
+		From Nalin Dahyabhai <nalin@redhat.com> */
+	MD5Update(&md5_ctx, data->mac_key.data, data->mac_key.length); 
+	if (data->mac_key.length < sizeof(key_buf)) {
+		memset(key_buf, 0, sizeof(key_buf));
+		MD5Update(&md5_ctx, key_buf, sizeof(key_buf) - data->mac_key.length);
+	}
 
 	/* copy in the first bit of the SMB header */
 	MD5Update(&md5_ctx, buf + 4, smb_ss_field - 4);
@@ -444,7 +459,7 @@ BOOL cli_simple_set_signing(struct cli_state *cli,
 		return False;
 	}
 
-	data = smb_xmalloc(sizeof(*data));
+	data = SMB_XMALLOC_P(struct smb_basic_signing_context);
 	memset(data, '\0', sizeof(*data));
 
 	cli->sign_info.signing_context = data;
@@ -489,16 +504,24 @@ BOOL cli_simple_set_signing(struct cli_state *cli,
 void cli_signing_trans_start(struct cli_state *cli, uint16 mid)
 {
 	struct smb_basic_signing_context *data = cli->sign_info.signing_context;
+	uint32 reply_seq_num;
 
 	if (!cli->sign_info.doing_signing || !data)
 		return;
 
-	data->trans_info = smb_xmalloc(sizeof(struct trans_info_context));
+	data->trans_info = SMB_XMALLOC_P(struct trans_info_context);
 	ZERO_STRUCTP(data->trans_info);
 
-	data->trans_info->send_seq_num = data->send_seq_num-2;
+	/* This ensures the sequence is pulled off the outstanding packet list */
+	if (!get_sequence_for_reply(&data->outstanding_packet_list, 
+				    mid, &reply_seq_num)) {
+		DEBUG(1, ("get_sequence_for_reply failed - did we enter the trans signing state without sending a packet?\n")); 
+	    return;
+	}
+
+	data->trans_info->send_seq_num = reply_seq_num - 1;
 	data->trans_info->mid = mid;
-	data->trans_info->reply_seq_num = data->send_seq_num-1;
+	data->trans_info->reply_seq_num = reply_seq_num;
 
 	DEBUG(10,("cli_signing_trans_start: storing mid = %u, reply_seq_num = %u, send_seq_num = %u \
 data->send_seq_num = %u\n",
@@ -611,9 +634,9 @@ void cli_calculate_sign_mac(struct cli_state *cli)
  *         which had a bad checksum, True otherwise.
  */
  
-BOOL cli_check_sign_mac(struct cli_state *cli, BOOL must_be_ok) 
+BOOL cli_check_sign_mac(struct cli_state *cli) 
 {
-	if (!cli->sign_info.check_incoming_message(cli->inbuf, &cli->sign_info, must_be_ok)) {
+	if (!cli->sign_info.check_incoming_message(cli->inbuf, &cli->sign_info, True)) {
 		free_signing_context(&cli->sign_info);	
 		return False;
 	}
@@ -748,14 +771,16 @@ static BOOL srv_check_incoming_message(char *inbuf, struct smb_sign_info *si, BO
 	
 	if (!good) {
 
-		DEBUG(5, ("srv_check_incoming_message: BAD SIG: seq %u wanted SMB signature of\n",
+		if (saved_seq) {
+			DEBUG(0, ("srv_check_incoming_message: BAD SIG: seq %u wanted SMB signature of\n",
 					(unsigned int)saved_seq));
-		dump_data(5, (const char *)calc_md5_mac, 8);
-		
-		DEBUG(5, ("srv_check_incoming_message: BAD SIG: seq %u got SMB signature of\n",
-					(unsigned int)saved_seq));
-		dump_data(5, (const char *)server_sent_mac, 8);
+			dump_data(5, (const char *)calc_md5_mac, 8);
 
+			DEBUG(0, ("srv_check_incoming_message: BAD SIG: seq %u got SMB signature of\n",
+						(unsigned int)reply_seq_number));
+			dump_data(5, (const char *)server_sent_mac, 8);
+		}
+		
 #if 1 /* JRATEST */
 		{
 			int i;
@@ -848,9 +873,13 @@ void srv_defer_sign_response(uint16 mid)
 	if (!data)
 		return;
 
-	store_sequence_for_reply(&data->outstanding_packet_list, 
-				 mid, data->send_seq_num);
-	data->send_seq_num++;
+	/*
+	 * Ensure we only store this mid reply once...
+	 */
+
+	if (store_sequence_for_reply(&data->outstanding_packet_list, mid, data->send_seq_num)) {
+		data->send_seq_num++;
+	}
 }
 
 /***********************************************************
@@ -953,7 +982,7 @@ void srv_signing_trans_start(uint16 mid)
 	if (!data)
 		return;
 
-	data->trans_info = smb_xmalloc(sizeof(struct trans_info_context));
+	data->trans_info = SMB_XMALLOC_P(struct trans_info_context);
 	ZERO_STRUCTP(data->trans_info);
 
 	data->trans_info->reply_seq_num = data->send_seq_num-1;
@@ -1022,7 +1051,7 @@ void srv_set_signing(const DATA_BLOB user_session_key, const DATA_BLOB response)
 	
 	srv_sign_info.doing_signing = True;
 
-	data = smb_xmalloc(sizeof(*data));
+	data = SMB_XMALLOC_P(struct smb_basic_signing_context);
 	memset(data, '\0', sizeof(*data));
 
 	srv_sign_info.signing_context = data;

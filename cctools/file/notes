@@ -1,3 +1,8 @@
+Changes for the 5.16 release (the cctools-499.1 release):
+- Added recognition of ppc64 architecture, interim file format.
+  Radar bug  #3562133 and #3562232.
+  - Added an entry in the magdir/mach file for the number 19 as ppc64.
+
 Changes for the 5.12 release (the cctools-464 release):
 - Made changes to build cleanly with gcc3.3
   - Removed -Wno-precomp from the Makefile

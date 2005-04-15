@@ -27,6 +27,10 @@
 
 #include "render_flow.h"
 
+namespace DOM {
+    class Position;
+}
+
 namespace khtml {
 
 class RenderInline : public RenderFlow
@@ -53,20 +57,17 @@ public:
 
     virtual void layout() {} // Do nothing for layout()
     
-    virtual void paint(QPainter *, int x, int y, int w, int h,
-                       int tx, int ty, PaintAction paintAction);
-    virtual void paintObject(QPainter *, int x, int y, int w, int h,
-                             int tx, int ty, PaintAction paintAction);
+    virtual void paint(PaintInfo& i, int tx, int ty);
 
     virtual bool nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
-                             HitTestAction hitTestAction = HitTestAll, bool inside=false);
+                             HitTestAction hitTestAction);
     
     virtual void calcMinMaxWidth();
 
     // overrides RenderObject
     virtual bool requiresLayer();
 
-    virtual short width() const;
+    virtual int width() const;
     virtual int height() const;
     
     // used to calculate offsetWidth/Height.  Overridden by inlines (render_flow) to return
@@ -76,16 +77,11 @@ public:
 
     void absoluteRects(QValueList<QRect>& rects, int _tx, int _ty);
 
-#ifdef APPLE_CHANGES
-    virtual void addFocusRingRects(QPainter *painter, int _tx, int _ty);
-    void paintFocusRing(QPainter *p, int tx, int ty);
-#endif
+    virtual VisiblePosition positionForCoordinates(int x, int y);
     
 protected:
     static RenderInline* cloneInline(RenderFlow* src);
-    void paintOutline(QPainter *p, int tx, int ty, const QRect &prevLine, const QRect &thisLine, const QRect &nextLine);
-    void paintOutlines(QPainter *p, int tx, int ty);
-    
+
 private:
     bool m_isContinuation : 1; // Whether or not we're a continuation of an inline.
 };

@@ -1,4 +1,4 @@
-.\" $Id: saslauthd.mdoc,v 1.2 2002/05/23 18:58:42 snsimon Exp $
+.\" $Id: saslauthd.mdoc,v 1.5 2005/01/10 19:01:36 snsimon Exp $
 .\" Copyright 1997-2001 Messaging Direct Ltd. All rights reserved.
 .\"
 .\" This manpage uses the BSD mdoc manpage macros. Please don't
@@ -10,6 +10,7 @@
 .\" manpage in saslauthd.8 whenever you change this source
 .\" version. Only the pre-formatted manpage is installed.
 .\"
+.Dd 10 24 2002
 .Dt SASLAUTHD 8
 .Os "CMU-SASL"
 .Sh NAME
@@ -19,10 +20,12 @@
 .Nm
 .Fl a
 .Ar authmech
-.Op Fl \&Tv
-.Op Fl H Ar hostname
+.Op Fl \&Tvdchl
+.Op Fl O Ar option
 .Op Fl m Ar mux_path
 .Op Fl n Ar threads
+.Op Fl s Ar size
+.Op Fl t Ar timeout
 .Sh DESCRIPTION
 .Nm
 is a daemon process that handles plaintext authentication requests
@@ -56,27 +59,48 @@ Use
 as the authentication mechanism. (See the
 .Sx AUTHENTICATION MECHANISMS
 section below.) This parameter is mandatory.
+.It Fl O Ar option
+A mechanism specific option (e.g. rimap hostname or config file path)
 .It Fl H Ar hostname
 The remote host to be contacted by the
 .Li rimap
-authentication mechanism.
+authentication mechanism. (Depricated, use -O instead)
 .It Fl m Ar path
 Use
 .Ar path
 as the pathname to the named socket to listen on for
-connection requests. This must be an absolute pathname.
+connection requests. This must be an absolute pathname, and MUST NOT
+include the trailing "/mux".  Note that the default for this value
+is "/var/state/saslauthd" (or what was specified at compile time)
+and that this directory must exist for saslauthd to function.
 .It Fl n Ar threads
 Use
 .Ar threads
 processes for responding to authentication queries. (default: 5)  A
 value of zero will indicate that saslauthd should fork an individual
 process for each connection.  This can solve leaks that occur in some
-deployments.
+deployments..
+.It Fl s Ar size
+Use
+.Ar size
+as the table size of the hash table (in kilobytes)
+.It Fl t Ar timeout
+Use
+.Ar timeout
+as the expiration time of the authentication cache (in seconds)
 .It Fl T
 Honour time-of-day login restrictions.
+.It Fl h
+Show usage information
+.It Fl c
+Enable cacheing of authentication credentials
+.It Fl l
+Disable the use of a lock file for controlling access to accept().
 .It Fl v
 Print the version number and available authentication
 mechanisms on standard error, then exit.
+.It Fl d
+Debugging mode.
 .El
 .Ss Logging
 .Nm
@@ -91,7 +115,7 @@ supports one or more
 .Qq authentication mechanisms ,
 dependent upon the facilities provided by the underlying operating system.
 The mechanism is selected by the
-.Fl a
+.Fl aho
 flag from the following list of choices:
 .Bl -tag -width "kerberos4"
 .It Li dce
@@ -125,7 +149,7 @@ Authenticate using Pluggable Authentication Modules (PAM).
 .Em (All platforms)
 .Pp
 Forward authentication requests to a remote IMAP server. This driver
-connects to a remote IMAP server, specified using the -H flag,
+connects to a remote IMAP server, specified using the -O flag,
 and attempts to login (via an IMAP
 .Ql LOGIN
 command) using the credentials 
@@ -138,9 +162,9 @@ command is received from the remote
 server.
 .Pp
 The
-.Ar hostname
+.Ar option
 parameter to the
-.Fl H
+.Fl O
 flag describes the remote server to forward
 authentication requests to.
 .Ar hostname
@@ -156,7 +180,7 @@ to the
 argument.
 .Pp
 The
-.Fl H
+.Fl O
 flag and argument are mandatory when using the
 .Li rimap
 mechanism.
@@ -184,6 +208,13 @@ want to be using, and is even disabled at compile-time by default.
 If you want to use sasldb with the SASL library, you probably want to
 use the pwcheck_method of "auxprop" along with the sasldb auxprop plugin
 instead.
+.It Li ldap
+.Em (All platforms that support OpenLDAP 2.0 or higher)
+.Pp
+Authenticate against an ldap server.  The ldap configuration parameters are
+read from /usr/local/etc/saslauthd.conf.  The location of this file can be
+changed with the -O parameter. See the LDAP_SASLAUTHD file included with the
+distribution for the list of available parameters.
 .It Li sia
 .Em (Digital UNIX)
 .Pp
@@ -214,6 +245,8 @@ was never intended to be used in this manner, anyway.)
 .Bl -tag -width "/var/run/saslauthd/mux"
 .It Pa /var/run/saslauthd/mux
 The default communications socket.
+.It Pa /usr/local/etc/saslauthd.conf
+The default configuration file for ldap support.
 .El
 .Sh SEE ALSO
 .Xr passwd 1 ,

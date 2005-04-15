@@ -88,7 +88,7 @@
 #endif	/* HAVE_XOM_H */
 
 /*
- * $Id: gssapi.h,v 1.1 2002/02/28 00:25:44 snsimon Exp $
+ * $Id: gssapi.h,v 1.4 2005/01/10 19:17:31 snsimon Exp $
  */
 
 /*

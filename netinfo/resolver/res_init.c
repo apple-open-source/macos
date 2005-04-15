@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_init.c	8.1 (Berkeley) 6/7/93";
-static const char rcsid[] = "$Id: res_init.c,v 1.7.92.1 2005/01/12 00:53:18 majka Exp $";
+static const char rcsid[] = "$Id: res_init.c,v 1.7.96.1 2005/02/22 00:32:18 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #ifndef __APPLE__

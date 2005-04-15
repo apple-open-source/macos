@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-The maximum legal length for a path name is 
-<constant class=limit>PATH_MAX</constant>, defined in
-<filename class=headerfile>limits.h</filename>.
-</para>

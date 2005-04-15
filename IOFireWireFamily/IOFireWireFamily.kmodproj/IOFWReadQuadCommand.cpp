@@ -46,6 +46,8 @@ OSMetaClassDefineReservedUnused(IOFWReadQuadCommand, 1);
 
 void IOFWReadQuadCommand::gotPacket(int rcode, const void* data, int size)
 {
+	setResponseCode( rcode );
+
     if(rcode != kFWResponseComplete) {
 		// Sony CRX1600XL responses address error to breads to ROM
         if( (rcode == kFWResponseTypeError || rcode == kFWResponseAddressError) && fMaxPack > 4) {

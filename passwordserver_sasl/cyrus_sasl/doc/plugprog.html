@@ -1,6 +1,6 @@
 <HTML><HEAD>
 <title>SASL Plugin Programmer's Guide</title>
-<!-- $Id: plugprog.html,v 1.1 2002/02/28 00:00:06 snsimon Exp $ -->
+<!-- $Id: plugprog.html,v 1.4 2005/01/10 19:13:37 snsimon Exp $ -->
 </HEAD>
 <BODY>
 <h1>SASL Plugin Programmer's Guide</h1>
@@ -131,14 +131,24 @@
       follows:</p>
     <ul>
       <li><B>SASL_FEAT_WANT_CLIENT_FIRST</B>: The mechanism has the client
-	side send first always.</li>
-      <li><B>SASL_FEAT_WANT_SERVER_LAST</B>: The mechanism has the server
-	send last always.</li>
-      <li><B>SASL_FEAT_INTERNAL_CLIENT_FIRST</B>: The mechanism will handle
-	the client-send first situation internally, because the client
-	may or may not send first.  (e.g. DIGEST-MD5).  This is not recommended
-	and should be avoided.</li>
+	side send first always.  (e.g. PLAIN)</li>
+      <li><B>SASL_FEAT_SERVER_FIRST</B>: The mechanism has the server side
+	send first always.  (e.g. CRAM-MD5)</li>
     </ul>
+
+<p>If neither flag is set, the mechanism will handle the client-send
+first situation internally, because the client may or may not send
+first.  (e.g. DIGEST-MD5).  In this case, the plugin must
+intelligently check for the presence (or absence) of clientin/serverin
+data.  Note that the optional client send-first is only possible when the
+protocol permits an initial response.
+
+<p>The server send last situation is handled by the plugin intelligently
+setting *serverout when the step function returns SASL_OK.  For mechanisms
+which never send last (e.g. PLAIN), *serverout must be set to NULL.  For
+mechanisms which always send last (e.g. DIGEST-MD5), *serverout must
+point to the success data.  For mechanisms in which the server may or
+may not send last (e.g. SRP), *serverout must be set accordingly.
 
 <a name="client"><h2>Client Plugins</h2></a>
     <p>Client-side mechanism plugins are generally included in the same

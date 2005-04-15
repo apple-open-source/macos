@@ -125,7 +125,7 @@ asciiToUTF8(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlen = processed - base;
-    return(0);
+    return(*outlen);
 }
 
 #ifdef LIBXML_OUTPUT_ENABLED
@@ -155,6 +155,7 @@ UTF8Toascii(unsigned char* out, int *outlen,
     unsigned int c, d;
     int trailing;
 
+    if ((out == NULL) || (outlen == NULL) || (inlen == NULL)) return(-1);
     if (in == NULL) {
         /*
 	 * initialization nothing to do
@@ -209,7 +210,7 @@ UTF8Toascii(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlen = processed - instart;
-    return(0);
+    return(*outlen);
 }
 #endif /* LIBXML_OUTPUT_ENABLED */
 
@@ -232,10 +233,14 @@ isolat1ToUTF8(unsigned char* out, int *outlen,
               const unsigned char* in, int *inlen) {
     unsigned char* outstart = out;
     const unsigned char* base = in;
-    unsigned char* outend = out + *outlen;
+    unsigned char* outend;
     const unsigned char* inend;
     const unsigned char* instop;
 
+    if ((out == NULL) || (in == NULL) || (outlen == NULL) || (inlen == NULL))
+	return(-1);
+
+    outend = out + *outlen;
     inend = in + (*inlen);
     instop = inend;
     
@@ -255,7 +260,7 @@ isolat1ToUTF8(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlen = in - base;
-    return(0);
+    return(*outlen);
 }
 
 /**
@@ -291,7 +296,7 @@ UTF8ToUTF8(unsigned char* out, int *outlen,
 
     *outlen = len;
     *inlenb = len;
-    return(0);
+    return(*outlen);
 }
 
 
@@ -322,6 +327,7 @@ UTF8Toisolat1(unsigned char* out, int *outlen,
     unsigned int c, d;
     int trailing;
 
+    if ((out == NULL) || (outlen == NULL) || (inlen == NULL)) return(-1);
     if (in == NULL) {
         /*
 	 * initialization nothing to do
@@ -381,7 +387,7 @@ UTF8Toisolat1(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlen = processed - instart;
-    return(0);
+    return(*outlen);
 }
 #endif /* LIBXML_OUTPUT_ENABLED */
 
@@ -470,7 +476,7 @@ UTF16LEToUTF8(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlenb = processed - inb;
-    return(0);
+    return(*outlen);
 }
 
 #ifdef LIBXML_OUTPUT_ENABLED
@@ -503,6 +509,7 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
     unsigned short tmp1, tmp2;
 
     /* UTF16LE encoding has no BOM */
+    if ((out == NULL) || (outlen == NULL) || (inlen == NULL)) return(-1);
     if (in == NULL) {
 	*outlen = 0;
 	*inlen = 0;
@@ -578,7 +585,7 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
     }
     *outlen = (out - outstart) * 2;
     *inlen = processed - instart;
-    return(0);
+    return(*outlen);
 }
 
 /**
@@ -710,7 +717,7 @@ UTF16BEToUTF8(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlenb = processed - inb;
-    return(0);
+    return(*outlen);
 }
 
 #ifdef LIBXML_OUTPUT_ENABLED
@@ -743,6 +750,7 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
     unsigned short tmp1, tmp2;
 
     /* UTF-16BE has no BOM */
+    if ((outb == NULL) || (outlen == NULL) || (inlen == NULL)) return(-1);
     if (in == NULL) {
 	*outlen = 0;
 	*inlen = 0;
@@ -815,7 +823,7 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
     }
     *outlen = (out - outstart) * 2;
     *inlen = processed - instart;
-    return(0);
+    return(*outlen);
 }
 #endif /* LIBXML_OUTPUT_ENABLED */
 
@@ -839,6 +847,8 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
 xmlCharEncoding
 xmlDetectCharEncoding(const unsigned char* in, int len)
 {
+    if (in == NULL) 
+        return(XML_CHAR_ENCODING_NONE);
     if (len >= 4) {
 	if ((in[0] == 0x00) && (in[1] == 0x00) &&
 	    (in[2] == 0x00) && (in[3] == 0x3C))
@@ -1263,6 +1273,7 @@ xmlNewCharEncodingHandler(const char *name,
     handler = (xmlCharEncodingHandlerPtr)
               xmlMalloc(sizeof(xmlCharEncodingHandler));
     if (handler == NULL) {
+        xmlFree(up);
         xmlGenericError(xmlGenericErrorContext,
 		"xmlNewCharEncodingHandler : out of memory !\n");
 	return(NULL);
@@ -1652,15 +1663,19 @@ xmlFindCharEncodingHandler(const char *name) {
  * The value of @outlen after return is the number of ocetes consumed.
  */
 static int
-xmlIconvWrapper(iconv_t cd,
-    unsigned char *out, int *outlen,
-    const unsigned char *in, int *inlen) {
-
-    size_t icv_inlen = *inlen, icv_outlen = *outlen;
+xmlIconvWrapper(iconv_t cd, unsigned char *out, int *outlen,
+                const unsigned char *in, int *inlen) {
+    size_t icv_inlen, icv_outlen;
     const char *icv_in = (const char *) in;
     char *icv_out = (char *) out;
     int ret;
 
+    if ((out == NULL) || (outlen == NULL) || (inlen == NULL) || (in == NULL)) {
+        if (outlen != NULL) *outlen = 0;
+        return(-1);
+    }
+    icv_inlen = *inlen;
+    icv_outlen = *outlen;
     ret = iconv(cd, (char **) &icv_in, &icv_inlen, &icv_out, &icv_outlen);
     if (in != NULL) {
         *inlen -= icv_inlen;
@@ -2131,7 +2146,7 @@ xmlByteConsumed(xmlParserCtxtPtr ctxt) {
 	 */
         if (in->end - in->cur > 0) {
 	    static unsigned char convbuf[32000];
-	    unsigned const char *cur = (unsigned const char *)in->cur;
+	    const unsigned char *cur = (const unsigned char *)in->cur;
 	    int toconv = in->end - in->cur, written = 32000;
 
 	    int ret;
@@ -2153,7 +2168,7 @@ xmlByteConsumed(xmlParserCtxtPtr ctxt) {
 		    written = 32000;
 		    ret = xmlIconvWrapper(handler->iconv_out, &convbuf[0],
 	                      &written, cur, &toconv);
-		    if (ret == -1) {
+		    if (ret < 0) {
 		        if (written > 0)
 			    ret = -2;
 			else
@@ -2202,6 +2217,9 @@ UTF8ToISO8859x(unsigned char* out, int *outlen,
     const unsigned char* inend;
     const unsigned char* instart = in;
 
+    if ((out == NULL) || (outlen == NULL) || (inlen == NULL) ||
+        (xlattable == NULL))
+	return(-1);
     if (in == NULL) {
         /*
         * initialization nothing to do
@@ -2229,7 +2247,7 @@ UTF8ToISO8859x(unsigned char* out, int *outlen,
                 return(-2);
             }
             c = *in++;
-            if ((c & 0xC0) != 0xC0) {
+            if ((c & 0xC0) != 0x80) {
                 /* not a trailing byte */
                 *outlen = out - outstart;
                 *inlen = in - instart - 2;
@@ -2255,14 +2273,14 @@ UTF8ToISO8859x(unsigned char* out, int *outlen,
                 return(-2);
             }
             c1 = *in++;
-            if ((c1 & 0xC0) != 0xC0) {
+            if ((c1 & 0xC0) != 0x80) {
                 /* not a trailing byte (c1) */
                 *outlen = out - outstart;
                 *inlen = in - instart - 2;
                 return(-2);
             }
             c2 = *in++;
-            if ((c2 & 0xC0) != 0xC0) {
+            if ((c2 & 0xC0) != 0x80) {
                 /* not a trailing byte (c2) */
                 *outlen = out - outstart;
                 *inlen = in - instart - 2;
@@ -2270,8 +2288,9 @@ UTF8ToISO8859x(unsigned char* out, int *outlen,
             }
             c1 = c1 & 0x3F; 
             c2 = c2 & 0x3F; 
-            d = d & 0x0F;
-            d = xlattable [48 + c2 + xlattable [48 + c1 + xlattable [32 + d] * 64] * 64];
+	    d = d & 0x0F;
+	    d = xlattable [48 + c2 + xlattable [48 + c1 + 
+	    		xlattable [32 + d] * 64] * 64];
             if (d == 0) {
                 /* not in character set */
                 *outlen = out - outstart;
@@ -2288,7 +2307,7 @@ UTF8ToISO8859x(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlen = in - instart;
-    return(0);
+    return(*outlen);
 }
 
 /**
@@ -2309,12 +2328,18 @@ ISO8859xToUTF8(unsigned char* out, int *outlen,
               const unsigned char* in, int *inlen,
               unsigned short const *unicodetable) {
     unsigned char* outstart = out;
-    unsigned char* outend = out + *outlen;
+    unsigned char* outend;
     const unsigned char* instart = in;
-    const unsigned char* inend = in + *inlen;
+    const unsigned char* inend;
     const unsigned char* instop = inend;
-    unsigned int c = *in;
+    unsigned int c;
 
+    if ((out == NULL) || (outlen == NULL) || (inlen == NULL) ||
+        (in == NULL) || (xlattable == NULL))
+	return(-1);
+    outend = out + *outlen;
+    inend = in + *inlen;
+    c = *in;
     while (in < inend && out < outend - 1) {
         if (c >= 0x80) {
             c = unicodetable [c - 0x80];
@@ -2348,7 +2373,7 @@ ISO8859xToUTF8(unsigned char* out, int *outlen,
     }
     *outlen = out - outstart;
     *inlen = in - instart;
-    return (0);
+    return (*outlen);
 }
 
     

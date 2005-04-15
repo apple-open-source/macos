@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001, 2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,25 +36,40 @@ class NSScroller;
 typedef int NSScrollerPart;
 #endif
 
+typedef enum {
+    KWQScrollUp,
+    KWQScrollDown,
+    KWQScrollLeft,
+    KWQScrollRight
+} KWQScrollDirection;
+
+typedef enum {
+    KWQScrollLine,
+    KWQScrollPage,
+    KWQScrollDocument,
+    KWQScrollWheel
+} KWQScrollGranularity;
+
 class QScrollBar : public QWidget {
 public:
-    QScrollBar(Qt::Orientation orientation, QWidget* parent);
+    QScrollBar(Orientation orientation, QWidget* parent);
     ~QScrollBar();
 
-    Qt::Orientation orientation() { return m_orientation; };
+    Orientation orientation() { return m_orientation; }
 
     int value() { return m_currentPos; }
-    void setValue(int v);
+    bool setValue(int v);
 
     void setSteps(int lineStep, int pageStep);
     void setKnobProportion(int visibleSize, int totalSize);
     
-    void scrollbarHit(NSScrollerPart hitPart);
+    bool scrollbarHit(NSScrollerPart);
     void valueChanged();
     
+    bool scroll(KWQScrollDirection, KWQScrollGranularity, float multiplier = 1.0);
+    
 private:
-    Qt::Orientation m_orientation : 1;
-    NSScroller* m_scroller;
+    Orientation m_orientation;
     int m_visibleSize;
     int m_totalSize;
     int m_currentPos;

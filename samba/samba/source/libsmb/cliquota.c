@@ -22,13 +22,13 @@
 
 BOOL cli_get_quota_handle(struct cli_state *cli, int *quota_fnum)
 {
-	*quota_fnum = cli_nt_create_full(cli, FAKE_FILE_NAME_QUOTA,
+	*quota_fnum = cli_nt_create_full(cli, FAKE_FILE_NAME_QUOTA_WIN32,
 		 0x00000016, DESIRED_ACCESS_PIPE,
 		 0x00000000, FILE_SHARE_READ|FILE_SHARE_WRITE,
 		 FILE_OPEN, 0x00000000, 0x03);
 		 
 	if (*quota_fnum == (-1)) {
-		return False;	
+		return False;
 	}
 
 	return True;
@@ -321,12 +321,12 @@ BOOL cli_list_user_quota(struct cli_state *cli, int quota_fnum, SMB_NTQUOTA_LIST
 			goto cleanup;
 		}
 
-		if ((tmp_list_ent=(SMB_NTQUOTA_LIST *)talloc_zero(mem_ctx,sizeof(SMB_NTQUOTA_LIST)))==NULL) {
+		if ((tmp_list_ent=TALLOC_ZERO_P(mem_ctx,SMB_NTQUOTA_LIST))==NULL) {
 			DEBUG(0,("talloc_zero() failed\n"));
 			return (-1);
 		}
 
-		if ((tmp_list_ent->quotas=(SMB_NTQUOTA_STRUCT *)talloc_zero(mem_ctx,sizeof(SMB_NTQUOTA_STRUCT)))==NULL) {
+		if ((tmp_list_ent->quotas=TALLOC_ZERO_P(mem_ctx,SMB_NTQUOTA_STRUCT))==NULL) {
 			DEBUG(0,("talloc_zero() failed\n"));
 			return (-1);
 		}
@@ -379,13 +379,13 @@ BOOL cli_list_user_quota(struct cli_state *cli, int quota_fnum, SMB_NTQUOTA_LIST
 				goto cleanup;
 			}
 
-			if ((tmp_list_ent=(SMB_NTQUOTA_LIST *)talloc_zero(mem_ctx,sizeof(SMB_NTQUOTA_LIST)))==NULL) {
+			if ((tmp_list_ent=TALLOC_ZERO_P(mem_ctx,SMB_NTQUOTA_LIST))==NULL) {
 				DEBUG(0,("talloc_zero() failed\n"));
 				talloc_destroy(mem_ctx);
 				goto cleanup;
 			}
 	
-			if ((tmp_list_ent->quotas=(SMB_NTQUOTA_STRUCT *)talloc_zero(mem_ctx,sizeof(SMB_NTQUOTA_STRUCT)))==NULL) {
+			if ((tmp_list_ent->quotas=TALLOC_ZERO_P(mem_ctx,SMB_NTQUOTA_STRUCT))==NULL) {
 				DEBUG(0,("talloc_zero() failed\n"));
 				talloc_destroy(mem_ctx);
 				goto cleanup;

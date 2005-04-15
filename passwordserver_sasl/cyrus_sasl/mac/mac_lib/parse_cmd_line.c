@@ -1,8 +1,8 @@
 /*
  * prompt for a command line
  */
-/* $Id: parse_cmd_line.c,v 1.1 2002/02/28 00:13:37 snsimon Exp $
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+/* $Id: parse_cmd_line.c,v 1.4 2005/01/10 19:09:05 snsimon Exp $
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

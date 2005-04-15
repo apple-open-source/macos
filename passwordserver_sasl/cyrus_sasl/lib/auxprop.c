@@ -1,9 +1,9 @@
 /* auxprop.c - auxilliary property support
  * Rob Siemborski
- * $Id: auxprop.c,v 1.2 2002/05/22 17:56:55 snsimon Exp $
+ * $Id: auxprop.c,v 1.5 2005/01/10 19:13:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,7 @@
 #include <config.h>
 #include <sasl.h>
 #include <prop.h>
+#include <ctype.h>
 #include "saslint.h"
 
 struct proppool 
@@ -161,14 +162,15 @@ int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx)
     struct propctx *retval = NULL;
     unsigned i;
     int result;
-    size_t total_size = 0, values_size;
+    unsigned total_size = 0;
+    size_t values_size;
     
     if(!src_ctx || !dst_ctx) return SASL_BADPARAM;
 
     /* What is the total allocated size of src_ctx? */
     pool = src_ctx->mem_base;
     while(pool) {
-	total_size += pool->size;
+	total_size += (unsigned) pool->size;
 	pool = pool->next;
     }
 
@@ -247,7 +249,7 @@ int prop_request(struct propctx *ctx, const char **names)
     /* Do we need to add ANY? */
     if(!new_values) return SASL_OK;
 
-    /* We always want atleast on extra to mark the end of the array */
+    /* We always want at least one extra to mark the end of the array */
     total_values = new_values + ctx->used_values + 1;
 
     /* Do we need to increase the size of our propval table? */
@@ -255,7 +257,7 @@ int prop_request(struct propctx *ctx, const char **names)
 	unsigned max_in_pool;
 
 	/* Do we need a larger base pool? */
-	max_in_pool = ctx->mem_base->size / sizeof(struct propval);
+	max_in_pool = (unsigned) (ctx->mem_base->size / sizeof(struct propval));
 	
 	if(total_values <= max_in_pool) {
 	    /* Don't increase the size of the base pool, just use what
@@ -293,6 +295,11 @@ int prop_request(struct propctx *ctx, const char **names)
 	/* Clear out new propvals */
 	memset(&(ctx->values[ctx->used_values]), 0,
 	       sizeof(struct propval) * (ctx->allocated_values - ctx->used_values));
+
+        /* Finish updating the context -- we've extended the list! */
+	/* ctx->list_end = (char **)(ctx->values + ctx->allocated_values); */
+	/* xxx test here */
+	ctx->list_end = (char **)(ctx->values + total_values);
     }
 
     /* Now do the copy, or referencing rather */
@@ -376,22 +383,47 @@ int prop_getnames(struct propctx *ctx, const char **names,
  */
 void prop_clear(struct propctx *ctx, int requests) 
 {
+    struct proppool *new_pool, *tmp;
     unsigned i;
 
+    /* We're going to need a new proppool once we reset things */
+    new_pool = alloc_proppool(ctx->mem_base->size +
+			      (ctx->used_values+1) * sizeof(struct propval));
+
     if(requests) {
-	memset(ctx->values, 0, sizeof(struct propval) * ctx->allocated_values);
-	ctx->prev_val = NULL;
+	/* We're wiping the whole shebang */
 	ctx->used_values = 0;
     } else {
+	/* Need to keep around old requets */
+	struct propval *new_values = (struct propval *)new_pool->data;
 	for(i=0; i<ctx->used_values; i++) {
-	    ctx->values[i].values = NULL;
-	    ctx->values[i].nvalues = 0;
-	    ctx->values[i].valsize = 0;
+	    new_values[i].name = ctx->values[i].name;
 	}
     }
+
+    while(ctx->mem_base) {
+	tmp = ctx->mem_base;
+	ctx->mem_base = tmp->next;
+	sasl_FREE(tmp);
+    }
     
-    ctx->mem_cur = ctx->mem_base;
-    
+    /* Update allocation-related metadata */
+    ctx->allocated_values = ctx->used_values+1;
+    new_pool->unused =
+	new_pool->size - (ctx->allocated_values * sizeof(struct propval));
+
+    /* Setup pointers for the values array */
+    ctx->values = (struct propval *)new_pool->data;
+    ctx->prev_val = NULL;
+
+    /* Setup the pools */
+    ctx->mem_base = ctx->mem_cur = new_pool;
+
+    /* Reset list_end and data_end for the new memory pool */
+    ctx->list_end =
+	(char **)((char *)ctx->mem_base->data + ctx->allocated_values * sizeof(struct propval));
+    ctx->data_end = (char *)ctx->mem_base->data + ctx->mem_base->size;
+
     return;
 }
 
@@ -446,14 +478,17 @@ int prop_format(struct propctx *ctx, const char *sep, int seplen,
     unsigned needed, flag = 0;
     struct propval *val;
     
-    if(!ctx || !outbuf) return SASL_BADPARAM;
+    if (!ctx || !outbuf) return SASL_BADPARAM;
 
-    if(!sep) seplen = 0;    
-    if(seplen < 0) seplen = strlen(sep);
+    if (!sep) seplen = 0;    
+    if (seplen < 0) seplen = (int) strlen(sep);
+/* If seplen is negative now we have overflow.
+   But if you have a string longer than 2Gb, you are an idiot anyway */
+    if (seplen < 0) return SASL_BADPARAM;
 
     needed = seplen * (ctx->used_values - 1);
     for(val = ctx->values; val->name; val++) {
-	needed += strlen(val->name);
+	needed += (unsigned) strlen(val->name);
     }
     
     if(!outmax) return (needed + 1); /* Because of unsigned funkiness */
@@ -482,7 +517,7 @@ int prop_format(struct propctx *ctx, const char *sep, int seplen,
  *            if NULL, add to the same name as previous prop_set/setvals call
  *  value  -- a value for the property; will be copied into context
  *            if NULL, remove existing values
- *  vallen -- length of value, if < 0 then strlen(value) will be used
+ *  vallen -- length of value, if <= 0 then strlen(value) will be used
  */
 int prop_set(struct propctx *ctx, const char *name,
 	     const char *value, int vallen)
@@ -576,7 +611,7 @@ int prop_set(struct propctx *ctx, const char *name,
 	}
 	    
 	/* Now allocate the last entry */
-	if(!vallen)
+	if(vallen <= 0)
 	    size = (size_t)(strlen(value) + 1);
 	else
 	    size = (size_t)(vallen + 1);
@@ -609,7 +644,7 @@ int prop_set(struct propctx *ctx, const char *name,
 	cur->values[nvalues - 2] = ctx->data_end;
 
 	cur->nvalues++;
-	cur->valsize += (size - 1);
+	cur->valsize += ((unsigned) size - 1);
     } else /* Appending an entry */ {
 	char **tmp;
 	size_t size;
@@ -638,7 +673,7 @@ int prop_set(struct propctx *ctx, const char *name,
 	tmp = (ctx->list_end - 2);
 
 	/* Now allocate the last entry */
-	if(!vallen)
+	if(vallen <= 0)
 	    size = strlen(value) + 1;
 	else
 	    size = vallen + 1;
@@ -671,7 +706,7 @@ int prop_set(struct propctx *ctx, const char *name,
 	*tmp = ctx->data_end;
 
 	cur->nvalues++;
-	cur->valsize += (size - 1);
+	cur->valsize += ((unsigned) size - 1);
     }
     
     return SASL_OK;
@@ -776,7 +811,8 @@ int sasl_auxprop_add_plugin(const char *plugname,
 			 &out_version, &plug, plugname);
 
     if(result != SASL_OK) {
-	_sasl_log(NULL, SASL_LOG_ERR, "auxpropfunc error %i\n",result);
+	_sasl_log(NULL, SASL_LOG_ERR, "auxpropfunc error %s\n",
+		  sasl_errstring(result, NULL, NULL));
 	return result;
     }
 
@@ -818,28 +854,143 @@ void _sasl_auxprop_lookup(sasl_server_params_t *sparams,
     sasl_getopt_t *getopt;
     int ret, found = 0;
     void *context;
-    const char *pluginname = NULL;
+    const char *plist = NULL;
     auxprop_plug_list_t *ptr;
-    
-    /* xxx support more than one at the same time? */
-    if(_sasl_getcallback(NULL, SASL_CB_GETOPT, &getopt, &context) == SASL_OK) {
-	ret = getopt(context, NULL, "auxprop_plugin", &pluginname, NULL);
-	if(ret != SASL_OK) pluginname = NULL;
+
+    if(_sasl_getcallback(sparams->utils->conn,
+			 SASL_CB_GETOPT, &getopt, &context) == SASL_OK) {
+	ret = getopt(context, NULL, "auxprop_plugin", &plist, NULL);
+	if(ret != SASL_OK) plist = NULL;
     }
 
-    for(ptr = auxprop_head; ptr; ptr = ptr->next) {
-	/* Skip non-matching plugins */
-	if(pluginname &&
-	   (!ptr->plug->name || strcasecmp(ptr->plug->name, pluginname)))
-	    continue;
+    if(!plist) {
+	/* Do lookup in all plugins */
+	for(ptr = auxprop_head; ptr; ptr = ptr->next) {
+	    found=1;
+	    ptr->plug->auxprop_lookup(ptr->plug->glob_context,
+				      sparams, flags, user, ulen);
+	}
+    } else {
+	char *pluginlist = NULL, *freeptr = NULL, *thisplugin = NULL;
 
-	found=1;
-      	ptr->plug->auxprop_lookup(ptr->plug->glob_context,
-				  sparams, flags, user, ulen);
+	if(_sasl_strdup(plist, &pluginlist, NULL) != SASL_OK) return;
+	thisplugin = freeptr = pluginlist;
+	
+	/* Do lookup in all *specified* plugins, in order */
+	while(*thisplugin) {
+	    char *p;
+	    int last=0;
+	    
+	    while(*thisplugin && isspace((int)*thisplugin)) thisplugin++;
+	    if(!(*thisplugin)) break;
+	    
+	    for(p = thisplugin;*p != '\0' && !isspace((int)*p); p++);
+	    if(*p == '\0') last = 1;
+	    else *p='\0';
+	    
+	    for(ptr = auxprop_head; ptr; ptr = ptr->next) {
+		/* Skip non-matching plugins */
+		if(!ptr->plug->name
+		   || strcasecmp(ptr->plug->name, thisplugin))
+		    continue;
+	    
+		found=1;
+		ptr->plug->auxprop_lookup(ptr->plug->glob_context,
+					  sparams, flags, user, ulen);
+	    }
+
+	    if(last) break;
+
+	    thisplugin = p+1;
+	}
+
+	sasl_FREE(freeptr);
     }
 
     if(!found)
+	_sasl_log(sparams->utils->conn, SASL_LOG_DEBUG,
+		  "could not find auxprop plugin, was searching for '%s'",
+		  plist ? plist : "[all]");
+}
+
+/* Do the callbacks for auxprop stores */
+int sasl_auxprop_store(sasl_conn_t *conn,
+		       struct propctx *ctx, const char *user)
+{
+    sasl_getopt_t *getopt;
+    int ret, found = 0;
+    void *context;
+    const char *plist = NULL;
+    auxprop_plug_list_t *ptr;
+    sasl_server_params_t *sparams = NULL;
+    unsigned userlen = 0;
+
+    if (ctx) {
+	if (!conn || !user)
+	    return SASL_BADPARAM;
+
+	sparams = ((sasl_server_conn_t *) conn)->sparams;
+	userlen = (unsigned) strlen(user);
+    }
+    
+    if(_sasl_getcallback(NULL, SASL_CB_GETOPT, &getopt, &context) == SASL_OK) {
+	ret = getopt(context, NULL, "auxprop_plugin", &plist, NULL);
+	if(ret != SASL_OK) plist = NULL;
+    }
+
+    ret = SASL_OK;
+    if(!plist) {
+	/* Do store in all plugins */
+	for(ptr = auxprop_head; ptr && ret == SASL_OK; ptr = ptr->next) {
+	    found=1;
+	    if (ptr->plug->auxprop_store)
+		ret = ptr->plug->auxprop_store(ptr->plug->glob_context,
+					       sparams, ctx, user, userlen);
+	}
+    } else {
+	char *pluginlist = NULL, *freeptr = NULL, *thisplugin = NULL;
+
+	if(_sasl_strdup(plist, &pluginlist, NULL) != SASL_OK) return SASL_FAIL;
+	thisplugin = freeptr = pluginlist;
+	
+	/* Do store in all *specified* plugins, in order */
+	while(*thisplugin) {
+	    char *p;
+	    int last=0;
+	    
+	    while(*thisplugin && isspace((int)*thisplugin)) thisplugin++;
+	    if(!(*thisplugin)) break;
+	    
+	    for(p = thisplugin;*p != '\0' && !isspace((int)*p); p++);
+	    if(*p == '\0') last = 1;
+	    else *p='\0';
+	    
+	    for(ptr = auxprop_head; ptr && ret == SASL_OK; ptr = ptr->next) {
+		/* Skip non-matching plugins */
+		if((!ptr->plug->name
+		    || strcasecmp(ptr->plug->name, thisplugin)))
+		    continue;
+
+		found=1;
+		if (ptr->plug->auxprop_store)
+		    ret = ptr->plug->auxprop_store(ptr->plug->glob_context,
+						   sparams, ctx, user, userlen);
+	    }
+
+	    if(last) break;
+
+	    thisplugin = p+1;
+	}
+
+	sasl_FREE(freeptr);
+    }
+
+    if(!found) {
 	_sasl_log(NULL, SASL_LOG_ERR,
 		  "could not find auxprop plugin, was searching for %s",
-		  pluginname ? pluginname : "[any]");
+		  plist ? plist : "[all]");
+	return SASL_FAIL;
+    }
+
+    return ret;
 }

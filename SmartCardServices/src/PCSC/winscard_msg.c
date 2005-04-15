@@ -25,7 +25,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This is responsible for client/server transport.
 
-$Id: winscard_msg.c,v 1.2 2003/02/13 20:06:31 ghoo Exp $
+$Id: winscard_msg.c,v 1.2.22.1 2004/12/10 01:06:37 mb Exp $
 
 ********************************************************************/
 
@@ -171,7 +171,8 @@ int SHMInitializeCommonSegment()
 	/*
 	 * Chmod the public entry channel 
 	 */
-	SYS_Chmod(PCSCLITE_CSOCK_NAME, S_IRWXO | S_IRWXG | S_IRWXU);
+	SYS_Chmod(PCSCLITE_CSOCK_NAME,
+		S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR);
 
 	return 0;
 }

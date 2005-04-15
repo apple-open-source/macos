@@ -45,6 +45,12 @@ The \fBwinbindd\fR(8) daemon must be configured and running for the \fBwbinfo\fR
 \-a username%password
 Attempt to authenticate a user via winbindd\&. This checks both authenticaion methods and reports its results\&.
 
+.RS
+.Sh "Note"
+Do not be tempted to use this functionality for authentication in third\-party applications\&. Instead use \fBntlm_auth\fR(1)\&.
+
+.RE
+
 .TP
 \-c user
 Create a local winbind user\&.
@@ -162,7 +168,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fBwinbindd\fR(8)
+\fBwinbindd\fR(8) and \fBntlm_auth\fR(1)
 
 .SH "AUTHOR"
 

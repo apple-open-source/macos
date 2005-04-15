@@ -1,0 +1,11 @@
+--- xpath.c.orig.c	2004-09-24 01:22:22.000000000 -0700
++++ xpath.c	2004-11-29 10:07:48.000000000 -0800
+@@ -178,7 +178,7 @@
+ /*
+  * The array xmlXPathErrorMessages corresponds to the enum xmlXPathError
+  */
+-static const char *xmlXPathErrorMessages[] = {
++static const char * const xmlXPathErrorMessages[] = {
+     "Ok\n",
+     "Number encoding\n",
+     "Unfinished literal\n",

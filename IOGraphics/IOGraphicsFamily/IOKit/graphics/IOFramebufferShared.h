@@ -163,6 +163,7 @@ enum {
     @field structSize Contains the size of this structure.
     @field vblTime The time of the most recent vertical blanking.
     @field vblDelta The interval between the two most recent vertical blankings.
+    @field vblCount A running count of vertical blank interrupts.
     @field reservedC Reserved for future use.
     @field hardwareCursorCapable True if the hardware is capable of using hardware cursor mode.
     @field hardwareCursorActive True if currently using the hardware cursor mode.
@@ -189,10 +190,11 @@ struct StdFBShmem_t {
     int structSize;
     AbsoluteTime vblTime;
     AbsoluteTime vblDelta;
+    unsigned long long int vblCount;
 #if IOFB_ARBITRARY_FRAMES_CURSOR
-    unsigned int reservedC[30];
+    unsigned int reservedC[28];
 #else
-    unsigned int reservedC[29];
+    unsigned int reservedC[27];
     unsigned char hardwareCursorFlags[kIOFBNumCursorFrames];
 #endif
     unsigned char hardwareCursorCapable;

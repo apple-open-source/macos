@@ -52,7 +52,8 @@ extern void fix_new(
 	int	size,		/* 1, 2 or 4 bytes */
 	symbolS *add_symbol,	/* X_add_symbol */
 	symbolS *sub_symbol,	/* X_subtract_symbol */
-	long    offset,		/* X_add_number */
+	signed_target_addr_t
+	offset,		/* X_add_number */
 	int	pcrel,		/* TRUE if PC-relative */
 	int	pcrel_reloc,	/* TRUE if must have relocation entry */
 	int	r_type);	/* relocation type */

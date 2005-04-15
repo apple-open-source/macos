@@ -158,8 +158,7 @@ static char *proxy = NULL;	 /* the proxy name if any */
 static int proxyPort;	/* the proxy port if any */
 static unsigned int timeout = 60;/* the select() timeout in seconds */
 
-int xmlNanoHTTPFetchContent( void * ctx, char ** ptr, int * len );
-int xmlNanoHTTPContentLength( void * ctx );
+static int xmlNanoHTTPFetchContent( void * ctx, char ** ptr, int * len );
 
 /**
  * xmlHTTPErrMemory:
@@ -223,7 +222,7 @@ xmlNanoHTTPInit(void) {
     if (proxy == NULL) {
 	proxyPort = 80;
 	env = getenv("no_proxy");
-	if (env != NULL)
+	if (env && ((env[0] == '*') && (env[1] == 0)))
 	    goto done;
 	env = getenv("http_proxy");
 	if (env != NULL) {
@@ -840,7 +839,15 @@ xmlNanoHTTPScanAnswer(xmlNanoHTTPCtxtPtr ctxt, const char *line) {
 	while ((*cur == ' ') || (*cur == '\t')) cur++;
 	if (ctxt->location != NULL)
 	    xmlFree(ctxt->location);
-	ctxt->location = xmlMemStrdup(cur);
+	if (*cur == '/') {
+	    xmlChar *tmp_http = xmlStrdup(BAD_CAST "http://");
+	    xmlChar *tmp_loc = 
+	        xmlStrcat(tmp_http, (const xmlChar *) ctxt->hostname);
+	    ctxt->location = 
+	        (char *) xmlStrcat (tmp_loc, (const xmlChar *) cur);
+	} else {
+	    ctxt->location = xmlMemStrdup(cur);
+	}
     } else if (!xmlStrncasecmp(BAD_CAST line, BAD_CAST"WWW-Authenticate:", 17)) {
         cur += 17;
 	while ((*cur == ' ') || (*cur == '\t')) cur++;
@@ -1606,6 +1613,7 @@ xmlNanoHTTPSave(void *ctxt, const char *filename) {
     }
 
     xmlNanoHTTPClose(ctxt);
+    close(fd);
     return(0);
 }
 #endif /* LIBXML_OUTPUT_ENABLED */
@@ -1719,7 +1727,7 @@ xmlNanoHTTPMimeType( void * ctx ) {
  * -1 if received content length was less than specified or an error 
  * occurred.
  */
-int
+static int
 xmlNanoHTTPFetchContent( void * ctx, char ** ptr, int * len ) {
     xmlNanoHTTPCtxtPtr	ctxt = (xmlNanoHTTPCtxtPtr)ctx;
 

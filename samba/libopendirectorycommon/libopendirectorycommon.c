@@ -12,6 +12,10 @@
 #include <string.h>
 #include <errno.h>
 
+#ifndef kDSStdAuthSMBNTv2UserSessionKey
+#define kDSStdAuthSMBNTv2UserSessionKey "dsAuthMethodStandard:dsSMBNTv2UserSessionKey"
+#endif
+
 /* Private */
 
 #define credentialfile "/var/db/samba/opendirectorysam"
@@ -24,6 +28,180 @@ typedef struct opendirectory_secret_header {
     u_int32_t secret_len;
     u_int32_t authenticatorid_len;
 } opendirectory_secret_header;
+
+#ifdef USES_KEYCHAIN
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+//#include <CoreServices/CoreServices.h>
+
+#define SERVICE	"com.apple.samba"
+#define SAMBA_APP_ID CFSTR("com.apple.samba")
+
+char *get_account()
+{
+	CFPropertyListRef		pref = NULL;
+	char			*account = NULL;
+	int				accountLength = 1024;
+		
+	if ((pref = CFPreferencesCopyAppValue (CFSTR("DomainAdmin"), SAMBA_APP_ID)) != 0) {
+		if (CFGetTypeID(pref) == CFStringGetTypeID()) {
+			account = calloc(1, accountLength);
+			if (!CFStringGetCString( (CFStringRef)pref, account, accountLength, kCFStringEncodingUTF8 )) {
+				free(account);
+				account = NULL;
+			} 
+        }
+        CFRelease(pref);
+	}
+    
+	return account;
+}
+
+
+int add_to_sambaplist (char *acctName)
+{
+	CFStringRef			acctNameRef = NULL;
+	int				err = 0;
+	
+	acctNameRef = CFStringCreateWithCString(NULL, acctName, kCFStringEncodingUTF8);
+
+	if (acctNameRef) {
+		CFPreferencesSetValue(CFSTR("DomainAdmin"), acctNameRef, SAMBA_APP_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+		CFPreferencesSynchronize(SAMBA_APP_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+		CFRelease(acctNameRef);
+	} else {
+		err = -1;
+	}
+	
+	return err;
+}
+
+SecAccessRef make_uid_access(uid_t uid)
+{
+	OSStatus	status;
+	// make the "uid/gid" ACL subject
+	// this is a CSSM_LIST_ELEMENT chain
+	CSSM_ACL_PROCESS_SUBJECT_SELECTOR selector = {
+		CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION,	// selector version
+		CSSM_ACL_MATCH_UID,	// set mask: match uids (only)
+		uid,				// uid to match
+		0					// gid (not matched here)
+	};
+	CSSM_LIST_ELEMENT subject2 = { NULL, 0 };
+	subject2.Element.Word.Data = (UInt8 *)&selector;
+	subject2.Element.Word.Length = sizeof(selector);
+	CSSM_LIST_ELEMENT subject1 = {
+		&subject2, CSSM_ACL_SUBJECT_TYPE_PROCESS, CSSM_LIST_ELEMENT_WORDID
+	};
+
+	// rights granted (replace with individual list if desired)
+	CSSM_ACL_AUTHORIZATION_TAG rights[] = {
+		CSSM_ACL_AUTHORIZATION_ANY	// everything
+	};
+	// owner component (right to change ACL)
+	CSSM_ACL_OWNER_PROTOTYPE owner = {
+		// TypedSubject
+		{ CSSM_LIST_TYPE_UNKNOWN, &subject1, &subject2 },
+		// Delegate
+		false
+	};
+	// ACL entries (any number, just one here)
+	CSSM_ACL_ENTRY_INFO acls[] = {
+		{
+			// prototype
+			{
+				// TypedSubject
+				{ CSSM_LIST_TYPE_UNKNOWN, &subject1, &subject2 },
+				false,	// Delegate
+				// rights for this entry
+				{ sizeof(rights) / sizeof(rights[0]), rights },
+				// rest is defaulted
+			}
+		}
+	};
+
+	SecAccessRef access;
+	status = SecAccessCreateFromOwnerAndACL(&owner,
+		sizeof(acls) / sizeof(acls[0]), acls, &access);
+	return access;
+}
+
+void *get_password_from_keychain(char *account, int accountLength)
+{
+	OSStatus status ;
+	SecKeychainItemRef item;
+	void *passwordData = NULL;
+	UInt32 passwordLength = 0;
+	void *password = NULL;	
+
+	// Set the domain to System (daemon)
+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	status = SecKeychainGetUserInteractionAllowed (FALSE);
+
+	 status = SecKeychainFindGenericPassword (
+					 NULL,           // default keychain
+					 strlen(SERVICE),             // length of service name
+					 SERVICE,   // service name
+					 accountLength,             // length of account name
+					 account,   // account name
+					 &passwordLength,  // length of password
+					 &passwordData,   // pointer to password data
+					 &item         // the item reference
+					);
+
+	if ((status == noErr) && (item != NULL) && passwordLength)
+	{
+		password = calloc(1, passwordLength + 1);
+		memcpy(password, (const void *)passwordData, passwordLength);
+	}
+	return password;
+}
+
+OSStatus set_password_in_keychain(char *account, char *accountLen, char *password, u_int32_t passwordLen)
+{
+	SecKeychainItemRef item = NULL;
+	OSStatus status = noErr;
+	SecKeychainAttribute attributes[2];
+	SecKeychainAttributeList attributeList = {
+		sizeof(attributes) / sizeof(attributes[0]),
+		attributes
+	};
+	SecKeychainRef keychain;
+	SecKeychainStatus keychainStatus;
+	
+	attributes[0].tag = kSecServiceItemAttr;
+	attributes[0].length = strlen(SERVICE);
+	attributes[0].data = SERVICE;
+
+	attributes[1].tag = kSecAccountItemAttr;
+	attributes[1].length = accountLen;
+	attributes[1].data = (void *)account;
+
+	// Set the domain to System (daemon)
+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	status = SecKeychainGetUserInteractionAllowed (FALSE);
+
+	status = SecKeychainFindGenericPassword(NULL, strlen(SERVICE), SERVICE, accountLen, account, NULL, NULL, &item);
+
+	if (status == errSecItemNotFound)
+	{
+		status = SecKeychainItemCreateFromContent(kSecGenericPasswordItemClass,
+				&attributeList,
+				passwordLen, password,
+				NULL,
+				make_uid_access(0),
+				NULL);
+			
+	}
+	else if ((status == noErr) && (item != NULL))
+	{
+		status = SecKeychainItemModifyContent(item, NULL, strlen(password), password);
+	}
+	return status;
+}
+
+#endif
 
 opendirectory_secret_header *get_opendirectory_secret_header(void *authenticator)
 {
@@ -42,6 +220,17 @@ opendirectory_secret_header *get_opendirectory_secret_header(void *authenticator
 
 int set_opendirectory_authenticator(u_int32_t authenticatorlen, char *authenticator, u_int32_t secretlen, char *secret)
 {
+#ifdef USES_KEYCHAIN
+	OSStatus status = noErr;
+
+	status = set_password_in_keychain(authenticator, authenticatorlen, secret, secretlen);
+	if (status != noErr) {
+		return -1;	
+	} else {
+		add_to_sambaplist (authenticator);
+		return status;
+	}
+#else
 	int fd = 0;
 	int result = -1;
 	struct flock lock;
@@ -82,27 +271,50 @@ cleanup:
 	if (!initialized)
 		unlink(credentialfile);
 	return result;
+#endif
 }
 
 void  *get_opendirectory_authenticator()
 {
-	int fd = 0;
 	void *authenticator = NULL;
-	opendirectory_secret_header hdr;
-	int authentriessize;
+	int authentriessize = 0;
 	int initialized = 0;
+#ifdef USES_KEYCHAIN
+	opendirectory_secret_header *odhdr = NULL;
+	char *password = NULL;
+	char *account = NULL;
+	
+	account = get_account();
+	if (account) {
+		password = get_password_from_keychain(account, strlen(account));
+		
+		if (password) {
+			authentriessize = strlen(account) + strlen(password);
+			authenticator = calloc(1,sizeof(opendirectory_secret_header) + authentriessize);
+			memcpy(authenticator + sizeof(opendirectory_secret_header) , account, strlen(account));
+			memcpy(authenticator + sizeof(opendirectory_secret_header) + strlen(account), password, strlen(password));
+			odhdr = (opendirectory_secret_header*)authenticator;
+			odhdr->authenticator_len = strlen(account);
+			odhdr->secret_len = strlen(password);
+			odhdr->signature = sig;
+			initialized = 1;
+			
+			free(password);
+		}
+		free(account);
+	}
+#else
+	int fd = 0;
+	opendirectory_secret_header hdr;
 	
 	fd = open(credentialfile, O_RDONLY,0);
 	if (fd != -1) {
-		printf("get_opendirectory_authenticator: opened file\n");
 		
 //		if(pread(fd, &hdr, sizeof(opendirectory_secret_header), 0) != sizeof(opendirectory_secret_header)) {
 		if(read(fd, &hdr, sizeof(opendirectory_secret_header)) != sizeof(opendirectory_secret_header)) {
-			printf("get_opendirectory_authenticator: bad hdr(%ld)\n", sizeof(opendirectory_secret_header));
 			goto cleanup;
 		}
 		if (hdr.signature != sig) {
-			printf("get_opendirectory_authenticator: bad signature(%X)\n", hdr.signature);
 			goto cleanup;
 		}
 		authentriessize = hdr.authenticator_len + hdr.secret_len;
@@ -111,7 +323,6 @@ void  *get_opendirectory_authenticator()
 		memcpy(authenticator, &hdr, sizeof(opendirectory_secret_header));
 //		if(pread(fd, authenticator + sizeof(hdr), authentriessize, sizeof(hdr)) != authentriessize) {
 		if(read(fd, authenticator + sizeof(opendirectory_secret_header), authentriessize) != authentriessize) {
-			printf("get_opendirectory_authenticator: bad authentriessize(%d)\n", authentriessize);
 			goto cleanup;
 		}
 		initialized = 1;
@@ -121,6 +332,7 @@ void  *get_opendirectory_authenticator()
 cleanup:
 	if (fd)
 		close(fd);
+#endif
 	if (!initialized) {
 		if (authenticator)
 			free(authenticator);
@@ -380,7 +592,6 @@ tDirStatus opendirectory_cred_session_key(char *client_challenge, char *server_c
 									memcpy(&len, stepBuff->fBufferData, 4);
 									stepBuff->fBufferData[len+4] = '\0';
 									memcpy(session_key,stepBuff->fBufferData+4, 8);
-									printf("session key (%s) len (%ld)\n",session_key, len);
 									//DEBUG(1,("session key  \"%s\" :)\n", policy));
 
 							}
@@ -518,7 +729,8 @@ cleanup:
 	return status;
 }
 
-tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name, char *serverchallenge, char* ntv2response, char *session_key, char *slot_id)
+tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name, u_int32_t ntv2response_len, char* ntv2response, char* domain, u_int32_t *session_key_len, char *session_key, char 
+*slot_id)
 {
     tDirReference	dirRef = NULL;
 	tDirStatus 		status			= eDSNoErr;
@@ -560,14 +772,22 @@ tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name, char *
 			stepBuff = dsDataBufferAllocate( dirRef, bufferSize );
 			if ( stepBuff != NULL )
 			{
-					authType = dsDataNodeAllocateString( dirRef, "dsAuthMethodStandard:dsAuthNodeNTLMv2SessionKey"); /* kDSStdAuthSMBNTv2UserSessionKey */
+					authType = dsDataNodeAllocateString( dirRef, kDSStdAuthSMBNTv2UserSessionKey ); /* "dsAuthMethodStandard:dsAuthNodeNTLMv2SessionKey" */
 					recordType = dsDataNodeAllocateString( dirRef,  kDSStdRecordTypeUsers);
 					if ( authType != NULL )
 					{
+/*
+The buffer format is:
+4 byte len + Directory Services user name
+4 byte len + client blob
+4 byte len + username
+4 byte len + domain
+*/
 							// Target account
 							opendirectory_add_data_buffer_item(authBuff, strlen( targetaccount ), targetaccount);
-							opendirectory_add_data_buffer_item(authBuff, 8, serverchallenge);
-							opendirectory_add_data_buffer_item(authBuff, 16, ntv2response);
+							opendirectory_add_data_buffer_item(authBuff, ntv2response_len, ntv2response);
+							opendirectory_add_data_buffer_item(authBuff, strlen( targetaccount ), targetaccount);
+							opendirectory_add_data_buffer_item(authBuff, strlen( domain ), domain);
 							
 							status = dsDoDirNodeAuthOnRecordType( nodeRef, authType, 1, authBuff, stepBuff, NULL,  recordType);
 							if ( status == eDSNoErr )
@@ -575,6 +795,7 @@ tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name, char *
 									//DEBUG(4,("kDSStdAuthSMBNTv2UserSessionKey was successful for  \"%s\" :)\n", targetaccount));
 									memcpy(&len, stepBuff->fBufferData, 4);
 									stepBuff->fBufferData[len+4] = '\0';
+									*session_key_len = len;
 									memcpy(session_key,stepBuff->fBufferData+4, len);
 									//DEBUG(4,("session key  \"%s\" :)\n", policy));
 
@@ -766,7 +987,6 @@ tDirStatus opendirectory_lmchap2changepasswd(char *account_name, char *passwordD
 					if ( authType != NULL )
 					{
 							// Target account
-							printf("account_name(%s)\n",targetaccount);
 							opendirectory_add_data_buffer_item(authBuff, strlen( targetaccount ), targetaccount);
 							opendirectory_add_data_buffer_item(authBuff, 1, &passwordFormat);
 							opendirectory_add_data_buffer_item(authBuff, 516, passwordData);
@@ -852,12 +1072,10 @@ tDirStatus opendirectory_authenticate_node(tDirReference	dirRef, tDirNodeReferen
 							status = dsDoDirNodeAuthOnRecordType( nodeRef, authType, 0, authBuff, stepBuff, NULL,  recordType);
 							if ( status == eDSNoErr )
 							{
-									printf("kDSStdAuthNodeNativeClearTextOK was successful\n");
 									//DEBUG(1,("kDSStdAuthNodeNativeClearTextOK was successful for  \"%s\" :)\n", machine_acct));
 							}
 							else
 							{
-									printf("kDSStdAuthNodeNativeClearTextOK was FAILED (%d)\n", status);
 									// DEBUG(1,("kDSStdAuthNodeNativeClearTextOK FAILED for user \"%s\" (%d) :(\n", userid, status) );
 							}
 					}

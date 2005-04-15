@@ -156,6 +156,7 @@ typedef struct
 	char *szAddMachineScript;
 	char *szShutdownScript;
 	char *szAbortShutdownScript;
+	char *szCheckPasswordScript;
 	char *szWINSHook;
 	char *szWINSPartners;
 	char *szUtmpDir;
@@ -176,7 +177,7 @@ typedef struct
 	BOOL bWinbindTrustedDomainsOnly;
 	BOOL bWinbindNestedGroups;
 	char *szWinbindBackend;
-	char *szIdmapBackend;
+	char **szIdmapBackend;
 	char *szAddShareCommand;
 	char *szChangeShareCommand;
 	char *szDeleteShareCommand;
@@ -200,7 +201,6 @@ typedef struct
 	int lpqcachetime;
 	int iMaxSmbdProcesses;
 	BOOL bDisableSpoolss;
-	int iTotalPrintJobs;
 	int syslog;
 	int os_level;
 	int enhanced_browsing;
@@ -231,8 +231,10 @@ typedef struct
 	char *szLdapFilter;
 	char *szLdapAdminDn;
 	char *szAclCompat;
+	char *szCupsServer;
 	int ldap_passwd_sync; 
 	int ldap_replication_sleep;
+	int ldap_timeout; /* This is initialised in init_globals */
 	BOOL ldap_delete_dn;
 	BOOL bMsAddPrinterWizard;
 	BOOL bDNSproxy;
@@ -249,6 +251,7 @@ typedef struct
 	BOOL bNullPasswords;
 	BOOL bObeyPamRestrictions;
 	BOOL bLoadPrinters;
+	int PrintcapCacheTime;
 	BOOL bLargeReadwrite;
 	BOOL bReadRaw;
 	BOOL bWriteRaw;
@@ -285,8 +288,10 @@ typedef struct
 	BOOL bUnixExtensions;
 	BOOL bDisableNetbios;
 	BOOL bKernelChangeNotify;
+	BOOL bUseKerberosKeytab;
+	BOOL bDeferSharingViolations;
 #ifdef WITH_OPENDIRECTORY
-	BOOL bOpenDirectory;
+  	BOOL bOpenDirectory;
 #endif
 	int restrict_anonymous;
 	int name_cache_timeout;
@@ -365,10 +370,9 @@ typedef struct
 	int iBlock_size;
 	BOOL bPreexecClose;
 	BOOL bRootpreexecClose;
-	BOOL bCaseSensitive;
+	int  iCaseSensitive;
 	BOOL bCasePreserve;
 	BOOL bShortCasePreserve;
-	BOOL bCaseMangle;
 	BOOL bHideDotFiles;
 	BOOL bHideSpecialFiles;
 	BOOL bHideUnReadable;
@@ -412,7 +416,9 @@ typedef struct
 	BOOL bMSDfsRoot;
 	BOOL bUseClientDriver;
 	BOOL bDefaultDevmode;
+	BOOL bForcePrintername;
 	BOOL bNTAclSupport;
+	BOOL bForceUnknownAclUser;
 	BOOL bUseSendfile;
 	BOOL bProfileAcls;
 	BOOL bMap_acl_inherit;
@@ -489,10 +495,9 @@ static service sDefault = {
 	1024,           /* iBlock_size */
 	False,			/* bPreexecClose */
 	False,			/* bRootpreexecClose */
-	False,			/* case sensitive */
+	Auto,			/* case sensitive */
 	True,			/* case preserve */
 	True,			/* short case preserve */
-	False,			/* case mangle */
 	True,			/* bHideDotFiles */
 	False,			/* bHideSpecialFiles */
 	False,			/* bHideUnReadable */
@@ -536,7 +541,9 @@ static service sDefault = {
 	False,			/* bMSDfsRoot */
 	False,			/* bUseClientDriver */
 	False,			/* bDefaultDevmode */
+	False,			/* bForcePrintername */
 	True,			/* bNTAclSupport */
+	False,                  /* bForceUnknownAclUser */
 	False,			/* bUseSendfile */
 	False,			/* bProfileAcls */
 	False,			/* bMap_acl_inherit */
@@ -790,8 +797,8 @@ static struct parm_struct parm_table[] = {
 	{"server schannel", P_ENUM, P_GLOBAL, &Globals.serverSchannel, NULL, enum_bool_auto, FLAG_BASIC | FLAG_ADVANCED}, 
 	{"allow trusted domains", P_BOOL, P_GLOBAL, &Globals.bAllowTrustedDomains, NULL, NULL, FLAG_ADVANCED}, 
 	{"hosts equiv", P_STRING, P_GLOBAL, &Globals.szHostsEquiv, NULL, NULL, FLAG_ADVANCED}, 
-	{"min passwd length", P_INTEGER, P_GLOBAL, &Globals.min_passwd_length, NULL, NULL, FLAG_ADVANCED}, 
 	{"min password length", P_INTEGER, P_GLOBAL, &Globals.min_passwd_length, NULL, NULL, FLAG_ADVANCED}, 
+	{"min passwd length", P_INTEGER, P_GLOBAL, &Globals.min_passwd_length, NULL, NULL, FLAG_ADVANCED}, 
 	{"map to guest", P_ENUM, P_GLOBAL, &Globals.map_to_guest, NULL, enum_map_to_guest, FLAG_ADVANCED}, 
 	{"null passwords", P_BOOL, P_GLOBAL, &Globals.bNullPasswords, NULL, NULL, FLAG_ADVANCED}, 
 	{"obey pam restrictions", P_BOOL, P_GLOBAL, &Globals.bObeyPamRestrictions, NULL, NULL, FLAG_ADVANCED}, 
@@ -810,6 +817,7 @@ static struct parm_struct parm_table[] = {
 	{"passwd chat", P_STRING, P_GLOBAL, &Globals.szPasswdChat, NULL, NULL, FLAG_ADVANCED}, 
 	{"passwd chat debug", P_BOOL, P_GLOBAL, &Globals.bPasswdChatDebug, NULL, NULL, FLAG_ADVANCED}, 
 	{"passwd chat timeout", P_INTEGER, P_GLOBAL, &Globals.iPasswdChatTimeout, NULL, NULL, FLAG_ADVANCED}, 
+	{"check password script", P_STRING, P_GLOBAL, &Globals.szCheckPasswordScript, NULL, NULL, FLAG_ADVANCED}, 
 	{"username map", P_STRING, P_GLOBAL, &Globals.szUsernameMap, NULL, NULL, FLAG_ADVANCED}, 
 	{"password level", P_INTEGER, P_GLOBAL, &Globals.pwordlevel, NULL, NULL, FLAG_ADVANCED}, 
 	{"username level", P_INTEGER, P_GLOBAL, &Globals.unamelevel, NULL, NULL, FLAG_ADVANCED}, 
@@ -850,6 +858,7 @@ static struct parm_struct parm_table[] = {
 	{"force directory mode", P_OCTAL, P_LOCAL, &sDefault.iDir_force_mode, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL | FLAG_SHARE}, 
 	{"directory security mask", P_OCTAL, P_LOCAL, &sDefault.iDir_Security_mask, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL | FLAG_SHARE}, 
 	{"force directory security mode", P_OCTAL, P_LOCAL, &sDefault.iDir_Security_force_mode, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL | FLAG_SHARE}, 
+	{"force unknown acl user", P_BOOL, P_LOCAL, &sDefault.bForceUnknownAclUser, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL | FLAG_SHARE},
 	{"inherit permissions", P_BOOL, P_LOCAL, &sDefault.bInheritPerms, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"inherit acls", P_BOOL, P_LOCAL, &sDefault.bInheritACLS, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"guest only", P_BOOL, P_LOCAL, &sDefault.bGuest_only, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
@@ -864,6 +873,7 @@ static struct parm_struct parm_table[] = {
 	{"hosts deny", P_LIST, P_LOCAL, &sDefault.szHostsdeny, NULL, NULL, FLAG_GLOBAL | FLAG_BASIC | FLAG_ADVANCED | FLAG_SHARE | FLAG_PRINT}, 
 	{"deny hosts", P_LIST, P_LOCAL, &sDefault.szHostsdeny, NULL, NULL, FLAG_HIDE}, 
 	{"preload modules", P_LIST, P_GLOBAL, &Globals.szPreloadModules, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL}, 
+	{"use kerberos keytab", P_BOOL, P_GLOBAL, &Globals.bUseKerberosKeytab, NULL, NULL, FLAG_ADVANCED}, 
 
 	{N_("Logging Options"), P_SEP, P_SEPARATOR}, 
 
@@ -874,8 +884,8 @@ static struct parm_struct parm_table[] = {
 	{"log file", P_STRING, P_GLOBAL, &Globals.szLogFile, NULL, NULL, FLAG_ADVANCED}, 
 
 	{"max log size", P_INTEGER, P_GLOBAL, &Globals.max_log_size, NULL, NULL, FLAG_ADVANCED}, 
-	{"timestamp logs", P_BOOL, P_GLOBAL, &Globals.bTimestampLogs, NULL, NULL, FLAG_ADVANCED}, 
 	{"debug timestamp", P_BOOL, P_GLOBAL, &Globals.bTimestampLogs, NULL, NULL, FLAG_ADVANCED}, 
+	{"timestamp logs", P_BOOL, P_GLOBAL, &Globals.bTimestampLogs, NULL, NULL, FLAG_ADVANCED}, 
 	{"debug hires timestamp", P_BOOL, P_GLOBAL, &Globals.bDebugHiresTimestamp, NULL, NULL, FLAG_ADVANCED}, 
 	{"debug pid", P_BOOL, P_GLOBAL, &Globals.bDebugPid, NULL, NULL, FLAG_ADVANCED}, 
 	{"debug uid", P_BOOL, P_GLOBAL, &Globals.bDebugUid, NULL, NULL, FLAG_ADVANCED}, 
@@ -883,9 +893,9 @@ static struct parm_struct parm_table[] = {
 	{N_("Protocol Options"), P_SEP, P_SEPARATOR}, 
 
 	{"smb ports", P_STRING, P_GLOBAL, &Globals.smb_ports, NULL, NULL, FLAG_ADVANCED}, 
-	{"protocol", P_ENUM, P_GLOBAL, &Globals.maxprotocol, NULL, enum_protocol, FLAG_ADVANCED}, 
 	{"large readwrite", P_BOOL, P_GLOBAL, &Globals.bLargeReadwrite, NULL, NULL, FLAG_ADVANCED}, 
 	{"max protocol", P_ENUM, P_GLOBAL, &Globals.maxprotocol, NULL, enum_protocol, FLAG_ADVANCED}, 
+	{"protocol", P_ENUM, P_GLOBAL, &Globals.maxprotocol, NULL, enum_protocol, FLAG_ADVANCED}, 
 	{"min protocol", P_ENUM, P_GLOBAL, &Globals.minprotocol, NULL, enum_protocol, FLAG_ADVANCED}, 
 	{"read bmpx", P_BOOL, P_GLOBAL, &Globals.bReadbmpx, NULL, NULL, FLAG_ADVANCED}, 
 	{"read raw", P_BOOL, P_GLOBAL, &Globals.bReadRaw, NULL, NULL, FLAG_ADVANCED}, 
@@ -893,6 +903,7 @@ static struct parm_struct parm_table[] = {
 	{"disable netbios", P_BOOL, P_GLOBAL, &Globals.bDisableNetbios, NULL, NULL, FLAG_ADVANCED}, 
 
 	{"acl compatibility", P_STRING, P_GLOBAL, &Globals.szAclCompat, handle_acl_compatibility,  NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
+	{ "defer sharing violations", P_BOOL, P_GLOBAL, &Globals.bDeferSharingViolations, NULL, NULL, FLAG_ADVANCED | FLAG_GLOBAL},
 	{"ea support", P_BOOL, P_LOCAL, &sDefault.bEASupport, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"nt acl support", P_BOOL, P_LOCAL, &sDefault.bNTAclSupport, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"nt pipe support", P_BOOL, P_GLOBAL, &Globals.bNTPipeSupport, NULL, NULL, FLAG_ADVANCED}, 
@@ -950,12 +961,14 @@ static struct parm_struct parm_table[] = {
 	{"max reported print jobs", P_INTEGER, P_LOCAL, &sDefault.iMaxReportedPrintJobs, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"max print jobs", P_INTEGER, P_LOCAL, &sDefault.iMaxPrintJobs, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"load printers", P_BOOL, P_GLOBAL, &Globals.bLoadPrinters, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
+	{"printcap cache time", P_INTEGER, P_GLOBAL, &Globals.PrintcapCacheTime, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"printcap name", P_STRING, P_GLOBAL, &Globals.szPrintcapname, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"printcap", P_STRING, P_GLOBAL, &Globals.szPrintcapname, NULL, NULL, FLAG_HIDE}, 
 	{"printable", P_BOOL, P_LOCAL, &sDefault.bPrint_ok, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"print ok", P_BOOL, P_LOCAL, &sDefault.bPrint_ok, NULL, NULL, FLAG_HIDE}, 
 	{"printing", P_ENUM, P_LOCAL, &sDefault.iPrinting, handle_printing, enum_printing, FLAG_ADVANCED | FLAG_PRINT | FLAG_GLOBAL}, 
 	{"cups options", P_STRING, P_LOCAL, &sDefault.szCupsOptions, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT | FLAG_GLOBAL}, 
+	{"cups server", P_STRING, P_GLOBAL, &Globals.szCupsServer, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT | FLAG_GLOBAL}, 
 	{"print command", P_STRING, P_LOCAL, &sDefault.szPrintcommand, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT | FLAG_GLOBAL}, 
 	{"disable spoolss", P_BOOL, P_GLOBAL, &Globals.bDisableSpoolss, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT | FLAG_GLOBAL}, 
 	{"lpq command", P_STRING, P_LOCAL, &sDefault.szLpqcommand, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT | FLAG_GLOBAL}, 
@@ -975,17 +988,17 @@ static struct parm_struct parm_table[] = {
 	{"printer", P_STRING, P_LOCAL, &sDefault.szPrintername, NULL, NULL, FLAG_HIDE}, 
 	{"use client driver", P_BOOL, P_LOCAL, &sDefault.bUseClientDriver, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 	{"default devmode", P_BOOL, P_LOCAL, &sDefault.bDefaultDevmode, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
+	{"force printername", P_BOOL, P_LOCAL, &sDefault.bForcePrintername, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT}, 
 
 	{N_("Filename Handling"), P_SEP, P_SEPARATOR}, 
 	{"mangling method", P_STRING, P_GLOBAL, &Globals.szManglingMethod, NULL, NULL, FLAG_ADVANCED}, 
 	{"mangle prefix", P_INTEGER, P_GLOBAL, &Globals.mangle_prefix, NULL, NULL, FLAG_ADVANCED}, 
 
 	{"default case", P_ENUM, P_LOCAL, &sDefault.iDefaultCase, NULL, enum_case, FLAG_ADVANCED | FLAG_SHARE}, 
-	{"case sensitive", P_BOOL, P_LOCAL, &sDefault.bCaseSensitive, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
-	{"casesignames", P_BOOL, P_LOCAL, &sDefault.bCaseSensitive, NULL, NULL, FLAG_HIDE}, 
+	{"case sensitive", P_ENUM, P_LOCAL, &sDefault.iCaseSensitive, NULL, enum_bool_auto, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
+	{"casesignames", P_ENUM, P_LOCAL, &sDefault.iCaseSensitive, NULL, enum_bool_auto, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL | FLAG_HIDE}, 
 	{"preserve case", P_BOOL, P_LOCAL, &sDefault.bCasePreserve, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"short preserve case", P_BOOL, P_LOCAL, &sDefault.bShortCasePreserve, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
-	{"mangle case", P_BOOL, P_LOCAL, &sDefault.bCaseMangle, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"mangling char", P_CHAR, P_LOCAL, &sDefault.magic_char, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"hide dot files", P_BOOL, P_LOCAL, &sDefault.bHideDotFiles, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
 	{"hide special files", P_BOOL, P_LOCAL, &sDefault.bHideSpecialFiles, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_GLOBAL}, 
@@ -1074,17 +1087,18 @@ static struct parm_struct parm_table[] = {
 	{"ldap server", P_STRING, P_GLOBAL, &Globals.szLdapServer, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap port", P_INTEGER, P_GLOBAL, &Globals.ldap_port, NULL, NULL, FLAG_ADVANCED}, 
 #endif
-	{"ldap suffix", P_STRING, P_GLOBAL, &Globals.szLdapSuffix, NULL, NULL, FLAG_ADVANCED}, 
-	{"ldap machine suffix", P_STRING, P_GLOBAL, &Globals.szLdapMachineSuffix, NULL, NULL, FLAG_ADVANCED}, 
-	{"ldap user suffix", P_STRING, P_GLOBAL, &Globals.szLdapUserSuffix, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap admin dn", P_STRING, P_GLOBAL, &Globals.szLdapAdminDn, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap delete dn", P_BOOL, P_GLOBAL, &Globals.ldap_delete_dn, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap filter", P_STRING, P_GLOBAL, &Globals.szLdapFilter, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap group suffix", P_STRING, P_GLOBAL, &Globals.szLdapGroupSuffix, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap idmap suffix", P_STRING, P_GLOBAL, &Globals.szLdapIdmapSuffix, NULL, NULL, FLAG_ADVANCED}, 
-	{"ldap filter", P_STRING, P_GLOBAL, &Globals.szLdapFilter, NULL, NULL, FLAG_ADVANCED}, 
-	{"ldap admin dn", P_STRING, P_GLOBAL, &Globals.szLdapAdminDn, NULL, NULL, FLAG_ADVANCED}, 
-	{"ldap ssl", P_ENUM, P_GLOBAL, &Globals.ldap_ssl, NULL, enum_ldap_ssl, FLAG_ADVANCED}, 
+	{"ldap machine suffix", P_STRING, P_GLOBAL, &Globals.szLdapMachineSuffix, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap passwd sync", P_ENUM, P_GLOBAL, &Globals.ldap_passwd_sync, NULL, enum_ldap_passwd_sync, FLAG_ADVANCED}, 
-	{"ldap delete dn", P_BOOL, P_GLOBAL, &Globals.ldap_delete_dn, NULL, NULL, FLAG_ADVANCED}, 
 	{"ldap replication sleep", P_INTEGER, P_GLOBAL, &Globals.ldap_replication_sleep, NULL, NULL, FLAG_ADVANCED},
+	{"ldap suffix", P_STRING, P_GLOBAL, &Globals.szLdapSuffix, NULL, NULL, FLAG_ADVANCED}, 
+	{"ldap ssl", P_ENUM, P_GLOBAL, &Globals.ldap_ssl, NULL, enum_ldap_ssl, FLAG_ADVANCED}, 
+	{"ldap timeout", P_INTEGER, P_GLOBAL, &Globals.ldap_timeout, NULL, NULL, FLAG_ADVANCED},
+	{"ldap user suffix", P_STRING, P_GLOBAL, &Globals.szLdapUserSuffix, NULL, NULL, FLAG_ADVANCED}, 
 
 	{N_("Miscellaneous Options"), P_SEP, P_SEPARATOR}, 
 	{"add share command", P_STRING, P_GLOBAL, &Globals.szAddShareCommand, NULL, NULL, FLAG_ADVANCED}, 
@@ -1113,15 +1127,15 @@ static struct parm_struct parm_table[] = {
 	{"remote browse sync", P_STRING, P_GLOBAL, &Globals.szRemoteBrowseSync, NULL, NULL, FLAG_ADVANCED}, 
 	{"socket address", P_STRING, P_GLOBAL, &Globals.szSocketAddress, NULL, NULL, FLAG_ADVANCED}, 
 	{"homedir map", P_STRING, P_GLOBAL, &Globals.szNISHomeMapName, NULL, NULL, FLAG_ADVANCED}, 
-	{"afs username map", P_USTRING, P_GLOBAL, &Globals.szAfsUsernameMap, NULL, NULL, FLAG_ADVANCED}, 
+	{"afs username map", P_STRING, P_GLOBAL, &Globals.szAfsUsernameMap, NULL, NULL, FLAG_ADVANCED}, 
 	{"time offset", P_INTEGER, P_GLOBAL, &extra_time_offset, NULL, NULL, FLAG_ADVANCED}, 
 	{"NIS homedir", P_BOOL, P_GLOBAL, &Globals.bNISHomeMap, NULL, NULL, FLAG_ADVANCED}, 
 	{"-valid", P_BOOL, P_LOCAL, &sDefault.valid, NULL, NULL, FLAG_HIDE}, 
 
 	{"copy", P_STRING, P_LOCAL, &sDefault.szCopy, handle_copy, NULL, FLAG_HIDE}, 
 	{"include", P_STRING, P_LOCAL, &sDefault.szInclude, handle_include, NULL, FLAG_HIDE}, 
-	{"exec", P_STRING, P_LOCAL, &sDefault.szPreExec, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_PRINT}, 
-	{"preexec", P_STRING, P_LOCAL, &sDefault.szPreExec, NULL, NULL, FLAG_ADVANCED}, 
+	{"preexec", P_STRING, P_LOCAL, &sDefault.szPreExec, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_PRINT}, 
+	{"exec", P_STRING, P_LOCAL, &sDefault.szPreExec, NULL, NULL, FLAG_ADVANCED}, 
 
 	{"preexec close", P_BOOL, P_LOCAL, &sDefault.bPreexecClose, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE}, 
 	{"postexec", P_STRING, P_LOCAL, &sDefault.szPostExec, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE | FLAG_PRINT}, 
@@ -1158,7 +1172,7 @@ static struct parm_struct parm_table[] = {
 	{N_("Winbind options"), P_SEP, P_SEPARATOR}, 
 
 	{"enable rid algorithm", P_BOOL, P_GLOBAL, &Globals.bEnableRidAlgorithm, NULL, NULL, FLAG_DEPRECATED}, 
-	{"idmap backend", P_STRING, P_GLOBAL, &Globals.szIdmapBackend, NULL, NULL, FLAG_ADVANCED}, 
+	{"idmap backend", P_LIST, P_GLOBAL, &Globals.szIdmapBackend, NULL, NULL, FLAG_ADVANCED}, 
 	{"idmap uid", P_STRING, P_GLOBAL, &Globals.szIdmapUID, handle_idmap_uid, NULL, FLAG_ADVANCED}, 
 	{"winbind uid", P_STRING, P_GLOBAL, &Globals.szIdmapUID, handle_idmap_uid, NULL, FLAG_HIDE}, 
 	{"idmap gid", P_STRING, P_GLOBAL, &Globals.szIdmapGID, handle_idmap_gid, NULL, FLAG_ADVANCED}, 
@@ -1174,7 +1188,6 @@ static struct parm_struct parm_table[] = {
 	{"winbind use default domain", P_BOOL, P_GLOBAL, &Globals.bWinbindUseDefaultDomain, NULL, NULL, FLAG_ADVANCED}, 
 	{"winbind trusted domains only", P_BOOL, P_GLOBAL, &Globals.bWinbindTrustedDomainsOnly, NULL, NULL, FLAG_ADVANCED}, 
 	{"winbind nested groups", P_BOOL, P_GLOBAL, &Globals.bWinbindNestedGroups, NULL, NULL, FLAG_ADVANCED}, 
-
 #ifdef WITH_OPENDIRECTORY
 	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED}, 
 #endif
@@ -1194,34 +1207,20 @@ static void init_printer_values(service *pService)
 		case PRINT_AIX:
 		case PRINT_LPRNT:
 		case PRINT_LPROS2:
-#ifdef WITH_OPENDIRECTORY
-			string_set(&pService->szLpqcommand, "/usr/sbin/PrintServiceAccess jobs '%p'");
-			string_set(&pService->szLprmcommand, "/usr/sbin/PrintServiceAccess remove '%p' %j");
-			string_set(&pService->szPrintcommand, "/usr/sbin/PrintServiceAccess printps '%p' %s");	
-			string_set(&pService->szLpresumecommand, "/usr/sbin/PrintServiceAccess release '%p' %j");
-			string_set(&pService->szLppausecommand, "/usr/sbin/PrintServiceAccess hold '%p' %j");
-#else
 			string_set(&pService->szLpqcommand, "lpq -P'%p'");
 			string_set(&pService->szLprmcommand, "lprm -P'%p' %j");
-			string_set(&pService->szPrintcommand,
-				   "lpr -r -P'%p' %s");
-#endif
+			string_set(&pService->szPrintcommand, "lpr -r -P'%p' %s");
 			break;
 
 		case PRINT_LPRNG:
 		case PRINT_PLP:
 			string_set(&pService->szLpqcommand, "lpq -P'%p'");
 			string_set(&pService->szLprmcommand, "lprm -P'%p' %j");
-			string_set(&pService->szPrintcommand,
-				   "lpr -r -P'%p' %s");
-			string_set(&pService->szQueuepausecommand,
-				   "lpc stop '%p'");
-			string_set(&pService->szQueueresumecommand,
-				   "lpc start '%p'");
-			string_set(&pService->szLppausecommand,
-				   "lpc hold '%p' %j");
-			string_set(&pService->szLpresumecommand,
-				   "lpc release '%p' %j");
+			string_set(&pService->szPrintcommand, "lpr -r -P'%p' %s");
+			string_set(&pService->szQueuepausecommand, "lpc stop '%p'");
+			string_set(&pService->szQueueresumecommand, "lpc start '%p'");
+			string_set(&pService->szLppausecommand, "lpc hold '%p' %j");
+			string_set(&pService->szLpresumecommand, "lpc release '%p' %j");
 			break;
 
 		case PRINT_CUPS:
@@ -1236,20 +1235,13 @@ static void init_printer_values(service *pService)
 
 	                string_set(&Globals.szPrintcapname, "cups");
 #else
-			string_set(&pService->szLpqcommand,
-			           "/usr/bin/lpstat -o '%p'");
-			string_set(&pService->szLprmcommand,
-			           "/usr/bin/cancel '%p-%j'");
-			string_set(&pService->szPrintcommand,
-			           "/usr/bin/lp -d '%p' %s; rm %s");
-			string_set(&pService->szLppausecommand,
-				   "lp -i '%p-%j' -H hold");
-			string_set(&pService->szLpresumecommand,
-				   "lp -i '%p-%j' -H resume");
-			string_set(&pService->szQueuepausecommand,
-			           "/usr/bin/disable '%p'");
-			string_set(&pService->szQueueresumecommand,
-			           "/usr/bin/enable '%p'");
+			string_set(&pService->szLpqcommand, "/usr/bin/lpstat -o '%p'");
+			string_set(&pService->szLprmcommand, "/usr/bin/cancel '%p-%j'");
+			string_set(&pService->szPrintcommand, "/usr/bin/lp -d '%p' %s; rm %s");
+			string_set(&pService->szLppausecommand, "lp -i '%p-%j' -H hold");
+			string_set(&pService->szLpresumecommand, "lp -i '%p-%j' -H resume");
+			string_set(&pService->szQueuepausecommand, "/usr/bin/disable '%p'");
+			string_set(&pService->szQueueresumecommand, "/usr/bin/enable '%p'");
 			string_set(&Globals.szPrintcapname, "lpstat");
 #endif /* HAVE_CUPS */
 			break;
@@ -1258,17 +1250,12 @@ static void init_printer_values(service *pService)
 		case PRINT_HPUX:
 			string_set(&pService->szLpqcommand, "lpstat -o%p");
 			string_set(&pService->szLprmcommand, "cancel %p-%j");
-			string_set(&pService->szPrintcommand,
-				   "lp -c -d%p %s; rm %s");
-			string_set(&pService->szQueuepausecommand,
-				   "disable %p");
-			string_set(&pService->szQueueresumecommand,
-				   "enable %p");
+			string_set(&pService->szPrintcommand, "lp -c -d%p %s; rm %s");
+			string_set(&pService->szQueuepausecommand, "disable %p");
+			string_set(&pService->szQueueresumecommand, "enable %p");
 #ifndef HPUX
-			string_set(&pService->szLppausecommand,
-				   "lp -i %p-%j -H hold");
-			string_set(&pService->szLpresumecommand,
-				   "lp -i %p-%j -H resume");
+			string_set(&pService->szLppausecommand, "lp -i %p-%j -H hold");
+			string_set(&pService->szLpresumecommand, "lp -i %p-%j -H resume");
 #endif /* HPUX */
 			break;
 
@@ -1305,6 +1292,13 @@ static void init_globals(void)
 
 	if (!done_init) {
 		int i;
+
+		/* The logfile can be set before this is invoked. Free it if so. */
+		if (Globals.szLogFile != NULL) {
+			string_free(&Globals.szLogFile);
+			Globals.szLogFile = NULL;
+		}
+
 		memset((void *)&Globals, '\0', sizeof(Globals));
 
 		for (i = 0; parm_table[i].label; i++)
@@ -1314,6 +1308,8 @@ static void init_globals(void)
 				string_set(parm_table[i].ptr, "");
 
 		string_set(&sDefault.fstype, FSTYPE_STRING);
+
+		init_printer_values(&sDefault);
 
 		done_init = True;
 	}
@@ -1380,6 +1376,7 @@ static void init_globals(void)
 	Globals.AlgorithmicRidBase = BASE_RID;
 
 	Globals.bLoadPrinters = True;
+	Globals.PrintcapCacheTime = 0;
 	/* Was 65535 (0xFFFF). 0x4101 matches W2K and causes major speed improvements... */
 	/* Discovered by 2 days of pain by Don McCall @ HP :-). */
 	Globals.max_xmit = 0x4104;
@@ -1387,7 +1384,6 @@ static void init_globals(void)
 	Globals.lpqcachetime = 10;
 	Globals.bDisableSpoolss = False;
 	Globals.iMaxSmbdProcesses = 0;/* no limit specified */
-	Globals.iTotalPrintJobs = 0;  /* no limit specified */
 	Globals.pwordlevel = 0;
 	Globals.unamelevel = 0;
 	Globals.deadtime = 0;
@@ -1465,6 +1461,7 @@ static void init_globals(void)
 	   a large number of sites (tridge) */
 	Globals.bHostnameLookups = False;
 
+	str_list_free(&Globals.szPassdbBackend);
 #ifdef WITH_LDAP_SAMCONFIG
 	string_set(&Globals.szLdapServer, "localhost");
 	Globals.ldap_port = 636;
@@ -1485,6 +1482,7 @@ static void init_globals(void)
 	Globals.ldap_passwd_sync = LDAP_PASSWD_SYNC_OFF;
 	Globals.ldap_delete_dn = False;
 	Globals.ldap_replication_sleep = 1000; /* wait 1 sec for replication */
+	Globals.ldap_timeout = LDAP_CONNECT_DEFAULT_TIMEOUT;
 
 /* these parameters are set to defaults that are more appropriate
    for the increasing samba install base:
@@ -1520,9 +1518,10 @@ static void init_globals(void)
 	string_set(&Globals.szTemplatePrimaryGroup, "nobody");
 	string_set(&Globals.szWinbindSeparator, "\\");
 	string_set(&Globals.szAclCompat, "");
+	string_set(&Globals.szCupsServer, "");
 
 	Globals.winbind_cache_time = 300;	/* 5 minutes */
-	Globals.bWinbindEnableLocalAccounts = True;
+	Globals.bWinbindEnableLocalAccounts = False;
 	Globals.bWinbindEnumUsers = True;
 	Globals.bWinbindEnumGroups = True;
 	Globals.bWinbindUseDefaultDomain = False;
@@ -1539,6 +1538,7 @@ static void init_globals(void)
 	Globals.client_signing = Auto;
 	Globals.server_signing = False;
 
+	Globals.bDeferSharingViolations = True;
 	string_set(&Globals.smb_ports, SMB_PORTS);
 
 #ifdef WITH_OPENDIRECTORY
@@ -1635,6 +1635,7 @@ FN_GLOBAL_STRING(lp_configfile, &Globals.szConfigFile)
 FN_GLOBAL_STRING(lp_smb_passwd_file, &Globals.szSMBPasswdFile)
 FN_GLOBAL_STRING(lp_private_dir, &Globals.szPrivateDir)
 FN_GLOBAL_STRING(lp_serverstring, &Globals.szServerString)
+FN_GLOBAL_INTEGER(lp_printcap_cache_time, &Globals.PrintcapCacheTime)
 FN_GLOBAL_STRING(lp_printcapname, &Globals.szPrintcapname)
 FN_GLOBAL_STRING(lp_enumports_cmd, &Globals.szEnumPortsCommand)
 FN_GLOBAL_STRING(lp_addprinter_cmd, &Globals.szAddPrinterCommand)
@@ -1692,6 +1693,8 @@ FN_GLOBAL_STRING(lp_addmachine_script, &Globals.szAddMachineScript)
 FN_GLOBAL_STRING(lp_shutdown_script, &Globals.szShutdownScript)
 FN_GLOBAL_STRING(lp_abort_shutdown_script, &Globals.szAbortShutdownScript)
 
+FN_GLOBAL_STRING(lp_check_password_script, &Globals.szCheckPasswordScript)
+
 FN_GLOBAL_STRING(lp_wins_hook, &Globals.szWINSHook)
 FN_GLOBAL_STRING(lp_wins_partners, &Globals.szWINSPartners)
 FN_GLOBAL_STRING(lp_template_primary_group, &Globals.szTemplatePrimaryGroup)
@@ -1706,7 +1709,7 @@ FN_GLOBAL_BOOL(lp_winbind_use_default_domain, &Globals.bWinbindUseDefaultDomain)
 FN_GLOBAL_BOOL(lp_winbind_trusted_domains_only, &Globals.bWinbindTrustedDomainsOnly)
 FN_GLOBAL_BOOL(lp_winbind_nested_groups, &Globals.bWinbindNestedGroups)
 
-FN_GLOBAL_STRING(lp_idmap_backend, &Globals.szIdmapBackend)
+FN_GLOBAL_LIST(lp_idmap_backend, &Globals.szIdmapBackend)
 FN_GLOBAL_BOOL(lp_enable_rid_algorithm, &Globals.bEnableRidAlgorithm)
 
 #ifdef WITH_LDAP_SAMCONFIG
@@ -1720,6 +1723,7 @@ FN_GLOBAL_INTEGER(lp_ldap_ssl, &Globals.ldap_ssl)
 FN_GLOBAL_INTEGER(lp_ldap_passwd_sync, &Globals.ldap_passwd_sync)
 FN_GLOBAL_BOOL(lp_ldap_delete_dn, &Globals.ldap_delete_dn)
 FN_GLOBAL_INTEGER(lp_ldap_replication_sleep, &Globals.ldap_replication_sleep)
+FN_GLOBAL_INTEGER(lp_ldap_timeout, &Globals.ldap_timeout)
 FN_GLOBAL_STRING(lp_add_share_cmd, &Globals.szAddShareCommand)
 FN_GLOBAL_STRING(lp_change_share_cmd, &Globals.szChangeShareCommand)
 FN_GLOBAL_STRING(lp_delete_share_cmd, &Globals.szDeleteShareCommand)
@@ -1775,6 +1779,8 @@ FN_GLOBAL_BOOL(lp_use_spnego, &Globals.bUseSpnego)
 FN_GLOBAL_BOOL(lp_client_use_spnego, &Globals.bClientUseSpnego)
 FN_GLOBAL_BOOL(lp_hostname_lookups, &Globals.bHostnameLookups)
 FN_GLOBAL_BOOL(lp_kernel_change_notify, &Globals.bKernelChangeNotify)
+FN_GLOBAL_BOOL(lp_use_kerberos_keytab, &Globals.bUseKerberosKeytab)
+FN_GLOBAL_BOOL(lp_defer_sharing_violations, &Globals.bDeferSharingViolations)
 FN_GLOBAL_INTEGER(lp_os_level, &Globals.os_level)
 FN_GLOBAL_INTEGER(lp_max_ttl, &Globals.max_ttl)
 FN_GLOBAL_INTEGER(lp_max_wins_ttl, &Globals.max_wins_ttl)
@@ -1819,6 +1825,7 @@ FN_LOCAL_LIST(lp_invalid_users, szInvalidUsers)
 FN_LOCAL_LIST(lp_valid_users, szValidUsers)
 FN_LOCAL_LIST(lp_admin_users, szAdminUsers)
 FN_LOCAL_STRING(lp_cups_options, szCupsOptions)
+FN_GLOBAL_STRING(lp_cups_server, &Globals.szCupsServer)
 FN_LOCAL_STRING(lp_printcommand, szPrintcommand)
 FN_LOCAL_STRING(lp_lpqcommand, szLpqcommand)
 FN_LOCAL_STRING(lp_lprmcommand, szLprmcommand)
@@ -1849,10 +1856,9 @@ FN_LOCAL_BOOL(lp_msdfs_root, bMSDfsRoot)
 FN_LOCAL_BOOL(lp_autoloaded, autoloaded)
 FN_LOCAL_BOOL(lp_preexec_close, bPreexecClose)
 FN_LOCAL_BOOL(lp_rootpreexec_close, bRootpreexecClose)
-FN_LOCAL_BOOL(lp_casesensitive, bCaseSensitive)
+FN_LOCAL_INTEGER(lp_casesensitive, iCaseSensitive)
 FN_LOCAL_BOOL(lp_preservecase, bCasePreserve)
 FN_LOCAL_BOOL(lp_shortpreservecase, bShortCasePreserve)
-FN_LOCAL_BOOL(lp_casemangle, bCaseMangle)
 FN_LOCAL_BOOL(lp_hide_dot_files, bHideDotFiles)
 FN_LOCAL_BOOL(lp_hide_special_files, bHideSpecialFiles)
 FN_LOCAL_BOOL(lp_hideunreadable, bHideUnReadable)
@@ -1892,7 +1898,9 @@ FN_LOCAL_BOOL(lp_inherit_perms, bInheritPerms)
 FN_LOCAL_BOOL(lp_inherit_acls, bInheritACLS)
 FN_LOCAL_BOOL(lp_use_client_driver, bUseClientDriver)
 FN_LOCAL_BOOL(lp_default_devmode, bDefaultDevmode)
+FN_LOCAL_BOOL(lp_force_printername, bForcePrintername)
 FN_LOCAL_BOOL(lp_nt_acl_support, bNTAclSupport)
+FN_LOCAL_BOOL(lp_force_unknown_acl_user, bForceUnknownAclUser)
 FN_LOCAL_BOOL(lp_ea_support, bEASupport)
 FN_LOCAL_BOOL(_lp_use_sendfile, bUseSendfile)
 FN_LOCAL_BOOL(lp_profile_acls, bProfileAcls)
@@ -2272,9 +2280,7 @@ static int add_a_service(const service *pservice, const char *name)
 	if (i == iNumServices) {
 		service **tsp;
 		
-		tsp = (service **) Realloc(ServicePtrs,
-					   sizeof(service *) *
-					   num_to_alloc);
+		tsp = SMB_REALLOC_ARRAY(ServicePtrs, service *, num_to_alloc);
 					   
 		if (!tsp) {
 			DEBUG(0,("add_a_service: failed to enlarge ServicePtrs!\n"));
@@ -2282,8 +2288,7 @@ static int add_a_service(const service *pservice, const char *name)
 		}
 		else {
 			ServicePtrs = tsp;
-			ServicePtrs[iNumServices] =
-				(service *) malloc(sizeof(service));
+			ServicePtrs[iNumServices] = SMB_MALLOC_P(service);
 		}
 		if (!ServicePtrs[iNumServices]) {
 			DEBUG(0,("add_a_service: out of memory!\n"));
@@ -2300,6 +2305,10 @@ static int add_a_service(const service *pservice, const char *name)
 	copy_service(ServicePtrs[i], &tservice, NULL);
 	if (name)
 		string_set(&ServicePtrs[i]->szService, name);
+		
+	DEBUG(8,("add_a_service: Creating snum = %d for %s\n", 
+		i, ServicePtrs[i]->szService));
+		
 	return (i);
 }
 
@@ -2336,8 +2345,10 @@ BOOL lp_add_home(const char *pszHomename, int iDefaultService,
 
 	ServicePtrs[i]->bBrowseable = sDefault.bBrowseable;
 
+	ServicePtrs[i]->autoloaded = True;
+
 	DEBUG(3, ("adding home's share [%s] for user '%s' at '%s'\n", pszHomename, 
-	       user, newHomedir));
+	       user, ServicePtrs[i]->szPath ));
 	
 	return (True);
 }
@@ -2543,6 +2554,7 @@ static void copy_service(service * pserviceDest, service * pserviceSource, BOOL 
 					strupper_m(*(char **)dest_ptr);
 					break;
 				case P_LIST:
+					str_list_free((char ***)dest_ptr);
 					str_list_copy((char ***)dest_ptr, *(const char ***)src_ptr);
 					break;
 				default:
@@ -2568,16 +2580,16 @@ static void copy_service(service * pserviceDest, service * pserviceSource, BOOL 
 			if (strcmp(pdata->key, data->key) == 0) {
 				string_free(&pdata->value);
 				str_list_free(&data->list);
-				pdata->value = strdup(data->value);
+				pdata->value = SMB_STRDUP(data->value);
 				not_added = False;
 				break;
 			}
 			pdata = pdata->next;
 		}
 		if (not_added) {
-		    paramo = smb_xmalloc(sizeof(param_opt_struct));
-		    paramo->key = strdup(data->key);
-		    paramo->value = strdup(data->value);
+		    paramo = SMB_XMALLOC_P(param_opt_struct);
+		    paramo->key = SMB_STRDUP(data->key);
+		    paramo->value = SMB_STRDUP(data->value);
 		    paramo->list = NULL;
 		    DLIST_ADD(pserviceDest->param_opt, paramo);
 		}
@@ -2652,16 +2664,16 @@ static void add_to_file_list(const char *fname, const char *subfname)
 	}
 
 	if (!f) {
-		f = (struct file_lists *)malloc(sizeof(file_lists[0]));
+		f = SMB_MALLOC_P(struct file_lists);
 		if (!f)
 			return;
 		f->next = file_lists;
-		f->name = strdup(fname);
+		f->name = SMB_STRDUP(fname);
 		if (!f->name) {
 			SAFE_FREE(f);
 			return;
 		}
-		f->subfname = strdup(subfname);
+		f->subfname = SMB_STRDUP(subfname);
 		if (!f->subfname) {
 			SAFE_FREE(f);
 			return;
@@ -2711,7 +2723,7 @@ BOOL lp_file_list_changed(void)
 				  ctime(&mod_time)));
 			f->modtime = mod_time;
 			SAFE_FREE(f->subfname);
-			f->subfname = strdup(n2);
+			f->subfname = SMB_STRDUP(n2);
 			return (True);
 		}
 		f = f->next;
@@ -2774,6 +2786,7 @@ static BOOL handle_netbios_scope(int snum, const char *pszParmValue, char **ptr)
 
 static BOOL handle_netbios_aliases(int snum, const char *pszParmValue, char **ptr)
 {
+	str_list_free(&Globals.szNetbiosAliases);
 	Globals.szNetbiosAliases = str_list_make(pszParmValue, NULL);
 	return set_netbios_aliases((const char **)Globals.szNetbiosAliases);
 }
@@ -3012,10 +3025,8 @@ static void lp_set_enum_parm( struct parm_struct *parm, const char *pszParmValue
 {
 	int i;
 
-	for (i = 0; parm->enum_list[i].name; i++) 
-	{
-		if ( strequal(pszParmValue, parm->enum_list[i].name)) 
-		{
+	for (i = 0; parm->enum_list[i].name; i++) {
+		if ( strequal(pszParmValue, parm->enum_list[i].name)) {
 			*ptr = parm->enum_list[i].value;
 			break;
 		}
@@ -3054,7 +3065,7 @@ static void init_copymap(service * pservice)
 {
 	int i;
 	SAFE_FREE(pservice->copymap);
-	pservice->copymap = (BOOL *)malloc(sizeof(BOOL) * NUMPARAMETERS);
+	pservice->copymap = SMB_MALLOC_ARRAY(BOOL,NUMPARAMETERS);
 	if (!pservice->copymap)
 		DEBUG(0,
 		      ("Couldn't allocate copymap!! (size %d)\n",
@@ -3108,16 +3119,16 @@ BOOL lp_do_parameter(int snum, const char *pszParmName, const char *pszParmValue
 				if (strcmp(data->key, param_key) == 0) {
 					string_free(&data->value);
 					str_list_free(&data->list);
-					data->value = strdup(pszParmValue);
+					data->value = SMB_STRDUP(pszParmValue);
 					not_added = False;
 					break;
 				}
 				data = data->next;
 			}
 			if (not_added) {
-				paramo = smb_xmalloc(sizeof(param_opt_struct));
-				paramo->key = strdup(param_key);
-				paramo->value = strdup(pszParmValue);
+				paramo = SMB_XMALLOC_P(param_opt_struct);
+				paramo->key = SMB_STRDUP(param_key);
+				paramo->value = SMB_STRDUP(pszParmValue);
 				paramo->list = NULL;
 				if (snum < 0) {
 					DLIST_ADD(Globals.param_opt, paramo);
@@ -3288,9 +3299,9 @@ static void print_parameter(struct parm_struct *p, void *ptr, FILE * f)
 				char **list = *(char ***)ptr;
 				
 				for (; *list; list++) {
-					/* surround strings with whitespace in single quotes */
+					/* surround strings with whitespace in double quotes */
 					if ( strchr_m( *list, ' ' ) )
-						fprintf(f, "\'%s\'%s", *list, ((*(list+1))?", ":""));
+						fprintf(f, "\"%s\"%s", *list, ((*(list+1))?", ":""));
 					else
 						fprintf(f, "%s%s", *list, ((*(list+1))?", ":""));
 				}
@@ -3545,14 +3556,14 @@ static void dump_a_service(service * pService, FILE * f)
 					((char *)pService) + pdiff, f);
 			fprintf(f, "\n");
 		}
+	}
 
-		if (pService->param_opt != NULL) {
-			data = pService->param_opt;
-			while(data) {
-				fprintf(f, "\t%s = %s\n", data->key, data->value);
-				data = data->next;
-			}
-        	}
+	if (pService->param_opt != NULL) {
+		data = pService->param_opt;
+		while(data) {
+			fprintf(f, "\t%s = %s\n", data->key, data->value);
+			data = data->next;
+		}
 	}
 }
 
@@ -3660,7 +3671,7 @@ static void lp_add_auto_services(char *str)
 	if (!str)
 		return;
 
-	s = strdup(str);
+	s = SMB_STRDUP(str);
 	if (!s)
 		return;
 
@@ -3716,6 +3727,10 @@ void lp_killunused(BOOL (*snumused) (int))
 		if (!VALID(i))
 			continue;
 
+		/* don't kill autoloaded services */
+		if ( ServicePtrs[i]->autoloaded )
+			continue;
+
 		if (!snumused || !snumused(i)) {
 			ServicePtrs[i]->valid = False;
 			free_service(ServicePtrs[i]);
@@ -3755,7 +3770,7 @@ static void lp_save_defaults(void)
 			case P_STRING:
 			case P_USTRING:
 				if (parm_table[i].ptr) {
-					parm_table[i].def.svalue = strdup(*(char **)parm_table[i].ptr);
+					parm_table[i].def.svalue = SMB_STRDUP(*(char **)parm_table[i].ptr);
 				} else {
 					parm_table[i].def.svalue = NULL;
 				}
@@ -3763,7 +3778,7 @@ static void lp_save_defaults(void)
 			case P_GSTRING:
 			case P_UGSTRING:
 				if (parm_table[i].ptr) {
-					parm_table[i].def.svalue = strdup((char *)parm_table[i].ptr);
+					parm_table[i].def.svalue = SMB_STRDUP((char *)parm_table[i].ptr);
 				} else {
 					parm_table[i].def.svalue = NULL;
 				}
@@ -3885,11 +3900,12 @@ BOOL lp_load(const char *pszFname, BOOL global_only, BOOL save_defaults,
 	
 	/* get the username for substituion -- preference to the current_user_info */
 	
-	if ( strlen( current_user_info.smb_name ) != 0 )
+	if ( strlen( current_user_info.smb_name ) != 0 ) {
 		username = current_user_info.smb_name;
-	else
+	} else {
 		username = sub_get_smb_name();
-		
+	}
+
 	standard_sub_basic( username, n2,sizeof(n2) );
 
 	add_to_file_list(pszFname, n2);
@@ -3904,8 +3920,7 @@ BOOL lp_load(const char *pszFname, BOOL global_only, BOOL save_defaults,
 	init_globals();
 	debug_init();
 
-	if (save_defaults)
-	{
+	if (save_defaults) {
 		init_locals();
 		lp_save_defaults();
 	}
@@ -3955,9 +3970,6 @@ BOOL lp_load(const char *pszFname, BOOL global_only, BOOL save_defaults,
 	}
 
 	init_iconv();
-#if 0	/* JERRY */
-	init_printer_values(&sDefault);
-#endif
 
 	return (bRetval);
 }
@@ -4270,25 +4282,6 @@ void lp_set_logfile(const char *name)
 }
 
 /*******************************************************************
- Return the NetBIOS called name, or my IP - but never global_myname().
-********************************************************************/
-
-const char *get_called_name(void)
-{
-	extern fstring local_machine;
-	static fstring called_name;
-
-	if (!*local_machine) {
-		fstrcpy(called_name, get_my_primary_ip());
-		DEBUG(8,("get_called_name: assuming that client used IP address [%s] as called name.\n",
-			 called_name));
-		return called_name;
-	}
-
-	return local_machine;
-}
-
-/*******************************************************************
  Return the max print jobs per queue.
 ********************************************************************/
 
@@ -4307,5 +4300,33 @@ int lp_maxprintjobs(int snum)
 
 BOOL lp_use_sendfile(int snum)
 {
-	return (_lp_use_sendfile(snum) && !srv_is_signing_active());
+	extern int Protocol;
+	/* Using sendfile blows the brains out of any DOS or Win9x TCP stack... JRA. */
+	if (Protocol < PROTOCOL_NT1) {
+		return False;
+	}
+	return (_lp_use_sendfile(snum) && (get_remote_arch() != RA_WIN95) && !srv_is_signing_active());
+}
+
+/*******************************************************************
+ Turn off sendfile if we find the underlying OS doesn't support it.
+********************************************************************/
+
+void set_use_sendfile(int snum, BOOL val)
+{
+	if (LP_SNUM_OK(snum))
+		ServicePtrs[snum]->bUseSendfile = val;
+	else
+		sDefault.bUseSendfile = val;
+}
+
+/*******************************************************************
+ Turn off storing DOS attributes if this share doesn't support it.
+********************************************************************/
+
+void set_store_dos_attributes(int snum, BOOL val)
+{
+	if (!LP_SNUM_OK(snum))
+		return;
+	ServicePtrs[(snum)]->bStoreDosAttributes = val;
 }

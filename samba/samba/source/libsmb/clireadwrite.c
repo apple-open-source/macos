@@ -256,8 +256,8 @@ static BOOL cli_issue_write(struct cli_state *cli, int fnum, off_t offset,
 	BOOL bigoffset = False;
 
 	if (size > cli->bufsize) {
-		cli->outbuf = realloc(cli->outbuf, size + 1024);
-		cli->inbuf = realloc(cli->inbuf, size + 1024);
+		cli->outbuf = SMB_REALLOC(cli->outbuf, size + 1024);
+		cli->inbuf = SMB_REALLOC(cli->inbuf, size + 1024);
 		if (cli->outbuf == NULL || cli->inbuf == NULL)
 			return False;
 		cli->bufsize = size + 1024;
@@ -318,16 +318,22 @@ static BOOL cli_issue_write(struct cli_state *cli, int fnum, off_t offset,
               0x0008 start of message mode named pipe protocol
 ****************************************************************************/
 
-ssize_t cli_write(struct cli_state *cli,
-		  int fnum, uint16 write_mode,
-		  const char *buf, off_t offset, size_t size)
+size_t cli_write(struct cli_state *cli,
+    	         int fnum, uint16 write_mode,
+		 const char *buf, off_t offset, size_t size)
 {
 	int bwritten = 0;
 	int issued = 0;
 	int received = 0;
-	int mpx = MAX(cli->max_mux-1, 1);
+	int mpx = 1;
 	int block = cli->max_xmit - (smb_size+32);
 	int blocks = (size + (block-1)) / block;
+
+	if(cli->max_mux > 1) {
+		mpx = cli->max_mux-1;
+	} else {
+		mpx = 1;
+	}
 
 	while (received < blocks) {
 
@@ -352,7 +358,7 @@ ssize_t cli_write(struct cli_state *cli,
 			break;
 
 		bwritten += SVAL(cli->inbuf, smb_vwv2);
-		bwritten += (((int)(SVAL(cli->inbuf, smb_vwv4)))>>16);
+		bwritten += (((int)(SVAL(cli->inbuf, smb_vwv4)))<<16);
 	}
 
 	while (received < issued && cli_receive_smb(cli))

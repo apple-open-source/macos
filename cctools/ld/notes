@@ -23,6 +23,965 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.17 release (the cctools-572 release):
+- Fixed a problem when MallocScribble was on that caused a crash.  The problem
+  was enter_symbol() in symbols.c was assumed to return pointers to
+  merged_symbol structs that were zero'ed out.  A call to memset() was added to
+  make sure this is done.  Radar bug #3980535.
+
+Changes for the 5.17 release (the cctools-569 release):
+- Fixed a problem when determinging the type of relocation entries in a 
+  coalesced section to a symbol that was a weak coalesced symbol in the .o file
+  but ends up as a non-coalesced symbol in the output.  The problem was in
+  coalesced_section_merge() when it was trying to figure out if it was to force
+  an external relocation entry because the symbol was a coalesed symbol.  It
+  needed an extra test to look at the merged symbol and not the symbol in the .o
+  ofile.  Radar bug #3934341.
+
+Changes for the 5.17 release (the cctools-568 release):
+- Fixed problems with changes for supporting the new XXX_RELOC_LOCAL_SECTDIFF
+  relocs from Radar bug #3744821.  The problem was the logic around calling
+  legal_reference() in the cases with sections and fine relocs and sectdiff
+  relocation entries.  The code was changed back to the original code with the
+  sectdiff parameter to legal_reference() changed from TRUE to 
+  r_type != XXX_RELOC_LOCAL_SECTDIFF.  This change was made in ppc_reloc() in
+  ppc_reloc.c and generic_reloc() in generic_reloc.c .  Radar bug #3961903
+- Fixed problems with kld and outputing coalesced sections.  The code in
+  output_section() in sections.c to call scatter_copy() was #ifndef RLD so it
+  was not there.  If'def this back in and the neede parts of scatter_copy()
+  for RLD.  Radar bug #3959886.
+- Changed layout.c to remove multiply defined warnings by adding #undef's for
+  MACHINE_THREAD_STATE and MACHINE_THREAD_STATE_COUNT after including
+  <mach/m68k/thread_status.h> .
+
+Changes for the 5.17 release (the cctools-563 release):
+- Fixed some problems with regard to relocation entries refering to private
+  extern common symbols.  Radar bug #3928792.
+  - Changed the test for external relocation entries to being for undefined
+    symbols from checking n_type equal to (N_EXT | N_UNDF) to testing for
+    N_EXT and the N_TYPE bits equal to N_UNDF in the *_reloc() routines.
+    Changes made in:
+      ppc_reloc() in ppc_reloc.c
+      generic_reloc() in generic_reloc.c
+      hppa_reloc() in hppa_reloc.c
+      i860_reloc() in i860_reloc.c
+      m88k_reloc() in m88k_reloc.c
+      sparc_reloc() in sparc_reloc.c
+  - Changed creating and setting the undefined map for symbols from the n_type
+    equal to (N_EXT | N_UNDF) to testing for N_EXT and the N_TYPE bits equal to
+    N_UNDF in merge_symbols() in symbols.c (3 places). The first place is the
+    test before incrementing the object_undefineds variable.  The place is the
+    test before incrementing cur_obj->nprivatesym and nmerged_private_symbols.
+    The third place is the test before setting the undefined map's,
+    cur_obj->undefined_maps[], values.
+  - Changed the test for a merged undefined symbol in merge_symbols() in
+    symbols.c when checking for an undefined or common from n_type equal to
+    (N_EXT | N_UNDF) to testing the N_TYPE bits equal to N_UNDF.
+  - Changed the test for a merged undefined symbol in command_line_indr_symbol()
+    in symbols.c from the n_type equal to (N_EXT | N_UNDF) to testing the
+    N_TYPE bits equal to N_UNDF.
+  - Changed the test for common symbols when merging them in merge_symbols() in
+    symbols.c from testing n_type equal to (N_EXT | N_UNDF) to testing for
+    N_EXT and the N_TYPE bits equal to N_UNDF (2 places).  The first place is
+    the test to see if the object's symbol is a common.  The second place is
+    the test of the merged symbol being a common or undefined.
+  - Changed in merge_symbols() in symbols.c where the larger of the commons are
+    used, to also "use" the N_PEXT bit from the larger symbol.  Also if the same
+    common from different object has different N_PEXT bits a warning is issued
+    and the symbols are traced.
+  - Changed checking for common symbols in define_common_symbols() in symbols.c
+    from the n_type equal to (N_EXT | N_UNDF) to testing for N_EXT and the
+    N_TYPE bits equal to N_UNDF (2 places).  The first place is in the loop that
+    is checking if any commons exist.  The second place in the in the loop that
+    defines the commons.
+  - Also in define_common_symbols() in symbols.c, in the loop that defined the
+    commons and sets the new n_type, changed that to save the N_PEXT bit of
+    the merged symbol.
+  - Changed the check for a defined private extern symbol in
+    output_merged_symbols() in symbols.c from just checking the N_PEXT bit to
+    also checking that the N_TYPE != N_UNDF so that symbols that are still
+    common symbols and private extern are not treated as defined symbols.
+    So to not clear the N_EXT bit of private extern symbols that are still
+    common symbols.
+  - Changed the check for undefined symbols in assign_output_symbol_indexes()
+    in symbols.c from tesing if the n_type is (N_EXT | N_UNDF) or
+    (N_EXT | N_PBUD) to testing for N_EXT and the N_TYPE equal to N_UNDF or
+    N_PBUD so that private extern commons will be treated and undefined symbols
+    (in two places).  The first place, in the loop where the undefined symbols
+    are counted.  And the second place in the loop where the arrays of symbols
+    are filled in.
+- Changed output_merged_symbols() in symbols.c to set the new MH_WEAK_DEFINES
+  bit in the mach_header if there are any defined external symbol that are
+  weak defintions.  Also now set the new N_REF_TO_WEAK bit is the symbol table
+  entry if the symbol is a referencing an undefined symbol that is a weak symbol
+  and set the the new MH_BINDS_TO_WEAK bit in the mach_header.  Radar bug
+  #3799069.
+- Changed layout.c to remove multiply defined warnings by adding #undef's for
+  MACHINE_THREAD_STATE and MACHINE_THREAD_STATE_COUNT after including
+  <mach/ppc/thread_status.h> .
+
+Changes for the 5.17 release (the cctools-561 release):
+- Changed main() in ld.c to use MACOSX_DEPLOYMENT_VERSION >= 10.4 instead of
+  the environment variable LD_PREBIND_SPLITSEGS_ONLY to turn off prebinding for 
+  non-split libraries.  This is the second phase of the change to Radar bug
+  #3855581.  That bug is cloned as Radar bug #3924730 for this change.
+
+Changes for the 5.17 release (the cctools-559 release):
+- Changed libkld.a to link with the new libstuff_kld.a and libmacho_kld.a built
+  for the kernel's kld use.  Radar bug #3906133.
+
+Changes for the 5.17 release (the cctools-557 release):
+- Removed support for the INTERIM_PPC64.  The changes were to remove the
+  #ifdef INTERIM_PPC64 source changes in sections.c, ppc_reloc.c, layout.c and
+  indirect_sections.c as well as removing the -DINTERIM_PPC64 in the
+  Makefile.  Radar bug #3600419.
+
+Changes for the 5.17 release (the cctools-556 release):
+- Changed the way an MH_DYLINKER output file is laid out so that the headers
+  are on their own page or pages.  This allows the first address of the first
+  section to remain semi-constant.  The change was in layout_segments() in
+  layout.c to treat MH_DYLINKER outputs much like MH_FVMLIB. Radar bug #3893651.
+- Added the -syslibroot <argument> option as another way to specifiy NEXT_ROOT.
+  The change was in ld.c .  Radar bug #3886145.
+
+Changes for the 5.17 release (the cctools-555 release):
+- Fixed a problem with the fix below in that the new routine
+  pass2_nsect_merged_symbol_section_type() in sections.c is needed to not be
+  ifdef'ed out for RLD.  Radar bug #3894721.
+
+Changes for the 5.17 release (the cctools-554 release):
+- Fixed a bug in legal_reference() in indirect_sections.c that cause it to not
+  correctly catch an illegal reference to a weak coalesced symbol that was
+  used directly.  The problem was when the reference was made from a .o file
+  to a weak coalesced symbol in that .o file, but the weak coalesced symbol
+  in that .o file was discarded and the symbol was being used from a different
+  .o file.  The code was trying to figure out what type of section was being
+  referenced for a merged symbol from the merged symbol's n_sect value.  This
+  routine is used in both the first and second passes.  In the second pass the
+  merged symbol's n_sect was incorrectly being use as an index into the input
+  .o file's section map.  But that was wrong as the merged symbol's n_sect is
+  the section number in the output file in the second pass.  To fix this a new
+  routine pass2_nsect_merged_symbol_section_type() was added to sections.c to
+  correctly get the section type of the N_SECT merged symbol in the output.
+  And to know when the merged symbols have been relocated to second pass values,
+  the new boolean variable merged_symbols_relocated was added to symbols.[ch]
+  and set to TRUE in layout_merged_symbols() in symbols.c .  Radar bug #3884596.
+
+Changes for the 5.17 release (the cctools-553 release):
+- Added a bunch of logic and features when LD_PREBIND_SPLITSEGS_ONLY is set.
+  This is in main() in ld.c .  Radar bug #3875865.
+  - Added logic for LD_UNPREBOUND_LIBRARIES file with a list of files not to
+    be prebound when LD_PREBIND_SPLITSEGS_ONLY is set.
+  - Added logic for LD_SPLITSEGS_NEW_LIBRARIES to force libraries not listed
+    in the seg addr table and not in the LD_UNPREBOUND_LIBRARIES file to be
+    built split.
+
+Changes for the 5.17 release (the cctools-552 release):
+- Changed ld(1) to write its messages to stderr when in UNIX standard
+  conformance mode (the default) and stdout otherwise.  The change was in the
+  vprint() routine in ld.c . Radar bug #3762151.
+- Changed ld(1) to not write over a non-writeable file when in UNIX standard
+  conformance mode (the default) and produce an error instead.  The change was
+  in pass2() in pass2.c call the new libstuff routine get_unix_standard_mode()
+  and if TRUE call access(2) to see if the file exists and if not writeable
+  generate an error. Radar bug #3762029.
+- Changed pass2() in pass2.c to not turn on only execute bits allowed by the
+  umask(2) call.  Radar bug #3761943.
+
+Changes for the 5.17 release (the cctools-551 release):
+- Changed lookup_symbol() in symbols.c to reduce the number of failed strcmp()'s
+  by comparing the name size first.  Radar bug #3836837.
+  - Added the name_len field to the merged_symbol struct in symbols.h .
+  - Changed hash_string() in hash_string.h to take an extra pointer to return
+    the size of the string being hashed if not passed as NULL.  Then changed
+    the callers of hash_string() in symbols.c, sections.c and
+    cstring_literals.c .
+  - Changed enter_string() in symbols.c to also take an extra pointer to return
+    the size of the string being entered if not passed as NULL.  Then changed
+    the callers of enter_string() in symbols.c .
+  - Changed lookup_symbol() in symbols.c to first test the size of the name_len
+    before doing the strcmp().
+  - Changed enter_symbol()'s call to enter_string() to pass the address of the
+    new name_len field to the merged_symbol struct so it is set.
+- Changed indirect_section_merge() in indirect_sections.c to always set the
+  indirect_defined field of a fine_reloc for a symbol in a coalesced sections
+  to TRUE if the output filetype is MH_DYLINKER.  Radar bug #3863439.
+
+Changes for the 5.17 release (the cctools-549 release):
+- Changed main() in ld.c to turn off prebinding for non-split libraries if
+  the environment variable LD_PREBIND_SPLITSEGS_ONLY is set. Radar bug #3855581.
+- Changed discard_local_symbols_for_section() in symbols.c to change N_SO stabs
+  that are kept but in a block that is not in the output to have an n_value of
+  zero and an n_sect of NO_SECT.  This is needed to make the debugger work with
+  files linked with -dead_strip.  Radar bug #3854890.
+
+Changes for the 5.17 release (the cctools-538 release):
+- When -arch ppc64 is seen on the command line, invoke /usr/bin/ld64
+  instead and pass all the arguments to it verbatim. Radar bug #3823359.
+
+Changes for the 5.17 release (the cctools-537 release):
+- Changed check_cur_obj() in pass1.c to ignore MH_MAGIC_64 with
+  -no_arch_warnings.  Radar bug #3815344.
+
+Changes for the 5.17 release (the cctools-533 release):
+- When indirect libraries are removed from dynamic_libs list, a count is kept of
+  how many were removed.  This is later used when computing the header padding
+  to use.  Radar bug #3784597.
+
+Changes for the 5.16 release (the cctools-528.5 release):
+- Fixed a crash in process_undefineds() in symbols.c when the -Y flag is used
+  that is caused by the change to 3737622 to not search indirect dylibs.  This
+  change causes the cur_obj->undefined_maps[] not to be set up up in for
+  indirect dylibs.  The patch is to test to make sure the merged_symbol in the
+  map is not NULL before using it.  Radar bug #3797052.
+- Changed discard_local_symbols_for_section() in symbols.c to always keep N_SO
+  stabs if they are in a block that is not in the output.  This is needed to
+  make the debugger work with file linked with -dead_strip.  Radar bug #3739451.
+
+Changes for the 5.16 release (the cctools-528.4 release):
+- Added -I flags for building the static libkld to include PrivateHeaders
+  because of the changes made in the Tiger kernel header file layout.  Radar bug
+  #3782212.
+
+Changes for the 5.16 release (the cctools-528.3 release):
+- Don't search indirect libraries when linking two-level.  Radar bug #3737622.
+
+Changes for the 5.16 release (the cctools-528.2 release):
+- Let kld accept duplicate symbols silently if they are absolute and
+  have the same value.  Radar bug #3633627.
+
+Changes for the 5.16 release (the cctools-528 release):
+- Support the new GENERIC_RELOC_LOCAL_SECTDIFF reloc.  Radar bug #3744821.
+
+Changes for the 5.16 release (the cctools-527 release):
+- Support the new PPC_RELOC_LOCAL_SECTDIFF reloc.  Radar bug #3744821.
+
+Changes for the 5.16 release (the cctools-526 release):
+- Fixed two error messages in ld.c where it used "-flatname_space" not
+  "-flat_namespace".  Radar bug #3743186.
+- Fixed warnings for the changes in mach-o headers for types changing from
+  unsigned long to uint32_t and from long to int32_t.  Radar bug #3744082.
+  - Changed a number of uses of "%lu" to "%u" and "%ld to "%d" in pass1.c,
+    sections.c, cstring_literals.c, symbols.c, fvmlibs.c, layout.c,
+    4byte_literals.c, 8byte_literals.c and literal_pointers.c .
+
+Changes for the 5.16 release (the cctools-525 release):
+- Sped up clear_read_only_reloc_flags() in symbols.c in the normal case. Radar
+  bug #3728427.
+  - Added static enum bool some_read_only_reloc_flags_set to symbols.c .
+  - In flag_read_only_reloc() in symbols.c some_read_only_reloc_flags_set is
+    set to TRUE if any merged_symbol's field flagged_read_only_reloc is set
+    to TRUE.
+  - In clear_read_only_reloc_flags() in symbols.c added code to test
+    some_read_only_reloc_flags_set.  If not set then it returns.  If set it
+    does its normal work then clears some_read_only_reloc_flags_set.
+
+Changes for the 5.16 release (the cctools-524 release):
+- Made work around fixes to the problem with the 24-bit r_address field of a
+  scattered relocation entry overflowing when used in a binary for dyld.  Radar
+  bug #3451378.
+  - Changed the relocation routines:
+	ppc_reloc() in ppc_reloc.c
+	generic_reloc() in generic_reloc.c
+	hppa_reloc() in hppa_reloc.c
+	m88k_reloc() in m88k_reloc.c
+	sparc_reloc() in sparc_reloc.c
+    when output_for_dyld is TRUE to not create a scattered relocation entry for
+    external relocation entries with a non-zero offset and to change scattered
+    relocation entries into local relocation entries.
+  - Changed layout() in layout.c to call the new static routine
+    check_for_lazy_pointer_relocs_too_far() which checks to see that the lazy
+    pointer's will not be too far away to overflow the the 24-bit r_address
+    field of a scattered relocation entry.  If so then prebinding is disabled.
+
+Changes for the 5.16 release (the cctools-520 release):
+- Fixed a bug in the handling of PPC_RELOC_JBSR's when the output is a
+  multi-module MH_DYLIB.  The code in ppc_reloc() was avoiding relocating the
+  branch to the true target in this case when it should have.  Radar bug
+  #3545578.
+- Added the -v flag to print the version like as(1) does.  The Makefile
+  changed how it creates ld_vers.c and ld.c had code added to it to handle the
+  -v flag with and without other flags.  Radar bug #3557760.
+- Changed the reference to kmodload(8) in rld.c to kextload(8). Radar bug
+  #3633604.
+- Fixed a bug when -dead_strip was used and there were static symbols in
+  indirect sections that was causing all of these symbols to be stripped.
+  The fix was in indirect_section_merge() at the end of the routine to add
+  a conditional around the call to discard_local_symbols_for_section() so that
+  it is called when -dead_strip is specified on the second pass when redo_live
+  is true.  Radar bug #3669400.
+- Changed it so that lines in an order file starting with '#' are ignored.
+  The change was in layout_ordered_section() in sections.c to add check for
+  the line starting with '#' and to skip that line.  Radar bug #3360823.
+- Changed it so that when an order file is used the unordered symbols are placed
+  in what would have been the natural link order.  The change was in 
+  layout_ordered_section() in sections.c to move the sort of the load_order
+  structure based on the input_offset up from where it was done only
+  when -dead_strip.  Radar bug #3382272.
+- Fixed a bug when -x was used on a bundle that had a symbol stub for a private
+  coalesced symbol.  The symbol stub should have been removed but was not, but
+  the symbol was removed resulting in the indirect table entry for the stub
+  being for symbol index zero which was wrong.  The fix was in
+  indirect_section_merge() in indirect_sections.c to add a test for
+  filetype == MH_BUNDLE so fine_relocs[i].indirect_defined will get set to TRUE
+  and cause the stub to be correctly removed.  Radar bug #3464004.
+- Removed the warning when -dead_strip is used about objects not being compiled
+  with -gfull.  As the assumption that the only way this could happen was if it
+  was compiled with -gused was incorrect.  The change was in
+  remove_dead_N_GSYM_stabs_for_cur_obj() in symbols.c . Radar bug #3663248.
+- Fixed a bug when the -s flag was used and a symbol is stripped that is also
+  used in an indirect entry.  In this case the indirect entry was not being
+  set to INDIRECT_SYMBOL_LOCAL as it should be.  The fix is in
+  assign_output_symbol_indexes() in symbols.c to assign the
+  merged_symbol->output_index to INDIRECT_SYMBOL_LOCAL for stripped symbols.
+  So later when output_indirect_symbols() in indirect_sections.c calls
+  merged_symbol_output_index() it will get INDIRECT_SYMBOL_LOCAL.  Radar bug
+  #3534709.
+- Removed the following warning message:
+	    warning("table of contents of library: %s not sorted slower link "
+		    "editing will result (use the ranlib(1) -s option)",
+		    file_name);
+  from pass1_archive() in pass1.c to allow multiple archive members with the
+  same coalesced symbol to be placed in the table of contents without getting
+  a warning.  Radar bug #3653845.
+
+Changes for the 5.16 release (the cctools-513 release):
+- Changed layout_segments() in layout.c and moved the declarations of some local
+  variables with #ifdef's for SA_RLD and RLD to the top of the routine so that
+  it will compile with older compilers.
+
+Changes for the 5.16 release (the cctools-512 release):
+- Fixed a bug when -dead_strip was used when the output was specified as
+  -preload and referenced a link editor defined symbol.  The code in 
+  mark_globals_live() in symbols.c was crashing as the section_maps were not yet
+  set up for the link editor defined preload symbols when it was called.  The
+  fix was in define_link_editor_preload_symbols() in symbols.c to change two
+  tests of the boolean parameter setup from testing for FALSE to TRUE to cause
+  the section_maps and sections to be allocated when the symbols are set up
+  rather than waiting for them to be defined.  Radar bug #3649317.
+- Fixed a bug that was causing the internal error:
+    output_section() count of external relocation entries does not match
+  when a undefined reference from a coalesced section turned out to be a global
+  coalesced symbol defined in another .o file.  The code in
+  coalesced_section_merge() in coalesced_sections.c that was counting the 
+  relocation entries needed to have code to set force_extern_reloc when it found
+  an external relocation entry that was defined as a global coalesced symbol
+  in another .o file.  Radar bug #3644011.
+- Removed this debugging code that was left in output_dylib_tables() in
+  symbols.c:
+	if(mod->iinit_iterm != 0)
+	printf("got it\n");
+  Radar bug #3643349.
+- Fixed a bug when -dead_strip or -sectorder is used on an object file that has
+  more than one section with the same name.  This resulted in an internal error
+  when fine_reloc_for_input_offset() was called with a section_map where the
+  nfine_relocs was zero when counting relocation entries. This can't be handled
+  in the code in layout_ordered_section() in sections.c so a test to check for
+  an object that has more than one section with the same name was added to cause
+  an error.  Also a check for errors != 0 was added to layout_ordered_sections()
+  in sections.c and it returns in that case.  Radar bug #3643111.
+- Fixed a bug when -dead_strip and -s was used that did not correctly count
+  number of undefined symbols and cause the internal error: more than one block
+  in final list.  The fix was in assign_output_symbol_indexes() in symbols.c
+  that needed for undefined symbol to check to see if -dead_strip was specified
+  and the symbol was not live, and if so increment nstripped_merged_symbols.
+  Radar bug #3639490.
+
+Changes for the 5.16 release (the cctools-511 release):
+- Fixed a bug that did not get the internal alignment correct for fine reloc
+  blocks.  This showed up with compiler generated altivec constants who bytes
+  get associated with the previous symbol since they have an assembler temporary
+  label.  The fix is to align fine reloc blocks on the modulus of the alignment
+  of the input offset.  To do this the new static routine align_to_input_mod()
+  was added to sections.c .  And it is used instead of just rounding the
+  next output offset the section alignment.  It is now called in two places in
+  layout_ordered_section() in sections.c and one place in resize_live_section()
+  in sections.c.  Radar bug #3625632.
+
+Changes for the 5.16 release (the cctools-509 release):
+- Added #ifdef INTERIM_PPC64 to the source changes to support the interim ppc64
+  file format.  And added -DINTERIM_PPC64 to the Makefile.
+- Changed layout_segments() in layout.c where it created a PPC_THREAD when the
+  arch_flag.cputype == CPU_TYPE_POWERPC64 to simply add a conditional when
+  creating a ppc thread for CPU_TYPE_POWERPC and CPU_TYPE_VEO instead of
+  copying the code.
+
+Changes for the 5.16 release (the cctools-507 release):
+- Fixed a bug in qsort_load_order_input_offset() in sections.c that caused
+  -dead_strip when used on objects that have more than one symbol at the same
+  address to not copy out the sections contents to the correct offsets in the
+  output file.  Radar bug #3625582.
+
+Changes for the 5.16 release (the cctools-506 release):
+- Fixed a bug in get_fine_reloc_for_merged_symbol() in sections.c if their are
+  more than one merged_symbol at the same address it could return the wrong
+  fine_reloc.  The fix was to check the merge_symbol field of the fine_reloc
+  that the binary search in fine_reloc_for_input_offset() found.  And if it is
+  not the same then do a linear search for the fine_reloc looking for the
+  merge_symbol. Radar bug #3625582.
+
+Changes for the 5.16 release (the cctools-505 release):
+- Fixed a bug in ref_operation() in sections.c when the operation was 
+  SEARCH_FOR_LIVE and the ref_type was LIVE_REF_SYMBOL and the merged symbol
+  was not live.  In this case the call to walk_references() was passed the
+  wrong object_file struct pointer.  It was being passed obj not
+  ref->merged_symbol->definition_object.  Radar bug #3625527.
+- Fixed a bug in walk_references() in sections.c when it tried to mark the
+  indirect symbol live.  The crash was caused for fine_relocs for
+  INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS indirect symbols.  This code was
+  not correctly tracking references through indirect sections.  Radar bug
+  #3625527. This was fixed by the following:
+  - Added the field indirect_symbol_local to the fine_reloc struct in objects.h.
+  - In indirect_section_merge() in indirect_sections.c when creating a
+    fine_reloc for INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS if it is
+    INDIRECT_SYMBOL_LOCAL then indirect_symbol_local is set to TRUE.
+  - Added the new routine indirect_live_ref() to indirect_sections.[ch] to
+    return a live_ref for a fine_reloc, section map, and object file.  This is
+    used by walk_references() in sections.c to track a reference through an
+    indirect section.
+  - Changed the code in walk_references() in sections.c to now use the new
+    routine indirect_live_ref() in indirect_sections.c to track a reference
+    through an indirect section.
+
+Changes for the 5.16 release (the cctools-504 release):
+- Added code in main() in ld.c to set -dead_strip when -dylib is used when the
+  environment variable LD_DEAD_STRIP_DYLIB is set to aid in testing.
+
+Changes for the 5.16 release (the cctools-503 release):
+- Fixed problems with the kld code not having the dead code stripping code
+  ifdef'ed out and causing undefined symbol errors.  The function
+  is_literal_output_offset_live() was being called from the *_reset_live()
+  routines.  Also the variables ninit and nterm were being used in
+  mod_section_reset_live() in mod_sections.c. The bodies of the *_reset_live()
+  routines and the *_order() routines were ifndef'ed RLD.  These changes were
+  made in 4byte_literals.c, 8byte_literals.c, cstring_literals.c,
+  literal_pointers.c and mod_sections.c . Radar bug #3625471.
+
+Changes for the 5.16 release (the cctools-502 release):
+- Fixed a bug in mod_section_reset_live() in mod_sections.c where it was not
+  setting the counts inits and terms back to zero.
+- Fixed a problem where output_dylib_tables() in symbols.c was setting the
+  module table fields which are indexes into the symbol table to values larger
+  then the number of symbols when -dead_strip was specified for fields that
+  an zero counts.  Tools like strip(1) detected this as an error.  The fix is
+  to set the indexes to zero when the count is zero.
+- Fixed a bug where a -sectorder file for a section with the
+  S_ATTR_NO_DEAD_STRIP attribute when -dead_strip is specified was ignored.
+  The fix was in layout_ordered_section() in section.c when it goes to create
+  the fine relocation entries it need a test for ms->order_filename == NULL
+  if it was going to create just one fine reloc for the section.
+- Fixed a bug where the load map for zerofill symbols was not printing which
+  symbols were dead stripped.  The fix was in print_load_map() in layout.c
+  where the loop for zerofill sections needed the same code for content
+  sections with reguard to testing dead_strip and the live field of the
+  fine_reloc and print "(dead stripped)" as needed.
+- Fixed a bug where common symbols would not be stripped when no -sectorder
+  file was used and when the flag MH_SUBSECTIONS_VIA_SYMBOLS was introduced
+  in cctools-501.  The fixes are in define_common_symbols() in symbols.c .
+  - In the first loop to determine if commons exist where the number of symbols
+    the size of the strings are when there is a sectorder file this is also
+    now done when dead_strip == TRUE.
+  - Where a symbol table and string table are created when there is a sectorder
+    file, it is also created when dead_strip == TRUE.
+    - When creating the link_edit_common_object file it is now created with
+      a mach_header and the flags have the MH_SUBSECTIONS_VIA_SYMBOLS bit set.
+  - Where the entries in the symbol table and string table are set when
+    there is a sectorder file, they are also set when dead_strip == TRUE.
+- Fixed the error handling when the *_reloc() routines produce an error when
+  called via the live marking pass.
+  - Added a check of error != 0 in walk_references() in sections.c after it
+    calls a *_reloc() routine and returns if error is non-zero.
+  - Added a check of error != 0 in walk_references_in_section() in sections.c
+    after it calls walk_references() and returns if error is non-zero.
+  - Added checks of error != 0 in live_marking() in sections.c after each call
+    to walk_references_in_section() and return if error is non-zero.
+  - Added a check of error != 0 in layout() in layout.c after live_marking()
+    is called and returns if error is non-zero.
+- Added support -dead_strip with i386 and m68k architecures.
+  - In walk_references() in sections.c the code to test for arch_flag.cputype
+    was changed to call generic_reloc() for CPU_TYPE_I386 and CPU_TYPE_MC680x0
+    and not print a fatal error that -dead_strip is not supported for that
+    architecure.
+    - Because walk_references() in sections.c needs to directly use the
+      relocation entries when calling the *_reloc() routines and they need to
+      be swapped if needed. So to only swap them once in the places they are
+      needed a new boolean field, input_relocs_already_swapped, was added to the
+      section_map struct in objects.h.  Then code was added to test this field
+      and swap the relocs if not already swapped in: 
+	walk_references(), count_relocs() and output_section() in sections.c,
+	coalesced_section_merge() in coalesced_section.c,
+	indirect_section_merge() in indirect_sections.c,
+	literal_pointer_merge() in literal_pointers.c and
+	mod_section_merge() in mod_sections.c .
+  - Changed generic_reloc() in generic_reloc.[ch] to take the additional
+    parameters refs and reloc_index.  And added code to set the refs when not
+    NULL.
+  - Changed the other callers of generic_reloc() to pass NULL and 0 for the
+    the two new parameters in count_relocs() and output_section() in sections.c.
+- Fixed problems with -dead_strip and -prebind where it was failing to get
+  the relocation entries correct for prebound lazy pointers.
+  - In reloc_output_for_dyld() in sections.c the code that was calling
+    fine_reloc_offset_in_output() when dead_strip was TRUE was removed.
+    The setting of the boolean partial_section was changed so it is now set when
+    dead_strip == TRUE so the later call to
+    fine_reloc_offset_in_output_for_output_offset() will occur and
+    correctly ignored relocation entries that are not in the output.
+  - The code in fine_reloc_offset_in_output_for_output_offset() in objects.c was
+    changed to not check the section type since it is now called from
+    from reloc_output_for_dyld() in sections.c when dead_strip == TRUE for
+    all section types.
+  - The code in fine_reloc_output_offset() in objects.c was changed so that
+    when dead_strip == TRUE and fine_reloc->live == FALSE it returns an address
+    that is past the end of the section.  This is so
+    fine_reloc_offset_in_output_for_output_offset() can be called from
+    reloc_output_for_dyld() when dead_strip == TRUE and figure out this reloc
+    is not in the output.
+  - In fine_reloc_offset_in_output() in objects.c added a needed check for
+    fine_reloc->use_contents == FALSE after in the case of dead_strip == TRUE.
+    Since it is possible for an indirect entry to be marked live via the
+    live code marking pass and use_contents == FALSE.
+  - Added the debugging routine print_fine_relocs() to objects.[ch] .
+- Fixed it so that the warning message in
+  create_load_symbol_hash_table_for_object() about "symbol appears more than
+  once in the same file" is not generated when -dead_strip is specified without
+  the -sectorder option.  The change was to pass a pointer to the merged_section
+  struct through from layout_ordered_section() to
+  create_load_symbol_hash_table() and then to
+  create_load_symbol_hash_table_for_object() in sections.c so that the warning
+  message is only created if ms->order_filename is not NULL.
+
+Changes for the 5.16 release (the cctools-501 release):
+- Fixed it so that if a .section_all is specified in an order file and
+  -dead_strip is specified, only one fine_reloc is created for that object and
+  if anything in that fine_reloc is live it makes all the symbols in that
+  fine reloc live.  This is also done if the object is not marked with the new
+  MH_SUBSECTIONS_VIA_SYMBOLS bit in the mach_header. Radar bug #2284500.
+  - Added the order field to the section_map stucture in objects.h to hold
+    the order of sections in objects with no_load_order == TRUE, .section_all
+    orders in the order file.
+  - Added code in layout_ordered_section() in sections.c when it parse out an
+    order line that contains a .section_all it sets the new order field in the
+    section_map stucture to the current order and then increments the current
+    order being assigned.
+  - Changed the conditonal in the code in the middle of layout_ordered_section()
+    when it forces no_load_order to TRUE.  So now it does that if a .section_all
+    for the object was specified or the no dead strip attribute is on the
+    section and -dead_strip was specified.  It also now does this when the new
+    MH_SUBSECTIONS_VIA_SYMBOLS bit in the mach_header is not set.
+    - Then in this conditonal if the new order field in the section_map stucture
+      is not set, it sets it and increments the current order being assigned.
+    - The code to create the single load_order was moved to the end of the loop.
+  - At the end of this loop if the no_load_order field in the section map is
+    TRUE and we are creating a load map or dead stripping then it creates a
+    single load_order. And sets the values in the single load_order, it now
+    sets the order field of the load_order struct from the new order field of
+    the section_map struct.
+  - In count_live_symbols() in symbols.c added code to check symbols that are
+    not live to see if they are in a fine_reloc that is live.  And if so force
+    them to be live.
+  - Added the variable some_non_subsection_via_symbols_objects to sections.[ch]
+    as a boolean to indicate if any linked in object does not have the
+    new MH_SUBSECTIONS_VIA_SYMBOLS bit in the mach_header.
+  - In layout_segments() in layout.c added code to test the variable
+    some_non_subsection_via_symbols_objects and if FALSE to or in the
+    new MH_SUBSECTIONS_VIA_SYMBOLS bit in the output mach_header.
+- Fixed a bug in live_marking() in sections.c that did not mark the
+  merged_symbol for the entry point live when no -e was specified.
+- Added code in main() in ld.c to set the dead_strip if the environment variable
+  LD_DEAD_STRIP is set and no_dead_strip_inits_and_terms if
+  LD_NO_DEAD_STRIP_INITS_AND_TERMS is set to aid testing.
+
+Changes for the 5.16 release (the cctools-500 release):
+- Added the -dead_strip option.  Radar bug #2284500.
+  - Added the boolean private_extern variable dead_strip to ld.[ch] and code to
+    main() to parse out -dead_strip and set dead_strip to TRUE. 
+  - Added a check to make sure -r was not being used with -dead_strip and
+    generate an error message.
+  - Added a warning to suggest the use of -dead_strip instead of 
+    "-undefined define_a_way".
+  - Added the live field to the fine_reloc struct in objects.h and 
+    changed input_offset to an unsigned long and not part of the bit fields.
+  - Added the live field to the merged_symbol struct in symbols.h and 
+    changed output_index to an unsigned long and not part of the bit fields.
+  - Changed layout_ordered_sections() in sections.c to always call
+    layout_ordered_section() if -dead_strip is specified so that fine_relocs
+    are created.  Also changed it so that the summary warnings for
+    specifications are only printed if there was an order file since this can
+    now be called without one.
+  - Changed layout_ordered_section() in sections.c when -dead_strip is specified
+    to not treat any object that had no orders as if it had a .section_all so
+    that fine_relocs for all blocks get created.  Two tests of dead_strip were
+    added to handle this.  In the first case the load_orders are re-sorted by
+    input_offset so it is less likely to break assembly code by reording the
+    blocks by symbol name.
+  - Added the index field to the struct load_order in objects.h to record the
+    symbol index of the symbol in layout_ordered_section().  So later if it is
+    external the merged symbol can be looked up and the merged_symbol field of
+    the file_reloc can be set.  This is needed so later ref_operation() can mark
+    the merged symbol live if referenced via a local relocation entry.  Which
+    is needed to know to keep the symbol.
+    - As part of the setting of the merged_symbol field of the file_reloc above
+      a test for the start_section symbol is needed.  So the new field
+      start_section was added to the section_map in objects.h and is set in
+      layout_ordered_section() so it can be used later.
+  - Changed flush_scatter_copied_sections() to also check dead_strip == TRUE
+    as well as if the section has an order file so that output_flush() gets
+    called.
+  - Changed all places that a pointer to a merged_symbol was stored in the
+    output_offset field of a fine_reloc struct and now store it in the
+    merged_symbol field.  In cctools-312 for Radar bug #2417690 the
+    merged_symbol field was added to the fine_reloc struct so that for non-lazy
+    symbol pointers both the output_offset and merged_symbol can be stored (see 
+    notes for cctools-312 and Radar bug #2417690 for details).
+    - Changed 2 places in coalesced_section_merge() in coalesced_sections.c .
+    - In one place in indirect_section_merge() in indirect_sections.c removed 
+      the store of merged_symbol into output_offset.
+    - Changed 1 place in legal_reference() in indirect_sections.c .
+    - Changed 3 places in fine_reloc_output_address() in objects.c .
+    - Changed 1 place in fine_reloc_output_sectnum() in objects.c .
+  - Changed mod_sections.[ch] and added a struct mod_term_data to be used to
+    set the output_offsets in the fine relocs that are now created in 
+    mod_section_merge() when -dead_strip is specified.
+    - This is now allocated in create_merged_section() in sections.c .
+    - The new routine mod_section_free() was added to reset the output_offset
+      in this data. And a pointer to this functions is set in
+      create_merged_section() in sections.c .
+    - Changed flush_scatter_copied_sections() to allow call output_flush()
+      when dead_strip == TRUE and it is a mod init or term section.
+   - Added a call to the new routine, live_marking(), in layout() in layout.c
+     if dead_strip == TRUE just after the call to layout_ordered_sections().
+   - Added the new routine, live_marking(), to sections.[ch] .
+     - it marks the initial live symbols:
+       - it marks the entry point and fine_reloc or the first non-zero sized
+	 fine_reloc in the first content section.  To do this the load_map
+	 structures are needed.
+	 - in layout_ordered_section() in sections.c the load maps are not
+	   free()'ed and create_order_load_maps() is called when dead_strip
+	   is TRUE.
+	 - The new static routine get_fine_reloc_for_merged_symbol() was added
+	   and is used here for getting the fine_reloc if the entry point was
+	   specified by symbol name and for the -init symbol (see next item)
+	   as well as ref_operation() (see below).
+       - it marks the -init symbol for MH_DYLIB outputs.
+       - it calls the new routine mark_globals_live() added to symbols.[ch]
+	 to mark the exported and no_dead_strip symbols live.
+       - it calls the new routine mark_N_NO_DEAD_STRIP_local_symbols_live()
+	 added to symbols.[ch] to mark the fine_relocs for no_dead_strip local
+	 symbols live.
+	 - mark_N_NO_DEAD_STRIP_local_symbols_live() loops over the merged
+	   sections and calls
+	   mark_N_NO_DEAD_STRIP_local_symbols_in_section_live() for each merged
+	   section.
+	   - mark_N_NO_DEAD_STRIP_local_symbols_in_section_live() loops over
+	     the objects and if it contains the merged section loops over the
+	     local symbols looking for symbols defined in the section with the
+	     N_NO_DEAD_STRIP bit set.  And if set, gets the fine_reloc for it
+	     and marked it live.
+     - it then loops over the merged sections and calls the new static
+       routine walk_references_in_section() with the operation MARK_LIVE to
+       cause the live fine relocs to get marked live.
+	- walk_references_in_section() with the operation MARK_LIVE looks for
+	  live fine_relocs in the specified section and causes their references
+	  to be marked live by calling the new static routine walk_references()
+	  with the operation MARK_LIVE.
+	  - walk_references() with the operation MARK_LIVE walks the relocation
+	    enties of the passed fine_reloc marking its references live.  It
+	    calls the relocation routines passing it two new parameters, a
+	    pointer to the new live_refs struct and the index of the relocation
+	    entry.  Then calls new static routine ref_operation() with the
+	    operation MARK_LIVE to mark the reference live and cause its
+	    reference's to be marked live.
+	    - The new header file live_refs.h was added with the declaration
+	      of the struct live_refs, live_ref, and the live_ref_type enum.
+	    - Two new parameters to ppc_reloc() were added, refs and
+	      reloc_index.  If refs is not NULL then ppc_reloc() just fills
+	      in the live_refs struct for the reloc_index.
+	      - A test for refs == NULL was added in the if statement that was
+		checking if the merged_symbol was a coalesced symbol that is
+		using get_output_section() on the merged_symbol n_sect.  This
+		is needed as the output_sectnum field is not set when this is
+		called to just get the references.
+	      - The new routine fine_reloc_output_ref() was added to objects.c
+		to take an offset into a section and a section map and determine
+		what it will reference in the output and fill in a live_ref
+		struct.  It handles symbols stubs and is like
+		fine_reloc_output_address() but get references.
+	    - The new static routine ref_operation() with the operation
+	      MARK_LIVE takes a live_ref struct and determines the fine_reloc
+	      if any for it and marks it live.  Then causes its reference's to
+	      be marked live by recursively calling walk_references() with the
+	      operation MARK_LIVE if needed.
+	      - The new boolean field refs_marked_live was added to the
+		fine_reloc structure to indicate if the reference's have been
+		walked and marked live and is tested and set by ref_operation() 
+		with the operation MARK_LIVE.
+	      - The new static routine r_symbolnum_from_r_value() was added to
+		sections.c which is used by ref_operation() to help get the
+		fine_reloc from a live_ref which is a LIVE_REF_VALUE.
+     - Added the -no_dead_strip_inits_and_terms option.
+	- Added the boolean private_extern variable
+	  no_dead_strip_inits_and_terms to ld.[ch] and code to
+	  main() to parse it out and set the variable to TRUE.
+     - live_marking() then causes the needed mod init and term routines to be
+       marked live.  When -no_dead_strip_inits_and_terms is set is marks all
+       of them live, if not this is done by looping over the merged sections and
+       calling the new static routine walk_references_in_section() for mod
+       init and term sections with the operation SEARCH_FOR_LIVE.
+	- walk_references_in_section() with the operation SEARCH_FOR_LIVE for
+	  each fine_reloc calls the new routine walk_references() with the
+	  operation SEARCH_FOR_LIVE to see it it touches something live. 
+	  If so marks it live and calls walk_references() with the MARK_LIVE
+	  operation to get what it refererences marked live.
+	  - The new boolean field searched_for_live_refs was added to the
+	    fine_reloc structure to indicate if the reference's have been
+	    walked and searched for live references it is tested and set by
+	    the new routine walk_references() when the operation is
+	    SEARCH_FOR_LIVE.
+	  - walk_references() with the operation SEARCH_FOR_LIVE is passed a
+	    fine_reloc searches for any referenced fine_reloc that is marked
+	    live.  If it finds one it returns TRUE else FALSE.
+     - live_marking() then causes the needed fine_reloc's in sections with the
+       live_support attribute to be marked live.  This gets done my looping
+       over the merged sections for sections marked with the S_ATTR_LIVE_SUPPORT
+       section attribute and calling the new static routine
+       walk_references_in_section() with the operation CHECK_FOR_LIVE_TOUCH.
+	- This follows a similar path as above for SEARCH_FOR_LIVE through
+	  walk_references_in_section(), walk_references() and ref_operation()
+	  but only looks at the direct references for the fine_reloc.  And if
+	  a direct reference is live then it causes all references to be marked
+	  live.
+     - the new routine, live_marking(), then does the bookkeeping to reset
+       the symbol counts, section sizes, relocation counts:
+       - The existing global varable, nstripped_merged_symbols, in symbols.c
+	 is used to hold the count of dead symbols to be stripped.  Then later
+	 if assign_output_symbol_indexes() sets STRIP_DYNAMIC_EXECUTABLE it is
+	 reset to zero and the counts of stripped symbol are again added up.
+	 This works as any symbol that would be saved when both -dead_strip
+	 and -s are used on a dynamic executable would be live since they
+	 are REFERENCED_DYNAMICALLY.
+       - the new routine count_live_symbols() was added to symbols.[ch] and
+	 called from layout().  When creating a  multi-module dylib it
+	 updates the number of reference and reference map counts and reassigns
+	 the indexes in to the reference table.  It also increments the new file
+	 level static variable nstripped_merged_private_symbols for merged
+	 private symbols that get stripped to be used later by
+	 assign_output_symbol_indexes() to do its consistency check.
+	 - The new static routine removed_dead_local_symbols_in_section() was
+	   added to symbols.c and is called from count_live_symbols() to
+	   call discard_local_symbols_for_section() for each object that
+	   contains the merged section it is passed.
+	   - Updated fine_reloc_offset_in_output() in objects.c to return at
+	     fine_reloc->live when dead_strip == TRUE.
+	   - Updated discard_local_symbols_for_section() in symbols.c to now
+	     also scan forward when it sees a N_BNSYM that well be kept to the
+	     next N_ENSYM so the stabs between them are kept.
+	 - The new static routine remove_dead_N_GSYM_stabs() was added to
+	   symbols.c and is called from count_live_symbols() to call another
+	   new static routine remove_dead_N_GSYM_stabs_for_cur_obj() to get rid
+	   of dead N_GSYM stabs.  For common symbols this has to be done as they
+	   are not defined or in a section and so they can't be bracked by
+	   N_BNSYM/N_ENSYM stabs.
+      - The new routine resize_live_sections() was added to sections.[ch]
+	and called from layout() to do the bookkeeping to reset the section
+	sizes and relocation entry counts.
+	- The new field fine_reloc was added to the load_order struct in
+	  objects.h to point to the fine_reloc that was created for it.  This is
+	  then set to the fine_reloc in layout_ordered_section() when
+	  -dead_strip is specified.
+	- The new field load_order was added to the struct order_load_map in
+	  sections.h to point to the fine_reloc that corresponds to it.  This is
+	  then set in create_order_load_maps() in sections.c which is always
+	  called when -dead_strip is specified.
+	- The new static routine resize_live_section() was added to sections.c
+	  to walk the load order map and resize each regular section and called
+	  by resize_live_sections() for regular sections.
+	  - The new field line_number was added to the load_order structure
+	    defined in objects.h.  And set to the line number the symbol was
+	    specified on in the order file in layout_ordered_section() or left
+	    as zero.  Then in resize_live_sections() if the section had an order
+	    file and the flag -sectorder_detail was specified and the symbol was
+	    dead stripped a warning is issued if order_specified is non-zero.
+	- Changed the name of layout_relocs_for_dyld() to relayout_relocs() in
+	  sections.[ch] .  Changed the call to it in layout() so it is called
+	  if output_for_dyld is TRUE or dead_strip is TRUE.
+	  - After layout_relocs_for_dyld() has broken everything out a test of
+	    the dead_strip flag for TRUE is made and if so a call
+	    fine_reloc_offset_in_output() with the broken out r_address is done
+	    to see if it will be in the output.  If
+	    fine_reloc_offset_in_output() returns FALSE the reloc is skiped.
+	- Changed count_relocs() in sections.c now that is also called when
+	  dead_strip is specified:
+	  - After it has broken everything out a test of the dead_strip flag for
+	    TRUE is made and if so a call fine_reloc_offset_in_output() with
+	    the broken out r_address is done to see if it will be in the output.
+	    If fine_reloc_offset_in_output() returns FALSE the reloc is skiped.
+	  - Right after the above a test for output_for_dyld == FALSE is done
+	    and if so the reloc is counted based only on if the reloc is extern
+	    and the symbol is defined.
+      - The routine merge_literal_sections() in sections.c was changed to take
+	a new parameter redo_live parameter.  Then in the exisiting call from
+	layout() in layout.c it is pass as FALSE.  Then it is called again after
+	resize_live_sections() in layout.c passed as TRUE to drive the
+	re-merging only live literals.  When merge_literal_sections() is passed
+	redo_live as TRUE it calls the new (*literal_reset_live)() routines
+	instead of the (*ms->literal_order)() routines.  It was also changed to
+	pass the redo_live parameter to the (*ms->literal_merge)() routines.
+	- Changes to the existing (*ms->literal_order)() routines were made to
+	  support ordering when -dead_strip is specified.  The routines were
+	  changed as follows:
+	  - cstring_order() in cstring_literals.c and
+	  - literal4_order() in 4byte_literals.c and
+	  - literal8_order() in 8byte_literals.c and
+	  - In literal_pointer_order() in literal_pointers.c
+	    These now allocates a new *_load_order_data struct when -dead_strip
+	    is specified and the needed new struct *_order_line's.  For
+	    cstring_order() and literal_pointer_order() they do not free the
+	    line buffer or the order file memory.  These new structs are used in
+	    *_reset_live() routines and the needed memory is cleaned up in
+	    there.
+	  - In literal_pointer_order() in literal_pointers.c the body of code
+	    that parses out a literal pointer order line was broken out into a
+	    static function literal_pointer_order_line() so it can be used both
+	    by literal_pointer_order() and literal_pointer_reset_live().
+	- The new routine is_literal_output_offset_live() in sections.[ch] was
+	  added and used in the (*ms->literal_reset_live)() functions to
+	  determine if a literal from an order file with a given output_offset
+	  is live.
+	- The new field literal_reset_live as added to the merged_section
+	  struct in sections.c as a pointer to the routine that resets the
+	  literal section before only the live literals are re-merged.
+	  - A new routine for the (*ms->literal_reset_live)() field was added
+	    to the files that handle each type of literal and they do the
+	    following:
+	    - cstring_reset_live() added to cstring_literals.[ch] and
+	    - literal4_reset_live() added to 4byte_literals.[ch] and
+	    - literal8_reset_live() added to 8byte_literals.[ch]
+	      They reset the section size back to zero and clear out the
+	      previously merged data. Then if there is an order file it
+	      re-merges the live literals and frees up the order data
+	      structures.
+	    - literal_pointer_reset_live() added to literal_pointers.[ch] and
+	    - mod_section_reset_live() added to mod_sections.[ch]
+	      Same as the new routines above but also resets the relocation
+	      counts.
+	    - indirect_section_reset_live() added to indirect_sections.[ch]
+	      Same as the new routines above but also in additiona to reseting
+	      the relocation counts it resets nindirectsyms.
+	  - In create_merged_section() in sections.c the literal_reset_live
+	    field is set to the above new routines.
+	- The new redo_live parameter was added to the (*ms->literal_merge)()
+	  call in merge_literal_sections().
+	  - A new redo_live parameter was then added the existing literal merge
+	    routines and updated to use it as follows:
+	    - cstring_merge() in cstring_literals.[ch] and 
+	    - literal4_merge() in 4byte_literals.[ch] and
+	    - literal8_merge() in 8byte_literals.[ch] and
+	    - literal_pointer_merge() in literal_pointers.[ch] and
+	    - mod_section_merge() in mod_sections.[ch] and
+	    - indirect_section_merge() in indirect_sections.[ch]
+	    - coalesced_section_merge() in coalesced_sections.[ch]
+	      When redo_live == FALSE these merges items as it did before.
+	      When redo_live == TRUE it uses the previouly allocated fine_relocs
+	      and re-merges the items for fine_relocs that are live.
+	      - The new boolean field global_coalesced_symbol was added to the
+		load_order struct in object.c.
+		- It is set and examined in coalesced_section_merge() now
+		  instead of using the hack to store this information in the
+		  order field.
+  - Changed scatter_copy() in sections.c to look at the "live" field if
+    -dead_strip specified.
+  - Removed the unused local variable prev_output_offset from
+    layout_ordered_section() in sections.c .
+  - Changed print_load_map() in layout.c to print "(dead stripped)" for symbols
+    that are not live when -dead_strip is specified.
+  - Changed print_load_map_for_objects() in layout.c to print "(dead stripped)"
+    for the output address of a fine_reloc block that is not live when
+    -dead_strip is specified.  Also fixed it for indirect and coalesced sections
+    to print "(eliminated)" if the fine_reloc block is not used from that object
+    file.
+  - Changed layout() in layout.c after the call to process_undefineds() to add
+    a check of errors for non-zero and return.
+  - Changed process_undefineds() in symbols.c to ignore undefined symbols if
+    -dead_strip is specified and the undefined symbol is not live.
+  - Changed assign_output_symbol_indexes() to used the new file level static
+    variable nstripped_merged_private_symbols set by count_live_symbols() for
+    its consistency check of the number of local symbols it assigns indexes to.
+    Also changed the loop that counts the number of undefined symbols and
+    defined external symbols to skip symbols that are not live when -dead_strip
+    is specified.  As well as the loop that fills the arrays in.  And the loop
+    that assigns the symbol indexes to the private extern symbols if they are
+    turned into local symbols.
+  - Changed output_merged_symbols() in symbols.c so that the second loop to put
+    out private extern symbols that are turned into local symbols test that the
+    symbol is live when -dead_strip is specified.
+  - Changed output_merged_symbols() in symbols.c so that the three loops to put
+    symbols clear the N_NO_DEAD_STRIP bit if the output file is not a
+    relocatable object.
+  - Changed output_local_symbols() in symbols.c so that it clears the
+    N_NO_DEAD_STRIP bit if the output file is not a relocatable object and the
+    symbol is a non-stab N_SECT symbol.
+  - Changed output_dylib_tables() in symbols.c in putting out the reference
+    table in the single-module dylib case.  In the loop over the merged symbols
+    to a test was added to check the symbol is live when -dead_strip is
+    specified.
+- Fixed a bug in check_symbol() in symbols.c that was incorrectly causing an
+  error when a common symbol was also a private extern symbol as it was not
+  checking that the n_value field was also zero before causing the error for
+  undefined symbols.  Radar bug #3518234.
+- Fixed a bug in print_load_map() in layout.c that did not correctly limit the
+  segment name and section names to 16 characters when printed.
+- Fixed a bug in layout_segments() in layout.c where it was causing a thread to
+  be created in bundle.
+- Fixed a bug printing the load maps when some objects have no symbols in the 
+  order file. In this case the code in layout_ordered_section() in section.c
+  creates just one fine_reloc for the whole section in the object.  This is not
+  accounted for in the creation of the order_load_maps by
+  create_order_load_maps() in sections.c.  To fix this layout_ordered_section()
+  when load_map == TRUE now free()'s the load_orders for these and allocates
+  just one load_order with a NULL symbol_name to represent this.  The code in
+  create_order_load_maps() and print_load_map() in layout.c was changed to
+  handle the NULL symbol_name;
+- Fixed a bug in merge_sections() in sections.c that was not correctly or'ing in
+  the SECTION_ATTRIBUTES from object's section into the merged section.  Two
+  places were changed when dynamic == TRUE.
+
+Changes for the 5.16 release (the cctools-499.3 release):
+- Make symbol reference checking in legal_reference() of indirect_symbols.c
+  understand that ppc64 indirect symbol table entries are 8 bytes. Radar bug
+  #3594978.
+
+Changes for the 5.16 release (the cctools-499.1 release):
+- Added support for the ppc64 architecture, using the interim file format
+  for -static compiled objects only.  Radar bug #3562133.
+  - Changed indirect_section_merge() in ld/indirect_sections.c so the stride
+    for symbol pointers is set 8 when arch_flag.cputype ==  CPU_TYPE_POWERPC64
+    and 4 otherwise.  Also changed the test of r_length in the  relocation
+    entries to be 3 for CPU_TYPE_POWERPC64 and 2 otherwise.
+  - Changed layout_segments() in layout.c to create a PPC_THREAD when the
+    arch_flag.cputype == CPU_TYPE_POWERPC64 .
+  - Changed ppc_reloc() in ppc_reloc.c to include cases for r_length being 3
+    and relocating the second long and setting the first long to zero.
+  - In output_section() in sections.c the conditional to call ppc_reloc() was
+    changed to include arch_flag.cputype == CPU_TYPE_POWERPC64.
+
+Changes for the 5.15 release (the cctools-499 release):
+- Fixed a bug with linking .o files containing PPC_RELOC_JBSR relocation entries
+  in a coalesced section into a dynamic library. The code in
+  coalesced_section_merge() in coalesed_sections.c did not exclude these in the 
+  output.  Which resulted in a internal error in output_section() where the 
+  count of local relocation did not match.  Radar bug #3518096.
+
+Changes for the 5.14 release (the cctools-497 release):
+- Fixed a bug with linking .o files containing PPC_RELOC_JBSR relocation entries
+  into a dynamic library. The code in count_relocs() and reloc_output_for_dyld()
+  in sections.c did not exclude these in the output.  Which resulted in a read
+  only reloc error.  Radar bug #3452964.
+
+Changes for the 5.14 release (the cctools-496 release):
+- Change in a number of places in pass1.c that printed "Logging for Build &
+  Integration] Used static library" to print the realpath() name of the file
+  name.  Radar bug #3443289.
+
 Changes for the 5.13 release (the cctools-495 release):
 - Changed the header pad for prebound executables to be 3 times instead of 6
   times the size of the initial LC_PREBOUND_DYLIB commands.  This change is in

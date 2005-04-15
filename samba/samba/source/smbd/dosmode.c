@@ -135,8 +135,8 @@ uint32 dos_mode_from_sbuf(connection_struct *conn, SMB_STRUCT_STAT *sbuf)
 	if (S_ISDIR(sbuf->st_mode))
 		result = aDIR | (result & aRONLY);
 
-#if defined (HAVE_STAT_ST_BLOCKS) && defined (HAVE_STAT_ST_BLKSIZE)
-	if (sbuf->st_size > sbuf->st_blocks * (SMB_OFF_T)sbuf->st_blksize) {
+#if defined (HAVE_STAT_ST_BLOCKS) && defined(STAT_ST_BLOCKSIZE)
+	if (sbuf->st_size > sbuf->st_blocks * (SMB_OFF_T)STAT_ST_BLOCKSIZE) {
 		result |= FILE_ATTRIBUTE_SPARSE;
 	}
 #endif
@@ -182,6 +182,7 @@ static BOOL get_ea_dos_attribute(connection_struct *conn, const char *path,SMB_S
 		if ((errno != ENOTSUP) && (errno != ENOATTR) && (errno != EACCES)) {
 			DEBUG(1,("get_ea_dos_attributes: Cannot get attribute from EA on file %s: Error = %s\n",
 				path, strerror(errno) ));
+			set_store_dos_attributes(SNUM(conn), False);
 		}
 #endif
 		return False;
@@ -224,9 +225,21 @@ static BOOL set_ea_dos_attribute(connection_struct *conn, const char *path, SMB_
 	files_struct *fsp = NULL;
 	BOOL ret = False;
 
+	if (!lp_store_dos_attributes(SNUM(conn))) {
+		return False;
+	}
+
 	snprintf(attrstr, sizeof(attrstr)-1, "0x%x", dosmode & SAMBA_ATTRIBUTES_MASK);
 	if (SMB_VFS_SETXATTR(conn, path, SAMBA_XATTR_DOS_ATTRIB, attrstr, strlen(attrstr), 0) == -1) {
 		if((errno != EPERM) && (errno != EACCES)) {
+			if (errno == ENOSYS
+#if defined(ENOTSUP)
+				|| errno == ENOTSUP) {
+#else
+				) {
+#endif
+				set_store_dos_attributes(SNUM(conn), False);
+			}
 			return False;
 		}
 

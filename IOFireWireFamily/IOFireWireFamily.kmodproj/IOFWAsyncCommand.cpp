@@ -111,6 +111,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 		}
 		fFailOnReset = failOnReset;
 		fMembers->fAckCode = 0;
+		fMembers->fResponseCode = 0xff;
 	}
 		
     return success;
@@ -162,6 +163,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireController *control,
 		}
 		fFailOnReset = true;
 		fMembers->fAckCode = 0;
+		fMembers->fResponseCode = 0xff;
 	}
 	
     return success;
@@ -263,6 +265,7 @@ IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *host
 	}
     fFailOnReset = failOnReset;
 	fMembers->fAckCode = 0;
+	fMembers->fResponseCode = 0xff;
 	
     return fStatus = kIOReturnSuccess;
 }
@@ -299,6 +302,7 @@ IOReturn IOFWAsyncCommand::reinit(UInt32 generation, FWAddress devAddress, IOMem
 		fSpeed = fMembers->fMaxSpeed;
 	}
 	fMembers->fAckCode = 0;
+	fMembers->fResponseCode = 0xff;
 
     return fStatus = kIOReturnSuccess;
 }
@@ -467,3 +471,39 @@ void IOFWAsyncCommand::setMaxSpeed( int speed )
 	}
 };
 
+// setRetries
+//
+//
+
+void IOFWAsyncCommand::setRetries( int retries ) 
+{ 
+	fMaxRetries = retries;
+	fCurRetries = fMaxRetries;
+};
+
+// getMaxRetries
+//
+//
+
+int IOFWAsyncCommand::getMaxRetries( void )
+{ 
+	return fMaxRetries;
+};
+
+// setResponseCode
+//
+//
+
+void IOFWAsyncCommand::setResponseCode( UInt32 rcode )
+{
+	fMembers->fResponseCode = rcode;
+}
+
+// getResponseCode
+//
+//
+
+UInt32 IOFWAsyncCommand::getResponseCode( void ) const
+{
+	return fMembers->fResponseCode;
+}

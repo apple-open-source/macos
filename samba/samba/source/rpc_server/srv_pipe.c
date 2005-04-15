@@ -52,28 +52,28 @@ struct dcinfo last_dcinfo;
 
 static void NTLMSSPcalc_p( pipes_struct *p, unsigned char *data, int len)
 {
-    unsigned char *hash = p->ntlmssp_hash;
-    unsigned char index_i = hash[256];
-    unsigned char index_j = hash[257];
-    int ind;
+	unsigned char *hash = p->ntlmssp_hash;
+	unsigned char index_i = hash[256];
+	unsigned char index_j = hash[257];
+	int ind;
 
-    for( ind = 0; ind < len; ind++) {
-        unsigned char tc;
-        unsigned char t;
+	for( ind = 0; ind < len; ind++) {
+		unsigned char tc;
+		unsigned char t;
 
-        index_i++;
-        index_j += hash[index_i];
+		index_i++;
+		index_j += hash[index_i];
 
-        tc = hash[index_i];
-        hash[index_i] = hash[index_j];
-        hash[index_j] = tc;
+		tc = hash[index_i];
+		hash[index_i] = hash[index_j];
+		hash[index_j] = tc;
 
-        t = hash[index_i] + hash[index_j];
-        data[ind] = data[ind] ^ hash[t];
-    }
+		t = hash[index_i] + hash[index_j];
+		data[ind] = data[ind] ^ hash[t];
+	}
 
-    hash[256] = index_i;
-    hash[257] = index_j;
+	hash[256] = index_i;
+	hash[257] = index_j;
 }
 
 /*******************************************************************
@@ -124,7 +124,7 @@ BOOL create_next_pdu(pipes_struct *p)
 	if(p->ntlmssp_auth_validated) {
 		data_space_available -= (RPC_HDR_AUTH_LEN + RPC_AUTH_NTLMSSP_CHK_LEN);
 	} else if(p->netsec_auth_validated) {
-		data_space_available -= (RPC_HDR_AUTH_LEN + RPC_AUTH_NETSEC_CHK_LEN);
+		data_space_available -= (RPC_HDR_AUTH_LEN + RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN);
 	}
 
 	/*
@@ -177,8 +177,8 @@ BOOL create_next_pdu(pipes_struct *p)
 	} else if (p->netsec_auth_validated) {
 		p->hdr.frag_len = RPC_HEADER_LEN + RPC_HDR_RESP_LEN +
 			data_len + ss_padding_len +
-			RPC_HDR_AUTH_LEN + RPC_AUTH_NETSEC_CHK_LEN;
-		p->hdr.auth_len = RPC_AUTH_NETSEC_CHK_LEN;
+			RPC_HDR_AUTH_LEN + RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN;
+		p->hdr.auth_len = RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN;
 	} else {
 		p->hdr.frag_len = RPC_HEADER_LEN + RPC_HDR_RESP_LEN + data_len;
 		p->hdr.auth_len = 0;
@@ -309,7 +309,8 @@ BOOL create_next_pdu(pipes_struct *p)
 			      SENDER_IS_ACCEPTOR,
 			      &verf, data, data_len + ss_padding_len);
 
-		smb_io_rpc_auth_netsec_chk("", &verf, &outgoing_pdu, 0);
+		smb_io_rpc_auth_netsec_chk("", RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN, 
+			&verf, &outgoing_pdu, 0);
 
 		p->netsec_auth.seq_num++;
 	}
@@ -500,6 +501,9 @@ succeeded authentication on named pipe %s, but session key was of incorrect leng
 	 * Store the UNIX credential data (uid/gid pair) in the pipe structure.
 	 */
 
+	if (p->session_key.data) {
+		data_blob_free(&p->session_key);
+	}
 	p->session_key = data_blob(server_info->lm_session_key.data, server_info->lm_session_key.length);
 
 	p->pipe_user.uid = server_info->uid;
@@ -771,7 +775,7 @@ BOOL check_bind_req(struct pipes_struct *p, RPC_IFACE* abstract,
 			int 			n_fns = 0;
 			PIPE_RPC_FNS		*context_fns;
 			
-			if ( !(context_fns = malloc(sizeof(PIPE_RPC_FNS))) ) {
+			if ( !(context_fns = SMB_MALLOC_P(PIPE_RPC_FNS)) ) {
 				DEBUG(0,("check_bind_req: malloc() failed!\n"));
 				return False;
 			}
@@ -827,8 +831,8 @@ NTSTATUS rpc_pipe_register_commands(int version, const char *clnt, const char *s
         /* We use a temporary variable because this call can fail and 
            rpc_lookup will still be valid afterwards.  It could then succeed if
            called again later */
-        rpc_entry = realloc(rpc_lookup, 
-                            ++rpc_lookup_size*sizeof(struct rpc_table));
+	rpc_lookup_size++;
+        rpc_entry = SMB_REALLOC_ARRAY(rpc_lookup, struct rpc_table, rpc_lookup_size);
         if (NULL == rpc_entry) {
                 rpc_lookup_size--;
                 DEBUG(0, ("rpc_pipe_register_commands: memory allocation failed\n"));
@@ -839,13 +843,10 @@ NTSTATUS rpc_pipe_register_commands(int version, const char *clnt, const char *s
         
         rpc_entry = rpc_lookup + (rpc_lookup_size - 1);
         ZERO_STRUCTP(rpc_entry);
-        rpc_entry->pipe.clnt = strdup(clnt);
-        rpc_entry->pipe.srv = strdup(srv);
-        rpc_entry->cmds = realloc(rpc_entry->cmds, 
-                                  (rpc_entry->n_cmds + size) *
-                                  sizeof(struct api_struct));
-        memcpy(rpc_entry->cmds + rpc_entry->n_cmds, cmds,
-               size * sizeof(struct api_struct));
+        rpc_entry->pipe.clnt = SMB_STRDUP(clnt);
+        rpc_entry->pipe.srv = SMB_STRDUP(srv);
+        rpc_entry->cmds = SMB_REALLOC_ARRAY(rpc_entry->cmds, struct api_struct, rpc_entry->n_cmds + size);
+        memcpy(rpc_entry->cmds + rpc_entry->n_cmds, cmds, size * sizeof(struct api_struct));
         rpc_entry->n_cmds += size;
         
         return NT_STATUS_OK;
@@ -1093,7 +1094,7 @@ BOOL api_pipe_bind_req(pipes_struct *p, prs_struct *rpc_in_p)
 		RPC_AUTH_VERIFIER auth_verifier;
 		RPC_AUTH_NTLMSSP_CHAL ntlmssp_chal;
 
-		generate_random_buffer(p->challenge, 8, False);
+		generate_random_buffer(p->challenge, 8);
 
 		/*** Authentication info ***/
 
@@ -1339,7 +1340,7 @@ BOOL api_pipe_netsec_process(pipes_struct *p, prs_struct *rpc_in)
 
 	auth_len = p->hdr.auth_len;
 
-	if (auth_len != RPC_AUTH_NETSEC_CHK_LEN) {
+	if (auth_len != RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN) {
 		DEBUG(0,("Incorrect auth_len %d.\n", auth_len ));
 		return False;
 	}
@@ -1384,7 +1385,9 @@ BOOL api_pipe_netsec_process(pipes_struct *p, prs_struct *rpc_in)
 		return False;
 	}
 
-	if(!smb_io_rpc_auth_netsec_chk("", &netsec_chk, rpc_in, 0)) {
+	if(!smb_io_rpc_auth_netsec_chk("", RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN, 
+		&netsec_chk, rpc_in, 0)) 
+	{
 		DEBUG(0,("failed to unmarshal RPC_AUTH_NETSEC_CHK.\n"));
 		return False;
 	}
@@ -1394,7 +1397,7 @@ BOOL api_pipe_netsec_process(pipes_struct *p, prs_struct *rpc_in)
 			   SENDER_IS_INITIATOR,
 			   &netsec_chk,
 			   prs_data_p(rpc_in)+old_offset, data_len)) {
-		DEBUG(0,("failed to decode PDU\n"));
+		DEBUG(3,("failed to decode PDU\n"));
 		return False;
 	}
 
@@ -1579,9 +1582,7 @@ BOOL api_rpcTNP(pipes_struct *p, const char *rpc_name,
 	if ((DEBUGLEVEL >= 10) && 
 	    (prs_offset(&p->in_data.data) != prs_data_size(&p->in_data.data))) {
 		size_t data_len = prs_data_size(&p->in_data.data) - prs_offset(&p->in_data.data);
-		char *data;
-
-		data = malloc(data_len);
+		char *data = SMB_MALLOC(data_len);
 
 		DEBUG(10, ("api_rpcTNP: rpc input buffer underflow (parse error?)\n"));
 		if (data) {

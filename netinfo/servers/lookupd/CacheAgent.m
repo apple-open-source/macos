@@ -638,6 +638,7 @@ static CacheAgent *_sharedCacheAgent = nil;
 
 		case LUCategoryHost:
 			if (streq(key, "name")) return CIPV4NodeName;
+			if (streq(key, "namev46")) return CIPV6NodeName;
 			if (streq(key, "namev6")) return CIPV6NodeName;
 			if (streq(key, "ip_address")) return CIPV4NodeAddr;
 			if (streq(key, "ipv6_address")) return CIPV6NodeAddr;
@@ -860,13 +861,20 @@ static CacheAgent *_sharedCacheAgent = nil;
 			}
 			break;
 		case LUCategoryHost:
-			if (streq(key, "name"))
+			if ((streq(key, "name")) || (streq(key, "namev46")))
 			{
 				if ([item valuesForKey:"ip_address"] != NULL)
 				{
 					[self addObject:item category:cat toCache:CIPV4NodeName key:"name"];
 					[self addEthernetObject:item category:cat toCache:CIPV4NodeMAC];
 				}
+				if ([item valuesForKey:"ipv6_address"] != NULL)
+				{
+					[self addObject:item category:cat toCache:CIPV6NodeName key:"name"];
+				}
+			}
+			else if (streq(key, "namev6"))
+			{
 				if ([item valuesForKey:"ipv6_address"] != NULL)
 				{
 					[self addObject:item category:cat toCache:CIPV6NodeName key:"name"];

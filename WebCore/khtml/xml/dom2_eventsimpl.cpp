@@ -163,149 +163,81 @@ void EventImpl::initEvent(const DOMString &eventTypeArg, bool canBubbleArg, bool
     m_cancelable = cancelableArg;
 }
 
-EventImpl::EventId EventImpl::typeToId(DOMString type)
+static const char * const eventNames[EventImpl::numEventIds] = {
+    0,
+    "DOMFocusIn",
+    "DOMFocusOut",
+    "DOMActivate",
+    "click",
+    "mousedown",
+    "mouseup",
+    "mouseover",
+    "mousemove",
+    "mouseout",
+    "onbeforecut",
+    "oncut",
+    "onbeforecopy",
+    "oncopy",
+    "onbeforepaste",
+    "onpaste",
+    "dragenter",
+    "dragover",
+    "dragleave",
+    "drop",
+    "dragstart",
+    "drag",
+    "dragend",
+    "selectstart",
+    "DOMSubtreeModified",
+    "DOMNodeInserted",
+    "DOMNodeRemoved",
+    "DOMNodeRemovedFromDocument",
+    "DOMNodeInsertedIntoDocument",
+    "DOMAttrModified",
+    "DOMCharacterDataModified",
+    "load",
+    "unload",
+    "abort",
+    "error",
+    "select",
+    "change",
+    "submit",
+    "reset",
+    "focus",
+    "blur",
+    "resize",
+    "scroll",
+    "contextmenu",
+#if APPLE_CHANGES
+    "search",
+#endif
+    "input",
+    "keydown",
+    "keyup",
+    "textInput", // FIXME: is the capital I correct?
+    0, // KHTML_DBLCLICK_EVENT
+    0, // KHTML_CLICK_EVENT
+    0, // KHTML_DRAGDROP_EVENT
+    0, // KHTML_ERROR_EVENT
+    "keypress",
+    0, // KHTML_MOVE_EVENT
+    0, // KHTML_ORIGCLICK_MOUSEUP_EVENT
+    "readystatechange",
+};
+
+EventImpl::EventId EventImpl::typeToId(const DOMString &type)
 {
-    if (type == "DOMFocusIn")
-	return DOMFOCUSIN_EVENT;
-    else if (type == "DOMFocusOut")
-	return DOMFOCUSOUT_EVENT;
-    else if (type == "DOMActivate")
-	return DOMACTIVATE_EVENT;
-    else if (type == "click")
-	return CLICK_EVENT;
-    else if (type == "mousedown")
-	return MOUSEDOWN_EVENT;
-    else if (type == "mouseup")
-	return MOUSEUP_EVENT;
-    else if (type == "mouseover")
-	return MOUSEOVER_EVENT;
-    else if (type == "mousemove")
-	return MOUSEMOVE_EVENT;
-    else if (type == "mouseout")
-	return MOUSEOUT_EVENT;
-    else if (type == "DOMSubtreeModified")
-	return DOMSUBTREEMODIFIED_EVENT;
-    else if (type == "DOMNodeInserted")
-	return DOMNODEINSERTED_EVENT;
-    else if (type == "DOMNodeRemoved")
-	return DOMNODEREMOVED_EVENT;
-    else if (type == "DOMNodeRemovedFromDocument")
-	return DOMNODEREMOVEDFROMDOCUMENT_EVENT;
-    else if (type == "DOMNodeInsertedIntoDocument")
-	return DOMNODEINSERTEDINTODOCUMENT_EVENT;
-    else if (type == "DOMAttrModified")
-	return DOMATTRMODIFIED_EVENT;
-    else if (type == "DOMCharacterDataModified")
-	return DOMCHARACTERDATAMODIFIED_EVENT;
-    else if (type == "load")
-	return LOAD_EVENT;
-    else if (type == "unload")
-	return UNLOAD_EVENT;
-    else if (type == "abort")
-	return ABORT_EVENT;
-    else if (type == "error")
-	return ERROR_EVENT;
-    else if (type == "select")
-	return SELECT_EVENT;
-    else if (type == "change")
-	return CHANGE_EVENT;
-    else if (type == "submit")
-	return SUBMIT_EVENT;
-    else if (type == "reset")
-	return RESET_EVENT;
-    else if (type == "focus")
-	return FOCUS_EVENT;
-    else if (type == "blur")
-	return BLUR_EVENT;
-    else if (type == "resize")
-	return RESIZE_EVENT;
-    else if (type == "scroll")
-	return SCROLL_EVENT;
-    else if (type == "contextmenu")
-	return CONTEXTMENU_EVENT;
-    else if (type == "keydown")
-	return KEYDOWN_EVENT;
-    else if (type == "keyup")
-	return KEYUP_EVENT;
-    else if (type == "textInput")
-	return TEXTINPUT_EVENT;
-    else if (type == "readystatechange")
-	return KHTML_READYSTATECHANGE_EVENT;
-    // ignore: KHTML_DBLCLICK_EVENT
-    // ignore: KHTML_CLICK_EVENT
+    for (int i = 0; i < numEventIds; ++i) {
+        const char *n = eventNames[i];
+        if (n && type == n)
+            return static_cast<EventId>(i);
+    }
     return UNKNOWN_EVENT;
 }
 
-DOMString EventImpl::idToType(EventImpl::EventId id)
+DOMString EventImpl::idToType(EventId id)
 {
     switch (id) {
-	case DOMFOCUSIN_EVENT:
-	    return "DOMFocusIn";
-	case DOMFOCUSOUT_EVENT:
-	    return "DOMFocusOut";
-	case DOMACTIVATE_EVENT:
-	    return "DOMActivate";
-	case CLICK_EVENT:
-	    return "click";
-	case MOUSEDOWN_EVENT:
-	    return "mousedown";
-	case MOUSEUP_EVENT:
-	    return "mouseup";
-	case MOUSEOVER_EVENT:
-	    return "mouseover";
-	case MOUSEMOVE_EVENT:
-	    return "mousemove";
-	case MOUSEOUT_EVENT:
-	    return "mouseout";
-	case DOMSUBTREEMODIFIED_EVENT:
-	    return "DOMSubtreeModified";
-	case DOMNODEINSERTED_EVENT:
-	    return "DOMNodeInserted";
-	case DOMNODEREMOVED_EVENT:
-	    return "DOMNodeRemoved";
-	case DOMNODEREMOVEDFROMDOCUMENT_EVENT:
-	    return "DOMNodeRemovedFromDocument";
-	case DOMNODEINSERTEDINTODOCUMENT_EVENT:
-	    return "DOMNodeInsertedIntoDocument";
-	case DOMATTRMODIFIED_EVENT:
-	    return "DOMAttrModified";
-	case DOMCHARACTERDATAMODIFIED_EVENT:
-	    return "DOMCharacterDataModified";
-	case LOAD_EVENT:
-	    return "load";
-	case UNLOAD_EVENT:
-	    return "unload";
-	case ABORT_EVENT:
-	    return "abort";
-	case ERROR_EVENT:
-	    return "error";
-	case SELECT_EVENT:
-	    return "select";
-	case CHANGE_EVENT:
-	    return "change";
-	case SUBMIT_EVENT:
-	    return "submit";
-	case RESET_EVENT:
-	    return "reset";
-	case FOCUS_EVENT:
-	    return "focus";
-	case BLUR_EVENT:
-	    return "blur";
-	case RESIZE_EVENT:
-	    return "resize";
-	case SCROLL_EVENT:
-	    return "scroll";
-        case CONTEXTMENU_EVENT:
-            return "contextmenu";
-	case KEYDOWN_EVENT:
-            return "keydown";
-	case KEYUP_EVENT:
-            return "keyup";
-        case KEYPRESS_EVENT:
-            return "keypress";
-	case TEXTINPUT_EVENT:
-            return "textInput";
-	// khtml extensions
 	case KHTML_DBLCLICK_EVENT:
             return "dblclick";
 	case KHTML_CLICK_EVENT:
@@ -318,12 +250,12 @@ DOMString EventImpl::idToType(EventImpl::EventId id)
             return "khtml_move";
         case KHTML_ORIGCLICK_MOUSEUP_EVENT:
             return "khtml_origclick_mouseup_event";
-        case KHTML_READYSTATECHANGE_EVENT:
-	    return "readystatechange";
-	default:
-	    return DOMString();
-	    break;
+        default:
+            break;
     }
+    if (id >= numEventIds)
+        return DOMString();
+    return eventNames[id];
 }
 
 bool EventImpl::isUIEvent() const
@@ -342,6 +274,16 @@ bool EventImpl::isMutationEvent() const
 }
 
 bool EventImpl::isKeyboardEvent() const
+{
+    return false;
+}
+
+bool EventImpl::isDragEvent() const
+{
+    return false;
+}
+
+bool EventImpl::isClipboardEvent() const
 {
     return false;
 }
@@ -406,6 +348,7 @@ MouseEventImpl::MouseEventImpl()
     m_metaKey = false;
     m_button = 0;
     m_relatedTarget = 0;
+    m_clipboard = 0;
 }
 
 MouseEventImpl::MouseEventImpl(EventId _id,
@@ -422,7 +365,8 @@ MouseEventImpl::MouseEventImpl(EventId _id,
 			       bool shiftKeyArg,
 			       bool metaKeyArg,
 			       unsigned short buttonArg,
-			       NodeImpl *relatedTargetArg)
+			       NodeImpl *relatedTargetArg,
+                               ClipboardImpl *clipboardArg)
 		   : UIEventImpl(_id,canBubbleArg,cancelableArg,viewArg,detailArg)
 {
     m_screenX = screenXArg;
@@ -437,6 +381,9 @@ MouseEventImpl::MouseEventImpl(EventId _id,
     m_relatedTarget = relatedTargetArg;
     if (m_relatedTarget)
 	m_relatedTarget->ref();
+    m_clipboard = clipboardArg;
+    if (m_clipboard)
+	m_clipboard->ref();
     computeLayerPos();
 }
 
@@ -447,12 +394,12 @@ void MouseEventImpl::computeLayerPos()
 
     DocumentImpl *doc = view()->document();
 
-    if (!doc) {
+    if (!doc || !doc->renderer()) {
 	return;
     }
 
     khtml::RenderObject::NodeInfo renderInfo(true, false);
-    doc->renderer()->layer()->nodeAtPoint(renderInfo, m_clientX, m_clientY);
+    doc->renderer()->layer()->hitTest(renderInfo, m_clientX, m_clientY);
 
     NodeImpl *node = renderInfo.innerNonSharedNode();
     while (node && !node->renderer()) {
@@ -475,6 +422,8 @@ MouseEventImpl::~MouseEventImpl()
 {
     if (m_relatedTarget)
 	m_relatedTarget->deref();
+    if (m_clipboard)
+	m_clipboard->deref();
 }
 
 void MouseEventImpl::initMouseEvent(const DOMString &typeArg,
@@ -516,6 +465,14 @@ void MouseEventImpl::initMouseEvent(const DOMString &typeArg,
 bool MouseEventImpl::isMouseEvent() const
 {
     return true;
+}
+
+bool MouseEventImpl::isDragEvent() const
+{
+    return (m_id == EventImpl::DRAGENTER_EVENT || m_id == EventImpl::DRAGOVER_EVENT
+            || m_id == EventImpl::DRAGLEAVE_EVENT || m_id == EventImpl::DROP_EVENT 
+            || m_id == EventImpl::DRAGSTART_EVENT || m_id == EventImpl::DRAG_EVENT
+            || m_id == EventImpl::DRAGEND_EVENT);
 }
 
 //---------------------------------------------------------------------------------------------
@@ -747,6 +704,31 @@ bool MutationEventImpl::isMutationEvent() const
 
 // -----------------------------------------------------------------------------
 
+ClipboardEventImpl::ClipboardEventImpl()
+{
+    m_clipboard = 0;
+}
+
+ClipboardEventImpl::ClipboardEventImpl(EventId _id, bool canBubbleArg, bool cancelableArg, ClipboardImpl *clipboardArg)
+  : EventImpl(_id, canBubbleArg, cancelableArg), m_clipboard(clipboardArg)
+{
+      if (m_clipboard)
+          m_clipboard->ref();
+}
+
+ClipboardEventImpl::~ClipboardEventImpl()
+{
+    if (m_clipboard)
+        m_clipboard->deref();
+}
+
+bool ClipboardEventImpl::isClipboardEvent() const
+{
+    return true;
+}
+
+// -----------------------------------------------------------------------------
+
 RegisteredEventListener::RegisteredEventListener(EventImpl::EventId _id, EventListener *_listener, bool _useCapture)
 {
     id = _id;
@@ -764,4 +746,14 @@ bool RegisteredEventListener::operator==(const RegisteredEventListener &other)
     return (id == other.id &&
 	    listener == other.listener &&
 	    useCapture == other.useCapture);
+}
+
+// -----------------------------------------------------------------------------
+
+ClipboardImpl::ClipboardImpl()
+{
+}
+
+ClipboardImpl::~ClipboardImpl()
+{
 }

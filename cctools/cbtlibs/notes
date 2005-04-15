@@ -1,3 +1,20 @@
+Changes for the 5.17 release (the cctools-550 release):
+- Ported and cleaned up the code to work with 32-bit and 64-bit Mach-O files.
+  Radar bug #3854972.
+
+Changes for the 5.17 release (the cctools-549 release):
+- Made a change to prevent the code from crashing if handed a 64-bit Mach-O
+  file.  The change is in nm() in libsyminfo.c to check to see that the 32-bit
+  mach_header is NULL and if so just return.  Radar bug #3854972.
+
+Changes for the 5.16 release (the cctools-520 release):
+- Fixed a bug that would cause a crash if libsyminfo was presented with an
+  binary of an unknown cputype.  The fix was in nm() in libsyminfo.c to check
+  if archInfo is NULL before using archInfo->name.  And if NULL then use a
+  sprintf() of the cputype instead. Radar bug #3590209.
+- Fixed a memory leak in SymInfoFreeSymbol() that was not free(3)ing the
+  symbol->arch.  Radar bug #3554267.
+
 Changes for the 5.12 release (the cctools-466 release):
 - Fixed the incorrect casts on the comparison of the nlist struct's n_strx field
   where the value being compared to was casted to a long.  The correct fix was

@@ -1,0 +1,349 @@
+2005-02-08  Mike Stump  <mrs@apple.com>
+
+	* files.c (pchf_adder): Remove.
+	(struct pchf_adder_info): Likewise.
+	(_cpp_save_file_entries): Write out all files so that #import works.
+
+2004-12-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* files.c (_cpp_find_file): Add files found by search_path_exhausted
+	to the list of all files.
+
+2004-10-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* errors.c (_cpp_begin_message): Print "error: " for errors.
+
+2004-10-10  Andreas Jaeger  <aj@suse.de>
+
+	* makedepend.c: Include mkdeps.h for prototype of deps_add_vpath.
+	* Makefile.in (makedepend.o): Add dependency on mkdeps.h.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* pch.c (cpp_write_pch_state): Remove variable z as it is not
+	used.
+	(cpp_read_state): Remove unused variables, m, d and mac_count.
+
+2004-09-29  Per Bothner  <per@bothner.com>
+
+	* directives.c (cpp_handle_deferred_pragma):  Save, clear and restore
+	cb.line_change.  Otherwise do_pragma will call the line_change
+	call-back with a meaningless line number.
+
+2004-09-24  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Move AC_PROG_MAKE_SET, AC_PROG_INSTALL to
+	programs cluster. Use ACX_PROG_CC_WARNING_OPTS,
+	ACX_PROG_CC_WARNING_ALMOST_PEDANTIC, ACX_PROG_CC_WARNINGS_ARE_ERRORS.
+	* aclocal.m4, configure: Regenerate.
+	* init.c: Include localedir.h.
+	* Makefile.in (WARN_CFLAGS, ALL_CFLAGS): New variables.
+	(DEFS): Delete.
+	(.c.o): Use $(ALL_CFLAGS).
+	(localedir.h, localedir.hs): New rules.
+	(clean): Use rm -rf to remove directories.
+	(distclean): Also delete localedir.h and localedir.hs.
+	(init.o): Update dependencies.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in (aclocal.m4): Update dependencies.
+	* configure.ac (AC_CONFIG_MACRO_DIR): New.
+	* aclocal.m4, configure: Regenerate.
+
+2004-09-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* charset.c (_cpp_destroy_iconv, emit_numeric_escape)
+	(_cpp_convert_input, _cpp_default_encoding): Add comments.
+	Some other comments in this file also tweaked.
+
+	* directives.c (do_pragma): Save current buffer position
+	before lexing the pragma keywords; don't call
+	_cpp_backup_tokens in the defer_pragmas case.
+
+2004-09-15  Per Bothner  <per@bothner.com>
+
+	* include/line-map.h (line_map_start):  Add parameter names so
+	preceding comment makes sense.
+	(linemap_add):  Remove from comment mention of non-existing parameter.
+
+2004-09-09  Matt Austern  <austern@apple.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* include/cpplib.h (TTYPE_TABLE): Remove CPP_ and SPELL_
+	prefixes throughout.  Add entry for PRAGMA.  Remove
+	unnecessary "= 0" from EQ.
+	(enum cpp_ttype): Adjust OP and TK definitions to restore
+	prefixes, via token-paste.
+	(CPP_LAST_EQ, CPP_FIRST_DIGRAPH, CPP_LAST_PUNCTUATOR, CPP_LAST_CPP_OP):
+	Change from #defines to additional cpp_ttype enumerators.
+	(struct cpp_options): Add defer_pragmas.
+	(cpp_handle_deferred_pragma): Prototype new interface.
+
+	* internal.h (struct cpp_reader): Add directive_result.
+	* directives.c (struct pragma_entry): Add is_internal field;
+	give boolean fields type bool.
+	(start_directive): Initialize pfile->directive_result.type.
+	(_cpp_do__Pragma): Likewise.
+	(run_directive): Do not crash if pfile->buffer->prev is NULL.
+	(insert_pragma_entry): Add 'internal' argument; set new->is_internal
+	from it.
+	(register_pragma): New static function, bulk of former
+	cpp_register_pragma here; add 'internal' argument, pass along
+	to insert_pragma_entry.
+	(cpp_register_pragma): Now a wrapper around register_pragma which
+	always passes false for 'internal' argument.
+	(_cpp_init_internal_pragmas): Call register_pragma directly, passing
+	true for 'internal'.
+	(do_pragma): If CPP_OPTION (pfile, defer_pragmas) and this isn't
+	an internal pragma, save text till the end of the line as a CPP_PRAGMA
+	token instead of executing the pragma.
+	(cpp_handle_deferred_pragma): New interface.
+	* lex.c (token_spellings): Adjust OP and TK definitions to
+	match changes to cpplib.h.
+	(_cpp_lex_token): Check for a directive-result token and
+	return it if present.
+	(cpp_token_val_index): Handle CPP_PRAGMA.
+	* macro.c (cpp_builtin_macro_text): Correct comment.
+	(builtin_macro): Handle directive-result tokens from _cpp_do__Pragma.
+
+2004-09-06  Serge Belyshev  <belyshev@lubercy.com>
+
+	PR preprocessor/14699
+	* symtab.c (ht_dump_statistics): Change type of sum_of_squares
+	from size_t to double.
+
+2004-08-28  Andreas Schwab  <schwab@suse.de>
+	    Andreas Jaeger <aj@suse.de>
+
+	* configure.ac: Set PACKAGE correctly.
+	* configure: Regenerated.
+
+2004-08-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in: Add back top_builddir.
+
+2004-08-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Replace Automake macro invocations
+	with manual Autoconf checks and substitutions.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* config.in: Regenerate.
+	* Makefile.am: Removed.
+	* Makefile.in: Heavy simplification and reorganization.
+
+2004-08-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac (arm*-*-eabi*): New target.
+	(arm*-*-symbianelf*): Likewise.
+	* configure: Regenerated.
+
+2004-07-24  Bernardo Innocenti  <bernie@develer.com>
+
+	* internal.h (xnew, xcnew, xnewvec, xcnewvec, xobnew): Remove.
+	* directives.c: Use XNEW-family macros from libiberty.
+	* lex.c: Likewise.
+	* macro.c: Likewise.
+	* cpplib.h (cpp_deps_style): Export enum with name.
+
+2004-07-23  Matthias Klose  <doko@debian.org>
+
+	* init.c (init_library): Use PACKAGE for the text domain.
+
+2004-07-16  Andris Pavenis  <pavenis@latnet.lv>
+
+	PR preprocessor/16366
+	* internal.h (struct cpp_reader): New field dir_hash.
+	* files.c (make_cpp_dir): Use dir_hash, not file_hash.
+	(_cpp_init_files, _cpp_cleanup_files): Update for new field.
+
+2004-07-04  Neil Booth  <neil@duron.akihabara.co.uk>
+
+	PR preprocessor/16192
+	PR preprocessor/15913
+	PR preprocessor/15572
+	* expr.c (_cpp_parse_expr): Handle remaining cases where an
+	expression is missing.
+	* init.c (post_options): Traditional cpp doesn't do // comments.
+
+2004-06-30  Per Bothner  <per@bothner.com>
+
+	* include/line-map.h (fileline):  Remove old typedef.
+	* internal.h (struct cpp_reader):  Use source_location typedef instead.
+
+2004-06-26  Zack Weinberg  <zack@codesourcery.com>
+
+	Partially revert patch of 2004-06-05.
+	* files.c (search_cache): Remove pfile argument.  Don't check
+	for file that would be found by "" or <> search here...
+	(_cpp_find_file): ...do it here, before calling find_file_in_dir.
+	Do not apply directory-of-current-file correction to files
+	found by this check.  Rearrange code slightly.
+
+2004-06-21  Geoffrey Keating  <geoffk@apple.com>
+
+	* files.c (should_stack_file): Correct swapped parameters to call
+	to cb.read_pch.
+	* pch.c (cpp_valid_state): Handle -fpreprocessed.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in: Regenerate with automake 1.8.5.
+	* aclocal.m4: Likewise.
+	* configure: Regenerate.
+
+2004-06-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Don't invoke ACX_HEADER_STDBOOL.
+	* configure, config.in: Regenerate.
+	* system.h: Unconditionally define bool as unsigned char,
+	BOOL_BITFIELD as unsigned int.
+	* .cvsignore: New file.
+
+2004-06-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* traditional.c (push_replacement_text): Set macro->traditional.
+	(save_replacement_text): Likewise.
+	* pch.c (cpp_write_pch_state): Don't write list of defined macros.
+	(struct save_macro_item): Delete.
+	(struct save_macro_data): Use a character array not the previous
+	structured format.
+	(save_macros): Save macro as text not as internal structures.
+	(cpp_prepare_state): Update for changes to save_macro_data.
+	(cpp_read_state): Don't read macros defined in PCH.  Restore
+	-D macros as text.
+	* macro.c (create_iso_definition): Honour alloc_subobject.
+	Clear traditional flag.
+	(_cpp_create_definition): Honour alloc_subobject.
+	* lex.c (cpp_token_val_index): New.
+	* internal.h: Include cpp-id-data.h.
+	(uchar): Move definition to cpp-id-data.h.
+	(U): Likewise.
+	(cpp_macro): Likewise.
+	* directives.c (struct answer): Move to cpp-id-data.h.
+	(do_assert): Honour alloc_subobject.
+
+	* include/symtab.h (struct ht): Add field 'alloc_subobject'.
+	* include/cpplib.h (struct cpp_string): Add GTY marker.
+	(enum cpp_token_fld_kind): New.
+	(struct cpp_token): Add GTY markers.
+	(cpp_token_val_index): Prototype.
+	(CPP_HASHNODE_VALUE_IDX): New.
+	(struct cpp_hashnode): Don't skip fields of 'value' when marking.
+	* include/cpp-id-data.h: New file.
+
+2004-06-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am (all-local): New.
+	* Makefile.in: Regenerate.
+
+2004-06-06  Roger Sayle  <roger@eyesopen.com>
+
+	* Makefile.am (LIBICONV): Declare.
+	(makedepend_LDADD): Use LIBICONV.
+	* Makefile.in: Regenerate.
+
+2004-06-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.am (LIBINTL): Declare
+	(makedepend_LDADD): Use LIBINTL.
+	* Makefile.in: Regenerate.
+
+2004-06-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.am: Add makedepend.
+	* Makefile.in, aclocal.m4: Regenerate.
+	* charset.c: Insert a space to avoid a warning.
+	* directives.c: Include mkdeps.h.
+	(_cpp_handle_directive): Reenable macro expander if appropriate.
+	(undefine_macros): Inline body of _cpp_free_definition for speed.
+	Do not call undef callback or _cpp_warn_if_unused_macro.
+	(cpp_get_deps): New interface.
+	* files.c (search_cache): Add pfile argument.  Check for file
+	that would be found by "" or <> search here...
+	(_cpp_find_file): ...not here.  Correct recorded start_dir of
+	files found by directory-of-current-file search that would be
+	found by "" or <> search.
+	* init.c (cpp_add_dependency_target): Delete.
+	* internal.h (struct lexer_state): Add discarding_output flag.
+	* lex.c (lex_identifier): Compute hash function while scanning.
+	* macro.c (cpp_scan_nooutput): Disable macro expansion outside
+	directives.
+	* makedepend.c: New file.
+	* mkdeps.c (struct deps): Add vpath vector.
+	(apply_vpath, deps_add_vpath): New function.
+	(deps_free): Free vpath vector.
+	(deps_add_dep, deps_add_target): Use apply_vpath.
+	* symtab.c (calc_hash): Use HT_HASHSTEP and HT_FINISH.
+	(ht_lookup_with_hash): New function.
+	* cpplib.h, mkdeps.h: Update prototypes.
+	* symtab.h: Update prototypes.
+	(HT_HASHSTEP, HT_FINISH): New macros.
+
+2004-05-29  Geoffrey Keating  <geoffk@apple.com>
+
+	* symtab.c (ht_create): Set entries_owned.
+	(ht_destroy): Honour entries_owned.
+	(ht_expand): Likewise.
+	(ht_load): New.
+	* include/symtab.h (struct ht): New field 'entries_owned'
+	(ht_load): New prototype.
+
+2004-05-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/15651
+	* configure.ac: Fix m4 quoting when picking
+	the size of HOST_WIDE_INT.
+	* configure: Regenerate.
+
+2004-05-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am: the correct directory for
+	gettext include files is given by @INCINTL@.
+	* Makefile.in: Regenerate.
+
+2004-05-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* system.h [!ENABLE_NLS]: dgettext takes two
+	parameters.
+
+2004-05-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	Moved libcpp from the gcc subdirectory to the toplevel.
+	* Makefile.am: New file.
+	* Makefile.in: Regenerate.
+	* configure.ac: New file.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* charset.c: Moved from gcc/cppcharset.c.  Add note about
+	brokenness of input charset detection.  Adjust for change
+	in name of cppucnid.h.
+	* errors.c: Moved from gcc/cpperror.c.  Do not include intl.h.
+	* expr.c: Moved from gcc/cppexp.c.
+	* files.c: Moved from gcc/cppfiles.c.  Do not include intl.h.
+	Remove #define of O_BINARY, it is in system.h.
+	* identifiers.c: Moved from gcc/cpphash.c.
+	* internal.h: Moved from gcc/cpphash.h.  Change header
+	guard name.  All other files adjusted to match name change.
+	* init.c: Moved from gcc/cppinit.c.
+	(init_library) [ENABLE_NLS]: Call bindtextdomain.
+	* lex.c: Moved from gcc/cpplex.c.
+	* directives.c: Moved from gcc/cpplib.c.
+	* macro.c: Moved from gcc/cppmacro.c.
+	* pch.c: Moved from gcc/cpppch.c.  Do not include intl.h.
+	* traditional.c: Moved from gcc/cpptrad.c.
+	* ucnid.h: Moved from gcc/cppucnid.h.  Change header
+	guard name.
+	* ucnid.pl: Moved from gcc/cppucnid.pl.
+	* ucnid.tab: Moved from gcc/cppucnid.tab.  Change header
+	guard name.
+	* symtab.c: Moved from gcc/hashtable.c.
+	* line-map.c: Moved from gcc.  Do not include intl.h.
+	* mkdeps.c: Moved from gcc.
+	* system.h: New file.
+	* include/cpplib.h: Moved from gcc.  Change header guard name.
+	* include/line-map.h: Moved from gcc.  Change header guard name.
+	* include/mkdeps.h: Moved from gcc.  Change header guard name.
+	* include/symtab.h: Moved from gcc/hashtable.h.  Change header
+	guard name.

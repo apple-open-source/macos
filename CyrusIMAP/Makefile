@@ -1,72 +1,69 @@
-##
-# Apple wrapper Makefile for cyrus imap server
-# Copyright (c) 2003 by Apple Computer, Inc.
-##
-# Although it is a GNU-like project, it does not come with a Makefile,
-# and the configure script requires user interaction. This Makefile just provides
-# the targets required by Apple's build system, and creates a config file
-# config.php by modifying the default config file config_default.php
 #
-# This Makefile tries to conform to hier(7) by moving config, data, attachments
-# to appropriate places in the file system, and makes symlinks where necessary.
+# xbs-compatible wrapper Makefile for cyrus imap
+#
 
-PROJECT_NAME=cyrus_imap
-PROJECT_VERSION=2.1.13
-PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
-PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
+PROJECT=cyrus
+VERSION=2.2.10
 
-PATCH_NAME=patch
-PATCH_VERSION=1.1
-PATCH_DIR=$(PATCH_NAME)-$(PATCH_VERSION)
-PATCH_ARCHIVE=$(PATCH_DIR).tar.gz
+SHELL := /bin/sh
 
-EXTRAS_NAME=extras
-EXTRAS_VERSION=1.0
-EXTRAS_DIR=$(EXTRAS_NAME)-$(EXTRAS_VERSION)
-EXTRAS_ARCHIVE=$(EXTRAS_DIR).tar.gz
+# Sane defaults, which are typically overridden on the command line.
+SRCROOT=
+OBJROOT=$(SRCROOT)
+SYMROOT=$(OBJROOT)
+DSTROOT=/usr/local
+RC_ARCHS=
+CFLAGS=-Os $(RC_CFLAGS)
 
-EXPORT_TOOL_NAME=amsmailtool
-EXPORT_TOOL_VERSION=1.0
-EXPORT_TOOL_DIR=$(EXPORT_TOOL_NAME)-$(EXPORT_TOOL_VERSION)
-EXPORT_TOOL_ARCHIVE=$(EXPORT_TOOL_DIR).tar.gz
-
-DLLIB_NAME=dlcompat
-DLLIB_VERSION=20010505
-DLLIB_DIR=$(DLLIB_NAME)-$(DLLIB_VERSION)
-DLLIB_ARCHIVE=$(DLLIB_DIR).tar.gz
-
-SILENT=@
-ECHO=echo
-CP=cp
-RM=rm
-MV=mv
-RANLIB=ranlib
-DSTROOT=/
-ETCDIR=/private/etc
-SHAREDIR=/usr/share/man
-TOOLSDIR=/usr/bin/cyrus/tools
-SASCRIPTS= cyrus
-SASCRIPTSDIR=/System/Library/ServerSetup/SetupExtras
-SETUPEXTRASDIR=SetupExtras
-GNUTAR=gnutar
-PROJECT_FILES=Makefile $(PATCH_ARCHIVE) $(DB_ARCHIVE) $(EXTRAS_ARCHIVE) $(DLLIB_ARCHIVE) $(EXPORT_TOOL_ARCHIVE)
-CYRUS_TOOLS= dohash mkimap mupdate-loadgen.pl not-mkdep rehash \
-			 translatesieve undohash upgradesieve
-				
 # Configuration values we customize
 #
 
+PROJECT_NAME=cyrus_imap
+
+BIN_DIR=/usr/bin/cyrus/bin
+TOOLSDIR=/usr/bin/cyrus/tools
+TESTDIR=/usr/bin/cyrus/test
+ADMINDIR=/usr/bin/cyrus/admin
+ETCDIR=/private/etc
+PERL_DIR=/System/Library
+SHAREDIR=/usr/share/man
+SETUPEXTRASDIR=SetupExtras
+SASCRIPTSDIR=/System/Library/ServerSetup/SetupExtras
+OSV_DIR=/usr/local/OpenSourceVersions
+OSL_DIR=/usr/local/OpenSourceLicenses
+
+
+STRIP=/usr/bin/strip
+
+LIB_PERL=/System/Library/Perl/
+PERL_VER=`perl -V:version | sed -n -e "s/[^0-9.]*\([0-9.]*\).*/\1/p"`
+
+CYRUS_TOOLS= dohash mkimap mupdate-loadgen.pl not-mkdep rehash \
+			 translatesieve undohash upgradesieve
+LOCAL_DIRS= System bin include lib man usr
+
 CYRUS_CONFIG = \
-	--host=powerpc-apple \
-	--with-dbdir=/usr/local/BerkeleyDB \
+	--build=powerpc-apple-netbsd \
+	--with-bdb-libdir=/usr/local/BerkeleyDB/lib \
+	--with-bdb-incdir=/usr/local/BerkeleyDB/include \
 	--with-sasl=/usr \
+	--with-mboxlist-db=berkeley \
+	--with-seen-db=skiplist \
+	--with-subs-db=flat \
 	--with-openssl=/usr \
 	--with-auth=krb \
+	--enable-gssapi \
+	--disable-krb4 \
+	--with-com_err \
+	--with-snmp=/usr/share/snmp \
+	--with-extraident="OS X 10.3" \
 	--enable-murder \
+	--with-service-path=$(BIN_DIR) \
 	--with-pidfile=/var/run/cyrus-master.pid \
-	--with-cyrus-prefix=$(DSTROOT)/usr/bin/cyrus \
-	--prefix=$(DSTROOT)/usr/bin/cyrus \
-	--exec-prefix=$(DSTROOT)/usr/bin/cyrus
+	--with-cyrus-user=cyrus \
+	--without-snmp \
+	--mandir=/usr/share/man \
+	BI_RC_CFLAGS="$(RC_CFLAGS)"
 
 # These includes provide the proper paths to system utilities
 #
@@ -74,145 +71,134 @@ CYRUS_CONFIG = \
 include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
-# Set up our variables
-#
+default:: make_imap
 
-GNUTAR=gnutar
+install :: make_imap_install clean_src strip_imap_binaries
 
-# Build rules
+install_debug :: make_imap_install
 
-default:: do_untar configure do_build
+make_imap : configure_imap build_imap
 
-default:: do_untar configure do_build
+make_imap_clean : clean_imap configure_imap build_imap
 
-install:: configure do_build do_install do_clean
+make_imap_install : configure_imap build_imap install_imap
 
-installlocal:: configure do_build do_install
+make_imap_clean_install : clean_imap configure_imap build_imap install_imap
 
-clean:: do_clean
+build_all : configure_imap build_imap
 
-configure:: do_untar do_build_db do_patch do_configure
+build_install : build_all install_imap
 
-installhdrs:: do_installhdrs
+clean : clean_src
 
-installsrc:: do_installsrc
-
-# Custom configuration:
-#
-
-do_untar:
-	$(SILENT) $(ECHO) "Untarring $(PROJECT_DIR)..."
-	$(SILENT) if [ ! -e $(PROJECT_DIR)/README ]; then\
-		$(GNUTAR) -xzf $(PROJECT_ARCHIVE);\
-	fi
-	$(SILENT) $(ECHO) "Untarring $(PATCH_DIR)..."
-	$(SILENT) if [ ! -e $(PATCH_DIR)/README.PATCH ]; then\
-		$(GNUTAR) -xzf $(PATCH_ARCHIVE);\
-	fi
-	$(SILENT) $(ECHO) "Untarring $(EXTRAS_DIR)..."
-	$(SILENT) if [ ! -e $(EXTRAS_DIR)/README ]; then\
-		$(GNUTAR) -xzf $(EXTRAS_ARCHIVE);\
-	fi
-	$(SILENT) $(ECHO) "Untarring $(DLLIB_DIR)..."
-	$(SILENT) if [ ! -e $(DLLIB_DIR)/README ]; then\
-		$(GNUTAR) -xzf $(DLLIB_ARCHIVE);\
-	fi
-	$(SILENT) $(ECHO) "Untarring $(EXPORT_TOOL_DIR)..."
-	$(SILENT) if [ ! -e $(EXPORT_TOOL_DIR)/README ]; then\
-		$(GNUTAR) -xzf $(EXPORT_TOOL_ARCHIVE);\
-	fi
-	$(SILENT) $(ECHO) "Untarring complete."
-
-do_patch:
-	$(SILENT) $(ECHO) "Applying $(PATCH_DIR) to source $(PROJECT_NAME)..."
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PATCH_DIR)" && $(CP) -r * "$(SRCROOT)/$(PROJECT_DIR)")
-	$(SILENT) $(ECHO) "Applying $(PATCH_NAME) patch complete."
-
-do_configure: 
-	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
-#	$(SILENT) ($(CD) "$(SRCROOT)/$(EXTRAS_DIR)/lib" && $(CP) -r /usr/lib/sasl2 .)
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_DIR)" && ./configure $(CYRUS_CONFIG))
-	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME) complete."
-
-do_install: $(DSTROOT) $(DSTROOT)$(ETCDIR) $(DSTROOT)$(TOOLSDIR) $(DSTROOT)$(SHAREDIR) $(DSTROOT)$(SASCRIPTSDIR)
-	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_DIR)" && make install)
-	for file in $(CYRUS_TOOLS); \
-	do \
-		$(CD) "$(SRCROOT)/$(PROJECT_DIR)/tools" && $(CP) $$file $(DSTROOT)$(TOOLSDIR) || exit 1; \
-	done
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_DIR)/etc" && $(CP) cyrus.conf.default $(DSTROOT)$(ETCDIR))
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_DIR)/etc" && $(CP) imapd.conf.default $(DSTROOT)$(ETCDIR))
-	$(SILENT) ($(MV) "$(DSTROOT)/usr/bin/cyrus/man/man8/master.8" "$(DSTROOT)/usr/bin/cyrus/man/man8/cyrus-master.8" )
-	$(SILENT) ($(CD) "$(DSTROOT)/usr/bin/cyrus/man" && $(CP) -r * "$(DSTROOT)/$(SHAREDIR)/" )
-	$(SILENT) ($(RM) -r "$(DSTROOT)/usr/bin/cyrus/include" )
-	$(SILENT) ($(RM) -r "$(DSTROOT)/usr/bin/cyrus/man" )
-	$(SILENT) ($(RM) -r "$(DSTROOT)/usr/bin/cyrus/lib" )
-	$(SILENT) if [ -e "$(DSTROOT)/usr/bin/cyrus/Library" ]; then\
-		$(RM) -r "$(DSTROOT)/usr/bin/cyrus/Library";\
-	fi
-	$(SILENT) if [ -e "$(DSTROOT)/usr/bin/cyrus/System" ]; then\
-		$(RM) -r "$(DSTROOT)/usr/bin/cyrus/System";\
-	fi
-	$(SILENT) if [ -e "$(DSTROOT)/usr/bin/cyrususr" ]; then\
-		$(MV) "$(DSTROOT)/usr/bin/cyrususr" "$(DSTROOT)/usr/bin/cyrus/";\
-	fi
-	$(SILENT) ($(CD) "$(SRCROOT)/$(EXPORT_TOOL_DIR)" && /usr/bin/pbxbuild install DSTROOT="$(DSTROOT)")
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_DIR)/$(SETUPEXTRASDIR)" && $(CP) cyrus $(DSTROOT)$(SASCRIPTSDIR))
-	for file in $(SASCRIPTS); \
-	do \
-		$(CD) "$(SRCROOT)/$(PROJECT_DIR)/$(SETUPEXTRASDIR)" && $(CP) $$file $(DSTROOT)$(SASCRIPTSDIR) || exit 1; \
-	done
-	$(SILENT) $(ECHO) "Install $(PROJECT_NAME) complete."
-
-do_build_db:
-	$(SILENT) $(ECHO) "Building $(DLLIB_DIR)...."
-	$(SILENT) ($(CD) "$(SRCROOT)/$(DLLIB_DIR)" && make install prefix="$(SRCROOT)/$(EXTRAS_DIR)")
-	$(SILENT) ($(CD) "$(SRCROOT)/$(EXTRAS_DIR)/lib" && $(RANLIB) libdl.a)
-	$(SILENT) ($(CD) "$(SRCROOT)/$(EXTRAS_DIR)/lib" && $(RM) libdl.dylib)
-	$(SILENT) $(ECHO) "Building $(DLLIB_DIR) Complete."
-
-do_build: $(DSTROOT) $(DSTROOT)$(ETCDIR) $(DSTROOT)$(TOOLSDIR) $(DSTROOT)$(SHAREDIR)
-	$(SILENT) $(ECHO) "Building $(PROJECT_NAME)...."
-	$(SILENT) $(ECHO) "Building $(PROJECT_DIR)...."
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_DIR)" && make)
-	$(SILENT) $(ECHO) "Building $(PROJECT_DIR) Complete."
-	$(SILENT) $(ECHO) "Building $(EXPORT_TOOL_DIR)...."
-	$(SILENT) ($(CD) "$(SRCROOT)/$(EXPORT_TOOL_DIR)" && /usr/bin/pbxbuild DSTROOT="$(DSTROOT)")
-	$(SILENT) $(ECHO) "Building $(EXPORT_TOOL_DIR) Complete."
-	$(SILENT) $(ECHO) "Build complete."
-
-do_installhdrs:
+installhdrs :
 	$(SILENT) $(ECHO) "No headers to install"
 
-do_installsrc:
-	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME) sources in $(SRCROOT)..."
-	$(SILENT) -$(RM) -rf $(SRCROOT)
-	$(SILENT) $(MKDIRS) $(SRCROOT)
-	$(SILENT) $(CP) $(PROJECT_FILES) $(SRCROOT)
-	$(SILENT) $(CP) $(PROJECT_ARCHIVE) $(SRCROOT)
+installsrc :
+	[ ! -d $(SRCROOT)/$(PROJECT) ] && mkdir -p $(SRCROOT)/$(PROJECT)
+	tar cf - . | (cd $(SRCROOT) ; tar xfp -)
+	find $(SRCROOT) -type d -name CVS -print0 | xargs -0 rm -rf
 
-do_clean:
+clean_src :
+	$(SILENT) if [ -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
+	fi
+	$(SILENT) if [ -d "$(SRCROOT)/$(EXPORT_TOOL_NAME)/build" ]; then\
+		$(SILENT) ($(RM) -r "$(SRCROOT)/$(EXPORT_TOOL_NAME)/build")\
+	fi
+
+configure_imap :
+	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- configure_imap"
+	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
+	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && ./configure $(CYRUS_CONFIG))\
+	fi
+	$(SILENT) $(ECHO) "---- Configuring $(PROJECT_NAME) complete."
+
+clean_imap_src : 
 	$(SILENT) $(ECHO) "Cleaning $(PROJECT_NAME)..."
-	$(SILENT) -$(RM) -rf $(PROJECT_DIR)
-	$(SILENT) -$(RM) -rf $(PATCH_DIR)
-	$(SILENT) -$(RM) -rf $(EXTRAS_DIR)
-	$(SILENT) -$(RM) -rf $(DLLIB_DIR)
-	$(SILENT) -$(RM) -rf $(EXPORT_TOOL_DIR)
-	$(SILENT) -$(RM) -rf $(DSTROOT)/usr/bin/cyrus/Prefix/lib/perl5
-	$(SILENT) $(ECHO) "Cleaning complete."
+	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) --------------"
+	$(SILENT) if [ -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
+	fi
+	$(SILENT) $(ECHO) "Cleaning $(PROJECT_NAME) complete."
 
-$(DSTROOT):
+build_imap :
+	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- build_imap"
+	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
+	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && ./configure $(CYRUS_CONFIG))\
+	fi
+	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make DESTDIR="$(DSTROOT)" depend)
+	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make DESTDIR="$(DSTROOT)" all)
+	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make DESTDIR="$(DSTROOT)" install)
+	$(SILENT) $(ECHO) "---- Building $(PROJECT_NAME) complete."
+
+install_imap :  $(DSTROOT)$(TOOLSDIR) $(DSTROOT)$(TESTDIR) $(DSTROOT)$(ADMINDIR) $(DSTROOT)$(ETCDIR) \
+		$(DSTROOT)$(SHAREDIR) $(DSTROOT)$(SASCRIPTSDIR) $(DSTROOT)$(OSV_DIR) \
+		$(DSTROOT)$(OSL_DIR) $(DSTROOT)$(PERL_DIR)
+	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) --------------"
+	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
+	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make install DESTDIR="$(DSTROOT)")
+	$(SILENT) ($(MV) "$(DSTROOT)/usr/local/Library/Perl" "$(DSTROOT)$(PERL_DIR)/")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/local/Library")
+	$(SILENT) ($(CP) -rpf "$(DSTROOT)/usr/local/usr/bin/cyradm" "$(DSTROOT)$(ADMINDIR)/")
+	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/man" && $(CP) -r * "$(DSTROOT)/$(SHAREDIR)/")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/master.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-master.8")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(BIN_DIR)/notifyd" "$(DSTROOT)/$(BIN_DIR)/cyrus-notifyd")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/notifyd.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-notifyd.8")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(BIN_DIR)/quota" "$(DSTROOT)/$(BIN_DIR)/cyrus-quota")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/quota.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-quota.8")
+	$(SILENT) install -m 0555 "$(SRCROOT)/$(SETUPEXTRASDIR)/cyrus" "$(DSTROOT)$(SASCRIPTSDIR)"
+	$(SILENT) install -m 0640 "$(SRCROOT)/$(SETUPEXTRASDIR)/etc/cyrus.conf.default" "$(DSTROOT)$(ETCDIR)"
+	$(SILENT) install -m 0640 "$(SRCROOT)/$(SETUPEXTRASDIR)/etc/imapd.conf.default" "$(DSTROOT)$(ETCDIR)"
+	$(SILENT) install -m 0444 "$(SRCROOT)/$(SETUPEXTRASDIR)/CyrusIMAP.plist" "$(DSTROOT)/$(OSV_DIR)"
+	$(SILENT) install -m 0444 "$(SRCROOT)/$(SETUPEXTRASDIR)/CyrusIMAP.txt" "$(DSTROOT)/$(OSL_DIR)"
+	for file in $(CYRUS_TOOLS); \
+	do \
+		$(SILENT) install -m 755 "$(SRCROOT)/$(PROJECT_NAME)/tools/$$file" "$(DSTROOT)$(TOOLSDIR)" ; \
+	done
+
+	$(SILENT) $(ECHO) "---- Installing $(PROJECT_NAME) complete."
+
+strip_imap_binaries:
+	$(SILENT) ($(RM) -rf $(DSTROOT)/usr/bin/cyrus/include/cyrus/strhash.o)
+	$(SILENT) ($(RM) -rf $(DSTROOT)/usr/bin/cyrus/lib)
+	for dir in $(LOCAL_DIRS); \
+	do \
+		$(SILENT) if [ -d "$(DSTROOT)/usr/local/$$dir" ]; then \
+			$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/local/$$dir") \
+		fi \
+	done
+
+.PHONY: clean installhdrs installsrc build install 
+
+$(DSTROOT) :
 	$(SILENT) $(MKDIRS) $@
 
-$(DSTROOT)$(ETCDIR):
+$(DSTROOT)$(ETCDIR) :
 	$(SILENT) $(MKDIRS) $@
 
-$(DSTROOT)$(TOOLSDIR):
+$(DSTROOT)$(TOOLSDIR) :
 	$(SILENT) $(MKDIRS) $@
 
-$(DSTROOT)$(SHAREDIR):
+$(DSTROOT)$(TESTDIR) :
 	$(SILENT) $(MKDIRS) $@
 
-$(DSTROOT)$(SASCRIPTSDIR):
+$(DSTROOT)$(ADMINDIR) :
+	$(SILENT) $(MKDIRS) $@
+
+$(DSTROOT)$(PERL_DIR) :
+	$(SILENT) $(MKDIRS) $@
+
+$(DSTROOT)$(SHAREDIR) :
+	$(SILENT) $(MKDIRS) $@
+
+$(DSTROOT)$(SASCRIPTSDIR) :
+	$(SILENT) $(MKDIRS) $@
+
+$(DSTROOT)$(OSV_DIR) :
+	$(SILENT) $(MKDIRS) $@
+
+$(DSTROOT)$(OSL_DIR) :
 	$(SILENT) $(MKDIRS) $@

@@ -1,6 +1,6 @@
 <HTML><HEAD>
 <title>Upgrading from Cyrus SASLv1 to Cyrus SASLv2</title>
-<!-- $Id: upgrading.html,v 1.1 2002/02/28 00:00:14 snsimon Exp $ -->
+<!-- $Id: upgrading.html,v 1.4 2005/01/10 19:13:37 snsimon Exp $ -->
 </HEAD>
 <BODY>
 <H1>Upgrading from Cyrus SASLv1 to Cyrus SASLv2</H1>
@@ -8,21 +8,46 @@
 This document covers issues with upgrading from SASLv1 to SASLv2.
 To upgrade:
 
-<ol>
-<li> Install Cyrus SASLv2 as normal according to <a
+<ul>
+<li> Install Cyrus SASL v2 as normal according to <a
 href="install.html">the installation guide</a>.  This will overwrite
 some manpages, but will not affect your current applications.  Do NOT
-attempt to make it use the same directories.</li>
+attempt to make it use the same directories, otherwise old Cyrus SASLv1
+applications will no longer function.</li>
 
-<li> If you are using <tt>/etc/sasldb</tt> for any authentication, run
-<tt>utils/dbconverter-2</tt> after installation.</li>
+<li> Install your new Cyrus SASL v2 applications. Applications that
+use Cyrus SASLv1 will <em>not</em> use the Cyrus SASL v2
+infrastructure (and vice-versa).
 
-<li> If you are continuing to use libsaslv1 applications, read onwards
-to understand the ramifications.</li>
+<li> If you used <tt>/etc/sasldb</tt> for authentication, you'll need
+to take the following steps to convert to using <tt>/etc/sasldb2</tt>
+with Cyrus SASL v2:
+      <ol>
+      <li> run <tt>utils/dbconverter-2</tt> after installation.</li>
+      <li> change the <tt>pwcheck_method</tt> in any config files to
+      <tt>auxprop</tt></li> 
+      <li> (optional) add <tt>auxprop_plugin</tt> to the config files,
+      set to <tt>sasldb</tt></li>
+      </ol>
 
-<li> If you want to learn how to port applications from SASLv1 to SASLv2,
-you should read <A HREF=appconvert.html>this document</A>.
-</ol>
+<li> If you used <tt>passwd</tt>, <tt>shadow</tt>, <tt>pam</tt>,
+<tt>kerberos_v4</tt> or <tt>sia</tt> as your <tt>pwcheck_method</tt>
+in libsasl v1, you'll need to convert to using
+<tt>saslauthd</tt>. Arrange to start <tt>saslauthd -a
+<i>method</i></tt> on boot. Change <tt>pwcheck_method</tt> in any
+configuration files to <tt>saslauthd</tt>.</li>
+
+<li> If you used <tt>pwcheck</tt> with libsasl v1, you can either
+continue to use <tt>pwcheck</tt> with libsasl v1 or you can switch to
+<tt>saslauthd</tt>, which offers more flexibility and a potentially
+much more efficient implementation.</li>
+
+<li> If you are continuing to use some libsasl v1 applications, read
+onwards to understand the ramifications.</li>
+
+<li> If you want to learn how to port applications from libsasl v1 to
+libsasl v2, you should read <A HREF=appconvert.html>this document</A>.
+</ul>
 
 <h2><A NAME="overview">Backwards Compatibility</A></h2>
 
@@ -59,9 +84,9 @@ While there does not seem to be any conflict with the keys stored in
 the database, it is not recommended for both versions of the library
 to use the same database file.  Included in the utils directory is a
 program called <tt>dbconverter-2</tt> which will allow you to convert
-from the old-format database to the new format.  If you continue to
-run applications that rely on Cyrus SASLv2 the databases will not be
-kept in sync by any automatic means.<p>
+from the old-format database to the new format.  Note that if you continue to
+run older applications that rely on Cyrus SASLv1, the databases for SASLv1
+and SASLv2 will not automatically be kept in sync.<p>
 
 <hr>
 Back to the <A href=index.html>index</a>

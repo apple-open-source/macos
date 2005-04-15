@@ -22,6 +22,9 @@
 extern "C" {
 #endif
 
+/**
+ * This error codes are obsolete; not used any more.
+ */
 typedef enum {
     XML_SCHEMAS_ERR_OK		= 0,
     XML_SCHEMAS_ERR_NOROOT	= 1,
@@ -51,6 +54,29 @@ typedef enum {
     XML_SCHEMAS_ERR_XXX
 } xmlSchemaValidError;
 
+/*
+* ATTENTION: Change xmlSchemaSetValidOptions's check
+* for invalid values, if adding to the validation 
+* options below.
+*/
+/**
+ * xmlSchemaValidOption:
+ *
+ * This is the set of XML Schema validation options.
+ */
+typedef enum {
+    XML_SCHEMA_VAL_VC_I_CREATE			= 1<<0
+	/* Default/fixed: create an attribute node
+	* or an element's text node on the instance.
+	*/
+} xmlSchemaValidOption;
+
+/*
+    XML_SCHEMA_VAL_XSI_ASSEMBLE			= 1<<1,
+	* assemble schemata using
+	* xsi:schemaLocation and
+	* xsi:noNamespaceSchemaLocation
+*/
 
 /**
  * The schemas related types are kept internal
@@ -87,6 +113,11 @@ XMLPUBFUN void XMLCALL
 					 xmlSchemaValidityErrorFunc err,
 					 xmlSchemaValidityWarningFunc warn,
 					 void *ctx);
+XMLPUBFUN int XMLCALL
+		xmlSchemaGetParserErrors	(xmlSchemaParserCtxtPtr ctxt,
+					xmlSchemaValidityErrorFunc * err,
+					xmlSchemaValidityWarningFunc * warn,
+					void **ctx);
 XMLPUBFUN xmlSchemaPtr XMLCALL	
 	    xmlSchemaParse		(xmlSchemaParserCtxtPtr ctxt);
 XMLPUBFUN void XMLCALL		
@@ -104,6 +135,17 @@ XMLPUBFUN void XMLCALL
 					 xmlSchemaValidityErrorFunc err,
 					 xmlSchemaValidityWarningFunc warn,
 					 void *ctx);
+XMLPUBFUN int XMLCALL
+	    xmlSchemaGetValidErrors	(xmlSchemaValidCtxtPtr ctxt,
+					 xmlSchemaValidityErrorFunc *err,
+					 xmlSchemaValidityWarningFunc *warn,
+					 void **ctx);
+XMLPUBFUN int XMLCALL
+	    xmlSchemaSetValidOptions	(xmlSchemaValidCtxtPtr ctxt,
+					 int options);
+XMLPUBFUN int XMLCALL
+	    xmlSchemaValidCtxtGetOptions(xmlSchemaValidCtxtPtr ctxt);
+
 XMLPUBFUN xmlSchemaValidCtxtPtr XMLCALL	
 	    xmlSchemaNewValidCtxt	(xmlSchemaPtr schema);
 XMLPUBFUN void XMLCALL			
@@ -111,6 +153,9 @@ XMLPUBFUN void XMLCALL
 XMLPUBFUN int XMLCALL			
 	    xmlSchemaValidateDoc	(xmlSchemaValidCtxtPtr ctxt,
 					 xmlDocPtr instance);
+XMLPUBFUN int XMLCALL
+            xmlSchemaValidateOneElement (xmlSchemaValidCtxtPtr ctxt,
+			                 xmlNodePtr elem);
 XMLPUBFUN int XMLCALL			
 	    xmlSchemaValidateStream	(xmlSchemaValidCtxtPtr ctxt,
 					 xmlParserInputBufferPtr input,

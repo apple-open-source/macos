@@ -1,0 +1,339 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>SMTPTEST</title>
+</head>
+<body>
+
+<h1 align=center>SMTPTEST</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:19 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>smtptest &minus; interactive SMTP test program</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>smtptest</b> [ <b>&minus;t</b> <i>keyfile</i> ] [
+<b>&minus;p</b> <i>port</i> ] [ <b>&minus;m</b>
+<i>mechanism</i> ]<br>
+[ <b>&minus;a</b> <i>userid</i> ] [ <b>&minus;u</b>
+<i>userid</i> ] [ <b>&minus;k</b> <i>num</i> ] [
+<b>&minus;l</b> <i>num</i> ]<br>
+[ <b>&minus;r</b> <i>realm</i> ] [ <b>&minus;f</b>
+<i>file</i> ] [ <b>&minus;n</b> <i>num</i> ] [
+<b>&minus;s</b> ] [ <b>&minus;c</b> ]<br>
+[ <b>&minus;i</b> ] [ <b>&minus;o</b>
+<i>option</i><b>=</b><i>value</i> ] [ <b>&minus;v</b> ]
+<i>hostname</i></p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>smtptest</i> is a utility that allows you to
+authenticate to a SMTP server and interactively issue
+commands to it. Once authenticated you may issue any SMTP
+command by simply typing it in. It is capable of multiple
+SASL authentication mechanisms and handles encryption layers
+transparently. This utility is often used for testing the
+operation of a smtp server. Also those developing SMTP
+clients find it useful.</p>
+</td>
+</table></p>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;t</b> <i>keyfile</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Enable TLS. <i>keyfile</i> contains the TLS public and
+private keys. Specify <b>&quot;&quot;</b> to negotiate a TLS
+encryption layer but not use TLS authentication.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;p</b> <i>port</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Port to connect to. If left off this defaults to
+<b>smtp</b> as defined in /etc/services.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>-m</b> <i>mechanism</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Force smtptest to use <i>mechanism</i> for
+authentication. If not specified the strongest
+authentication mechanism supported by the server is
+chosen.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>-a</b> <i>userid</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Userid to use for authentication; defaults to the current
+user. This is the userid whose password or credentials will
+be presented to the server for verification.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>-u</b> <i>userid</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Userid to use for authorization; defaults to the current
+user. This is the userid whose identity will be assumed
+after authentication. <b>NOTE:</b> This is only used with
+SASL mechanisms that allow proxying (e.g. PLAIN,
+DIGEST-MD5).</p>
+</td>
+</table>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="8%">
+
+<p><b>-k</b> <i>num</i></p>
+</td>
+<td width="1%"></td>
+<td width="77%">
+
+<p>Minimum protection layer required.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="8%">
+
+<p><b>-l</b> <i>num</i></p>
+</td>
+<td width="1%"></td>
+<td width="77%">
+
+<p>Maximum protection layer to use (<b>0</b>=none;
+<b>1=</b>integrity; etc). For example if you are using the
+KERBEROS_V4 authentication mechanism specifying <b>0</b>
+will force smtptest to not use any layer and specifying
+<b>1</b> will force it to use the integrity layer. By
+default the maximum supported protection layer will be
+used.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>-r</b> <i>realm</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Specify the <i>realm</i> to use. Certain authentication
+mechanisms (e.g. DIGEST-MD5) may require one to specify the
+realm.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>-f</b> <i>file</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Pipe <i>file</i> into connection after
+authentication.</p>
+</td>
+</table>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="8%">
+
+<p><b>-n</b> <i>num</i></p>
+</td>
+<td width="1%"></td>
+<td width="77%">
+
+<p>Number of authentication attempts; default = 1. The
+client will attempt to do SSL/TLS session reuse and/or fast
+reauth (e.g. DIGEST-MD5), if possible.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="8%">
+
+<p><b>-s</b></p>
+</td>
+<td width="1%"></td>
+<td width="77%">
+
+<p>Enable SMTP over SSL (smtps).</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="8%">
+
+<p><b>-c</b></p>
+</td>
+<td width="1%"></td>
+<td width="77%">
+
+<p>Enable challenge prompt callbacks. This will cause the
+OTP mechanism to ask for the the one-time password instead
+of the secret pass-phrase (library generates the correct
+response).</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="8%">
+
+<p><b>-i</b></p>
+</td>
+<td width="1%"></td>
+<td width="77%">
+
+<p>Don&rsquo;t send an initial client response for SASL
+mechanisms, even if the protocol supports it.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>-o</b> <i>option</i><b>=</b><i>value</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Set the SASL <i>option</i> to <i>value</i>.</p>
+</td>
+</table>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>-v</b></p>
+</td>
+<td width="13%"></td>
+<td width="69%">
+
+<p>Verbose. Print out more information than usual.</p>
+</td>
+<td width="2%">
+</td>
+</table></p>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>sendmail(8)</b></p>
+</td>
+</table></p>
+<hr>
+</body>
+</html>

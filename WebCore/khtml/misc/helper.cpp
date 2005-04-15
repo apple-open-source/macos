@@ -2,7 +2,7 @@
  * This file is part of the CSS implementation for KDE.
  *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,9 +23,53 @@
 
 #include "helper.h"
 
-QPainter *khtml::printpainter = 0;
+#if APPLE_CHANGES
+#include "KWQTextUtilities.h"
+#endif
 
-void khtml::setPrintPainter( QPainter *printer )
+namespace khtml {
+
+QPainter *printpainter = 0;
+
+void setPrintPainter( QPainter *printer )
 {
     printpainter = printer;
+}
+
+void findWordBoundary(const QChar *chars, int len, int position, int *start, int *end)
+{
+#if APPLE_CHANGES
+    KWQFindWordBoundary(chars, len, position, start, end);
+#else
+    // KDE implementation
+#endif
+}
+
+int nextWordFromIndex(const QChar *chars, int len, int position, bool forward)
+{
+#if APPLE_CHANGES
+    return KWQFindNextWordFromIndex(chars, len, position, forward);
+#else
+    // KDE implementation
+#endif
+}
+
+void findSentenceBoundary(const QChar *chars, int len, int position, int *start, int *end)
+{
+#if APPLE_CHANGES
+    KWQFindSentenceBoundary(chars, len, position, start, end);
+#else
+    // KDE implementation
+#endif
+}
+
+int nextSentenceFromIndex(const QChar *chars, int len, int position, bool forward)
+{
+#if APPLE_CHANGES
+    return KWQFindNextSentenceFromIndex(chars, len, position, forward);
+#else
+    // KDE implementation
+#endif
+}
+
 }

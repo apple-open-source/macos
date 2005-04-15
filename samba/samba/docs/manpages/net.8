@@ -139,15 +139,15 @@ Join a domain\&. Use the OLDJOIN option to join the domain using the old style o
 
 .SS "[RPC|ADS] USER"
 
+.SS "[RPC|ADS] USER"
+
+.PP
+List all users
+
 .SS "[RPC|ADS] USER DELETE target"
 
 .PP
 Delete specified user
-
-.SS "[RPC|ADS] USER LIST"
-
-.PP
-List all users
 
 .SS "[RPC|ADS] USER INFO target"
 
@@ -441,12 +441,12 @@ comment \- Freeform text description of the group
 Add a new group mapping entry
 
 .PP
-net groupmap add {rid=int|sid=string} unixgroup=string [type={domain|local|builtin}] [ntgroup=string] [comment=string]
+net groupmap add {rid=int|sid=string} unixgroup=string [type={domain|local}] [ntgroup=string] [comment=string]
 
 .SS "GROUPMAP DELETE"
 
 .PP
-Delete a group mapping entry
+Delete a group mapping entry\&. If more then one group name matches, the first entry found is deleted\&.
 
 .PP
 net groupmap delete {ntgroup=string|sid=SID}
@@ -457,7 +457,7 @@ net groupmap delete {ntgroup=string|sid=SID}
 Update en existing group entry
 
 .PP
-net groupmap modify {ntgroup=string|sid=SID} [unixgroup=string] [comment=string] [type={domain|local}
+net groupmap modify {ntgroup=string|sid=SID} [unixgroup=string] [comment=string] [type={domain|local}]
 
 .SS "GROUPMAP LIST"
 

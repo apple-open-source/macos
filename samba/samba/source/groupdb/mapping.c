@@ -135,19 +135,16 @@ static BOOL default_group_mapping(void)
 
 static BOOL init_group_mapping(void)
 {
-	static pid_t local_pid;
 	const char *vstring = "INFO/version";
 	int32 vers_id;
 	
-	if (tdb && local_pid == sys_getpid())
+	if (tdb)
 		return True;
 	tdb = tdb_open_log(lock_path("group_mapping.tdb"), 0, TDB_DEFAULT, O_RDWR|O_CREAT, 0600);
 	if (!tdb) {
 		DEBUG(0,("Failed to open group mapping database\n"));
 		return False;
 	}
-
-	local_pid = sys_getpid();
 
 	/* handle a Samba upgrade */
 	tdb_lock_bystring(tdb, vstring, 0);
@@ -472,7 +469,7 @@ static BOOL enum_group_mapping(enum SID_NAME_USE sid_name_use, GROUP_MAP **rmap,
 		decode_sid_name_use(group_type, map.sid_name_use);
 		DEBUG(11,("enum_group_mapping: returning group %s of type %s\n", map.nt_name ,group_type));
 
-		mapt=(GROUP_MAP *)Realloc((*rmap), (entries+1)*sizeof(GROUP_MAP));
+		mapt= SMB_REALLOC_ARRAY((*rmap), GROUP_MAP, entries+1);
 		if (!mapt) {
 			DEBUG(0,("enum_group_mapping: Unable to enlarge group map!\n"));
 			SAFE_FREE(*rmap);
@@ -602,7 +599,7 @@ static NTSTATUS add_aliasmem(const DOM_SID *alias, const DOM_SID *member)
 		asprintf(&new_memberstring, "%s %s", (char *)(dbuf.dptr),
 			 string_sid);
 	} else {
-		new_memberstring = strdup(string_sid);
+		new_memberstring = SMB_STRDUP(string_sid);
 	}
 
 	if (new_memberstring == NULL)
@@ -742,7 +739,7 @@ static NTSTATUS del_aliasmem(const DOM_SID *alias, const DOM_SID *member)
 		return tdb_delete(tdb, kbuf) == 0 ?
 			NT_STATUS_OK : NT_STATUS_UNSUCCESSFUL;
 
-	member_string = strdup("");
+	member_string = SMB_STRDUP("");
 
 	if (member_string == NULL) {
 		SAFE_FREE(sids);
@@ -945,152 +942,17 @@ BOOL get_group_from_gid(gid_t gid, GROUP_MAP *map)
 	if ( (grp=getgrgid(gid)) == NULL)
 		return False;
 
-	/*
-	 * make a group map from scratch if doesn't exist.
-	 */
-	
 	become_root();
 	ret = pdb_getgrgid(map, gid);
 	unbecome_root();
 	
 	if ( !ret ) {
-		map->gid=gid;
-		map->sid_name_use=SID_NAME_ALIAS;
-
-		/* interim solution until we have a last RID allocated */
-
-		sid_copy(&map->sid, get_global_sam_sid());
-		sid_append_rid(&map->sid, pdb_gid_to_group_rid(gid));
-
-		fstrcpy(map->nt_name, grp->gr_name);
-		fstrcpy(map->comment, "Local Unix Group");
+		return False;
 	}
 	
 	return True;
 }
 
-
-
-
-/****************************************************************************
- Get the member users of a group and
- all the users who have that group as primary.
-            
- give back an array of SIDS
- return the grand number of users
-
-
- TODO: sort the list and remove duplicate. JFM.
-
-****************************************************************************/
-        
-BOOL get_sid_list_of_group(gid_t gid, DOM_SID **sids, int *num_sids)
-{
-	struct group *grp;
-	int i=0;
-	char *gr;
-	DOM_SID *s;
-
-	struct sys_pwent *userlist;
-	struct sys_pwent *user;
- 
-	if(!init_group_mapping()) {
-		DEBUG(0,("failed to initialize group mapping\n"));
-		return(False);
-	}
-
-	*num_sids = 0;
-	*sids=NULL;
-	
-	if ( (grp=getgrgid(gid)) == NULL)
-		return False;
-
-	gr = grp->gr_mem[0];
-	DEBUG(10, ("getting members\n"));
-        
-	while (gr && (*gr != (char)'\0')) {
-		SAM_ACCOUNT *group_member_acct = NULL;
-		BOOL found_user;
-		s = Realloc((*sids), sizeof(**sids)*(*num_sids+1));
-		if (!s) {
-			DEBUG(0,("get_uid_list_of_group: unable to enlarge SID list!\n"));
-			return False;
-		}
-		else (*sids) = s;
-
-		if (!NT_STATUS_IS_OK(pdb_init_sam(&group_member_acct))) {
-			continue;
-		}
-
-		become_root();
-		found_user = pdb_getsampwnam(group_member_acct, gr);
-		unbecome_root();
-	
-		if (found_user) {
-			sid_copy(&(*sids)[*num_sids], pdb_get_user_sid(group_member_acct));
-			(*num_sids)++;
-		}
-	
-		pdb_free_sam(&group_member_acct);
-
-		gr = grp->gr_mem[++i];
-	}
-	DEBUG(10, ("got [%d] members\n", *num_sids));
-
-	winbind_off();
-
-	user = userlist = getpwent_list();
-
-	while (user != NULL) {
-
-		SAM_ACCOUNT *group_member_acct = NULL;
-		BOOL found_user;
-
-		if (user->pw_gid != gid) {
-			user = user->next;
-			continue;
-		}
-
-		s = Realloc((*sids), sizeof(**sids)*(*num_sids+1));
-		if (!s) {
-			DEBUG(0,("get_sid_list_of_group: unable to enlarge "
-				 "SID list!\n"));
-			pwent_free(userlist);
-			winbind_on();
-			return False;
-		}
-		else (*sids) = s;
-			
-		if (!NT_STATUS_IS_OK(pdb_init_sam(&group_member_acct))) {
-			continue;
-		}
-			
-		become_root();
-		found_user = pdb_getsampwnam(group_member_acct, user->pw_name);
-		unbecome_root();
-			
-		if (found_user) {
-			sid_copy(&(*sids)[*num_sids],
-				 pdb_get_user_sid(group_member_acct));
-			(*num_sids)++;
-		} else {
-			DEBUG(4,("get_sid_list_of_group: User %s [uid == %lu] "
-				 "has no samba account\n",
-				 user->pw_name, (unsigned long)user->pw_uid));
-			if (algorithmic_uid_to_sid(&(*sids)[*num_sids],
-						   user->pw_uid))
-				(*num_sids)++;
-		}
-		pdb_free_sam(&group_member_acct);
-
-		user = user->next;
-	}
-	pwent_free(userlist);
-	DEBUG(10, ("got primary groups, members: [%d]\n", *num_sids));
-
-	winbind_on();
-        return True;
-}
 
 /****************************************************************************
  Create a UNIX group on demand.
@@ -1416,7 +1278,7 @@ NTSTATUS pdb_default_enum_aliases(struct pdb_methods *methods,
 	if (*num_aliases > max_entries)
 		*num_aliases = max_entries;
 
-	*info = malloc(sizeof(struct acct_info) * (*num_aliases));
+	*info = SMB_MALLOC_ARRAY(struct acct_info, *num_aliases);
 
 	for (i=0; i<*num_aliases; i++) {
 		fstrcpy((*info)[i].acct_name, map[i+start_idx].nt_name);

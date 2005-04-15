@@ -1,4 +1,4 @@
-#ident $Id: apple.schema,v 1.20 2003/09/17 00:19:46 jtownsen Exp $
+#ident $Id: apple.schema,v 1.20.2.1 2005/04/04 18:50:04 jtownsen Exp $
 #
 # Preliminary Apple OS X Native LDAP Schema
 # This file is subject to change.
@@ -13,6 +13,23 @@ objectclass (
 	SUP top
 	STRUCTURAL
 	MUST ( cn ) )
+
+#
+# Time to live
+#
+attributetype (
+	1.3.6.1.4.1.250.1.60
+	NAME 'ttl'
+	EQUALITY integerMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.27' SINGLE-VALUE )
+
+objectclass (
+	1.3.6.1.4.1.250.3.18 
+	NAME 'cacheObject' 
+	AUXILIARY 
+	SUP top
+	DESC 'Auxiliary object class to hold TTL caching information'
+	MAY ( ttl ) )
 
 #
 # User attributes 1.3.6.1.4.1.63.1000.1.1.1.1
@@ -136,6 +153,22 @@ attributetype (
 	SUBSTR caseExactSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.21
+	NAME ( 'apple-imhandle' )
+	DESC 'IM handle (service:account name)'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.22
+	NAME ( 'apple-webloguri' )
+	DESC 'Weblog URI'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
 # Alternative to using homeDirectory from RFC 2307.
 #attributetype (
 #        1.3.6.1.4.1.63.1000.1.1.1.1.100
@@ -159,10 +192,12 @@ objectclass (
 		apple-mcxsettings $ apple-user-adminlimits $
 		apple-user-picture $ apple-user-authenticationhint $ 
 		apple-user-homesoftquota $ apple-user-passwordpolicy $
-		apple-keyword $ apple-generateduid $ authAuthority $ 
-		acctFlags $ pwdLastSet $ logonTime $ logoffTime $
-		kickoffTime $ homeDrive $ scriptPath $ profilePath $
-		userWorkstations $ smbHome $ rid $ primaryGroupID ) )
+		apple-keyword $ apple-generateduid $ apple-imhandle $ apple-webloguri $
+		authAuthority $ acctFlags $ pwdLastSet $ logonTime $ 
+		logoffTime $ kickoffTime $ homeDrive $ scriptPath $ 
+		profilePath $ userWorkstations $ smbHome $ rid $ 
+		primaryGroupID $ sambaSID $ sambaPrimaryGroupSID $ 
+		userCertificate ) )
 
 #
 # Group attributes 1.3.6.1.4.1.63.1000.1.1.1.14
@@ -191,6 +226,22 @@ attributetype (
 	SUBSTR caseExactSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
 	
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.6
+	NAME 'apple-group-nestedgroup'
+	DESC 'group real name'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.7
+	NAME 'apple-group-memberguid'
+	DESC 'group real name'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+	
 # Alternative to using memberUid from RFC 2307.
 #attributetype (
 #	1.3.6.1.4.1.63.1000.1.1.1.14.1000
@@ -216,7 +267,13 @@ objectclass (
 	      apple-group-realname $
 	      apple-user-picture $
 	      apple-keyword $
-	      apple-generateduid ) )
+	      apple-generateduid $
+	      apple-group-nestedgroup $
+	      apple-group-memberguid $
+	      mail $
+	      rid $
+	      sambaSID $
+	      ttl ) )
 
 #
 # Machine attributes 1.3.6.1.4.1.63.1000.1.1.1.3
@@ -253,6 +310,14 @@ attributeType (
 	SUBSTR caseIgnoreSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
 
+attributeType ( 
+	1.3.6.1.4.1.63.1000.1.1.1.3.12
+	NAME 'apple-machine-contactperson'
+	DESC 'Name of contact person/owner of this machine'
+	EQUALITY caseIgnoreMatch
+	SUBSTR caseIgnoreSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
 #
 # Machine auxiliary object class.
 #
@@ -264,7 +329,8 @@ objectclass (
 	MAY ( apple-machine-software $
 	      apple-machine-hardware $
 	      apple-machine-serves $
-	      apple-machine-suffix ) )
+	      apple-machine-suffix $
+		  apple-machine-contactperson ) )
 
 #
 # Mount attributes 1.3.6.1.4.1.63.1000.1.1.1.8
@@ -294,20 +360,27 @@ attributetype (
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 
 attributetype (
-        1.3.6.1.4.1.63.1000.1.1.1.8.4
-        NAME 'mountDumpFrequency'
-        DESC 'mount dump frequency'
-        EQUALITY caseIgnoreIA5Match
+	1.3.6.1.4.1.63.1000.1.1.1.8.4
+	NAME 'mountDumpFrequency'
+	DESC 'mount dump frequency'
+	EQUALITY caseIgnoreIA5Match
 	SUBSTR caseIgnoreIA5SubstringsMatch
-        SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
 
 attributetype (
-        1.3.6.1.4.1.63.1000.1.1.1.8.5
-        NAME 'mountPassNo'
-        DESC 'mount passno'
-        EQUALITY caseIgnoreIA5Match
+	1.3.6.1.4.1.63.1000.1.1.1.8.5
+	NAME 'mountPassNo'
+	DESC 'mount passno'
+	EQUALITY caseIgnoreIA5Match
 	SUBSTR caseIgnoreIA5SubstringsMatch
-        SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+		
+# Alternative to using 'cn' when adding mount record schema to other LDAP servers
+#attributetype ( 
+#	1.3.6.1.4.1.63.1000.1.1.1.8.100
+#	NAME ( 'apple-mount-name' )
+#	DESC 'mount name'
+#	SUP name )
 
 #
 # Mount object 1.3.6.1.4.1.63.1000.1.1.2.8
@@ -320,8 +393,8 @@ objectclass (
 	MAY ( mountDirectory $
 	      mountType $
 	      mountOption $
-              mountDumpFrequency $
-              mountPassNo ) )
+	      mountDumpFrequency $
+	      mountPassNo ) )
 
 #
 # Printer attributes 1.3.6.1.4.1.63.1000.1.1.1.9
@@ -392,6 +465,22 @@ attributetype (
 	SUBSTR caseExactSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.10.3
+	NAME 'apple-networkview'
+	DESC 'Network view for the computer'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.10.4
+	NAME 'apple-category'
+	DESC 'Category for the computer or neighborhood'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
 #
 # Computer list attributes 1.3.6.1.4.1.63.1000.1.1.1.11
 #
@@ -424,6 +513,17 @@ attributetype (
         SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
 
 #
+# Service URL attributes 1.3.6.1.4.1.63.1000.1.1.1.19.2
+#
+attributetype (
+       1.3.6.1.4.1.63.1000.1.1.1.19.2
+       NAME 'apple-service-url'
+       DESC 'URL of service'
+       EQUALITY caseExactIA5Match
+       SUBSTR caseExactIA5SubstringsMatch
+       SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+#
 # Computer object 1.3.6.1.4.1.63.1000.1.1.2.10
 #
 objectclass (
@@ -435,14 +535,19 @@ objectclass (
 	MAY ( apple-realname $
 	      description $
 	      macAddress $
+		  apple-category $
 	      apple-computer-list-groups $
+	      apple-keyword $
 	      apple-mcxflags $
 	      apple-mcxsettings $
+		  apple-networkview $
 		  apple-xmlplist $
+		  apple-service-url $
 	      authAuthority $
-		  uidNumber $ gidNumber $ apple-generateduid $
+		  uidNumber $ gidNumber $ apple-generateduid $ ttl $
 	      acctFlags $ pwdLastSet $ logonTime $
-	      logoffTime $ kickoffTime $ rid $ primaryGroupID ) )
+	      logoffTime $ kickoffTime $ rid $ primaryGroupID $
+		  sambaSID $ sambaPrimaryGroupSID ) )
 
 #
 # Computer list object 1.3.6.1.4.1.63.1000.1.1.2.11
@@ -455,8 +560,9 @@ objectclass (
 	MUST ( cn )
 	MAY ( apple-mcxflags $
 	      apple-mcxsettings $
-              apple-computer-list-groups $
+	      apple-computer-list-groups $
 	      apple-computers $
+	      apple-generateduid $
 	      apple-keyword ) )
 
 #
@@ -538,7 +644,7 @@ objectclass (
 		apple-data-stamp $ apple-password-server-location $
 		apple-password-server-list $ apple-ldap-replica $
 		apple-ldap-writable-replica $ apple-keyword $
-		apple-kdc-authkey $ apple-kdc-configdata $ apple-xmlplist ) )
+		apple-kdc-authkey $ apple-kdc-configdata $ apple-xmlplist $ ttl ) )
 
 #
 # Preset computer list object class.
@@ -565,12 +671,16 @@ objectclass (
 	MUST ( cn )
 	MAY ( memberUid $
 	      gidNumber $
+	      description $
 	      apple-group-homeurl $
 	      apple-group-homeowner $
 	      apple-mcxflags $
 	      apple-mcxsettings $
 	      apple-group-realname $
-	      apple-keyword ) )
+	      apple-keyword $
+		  apple-group-nestedgroup $
+	      apple-group-memberguid $
+		  ttl ) )
 
 #
 # Preset user object attributes 1.3.6.1.4.1.63.1000.1.1.1.15
@@ -609,10 +719,11 @@ objectclass (
 	      apple-user-picture $
 	      apple-keyword $
 	      loginShell $
-              description $
+	      description $
 	      shadowLastChange $
 	      shadowExpire $
 	      authAuthority $
+	      homeDrive $ scriptPath $ profilePath $ smbHome $
 	      apple-preset-user-is-admin ) )
 
 #
@@ -649,7 +760,7 @@ objectclass (
 objectclass (
 	1.3.6.1.4.1.63.1000.1.1.2.17
 	NAME 'apple-serverassistant-config'
-	SUP top AUXILIARY
+	SUP top STRUCTURAL
 	MUST ( cn )
 	MAY ( apple-xmlplist ) )
 
@@ -681,4 +792,125 @@ objectclass (
 	SUP top AUXILIARY
 	MUST ( cn )
 	MAY ( apple-dns-domain $ apple-dns-nameserver ) )
+	
+#
+# Service object attributes 1.3.6.1.4.1.63.1000.1.1.1.19
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.19.1
+	NAME 'apple-service-type'
+	DESC 'type of service'
+	EQUALITY caseExactIA5Match
+	SUBSTR caseExactIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
 
+#attributetype (
+#	1.3.6.1.4.1.63.1000.1.1.1.19.2
+#	NAME 'apple-service-url'
+#	DESC 'URL of service'
+#	EQUALITY caseExactIA5Match
+#	SUBSTR caseExactIA5SubstringsMatch
+#	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.19.3
+	NAME 'apple-service-port'
+	DESC 'Service port number'
+	EQUALITY integerMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.19.4
+	NAME 'apple-dnsname'
+	DESC 'DNS name'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+	
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.19.5
+	NAME 'apple-service-location'
+	DESC 'Service location'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+#
+# Service object 1.3.6.1.4.1.63.1000.1.1.2.19
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.19
+	NAME 'apple-service'
+	SUP top STRUCTURAL
+	MUST ( cn $ 
+	       apple-service-type )
+	MAY ( ipHostNumber $ 
+	      description $
+		  apple-service-location $
+		  apple-service-url $
+		  apple-service-port $
+		  apple-dnsname $
+		  apple-keyword ) )
+
+#
+# Neighborhood object attributes 1.3.6.1.4.1.63.1000.1.1.1.20
+#
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.20.1
+	NAME 'apple-nodepathxml'
+	DESC 'XML plist of directory node path'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.20.2
+	NAME 'apple-neighborhoodalias'
+	DESC 'XML plist referring to another neighborhood record'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.20.3
+	NAME 'apple-computeralias'
+	DESC 'XML plist referring to a computer record'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+#
+# Neighborhood object 1.3.6.1.4.1.63.1000.1.1.2.20
+#
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.20
+	NAME 'apple-neighborhood'
+	SUP top STRUCTURAL
+	MUST ( cn )
+	MAY ( description $
+	      apple-generateduid $
+	      apple-category $
+	      apple-nodepathxml $
+	      apple-neighborhoodalias $
+	      apple-computeralias $
+	      apple-keyword $
+	      apple-realname $
+	      apple-xmlplist $
+	      ttl ) )
+
+#
+# Schema attributes 1.3.6.1.4.1.63.1000.1.1.1.22
+#
+#attributetype (
+#	1.3.6.1.4.1.63.1000.1.1.1.22.1
+#	NAME 'attributeTypesConfig'
+#	DESC 'attribute type configuration'
+#	EQUALITY objectIdentifierFirstComponentMatch
+#	SYNTAX 1.3.6.1.4.1.1466.115.121.1.3 )
+
+#attributetype (
+#	1.3.6.1.4.1.63.1000.1.1.1.22.2
+#	NAME 'objectClassesConfig'
+#	DESC 'object class configuration'
+#	EQUALITY objectIdentifierFirstComponentMatch
+#	SYNTAX 1.3.6.1.4.1.1466.115.121.1.37 )

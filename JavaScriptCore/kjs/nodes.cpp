@@ -52,8 +52,8 @@ using namespace KJS;
     return Completion(Normal);
 
 #define KJS_ABORTPOINT \
-  if (exec->interpreter()->imp()->debugger() && \
-      exec->interpreter()->imp()->debugger()->imp()->aborted()) \
+  if (exec->dynamicInterpreter()->imp()->debugger() && \
+      exec->dynamicInterpreter()->imp()->debugger()->imp()->aborted()) \
     return Completion(Normal);
 
 #define KJS_CHECKEXCEPTION \
@@ -89,6 +89,7 @@ std::list<Node *> * Node::s_nodes = 0L;
 Node::Node()
 {
   line = Lexer::curr()->lineNo();
+  sourceURL = Lexer::curr()->sourceURL();
   refcount = 0;
 #ifdef KJS_DEBUG_MEM
   if (!s_nodes)
@@ -125,7 +126,7 @@ void Node::finalCheck()
 
 Value Node::throwError(ExecState *exec, ErrorType e, const char *msg)
 {
-  Object err = Error::create(exec, e, msg, lineNo(), sourceId());
+  Object err = Error::create(exec, e, msg, lineNo(), sourceId(), &sourceURL);
   exec->setException(err);
   return err;
 }
@@ -176,7 +177,7 @@ void StatementNode::setLoc(int line0, int line1, int sourceId)
 // return true if the debugger wants us to stop at this point
 bool StatementNode::hitStatement(ExecState *exec)
 {
-  Debugger *dbg = exec->interpreter()->imp()->debugger();
+  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
   if (dbg)
     return dbg->atStatement(exec,sid,l0,l1);
   else
@@ -186,7 +187,7 @@ bool StatementNode::hitStatement(ExecState *exec)
 // return true if the debugger wants us to stop at this point
 bool StatementNode::abortStatement(ExecState *exec)
 {
-  Debugger *dbg = exec->interpreter()->imp()->debugger();
+  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
   if (dbg)
     return dbg->imp()->aborted();
   else
@@ -235,7 +236,7 @@ Value RegExpNode::evaluate(ExecState *exec)
   list.append(p);
   list.append(f);
 
-  Object reg = exec->interpreter()->imp()->builtinRegExp();
+  Object reg = exec->lexicalInterpreter()->imp()->builtinRegExp();
   return reg.construct(exec,list);
 }
 
@@ -301,6 +302,11 @@ Value GroupNode::evaluate(ExecState *exec)
   return group->evaluate(exec);
 }
 
+Reference GroupNode::evaluateReference(ExecState *exec)
+{
+  return group->evaluateReference(exec);
+}
+
 // ------------------------------ ElementNode ----------------------------------
 
 void ElementNode::ref()
@@ -328,7 +334,7 @@ bool ElementNode::deref()
 // ECMA 11.1.4
 Value ElementNode::evaluate(ExecState *exec)
 {
-  Object array = exec->interpreter()->builtinArray().construct(exec, List::empty());
+  Object array = exec->lexicalInterpreter()->builtinArray().construct(exec, List::empty());
   int length = 0;
   for (ElementNode *n = this; n; n = n->list) {
     Value val = n->node->evaluate(exec);
@@ -366,7 +372,7 @@ Value ArrayNode::evaluate(ExecState *exec)
     KJS_CHECKEXCEPTIONVALUE
     length = opt ? array.get(exec,lengthPropertyName).toInt32(exec) : 0;
   } else {
-    Value newArr = exec->interpreter()->builtinArray().construct(exec,List::empty());
+    Value newArr = exec->lexicalInterpreter()->builtinArray().construct(exec,List::empty());
     array = Object(static_cast<ObjectImp*>(newArr.imp()));
     length = 0;
   }
@@ -399,7 +405,7 @@ Value ObjectLiteralNode::evaluate(ExecState *exec)
   if (list)
     return list->evaluate(exec);
 
-  return exec->interpreter()->builtinObject().construct(exec,List::empty());
+  return exec->lexicalInterpreter()->builtinObject().construct(exec,List::empty());
 }
 
 // ------------------------------ PropertyValueNode ----------------------------
@@ -433,7 +439,7 @@ bool PropertyValueNode::deref()
 // ECMA 11.1.5
 Value PropertyValueNode::evaluate(ExecState *exec)
 {
-  Object obj = exec->interpreter()->builtinObject().construct(exec, List::empty());
+  Object obj = exec->lexicalInterpreter()->builtinObject().construct(exec, List::empty());
   
   for (PropertyValueNode *p = this; p; p = p->list) {
     Value n = p->name->evaluate(exec);
@@ -689,7 +695,7 @@ Value FunctionCallNode::evaluate(ExecState *exec)
   Value v = ref.getValue(exec);
 
   if (v.type() != ObjectType) {
-    return throwError(exec, TypeError, "Value %s (result of expression %s) is not object. Cannot be called.", v, expr);
+    return throwError(exec, TypeError, "Value %s (result of expression %s) is not object.", v, expr);
   }
 
   Object func = Object(static_cast<ObjectImp*>(v.imp()));
@@ -716,7 +722,7 @@ Value FunctionCallNode::evaluate(ExecState *exec)
     // of implementation we use the global object anyway here. This guarantees
     // that in host objects you always get a valid object for this.
     // thisVal = Null();
-    thisVal = exec->interpreter()->globalObject();
+    thisVal = exec->dynamicInterpreter()->globalObject();
   }
 
   Object thisObj = Object::dynamicCast(thisVal);
@@ -1093,7 +1099,7 @@ Value ShiftNode::evaluate(ExecState *exec)
   unsigned int i2 = v2.toUInt32(exec);
   i2 &= 0x1f;
 
-  long result;
+  double result;
   switch (oper) {
   case OpLShift:
     result = v1.toInt32(exec) << i2;
@@ -1106,10 +1112,10 @@ Value ShiftNode::evaluate(ExecState *exec)
     break;
   default:
     assert(!"ShiftNode: unhandled switch case");
-    result = 0L;
+    result = 0;
   }
 
-  return Number(static_cast<double>(result));
+  return Number(result);
 }
 
 // ------------------------------ RelationalNode -------------------------------
@@ -1370,8 +1376,8 @@ Value AssignNode::evaluate(ExecState *exec)
     Value v1 = l.getValue(exec);
     Value v2 = expr->evaluate(exec);
     KJS_CHECKEXCEPTIONVALUE
-    int i1 = v1.toInt32(exec);
-    int i2 = v2.toInt32(exec);
+    int i1;
+    int i2;
     unsigned int ui;
     switch (oper) {
     case OpMultEq:
@@ -1387,22 +1393,33 @@ Value AssignNode::evaluate(ExecState *exec)
       v = add(exec, v1, v2, '-');
       break;
     case OpLShift:
+      i1 = v1.toInt32(exec);
+      i2 = v2.toInt32(exec);
       v = Number(i1 <<= i2);
       break;
     case OpRShift:
+      i1 = v1.toInt32(exec);
+      i2 = v2.toInt32(exec);
       v = Number(i1 >>= i2);
       break;
     case OpURShift:
       ui = v1.toUInt32(exec);
+      i2 = v2.toInt32(exec);
       v = Number(ui >>= i2);
       break;
     case OpAndEq:
+      i1 = v1.toInt32(exec);
+      i2 = v2.toInt32(exec);
       v = Number(i1 &= i2);
       break;
     case OpXOrEq:
+      i1 = v1.toInt32(exec);
+      i2 = v2.toInt32(exec);
       v = Number(i1 ^= i2);
       break;
     case OpOrEq:
+      i1 = v1.toInt32(exec);
+      i2 = v2.toInt32(exec);
       v = Number(i1 |= i2);
       break;
     case OpModEq: {
@@ -2725,9 +2742,9 @@ void FuncDeclNode::processFuncDecl(ExecState *exec)
   FunctionImp *fimp = new DeclaredFunctionImp(exec, ident, body, exec->context().imp()->scopeChain());
   Object func(fimp); // protect from GC
 
-  //  Value proto = exec->interpreter()->builtinObject().construct(exec,List::empty());
+  //  Value proto = exec->lexicalInterpreter()->builtinObject().construct(exec,List::empty());
   List empty;
-  Object proto = exec->interpreter()->builtinObject().construct(exec,empty);
+  Object proto = exec->lexicalInterpreter()->builtinObject().construct(exec,empty);
   proto.put(exec, constructorPropertyName, func, ReadOnly|DontDelete|DontEnum);
   func.put(exec, prototypePropertyName, proto, Internal|DontDelete);
 
@@ -2778,7 +2795,7 @@ Value FuncExprNode::evaluate(ExecState *exec)
   FunctionImp *fimp = new DeclaredFunctionImp(exec, Identifier::null(), body, exec->context().imp()->scopeChain());
   Value ret(fimp);
   List empty;
-  Value proto = exec->interpreter()->builtinObject().construct(exec,empty);
+  Value proto = exec->lexicalInterpreter()->builtinObject().construct(exec,empty);
   fimp->put(exec, prototypePropertyName, proto, Internal|DontDelete);
 
   int plen = 0;

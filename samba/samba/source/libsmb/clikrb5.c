@@ -82,11 +82,11 @@ krb5_error_code krb5_set_default_tgs_ktypes(krb5_context ctx, const krb5_enctype
 	pkaddr->contents = (krb5_octet *)&(((struct sockaddr_in *)paddr)->sin_addr);
 }
 #else
- __ERROR__XX__UNKNOWN_ADDRTYPE
+#error UNKNOWN_ADDRTYPE
 #endif
 
-#if defined(HAVE_KRB5_PRINCIPAL2SALT) && defined(HAVE_KRB5_USE_ENCTYPE) && defined(HAVE_KRB5_STRING_TO_KEY)
- int create_kerberos_key_from_string(krb5_context context,
+#if defined(HAVE_KRB5_PRINCIPAL2SALT) && defined(HAVE_KRB5_USE_ENCTYPE) && defined(HAVE_KRB5_STRING_TO_KEY) && defined(HAVE_KRB5_ENCRYPT_BLOCK)
+ int create_kerberos_key_from_string_direct(krb5_context context,
 					krb5_principal host_princ,
 					krb5_data *password,
 					krb5_keyblock *key,
@@ -107,7 +107,7 @@ krb5_error_code krb5_set_default_tgs_ktypes(krb5_context ctx, const krb5_enctype
 	return ret;
 }
 #elif defined(HAVE_KRB5_GET_PW_SALT) && defined(HAVE_KRB5_STRING_TO_KEY_SALT)
- int create_kerberos_key_from_string(krb5_context context,
+ int create_kerberos_key_from_string_direct(krb5_context context,
 					krb5_principal host_princ,
 					krb5_data *password,
 					krb5_keyblock *key,
@@ -125,17 +125,38 @@ krb5_error_code krb5_set_default_tgs_ktypes(krb5_context ctx, const krb5_enctype
 		salt, key);
 }
 #else
- __ERROR_XX_UNKNOWN_CREATE_KEY_FUNCTIONS
+#error UNKNOWN_CREATE_KEY_FUNCTIONS
 #endif
 
+ int create_kerberos_key_from_string(krb5_context context,
+					krb5_principal host_princ,
+					krb5_data *password,
+					krb5_keyblock *key,
+					krb5_enctype enctype)
+{
+	krb5_principal salt_princ = NULL;
+	int ret;
+	/*
+	 * Check if we've determined that the KDC is salting keys for this
+	 * principal/enctype in a non-obvious way.  If it is, try to match
+	 * its behavior.
+	 */
+	salt_princ = kerberos_fetch_salt_princ_for_host_princ(context, host_princ, enctype);
+	ret = create_kerberos_key_from_string_direct(context, salt_princ ? salt_princ : host_princ, password, key, enctype);
+	if (salt_princ) {
+		krb5_free_principal(context, salt_princ);
+	}
+	return ret;
+}
+
 #if defined(HAVE_KRB5_GET_PERMITTED_ENCTYPES)
-krb5_error_code get_kerberos_allowed_etypes(krb5_context context, 
+ krb5_error_code get_kerberos_allowed_etypes(krb5_context context, 
 					    krb5_enctype **enctypes)
 {
 	return krb5_get_permitted_enctypes(context, enctypes);
 }
 #elif defined(HAVE_KRB5_GET_DEFAULT_IN_TKT_ETYPES)
-krb5_error_code get_kerberos_allowed_etypes(krb5_context context, 
+ krb5_error_code get_kerberos_allowed_etypes(krb5_context context, 
 					    krb5_enctype **enctypes)
 {
 	return krb5_get_default_in_tkt_etypes(context, enctypes);
@@ -196,6 +217,7 @@ krb5_error_code get_kerberos_allowed_etypes(krb5_context context,
 	krb5_error_code rc;
 	int num_kdcs, i;
 	struct sockaddr *sa;
+	struct addrinfo *ai;
 
 	*addr_pp = NULL;
 	*naddrs = 0;
@@ -225,10 +247,19 @@ krb5_error_code get_kerberos_allowed_etypes(krb5_context context,
 		return -1;
 	}
 
+	*addr_pp = malloc(sizeof(struct sockaddr) * num_kdcs);
 	memset(*addr_pp, '\0', sizeof(struct sockaddr) * num_kdcs );
 
 	for (i = 0; i < num_kdcs && (rc = krb5_krbhst_next(ctx, hnd, &hinfo) == 0); i++) {
-		if (hinfo->ai->ai_family == AF_INET)
+
+#if defined(HAVE_KRB5_KRBHST_GET_ADDRINFO)
+		rc = krb5_krbhst_get_addrinfo(ctx, hinfo, &ai);
+		if (rc) {
+			DEBUG(0,("krb5_krbhst_get_addrinfo failed: %s\n", error_message(rc)));
+			continue;
+		}
+#endif
+		if (hinfo->ai && hinfo->ai->ai_family == AF_INET) 
 			memcpy(&sa[i], hinfo->ai->ai_addr, sizeof(struct sockaddr));
 	}
 
@@ -243,6 +274,49 @@ krb5_error_code get_kerberos_allowed_etypes(krb5_context context,
 	return 0;
 }
 #endif
+
+#if !defined(HAVE_KRB5_FREE_UNPARSED_NAME)
+ void krb5_free_unparsed_name(krb5_context context, char *val)
+{
+	SAFE_FREE(val);
+}
+#endif
+
+ void kerberos_free_data_contents(krb5_context context, krb5_data *pdata)
+{
+#if defined(HAVE_KRB5_FREE_DATA_CONTENTS)
+	if (pdata->data) {
+		krb5_free_data_contents(context, pdata);
+	}
+#else
+	SAFE_FREE(pdata->data);
+#endif
+}
+
+ void kerberos_set_creds_enctype(krb5_creds *pcreds, int enctype)
+{
+#if defined(HAVE_KRB5_KEYBLOCK_IN_CREDS)
+	KRB5_KEY_TYPE((&pcreds->keyblock)) = enctype;
+#elif defined(HAVE_KRB5_SESSION_IN_CREDS)
+	KRB5_KEY_TYPE((&pcreds->session)) = enctype;
+#else
+#error UNKNOWN_KEYBLOCK_MEMBER_IN_KRB5_CREDS_STRUCT
+#endif
+}
+
+ BOOL kerberos_compatible_enctypes(krb5_context context,
+				  krb5_enctype enctype1,
+				  krb5_enctype enctype2)
+{
+#if defined(HAVE_KRB5_C_ENCTYPE_COMPARE)
+	krb5_boolean similar = 0;
+
+	krb5_c_enctype_compare(context, enctype1, enctype2, &similar);
+	return similar ? True : False;
+#elif defined(HAVE_KRB5_ENCTYPES_COMPATIBLE_KEYS)
+	return krb5_enctypes_compatible_keys(context, enctype1, enctype2) ? True : False;
+#endif
+}
 
 static BOOL ads_cleanup_expired_creds(krb5_context context, 
 				      krb5_ccache  ccache,
@@ -266,13 +340,13 @@ static BOOL ads_cleanup_expired_creds(krb5_context context,
 	   we're using creds obtained outside of our exectuable
 	*/
 	if (StrCaseCmp(krb5_cc_get_type(context, ccache), "FILE") == 0) {
-		DEBUG(5, ("We do not remove creds from a FILE ccache\n"));
+		DEBUG(5, ("ads_cleanup_expired_creds: We do not remove creds from a FILE ccache\n"));
 		return False;
 	}
 	
 	retval = krb5_cc_remove_cred(context, ccache, 0, credsp);
 	if (retval) {
-		DEBUG(1, ("krb5_cc_remove_cred failed, err %s\n",
+		DEBUG(1, ("ads_cleanup_expired_creds: krb5_cc_remove_cred failed, err %s\n",
 			  error_message(retval)));
 		/* If we have an error in this, we want to display it,
 		   but continue as though we deleted it */
@@ -299,7 +373,7 @@ static krb5_error_code ads_krb5_mk_req(krb5_context context,
 	
 	retval = krb5_parse_name(context, principal, &server);
 	if (retval) {
-		DEBUG(1,("Failed to parse principal %s\n", principal));
+		DEBUG(1,("ads_krb5_mk_req: Failed to parse principal %s\n", principal));
 		return retval;
 	}
 	
@@ -312,7 +386,9 @@ static krb5_error_code ads_krb5_mk_req(krb5_context context,
 	}
 	
 	if ((retval = krb5_cc_get_principal(context, ccache, &creds.client))) {
-		DEBUG(1,("krb5_cc_get_principal failed (%s)\n", 
+		/* This can commonly fail on smbd startup with no ticket in the cache.
+		 * Report at higher level than 1. */
+		DEBUG(3,("ads_krb5_mk_req: krb5_cc_get_principal failed (%s)\n", 
 			 error_message(retval)));
 		goto cleanup_creds;
 	}
@@ -320,7 +396,7 @@ static krb5_error_code ads_krb5_mk_req(krb5_context context,
 	while(!creds_ready) {
 		if ((retval = krb5_get_credentials(context, 0, ccache, 
 						   &creds, &credsp))) {
-			DEBUG(1,("krb5_get_credentials failed for %s (%s)\n",
+			DEBUG(1,("ads_krb5_mk_req: krb5_get_credentials failed for %s (%s)\n",
 				 principal, error_message(retval)));
 			goto cleanup_creds;
 		}
@@ -329,7 +405,7 @@ static krb5_error_code ads_krb5_mk_req(krb5_context context,
 		if ((unsigned)credsp->times.starttime > time(NULL)) {
 			time_t t = time(NULL);
 			int time_offset =(unsigned)credsp->times.starttime-t;
-			DEBUG(4,("Advancing clock by %d seconds to cope with clock skew\n", time_offset));
+			DEBUG(4,("ads_krb5_mk_req: Advancing clock by %d seconds to cope with clock skew\n", time_offset));
 			krb5_set_real_time(context, t + time_offset + 1, 0);
 		}
 
@@ -337,7 +413,7 @@ static krb5_error_code ads_krb5_mk_req(krb5_context context,
 			creds_ready = True;
 	}
 
-	DEBUG(10,("Ticket (%s) in ccache (%s) is valid until: (%s - %d)\n",
+	DEBUG(10,("ads_krb5_mk_req: Ticket (%s) in ccache (%s) is valid until: (%s - %d)\n",
 		  principal, krb5_cc_default_name(context),
 		  http_timestring((unsigned)credsp->times.endtime), 
 		  (unsigned)credsp->times.endtime));
@@ -346,7 +422,7 @@ static krb5_error_code ads_krb5_mk_req(krb5_context context,
 	retval = krb5_mk_req_extended(context, auth_context, ap_req_options, 
 				      &in_data, credsp, outbuf);
 	if (retval) {
-		DEBUG(1,("krb5_mk_req_extended failed (%s)\n", 
+		DEBUG(1,("ads_krb5_mk_req: krb5_mk_req_extended failed (%s)\n", 
 			 error_message(retval)));
 	}
 	
@@ -382,7 +458,7 @@ int cli_krb5_get_ticket(const char *principal, time_t time_offset,
 	
 	retval = krb5_init_context(&context);
 	if (retval) {
-		DEBUG(1,("krb5_init_context failed (%s)\n", 
+		DEBUG(1,("cli_krb5_get_ticket: krb5_init_context failed (%s)\n", 
 			 error_message(retval)));
 		goto failed;
 	}
@@ -392,13 +468,13 @@ int cli_krb5_get_ticket(const char *principal, time_t time_offset,
 	}
 
 	if ((retval = krb5_cc_default(context, &ccdef))) {
-		DEBUG(1,("krb5_cc_default failed (%s)\n",
+		DEBUG(1,("cli_krb5_get_ticket: krb5_cc_default failed (%s)\n",
 			 error_message(retval)));
 		goto failed;
 	}
 
 	if ((retval = krb5_set_default_tgs_ktypes(context, enc_types))) {
-		DEBUG(1,("krb5_set_default_tgs_ktypes failed (%s)\n",
+		DEBUG(1,("cli_krb5_get_ticket: krb5_set_default_tgs_ktypes failed (%s)\n",
 			 error_message(retval)));
 		goto failed;
 	}
@@ -415,19 +491,13 @@ int cli_krb5_get_ticket(const char *principal, time_t time_offset,
 
 	*ticket = data_blob(packet.data, packet.length);
 
-/* Hmm, heimdal dooesn't have this - what's the correct call? */
-#ifdef HAVE_KRB5_FREE_DATA_CONTENTS
- 	krb5_free_data_contents(context, &packet); 
-#endif
+ 	kerberos_free_data_contents(context, &packet); 
 
 failed:
 
 	if ( context ) {
-#if 0 	/* JERRY -- disabled since it causes heimdal 0.6.1rc3 to die 
-	   SuSE 9.1 Pro */
 		if (ccdef)
 			krb5_cc_close(context, ccdef);
-#endif
 		if (auth_context)
 			krb5_auth_con_free(context, auth_context);
 		krb5_free_context(context);
@@ -441,8 +511,6 @@ failed:
 	krb5_keyblock *skey;
 	krb5_error_code err;
 	BOOL ret = False;
-
-	memset(session_key, 0, 16);
 
 	if (remote)
 		err = krb5_auth_con_getremotesubkey(context, auth_context, &skey);
@@ -474,6 +542,17 @@ failed:
 	return &kdata;
 }
 #endif
+
+ krb5_error_code smb_krb5_kt_free_entry(krb5_context context, krb5_keytab_entry *kt_entry)
+{
+#if defined(HAVE_KRB5_KT_FREE_ENTRY)
+	return krb5_kt_free_entry(context, kt_entry);
+#elif defined(HAVE_KRB5_FREE_KEYTAB_ENTRY_CONTENTS)
+	return krb5_free_keytab_entry_contents(context, kt_entry);
+#else
+#error UNKNOWN_KT_FREE_FUNCTION
+#endif
+}
 
 #else /* HAVE_KRB5 */
  /* this saves a few linking headaches */

@@ -87,6 +87,8 @@ static char rcsid[] = "$NetBSD: archive.c,v 1.7 1995/03/26 03:27:46 glass Exp $"
 typedef struct ar_hdr HDR;
 static char hb[sizeof(HDR) + 1];	/* real header */
 
+int archive_opened_for_writing = 0;
+
 int
 open_archive(mode)
 	int mode;
@@ -182,6 +184,10 @@ opened:
 		}
 	} else if (write(fd, ARMAG, SARMAG) != SARMAG)
 		error(archive);
+
+	if ((mode & O_ACCMODE) == O_RDWR)
+		archive_opened_for_writing = 1;
+
 	return (fd);
 }
 

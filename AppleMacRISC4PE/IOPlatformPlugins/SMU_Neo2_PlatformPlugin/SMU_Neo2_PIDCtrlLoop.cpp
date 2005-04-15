@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PIDCtrlLoop.cpp,v 1.14 2004/08/31 02:39:32 dirty Exp $
+ *  File: $Id: SMU_Neo2_PIDCtrlLoop.cpp,v 1.16 2005/02/18 23:05:41 dirty Exp $
  *
  */
 
@@ -387,7 +387,7 @@ ControlValue SMU_Neo2_PIDCtrlLoop::calculateNewTarget( void ) const
 			}
 		}
 
-	newTarget = ( ControlValue )( result > 0 ) ? result : 0;
+	newTarget = ( ControlValue )( ( result > 0 ) ? result : 0 );
 
 	newTarget = min( newTarget, maxMaximum );
 	newTarget = max( newTarget, minMinimum );
@@ -443,6 +443,7 @@ ControlValue SMU_Neo2_PIDCtrlLoop::calculateNewTarget( void ) const
 void SMU_Neo2_PIDCtrlLoop::sendNewTarget( ControlValue newTarget )
 	{
 	UInt32						mainNewTarget = newTarget;
+	bool						updateCtrlLoopState = false;
 
 	targetValue = newTarget;
 
@@ -457,7 +458,7 @@ void SMU_Neo2_PIDCtrlLoop::sendNewTarget( ControlValue newTarget )
 		if ( outputControl->sendTargetValue( mainNewTarget ) )
 			{
 			outputControl->setTargetValue( mainNewTarget );
-			ctrlloopState = kIOPCtrlLoopAllRegistered;
+			updateCtrlLoopState |= true;
 			}
 		else
 			{
@@ -482,7 +483,7 @@ void SMU_Neo2_PIDCtrlLoop::sendNewTarget( ControlValue newTarget )
 			if ( linkedControl->sendTargetValue( linkedNewTarget ) )
 				{
 				linkedControl->setTargetValue( linkedNewTarget );
-				ctrlloopState = kIOPCtrlLoopAllRegistered;
+				updateCtrlLoopState |= true;
 				}
 			else
 				{
@@ -490,6 +491,9 @@ void SMU_Neo2_PIDCtrlLoop::sendNewTarget( ControlValue newTarget )
 				}
 			}
 		}
+
+	if ( updateCtrlLoopState )
+		ctrlloopState = kIOPCtrlLoopAllRegistered;
 	}
 
 

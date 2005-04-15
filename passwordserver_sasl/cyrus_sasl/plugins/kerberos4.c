@@ -1,10 +1,10 @@
 /* Kerberos4 SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: kerberos4.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $
+ * $Id: kerberos4.c,v 1.7 2005/01/10 19:36:15 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,10 +46,26 @@
 #include <config.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
+#include <kerberosIV/krb.h>
+#else
 #include <krb.h>
-#include <des.h>
+#endif
+
+#ifdef WITH_DES
+# ifdef __APPLE__
+# include <kerberosIV/des.h>
+# else
+	# ifdef WITH_SSL_DES
+	#  include <openssl/des.h>
+	# else
+	#  include <des.h>
+	# endif /* WITH_SSL_DES */
+# endif /* __APPLE__ */
+#endif /* WITH_DES */
+
 #ifdef WIN32
-# include <winsock.h>
+# include <winsock2.h>
 #elif defined(macintosh)
 #include <kcglue_krb.h>
 #else
@@ -107,7 +123,9 @@ extern int gethostname(char *, int);
 
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: kerberos4.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $";
+#ifndef __APPLE__
+static const char plugin_id[] = "$Id: kerberos4.c,v 1.7 2005/01/10 19:36:15 snsimon Exp $";
+#endif
 
 #ifndef KEYFILE
 #define KEYFILE "/etc/srvtab";
@@ -168,18 +186,14 @@ typedef struct context {
     unsigned decode_buf_len;
     unsigned decode_once_buf_len;
     buffer_info_t *enc_in_buf;
+
+    decode_context_t decode_context;
     
     char *out_buf;                   /* per-step mem management */
     unsigned out_buf_len;
     
     const char *user;                      /* used by client */
     
-    char *buffer;                    /* used for layers */
-    int bufsize;
-    char sizebuf[4];
-    int cursize;
-    int size;
-    int needsize;
     int secflags; /* client/server supports layers? */
     
     long time_sec; /* These are used to make sure we are getting */
@@ -261,80 +275,24 @@ static int kerberosv4_encode(void *context,
     return SASL_OK;
 }
 
-static int kerberosv4_decode_once(void *context,
-				  const char **input, unsigned *inputlen,
-				  char **output, unsigned *outputlen)
+static int kerberosv4_decode_packet(void *context,
+				    const char *input, unsigned inputlen,
+				    char **output, unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
-    int tocopy, result;
-    unsigned diff;
+    int result;
     MSG_DAT data;
-    
-    if (text->needsize>0) { /* 4 bytes for how long message is */
-	/* if less than 4 bytes just copy those we have into text->size */
-	if (*inputlen < 4) 
-	    tocopy = *inputlen;
-	else
-	    tocopy = 4;
-	
-	if (tocopy > text->needsize)
-	    tocopy = text->needsize;
-	
-	memcpy(text->sizebuf+4-text->needsize, *input, tocopy);
-	text->needsize -= tocopy;
-	
-	*input += tocopy;
-	*inputlen -= tocopy;
-	
-	if (text->needsize == 0) { /* got all of size */
-	    memcpy(&(text->size), text->sizebuf, 4);
-	    text->cursize = 0;
-	    text->size=ntohl(text->size);
-	    
-	    /* too big? */
-	    if ((text->size > 0xFFFF) || (text->size < 0)) return SASL_FAIL;
-	    
-	    result = _plug_buf_alloc(text->utils, &text->buffer,
-				     &text->bufsize, text->size + 5);
-	    if (result != SASL_OK) return result;
-	}
-	*outputlen = 0;
-	*output = NULL;
-	if (*inputlen == 0) /* have to wait until next time for data */
-	    return SASL_OK;
-	
-	if (text->size == 0)  /* should never happen */
-	    return SASL_FAIL;
-    }
-    
-    diff = text->size - text->cursize; /* bytes need for full message */
-    
-    if (!text->buffer)
-	return SASL_FAIL;
-    
-    if (*inputlen < diff) { /* not enough for a decode */
-	memcpy(text->buffer+text->cursize, *input, *inputlen);
-	text->cursize+=*inputlen;
-	*inputlen=0;
-	*outputlen=0;
-	*output=NULL;
-	return SASL_OK;
-    } else {
-	memcpy(text->buffer + text->cursize, *input, diff);
-	*input += diff;      
-	*inputlen -= diff;
-    }
     
     memset(&data,0,sizeof(MSG_DAT));
     
     KRB_LOCK_MUTEX(text->utils);
     
     if (text->sec_type == KRB_SEC_ENCRYPTION) {
-	result=krb_rd_priv(text->buffer,text->size, text->init_keysched, 
+	result=krb_rd_priv(input, inputlen, text->init_keysched, 
 			   &text->session, &text->ip_remote,
 			   &text->ip_local, &data);
     } else if (text->sec_type == KRB_SEC_INTEGRITY) {
-        result = krb_rd_safe(text->buffer, text->size,
+        result = krb_rd_safe(input, inputlen,
 			     &text->session, &text->ip_remote,
 			     &text->ip_local, &data);
     } else {
@@ -375,9 +333,6 @@ static int kerberosv4_decode_once(void *context,
     memcpy(*output, data.app_data, data.app_length);
     (*output)[*outputlen] = '\0';
     
-    text->size = -1;
-    text->needsize = 4;
-    
     return SASL_OK;
 }
 
@@ -388,9 +343,9 @@ static int kerberosv4_decode(void *context,
     context_t *text = (context_t *) context;
     int ret;
     
-    ret = _plug_decode(text->utils, context, input, inputlen,
+    ret = _plug_decode(&text->decode_context, input, inputlen,
 		       &text->decode_buf, &text->decode_buf_len, outputlen,
-		       kerberosv4_decode_once);
+		       kerberosv4_decode_packet, text);
     
     *output = text->decode_buf;
     
@@ -423,7 +378,7 @@ static void kerberosv4_common_mech_dispose(void *conn_context,
     
     if(!text) return;
     
-    if (text->buffer) utils->free(text->buffer);
+    _plug_decode_free(&text->decode_context);
     if (text->encode_buf) utils->free(text->encode_buf);
     if (text->decode_buf) utils->free(text->decode_buf);
     if (text->decode_once_buf) utils->free(text->decode_once_buf);
@@ -445,8 +400,8 @@ kerberosv4_common_mech_free(void *glob_context __attribute__((unused)),
 	utils->mutex_free(krb_mutex);
 	krb_mutex = NULL; /* in case we need to re-use it */
     }
-    
-    if (srvtab && --refcount == 0) {
+    refcount--;
+    if (srvtab && !refcount) {
 	utils->free(srvtab);
 	srvtab = NULL;
     }
@@ -455,21 +410,32 @@ kerberosv4_common_mech_free(void *glob_context __attribute__((unused)),
 /*****************************  Server Section  *****************************/
 
 static int cando_sec(sasl_security_properties_t *props,
+		     int external_ssf,
 		     int secflag)
 {
+    int need;
+    int musthave;
+    
+    if(props->maxbufsize == 0) {
+	need = musthave = 0;
+    } else {
+	need = props->max_ssf - external_ssf;
+	musthave = props->min_ssf - external_ssf;
+    }
+
     switch (secflag) {
     case KRB_SECFLAG_NONE:
-	if (props->min_ssf == 0)
+	if (musthave <= 0)
 	    return 1;
 	break;
     case KRB_SECFLAG_INTEGRITY:
-	if ((props->min_ssf <= KRB_INTEGRITY_BITS)
-	    && (KRB_INTEGRITY_BITS <= props->max_ssf))
+	if ((musthave <= KRB_INTEGRITY_BITS)
+	    && (KRB_INTEGRITY_BITS <= need))
 	    return 1;
 	break;
     case KRB_SECFLAG_ENCRYPTION:
-	if ((props->min_ssf <= KRB_DES_SECURITY_BITS)
-	    && (KRB_DES_SECURITY_BITS <= props->max_ssf))
+	if ((musthave <= KRB_DES_SECURITY_BITS)
+	    && (KRB_DES_SECURITY_BITS <= need))
 	    return 1;
 	break;
     case KRB_SECFLAG_CREDENTIALS:
@@ -621,27 +587,43 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	nchal=htonl(text->challenge+1);
 	memcpy(sout, &nchal, 4);
 	sout[4]= 0;
-	if (cando_sec(&sparams->props, KRB_SECFLAG_NONE))
+	if (cando_sec(&sparams->props, sparams->external_ssf,
+		      KRB_SECFLAG_NONE))
 	    sout[4] |= KRB_SECFLAG_NONE;
-	if (cando_sec(&sparams->props, KRB_SECFLAG_INTEGRITY))
+	if (cando_sec(&sparams->props, sparams->external_ssf,
+		      KRB_SECFLAG_INTEGRITY))
 	    sout[4] |= KRB_SECFLAG_INTEGRITY;
-	if (cando_sec(&sparams->props, KRB_SECFLAG_ENCRYPTION))
+	if (cando_sec(&sparams->props, sparams->external_ssf,
+		      KRB_SECFLAG_ENCRYPTION))
 	    sout[4] |= KRB_SECFLAG_ENCRYPTION;
-	if (cando_sec(&sparams->props, KRB_SECFLAG_CREDENTIALS))
+	if (cando_sec(&sparams->props, sparams->external_ssf,
+		      KRB_SECFLAG_CREDENTIALS))
 	    sout[4] |= KRB_SECFLAG_CREDENTIALS;
-	sout[5]=0x00;  /* max ciphertext buffer size */
-	sout[6]=0xFF;  /* let's say we can support up to 64K */
-	sout[7]=0xFF;  /* no inherent inability with our layers to support more */
-	
+
+	if(sparams->props.maxbufsize) {
+	    int tmpmaxbuf = (sparams->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF : sparams->props.maxbufsize;
+
+	    sout[5]=((tmpmaxbuf >> 16) & 0xFF);
+	    sout[6]=((tmpmaxbuf >> 8) & 0xFF);
+	    sout[7]=(tmpmaxbuf & 0xFF);
+	} else {
+            /* let's say we can support up to 64K */
+	    /* no inherent inability with our layers to support more */
+
+	    sout[5]=0x00;  /* max ciphertext buffer size */
+	    sout[6]=0xFF;
+	    sout[7]=0xFF;
+	}
+    
 	memcpy(text->session, ad.session, 8);
 	memcpy(text->pname, ad.pname, sizeof(text->pname));
 	memcpy(text->pinst, ad.pinst, sizeof(text->pinst));
 	memcpy(text->prealm, ad.prealm, sizeof(text->prealm));
-	des_key_sched(&ad.session, text->init_keysched);
+	des_key_sched(ad.session, text->init_keysched);
 	
 	/* make keyschedule for encryption and decryption */
-	des_key_sched(&ad.session, text->enc_keysched);
-	des_key_sched(&ad.session, text->dec_keysched);
+	des_key_sched(ad.session, text->enc_keysched);
+	des_key_sched(ad.session, text->dec_keysched);
 	
 	des_ecb_encrypt((des_cblock *)sout,
 			(des_cblock *)sout,
@@ -700,7 +682,8 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	    return SASL_BADAUTH;
 	}
 	
-	if (!cando_sec(&sparams->props, in[4] & KRB_SECFLAGS)) {
+	if (!cando_sec(&sparams->props, sparams->external_ssf,
+		       in[4] & KRB_SECFLAGS)) {
 	    SETERROR(sparams->utils,
 		     "invalid security property specified");
 	    return SASL_BADPROT;
@@ -759,7 +742,7 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	if (sparams->canon_user) {
 	    char *user=NULL, *authid=NULL;
 	    size_t ulen = 0, alen = strlen(text->pname);
-	    int ret;
+	    int ret, cflag = SASL_CU_AUTHID;
 	    
 	    if (text->pinst[0]) {
 		alen += strlen(text->pinst) + 1 /* for the . */;
@@ -796,26 +779,24 @@ static int kerberosv4_server_mech_step(void *conn_context,
 		strcpy(user, (char *) in + 8);
 		ulen = strlen(user);
 	    } else {
-		user = authid;
-		ulen = alen;
+	    	cflag |= SASL_CU_AUTHZID;
 	    }
 	    
-	    ret = sparams->canon_user(sparams->utils->conn, user, ulen,
-				      SASL_CU_AUTHZID, oparams);
-	    
+	    ret = sparams->canon_user(sparams->utils->conn, authid, alen,
+				      cflag, oparams);
+	    sparams->utils->free(authid);
 	    if (ret != SASL_OK) {
-		sparams->utils->free(authid);
-		if (user != authid)
+		if (user)
 		    sparams->utils->free(user);
 		return ret;
 	    }
 	    
-	    ret = sparams->canon_user(sparams->utils->conn, authid, alen,
-				      SASL_CU_AUTHID, oparams);
+	    if (user) {
+	    	ret = sparams->canon_user(sparams->utils->conn, user, ulen,
+				      SASL_CU_AUTHZID, oparams);
 	    
-	    sparams->utils->free(authid);
-	    if (user != authid)
 		sparams->utils->free(user);
+	    }
 	    
 	    if (ret != SASL_OK) return ret;
 	}
@@ -824,8 +805,10 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	oparams->doneflag = 1;
 	oparams->param_version = 0;
 	
-	text->size = -1;
-	text->needsize = 4;
+	/* used by layers */
+	_plug_decode_init(&text->decode_context, text->utils,
+			  (sparams->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF :
+			  sparams->props.maxbufsize);
 	
 	sparams->utils->free(in);
 
@@ -870,7 +853,8 @@ static sasl_server_plug_t kerberosv4_server_plugins[] =
 	| SASL_SEC_NOACTIVE
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_SERVER_FIRST,		/* features */
+	SASL_FEAT_SERVER_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* glob_context */
 	&kerberosv4_server_mech_new,	/* mech_new */
 	&kerberosv4_server_mech_step,	/* mech_step */
@@ -1138,9 +1122,9 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	memcpy(text->session, text->credentials.session, 8);
 	
 	/* make key schedule for encryption and decryption */
-	des_key_sched(&text->session, text->init_keysched);
-	des_key_sched(&text->session, text->enc_keysched);
-	des_key_sched(&text->session, text->dec_keysched);
+	des_key_sched(text->session, text->init_keysched);
+	des_key_sched(text->session, text->enc_keysched);
+	des_key_sched(text->session, text->dec_keysched);
 	
 	/* decrypt from server */
 	des_ecb_encrypt((des_cblock *)in, (des_cblock *)in,
@@ -1172,7 +1156,8 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	}
 	
 	/* create stuff to send to server */
-	sout = (char *) cparams->utils->malloc(9+strlen(text->user)+9);
+	sout = (char *)
+	    cparams->utils->malloc(9+(text->user ? strlen(text->user) : 0)+9);
 	if (!sout) {
 	    MEMERROR(cparams->utils);
 	    return SASL_NOMEM;
@@ -1182,8 +1167,12 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	memcpy(sout, &nchal, 4);
 	
 	/* need bits of layer */
-	need = cparams->props.max_ssf - cparams->external_ssf;
-	musthave = cparams->props.min_ssf - cparams->external_ssf;
+	if(cparams->props.maxbufsize == 0) {
+	    need = musthave = 0;
+	} else {
+	    need = cparams->props.max_ssf - cparams->external_ssf;
+	    musthave = cparams->props.min_ssf - cparams->external_ssf;
+	}
 	
 	oparams->decode = &kerberosv4_decode;
 	oparams->encode = &kerberosv4_encode;
@@ -1224,9 +1213,20 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	    oparams->maxoutbuf -= 50;
 	}
 	
-	sout[5] = (oparams->maxoutbuf) >> 16;  /* max ciphertext buffer size */
-	sout[6] = (oparams->maxoutbuf) >> 8;
-	sout[7] = (oparams->maxoutbuf);
+	if(cparams->props.maxbufsize) {
+	    int tmpmaxbuf = ( cparams->props.maxbufsize > 0xFFFFFF ) ? 0xFFFFFF : cparams->props.maxbufsize;
+
+	    sout[5]=((tmpmaxbuf >> 16) & 0xFF);
+	    sout[6]=((tmpmaxbuf >> 8) & 0xFF);
+	    sout[7]=(tmpmaxbuf & 0xFF);
+	} else {
+            /* let's say we can support up to 64K */
+	    /* no inherent inability with our layers to support more */
+
+	    sout[5]=0x00;  /* max ciphertext buffer size */
+	    sout[6]=0xFF;
+	    sout[7]=0xFF;
+	}
 	
 	sout[8] = 0x00; /* just to be safe */
 	
@@ -1320,8 +1320,10 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	oparams->doneflag = 1;
 	oparams->param_version = 0;
 	
-	text->size = -1;
-	text->needsize = 4;
+	/* used by layers */
+	_plug_decode_init(&text->decode_context, text->utils,
+			  (cparams->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF :
+			  cparams->props.maxbufsize);
 	
 	if (sout) cparams->utils->free(sout);
 	
@@ -1337,8 +1339,7 @@ static int kerberosv4_client_mech_step(void *conn_context,
     return SASL_FAIL; /* should never get here */
 }
 
-static const long kerberosv4_client_required_prompts[] = {
-    SASL_CB_USER,
+static const long kerberosv4_required_prompts[] = {
     SASL_CB_LIST_END
 };
 
@@ -1352,8 +1353,9 @@ static sasl_client_plug_t kerberosv4_client_plugins[] =
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
 	SASL_FEAT_NEEDSERVERFQDN
-	| SASL_FEAT_SERVER_FIRST,	/* features */
-	kerberosv4_client_required_prompts,	/* required_prompts */
+	| SASL_FEAT_SERVER_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
+	kerberosv4_required_prompts,	/* required_prompts */
 	NULL,				/* glob_context */
 	&kerberosv4_client_mech_new,	/* mech_new */
 	&kerberosv4_client_mech_step,	/* mech_step */

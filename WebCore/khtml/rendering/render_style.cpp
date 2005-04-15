@@ -2,7 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * Copyright (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,6 +25,7 @@
 
 #include "render_style.h"
 #include "css/cssstyleselector.h"
+#include "render_arena.h"
 
 #include "kdebug.h"
 
@@ -81,11 +82,14 @@ bool StyleBoxData::operator==(const StyleBoxData& o) const
         z_auto == o.z_auto;
 }
 
+
 StyleVisualData::StyleVisualData()
       : hasClip(false), 
       textDecoration(RenderStyle::initialTextDecoration()), 
-      colspan( 1 ), counter_increment( 0 ), counter_reset( 0 ),
-      palette( QApplication::palette() )
+      colspan( 1 ), counter_increment( 0 ), counter_reset( 0 )
+#if !APPLE_CHANGES
+      , palette( QApplication::palette() )
+#endif
 {
 }
 
@@ -95,34 +99,155 @@ StyleVisualData::~StyleVisualData() {
 StyleVisualData::StyleVisualData(const StyleVisualData& o )
     : Shared<StyleVisualData>(),
       clip( o.clip ), hasClip( o.hasClip ), textDecoration(o.textDecoration), colspan( o.colspan ),
-      counter_increment( o.counter_increment ), counter_reset( o.counter_reset ),
-      palette( o.palette )
+      counter_increment( o.counter_increment ), counter_reset( o.counter_reset )
+#if !APPLE_CHANGES
+      , palette( o.palette )
+#endif
 {
 }
 
+BackgroundLayer::BackgroundLayer()
+:m_image(RenderStyle::initialBackgroundImage()),
+ m_bgAttachment(RenderStyle::initialBackgroundAttachment()),
+ m_bgRepeat(RenderStyle::initialBackgroundRepeat()),
+ m_next(0)
+{
+    m_imageSet = m_attachmentSet = m_repeatSet = m_xPosSet = m_yPosSet = false;     
+}
 
+BackgroundLayer::BackgroundLayer(const BackgroundLayer& o)
+{
+    m_next = o.m_next ? new BackgroundLayer(*o.m_next) : 0;
+    m_image = o.m_image;
+    m_xPosition = o.m_xPosition;
+    m_yPosition = o.m_yPosition;
+    m_bgAttachment = o.m_bgAttachment;
+    m_bgRepeat = o.m_bgRepeat;
+    m_imageSet = o.m_imageSet;
+    m_attachmentSet = o.m_attachmentSet;
+    m_repeatSet = o.m_repeatSet;
+    m_xPosSet = o.m_xPosSet;
+    m_yPosSet = o.m_yPosSet;
+}
+
+BackgroundLayer::~BackgroundLayer()
+{
+    delete m_next;
+}
+
+BackgroundLayer& BackgroundLayer::operator=(const BackgroundLayer& o) {
+    if (m_next != o.m_next) {
+        delete m_next;
+        m_next = o.m_next ? new BackgroundLayer(*o.m_next) : 0;
+    }
+    
+    m_image = o.m_image;
+    m_xPosition = o.m_xPosition;
+    m_yPosition = o.m_yPosition;
+    m_bgAttachment = o.m_bgAttachment;
+    m_bgRepeat = o.m_bgRepeat;
+    
+    m_imageSet = o.m_imageSet;
+    m_attachmentSet = o.m_attachmentSet;
+    m_repeatSet = o.m_repeatSet;
+    m_xPosSet = o.m_xPosSet;
+    m_yPosSet = o.m_yPosSet;
+    
+    return *this;
+}
+
+bool BackgroundLayer::operator==(const BackgroundLayer& o) const {
+    return m_image == o.m_image && m_xPosition == o.m_xPosition && m_yPosition == o.m_yPosition &&
+           m_bgAttachment == o.m_bgAttachment && m_bgRepeat == o.m_bgRepeat && 
+           m_imageSet == o.m_imageSet && m_attachmentSet == o.m_attachmentSet && m_repeatSet == o.m_repeatSet &&
+           m_xPosSet == o.m_xPosSet && m_yPosSet == o.m_yPosSet &&
+           ((m_next && o.m_next) ? *m_next == *o.m_next : m_next == o.m_next);
+}
+
+void BackgroundLayer::fillUnsetProperties()
+{
+    BackgroundLayer* curr;
+    for (curr = this; curr && curr->isBackgroundImageSet(); curr = curr->next());
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
+            curr->m_image = pattern->m_image;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+    
+    for (curr = this; curr && curr->isBackgroundXPositionSet(); curr = curr->next());
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
+            curr->m_xPosition = pattern->m_xPosition;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+    
+    for (curr = this; curr && curr->isBackgroundYPositionSet(); curr = curr->next());
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
+            curr->m_yPosition = pattern->m_yPosition;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+    
+    for (curr = this; curr && curr->isBackgroundAttachmentSet(); curr = curr->next());
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
+            curr->m_bgAttachment = pattern->m_bgAttachment;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+    
+    for (curr = this; curr && curr->isBackgroundRepeatSet(); curr = curr->next());
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
+            curr->m_bgRepeat = pattern->m_bgRepeat;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+}
+
+void BackgroundLayer::cullEmptyLayers()
+{
+    BackgroundLayer *next;
+    for (BackgroundLayer *p = this; p; p = next) {
+        next = p->m_next;
+        if (next && !next->isBackgroundImageSet() &&
+            !next->isBackgroundXPositionSet() && !next->isBackgroundYPositionSet() &&
+            !next->isBackgroundAttachmentSet() && !next->isBackgroundRepeatSet()) {
+            delete next;
+            p->m_next = 0;
+            break;
+        }
+    }
+}
 
 StyleBackgroundData::StyleBackgroundData()
-    : image( RenderStyle::initialBackgroundImage() )
-{
-}
+{}
 
-StyleBackgroundData::StyleBackgroundData(const StyleBackgroundData& o )
-    : Shared<StyleBackgroundData>(),
-      color( o.color ), image( o.image ),
-      x_position( o.x_position ), y_position( o.y_position ),
-      outline( o.outline )
-{
-}
+StyleBackgroundData::StyleBackgroundData(const StyleBackgroundData& o)
+    : Shared<StyleBackgroundData>(), m_background(o.m_background), m_outline(o.m_outline)
+{}
 
 bool StyleBackgroundData::operator==(const StyleBackgroundData& o) const
 {
-    return
-	color == o.color &&
-	image == o.image &&
-	x_position == o.x_position &&
-	y_position == o.y_position &&
-	outline == o.outline;
+    return m_background == o.m_background && m_color == o.m_color && m_outline == o.m_outline;
 }
 
 StyleMarqueeData::StyleMarqueeData()
@@ -155,7 +280,6 @@ StyleFlexibleBoxData::StyleFlexibleBoxData()
     pack = RenderStyle::initialBoxPack();
     orient = RenderStyle::initialBoxOrient();
     lines = RenderStyle::initialBoxLines();
-    flexed_height = -1;
 }
 
 StyleFlexibleBoxData::StyleFlexibleBoxData(const StyleFlexibleBoxData& o)
@@ -168,34 +292,85 @@ StyleFlexibleBoxData::StyleFlexibleBoxData(const StyleFlexibleBoxData& o)
     pack = o.pack;
     orient = o.orient;
     lines = o.lines;
-    flexed_height = o.flexed_height;
 }
 
 bool StyleFlexibleBoxData::operator==(const StyleFlexibleBoxData& o) const
 {
     return flex == o.flex && flex_group == o.flex_group &&
            ordinal_group == o.ordinal_group && align == o.align &&
-           pack == o.pack && orient == o.orient && lines == o.lines &&
-           flexed_height == o.flexed_height;
+           pack == o.pack && orient == o.orient && lines == o.lines;
 }
 
 StyleCSS3NonInheritedData::StyleCSS3NonInheritedData()
-:Shared<StyleCSS3NonInheritedData>(), opacity(RenderStyle::initialOpacity())
+:Shared<StyleCSS3NonInheritedData>(), 
+#if APPLE_CHANGES
+lineClamp(RenderStyle::initialLineClamp()),
+#endif
+opacity(RenderStyle::initialOpacity()),
+userDrag(RenderStyle::initialUserDrag()),
+userSelect(RenderStyle::initialUserSelect()),
+textOverflow(RenderStyle::initialTextOverflow()),
+marginTopCollapse(MCOLLAPSE),
+marginBottomCollapse(MCOLLAPSE)
+#ifndef KHTML_NO_XBL
+, bindingURI(0)
+#endif
 {
 }
 
 StyleCSS3NonInheritedData::StyleCSS3NonInheritedData(const StyleCSS3NonInheritedData& o)
-:Shared<StyleCSS3NonInheritedData>(), opacity(o.opacity), flexibleBox(o.flexibleBox), marquee(o.marquee)
+:Shared<StyleCSS3NonInheritedData>(), 
+#if APPLE_CHANGES
+lineClamp(o.lineClamp),
+#endif
+opacity(o.opacity), flexibleBox(o.flexibleBox), marquee(o.marquee),
+userDrag(o.userDrag), userSelect(o.userSelect), textOverflow(o.textOverflow),
+marginTopCollapse(o.marginTopCollapse), marginBottomCollapse(o.marginBottomCollapse)
 {
+#ifndef KHTML_NO_XBL
+    bindingURI = o.bindingURI ? o.bindingURI->copy() : 0;
+#endif
 }
+
+StyleCSS3NonInheritedData::~StyleCSS3NonInheritedData()
+{
+#ifndef KHTML_NO_XBL
+    delete bindingURI;
+#endif
+}
+
+#ifndef KHTML_NO_XBL
+bool StyleCSS3NonInheritedData::bindingsEquivalent(const StyleCSS3NonInheritedData& o) const
+{
+    if (this == &o) return true;
+    if (!bindingURI && o.bindingURI || bindingURI && !o.bindingURI)
+        return false;
+    if (bindingURI && o.bindingURI && (*bindingURI != *o.bindingURI))
+        return false;
+    return true;
+}
+#endif
 
 bool StyleCSS3NonInheritedData::operator==(const StyleCSS3NonInheritedData& o) const
 {
-    return opacity == o.opacity && flexibleBox == o.flexibleBox && marquee == o.marquee;
+    return opacity == o.opacity && flexibleBox == o.flexibleBox && marquee == o.marquee &&
+           userDrag == o.userDrag && userSelect == o.userSelect && textOverflow == o.textOverflow &&
+           marginTopCollapse == o.marginTopCollapse && marginBottomCollapse == o.marginBottomCollapse
+#ifndef KHTML_NO_XBL
+           && bindingsEquivalent(o)
+#endif
+#if APPLE_CHANGES
+           && lineClamp == o.lineClamp && m_dashboardRegions == o.m_dashboardRegions
+#endif
+    ;
 }
 
 StyleCSS3InheritedData::StyleCSS3InheritedData()
-:Shared<StyleCSS3InheritedData>(), textShadow(0)
+:Shared<StyleCSS3InheritedData>(), textShadow(0), userModify(READ_ONLY), wordWrap(WBNORMAL), 
+    nbspMode(NBNORMAL), khtmlLineBreak(LBNORMAL)
+#if APPLE_CHANGES
+, textSizeAdjust(RenderStyle::initialTextSizeAdjust())
+#endif
 {
 
 }
@@ -204,6 +379,13 @@ StyleCSS3InheritedData::StyleCSS3InheritedData(const StyleCSS3InheritedData& o)
 :Shared<StyleCSS3InheritedData>()
 {
     textShadow = o.textShadow ? new ShadowData(*o.textShadow) : 0;
+    userModify = o.userModify;
+    wordWrap = o.wordWrap;
+    nbspMode = o.nbspMode;
+    khtmlLineBreak = o.khtmlLineBreak;
+#if APPLE_CHANGES
+    textSizeAdjust = o.textSizeAdjust;
+#endif
 }
 
 StyleCSS3InheritedData::~StyleCSS3InheritedData()
@@ -213,7 +395,12 @@ StyleCSS3InheritedData::~StyleCSS3InheritedData()
 
 bool StyleCSS3InheritedData::operator==(const StyleCSS3InheritedData& o) const
 {
-    return shadowDataEquivalent(o);
+    return (userModify == o.userModify) && shadowDataEquivalent(o) && (wordWrap == o.wordWrap) &&
+        (nbspMode == o.nbspMode) && (khtmlLineBreak == o.khtmlLineBreak)
+#if APPLE_CHANGES
+            && (textSizeAdjust == o.textSizeAdjust)
+#endif
+    ;
 }
 
 bool StyleCSS3InheritedData::shadowDataEquivalent(const StyleCSS3InheritedData& o) const
@@ -267,11 +454,48 @@ bool StyleInheritedData::operator==(const StyleInheritedData& o) const
         page_break_inside == o.page_break_inside;
 }
 
-RenderStyle::RenderStyle()
+// ----------------------------------------------------------
+
+void* RenderStyle::operator new(size_t sz, RenderArena* renderArena) throw()
 {
-//    counter++;
+    return renderArena->allocate(sz);
+}
+
+void RenderStyle::operator delete(void* ptr, size_t sz)
+{
+    // Stash size where detach can find it.
+    *(size_t *)ptr = sz;
+}
+
+void RenderStyle::arenaDelete(RenderArena *arena)
+{
+    RenderStyle *ps = pseudoStyle;
+    RenderStyle *prev = 0;
+    
+    while (ps) {
+        prev = ps;
+        ps = ps->pseudoStyle;
+	// to prevent a double deletion.
+	// this works only because the styles below aren't really shared
+	// Dirk said we need another construct as soon as these are shared
+        prev->pseudoStyle = 0;
+        prev->deref(arena);
+    }
+    delete content;
+    
+    delete this;
+    
+    // Recover the size left there for us by operator delete and free the memory.
+    arena->free(*(size_t *)this, this);
+}
+
+RenderStyle::RenderStyle()
+:m_pseudoState(PseudoUnknown), m_affectedByAttributeSelectors(false)
+{
+    m_ref = 0;
+    
     if (!_default)
-	_default = new RenderStyle(true);
+	_default = ::new RenderStyle(true);
 
     box = _default->box;
     visual = _default->visual;
@@ -289,6 +513,7 @@ RenderStyle::RenderStyle()
 }
 
 RenderStyle::RenderStyle(bool)
+:m_pseudoState(PseudoUnknown), m_affectedByAttributeSelectors(false)
 {
     setBitDefaults();
 
@@ -304,15 +529,17 @@ RenderStyle::RenderStyle(bool)
 
     pseudoStyle = 0;
     content = 0;
+    m_ref = 1;
 }
 
 RenderStyle::RenderStyle(const RenderStyle& o)
-    : Shared<RenderStyle>(),
-      inherited_flags( o.inherited_flags ), noninherited_flags( o.noninherited_flags ),
+    : inherited_flags( o.inherited_flags ), noninherited_flags( o.noninherited_flags ),
       box( o.box ), visual( o.visual ), background( o.background ), surround( o.surround ),
       css3NonInheritedData( o.css3NonInheritedData ), css3InheritedData( o.css3InheritedData ),
-      inherited( o.inherited ), pseudoStyle( 0 ), content( o.content )
+      inherited( o.inherited ), pseudoStyle( 0 ), content( o.content ), m_pseudoState(o.m_pseudoState),
+      m_affectedByAttributeSelectors(false)
 {
+    m_ref = 0;
 }
 
 void RenderStyle::inheritFrom(const RenderStyle* inheritParent)
@@ -324,19 +551,6 @@ void RenderStyle::inheritFrom(const RenderStyle* inheritParent)
 
 RenderStyle::~RenderStyle()
 {
-    RenderStyle *ps = pseudoStyle;
-    RenderStyle *prev = 0;
-
-    while (ps) {
-        prev = ps;
-        ps = ps->pseudoStyle;
-	// to prevent a double deletion.
-	// this works only because the styles below aren't really shared
-	// Dirk said we need another construct as soon as these are shared
-        prev->pseudoStyle = 0;
-        prev->deref();
-    }
-    delete content;
 }
 
 bool RenderStyle::operator==(const RenderStyle& o) const
@@ -409,28 +623,10 @@ RenderStyle* RenderStyle::getPseudoStyle(PseudoId pid)
 void RenderStyle::addPseudoStyle(RenderStyle* pseudo)
 {
     if (!pseudo) return;
-    
     pseudo->ref();
     pseudo->pseudoStyle = pseudoStyle;
     pseudoStyle = pseudo;
 }
-
-void RenderStyle::removePseudoStyle(PseudoId pid)
-{
-    RenderStyle *ps = pseudoStyle;
-    RenderStyle *prev = this;
-
-    while (ps) {
-        if (ps->noninherited_flags._styleType==pid) {
-            prev->pseudoStyle = ps->pseudoStyle;
-            ps->deref();
-            return;
-        }
-        prev = ps;
-        ps = ps->pseudoStyle;
-    }
-}
-
 
 bool RenderStyle::inheritedNotEqual( RenderStyle *other ) const
 {
@@ -473,10 +669,25 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
 // inherited attributes
 //     DataRef<StyleInheritedData> inherited;
 
-    if ( *box.get() != *other->box.get() ||
+    if ( box->width != other->box->width ||
+         box->min_width != other->box->min_width ||
+         box->max_width != other->box->max_width ||
+         box->height != other->box->height ||
+         box->min_height != other->box->min_height ||
+         box->max_height != other->box->max_height ||
+         box->vertical_align != other->box->vertical_align ||
          !(surround->margin == other->surround->margin) ||
          !(surround->padding == other->surround->padding) ||
+         css3NonInheritedData->marginTopCollapse != other->css3NonInheritedData->marginTopCollapse ||
+         css3NonInheritedData->marginBottomCollapse != other->css3NonInheritedData->marginBottomCollapse ||
          *css3NonInheritedData->flexibleBox.get() != *other->css3NonInheritedData->flexibleBox.get() ||
+#if APPLE_CHANGES
+         (css3NonInheritedData->lineClamp != other->css3NonInheritedData->lineClamp) ||
+         (css3InheritedData->textSizeAdjust != other->css3InheritedData->textSizeAdjust) ||
+#endif
+         (css3InheritedData->wordWrap != other->css3InheritedData->wordWrap) ||
+         (css3InheritedData->nbspMode != other->css3InheritedData->nbspMode) ||
+         (css3InheritedData->khtmlLineBreak != other->css3InheritedData->khtmlLineBreak) ||
         !(inherited->indent == other->inherited->indent) ||
         !(inherited->line_height == other->inherited->line_height) ||
         !(inherited->style_image == other->inherited->style_image) ||
@@ -492,8 +703,9 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
         !(noninherited_flags._originalDisplay == other->noninherited_flags._originalDisplay) ||
          visual->colspan != other->visual->colspan ||
          visual->counter_increment != other->visual->counter_increment ||
-         visual->counter_reset != other->visual->counter_reset)
-        return CbLayout;
+         visual->counter_reset != other->visual->counter_reset ||
+         css3NonInheritedData->textOverflow != other->css3NonInheritedData->textOverflow)
+        return Layout;
    
     // changes causing Layout changes:
 
@@ -512,7 +724,7 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
 	     !(inherited_flags._empty_cells == other->inherited_flags._empty_cells) ||
 	     !(inherited_flags._caption_side == other->inherited_flags._caption_side) ||
 	     !(noninherited_flags._table_layout == other->noninherited_flags._table_layout))
-        return CbLayout;
+        return Layout;
     }
 
 // only for lists:
@@ -554,41 +766,54 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
         borderRightWidth() != other->borderRightWidth())
         return Layout;
 
+#if APPLE_CHANGES
+    // If regions change trigger a relayout to re-calc regions.
+    if (!(css3NonInheritedData->m_dashboardRegions == other->css3NonInheritedData->m_dashboardRegions))
+        return Layout;
+#endif
+
     // Make sure these left/top/right/bottom checks stay below all layout checks and above
     // all visible checks.
-    if (other->position() != STATIC && !(surround->offset == other->surround->offset)) {
-     // FIXME: would like to do this at some point, but will need a new hint that indicates
-     // descendants need to be repainted too.
-     //   if (other->position() == RELATIVE)
-     //       return Visible;
-     //   else
-            return Layout;
+    if (other->position() != STATIC) {
+        if (!(surround->offset == other->surround->offset)) {
+            // FIXME: We will need to do a bit of work in RenderObject/Box::setStyle before we
+            // can stop doing a layout when relative positioned objects move.  In particular, we'll need
+            // to update scrolling positions and figure out how to do a repaint properly of the updated layer.
+            //if (other->position() == RELATIVE)
+            //    return RepaintLayer;
+            //else
+                return Layout;
+        }
+        else if (box->z_index != other->box->z_index || box->z_auto != other->box->z_auto ||
+                 !(visual->clip == other->visual->clip) || visual->hasClip != other->visual->hasClip)
+            return RepaintLayer;
     }
 
-    // Visible:
+    if (css3NonInheritedData->opacity != other->css3NonInheritedData->opacity)
+        return RepaintLayer;
+
+    // Repaint:
 // 	EVisibility _visibility : 2;
 //     EOverflow _overflow : 4 ;
-//     EBackgroundRepeat _bg_repeat : 2;
-//     bool _bg_attachment : 1;
 // 	int _text_decoration : 4;
 //     DataRef<StyleBackgroundData> background;
     if (inherited->color != other->inherited->color ||
         !(inherited_flags._visibility == other->inherited_flags._visibility) ||
         !(noninherited_flags._overflow == other->noninherited_flags._overflow) ||
-        !(noninherited_flags._bg_repeat == other->noninherited_flags._bg_repeat) ||
-        !(noninherited_flags._bg_attachment == other->noninherited_flags._bg_attachment) ||
         !(inherited_flags._text_decorations == other->inherited_flags._text_decorations) ||
-        !(inherited_flags._should_correct_text_color == other->inherited_flags._should_correct_text_color) ||
+        !(inherited_flags._force_backgrounds_to_white == other->inherited_flags._force_backgrounds_to_white) ||
         !(surround->border == other->surround->border) ||
         *background.get() != *other->background.get() ||
-        !(visual->clip == other->visual->clip) ||
-        visual->hasClip != other->visual->hasClip ||
         visual->textDecoration != other->visual->textDecoration ||
-        css3NonInheritedData->opacity != other->css3NonInheritedData->opacity ||
         !css3InheritedData->shadowDataEquivalent(*other->css3InheritedData.get()) ||
-        !(visual->palette == other->visual->palette)
+        css3InheritedData->userModify != other->css3InheritedData->userModify ||
+        css3NonInheritedData->userSelect != other->css3NonInheritedData->userSelect ||
+        css3NonInheritedData->userDrag != other->css3NonInheritedData->userDrag
+#if !APPLE_CHANGES
+        || !(visual->palette == other->visual->palette)
+#endif
 	)
-        return Visible;
+        return Repaint;
 
     return Equal;
 }
@@ -606,9 +831,24 @@ void RenderStyle::cleanup()
 //    SharedData::counter = 0;
 }
 
+#if !APPLE_CHANGES
+
 void RenderStyle::setPaletteColor(QPalette::ColorGroup g, QColorGroup::ColorRole r, const QColor& c)
 {
     visual.access()->palette.setColor(g,r,c);
+}
+
+#endif
+
+void RenderStyle::adjustBackgroundLayers()
+{
+    if (backgroundLayers()->next()) {
+        // First we cull out layers that have no properties set.
+        accessBackgroundLayers()->cullEmptyLayers();
+        
+        // Next we repeat patterns into layers that don't have some properties set.
+        accessBackgroundLayers()->fillUnsetProperties();
+    }
 }
 
 void RenderStyle::setClip( Length top, Length right, Length bottom, Length left )
@@ -742,6 +982,59 @@ void ContentData::clearContent()
     }
 }
 
+#ifndef KHTML_NO_XBL
+BindingURI::BindingURI(DOM::DOMStringImpl* uri) 
+:m_next(0)
+{ 
+    m_uri = uri;
+    if (uri) uri->ref();
+}
+
+BindingURI::~BindingURI()
+{
+    if (m_uri)
+        m_uri->deref();
+    delete m_next;
+}
+
+BindingURI* BindingURI::copy()
+{
+    BindingURI* newBinding = new BindingURI(m_uri);
+    if (next()) {
+        BindingURI* nextCopy = next()->copy();
+        newBinding->setNext(nextCopy);
+    }
+    
+    return newBinding;
+}
+
+bool BindingURI::operator==(const BindingURI& o) const
+{
+    if ((m_next && !o.m_next) || (!m_next && o.m_next) ||
+        (m_next && o.m_next && *m_next != *o.m_next))
+        return false;
+    
+    if (m_uri == o.m_uri)
+        return true;
+    if (!m_uri || !o.m_uri)
+        return false;
+    
+    return DOMString(m_uri) == DOMString(o.m_uri);
+}
+
+void RenderStyle::addBindingURI(DOM::DOMStringImpl* uri)
+{
+    BindingURI* binding = new BindingURI(uri);
+    if (!bindingURIs())
+        SET_VAR(css3NonInheritedData, bindingURI, binding)
+    else 
+        for (BindingURI* b = bindingURIs(); b; b = b->next()) {
+            if (!b->next())
+                b->setNext(binding);
+        }
+}
+#endif
+
 void RenderStyle::setTextShadow(ShadowData* val, bool add)
 {
     StyleCSS3InheritedData* css3Data = css3InheritedData.access(); 
@@ -769,4 +1062,29 @@ bool ShadowData::operator==(const ShadowData& o) const
         return false;
     
     return x == o.x && y == o.y && blur == o.blur && color == o.color;
+}
+
+const QValueList<StyleDashboardRegion>& RenderStyle::initialDashboardRegions()
+{ 
+    static QValueList<StyleDashboardRegion> emptyList;
+    return emptyList;
+}
+
+const QValueList<StyleDashboardRegion>& RenderStyle::noneDashboardRegions()
+{ 
+    static QValueList<StyleDashboardRegion> noneList;
+    static bool noneListInitialized = false;
+    
+    if (!noneListInitialized) {
+        StyleDashboardRegion region;
+        region.label = "";
+        region.offset.top  = Length();
+        region.offset.right = Length();
+        region.offset.bottom = Length();
+        region.offset.left = Length();
+        region.type = StyleDashboardRegion::None;
+        noneList.append (region);
+        noneListInitialized = true;
+    }
+    return noneList;
 }

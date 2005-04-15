@@ -25,6 +25,7 @@
 #include <mach/mach_port.h>
 #include <mach/thread_act.h>
 #include <mach/vm_map.h>
+#include <mach/mach_time.h>
 
 #include <syslog.h>	// Debug messages
 
@@ -440,6 +441,10 @@ static IOReturn MakeP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt3
 {
     IOReturn err;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: MakeP2PConnectionForWrite begin\n");
+#endif
+	
 	err = (*pDVDevice->fAVCInterface)->makeP2PInputConnection(pDVDevice->fAVCInterface, plug, chan);
     if (err == kIOReturnSuccess)
     {
@@ -447,25 +452,42 @@ static IOReturn MakeP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt3
         pDVDevice->p2pPlug = plug;
         pDVDevice->p2pChan = chan;
     }
-    return err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: MakeP2PConnectionForWrite end\n");
+#endif
+	
+	return err;
 }
 
 static IOReturn BreakP2PConnectionForWrite(DVDevice *pDVDevice,UInt32 plug, UInt32 chan)
 {
     IOReturn err;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: BreakP2PConnectionForWrite begin\n");
+#endif
+	
 	err = (*pDVDevice->fAVCInterface)->breakP2PInputConnection(pDVDevice->fAVCInterface, plug);
 
 	// Always clear the connected flag, even if there was an error.
     pDVDevice->p2pConnected = kNoP2PConnection;
 
-    return err;
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: BreakP2PConnectionForWrite end\n");
+#endif
+
+	return err;
 }
 
 static IOReturn MakeP2PConnectionForRead(DVDevice *pDVDevice,UInt32 plug, UInt32 chan)
 {
     IOReturn err;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: MakeP2PConnectionForRead begin\n");
+#endif
+	
 	err = (*pDVDevice->fAVCInterface)->makeP2POutputConnection(pDVDevice->fAVCInterface, plug,chan,kFWSpeedInvalid);
     if (err == kIOReturnSuccess)
     {
@@ -473,31 +495,52 @@ static IOReturn MakeP2PConnectionForRead(DVDevice *pDVDevice,UInt32 plug, UInt32
         pDVDevice->p2pPlug = plug;
         pDVDevice->p2pChan = chan;
     }
-    return err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: MakeP2PConnectionForRead end\n");
+#endif
+	
+	return err;
 }
 
 static IOReturn BreakP2PConnectionForRead(DVDevice *pDVDevice,UInt32 plug, UInt32 chan)
 {
     IOReturn err;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: BreakP2PConnectionForRead begin\n");
+#endif
+	
 	err = (*pDVDevice->fAVCInterface)->breakP2POutputConnection(pDVDevice->fAVCInterface, plug);
 
 	// Always clear the connected flag, even if there was an error.
     pDVDevice->p2pConnected = kNoP2PConnection;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: BreakP2PConnectionForRead end\n");
+#endif
+	
     return err;
 }
 
 void AVCUnitMessageCallback(void * refCon, UInt32 type, void * arg )
 {
     DVDevice *pDVDevice = (DVDevice*) refCon;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: AVCUnitMessageCallback begin, type = 0x%08X\n",type);
+#endif
+	
     // If this is a bus-reset notification, see if we have a p2p connection.
     // If so, restore the P2P connection, do on real time thread for safety.
     // Done by kernel now.
     // Callback the client's message notification handler
     if (pDVDevice->fThread->fDeviceMessage != NULL)
         pDVDevice->fThread->fDeviceMessage((void*)pDVDevice->deviceIndex,type,arg);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: AVCUnitMessageCallback end\n");
+#endif
     
     return;
 }
@@ -507,7 +550,11 @@ static IOReturn getSignalMode(IOFireWireAVCLibUnitInterface **avc, UInt8 *mode)
     UInt32 size;
     UInt8 cmd[4],response[4];
     IOReturn res;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: getSignalMode begin\n");
+#endif
+	
     // build query Output Signal Mode command
     cmd[0] = kAVCStatusInquiryCommand;
     cmd[1] = IOAVCAddress(kAVCTapeRecorder, 0);
@@ -518,7 +565,12 @@ static IOReturn getSignalMode(IOFireWireAVCLibUnitInterface **avc, UInt8 *mode)
     if(res == kIOReturnSuccess) {
         *mode =  response[3];
     }
-    return res;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: getSignalMode end\n");
+#endif
+	
+	return res;
 }
 
 static bool isDVCPro(IOFireWireAVCLibUnitInterface **avc, UInt8 *pMode)
@@ -527,6 +579,10 @@ static bool isDVCPro(IOFireWireAVCLibUnitInterface **avc, UInt8 *pMode)
     UInt8 cmd[10],response[10];
     IOReturn res;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isDVCPro begin\n");
+#endif
+	
     // build query vender-dependent command (is DVCPro?).
     cmd[0] = kAVCStatusInquiryCommand;
     cmd[1] = kAVCUnitAddress;
@@ -561,10 +617,20 @@ static bool isDVCPro(IOFireWireAVCLibUnitInterface **avc, UInt8 *pMode)
 		else
 			*pMode = 0x00;
 
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: isDVCPro end:true\n");
+#endif
+		
 		return true;
 	}
 	else
+	{
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: isDVCPro end:false\n");
+#endif
 		return false;
+	}
 }
 
 static bool isSDL(IOFireWireAVCLibUnitInterface **avc, UInt8 signalMode)
@@ -575,7 +641,11 @@ static bool isSDL(IOFireWireAVCLibUnitInterface **avc, UInt8 signalMode)
     
     UInt32 size;
     UInt8 cmd[4],response[4];
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isSDL begin\n");
+#endif
+	
     cmd[0] = kAVCControlCommand;
     cmd[1] = IOAVCAddress(kAVCTapeRecorder, 0);
     cmd[2] = kAVCInputSignalModeOpcode;
@@ -583,7 +653,12 @@ static bool isSDL(IOFireWireAVCLibUnitInterface **avc, UInt8 signalMode)
     size = 4;
     res = (*avc)->AVCCommand(avc, cmd, 4, response, &size);
     if(res != kIOReturnSuccess || response[0] != kAVCAcceptedStatus)
+	{
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: isSDL end:false\n");
+#endif
         return false;	// Failed to set to SDL
+	}
         
     cmd[0] = kAVCStatusInquiryCommand;
     cmd[1] = IOAVCAddress(kAVCTapeRecorder, 0);
@@ -600,6 +675,10 @@ static bool isSDL(IOFireWireAVCLibUnitInterface **avc, UInt8 signalMode)
     cmd[3] = signalMode;
     size = 4;
     res = (*avc)->AVCCommand(avc, cmd, 4, response, &size);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isSDL end:%s\n",(hasSDL==true ? "true" : "false"));
+#endif
     
     return hasSDL;
 }
@@ -635,6 +714,10 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
     io_object_t obj;
     DVThread * dvThread = (DVThread *)refcon;
 	UInt8 dvcProMode;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: deviceArrived begin\n");
+#endif
     
     //syslog(LOG_INFO,"deviceArrived(0x%x, 0x%x)\n", refcon, iterator);
     while(obj = IOIteratorNext(iterator)) {
@@ -786,10 +869,20 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
             (dvThread->fAddedFunc)(dvThread->fAddedRefCon, dev, device+1, refound);
 		}
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: deviceArrived end\n");
+#endif
+	
 }
 
 static OSStatus DVthreadExit(DVThread *dvThread, UInt32 params)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVthreadExit begin\n");
+#endif
+	
     if(dvThread->fNotifySource)
         CFRunLoopSourceInvalidate(dvThread->fNotifySource);
 
@@ -801,7 +894,11 @@ static OSStatus DVthreadExit(DVThread *dvThread, UInt32 params)
 	// this makes sure our thread will really exit..
 	CFRunLoopStop(dvThread->fWorkLoop) ;
     dvThread->fTimerFunc = NULL;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVthreadExit end\n");
+#endif
+	
     return noErr;
 }
 
@@ -813,11 +910,14 @@ static void *DVRTThreadStart(DVThread *dvThread)
     int delay;
     int run = true;
     int i;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVRTThreadStart begin\n");
+#endif
+	
     deviceArrived(dvThread, dvThread->fMatchEnumer);
     // signal that we're about to start the mach loop
     DVSignalSync(&dvThread->fRequestSyncer, &dvThread->fSyncRequest, 1);
-
 
     delay = 12;	// DCL block size
     while(run) {
@@ -859,7 +959,11 @@ static void *DVRTThreadStart(DVThread *dvThread)
         }
         
     }
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVRTThreadStart end\n");
+#endif
+
     return NULL;
 }
 
@@ -867,6 +971,11 @@ static void *DVRLThreadStart(DVThread *thread)
 {
     CFRunLoopRef loop;
     //syslog(LOG_INFO, "Starting thread: %p\n", thread);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVRLThreadStart begin\n");
+#endif
+	
      loop = CFRunLoopGetCurrent();
     //printf("Starting thread: %p, loop %p, notify retain %d, notify %p ioport %p, info %x\n",
     //    thread, loop, retain, thread->fNotifySource, thread->fNotifyPort, *((UInt32 *)thread->fNotifySource + 1));
@@ -887,6 +996,10 @@ static void *DVRLThreadStart(DVThread *thread)
 
     //printf("Exiting thread: %p, loop %p\n", thread, loop);
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVRLThreadStart end\n");
+#endif
+	
     return NULL;
 }
 
@@ -899,6 +1012,10 @@ PowerManagementNotificationCallback(void * refcon,
 	DVThread *dvThread = (DVThread*) refcon;
 	UInt32 i;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: PowerManagementNotificationCallback begin\n");
+#endif
+	
 	// If we are waking from sleep, restart any running streams
 	if (messageType == kIOMessageSystemHasPoweredOn)
 	{
@@ -935,6 +1052,11 @@ PowerManagementNotificationCallback(void * refcon,
 
 	// Acknowledge the message
 	IOAllowPowerChange (dvThread->fPowerNotifyConnect, (long) messageArgument);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: PowerManagementNotificationCallback end\n");
+#endif
+	
 }
 
 DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
@@ -949,6 +1071,10 @@ DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
     CFMutableDictionaryRef	dict = 0;
     CFNumberRef	tape;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVCreateThread begin\n");
+#endif
+	
     dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
         &kCFTypeDictionaryKeyCallBacks,
         &kCFTypeDictionaryValueCallBacks);
@@ -965,7 +1091,11 @@ DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
     CFRelease(tape);
     
     if ((err = IOMasterPort(bootstrap_port, &masterDevicePort)) != KERN_SUCCESS) {
-        return NULL;
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: DVCreateThread end:failed to get master port\n");
+#endif
+		return NULL;
     }
     
     dvThread = malloc(sizeof(DVThread));
@@ -1004,43 +1134,40 @@ DVThread * DVCreateThread(DVDeviceArrivedFunc deviceAdded, void * addedRefCon,
 							&dvThread->fPowerManagementNotifier);
     dvThread->fPowerNotifySource = IONotificationPortGetRunLoopSource(dvThread->fPowerNotifyPort);
 	
-     return dvThread;
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVCreateThread end\n");
+#endif
+	
+	return dvThread;
 }
 
 static void setThreadPriority(pthread_t thread)
 {
     double   mult;
-    unsigned int delta;
-    unsigned int abs_to_ns_num;
-    unsigned int abs_to_ns_denom;
-    unsigned int proc_to_abs_num;
-    unsigned int proc_to_abs_denom;
     thread_time_constraint_policy_data_t constraints;
     kern_return_t result;
-    // Set thread to Real Time
-#if 0
-    {
-        mach_msg_type_number_t count;
-        boolean_t get_default = TRUE;
-        count = THREAD_TIME_CONSTRAINT_POLICY_COUNT;
-        thread_policy_get(pthread_mach_thread_np(thread), THREAD_TIME_CONSTRAINT_POLICY,
-            (thread_policy_t)&constraints, &count, &get_default);
-        syslog(LOG_INFO, "default period %d computation %d constraint %d preemptible %d\n",
-            constraints.period, constraints.computation, constraints.constraint, constraints.preemptible);
-    }
-#endif
-    (void)MKGetTimeBaseInfo (&delta, &abs_to_ns_num, &abs_to_ns_denom,
-            &proc_to_abs_num,  &proc_to_abs_denom);
 
-    mult = ((double)abs_to_ns_denom / (double)abs_to_ns_num) * 1000000;
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: setThreadPriority begin\n");
+#endif
+
+	// use mach_timebase_info to get abs to ns conversion parameters
+	mach_timebase_info_data_t tTBI;
+	mach_timebase_info(&tTBI);
+
+    // Set thread to Real Time
+	mult = ((double)tTBI.denom / (double)tTBI.numer) * 1000000;
     constraints.period = 12*mult;
     constraints.computation = 2*mult;
     constraints.constraint = 24*mult;
     constraints.preemptible = TRUE;
     result = thread_policy_set(pthread_mach_thread_np(thread), THREAD_TIME_CONSTRAINT_POLICY,
         (thread_policy_t)&constraints, THREAD_TIME_CONSTRAINT_POLICY_COUNT);
-    //syslog(LOG_INFO, "result %x, our period %d computation %d constraint %d preemptible %d\n",
-    //        result, constraints.period, constraints.computation, constraints.constraint, constraints.preemptible);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: setThreadPriority end\n");
+#endif
+	
 }
 
 void DVSetTimeoutTime(DVThread * dvThread, CFAbsoluteTime fireDate)
@@ -1053,6 +1180,10 @@ void DVRunThread(DVThread * dvThread)
 {
     pthread_attr_t threadAttr;			// Attributes of work thread
     pthread_t thread;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVRunThread begin\n");
+#endif
     
     // Start each thread, wait for first to start before setting up second.
     dvThread->fSyncRequest = 0;
@@ -1067,10 +1198,20 @@ void DVRunThread(DVThread * dvThread)
     dvThread->fRTThread = thread;
     setThreadPriority(thread);
     DVWaitSync(&dvThread->fRequestSyncer, &dvThread->fSyncRequest);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVRunThread end\n");
+#endif
+	
 }
 
 void DVFreeThread(DVThread * dvThread)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVFreeThread begin\n");
+#endif
+	
     DVRequest(dvThread, DVthreadExit, dvThread, 0);
     pthread_join(dvThread->fRTThread, NULL);
     pthread_join(dvThread->fRLThread, NULL);
@@ -1120,18 +1261,36 @@ void DVFreeThread(DVThread * dvThread)
 	
     memset(dvThread, 0xde, sizeof(DVThread));
     free(dvThread);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVFreeThread end\n");
+#endif
+	
 }
 
 void DVSignalSync(ThreadSyncer *sync, UInt32 *var, UInt32 val)
 {
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVSignalSync begin\n");
+#endif
+	
     pthread_mutex_lock(&sync->fMutex);
     *var = val;
 	pthread_mutex_unlock(&sync->fMutex);
     pthread_cond_broadcast(&sync->fSyncCond);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVSignalSync end\n");
+#endif
 }
 
 void DVWaitSync(ThreadSyncer *sync, UInt32 *var)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWaitSync begin\n");
+#endif
+	
     //if(!*var)
     {
         pthread_mutex_lock(&sync->fMutex);
@@ -1140,16 +1299,39 @@ void DVWaitSync(ThreadSyncer *sync, UInt32 *var)
         }
         pthread_mutex_unlock(&sync->fMutex);
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWaitSync end\n");
+#endif
+	
 }
 
 void DVLock(ThreadSyncer *sync)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVLock begin\n");
+#endif
+	
     pthread_mutex_lock(&sync->fMutex);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVLock end\n");
+#endif
 }
 
 void DVUnlock(ThreadSyncer *sync)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVUnlock begin\n");
+#endif
+	
     pthread_mutex_unlock(&sync->fMutex);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVUnlock end\n");
+#endif
 }
 
 static IOReturn isochPortGetSupported(
@@ -1158,12 +1340,22 @@ static IOReturn isochPortGetSupported(
 	UInt64*								outChanSupported)
 {
     DVStream *stream;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isochPortGetSupported begin\n");
+#endif
+	
     stream = (DVStream *)((*interface)->GetRefCon(interface));
 
     if(*outMaxSpeed > stream->fMaxSpeed)
         *outMaxSpeed = stream->fMaxSpeed;
     *outChanSupported = stream->fChannelMask;
-    return kIOReturnSuccess;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isochPortGetSupported end\n");
+#endif
+	
+	return kIOReturnSuccess;
 }
 
 static IOReturn isochPortAllocate(
@@ -1172,10 +1364,20 @@ static IOReturn isochPortAllocate(
 	UInt32							channel)
 {
     DVStream *stream;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isochPortAllocate begin\n");
+#endif
+	
     stream = (DVStream *)((*interface)->GetRefCon(interface));
     //printf("using channel %d\n", channel);
     stream->fIsocChannel = channel;
-    return kIOReturnSuccess;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: isochPortAllocate end\n");
+#endif
+	
+	return kIOReturnSuccess;
 }
 
 IOReturn openFireWireUnit(IOFireWireAVCLibUnitInterface **avcInterface, IOFireWireSessionRef session, IOFireWireLibDeviceRef *retInterface, DVThread *thread)
@@ -1183,7 +1385,11 @@ IOReturn openFireWireUnit(IOFireWireAVCLibUnitInterface **avcInterface, IOFireWi
     IOFireWireLibDeviceRef	resultInterface;
     IOReturn				err = kIOReturnNoMemory;
     int						opened = false;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openFireWireUnit begin\n");
+#endif
+	
     do {
         resultInterface = (*avcInterface)->getAncestorInterface(avcInterface, "IOFireWireUnit",
             CFUUIDGetUUIDBytes(kIOFireWireLibTypeID), CFUUIDGetUUIDBytes(kIOFireWireUnitInterfaceID_v3));
@@ -1209,7 +1415,11 @@ IOReturn openFireWireUnit(IOFireWireAVCLibUnitInterface **avcInterface, IOFireWi
         if(resultInterface)
             (*resultInterface)->Release(resultInterface);
     }
-        
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openFireWireUnit end\n");
+#endif
+	
     return err;
 }
 
@@ -1219,8 +1429,12 @@ IOReturn openAVCUnit(io_object_t obj, IOFireWireAVCLibUnitInterface ***retInterf
     IOFireWireAVCLibUnitInterface	**resultInterface = 0 ;
     SInt32					theScore ;
     IOReturn				err;
-    
-    err = IOCreatePlugInInterfaceForService(
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openAVCUnit begin\n");
+#endif
+
+	err = IOCreatePlugInInterfaceForService(
                     obj,
                     kIOFireWireAVCLibUnitTypeID,
                     kIOCFPlugInInterfaceID,		//interfaceType,
@@ -1242,7 +1456,11 @@ IOReturn openAVCUnit(io_object_t obj, IOFireWireAVCLibUnitInterface ***retInterf
     
     if(!err)
         *retInterface = resultInterface;
-        
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openAVCUnit end\n");
+#endif
+	
     return err;
 }
 
@@ -1250,7 +1468,11 @@ IOReturn openAVCProto(IOFireWireAVCLibUnitInterface **avcInterface, IOFireWireAV
 {
     IOFireWireAVCLibProtocolInterface **resultInterface;
     IOReturn				err = noErr;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openAVCProto begin\n");
+#endif
+	
     do {
         resultInterface = (*avcInterface)->getProtocolInterface(avcInterface,
             CFUUIDGetUUIDBytes(kIOFireWireAVCLibProtocolTypeID),
@@ -1267,13 +1489,37 @@ IOReturn openAVCProto(IOFireWireAVCLibUnitInterface **avcInterface, IOFireWireAV
             (*resultInterface)->Release(resultInterface);
     }
         
-    return err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openAVCProto end\n");
+#endif
+	
+	return err;
 }
 
 void DVDeviceTerminate(DVDevice *dev)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDeviceTerminate begin\n");
+#endif
+	
     DVDeviceClose(dev);
-    if(dev->fAVCInterface) {
+    if(dev->fAVCInterface)
+	{
+		// Remove runloop source for this interface
+		(*dev->fAVCInterface)->removeCallbackDispatcherFromRunLoop(dev->fAVCInterface);
+		
+		// Crasher Fix: If we are on a thread other than the RL thread,
+		// we need to make sure the RL thread is idle before
+		// releasing the AVC interface
+		if (dev->fThread->fWorkLoop != CFRunLoopGetCurrent())
+		{
+			// Endless loop here until the run-loop thread is idle
+			while (CFRunLoopIsWaiting(dev->fThread->fWorkLoop) == false )
+				usleep(1000); // sleep for a millisecond	
+		}
+		
         (*dev->fAVCInterface)->Release(dev->fAVCInterface);
         dev->fAVCInterface = NULL;
     }
@@ -1281,11 +1527,21 @@ void DVDeviceTerminate(DVDevice *dev)
         IOObjectRelease(dev->fObject);
         dev->fObject = NULL;
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDeviceTerminate end\n");
+#endif
+	
 }
 
 IOReturn DVDeviceOpen(DVThread *dvThread, DVDevice *device)
 {
     IOReturn err = noErr;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDeviceOpen begin\n");
+#endif
+	
     if(!device->fAVCInterface)
         return kIOReturnNoMemory;
 
@@ -1309,44 +1565,78 @@ IOReturn DVDeviceOpen(DVThread *dvThread, DVDevice *device)
     if(err != kIOReturnSuccess)
         DVDeviceClose(device);
         
-    return err;
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDeviceOpen end\n");
+#endif
+	
+	return err;
 }
 
 static IOReturn doDVDeviceClose(DVDevice *dev)
 {
-    if(dev->fDevInterface) {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVDeviceClose begin\n");
+#endif
+	
+	if(dev->fDevInterface) {
         UInt32 ref;
         (*dev->fDevInterface)->Close(dev->fDevInterface);
+		
+		// Remove isoch callback runloop source
+		(*dev->fDevInterface)->RemoveIsochCallbackDispatcherFromRunLoop(dev->fDevInterface);
+
         ref = (*dev->fDevInterface)->Release(dev->fDevInterface);
         //syslog(LOG_INFO, "DVCloseDriver FW refcount was %d\n", ref);
         dev->fDevInterface = NULL;
     }
     
-    if(dev->fAVCProtoInterface) {
+    if(dev->fAVCProtoInterface)
+	{
         UInt32 ref;
         if(dev->fOutPlug != kNoPlug) {
             (*dev->fAVCProtoInterface)->freeOutputPlug(dev->fAVCProtoInterface, dev->fOutPlug);
             dev->fOutPlug = kNoPlug; 
         }
+		
+		// Remove callback runloop source
+		(*dev->fAVCProtoInterface)->removeCallbackDispatcherFromRunLoop(dev->fAVCProtoInterface);
+
         ref = (*dev->fAVCProtoInterface)->Release(dev->fAVCProtoInterface);
         //syslog(LOG_INFO, "DVCloseDriver AVCproto refcount was %d\n", ref);
         dev->fAVCProtoInterface = NULL;
     }
+
     if(dev->fAVCInterface) {
         (*dev->fAVCInterface)->close(dev->fAVCInterface);
     }
-    return kIOReturnSuccess;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVDeviceClose end\n");
+#endif
+	
+	return kIOReturnSuccess;
 }
 
 void DVDeviceClose(DVDevice *dev)
 {
-    DVRequest(dev->fThread, doDVDeviceClose, dev, 0);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDeviceClose begin\n");
+#endif
+	
+	DVRequest(dev->fThread, doDVDeviceClose, dev, 0);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDeviceClose end\n");
+#endif
+	
 }
 
 IOReturn DVRequest(DVThread *thread, IOReturn (*func)(void *arg, UInt32 param), void *arg, UInt32 param)
 {
     IOReturn result;
-    
+
     //printf("Doing request %p\n", func);
     if(thread->fRTThread != pthread_self()) {
         
@@ -1377,19 +1667,29 @@ IOReturn DVRequest(DVThread *thread, IOReturn (*func)(void *arg, UInt32 param), 
     }
     else
         result = (*func)(arg, param);
-        
+
     return result;
 }
 
 static void initStream(DVStream *stream, DVDevice *device, UInt32 plug, UInt32 channel, DVThread *thread)
 {
-    stream->pFWDevice = device->fDevInterface;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: initStream begin\n");
+#endif
+	
+	stream->pFWDevice = device->fDevInterface;
     stream->pDVDevice = device;
     stream->fAVCProtoInterface = device->fAVCProtoInterface;
     stream->fPlug = plug;
     stream->fIsocChannel = channel;
     stream->fMaxSpeed = device->fMaxSpeed;
     stream->fThread = thread;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: initStream end\n");
+#endif
+	
 }
 
 static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
@@ -1398,7 +1698,11 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
     IOFireWireLibIsochPortRef talker, listener;
     IOVirtualRange bufRange;
     bool allocBandwidth;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openStream begin\n");
+#endif
+	
     do {
         
         if(forWrite) {
@@ -1521,6 +1825,10 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
 	// If we got any errors, call closeStream now to cleanup
 	if(err)
 		closeStream(stream);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: openStream end\n");
+#endif
 	
     return err;
 }
@@ -1528,7 +1836,11 @@ static IOReturn openStream(DVStream *stream, bool forWrite, UInt32 packetSize)
 static void closeStream(DVStream *stream)
 {
     IOReturn err;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: closeStream begin\n");
+#endif
+	
     stream->fFrames.fStatus = kDVStopped;
     if(stream->fIsochChannelRef) {
         (*stream->fIsochChannelRef)->TurnOffNotification(stream->fIsochChannelRef);
@@ -1554,13 +1866,22 @@ static void closeStream(DVStream *stream)
     // Run the runloop for .1 secs to pick up stray DCL callbacks
     // But we don't want to run the other runloop sources... 
     //CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: closeStream end\n");
+#endif
+	
 }
 
 static IOReturn DVAllocFrames(DVFrameVars *pFrameData, UInt32 numFrames, UInt32 frameSize,
         DVFrameVars **frameVars, UInt8 **frames)
 {
     int i;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVAllocFrames begin\n");
+#endif
+	
     pFrameData->fNumFrames = numFrames;
     pFrameData->fFrames = malloc(numFrames*frameSize);
     pFrameData->fReader = 0;
@@ -1571,17 +1892,35 @@ static IOReturn DVAllocFrames(DVFrameVars *pFrameData, UInt32 numFrames, UInt32 
         frames[i] = pFrameData->fFrames + i*frameSize;
     }
     *frameVars = pFrameData;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVAllocFrames end\n");
+#endif
+	
     return kIOReturnSuccess;
 }
 
 static void DVFreeFrames(DVFrameVars *pFrameData)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVFreeFrames begin\n");
+#endif
+	
     if(!pFrameData->fFrames)
+	{
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: DVFreeFrames end:no frames\n");
+#endif
         return;
+	}
 
     free(pFrameData->fFrames);
     pFrameData->fFrames = NULL;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVFreeFrames end\n");
+#endif
 }
 
 static void DVGetNextFullOutputFrame(DVFrameVars *pFrameData, UInt8** ppFrame, UInt32 frameSize )
@@ -1673,21 +2012,38 @@ static UInt32 getEmptyPacketsPerGroup(DVGlobalOutPtr pGlobalData, UInt32 numData
 
 static void FreeDCLCommandPool(DVGlobalOutPtr pGlobalData)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: FreeDCLCommandPool begin\n");
+#endif
+	
     if( pGlobalData->fDCLCommandPool != NULL ) {
         free(pGlobalData->fDCLCommandPool);
         pGlobalData->fDCLCommandPool = NULL;
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: FreeDCLCommandPool end\n");
+#endif
+	
 }
 
 static IOReturn AllocateDCLCommandPool(DVGlobalOutPtr pGlobalData, UInt32 total )
 {       
     UInt8 * pDCLCommandPool;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: AllocateDCLCommandPool begin\n");
+#endif
+	
     // Allocate DCL command pool record.
     pDCLCommandPool = malloc(total);
     if (pDCLCommandPool == NULL)
     {
         // syslog(LOG_INFO, "AllocateDCLCommandPool: IOMalloc: pDCLCommandPool failed\n");
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: AllocateDCLCommandPool end:no pool\n");
+#endif
         return kIOReturnNoMemory;
     }
     else
@@ -1697,6 +2053,10 @@ static IOReturn AllocateDCLCommandPool(DVGlobalOutPtr pGlobalData, UInt32 total 
         pGlobalData->fDCLCommandPool = pDCLCommandPool;
     }
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: AllocateDCLCommandPool end\n");
+#endif
+	
     return kIOReturnSuccess;
 }
 
@@ -2181,13 +2541,21 @@ static void doDVHandleOutputUnderrun(  DVGlobalOutPtr	pGlobalData )
 static void DVHandleOutputUnderrun( DCLCommandPtr pDCLCommandPtr )
 {
     DVGlobalOutPtr pGlobalData;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVHandleOutputUnderrun begin\n");
+#endif
+	
     pGlobalData = (DVGlobalOutPtr)((DCLCallProcPtr)pDCLCommandPtr)->procData;
     if (pGlobalData->dvWriteStopInProgress == false)
     {
         pGlobalData->pendingDVWriteUnderrunHandler = true;
         DVRequest(pGlobalData->fStreamVars.fThread, doDVHandleOutputUnderrun, pGlobalData, 0);
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVHandleOutputUnderrun end\n");
+#endif
 }
 
 
@@ -2196,6 +2564,10 @@ static void DVDisposeDCLOutput( DVGlobalOutPtr pOutputData )
     DVLocalOutPtr  pLocalData, pNextLocalData;
     UInt32         bufferGroupNum;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDisposeDCLOutput begin\n");
+#endif
+	
     // syslog(LOG_INFO, "DVDisposeDCLOutput\n");
     if( pOutputData != NULL )
     {
@@ -2226,6 +2598,11 @@ static void DVDisposeDCLOutput( DVGlobalOutPtr pOutputData )
         }
         //free( pOutputData); //, sizeof(DVGlobalOut) );
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVDisposeDCLOutput end\n");
+#endif
+	
 }
 
 static IOReturn allocateBuffers(DVGlobalOutPtr pGlobalData)
@@ -2237,6 +2614,10 @@ static IOReturn allocateBuffers(DVGlobalOutPtr pGlobalData)
     UInt32			transmitBuffersSize;
 
     IOReturn		res;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: allocateBuffers begin\n");
+#endif
 	
 	// Setup CIP header static bits, plus packet size based on signal mode
 	UInt8 stype = pGlobalData->fStreamVars.fSignalMode & kAVCSignalModeMask_STYPE;
@@ -2351,10 +2732,20 @@ static IOReturn allocateBuffers(DVGlobalOutPtr pGlobalData)
     bzero( pGlobalData->fStreamVars.fDCLBuffers, pGlobalData->fStreamVars.fDCLBufferSize );
     pGlobalData->pEmptyTransmitBuffers = pGlobalData->fStreamVars.fDCLBuffers + transmitBuffersSize;
     pGlobalData->fSharedDCLVars.fTimeStampPtrs = (UInt32 *)(pGlobalData->pEmptyTransmitBuffers + emptySize);
-    return kIOReturnSuccess;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: allocateBuffers end\n");
+#endif
+	
+	return kIOReturnSuccess;
     
 bail:
     DVDisposeDCLOutput( pGlobalData );
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: allocateBuffers end:fail\n");
+#endif
+	
     return res;
 }
 
@@ -2419,6 +2810,10 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
     UInt32			 totalDCLSize;
     UInt32			totalEmpty, emptySoFar;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: buildWriteProgram begin\n");
+#endif
+	
 #if ALT_TIMING    
 	totalEmpty = getEmptyPacketsPerGroup(pGlobalData, pGlobalData->numDataPacketsPerGroup) * kNumPlayBufferGroups;
 #else
@@ -2694,28 +3089,49 @@ static IOReturn buildWriteProgram(DVGlobalOutPtr pGlobalData)
 				pGlobalData->fLocalDataArray[bufferGroupNum+1].pStartOfBufferGroupDCLLabel;
 	}
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: buildWriteProgram end\n");
+#endif
     return kIOReturnSuccess;
     
 bail:
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "DVLib: buildWriteProgram end:fail\n");
+#endif
+	
     return res;
 }
 
 DVGlobalOutPtr DVAllocWrite(DVDevice *device, DVThread *thread)
 {
     DVGlobalOutPtr globs;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVAllocWrite begin\n");
+#endif
+	
     globs = malloc(sizeof(DVGlobalOut));
     if(!globs)
         return NULL;
     bzero(globs, sizeof(DVGlobalOut));
     initStream(&globs->fStreamVars, device, device->fOutPlug, device->fWriteChan, thread);
     globs->fUpdateBuffers = 1;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVAllocWrite end\n");
+#endif
+	
     return globs;
 }
 
 IOReturn DVWriteSetSignalMode(DVGlobalOutPtr globs, UInt8 mode)
 {
     globs->fStreamVars.fSignalMode = mode;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteSetSignalMode begin\n");
+#endif
 	
 	switch (mode)
 	{
@@ -2767,7 +3183,11 @@ IOReturn DVWriteSetSignalMode(DVGlobalOutPtr globs, UInt8 mode)
 			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
 			break;
 	};
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteSetSignalMode end\n");
+#endif
+	
     return kIOReturnSuccess;
 }
 
@@ -2775,6 +3195,11 @@ IOReturn DVWriteAllocFrames(DVGlobalOutPtr pGlobalData, UInt32 numFrames,
     DVFrameVars **frameVars, UInt8 **frames)
 {
     IOReturn err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteAllocFrames begin\n");
+#endif
+	
    do {
         err = DVAllocFrames(&pGlobalData->fStreamVars.fFrames,
 							numFrames,
@@ -2789,7 +3214,12 @@ IOReturn DVWriteAllocFrames(DVGlobalOutPtr pGlobalData, UInt32 numFrames,
             
         err = buildWriteProgram(pGlobalData);
     } while (0);
-    return err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+   syslog(LOG_INFO, "DVLib: DVWriteAllocFrames end\n");
+#endif
+   
+   return err;
 }
 
 UInt8 * DVWriteGetDCLBuffer(DVGlobalOutPtr pGlobalData, DVSharedVars **varPtr)
@@ -2807,7 +3237,11 @@ static IOReturn doDVWriteStart(DVGlobalOutPtr pGlobalData)
     UInt32			bufferGroupNum;
     int i;
     DVThread *		dvThread = pGlobalData->fStreamVars.fThread;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVWriteStart begin\n");
+#endif
+	
     do {        
  
         // Set up all of the buffer groups.
@@ -2843,18 +3277,39 @@ static IOReturn doDVWriteStart(DVGlobalOutPtr pGlobalData)
         
     } while (0);
     //syslog(LOG_INFO, "doDVWriteStart exit, err %x\n", err);
-    return err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVWriteStart end\n");
+#endif
+	
+	return err;
 }
 
 IOReturn DVWriteStart(DVGlobalOutPtr pGlobalData)
 {
-    return DVRequest(pGlobalData->fStreamVars.fThread, doDVWriteStart, pGlobalData, 0);
+    IOReturn err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteStart begin\n");
+#endif
+	
+    err = DVRequest(pGlobalData->fStreamVars.fThread, doDVWriteStart, pGlobalData, 0);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteStart end\n");
+#endif
+	
+	return err;
 }
 
 static void doDVWriteStop(DVGlobalOutPtr pGlobalData)
 {
     int i;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVWriteStop begin\n");
+#endif
+	
     pGlobalData->dvWriteStopInProgress = true;
 
     DVThread *		dvThread = pGlobalData->fStreamVars.fThread;
@@ -2872,29 +3327,68 @@ static void doDVWriteStop(DVGlobalOutPtr pGlobalData)
     DVDisposeDCLOutput(pGlobalData);
 
     pGlobalData->dvWriteStopInProgress = false;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVWriteStop end\n");
+#endif
+	
 }
 
 void DVWriteStop(DVGlobalOutPtr pGlobalData)
 {
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteStop begin\n");
+#endif
+	
     DVRequest(pGlobalData->fStreamVars.fThread, doDVWriteStop, pGlobalData, 0);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteStop end\n");
+#endif
+	
 }
 
 void DVWriteFreeFrames(DVGlobalOutPtr globs)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteFreeFrames begin\n");
+#endif
+	
     DVFreeFrames(&globs->fStreamVars.fFrames);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteFreeFrames end\n");
+#endif
+	
 }
 
 void DVWriteFree(DVGlobalOutPtr globs)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteFree begin\n");
+#endif
+	
     if (globs->pendingDVWriteUnderrunHandler == true)
 	globs->deferredDVWriteFree = true;
     else
 	free(globs);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVWriteFree end\n");
+#endif
+	
 }
 
 DVGlobalInPtr DVAllocRead(DVDevice *device, DVThread *thread)
 {
     DVGlobalInPtr globs;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVAllocRead begin\n");
+#endif
+	
     globs = malloc(sizeof(DVGlobalIn));
     if(!globs)
         return NULL;
@@ -2909,10 +3403,20 @@ DVGlobalInPtr DVAllocRead(DVDevice *device, DVThread *thread)
 		DVReadSetSignalMode(globs,0x80);	// PAL-DV
 	
     return globs;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVAllocRead end\n");
+#endif
+	
 }
 
 IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadSetSignalMode begin\n");
+#endif
+	
     globs->fStreamVars.fSignalMode = mode;
 	
     switch (mode)
@@ -2972,17 +3476,34 @@ IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
 			break;
 	};
     
-    return kIOReturnSuccess;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadSetSignalMode end\n");
+#endif
+	
+	return kIOReturnSuccess;
 }
 
 IOReturn DVReadAllocFrames(DVGlobalInPtr globs, UInt32 numFrames, 
     DVFrameVars **frameVars, UInt8 **frames)
 {
-    return DVAllocFrames(&globs->fStreamVars.fFrames,
+	IOReturn err;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadAllocFrames begin\n");
+#endif
+	
+    err = DVAllocFrames(&globs->fStreamVars.fFrames,
 							numFrames,
 							globs->fStreamVars.fDVFrameSize,
 							frameVars,
 							frames);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadAllocFrames end\n");
+#endif
+	
+	return err;
 }
 
 static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData )
@@ -3045,13 +3566,22 @@ static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData )
 static void DVReadHandleInputUnderrun( DCLCommandPtr pDCLCommandPtr )
 {
     DVGlobalInPtr pGlobalData;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadHandleInputUnderrun begin\n");
+#endif
+	
     pGlobalData = (DVGlobalInPtr)((DCLCallProcPtr)pDCLCommandPtr)->procData;
     if (pGlobalData->dvReadStopInProgress == false)
     {
         pGlobalData->pendingDVReadUnderrunHandler = true;
         DVRequest(pGlobalData->fStreamVars.fThread, doDVReadHandleInputUnderrun, pGlobalData, 0);
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadHandleInputUnderrun end\n");
+#endif
+	
 }
 
 static void DVStorePackets(DVLocalInPtr pLocalData)
@@ -3309,7 +3839,11 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
 	UInt32				packetBufferSize;
 	UInt32 				alignedDVPacketSize;
 	UInt32 				pingPongBufferSize;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadStart begin\n");
+#endif
+	
     //syslog(LOG_INFO, "DVReadStart() %p\n", globs);
 
     // init variables
@@ -3528,12 +4062,21 @@ IOReturn DVReadStart(DVGlobalInPtr globs)
     }
 
      //syslog(LOG_INFO, "DVRead::Started()\n");
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadStart end\n");
+#endif
+	
     return kIOReturnSuccess;
 
 bail:
     syslog(LOG_INFO, "DVRead::Start() failed: 0x%x\n", res);
     //Stop();
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadStart end:bail\n");
+#endif
+	
     return res;
 }
 
@@ -3541,6 +4084,10 @@ static IOReturn doDVReadStop(DVGlobalInPtr pGlobalData)
 {
     int i;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVReadStop begin\n");
+#endif
+	
     pGlobalData->dvReadStopInProgress = true;
     
     //syslog(LOG_INFO, "doDVReadStop()0x%x\n", pGlobalData);
@@ -3573,21 +4120,48 @@ static IOReturn doDVReadStop(DVGlobalInPtr pGlobalData)
     
     pGlobalData->dvReadStopInProgress = false;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: doDVReadStop end\n");
+#endif
+	
     return kIOReturnSuccess;
 }
 
 void DVReadStop(DVGlobalInPtr pGlobalData)
 {
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadStop begin\n");
+#endif
+	
     DVRequest(pGlobalData->fStreamVars.fThread, doDVReadStop, pGlobalData, 0);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadStop end\n");
+#endif
+	
 }
 
 void DVReadFreeFrames(DVGlobalInPtr globs)
 {
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadFreeFrames begin\n");
+#endif
+	
     DVFreeFrames(&globs->fStreamVars.fFrames);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadFreeFrames end\n");
+#endif
+	
 }
 
 void DVReadFree(DVGlobalInPtr globs)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadFree begin\n");
+#endif
+	
     // Defer freeing of the globalin data struct
     // if we have a pending input underrun to deal with.
 	
@@ -3595,6 +4169,11 @@ void DVReadFree(DVGlobalInPtr globs)
 	globs->deferredDVReadFree = true;
     else
 	free(globs);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "DVLib: DVReadFree end\n");
+#endif
+	
 }
 
 void DVLog(DVThread *thread, UInt32 tag, CFAbsoluteTime start, CFAbsoluteTime end)

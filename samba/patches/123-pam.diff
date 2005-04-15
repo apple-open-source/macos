@@ -1,0 +1,146 @@
+--- samba/source/auth/pampass.c.orig	2003/12/18 23:12:41	1.3
++++ samba/source/auth/pampass.c	2004/08/16 04:35:18
+@@ -41,7 +41,11 @@
+  *   which determines what actions/limitations/allowances become affected.
+  *********************************************************************/
+ 
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h>
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ 
+ /*
+  * Structure used to communicate between the conversation function
+--- samba/source/lib/pam_errors.c.orig	2004/02/11 17:23:57	1.1.1.3
++++ samba/source/lib/pam_errors.c	2004/08/16 04:35:53
+@@ -21,7 +21,11 @@
+ #include "includes.h"
+ 
+ #ifdef WITH_PAM
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h>
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ 
+ #if defined(PAM_AUTHTOK_RECOVERY_ERR) && !defined(PAM_AUTHTOK_RECOVER_ERR)
+ #define PAM_AUTHTOK_RECOVER_ERR PAM_AUTHTOK_RECOVERY_ERR
+--- samba/source/nsswitch/pam_winbind.h.orig	2003/12/18 23:12:45	1.3
++++ samba/source/nsswitch/pam_winbind.h	2004/08/16 04:36:58
+@@ -29,7 +29,11 @@
+ 
+ /* Solaris always uses dynamic pam modules */
+ #define PAM_EXTERN extern
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h> 
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ 
+ #ifndef PAM_AUTHTOK_RECOVER_ERR
+ #define PAM_AUTHTOK_RECOVER_ERR PAM_AUTHTOK_RECOVERY_ERR
+@@ -37,12 +41,16 @@
+ 
+ #endif
+ 
+-#ifdef HAVE_SECURITY_PAM_MODULES_H
++#if defined(HAVE_SECURITY_PAM_MODULES_H)
+ #include <security/pam_modules.h>
++#elif defined(HAVE_PAM_PAM_MODULES_H)
++#include <pam/pam_modules.h>
+ #endif
+ 
+-#ifdef HAVE_SECURITY__PAM_MACROS_H
++#if defined(HAVE_SECURITY__PAM_MACROS_H)
+ #include <security/_pam_macros.h>
++#elif defined(HAVE_PAM__PAM_MACROS_H)
++#include <pam/_pam_macros.h>
+ #else
+ /* Define required macros from (Linux PAM 0.68) security/_pam_macros.h */
+ #define _pam_drop_reply(/* struct pam_response * */ reply, /* int */ replies) \
+--- samba/source/pam_smbpass/general.h.orig	2003/02/04 18:56:35	1.1.1.2
++++ samba/source/pam_smbpass/general.h	2004/08/16 04:37:27
+@@ -1,9 +1,17 @@
+ #ifndef LINUX
+ /* This is only needed by modules in the Sun implementation. */
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h>
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ #endif  /* LINUX */
+ 
++#if defined(HAVE_SECURITY_PAM_MODULES_H)
+ #include <security/pam_modules.h>
++#elif defined(HAVE_PAM_PAM_MODULES_H)
++#include <pam/pam_modules.h>
++#endif
+ 
+ #ifndef PAM_AUTHTOK_RECOVER_ERR  
+ #define PAM_AUTHTOK_RECOVER_ERR PAM_AUTHTOK_RECOVERY_ERR
+--- samba/source/pam_smbpass/pam_smb_acct.c.orig	2003/06/24 00:23:22	1.1.1.4
++++ samba/source/pam_smbpass/pam_smb_acct.c	2004/08/16 04:38:12
+@@ -23,11 +23,19 @@
+ #ifndef LINUX
+ 
+ /* This is only used in the Sun implementation. */
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h>
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ 
+ #endif  /* LINUX */
+ 
++#if defined(HAVE_SECURITY_PAM_MODULES_H)
+ #include <security/pam_modules.h>
++#elif defined(HAVE_PAM_PAM_MODULES_H)
++#include <pam/pam_modules.h>
++#endif
+ 
+ #include "general.h"
+ 
+--- samba/source/pam_smbpass/pam_smb_auth.c.orig	2004/07/27 01:16:44	1.1.1.5
++++ samba/source/pam_smbpass/pam_smb_auth.c	2004/08/16 04:38:38
+@@ -24,11 +24,19 @@
+ #ifndef LINUX
+ 
+ /* This is only used in the Sun implementation. */
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h>
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ 
+ #endif  /* LINUX */
+ 
++#if defined(HAVE_SECURITY_PAM_MODULES_H)
+ #include <security/pam_modules.h>
++#elif defined(HAVE_PAM_PAM_MODULES_H)
++#include <pam/pam_modules.h>
++#endif
+ 
+ #include "general.h"
+ 
+--- samba/source/pam_smbpass/pam_smb_passwd.c.orig	2003/07/10 00:18:07	1.1.1.5
++++ samba/source/pam_smbpass/pam_smb_passwd.c	2004/08/16 04:38:56
+@@ -29,10 +29,18 @@
+    and others (including FreeBSD). */
+ 
+ #ifndef LINUX
++#if defined(HAVE_SECURITY_PAM_APPL_H)
+ #include <security/pam_appl.h>
++#elif defined(HAVE_PAM_PAM_APPL_H)
++#include <pam/pam_appl.h>
++#endif
+ #endif
+ 
++#if defined(HAVE_SECURITY_PAM_MODULES_H)
+ #include <security/pam_modules.h>
++#elif defined(HAVE_PAM_PAM_MODULES_H)
++#include <pam/pam_modules.h>
++#endif
+ 
+ #include "general.h" 
+ 

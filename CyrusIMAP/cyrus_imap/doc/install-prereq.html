@@ -1,0 +1,98 @@
+<!-- $Id: install-prereq.html,v 1.12 2003/10/22 18:50:04 rjs3 Exp $ -->
+<HTML>
+<HEAD>
+<TITLE>Prerequisites and other notes
+</title>
+</head>
+<h1>Prerequisites and other notes
+</h1>
+<body>
+
+<P>The following programs and/or packages are <b>required</b>.
+
+<ul>
+<LI> <b>libsasl</b>, version 2.1.7 or higher.  To obtain libsasl, ftp
+it from <a
+href="ftp://ftp.andrew.cmu.edu/pub/cyrus-mail"><TT>ftp.andrew.cmu.edu</TT></a>.
+Earlier versions of SASL will not work; please get the latest one.
+Configure SASL so that it supports whatever authentication method your
+site uses.  Please pay careful attention to the SASL
+configuration. This is the biggest problem that most people have.
+
+<li> <b>Berkeley DB</b>, version 3.0.55 or higher. Berkeley DB can be
+obtained from <a href="http://www.sleepycat.com">Sleepycat</a>.  It is
+strongly recommended that libsasl be compiled with Berkeley DB
+support, using the same version of Berkeley DB.  (If you have a
+Berkeley DB version mismatch, somewhat perplexing crashes result.)
+
+<li> <b>GNU Make</b> is required.  Get it from <a
+href="http://www.gnu.org/">the Free Software Foundation</a>. It is
+probably easier to find it via <a
+href="ftp://ftp.gnu.org/pub/gnu/make">ftp</a>.
+
+</ul>
+<p>
+
+The following programs and/or packages are required for specific
+features.  If you don't have them, certain features of the IMAP server
+will be disabled.
+
+<ul>
+<LI> <b>makedepend</b>.  A version is included in the
+<TT>makedepend</TT> subdirectory of the distribution.  Try and install
+it before installing the Cyrus IMAPd.  If it fails, the configure
+script will use a dummy shell script instead of makedepend, and you
+should be sure to always give the command "<TT>make clean</TT>" before
+"<TT>make all</TT>". If you don't mind builds taking longer, this
+isn't a big deal and you can ignore any makedepend errors.
+
+<LI> <b>Perl</b>, version 5.  To obtain Perl, see <a
+href="http://www.cpan.org/">the comprehensive Perl archive</a>.  This
+is required for <tt>cyradm</tt> (written by Brandon Allbery).  It is
+also used for some installation scripts: you don't need it but it may
+make your life easier.  We recommend at least version 5.00502.
+
+<li> <b>OpenSSL</b>, version 0.9.4 or higher.  Required for STARTTLS
+support and for IMAP/POP3 wrapped in SSL (the imaps/pop3s ports).
+Available from <a
+href="http://www.openssl.org/">http://www.openssl.org/</a>.
+
+<li> <b>libwrap</b>, from Wietse Venema.  This will allow one to
+control who is accessing what service, based on IP address.  Available
+from <a
+href="ftp://ftp.porcupine.org/pub/security/">ftp://ftp.porcupine.org/pub/security/</a>
+in the <tt>tcp_wrappers</tt> package..
+
+<li> <b>Net-SNMP</b> (formerly UCD-SNMP), version 4.2 or higher.
+Required for SNMP monitoring of the IMAP server.  Available from <a
+href="http://www.net-snmp.org/">http://www.net-snmp.org/</a>.
+
+<LI> If you use AFS PTS support for groups, Cyrus still depends on
+Kerberos and AFS.  If you successfully compiled SASL with your
+Kerberos library, it's likely that it will work well with Cyrus.
+
+<LI> We recommend using an MTA (mail transfer agent) that supports
+LMTP (local mail transfer protocol).  We use Sendmail and recommend
+version 8.12.8 or higher, available from <A
+HREF="http://www.sendmail.org">http://www.sendmail.org</a>.  Others
+have reported success with
+<a href="http://www.postfix.org/">Postfix</a>.
+</ul>
+
+
+<P>The following programs and/or packages are recommended:
+
+<ul>
+<li><a href="ftp://ftp.gnu.org/non-gnu/flex">flex</a> - libsieve has
+two different lexical analyzers, and that's hard to do with
+traditional lex.  
+
+<li><a href="ftp://ftp.gnu.org/gnu/gcc">gcc</a> - we build using gcc
+	  and the compiler options <tt>-O2 -g</tt>.
+</ul>
+
+<P><HR>
+last modified: $Date: 2003/10/22 18:50:04 $
+</BODY></HTML>
+
+

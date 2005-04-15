@@ -28,9 +28,10 @@
 
 namespace KJS {
 
-  class Reference : private Value {
+  class Reference {
     friend class ReferenceList;
     friend class ReferenceListIterator;
+    friend class ProtectedReference;
   public:
     Reference(const Object& b, const Identifier& p);
     Reference(const Object& b, unsigned p);

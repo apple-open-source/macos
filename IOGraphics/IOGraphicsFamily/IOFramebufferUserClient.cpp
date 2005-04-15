@@ -247,16 +247,11 @@ IOFramebufferSharedUserClient * IOFramebufferSharedUserClient::withTask(
 
 bool IOFramebufferSharedUserClient::start( IOService * _owner )
 {
-    static const IOExternalMethod methodTemplate[] = {
-            };
-
     if (!super::start(_owner))
         return (false);
 
     owner = (IOFramebuffer *) _owner;
     owner->sharedConnect = this;
-
-    bcopy( methodTemplate, externals, sizeof( methodTemplate ));
 
     return (true);
 }
@@ -316,11 +311,16 @@ IOReturn IOFramebufferSharedUserClient::getNotificationSemaphore(
     return (owner->getNotificationSemaphore(interruptType, semaphore));
 }
 
-IOExternalMethod * IOFramebufferSharedUserClient::getExternalMethodForIndex( UInt32 index )
+IOExternalMethod * IOFramebufferSharedUserClient::getTargetAndMethodForIndex(
+    IOService ** targetP, UInt32 index )
 {
-    if (index < (sizeof(externals) / sizeof(externals[0])))
-        return (externals + index);
-    else
+    static const IOExternalMethod methodTemplate[] = {
+    };
+
+    if (index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return (NULL);
+
+    *targetP = this;
+    return ((IOExternalMethod *)(methodTemplate + index));
 }
 

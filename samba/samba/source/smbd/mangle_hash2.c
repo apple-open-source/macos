@@ -119,7 +119,7 @@ static const char *reserved_names[] =
 
    this hash needs to be fast with a low collision rate (what hash doesn't?)
 */
-static u32 mangle_hash(const char *key, unsigned length)
+static u32 mangle_hash(const char *key, unsigned int length)
 {
 	u32 value;
 	u32   i;
@@ -129,6 +129,7 @@ static u32 mangle_hash(const char *key, unsigned length)
 	   doesn't depend on the case of the long name. Note that this
 	   is the only place where we need to use a multi-byte string
 	   function */
+	length = MIN(length,sizeof(fstring)-1);
 	strncpy(str, key, length);
 	str[length] = 0;
 	strupper_m(str);
@@ -152,13 +153,19 @@ static u32 mangle_hash(const char *key, unsigned length)
  */
 static BOOL cache_init(void)
 {
-	if (prefix_cache) return True;
+	if (prefix_cache) {
+		return True;
+	}
 
-	prefix_cache = calloc(MANGLE_CACHE_SIZE, sizeof(char *));
-	if (!prefix_cache) return False;
+	prefix_cache = SMB_CALLOC_ARRAY(char *,MANGLE_CACHE_SIZE);
+	if (!prefix_cache) {
+		return False;
+	}
 
-	prefix_cache_hashes = calloc(MANGLE_CACHE_SIZE, sizeof(u32));
-	if (!prefix_cache_hashes) return False;
+	prefix_cache_hashes = SMB_CALLOC_ARRAY(u32, MANGLE_CACHE_SIZE);
+	if (!prefix_cache_hashes) {
+		return False;
+	}
 
 	return True;
 }
@@ -174,7 +181,7 @@ static void cache_insert(const char *prefix, int length, u32 hash)
 		free(prefix_cache[i]);
 	}
 
-	prefix_cache[i] = strndup(prefix, length);
+	prefix_cache[i] = SMB_STRNDUP(prefix, length);
 	prefix_cache_hashes[i] = hash;
 }
 
@@ -499,7 +506,7 @@ static BOOL is_legal_name(const char *name)
 
   the name parameter must be able to hold 13 bytes
 */
-static void name_map(fstring name, BOOL need83, BOOL cache83)
+static void name_map(fstring name, BOOL need83, BOOL cache83, int default_case)
 {
 	char *dot_p;
 	char lead_chars[7];

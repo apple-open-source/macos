@@ -53,8 +53,6 @@
 #include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
-#define SCSI_SBC_DEVICE_DEBUGGING_LEVEL 0
-
 #if ( SCSI_SBC_DEVICE_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)		IOPanic x
 #else

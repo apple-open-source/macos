@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,4 +34,6 @@
 __private_extern__ void ppc_reloc(
     char *contents,
     struct relocation_info *relocs,
-    struct section_map *map);
+    struct section_map *section_map,
+    struct live_refs *refs,
+    unsigned long reloc_index);

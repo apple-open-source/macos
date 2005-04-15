@@ -16,14 +16,16 @@
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-                                        * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-                                        * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <ApplicationServices/ApplicationServicesPriv.h>
+#include "visible_position.h"
 
 #ifdef __OBJC__
 @class KWQAccObject;
@@ -35,7 +37,10 @@ class QString;
 
 namespace khtml {
     class RenderObject;
+    class VisiblePosition;
 }
+
+typedef unsigned int        KWQAccObjectID;
 
 class KWQAccObjectCache
 {
@@ -46,12 +51,23 @@ public:
     KWQAccObject* accObject(khtml::RenderObject* renderer);
     void setAccObject(khtml::RenderObject* renderer, KWQAccObject* obj);
     void removeAccObject(khtml::RenderObject* renderer);
-    
+
+    KWQAccObjectID getAccObjectID(KWQAccObject* accObject);
+    void removeAccObjectID(KWQAccObject* accObject);
+#if OMIT_TIGER_FEATURES
+// no parameterized attributes in Panther... they were introduced in Tiger
+#else
+    AXTextMarkerRef textMarkerForVisiblePosition (const khtml::VisiblePosition &);
+    khtml::VisiblePosition visiblePositionForTextMarker (AXTextMarkerRef textMarker);
+#endif
+
     void detach(khtml::RenderObject* renderer);
     
     void childrenChanged(khtml::RenderObject* renderer);
 
     void postNotification(khtml::RenderObject* renderer, const QString& msg);
+    void postNotificationToTopWebArea(khtml::RenderObject* renderer, const QString& msg);
+    void handleFocusedUIElementChanged(void);
     
     static void enableAccessibility() { gAccessibilityEnabled = true; }
     static bool accessibilityEnabled() { return gAccessibilityEnabled; }
@@ -61,4 +77,6 @@ private:
 
 private:
     CFMutableDictionaryRef accCache;
+    CFMutableDictionaryRef accCacheByID;
+    KWQAccObjectID accObjectIDSource;
 };

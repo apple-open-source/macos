@@ -54,6 +54,7 @@ public:
     virtual void replaceData ( const unsigned long offset, const unsigned long count, const DOMString &arg, int &exceptioncode );
 
     virtual bool containsOnlyWhitespace() const;
+    bool containsOnlyWhitespace(unsigned int from, unsigned int len) const;
     
     // DOM methods overridden from  parent classes
 
@@ -64,6 +65,14 @@ public:
 
     DOMStringImpl *string() { return str; }
     virtual void checkCharDataOperation( const unsigned long offset, int &exceptioncode );
+
+    virtual long maxOffset() const;
+    virtual long caretMinOffset() const;
+    virtual long caretMaxOffset() const;
+    virtual unsigned long caretMaxRenderedOffset() const;
+
+    virtual bool rendererIsNeeded(khtml::RenderStyle *);
+    
 #ifndef NDEBUG
     virtual void dump(QTextStream *stream, QString ind = "") const;
 #endif
@@ -136,6 +145,10 @@ public:
     static Text createInstance(TextImpl *impl);
 #endif
 
+#ifndef NDEBUG
+    virtual void formatForDebugger(char *buffer, unsigned length) const;
+#endif
+
 protected:
     virtual TextImpl *createNew(DOMStringImpl *_str);
 };
@@ -165,5 +178,17 @@ protected:
     virtual TextImpl *createNew(DOMStringImpl *_str);
 };
 
-}; //namespace
+// ----------------------------------------------------------------------------
+
+class EditingTextImpl : public TextImpl
+{
+public:
+    EditingTextImpl(DocumentPtr *impl, const DOMString &text);
+    EditingTextImpl(DocumentPtr *impl);
+    virtual ~EditingTextImpl();
+
+    virtual bool rendererIsNeeded(khtml::RenderStyle *);
+};
+
+} //namespace
 #endif

@@ -1,28 +1,31 @@
 import libxml2mod
 import types
 
+# The root of all libxml2 errors.
+class libxmlError(Exception): pass
+
 #
 # Errors raised by the wrappers when some tree handling failed.
 #
-class treeError:
+class treeError(libxmlError):
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
         return self.msg
 
-class parserError:
+class parserError(libxmlError):
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
         return self.msg
 
-class uriError:
+class uriError(libxmlError):
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
         return self.msg
 
-class xpathError:
+class xpathError(libxmlError):
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
@@ -82,19 +85,19 @@ class ioWriteWrapper(ioWrapper):
     def __init__(self, _obj, enc = ""):
 #        print "ioWriteWrapper.__init__", _obj
         if type(_obj) == type(''):
-	    print "write io from a string"
-	    self.o = None
-	elif type(_obj) == types.InstanceType:
-	    print "write io from instance of %s" % (_obj.__class__)
-	    ioWrapper.__init__(self, _obj)
-	    self._o = libxml2mod.xmlCreateOutputBuffer(self, enc)
-	else:
-	    file = libxml2mod.outputBufferGetPythonFile(_obj)
-	    if file != None:
-		ioWrapper.__init__(self, file)
-	    else:
-	        ioWrapper.__init__(self, _obj)
-	    self._o = _obj
+            print "write io from a string"
+            self.o = None
+        elif type(_obj) == types.InstanceType:
+            print "write io from instance of %s" % (_obj.__class__)
+            ioWrapper.__init__(self, _obj)
+            self._o = libxml2mod.xmlCreateOutputBuffer(self, enc)
+        else:
+            file = libxml2mod.outputBufferGetPythonFile(_obj)
+            if file != None:
+                ioWrapper.__init__(self, file)
+            else:
+                ioWrapper.__init__(self, _obj)
+            self._o = _obj
 
     def __del__(self):
 #        print "__del__"
@@ -349,6 +352,48 @@ class xmlCore:
         return libxml2mod.saveNodeTo(self._o, file, encoding, format)
             
     #
+    # Canonicalization routines:
+    #
+    #   nodes: the node set (tuple or list) to be included in the
+    #     canonized image or None if all document nodes should be
+    #     included.
+    #   exclusive: the exclusive flag (0 - non-exclusive
+    #     canonicalization; otherwise - exclusive canonicalization)
+    #   prefixes: the list of inclusive namespace prefixes (strings),
+    #     or None if there is no inclusive namespaces (only for
+    #     exclusive canonicalization, ignored otherwise)
+    #   with_comments: include comments in the result (!=0) or not
+    #     (==0)
+    def c14nMemory(self,
+                   nodes=None,
+                   exclusive=0,
+                   prefixes=None,
+                   with_comments=0):
+        if nodes:
+            nodes = map(lambda n: n._o, nodes)
+        return libxml2mod.xmlC14NDocDumpMemory(
+            self.get_doc()._o,
+            nodes,
+            exclusive != 0,
+            prefixes,
+            with_comments != 0)
+    def c14nSaveTo(self,
+                   file,
+                   nodes=None,
+                   exclusive=0,
+                   prefixes=None,
+                   with_comments=0):
+        if nodes:
+            nodes = map(lambda n: n._o, nodes)
+        return libxml2mod.xmlC14NDocSaveTo(
+            self.get_doc()._o,
+            nodes,
+            exclusive != 0,
+            prefixes,
+            with_comments != 0,
+            file)
+
+    #
     # Selecting nodes using XPath, a bit slow because the context
     # is allocated/freed every time but convenient.
     #
@@ -446,19 +491,19 @@ class xmlCoreBreadthFirstItertor:
 #
 def nodeWrap(o):
     # TODO try to cast to the most appropriate node class
-    name = libxml2mod.name(o)
+    name = libxml2mod.type(o)
     if name == "element" or name == "text":
         return xmlNode(_obj=o)
     if name == "attribute":
         return xmlAttr(_obj=o)
     if name[0:8] == "document":
         return xmlDoc(_obj=o)
-    if name[0:8] == "namespace":
+    if name == "namespace":
         return xmlNs(_obj=o)
     if name == "elem_decl":
         return xmlElement(_obj=o)
     if name == "attribute_decl":
-        return xmlAtribute(_obj=o)
+        return xmlAttribute(_obj=o)
     if name == "entity_decl":
         return xmlEntity(_obj=o)
     if name == "dtd":
@@ -576,6 +621,11 @@ class xmlTextReaderCore:
             # assert f is _xmlTextReaderErrorFunc
             return arg
 
+#
+# The cleanup now goes though a wrappe in libxml.c
+#
+def cleanupParser():
+    libxml2mod.xmlPythonCleanupParser()
 
 # WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
 #

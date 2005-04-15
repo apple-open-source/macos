@@ -37,7 +37,8 @@
  * Originally written at NeXT, Inc.
  *
  */
-
+#ifndef RLD
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +67,8 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "Motorola 88K"},
     {"ppc",    CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_ALL,  NX_BigEndian,
 	 "PowerPC"},
+    {"ppc64",  CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC_ALL,  NX_BigEndian,
+	 "PowerPC 64-bit"},
     {"sparc",  CPU_TYPE_SPARC,   CPU_SUBTYPE_SPARC_ALL,	   NX_BigEndian,
 	 "SPARC"},
     {"any",    CPU_TYPE_ANY,     CPU_SUBTYPE_MULTIPLE,     NX_UnknownByteOrder,
@@ -115,6 +118,8 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "PowerPC 7450" },
     {"ppc970", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_970,  NX_BigEndian,
 	 "PowerPC 970" },
+    {"ppc970-64",  CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC_970,  NX_BigEndian,
+	 "PowerPC 970 64-bit"},
     {"little", CPU_TYPE_ANY,     CPU_SUBTYPE_LITTLE_ENDIAN, NX_LittleEndian,
          "Little Endian"},
     {"big",    CPU_TYPE_ANY,     CPU_SUBTYPE_BIG_ENDIAN,   NX_BigEndian,
@@ -263,10 +268,10 @@ NXFindBestFatArch(
 cpu_type_t cputype,
 cpu_subtype_t cpusubtype,
 struct fat_arch *fat_archs,
-unsigned long nfat_archs)
+uint32_t nfat_archs)
 {
     unsigned long i;
-    int lowest_family, lowest_model, lowest_index;
+    long lowest_family, lowest_model, lowest_index;
 
 	/*
 	 * Look for the first exact match.
@@ -358,7 +363,7 @@ unsigned long nfat_archs)
 	    /* if no intel cputypes found return NULL */
 	    if(lowest_family == CPU_SUBTYPE_INTEL_FAMILY_MAX + 1)
 		return(NULL);
-	    lowest_model = ULONG_MAX;
+	    lowest_model = LONG_MAX;
 	    lowest_index = -1;
 	    for(i = 0; i < nfat_archs; i++){
 		if(fat_archs[i].cputype != cputype)
@@ -480,6 +485,39 @@ unsigned long nfat_archs)
 		    if(fat_archs[i].cputype != cputype)
 			continue;
 		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_603)
+			return(fat_archs + i);
+		}
+	    default:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_ALL)
+			return(fat_archs + i);
+		}
+	    }
+	    break;
+	case CPU_TYPE_POWERPC64:
+	    /*
+	     * An exact match as not found.  So for all the PowerPC64 subtypes
+	     * pick the subtype from the following order starting from a subtype
+	     * that will work (contains 64-bit instructions or altivec if
+	     * needed):
+	     *	970 (currently only the one 64-bit subtype)
+	     * For an unknown subtype pick only the ALL type if it exists.
+	     */
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_ALL:
+		/*
+		 * The CPU_SUBTYPE_POWERPC_ALL is only used by the development
+		 * environment tools when building a generic ALL type binary.
+		 * In the case of a non-exact match we pick the most current
+		 * processor.
+		 */
+	    case CPU_SUBTYPE_POWERPC_970:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_970)
 			return(fat_archs + i);
 		}
 	    default:
@@ -696,3 +734,4 @@ cpu_subtype_t cpusubtype2)
 	}
 	return((cpu_subtype_t)-1); /* logically can't get here */
 }
+#endif /* !defined(RLD) */

@@ -1,6 +1,6 @@
 # Makefile.am for the SASLdb library
 # Rob Siemborski
-# $Id: Makefile.am,v 1.2 2002/05/22 17:59:20 snsimon Exp $
+# $Id: Makefile.am,v 1.5 2005/01/10 19:01:34 snsimon Exp $
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,22 +41,30 @@
 #
 
 # Library version info - here at the top, for sanity
-sasl_version = 1:9:0
+# Note that this doesn't necessaraly follow the libsasl2 verison info
+sasl_version = 1:18:0
 
-INCLUDES=-I$(top_srcdir)/include @SASL_DB_INC@
+INCLUDES=-I$(top_srcdir)/include -I$(top_builddir)/include @SASL_DB_INC@
 
-extra_common_sources = db_none.c db_ndbm.c db_gdbm.c db_berkeley.c db_testw32.c
+extra_common_sources = db_none.c db_ndbm.c db_gdbm.c db_berkeley.c
+
+EXTRA_DIST = NTMakefile
 
 noinst_LTLIBRARIES = libsasldb.la
+noinst_LIBRARIES = libsasldb.a
 
 libsasldb_la_SOURCES = allockey.c sasldb.h
 EXTRA_libsasldb_la_SOURCES = $(extra_common_sources)
 libsasldb_la_DEPENDENCIES = $(SASL_DB_BACKEND)
 libsasldb_la_LIBADD = $(SASL_DB_BACKEND) 
 
-#static version (semi-optional)
-noinst_LIBRARIES = libsasldb.a
-libsasldb_a_SOURCES = allockey.c sasldb.h
-EXTRA_libsasldb_a_SOURCES = $(extra_common_sources)
-libsasldb_a_DEPENDENCIES = $(SASL_DB_BACKEND_STATIC)
-libsasldb_a_LIBADD = $(SASL_DB_BACKEND_STATIC)
+LOCAL_SASL_DB_BACKEND_STATIC := $(shell echo $(SASL_DB_BACKEND_STATIC) | sed -e "s%\.\./sasldb/%%g")
+
+# Prevent make dist stupidity
+libsasldb_a_SOURCES =
+EXTRA_libsasldb_a_SOURCES =
+
+libsasldb.a: libsasldb.la $(LOCAL_SASL_DB_BACKEND_STATIC)
+	$(AR) cru .libs/$@ $(LOCAL_SASL_DB_BACKEND_STATIC)
+
+

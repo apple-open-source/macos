@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 /* This has to be -D__3_2_User_with_hppa__ when compiling for 3.2 hp */
 #ifdef __3_2_User_with_hppa__
 
@@ -89,3 +90,4 @@ vm_size_t size)
 }
 
 #endif /* __3_2_User_with_hppa__ */
+#endif /* !defined(RLD) */

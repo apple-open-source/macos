@@ -1,0 +1,133 @@
+<HTML><HEAD>
+<TITLE>Changes to the Cyrus IMAP Server</TITLE>
+<!-- Changed by: Larry Greenfield 15-Aug-1999 -->
+<!-- Changed by: Larry Greenfield 01-Jul-1999 -->
+<!-- Changed by: Tim Showalter 16-Jun-1997 -->
+<!-- $Id: bugs.html,v 1.28 2004/03/22 00:30:59 ken3 Exp $ -->
+</HEAD><BODY>
+<h1>                     Known bugs in the Cyrus IMAP Server</h1>
+
+<p>We're working on moving to a <a
+href="http://www.mozilla.org/bugs/">Bugzilla database</a>.  It's still
+being built up, but you can search/add to it <a
+href="http://bugzilla.andrew.cmu.edu">here</a>.  Eventually, all the
+bugs below will be in there.</p>
+
+<h3>imapd and core utilities</h3>
+
+<ul>
+<li> Multiple APPENDs don't always correctly return the EXISTS
+response. (can't reproduce?)
+
+<li> Particularly large quotas can wrap around.
+
+<li> The RENAME command is not atomic.
+
+<li> <tt>reconstruct</tt> doesn't deal with the <tt>mailboxes.db</tt> file.
+
+<li> we should deal with having to reset UIDs
+
+<li> the algorithm used for naming stage files is fragile and not
+threadsafe.
+
+<li> during appendstage(), the message is parsed once per delivery,
+not once at the beginning.
+
+<li> <tt>master</tt> should pay attention to processes that have told
+it they are listening, and make sure they don't die abnormally.
+likewise, it should be on the lookout for continually forking
+services.
+
+<li> <tt>master</tt> should probably have a babysitting service
+("always keep this process running").
+
+</ul>
+
+<h3>proxyd and Cyrus Murder</h3>
+<ul>
+<li> RENAME across servers isn't implemented.
+
+<li> Tagged lines with literals can cause problems for <tt>proxyd</tt>.
+
+</ul>
+
+<h3>lmtpd, deliver, and sieve</h3>
+
+<ul>
+<li> 8-bit set characters are coerced to 'X', but not before the notify_zephyr 
+code (if used) has had a chance to send them out.
+
+<li> Deliver does not handle messages containing NUL properly due to
+stdio problems (the characters between the NUL and the LF will be
+lost.)
+
+<li> Deliver doesn't gracefully handle CR CR sequences in messages.
+Well, ok, it hangs.
+
+</ul>
+
+<h3>authentication and authorization</h3>
+
+<ul>
+<li>Using AFS groups with ptclient, users with negative rights as part of
+groups may be granted access to mailboxes if ptclient has died.  We plan
+to have this fixed eventually.
+
+<li> In some failures of the krbck program, the error messages printed out
+bear no resemblance to what actually went wrong.
+</ul>
+
+<h3>other utilities</h3>
+
+<ul>
+<li> <tt>cyradm</tt> may need to change authname/username stuff.
+Something to check.
+
+<li> <tt>imtest</tt>: it would be nice for the authorization name to
+default to the authentication name, except when specifically
+overridden.
+
+<li> any utilities doing db operations should catch signals and poll
+for them to see if it should exit (like mbpath, ipurge).
+
+<li> <tt>imtest</tt> uses <tt>getpass()</tt> to grab passwords from
+users. On some systems (Solaris reported), this will only return the
+first 8 characters, causing authentication failures.
+
+</ul>
+
+<h3>libraries</h3>
+
+<h1>                     Things we want to do</h1>
+
+<ul>
+<li> Implement the IMAP VIEW extension.
+
+<li> Implement the IMAP ANNOTATE extension.
+
+<li> Implement some sort of backup/restore system that's more
+efficient and easier to use than Amanda on the filesystem.
+
+<li> Add mailbox version numbers.
+
+<li> Add mailbox tombstones (gives NEWNAME support).
+
+<li> Design and implement ALIST, the advanced list command.
+
+<li> Investigate changing from the prot layer to using sfio.
+
+<li> Write a test module for lmtpengine.
+
+<li> Allow renaming users. (RENAME user.joe user.harry.)  Needs to
+move all metadata per-user data. (seen, subscriptions, sieve state?)
+</ul>
+
+<p>
+<p>Please refer to <a href="feedback.html">Sending Feedback</a> if you
+would like to submit a bug, feature request or (best of all) patch.
+
+<P><HR>
+Last update: $Date: 2004/03/22 00:30:59 $
+<br>
+<A HREF="index.html">Return</A> to the Cyrus IMAP Server Home Page
+</BODY></HTML>

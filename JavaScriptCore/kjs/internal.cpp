@@ -3,7 +3,7 @@
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -38,6 +38,7 @@
 #include "error_object.h"
 #include "function_object.h"
 #include "internal.h"
+#include "interpreter_map.h"
 #include "lexer.h"
 #include "math_object.h"
 #include "nodes.h"
@@ -93,6 +94,7 @@ static inline void lockInterpreter()
   pthread_once(&interpreterLockOnce, initializeInterpreterLock);
   pthread_mutex_lock(&interpreterLock);
   interpreterLockCount++;
+  Collector::registerThread();
 }
 
 static inline void unlockInterpreter()
@@ -194,7 +196,7 @@ Object BooleanImp::toObject(ExecState *exec) const
 {
   List args;
   args.append(const_cast<BooleanImp*>(this));
-  return Object::dynamicCast(exec->interpreter()->builtinBoolean().construct(exec,args));
+  return Object::dynamicCast(exec->lexicalInterpreter()->builtinBoolean().construct(exec,args));
 }
 
 // ------------------------------ StringImp ------------------------------------
@@ -223,7 +225,7 @@ Object StringImp::toObject(ExecState *exec) const
 {
   List args;
   args.append(const_cast<StringImp*>(this));
-  return Object::dynamicCast(exec->interpreter()->builtinString().construct(exec,args));
+  return Object::dynamicCast(exec->lexicalInterpreter()->builtinString().construct(exec,args));
 }
 
 // ------------------------------ NumberImp ------------------------------------
@@ -235,7 +237,9 @@ ValueImp *NumberImp::create(int i)
     if (SimpleNumber::fits(i))
         return SimpleNumber::make(i);
     NumberImp *imp = new NumberImp(static_cast<double>(i));
+#if !USE_CONSERVATIVE_GC
     imp->setGcAllowedFast();
+#endif
     return imp;
 }
 
@@ -246,7 +250,9 @@ ValueImp *NumberImp::create(double d)
     if (isNaN(d))
         return staticNaN;
     NumberImp *imp = new NumberImp(d);
+#if !USE_CONSERVATIVE_GC
     imp->setGcAllowedFast();
+#endif
     return imp;
 }
 
@@ -267,6 +273,8 @@ double NumberImp::toNumber(ExecState *) const
 
 UString NumberImp::toString(ExecState *) const
 {
+  if (val == 0.0) // +0.0 or -0.0
+    return "0";
   return UString::from(val);
 }
 
@@ -274,7 +282,7 @@ Object NumberImp::toObject(ExecState *exec) const
 {
   List args;
   args.append(const_cast<NumberImp*>(this));
-  return Object::dynamicCast(exec->interpreter()->builtinNumber().construct(exec,args));
+  return Object::dynamicCast(exec->lexicalInterpreter()->builtinNumber().construct(exec,args));
 }
 
 bool NumberImp::toUInt32(unsigned& uint32) const
@@ -430,15 +438,16 @@ void ContextImp::mark()
 ProgramNode *Parser::progNode = 0;
 int Parser::sid = 0;
 
-ProgramNode *Parser::parse(const UChar *code, unsigned int length, int *sourceId,
+ProgramNode *Parser::parse(const UString &sourceURL, int startingLineNumber,
+                           const UChar *code, unsigned int length, int *sourceId,
 			   int *errLine, UString *errMsg)
 {
   if (errLine)
     *errLine = -1;
   if (errMsg)
     *errMsg = 0;
-
-  Lexer::curr()->setCode(code, length);
+  
+  Lexer::curr()->setCode(sourceURL, startingLineNumber, code, length);
   progNode = 0;
   sid++;
   if (sourceId)
@@ -447,17 +456,18 @@ ProgramNode *Parser::parse(const UChar *code, unsigned int length, int *sourceId
   //extern int kjsyydebug;
   //kjsyydebug=1;
   int parseError = kjsyyparse();
+  bool lexError = Lexer::curr()->sawError();
   Lexer::curr()->doneParsing();
   ProgramNode *prog = progNode;
   progNode = 0;
   sid = -1;
 
-  if (parseError) {
+  if (parseError || lexError) {
     int eline = Lexer::curr()->lineNo();
     if (errLine)
       *errLine = eline;
     if (errMsg)
-      *errMsg = "Parse error at line " + UString::from(eline);
+      *errMsg = "Parse error";
     if (prog) {
       // must ref and deref to clean up properly
       prog->ref();
@@ -478,34 +488,54 @@ void InterpreterImp::globalInit()
 {
   //fprintf( stderr, "InterpreterImp::globalInit()\n" );
   UndefinedImp::staticUndefined = new UndefinedImp();
+#if !USE_CONSERVATIVE_GC
   UndefinedImp::staticUndefined->ref();
+#endif
   NullImp::staticNull = new NullImp();
+#if !USE_CONSERVATIVE_GC
   NullImp::staticNull->ref();
+#endif
   BooleanImp::staticTrue = new BooleanImp(true);
+#if !USE_CONSERVATIVE_GC
   BooleanImp::staticTrue->ref();
+#endif
   BooleanImp::staticFalse = new BooleanImp(false);
+#if !USE_CONSERVATIVE_GC
   BooleanImp::staticFalse->ref();
+#endif
   NumberImp::staticNaN = new NumberImp(NaN);
+#if !USE_CONSERVATIVE_GC
   NumberImp::staticNaN->ref();
+#endif
 }
 
 void InterpreterImp::globalClear()
 {
   //fprintf( stderr, "InterpreterImp::globalClear()\n" );
+#if !USE_CONSERVATIVE_GC
   UndefinedImp::staticUndefined->deref();
   UndefinedImp::staticUndefined->setGcAllowed();
+#endif
   UndefinedImp::staticUndefined = 0L;
+#if !USE_CONSERVATIVE_GC
   NullImp::staticNull->deref();
   NullImp::staticNull->setGcAllowed();
+#endif
   NullImp::staticNull = 0L;
+#if !USE_CONSERVATIVE_GC
   BooleanImp::staticTrue->deref();
   BooleanImp::staticTrue->setGcAllowed();
+#endif
   BooleanImp::staticTrue = 0L;
+#if !USE_CONSERVATIVE_GC
   BooleanImp::staticFalse->deref();
   BooleanImp::staticFalse->setGcAllowed();
+#endif
   BooleanImp::staticFalse = 0L;
+#if !USE_CONSERVATIVE_GC
   NumberImp::staticNaN->deref();
   NumberImp::staticNaN->setGcAllowed();
+#endif
   NumberImp::staticNaN = 0;
 }
 
@@ -526,6 +556,8 @@ InterpreterImp::InterpreterImp(Interpreter *interp, const Object &glob)
     s_hook = next = prev = this;
     globalInit();
   }
+
+  InterpreterMap::setInterpreterForGlobalObject(this, glob.imp());
 
   global = glob;
   globExec = new ExecState(m_interpreter,0);
@@ -704,6 +736,8 @@ void InterpreterImp::clear()
     s_hook = 0L;
     globalClear();
   }
+  InterpreterMap::removeInterpreterForGlobalObject(global.imp());
+
 #if APPLE_CHANGES
   unlockInterpreter();
 #endif
@@ -724,8 +758,6 @@ void InterpreterImp::mark()
   if (BooleanImp::staticFalse && !BooleanImp::staticFalse->marked())
     BooleanImp::staticFalse->mark();
   //fprintf( stderr, "InterpreterImp::mark this=%p global.imp()=%p\n", this, global.imp() );
-  if (global.imp())
-    global.imp()->mark();
   if (m_interpreter)
     m_interpreter->mark();
   if (_context)
@@ -735,7 +767,7 @@ void InterpreterImp::mark()
 bool InterpreterImp::checkSyntax(const UString &code)
 {
   // Parser::parse() returns 0 in a syntax error occurs, so we just check for that
-  ProgramNode *progNode = Parser::parse(code.data(),code.size(),0,0,0);
+  ProgramNode *progNode = Parser::parse(UString(), 0, code.data(),code.size(),0,0,0);
   bool ok = (progNode != 0);
   if (progNode) {
     // must ref and deref to clean up properly
@@ -746,7 +778,7 @@ bool InterpreterImp::checkSyntax(const UString &code)
   return ok;
 }
 
-Completion InterpreterImp::evaluate(const UString &code, const Value &thisV)
+Completion InterpreterImp::evaluate(const UString &code, const Value &thisV, const UString &sourceURL, int startingLineNumber)
 {
 #if APPLE_CHANGES
   lockInterpreter();
@@ -761,12 +793,12 @@ Completion InterpreterImp::evaluate(const UString &code, const Value &thisV)
     return Completion(Throw,Error::create(globExec,GeneralError,"Recursion too deep"));
 #endif
   }
-
+  
   // parse the source code
   int sid;
   int errLine;
   UString errMsg;
-  ProgramNode *progNode = Parser::parse(code.data(),code.size(),&sid,&errLine,&errMsg);
+  ProgramNode *progNode = Parser::parse(sourceURL, startingLineNumber, code.data(),code.size(),&sid,&errLine,&errMsg);
 
   // notify debugger that source has been parsed
   if (dbg) {
@@ -781,10 +813,10 @@ Completion InterpreterImp::evaluate(const UString &code, const Value &thisV)
       return Completion(Break);
 #endif
   }
-
+  
   // no program node means a syntax error occurred
   if (!progNode) {
-    Object err = Error::create(globExec,SyntaxError,errMsg.ascii(),errLine);
+    Object err = Error::create(globExec,SyntaxError,errMsg.ascii(),errLine, -1, &sourceURL);
     err.put(globExec,"sid",Number(sid));
 #if APPLE_CHANGES
     unlockInterpreter();
@@ -819,6 +851,7 @@ Completion InterpreterImp::evaluate(const UString &code, const Value &thisV)
     // execute the code
     ContextImp ctx(globalObj, this, thisObj);
     ExecState newExec(m_interpreter,&ctx);
+    progNode->processVarDecls(&newExec);
     res = progNode->execute(&newExec);
   }
 
@@ -921,6 +954,12 @@ void InterpreterImp::restoreBuiltins (const SavedBuiltins &builtins)
   b_uriErrorPrototype = builtins._internal->b_uriErrorPrototype;
 }
 
+InterpreterImp *InterpreterImp::interpreterWithGlobalObject(ObjectImp *global)
+{
+  return InterpreterMap::getInterpreterForGlobalObject(global);
+}
+
+
 // ------------------------------ InternalFunctionImp --------------------------
 
 const ClassInfo InternalFunctionImp::info = {"Function", 0, 0, 0};
@@ -960,16 +999,12 @@ Boolean InternalFunctionImp::hasInstance(ExecState *exec, const Value &value)
 
 double KJS::roundValue(ExecState *exec, const Value &v)
 {
-  if (v.type() == UndefinedType) /* TODO: see below */
-    return 0.0;
   Number n = v.toNumber(exec);
-  if (n.value() == 0.0)   /* TODO: -0, NaN, Inf */
-    return 0.0;
-  double d = floor(fabs(n.value()));
-  if (n.value() < 0)
-    d *= -1;
-
-  return d;
+  double d = n.value();
+  double ad = fabs(d);
+  if (ad == 0 || isNaN(d) || isInf(d))
+    return d;
+  return copysign(floor(ad), d);
 }
 
 #ifndef NDEBUG

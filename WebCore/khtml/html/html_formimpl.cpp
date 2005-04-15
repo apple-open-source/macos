@@ -4,7 +4,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,8 +31,10 @@
 #include "khtmlview.h"
 #include "khtml_part.h"
 #include "html/html_documentimpl.h"
+#include "html_imageimpl.h"
 #include "khtml_settings.h"
 #include "misc/htmlhashes.h"
+#include "misc/formdata.h"
 
 #include "css/cssstyleselector.h"
 #include "css/cssproperties.h"
@@ -60,12 +62,49 @@
 
 #include <assert.h>
 
-using namespace DOM;
 using namespace khtml;
+
+namespace DOM {
+
+struct FormDataListItem {
+    FormDataListItem(const QCString &data) : m_data(data) { }
+    FormDataListItem(const QString &path) : m_path(path) { }
+
+    QString m_path;
+    QCString m_data;
+};
+
+class FormDataList {
+public:
+    FormDataList(QTextCodec *);
+
+    void appendData(const DOMString &key, const DOMString &value)
+        { appendString(key.string()); appendString(value.string()); }
+    void appendData(const DOMString &key, const QString &value)
+        { appendString(key.string()); appendString(value); }
+    void appendData(const DOMString &key, const QCString &value)
+        { appendString(key.string()); appendString(value); }
+    void appendData(const DOMString &key, int value)
+        { appendString(key.string()); appendString(QString::number(value)); }
+    void appendFile(const DOMString &key, const DOMString &filename);
+
+    QValueListConstIterator<FormDataListItem> begin() const
+        { return m_list.begin(); }
+    QValueListConstIterator<FormDataListItem> end() const
+        { return m_list.end(); }
+
+private:
+    void appendString(const QCString &s);
+    void appendString(const QString &s);
+
+    QTextCodec *m_codec;
+    QValueList<FormDataListItem> m_list;
+};
 
 HTMLFormElementImpl::HTMLFormElementImpl(DocumentPtr *doc)
     : HTMLElementImpl(doc)
 {
+    collectionInfo = 0;
     m_post = false;
     m_multipart = false;
     m_autocomplete = true;
@@ -80,9 +119,14 @@ HTMLFormElementImpl::HTMLFormElementImpl(DocumentPtr *doc)
 
 HTMLFormElementImpl::~HTMLFormElementImpl()
 {
-    QPtrListIterator<HTMLGenericFormElementImpl> it(formElements);
-    for (; it.current(); ++it)
-        it.current()->m_form = 0;
+    delete collectionInfo;
+    
+    for (unsigned i = 0; i < formElements.count(); ++i)
+        formElements[i]->m_form = 0;
+    for (unsigned i = 0; i < dormantFormElements.count(); ++i)
+        dormantFormElements[i]->m_form = 0;
+    for (unsigned i = 0; i < imgElements.count(); ++i)
+        imgElements[i]->m_form = 0;
 }
 
 NodeImpl::Id HTMLFormElementImpl::id() const
@@ -134,9 +178,8 @@ void HTMLFormElementImpl::detach()
 long HTMLFormElementImpl::length() const
 {
     int len = 0;
-    QPtrListIterator<HTMLGenericFormElementImpl> it(formElements);
-    for (; it.current(); ++it)
-	if (it.current()->isEnumeratable())
+    for (unsigned i = 0; i < formElements.count(); ++i)
+	if (formElements[i]->isEnumeratable())
 	    ++len;
 
     return len;
@@ -147,13 +190,12 @@ long HTMLFormElementImpl::length() const
 void HTMLFormElementImpl::submitClick()
 {
     bool submitFound = false;
-    QPtrListIterator<HTMLGenericFormElementImpl> it(formElements);
-    for (; it.current(); ++it) {
-        if (it.current()->id() == ID_INPUT) {
-            HTMLInputElementImpl *element = static_cast<HTMLInputElementImpl *>(it.current());
+    for (unsigned i = 0; i < formElements.count(); ++i) {
+        if (formElements[i]->id() == ID_INPUT) {
+            HTMLInputElementImpl *element = static_cast<HTMLInputElementImpl *>(formElements[i]);
             if (element->isSuccessfulSubmitButton() && element->renderer()) {
                 submitFound = true;
-                element->click();
+                element->click(false);
                 break;
             }
         }
@@ -262,13 +304,6 @@ static QCString fixLineBreaks(const QCString &s)
     return result;
 }
 
-inline static QCString fixUpfromUnicode(const QTextCodec* codec, const QString& s)
-{
-    QCString str = fixLineBreaks(codec->fromUnicode(s));
-    str.truncate(str.length());
-    return str;
-}
-
 #if !APPLE_CHANGES
 
 void HTMLFormElementImpl::i18nData()
@@ -290,13 +325,12 @@ void HTMLFormElementImpl::i18nData()
 
 #endif
 
-QByteArray HTMLFormElementImpl::formData(bool& ok)
+bool HTMLFormElementImpl::formData(FormData &form_data) const
 {
 #ifdef FORMS_DEBUG
     kdDebug( 6030 ) << "form: formData()" << endl;
 #endif
 
-    QByteArray form_data(0);
     QCString enc_string = ""; // used for non-multipart data
 
     // find out the QTextcodec to use
@@ -326,32 +360,31 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
     QStringList fileUploads;
 #endif
 
-    for (QPtrListIterator<HTMLGenericFormElementImpl> it(formElements); it.current(); ++it) {
-        HTMLGenericFormElementImpl* current = it.current();
-        khtml::encodingList lst;
+    for (unsigned i = 0; i < formElements.count(); ++i) {
+        HTMLGenericFormElementImpl* current = formElements[i];
+        FormDataList lst(codec);
 
-        if (!current->disabled() && current->encoding(codec, lst, m_multipart))
+        if (!current->disabled() && current->appendFormData(lst, m_multipart))
         {
             //kdDebug(6030) << "adding name " << current->name().string() << endl;
-            khtml::encodingList::Iterator it;
-            for( it = lst.begin(); it != lst.end(); ++it )
+            for(QValueListConstIterator<FormDataListItem> it = lst.begin(); it != lst.end(); ++it )
             {
                 if (!m_multipart)
                 {
                     // handle ISINDEX / <input name=isindex> special
                     // but only if its the first entry
-                    if ( enc_string.isEmpty() && *it == "isindex" ) {
+                    if ( enc_string.isEmpty() && (*it).m_data == "isindex" ) {
                         ++it;
-                        enc_string += encodeCString( *it );
+                        enc_string += encodeCString( (*it).m_data );
                     }
                     else {
                         if(!enc_string.isEmpty())
                             enc_string += '&';
 
-                        enc_string += encodeCString(*it);
+                        enc_string += encodeCString((*it).m_data);
                         enc_string += "=";
                         ++it;
-                        enc_string += encodeCString(*it);
+                        enc_string += encodeCString((*it).m_data);
                     }
                 }
                 else
@@ -360,7 +393,7 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
                     hstr += m_boundary.string().latin1();
                     hstr += "\r\n";
                     hstr += "Content-Disposition: form-data; name=\"";
-                    hstr += (*it).data();
+                    hstr += (*it).m_data.data();
                     hstr += "\"";
 
                     // if the current type is FILE, then we also need to
@@ -400,12 +433,18 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
                     ++it;
 
                     // append body
-                    unsigned int old_size = form_data.size();
-                    form_data.resize( old_size + hstr.length() + (*it).size() + 1);
-                    memcpy(form_data.data() + old_size, hstr.data(), hstr.length());
-                    memcpy(form_data.data() + old_size + hstr.length(), (*it), (*it).size());
-                    form_data[form_data.size()-2] = '\r';
-                    form_data[form_data.size()-1] = '\n';
+                    form_data.appendData(hstr.data(), hstr.length());
+#if APPLE_CHANGES
+                    const FormDataListItem &item = *it;
+                    size_t dataSize = item.m_data.size();
+                    if (dataSize != 0)
+                        form_data.appendData(item.m_data, dataSize - 1);
+                    else if (!item.m_path.isEmpty())
+                        form_data.appendFile(item.m_path);
+#else
+                    form_data.appendData((*it).m_data, (*it).m_data.size() - 1);
+#endif
+                    form_data.appendData("\r\n", 2);
                 }
             }
         }
@@ -421,8 +460,7 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
 
 
         if (result == KMessageBox::Cancel) {
-            ok = false;
-            return QByteArray();
+            return false;
         }
     }
 #endif
@@ -430,12 +468,8 @@ QByteArray HTMLFormElementImpl::formData(bool& ok)
     if (m_multipart)
         enc_string = ("--" + m_boundary.string() + "--\r\n").ascii();
 
-    int old_size = form_data.size();
-    form_data.resize( form_data.size() + enc_string.length() );
-    memcpy(form_data.data() + old_size, enc_string.data(), enc_string.length() );
-
-    ok = true;
-    return form_data;
+    form_data.appendData(enc_string.data(), enc_string.length());
+    return true;
 }
 
 void HTMLFormElementImpl::setEnctype( const DOMString& type )
@@ -507,17 +541,20 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
 #if APPLE_CHANGES
     KWQ(part)->clearRecordedFormValues();
 #endif
-    for (QPtrListIterator<HTMLGenericFormElementImpl> it(formElements); it.current(); ++it) {
-        HTMLGenericFormElementImpl* current = it.current();
+    for (unsigned i = 0; i < formElements.count(); ++i) {
+        HTMLGenericFormElementImpl* current = formElements[i];
 #if APPLE_CHANGES
         // Our app needs to get form values for password fields for doing password autocomplete,
         // so we are more lenient in pushing values, and let the app decide what to save when.
         if (current->id() == ID_INPUT) {
             HTMLInputElementImpl *input = static_cast<HTMLInputElementImpl*>(current);
             if (input->inputType() == HTMLInputElementImpl::TEXT
-                || input->inputType() ==  HTMLInputElementImpl::PASSWORD)
+                || input->inputType() ==  HTMLInputElementImpl::PASSWORD
+                || input->inputType() == HTMLInputElementImpl::SEARCH)
             {
                 KWQ(part)->recordFormValue(input->name().string(), input->value().string(), this);
+                if (input->renderer() && input->inputType() == HTMLInputElementImpl::SEARCH)
+                    static_cast<RenderLineEdit*>(input->renderer())->addSearchResult();
             }
         }
 #else
@@ -543,9 +580,8 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
         firstSuccessfulSubmitButton->setActivatedSubmit(true);
     }
 
-    bool ok;
-    QByteArray form_data = formData(ok);
-    if (ok) {
+    FormData form_data;
+    if (formData(form_data)) {
         if(m_post) {
             part->submitForm( "post", m_url.string(), form_data,
                                       m_target.string(),
@@ -583,13 +619,13 @@ void HTMLFormElementImpl::reset(  )
         return;
     }
 
-    for (QPtrListIterator<HTMLGenericFormElementImpl> it(formElements); it.current(); ++it)
-        it.current()->reset();
+    for (unsigned i = 0; i < formElements.count(); ++i)
+        formElements[i]->reset();
 
     m_inreset = false;
 }
 
-void HTMLFormElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLFormElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
@@ -635,11 +671,11 @@ void HTMLFormElementImpl::parseAttribute(AttributeImpl *attr)
         break;
     case ATTR_ONSUBMIT:
         setHTMLEventListener(EventImpl::SUBMIT_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONRESET:
         setHTMLEventListener(EventImpl::RESET_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_NAME:
 	{
@@ -664,14 +700,14 @@ void HTMLFormElementImpl::parseAttribute(AttributeImpl *attr)
 	}
 	// fall through
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
 void HTMLFormElementImpl::radioClicked( HTMLGenericFormElementImpl *caller )
 {
-    for (QPtrListIterator<HTMLGenericFormElementImpl> it(formElements); it.current(); ++it) {
-        HTMLGenericFormElementImpl *current = it.current();
+    for (unsigned i = 0; i < formElements.count(); ++i) {
+        HTMLGenericFormElementImpl *current = formElements[i];
         if (current->id() == ID_INPUT &&
             static_cast<HTMLInputElementImpl*>(current)->inputType() == HTMLInputElementImpl::RADIO &&
             current != caller && current->form() == caller->form() && current->name() == caller->name()) {
@@ -680,14 +716,60 @@ void HTMLFormElementImpl::radioClicked( HTMLGenericFormElementImpl *caller )
     }
 }
 
+template<class T> static void appendToVector(QPtrVector<T> &vec, T *item)
+{
+    unsigned size = vec.size();
+    unsigned count = vec.count();
+    if (size == count)
+        vec.resize(size == 0 ? 8 : (int)(size * 1.5));
+    vec.insert(count, item);
+}
+
+template<class T> static void removeFromVector(QPtrVector<T> &vec, T *item)
+{
+    int pos = vec.findRef(item);
+    int count = vec.count();
+
+    if (pos < 0)
+        return;
+
+    for (int i = pos; i < count - 1; i++) {
+        vec.insert(i, vec[i+1]);
+    }
+    vec.remove(count - 1);
+}
+
 void HTMLFormElementImpl::registerFormElement(HTMLGenericFormElementImpl *e)
 {
-    formElements.append(e);
+    appendToVector(formElements, e);
+    removeFromVector(dormantFormElements, e);
 }
 
 void HTMLFormElementImpl::removeFormElement(HTMLGenericFormElementImpl *e)
 {
-    formElements.remove(e);
+    removeFromVector(formElements, e);
+    removeFromVector(dormantFormElements, e);
+}
+
+void HTMLFormElementImpl::makeFormElementDormant(HTMLGenericFormElementImpl *e)
+{
+    appendToVector(dormantFormElements, e);
+    removeFromVector(formElements, e);
+}
+
+bool HTMLFormElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    return attr->id() == ATTR_ACTION;
+}
+
+void HTMLFormElementImpl::registerImgElement(HTMLImageElementImpl *e)
+{
+    appendToVector(imgElements, e);
+}
+
+void HTMLFormElementImpl::removeImgElement(HTMLImageElementImpl *e)
+{
+    removeFromVector(imgElements, e);
 }
 
 // -------------------------------------------------------------------------
@@ -697,6 +779,7 @@ HTMLGenericFormElementImpl::HTMLGenericFormElementImpl(DocumentPtr *doc, HTMLFor
 {
     m_disabled = m_readOnly = false;
     m_name = 0;
+    m_dormant = false;
 
     if (f)
 	m_form = f;
@@ -710,26 +793,27 @@ HTMLGenericFormElementImpl::~HTMLGenericFormElementImpl()
 {
     if (m_form)
         m_form->removeFormElement(this);
+    if (m_name) m_name->deref();
 }
 
-void HTMLGenericFormElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLGenericFormElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
     case ATTR_NAME:
         break;
     case ATTR_DISABLED:
-        setDisabled( attr->val() != 0 );
+        setDisabled( !attr->isNull() );
         break;
     case ATTR_READONLY:
     {
         bool m_oldreadOnly = m_readOnly;
-        m_readOnly = attr->val() != 0;
+        m_readOnly = !attr->isNull();
         if (m_oldreadOnly != m_readOnly) setChanged();
         break;
     }
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -767,6 +851,26 @@ void HTMLGenericFormElementImpl::attach()
             static_cast<RenderWidget*>(renderer())->widget())
             static_cast<RenderWidget*>(renderer())->widget()->setFocus();
     }
+}
+
+void HTMLGenericFormElementImpl::insertedIntoDocument()
+{
+    if (m_form && m_dormant)
+        m_form->registerFormElement(this);
+
+    m_dormant = false;
+   
+    HTMLElementImpl::insertedIntoDocument();
+}
+
+void HTMLGenericFormElementImpl::removedFromDocument()
+{
+    if (m_form)
+        m_form->makeFormElementDormant(this);
+
+    m_dormant = true;
+   
+    HTMLElementImpl::removedFromDocument();
 }
 
 HTMLFormElementImpl *HTMLGenericFormElementImpl::getForm() const
@@ -841,7 +945,7 @@ void HTMLGenericFormElementImpl::recalcStyle( StyleChange ch )
 
 bool HTMLGenericFormElementImpl::isFocusable() const
 {
-    if (!m_render || (m_render->style() && m_render->style()->visibility() != VISIBLE))
+    if (!m_render || (m_render->style() && m_render->style()->visibility() != VISIBLE) || m_render->width() == 0 || m_render->height() == 0)
         return false;
     return true;
 }
@@ -851,8 +955,7 @@ bool HTMLGenericFormElementImpl::isKeyboardFocusable() const
     if (isFocusable()) {
         if (m_render->isWidget()) {
             return static_cast<RenderWidget*>(m_render)->widget() &&
-            ((static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::TabFocus) ||
-             (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::StrongFocus));
+                (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() & QWidget::TabFocus);
         }
 	if (getDocument()->part())
 	    return getDocument()->part()->tabsToAllControls();
@@ -865,8 +968,7 @@ bool HTMLGenericFormElementImpl::isMouseFocusable() const
     if (isFocusable()) {
         if (m_render->isWidget()) {
             return static_cast<RenderWidget*>(m_render)->widget() &&
-            ((static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::ClickFocus) ||
-             (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() == QWidget::StrongFocus));
+                (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() & QWidget::ClickFocus);
         }
 #if APPLE_CHANGES
         // For <input type=image> and <button>, we will assume no mouse focusability.  This is
@@ -890,21 +992,6 @@ void HTMLGenericFormElementImpl::defaultEventHandler(EventImpl *evt)
             QWidget *widget = static_cast<RenderWidget*>(m_render)->widget();
             if (ext)
                 ext->editableWidgetFocused(widget);
-        }
-        if (evt->id()==EventImpl::MOUSEDOWN_EVENT || evt->id()==EventImpl::KEYDOWN_EVENT)
-        {
-            setActive();
-        }
-        else if (evt->id() == EventImpl::MOUSEUP_EVENT || evt->id()==EventImpl::KEYUP_EVENT)
-        {
-	    if (m_active)
-	    {
-		setActive(false);
-		setFocus();
-	    }
-	    else {
-                setActive(false);
-            }
         }
 
 #if APPLE_CHANGES
@@ -1022,7 +1109,7 @@ DOMString HTMLButtonElementImpl::type() const
     return getAttribute(ATTR_TYPE);
 }
 
-void HTMLButtonElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLButtonElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
@@ -1036,20 +1123,20 @@ void HTMLButtonElementImpl::parseAttribute(AttributeImpl *attr)
         break;
     case ATTR_VALUE:
         m_value = attr->value();
-        m_currValue = m_value.string();
+        m_currValue = m_value;
         break;
     case ATTR_ACCESSKEY:
         break;
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::FOCUS_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::BLUR_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     default:
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -1089,34 +1176,32 @@ void HTMLButtonElementImpl::setActivatedSubmit(bool flag)
     m_activeSubmit = flag;
 }
 
-bool HTMLButtonElementImpl::encoding(const QTextCodec* codec, khtml::encodingList& encoding, bool /*multipart*/)
+bool HTMLButtonElementImpl::appendFormData(FormDataList& encoding, bool /*multipart*/)
 {
     if (m_type != SUBMIT || name().isEmpty() || !m_activeSubmit)
         return false;
-
-    encoding += fixUpfromUnicode(codec, name().string());
-    QString enc_str = m_currValue.isNull() ? QString("") : m_currValue;
-    encoding += fixUpfromUnicode(codec, enc_str);
-
+    encoding.appendData(name(), m_currValue);
     return true;
 }
 
-void HTMLButtonElementImpl::click()
+void HTMLButtonElementImpl::click(bool sendMouseEvents)
 {
 #if APPLE_CHANGES
     QWidget *widget;
     if (renderer() && (widget = static_cast<RenderWidget *>(renderer())->widget())) {
         // using this method gives us nice Cocoa user interface feedback
-        static_cast<QButton *>(widget)->click();
+        static_cast<QButton *>(widget)->click(sendMouseEvents);
     }
     else
 #endif
-        HTMLGenericFormElementImpl::click();
+        HTMLGenericFormElementImpl::click(sendMouseEvents);
 }
 
-void HTMLButtonElementImpl::accessKeyAction()
+void HTMLButtonElementImpl::accessKeyAction(bool sendToAnyElement)
 {   
-    click();
+    // send the mouse button events iff the
+    // caller specified sendToAnyElement
+    click(sendToAnyElement);
 }
 
 // -------------------------------------------------------------------------
@@ -1153,7 +1238,7 @@ RenderObject* HTMLFieldSetElementImpl::createRenderer(RenderArena* arena, Render
 // -------------------------------------------------------------------------
 
 HTMLInputElementImpl::HTMLInputElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
-    : HTMLGenericFormElementImpl(doc, f)
+    : HTMLGenericFormElementImpl(doc, f), m_imageLoader(0), m_valueMatchesRenderer(false)
 {
     m_type = TEXT;
     m_maxLen = -1;
@@ -1170,6 +1255,10 @@ HTMLInputElementImpl::HTMLInputElementImpl(DocumentPtr *doc, HTMLFormElementImpl
     xPos = 0;
     yPos = 0;
 
+#if APPLE_CHANGES
+    m_maxResults = -1;
+#endif
+
     if ( m_form )
         m_autocomplete = f->autoComplete();
 }
@@ -1177,6 +1266,7 @@ HTMLInputElementImpl::HTMLInputElementImpl(DocumentPtr *doc, HTMLFormElementImpl
 HTMLInputElementImpl::~HTMLInputElementImpl()
 {
     if (getDocument()) getDocument()->deregisterMaintainsState(this);
+    delete m_imageLoader;
 }
 
 NodeImpl::Id HTMLInputElementImpl::id() const
@@ -1208,6 +1298,12 @@ void HTMLInputElementImpl::setType(const DOMString& t)
         newType = BUTTON;
     else if ( strcasecmp( t, "khtml_isindex" ) == 0 )
         newType = ISINDEX;
+#if APPLE_CHANGES
+    else if ( strcasecmp( t, "search" ) == 0 )
+        newType = SEARCH;
+    else if ( strcasecmp( t, "range" ) == 0 )
+        newType = RANGE;
+#endif
     else
         newType = TEXT;
 
@@ -1217,10 +1313,24 @@ void HTMLInputElementImpl::setType(const DOMString& t)
     if (m_type != newType) {
         if (newType == FILE && m_haveType) {
             // Set the attribute back to the old value.
-            // Useful in case we were called from inside parseAttribute.
+            // Useful in case we were called from inside parseHTMLAttribute.
             setAttribute(ATTR_TYPE, type());
         } else {
+            bool wasAttached = m_attached;
+            if (wasAttached)
+                detach();
+            bool didStoreValue = storesValueSeparateFromAttribute();
             m_type = newType;
+            bool willStoreValue = storesValueSeparateFromAttribute();
+            if (didStoreValue && !willStoreValue && !m_value.isNull()) {
+                setAttribute(ATTR_VALUE, m_value);
+                m_value = DOMString();
+            }
+            if (!didStoreValue && willStoreValue) {
+                m_value = getAttribute(ATTR_VALUE);
+            }
+            if (wasAttached)
+                attach();
         }
     }
     m_haveType = true;
@@ -1240,8 +1350,13 @@ DOMString HTMLInputElementImpl::type() const
     case HIDDEN: return "hidden";
     case IMAGE: return "image";
     case BUTTON: return "button";
-    default: return "";
+#if APPLE_CHANGES
+    case SEARCH: return "search";
+    case RANGE: return "range";
+#endif
+    case ISINDEX: return "";
     }
+    return "";
 }
 
 QString HTMLInputElementImpl::state( )
@@ -1280,13 +1395,33 @@ void HTMLInputElementImpl::select(  )
 {
     if(!m_render) return;
 
-    if (m_type == TEXT || m_type == PASSWORD)
-        static_cast<RenderLineEdit*>(m_render)->select();
-    else if (m_type == FILE)
-        static_cast<RenderFileButton*>(m_render)->select();
+    switch (m_type) {
+        case FILE:
+            static_cast<RenderFileButton*>(m_render)->select();
+            break;
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            static_cast<RenderLineEdit*>(m_render)->select();
+            break;
+        case BUTTON:
+        case CHECKBOX:
+        case HIDDEN:
+        case IMAGE:
+        case ISINDEX:
+        case RADIO:
+#if APPLE_CHANGES
+        case RANGE:
+#endif
+        case RESET:
+        case SUBMIT:
+            break;
+    }
 }
 
-void HTMLInputElementImpl::click()
+void HTMLInputElementImpl::click(bool sendMouseEvents)
 {
     switch (inputType()) {
         case HIDDEN:
@@ -1302,32 +1437,36 @@ void HTMLInputElementImpl::click()
             QWidget *widget;
             if (renderer() && (widget = static_cast<RenderWidget *>(renderer())->widget())) {
                 // using this method gives us nice Cocoa user interface feedback
-                static_cast<QButton *>(widget)->click();
+                static_cast<QButton *>(widget)->click(sendMouseEvents);
                 break;
             }
         }
 #endif
-            HTMLGenericFormElementImpl::click();
+            HTMLGenericFormElementImpl::click(sendMouseEvents);
             break;
         case FILE:
 #if APPLE_CHANGES
             if (renderer()) {
-                static_cast<RenderFileButton *>(renderer())->click();
+                static_cast<RenderFileButton *>(renderer())->click(sendMouseEvents);
                 break;
             }
 #endif
-            HTMLGenericFormElementImpl::click();
+            HTMLGenericFormElementImpl::click(sendMouseEvents);
             break;
         case IMAGE:
         case ISINDEX:
         case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+        case RANGE:
+#endif
         case TEXT:
-            HTMLGenericFormElementImpl::click();
+            HTMLGenericFormElementImpl::click(sendMouseEvents);
             break;
     }
 }
 
-void HTMLInputElementImpl::accessKeyAction()
+void HTMLInputElementImpl::accessKeyAction(bool sendToAnyElement)
 {
     switch (inputType()) {
         case HIDDEN:
@@ -1335,6 +1474,9 @@ void HTMLInputElementImpl::accessKeyAction()
             break;
         case TEXT:
         case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
         case ISINDEX:
             focus();
             break;
@@ -1345,14 +1487,39 @@ void HTMLInputElementImpl::accessKeyAction()
         case IMAGE:
         case BUTTON:
         case FILE:
-            // focus and click
+#if APPLE_CHANGES
+        case RANGE:
+#endif
+            // focus
             focus();
-            click();
+
+            // send the mouse button events iff the
+            // caller specified sendToAnyElement
+            click(sendToAnyElement);
             break;
     }
 }
 
-void HTMLInputElementImpl::parseAttribute(AttributeImpl *attr)
+bool HTMLInputElementImpl::mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const
+{
+    switch (attr) {
+        case ATTR_WIDTH:
+        case ATTR_HEIGHT:
+        case ATTR_VSPACE:
+        case ATTR_HSPACE:
+            result = eUniversal;
+            return false;
+        case ATTR_ALIGN:
+            result = eReplaced; // Share with <img> since the alignment behavior is the same.
+            return false;
+        default:
+            break;
+    }
+    
+    return HTMLElementImpl::mapToEntry(attr, result);
+}
+
+void HTMLInputElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
@@ -1361,71 +1528,104 @@ void HTMLInputElementImpl::parseAttribute(AttributeImpl *attr)
         break;
     case ATTR_TYPE:
         setType(attr->value());
+        if (m_type != IMAGE && m_imageLoader) {
+            delete m_imageLoader;
+            m_imageLoader = 0;
+        }
         break;
     case ATTR_VALUE:
-        if (m_value.isNull()) // We only need to setChanged if the form is looking
-            setChanged();     // at the default value right now.
+        // We only need to setChanged if the form is looking at the default value right now.
+        if (m_value.isNull())
+            setChanged();
+        m_valueMatchesRenderer = false;
         break;
     case ATTR_CHECKED:
-        m_defaultChecked = attr->val() != 0;
+        m_defaultChecked = !attr->isNull();
         if (m_useDefaultChecked) {
             setChecked(m_defaultChecked);
             m_useDefaultChecked = true;
         }
         break;
     case ATTR_MAXLENGTH:
-        m_maxLen = attr->val() ? attr->val()->toInt() : -1;
+        m_maxLen = !attr->isNull() ? attr->value().toInt() : -1;
         setChanged();
         break;
     case ATTR_SIZE:
-        m_size = attr->val() ? attr->val()->toInt() : 20;
+        m_size = !attr->isNull() ? attr->value().toInt() : 20;
         break;
     case ATTR_ALT:
+        if (m_render && m_type == IMAGE)
+            static_cast<RenderImage*>(m_render)->updateAltText();
+        break;
     case ATTR_SRC:
-        if (m_render && m_type == IMAGE) m_render->updateFromElement();
+        if (m_render && m_type == IMAGE) {
+            if (!m_imageLoader)
+                m_imageLoader = new HTMLImageLoader(this);
+            m_imageLoader->updateFromElement();
+        }
         break;
     case ATTR_USEMAP:
     case ATTR_ACCESSKEY:
         // ### ignore for the moment
         break;
     case ATTR_VSPACE:
-        addCSSLength(CSS_PROP_MARGIN_TOP, attr->value());
-        addCSSLength(CSS_PROP_MARGIN_BOTTOM, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_TOP, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_BOTTOM, attr->value());
         break;
     case ATTR_HSPACE:
-        addCSSLength(CSS_PROP_MARGIN_LEFT, attr->value());
-        addCSSLength(CSS_PROP_MARGIN_RIGHT, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_LEFT, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_RIGHT, attr->value());
         break;        
     case ATTR_ALIGN:
-        addHTMLAlignment( attr->value() );
+        addHTMLAlignment(attr);
         break;
     case ATTR_WIDTH:
-        // ignore this attribute,  do _not_ add
-        // a CSS_PROP_WIDTH here (we will honor this attribute for input type=image
-        // in the attach call)!
-        // webdesigner are stupid - and IE/NS behave the same ( Dirk )
+        addCSSLength(attr, CSS_PROP_WIDTH, attr->value() );
         break;
     case ATTR_HEIGHT:
-        addCSSLength(CSS_PROP_HEIGHT, attr->value() );
+        addCSSLength(attr, CSS_PROP_HEIGHT, attr->value() );
         break;
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::FOCUS_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::BLUR_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONSELECT:
         setHTMLEventListener(EventImpl::SELECT_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONCHANGE:
         setHTMLEventListener(EventImpl::CHANGE_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
+    case ATTR_ONINPUT:
+        setHTMLEventListener(EventImpl::INPUT_EVENT,
+                             getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
+#if APPLE_CHANGES
+    // Search field and slider attributes all just cause updateFromElement to be called through style
+    // recalcing.
+    case ATTR_ONSEARCH:
+        setHTMLEventListener(EventImpl::SEARCH_EVENT,
+                             getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
+    case ATTR_RESULTS:
+        m_maxResults = !attr->isNull() ? attr->value().toInt() : -1;
+        /* Fall through */
+    case ATTR_AUTOSAVE:
+    case ATTR_INCREMENTAL:
+    case ATTR_PLACEHOLDER:
+    case ATTR_MIN:
+    case ATTR_MAX:
+    case ATTR_PRECISION:
+        setChanged();
+        break;
+#endif
     default:
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -1435,6 +1635,10 @@ bool HTMLInputElementImpl::rendererIsNeeded(RenderStyle *style)
     {
     case TEXT:
     case PASSWORD:
+#if APPLE_CHANGES
+    case SEARCH:
+    case RANGE:
+#endif
     case ISINDEX:
     case CHECKBOX:
     case RADIO:
@@ -1455,6 +1659,9 @@ RenderObject *HTMLInputElementImpl::createRenderer(RenderArena *arena, RenderSty
     {
     case TEXT:
     case PASSWORD:
+#if APPLE_CHANGES
+    case SEARCH:
+#endif
     case ISINDEX:  return new (arena) RenderLineEdit(this);
     case CHECKBOX: return new (arena) RenderCheckBox(this);
     case RADIO:    return new (arena) RenderRadioButton(this);
@@ -1463,6 +1670,9 @@ RenderObject *HTMLInputElementImpl::createRenderer(RenderArena *arena, RenderSty
     case RESET:    return new (arena) RenderResetButton(this);
     case FILE:     return new (arena) RenderFileButton(this);
     case BUTTON:   return new (arena) RenderPushButton(this);
+#if APPLE_CHANGES
+    case RANGE:    return new (arena) RenderSlider(this);
+#endif
     case HIDDEN:   break;
     }
     assert(false);
@@ -1489,22 +1699,30 @@ void HTMLInputElementImpl::attach()
                 setAttribute(ATTR_VALUE, nvalue);
         }
 
-        m_defaultChecked = (getAttribute(ATTR_CHECKED) != 0);
+        m_defaultChecked = (!getAttribute(ATTR_CHECKED).isNull());
         
         m_inited = true;
     }
 
-    switch( m_type ) {
-    case HIDDEN:
-    case IMAGE:
-        if (!getAttribute(ATTR_WIDTH).isEmpty())
-            addCSSLength(CSS_PROP_WIDTH, getAttribute(ATTR_WIDTH));
-        break;
-    default:
-        break;
+    // Disallow the width attribute on inputs other than HIDDEN and IMAGE.
+    // Dumb Web sites will try to set the width as an attribute on form controls that aren't
+    // images or hidden.
+    if (hasMappedAttributes() && m_type != HIDDEN && m_type != IMAGE && !getAttribute(ATTR_WIDTH).isEmpty()) {
+        int excCode;
+        removeAttribute(ATTR_WIDTH, excCode);
     }
 
     HTMLGenericFormElementImpl::attach();
+
+    if (m_type == IMAGE) {
+        if (!m_imageLoader)
+            m_imageLoader = new HTMLImageLoader(this);
+        m_imageLoader->updateFromElement();
+        if (renderer()) {
+            RenderImage* imageObj = static_cast<RenderImage*>(renderer());
+            imageObj->setImage(m_imageLoader->image());    
+        }
+    }
 
 #if APPLE_CHANGES
     // note we don't deal with calling passwordFieldRemoved() on detach, because the timing
@@ -1512,6 +1730,12 @@ void HTMLInputElementImpl::attach()
     if (m_type == PASSWORD)
         getDocument()->passwordFieldAdded();
 #endif
+}
+
+void HTMLInputElementImpl::detach()
+{
+    HTMLGenericFormElementImpl::detach();
+    m_valueMatchesRenderer = false;
 }
 
 DOMString HTMLInputElementImpl::altText() const
@@ -1556,35 +1780,27 @@ void HTMLInputElementImpl::setActivatedSubmit(bool flag)
     m_activeSubmit = flag;
 }
 
-bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList& encoding, bool multipart)
+bool HTMLInputElementImpl::appendFormData(FormDataList &encoding, bool multipart)
 {
-    QString nme = name().string();
-
-    // image generates its own name's
-    if (nme.isEmpty() && m_type != IMAGE) return false;
-
-    // IMAGE needs special handling later
-    if(m_type != IMAGE) encoding += fixUpfromUnicode(codec, nme);
+    // image generates its own names
+    if (name().isEmpty() && m_type != IMAGE) return false;
 
     switch (m_type) {
         case HIDDEN:
         case TEXT:
+#if APPLE_CHANGES
+        case SEARCH:
+        case RANGE:
+#endif
         case PASSWORD:
             // always successful
-            encoding += fixUpfromUnicode(codec, value().string());
+            encoding.appendData(name(), value());
             return true;
+
         case CHECKBOX:
-
-            if( checked() ) {
-                encoding += fixUpfromUnicode(codec, value().string());
-                return true;
-            }
-            break;
-
         case RADIO:
-
-            if( checked() ) {
-                encoding += fixUpfromUnicode(codec, value().string());
+            if (checked()) {
+                encoding.appendData(name(), value());
                 return true;
             }
             break;
@@ -1595,32 +1811,22 @@ bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList
             return false;
 
         case IMAGE:
-
-            if(m_activeSubmit)
+            if (m_activeSubmit)
             {
-                QString astr(nme.isEmpty() ? QString::fromLatin1("x") : nme + ".x");
-
-                encoding += fixUpfromUnicode(codec, astr);
-                astr.setNum(clickX());
-                encoding += fixUpfromUnicode(codec, astr);
-                astr = nme.isEmpty() ? QString::fromLatin1("y") : nme + ".y";
-                encoding += fixUpfromUnicode(codec, astr);
-                astr.setNum(clickY());
-                encoding += fixUpfromUnicode(codec, astr);
-
+                encoding.appendData(name().isEmpty() ? QString::fromLatin1("x") : (name().string() + ".x"), clickX());
+                encoding.appendData(name().isEmpty() ? QString::fromLatin1("y") : (name().string() + ".y"), clickY());
+                if (!name().isEmpty() && !value().isEmpty())
+                    encoding.appendData(name(), value());
                 return true;
             }
             break;
 
         case SUBMIT:
-
             if (m_activeSubmit)
             {
-                QString enc_str = value().string();
-                if (enc_str.isEmpty())
-                    enc_str = static_cast<RenderSubmitButton*>(m_render)->defaultLabel();
+                QString enc_str = valueWithDefault().string();
                 if (!enc_str.isEmpty()) {
-                    encoding += fixUpfromUnicode(codec, enc_str);
+                    encoding.appendData(name(), enc_str);
                     return true;
                 }
             }
@@ -1633,35 +1839,32 @@ bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList
             if(!multipart || !renderer() || renderer()->style()->visibility() != khtml::VISIBLE)
                 return false;
 
-            QString local;
-            QCString dummy("");
-
             // if no filename at all is entered, return successful, however empty
             // null would be more logical but netscape posts an empty file. argh.
-            if(value().isEmpty()) {
-                encoding += dummy;
+            if (value().isEmpty()) {
+                encoding.appendData(name(), QString(""));
                 return true;
             }
 
+#if APPLE_CHANGES
+            encoding.appendFile(name(), value());
+            return true;
+#else
             KURL fileurl("file:///");
             fileurl.setPath(value().string());
             KIO::UDSEntry filestat;
 
             if (!KIO::NetAccess::stat(fileurl, filestat)) {
-#if APPLE_CHANGES
-                // FIXME: Figure out how to report this error.
-#else
                 KMessageBox::sorry(0L, i18n("Error fetching file for submission:\n%1").arg(KIO::NetAccess::lastErrorString()));
-#endif
                 return false;
             }
 
             KFileItem fileitem(filestat, fileurl, true, false);
-            if(fileitem.isDir()) {
-                encoding += dummy;
+            if (fileitem.isDir()) {
                 return false;
             }
 
+            QString local;
             if ( KIO::NetAccess::download(fileurl, local) )
             {
                 QFile file(local);
@@ -1673,7 +1876,7 @@ bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList
                         filearray[readbytes] = '\0';
                     file.close();
 
-                    encoding += filearray;
+                    encoding.appendData(name(), filearray);
                     KIO::NetAccess::removeTempFile( local );
 
                     return true;
@@ -1681,17 +1884,14 @@ bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList
                 return false;
             }
             else {
-#if APPLE_CHANGES
-                // FIXME: Figure out how to report this error.
-#else
                 KMessageBox::sorry(0L, i18n("Error fetching file for submission:\n%1").arg(KIO::NetAccess::lastErrorString()));
-#endif
                 return false;
             }
             break;
+#endif
         }
         case ISINDEX:
-            encoding += fixUpfromUnicode(codec, value().string());
+            encoding.appendData(name(), value());
             return true;
     }
     return false;
@@ -1699,7 +1899,8 @@ bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList
 
 void HTMLInputElementImpl::reset()
 {
-    setValue(DOMString());
+    if (storesValueSeparateFromAttribute())
+        setValue(DOMString());
     setChecked(m_defaultChecked);
     m_useDefaultChecked = true;
 }
@@ -1719,35 +1920,107 @@ void HTMLInputElementImpl::setChecked(bool _checked)
 
 DOMString HTMLInputElementImpl::value() const
 {
-    if (m_type == CHECKBOX || m_type == RADIO) {
-        DOMString val = getAttribute(ATTR_VALUE);
-
-        // If no attribute exists, then just use "on" or "" based off the checked() state
-        // of the control.
-        if (val.isNull()) {
-            if (checked())
-                return DOMString("on");
-            else
-                return DOMString("");
-        }
-        return val;
-    }
+    DOMString value = m_value;
 
     // It's important *not* to fall back to the value attribute for file inputs,
     // because that would allow a malicious web page to upload files by setting the
     // value attribute in markup.
-    if (m_value.isNull() && m_type != FILE)
-        return getAttribute(ATTR_VALUE);
-    return m_value;
+    if (value.isNull() && m_type != FILE)
+        value = getAttribute(ATTR_VALUE);
+
+    // If no attribute exists, then just use "on" or "" based off the checked() state of the control.
+    if (value.isNull() && (m_type == CHECKBOX || m_type == RADIO))
+        return DOMString(checked() ? "on" : "");
+
+    return value;
 }
 
+DOMString HTMLInputElementImpl::valueWithDefault() const
+{
+    DOMString v = value();
+    if (v.isEmpty()) {
+        switch (m_type) {
+            case RESET:
+#if APPLE_CHANGES
+                v = resetButtonDefaultLabel();
+#else
+                v = i18n("Reset");
+#endif
+                break;
 
-void HTMLInputElementImpl::setValue(DOMString val)
+            case SUBMIT:
+#if APPLE_CHANGES
+                v = submitButtonDefaultLabel();
+#else
+                v = i18n("Submit");
+#endif
+                break;
+
+            case BUTTON:
+            case CHECKBOX:
+            case FILE:
+            case HIDDEN:
+            case IMAGE:
+            case ISINDEX:
+            case PASSWORD:
+            case RADIO:
+        #if APPLE_CHANGES
+            case RANGE:
+            case SEARCH:
+        #endif
+            case TEXT:
+                break;
+        }
+    }
+    return v;
+}
+
+void HTMLInputElementImpl::setValue(const DOMString &value)
 {
     if (m_type == FILE) return;
 
-    m_value = val;
-    setChanged();
+    if (storesValueSeparateFromAttribute()) {
+        m_value = value;
+        setChanged();
+    } else {
+        setAttribute(ATTR_VALUE, value);
+    }
+    m_valueMatchesRenderer = false;
+}
+
+void HTMLInputElementImpl::setValueFromRenderer(const DOMString &value)
+{
+    m_value = value;
+    m_valueMatchesRenderer = true;
+    
+    // Fire the "input" DOM event.
+    dispatchHTMLEvent(EventImpl::INPUT_EVENT, true, false);
+}
+
+bool HTMLInputElementImpl::storesValueSeparateFromAttribute() const
+{
+    switch (m_type) {
+        case BUTTON:
+        case CHECKBOX:
+        case FILE:
+        case HIDDEN:
+        case IMAGE:
+        case RADIO:
+#if APPLE_CHANGES
+        case RANGE:
+#endif
+        case RESET:
+        case SUBMIT:
+            return false;
+        case ISINDEX:
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            return true;
+    }
+    return false;
 }
 
 void HTMLInputElementImpl::blur()
@@ -1784,7 +2057,7 @@ void HTMLInputElementImpl::defaultEventHandler(EventImpl *evt)
     if ((evt->id() == EventImpl::DOMACTIVATE_EVENT) &&
         (m_type == IMAGE || m_type == SUBMIT || m_type == RESET)){
 
-        if (!m_form || !m_render)
+        if (!m_form)
             return;
 
         if (m_type == RESET) {
@@ -1803,54 +2076,51 @@ void HTMLInputElementImpl::defaultEventHandler(EventImpl *evt)
 #if APPLE_CHANGES
     // Use key press event here since sending simulated mouse events
     // on key down blocks the proper sending of the key press event.
-    if (evt->id() == EventImpl::KEYPRESS_EVENT) {
-    
-        if (!m_form || !m_render || !evt->isKeyboardEvent())
-            return;
-        
+    if (evt->id() == EventImpl::KEYPRESS_EVENT && evt->isKeyboardEvent()) {
         DOMString key = static_cast<KeyboardEventImpl *>(evt)->keyIdentifier();
-        
         switch (m_type) {
+            case BUTTON:
+            case CHECKBOX:
+            case FILE:
             case IMAGE:
+            case RADIO:
             case RESET:
             case SUBMIT:
-                // simulate mouse click for spacebar and enter
+                // Simulate mouse click for enter or spacebar for these types of elements.
+                // The AppKit already does this for spacebar for some, but not all, of them.
                 if (key == "U+000020" || key == "Enter") {
-                    m_form->submitClick();
+                    click(false);
                     evt->setDefaultHandled();
                 }
                 break;
-            case CHECKBOX:
-            case RADIO:
-                // for enter, find the first successful image or submit element 
-                // send it a simulated mouse click
-                if (key == "Enter") {
-                    m_form->submitClick();
-                    evt->setDefaultHandled();
-                }
-                break;
+            case HIDDEN:
+            case ISINDEX:
+            case PASSWORD:
+            case RANGE:
+            case SEARCH:
             case TEXT:
-            case PASSWORD: {
-                // For enter, find the first successful image or submit element 
-                // send it a simulated mouse click.
-                if (key == "Enter") {
+                // Simulate mouse click on the default form button for enter for these types of elements.
+                if (key == "Enter" && m_form) {
                     m_form->submitClick();
                     evt->setDefaultHandled();
                 }
-                break;
-            }
-            default:
-                // not handled for the other widgets
                 break;
         }
     }
 #endif
+
     HTMLGenericFormElementImpl::defaultEventHandler(evt);
 }
 
 bool HTMLInputElementImpl::isEditable()
 {
-    return ((m_type == TEXT) || (m_type == PASSWORD) || (m_type == ISINDEX) || (m_type == FILE));
+    return ((m_type == TEXT) || (m_type == PASSWORD) ||
+            (m_type == SEARCH) || (m_type == ISINDEX) || (m_type == FILE));
+}
+
+bool HTMLInputElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    return (attr->id() == ATTR_SRC);
 }
 
 // -------------------------------------------------------------------------
@@ -1874,29 +2144,49 @@ NodeImpl::Id HTMLLabelElementImpl::id() const
     return ID_LABEL;
 }
 
-void HTMLLabelElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLLabelElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::FOCUS_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::BLUR_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
 ElementImpl *HTMLLabelElementImpl::formElement()
 {
     DOMString formElementId = getAttribute(ATTR_FOR);
-    if (formElementId.isNull() || formElementId.isEmpty())
+    if (formElementId.isNull()) {
+        // Search children of the label element for a form element.
+        NodeImpl *node = this;
+        while ((node = node->traverseNextNode(this))) {
+            if (node->isHTMLElement()) {
+                HTMLElementImpl *element = static_cast<HTMLElementImpl *>(node);
+                if (element->isGenericFormElement()) {
+                    return element;
+                }
+            }
+        }
+        return 0;
+    }
+    if (formElementId.isEmpty())
         return 0;
     return getDocument()->getElementById(formElementId);
+}
+
+void HTMLLabelElementImpl::accessKeyAction(bool sendToAnyElement)
+{
+    ElementImpl *element = formElement();
+    if (element)
+        element->accessKeyAction(sendToAnyElement);
 }
 
 // -------------------------------------------------------------------------
@@ -1933,7 +2223,7 @@ DOMString HTMLLegendElementImpl::type() const
 // -------------------------------------------------------------------------
 
 HTMLSelectElementImpl::HTMLSelectElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
-    : HTMLGenericFormElementImpl(doc, f)
+    : HTMLGenericFormElementImpl(doc, f), m_options(0)
 {
     m_multiple = false;
     m_recalcListItems = false;
@@ -1945,6 +2235,10 @@ HTMLSelectElementImpl::HTMLSelectElementImpl(DocumentPtr *doc, HTMLFormElementIm
 HTMLSelectElementImpl::~HTMLSelectElementImpl()
 {
     if (getDocument()) getDocument()->deregisterMaintainsState(this);
+    if (m_options) {
+        m_options->detach();
+        m_options->deref();
+    }
 }
 
 NodeImpl::Id HTMLSelectElementImpl::id() const
@@ -2011,13 +2305,13 @@ long HTMLSelectElementImpl::length() const
     return len;
 }
 
-void HTMLSelectElementImpl::add( const HTMLElement &element, const HTMLElement &before )
+void HTMLSelectElementImpl::add( HTMLElementImpl *element, HTMLElementImpl *before )
 {
-    if(element.isNull() || element.handle()->id() != ID_OPTION)
+    if (!element || element->id() != ID_OPTION)
         return;
 
     int exceptioncode = 0;
-    insertBefore(element.handle(), before.handle(), exceptioncode );
+    insertBefore(element, before, exceptioncode);
     if (!exceptioncode)
         setRecalcListItems();
 }
@@ -2059,11 +2353,16 @@ DOMString HTMLSelectElementImpl::value( )
     return DOMString("");
 }
 
-void HTMLSelectElementImpl::setValue(DOMStringImpl* /*value*/)
+void HTMLSelectElementImpl::setValue(DOMStringImpl* value)
 {
-    // ### find the option with value() matching the given parameter
+    // find the option with value() matching the given parameter
     // and make it the current selection.
-    kdWarning() << "Unimplemented HTMLSelectElementImpl::setValue called" << endl;
+    QMemArray<HTMLGenericFormElementImpl*> items = listItems();
+    for (unsigned i = 0; i < items.size(); i++)
+        if (items[i]->id() == ID_OPTION && static_cast<HTMLOptionElementImpl*>(items[i])->value() == value) {
+            static_cast<HTMLOptionElementImpl*>(items[i])->setSelected(true);
+            return;
+        }
 }
 
 QString HTMLSelectElementImpl::state( )
@@ -2163,36 +2462,36 @@ NodeImpl* HTMLSelectElementImpl::addChild(NodeImpl* newChild)
     return HTMLGenericFormElementImpl::addChild(newChild);
 }
 
-void HTMLSelectElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLSelectElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
     case ATTR_SIZE:
-        m_size = QMAX( attr->val()->toInt(), 1 );
+        m_size = QMAX( attr->value().toInt(), 1 );
         break;
     case ATTR_WIDTH:
-        m_minwidth = QMAX( attr->val()->toInt(), 0 );
+        m_minwidth = QMAX( attr->value().toInt(), 0 );
         break;
     case ATTR_MULTIPLE:
-        m_multiple = (attr->val() != 0);
+        m_multiple = (!attr->isNull());
         break;
     case ATTR_ACCESSKEY:
         // ### ignore for the moment
         break;
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::FOCUS_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::BLUR_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONCHANGE:
         setHTMLEventListener(EventImpl::CHANGE_EVENT,
-            getDocument()->createHTMLEventListener(attr->value().string()));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     default:
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -2201,10 +2500,9 @@ RenderObject *HTMLSelectElementImpl::createRenderer(RenderArena *arena, RenderSt
     return new (arena) RenderSelect(this);
 }
 
-bool HTMLSelectElementImpl::encoding(const QTextCodec* codec, khtml::encodingList& encoded_values, bool)
+bool HTMLSelectElementImpl::appendFormData(FormDataList& encoded_values, bool)
 {
     bool successful = false;
-    QCString enc_name = fixUpfromUnicode(codec, name().string());
     QMemArray<HTMLGenericFormElementImpl*> items = listItems();
 
     uint i;
@@ -2212,8 +2510,7 @@ bool HTMLSelectElementImpl::encoding(const QTextCodec* codec, khtml::encodingLis
         if (items[i]->id() == ID_OPTION) {
             HTMLOptionElementImpl *option = static_cast<HTMLOptionElementImpl*>(items[i]);
             if (option->selected()) {
-                encoded_values += enc_name;
-                encoded_values += fixUpfromUnicode(codec, option->value().string());
+                encoded_values.appendData(name(), option->value());
                 successful = true;
             }
         }
@@ -2225,11 +2522,10 @@ bool HTMLSelectElementImpl::encoding(const QTextCodec* codec, khtml::encodingLis
     if (!successful && !m_multiple && m_size <= 1 && items.size() &&
         (items[0]->id() == ID_OPTION) ) {
         HTMLOptionElementImpl *option = static_cast<HTMLOptionElementImpl*>(items[0]);
-        encoded_values += enc_name;
         if (option->value().isNull())
-            encoded_values += fixUpfromUnicode(codec, option->text().string().stripWhiteSpace());
+            encoded_values.appendData(name(), option->text().string().stripWhiteSpace());
         else
-            encoded_values += fixUpfromUnicode(codec, option->value().string());
+            encoded_values.appendData(name(), option->value());
         successful = true;
     }
 
@@ -2267,6 +2563,15 @@ int HTMLSelectElementImpl::listToOptionIndex(int listIndex) const
         if (items[i]->id() == ID_OPTION)
             optionIndex++;
     return optionIndex;
+}
+
+HTMLOptionsCollectionImpl *HTMLSelectElementImpl::options()
+{
+    if (!m_options) {
+        m_options = new HTMLOptionsCollectionImpl(this);
+        m_options->ref();
+    }
+    return m_options;
 }
 
 void HTMLSelectElementImpl::recalcListItems()
@@ -2374,7 +2679,7 @@ void HTMLSelectElementImpl::defaultEventHandler(EventImpl *evt)
 
 #endif // APPLE_CHANGES
 
-void HTMLSelectElementImpl::accessKeyAction()
+void HTMLSelectElementImpl::accessKeyAction(bool sendToAnyElement)
 {
     focus();
 }
@@ -2402,41 +2707,38 @@ DOMString HTMLKeygenElementImpl::type() const
     return "keygen";
 }
 
-void HTMLKeygenElementImpl::parseAttribute(AttributeImpl* attr)
+void HTMLKeygenElementImpl::parseHTMLAttribute(HTMLAttributeImpl* attr)
 {
     switch(attr->id())
     {
     case ATTR_CHALLENGE:
-        m_challenge = attr->val();
+        m_challenge = attr->value();
         break;
     case ATTR_KEYTYPE:
-        m_keyType = attr->val();
+        m_keyType = attr->value();
         break;
     default:
         // skip HTMLSelectElementImpl parsing!
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
-bool HTMLKeygenElementImpl::encoding(const QTextCodec* codec, khtml::encodingList& encoded_values, bool)
+bool HTMLKeygenElementImpl::appendFormData(FormDataList& encoded_values, bool)
 {
-    bool successful = false;
-    QCString enc_name = fixUpfromUnicode(codec, name().string());
-
 #if APPLE_CHANGES
     // Only RSA is supported at this time.
-    if (!m_keyType.isNull() && m_keyType.lower() != "rsa") {
+    if (!m_keyType.isNull() && strcasecmp(m_keyType, "rsa")) {
         return false;
     }
-    QString value = KSSLKeyGen::signedPublicKeyAndChallengeString((unsigned)selectedIndex(), m_challenge.string(), getDocument()->part()->baseURL());
-    if (!value.isNull()) {
-        encoded_values += enc_name;
-        encoded_values += value.utf8();
-        successful = true;
+    QString value = KSSLKeyGen::signedPublicKeyAndChallengeString(selectedIndex(), m_challenge.string(), getDocument()->part()->baseURL());
+    if (value.isNull()) {
+        return false;
     }
+    encoded_values.appendData(name(), value.utf8());
+    return true;
 #else
-    encoded_values += enc_name;
-    
+    bool successful = false;
+
     // pop up the fancy certificate creation dialog here
     KSSLKeyGen *kg = new KSSLKeyGen(static_cast<RenderWidget *>(m_render)->widget(), "Key Generator", true);
 
@@ -2445,10 +2747,10 @@ bool HTMLKeygenElementImpl::encoding(const QTextCodec* codec, khtml::encodingLis
 
     delete kg;
 
-    encoded_values += "deadbeef";
-#endif
+    encoded_values.appendData(name(), "deadbeef");
     
     return successful;
+#endif
 }
 
 // -------------------------------------------------------------------------
@@ -2516,9 +2818,9 @@ NodeImpl* HTMLOptGroupElementImpl::addChild(NodeImpl* newChild)
     return HTMLGenericFormElementImpl::addChild(newChild);
 }
 
-void HTMLOptGroupElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLOptGroupElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
-    HTMLGenericFormElementImpl::parseAttribute(attr);
+    HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     recalcSelectOptions();
 }
 
@@ -2556,23 +2858,22 @@ DOMString HTMLOptionElementImpl::type() const
 
 DOMString HTMLOptionElementImpl::text() const
 {
-    DOMString label = getAttribute(ATTR_LABEL);
-    if (label.isEmpty() && firstChild() && firstChild()->nodeType() == Node::TEXT_NODE) {
-	if (firstChild()->nextSibling()) {
-	    DOMString ret = "";
-	    NodeImpl *n = firstChild();
-	    for (; n; n = n->nextSibling()) {
-		if (n->nodeType() == Node::TEXT_NODE ||
-		    n->nodeType() == Node::CDATA_SECTION_NODE)
-		    ret += n->nodeValue();
-	    }
-	    return ret;
-	}
-	else
-	    return firstChild()->nodeValue();
+    DOMString text;
+
+    // WinIE does not use the label attribute, so as a quirk, we ignore it.
+    if (getDocument() && !getDocument()->inCompatMode()) {
+        DOMString text = getAttribute(ATTR_LABEL);
+        if (!text.isEmpty())
+            return text;
     }
-    else
-        return label;
+
+    const NodeImpl *n = this;
+    while ((n = n->traverseNextNode(this))) {
+        if (n->nodeType() == Node::TEXT_NODE || n->nodeType() == Node::CDATA_SECTION_NODE)
+            text += n->nodeValue();
+    }
+
+    return text;
 }
 
 long HTMLOptionElementImpl::index() const
@@ -2600,18 +2901,18 @@ void HTMLOptionElementImpl::setIndex( long  )
     // ###
 }
 
-void HTMLOptionElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLOptionElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
     case ATTR_SELECTED:
-        m_selected = (attr->val() != 0);
+        m_selected = (!attr->isNull());
         break;
     case ATTR_VALUE:
         m_value = attr->value();
         break;
     default:
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -2656,13 +2957,12 @@ HTMLSelectElementImpl *HTMLOptionElementImpl::getSelect() const
 // -------------------------------------------------------------------------
 
 HTMLTextAreaElementImpl::HTMLTextAreaElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
-    : HTMLGenericFormElementImpl(doc, f)
+    : HTMLGenericFormElementImpl(doc, f), m_valueIsValid(false), m_valueMatchesRenderer(false)
 {
     // DTD requires rows & cols be specified, but we will provide reasonable defaults
     m_rows = 2;
     m_cols = 20;
     m_wrap = ta_Virtual;
-    m_dirtyvalue = true;
 }
 
 HTMLTextAreaElementImpl::~HTMLTextAreaElementImpl()
@@ -2701,15 +3001,24 @@ void HTMLTextAreaElementImpl::select(  )
     onSelect();
 }
 
-void HTMLTextAreaElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLTextAreaElementImpl::childrenChanged()
+{
+    setValue(defaultValue());
+}
+    
+void HTMLTextAreaElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch(attr->id())
     {
     case ATTR_ROWS:
-        m_rows = attr->val() ? attr->val()->toInt() : 3;
+        m_rows = !attr->isNull() ? attr->value().toInt() : 3;
+        if (renderer())
+            renderer()->setNeedsLayoutAndMinMaxRecalc();
         break;
     case ATTR_COLS:
-        m_cols = attr->val() ? attr->val()->toInt() : 60;
+        m_cols = !attr->isNull() ? attr->value().toInt() : 60;
+        if (renderer())
+            renderer()->setNeedsLayoutAndMinMaxRecalc();
         break;
     case ATTR_WRAP:
         // virtual / physical is Netscape extension of HTML 3.0, now deprecated
@@ -2722,28 +3031,30 @@ void HTMLTextAreaElementImpl::parseAttribute(AttributeImpl *attr)
             m_wrap = ta_Physical;
         else if(strcasecmp( attr->value(), "off") == 0)
             m_wrap = ta_NoWrap;
+        if (renderer())
+            renderer()->setNeedsLayoutAndMinMaxRecalc();
         break;
     case ATTR_ACCESSKEY:
         // ignore for the moment
         break;
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::FOCUS_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::BLUR_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONSELECT:
         setHTMLEventListener(EventImpl::SELECT_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONCHANGE:
         setHTMLEventListener(EventImpl::CHANGE_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     default:
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -2752,13 +3063,10 @@ RenderObject *HTMLTextAreaElementImpl::createRenderer(RenderArena *arena, Render
     return new (arena) RenderTextArea(this);
 }
 
-bool HTMLTextAreaElementImpl::encoding(const QTextCodec* codec, encodingList& encoding, bool)
+bool HTMLTextAreaElementImpl::appendFormData(FormDataList& encoding, bool)
 {
     if (name().isEmpty()) return false;
-
-    encoding += fixUpfromUnicode(codec, name().string());
-    encoding += fixUpfromUnicode(codec, value().string());
-
+    encoding.appendData(name(), value());
     return true;
 }
 
@@ -2767,25 +3075,31 @@ void HTMLTextAreaElementImpl::reset()
     setValue(defaultValue());
 }
 
-DOMString HTMLTextAreaElementImpl::value()
+void HTMLTextAreaElementImpl::updateValue()
 {
-    if ( m_dirtyvalue) {
-        if ( m_render )
+    if ( !m_valueIsValid ) {
+        if ( m_render ) {
             m_value = static_cast<RenderTextArea*>( m_render )->text();
-        else
+            m_valueMatchesRenderer = true;
+        } else {
             m_value = defaultValue().string();
-        m_dirtyvalue = false;
+            m_valueMatchesRenderer = false;
+        }
+        m_valueIsValid = true;
     }
-
-    if ( m_value.isNull() ) return "";
-
-    return m_value;
 }
 
-void HTMLTextAreaElementImpl::setValue(DOMString _value)
+DOMString HTMLTextAreaElementImpl::value()
 {
-    m_value = _value.string();
-    m_dirtyvalue = false;
+    updateValue();
+    return m_value.isNull() ? DOMString("") : m_value;
+}
+
+void HTMLTextAreaElementImpl::setValue(const DOMString &value)
+{
+    m_value = value.string();
+    m_valueIsValid = true;
+    m_valueMatchesRenderer = false;
     setChanged(true);
 }
 
@@ -2810,7 +3124,7 @@ DOMString HTMLTextAreaElementImpl::defaultValue()
     return val;
 }
 
-void HTMLTextAreaElementImpl::setDefaultValue(DOMString _defaultValue)
+void HTMLTextAreaElementImpl::setDefaultValue(const DOMString &defaultValue)
 {
     // there may be comments - remove all the text nodes and replace them with one
     QPtrList<NodeImpl> toRemove;
@@ -2823,8 +3137,8 @@ void HTMLTextAreaElementImpl::setDefaultValue(DOMString _defaultValue)
     for (; it.current(); ++it) {
         removeChild(it.current(), exceptioncode);
     }
-    insertBefore(getDocument()->createTextNode(_defaultValue),firstChild(), exceptioncode);
-    setValue(_defaultValue);
+    insertBefore(getDocument()->createTextNode(defaultValue),firstChild(), exceptioncode);
+    setValue(defaultValue);
 }
 
 void HTMLTextAreaElementImpl::blur()
@@ -2843,9 +3157,15 @@ bool HTMLTextAreaElementImpl::isEditable()
     return true;
 }
 
-void HTMLTextAreaElementImpl::accessKeyAction()
+void HTMLTextAreaElementImpl::accessKeyAction(bool sendToAnyElement)
 {
     focus();
+}
+
+void HTMLTextAreaElementImpl::detach()
+{
+    HTMLGenericFormElementImpl::detach();
+    m_valueMatchesRenderer = false;
 }
 
 // -------------------------------------------------------------------------
@@ -2857,27 +3177,72 @@ HTMLIsIndexElementImpl::HTMLIsIndexElementImpl(DocumentPtr *doc, HTMLFormElement
     setName("isindex");
 }
 
-HTMLIsIndexElementImpl::~HTMLIsIndexElementImpl()
-{
-}
-
 NodeImpl::Id HTMLIsIndexElementImpl::id() const
 {
     return ID_ISINDEX;
 }
 
-void HTMLIsIndexElementImpl::parseAttribute(AttributeImpl* attr)
+void HTMLIsIndexElementImpl::parseHTMLAttribute(HTMLAttributeImpl* attr)
 {
     switch(attr->id())
     {
     case ATTR_PROMPT:
 	setValue(attr->value());
     default:
-        // don't call HTMLInputElement::parseAttribute here, as it would
+        // don't call HTMLInputElement::parseHTMLAttribute here, as it would
         // accept attributes this element does not support
-        HTMLGenericFormElementImpl::parseAttribute(attr);
+        HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
 }
 
 // -------------------------------------------------------------------------
 
+unsigned long HTMLOptionsCollectionImpl::length() const
+{
+    // Not yet implemented.
+    return 0;
+}
+
+void HTMLOptionsCollectionImpl::setLength(unsigned long length)
+{
+    // Not yet implemented.
+}
+
+NodeImpl *HTMLOptionsCollectionImpl::item(unsigned long index) const
+{
+    // Not yet implemented.
+    return 0;
+}
+
+NodeImpl *HTMLOptionsCollectionImpl::namedItem(const DOMString &name) const
+{
+    // Not yet implemented.
+    return 0;
+}
+
+// -------------------------------------------------------------------------
+
+FormDataList::FormDataList(QTextCodec *c)
+    : m_codec(c)
+{
+}
+
+void FormDataList::appendString(const QCString &s)
+{
+    m_list.append(s);
+}
+
+void FormDataList::appendString(const QString &s)
+{
+    QCString cstr = fixLineBreaks(m_codec->fromUnicode(s));
+    cstr.truncate(cstr.length());
+    m_list.append(cstr);
+}
+
+void FormDataList::appendFile(const DOMString &key, const DOMString &filename)
+{
+    appendString(key.string());
+    m_list.append(filename.string());
+}
+
+} // namespace

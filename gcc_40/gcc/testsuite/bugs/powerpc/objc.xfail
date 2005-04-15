@@ -1,0 +1,52 @@
+# APPLE LOCAL file testsuite
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+#3664851: objc/execute/string1.m compilation,  -O0
+#3664851: objc/execute/string1.m compilation,  -O1
+#3664851: objc/execute/string1.m compilation,  -O2
+#3664851: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer
+#3664851: objc/execute/string1.m compilation,  -O3 -g
+#3664851: objc/execute/string1.m compilation,  -Os
+#3664851: objc/execute/string1.m compilation,  -fast
+#3664851: objc/execute/string2.m compilation,  -O0
+#3664851: objc/execute/string2.m compilation,  -O1
+#3664851: objc/execute/string2.m compilation,  -O2
+#3664851: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer
+#3664851: objc/execute/string2.m compilation,  -O3 -g
+#3664851: objc/execute/string2.m compilation,  -Os
+#3664851: objc/execute/string2.m compilation,  -fast
+#3664851: objc/execute/string3.m compilation,  -O0
+#3664851: objc/execute/string3.m compilation,  -O1
+#3664851: objc/execute/string3.m compilation,  -O2
+#3664851: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer
+#3664851: objc/execute/string3.m compilation,  -O3 -g
+#3664851: objc/execute/string3.m compilation,  -Os
+#3664851: objc/execute/string3.m compilation,  -fast
+#3664851: objc/execute/string4.m compilation,  -O0
+#3664851: objc/execute/string4.m compilation,  -O1
+#3664851: objc/execute/string4.m compilation,  -O2
+#3664851: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer
+#3664851: objc/execute/string4.m compilation,  -O3 -g
+#3664851: objc/execute/string4.m compilation,  -Os
+#3664851: objc/execute/string4.m compilation,  -fast
+#3664999: objc.dg/const-cfstring-1.m execution test
+#3665002: objc.dg/const-str-3.m (test for excess errors)
+#3665002: objc.dg/const-str-4.m (test for excess errors)
+#3691708: objc.dg/const-str-3.m execution test
+#3691708: objc.dg/const-str-4.m execution test
+#3753413: objc.dg/const-cfstring-1.m (test for excess errors)
+#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 21)
+#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 22)
+#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 24)
+#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 25)
+#3753413: objc.dg/const-cfstring-2.m (test for excess errors)
+#3753413: objc.dg/const-str-5.m (test for excess errors)

@@ -45,7 +45,7 @@ CharacterDataImpl::CharacterDataImpl(DocumentPtr *doc)
 CharacterDataImpl::CharacterDataImpl(DocumentPtr *doc, const DOMString &_text)
     : NodeImpl(doc)
 {
-    str = _text.impl ? _text.impl : new DOMStringImpl(0, 0);
+    str = _text.impl ? _text.impl : new DOMStringImpl((QChar*)0, 0);
     str->ref();
 }
 
@@ -73,10 +73,11 @@ void CharacterDataImpl::setData( const DOMString &_data, int &exceptioncode )
     if(str) str->ref();
     if (m_render)
       (static_cast<RenderText*>(m_render))->setText(str);
-    setChanged(true);
-
+    
     dispatchModifiedEvent(oldStr);
     if(oldStr) oldStr->deref();
+    
+    getDocument()->removeAllMarkers(this);
 }
 
 unsigned long CharacterDataImpl::length() const
@@ -109,9 +110,8 @@ void CharacterDataImpl::appendData( const DOMString &arg, int &exceptioncode )
     str->ref();
     str->append(arg.impl);
     if (m_render)
-      (static_cast<RenderText*>(m_render))->setText(str);
-    setChanged(true);
-
+      (static_cast<RenderText*>(m_render))->setTextWithOffset(str, oldStr->l, 0);
+    
     dispatchModifiedEvent(oldStr);
     oldStr->deref();
 }
@@ -128,11 +128,14 @@ void CharacterDataImpl::insertData( const unsigned long offset, const DOMString 
     str->ref();
     str->insert(arg.impl, offset);
     if (m_render)
-      (static_cast<RenderText*>(m_render))->setText(str);
-    setChanged(true);
-
+      (static_cast<RenderText*>(m_render))->setTextWithOffset(str, offset, 0);
+    
     dispatchModifiedEvent(oldStr);
     oldStr->deref();
+    
+    // update the markers for spell checking and grammar checking
+    uint length = arg.length();
+    getDocument()->shiftMarkers(this, offset, length);
 }
 
 void CharacterDataImpl::deleteData( const unsigned long offset, const unsigned long count, int &exceptioncode )
@@ -147,11 +150,14 @@ void CharacterDataImpl::deleteData( const unsigned long offset, const unsigned l
     str->ref();
     str->remove(offset,count);
     if (m_render)
-      (static_cast<RenderText*>(m_render))->setText(str);
-    setChanged(true);
-
+      (static_cast<RenderText*>(m_render))->setTextWithOffset(str, offset, count);
+    
     dispatchModifiedEvent(oldStr);
     oldStr->deref();
+
+    // update the markers for spell checking and grammar checking
+    getDocument()->removeAllMarkers(this, offset, count);
+    getDocument()->shiftMarkers(this, offset + count, -count);
 }
 
 void CharacterDataImpl::replaceData( const unsigned long offset, const unsigned long count, const DOMString &arg, int &exceptioncode )
@@ -173,16 +179,27 @@ void CharacterDataImpl::replaceData( const unsigned long offset, const unsigned 
     str->remove(offset,realCount);
     str->insert(arg.impl, offset);
     if (m_render)
-      (static_cast<RenderText*>(m_render))->setText(str);
-    setChanged(true);
-
+      (static_cast<RenderText*>(m_render))->setTextWithOffset(str, offset, count);
+    
     dispatchModifiedEvent(oldStr);
     oldStr->deref();
+    
+    // update the markers for spell checking and grammar checking
+    int diff = arg.length() - count;
+    getDocument()->removeAllMarkers(this, offset, count);
+    getDocument()->shiftMarkers(this, offset + count, diff);
 }
 
 DOMString CharacterDataImpl::nodeValue() const
 {
     return str;
+}
+
+bool CharacterDataImpl::containsOnlyWhitespace(unsigned int from, unsigned int len) const
+{
+    if (str)
+        return str->containsOnlyWhitespace(from, len);
+    return true;
 }
 
 bool CharacterDataImpl::containsOnlyWhitespace() const
@@ -230,6 +247,36 @@ void CharacterDataImpl::checkCharDataOperation( const unsigned long offset, int 
         exceptioncode = DOMException::NO_MODIFICATION_ALLOWED_ERR;
         return;
     }
+}
+
+long CharacterDataImpl::maxOffset() const 
+{
+    return (long)length();
+}
+
+long CharacterDataImpl::caretMinOffset() const 
+{
+    RenderText *r = static_cast<RenderText *>(renderer());
+    return r && r->isText() ? r->caretMinOffset() : 0;
+}
+
+long CharacterDataImpl::caretMaxOffset() const 
+{
+    RenderText *r = static_cast<RenderText *>(renderer());
+    return r && r->isText() ? r->caretMaxOffset() : (long)length();
+}
+
+unsigned long CharacterDataImpl::caretMaxRenderedOffset() const 
+{
+    RenderText *r = static_cast<RenderText *>(renderer());
+    return r ? r->caretMaxRenderedOffset() : length();
+}
+
+bool CharacterDataImpl::rendererIsNeeded(RenderStyle *style)
+{
+    if (!str || str->l == 0)
+        return false;
+    return NodeImpl::rendererIsNeeded(style);
 }
 
 #ifndef NDEBUG
@@ -344,7 +391,6 @@ TextImpl *TextImpl::splitText( const unsigned long offset, int &exceptioncode )
 
     if (m_render)
         (static_cast<RenderText*>(m_render))->setText(str);
-    setChanged(true);
     return newText;
 }
 
@@ -365,43 +411,41 @@ NodeImpl *TextImpl::cloneNode(bool /*deep*/)
 
 bool TextImpl::rendererIsNeeded(RenderStyle *style)
 {
-    if (!CharacterDataImpl::rendererIsNeeded(style)) {
+    if (!CharacterDataImpl::rendererIsNeeded(style))
         return false;
-    }
+
     bool onlyWS = containsOnlyWhitespace();
-    if (!onlyWS) {
+    if (!onlyWS)
         return true;
-    }
-    
+
     RenderObject *par = parentNode()->renderer();
     
-    if (par->isTable() || par->isTableRow() || par->isTableSection()) {
+    if (par->isTable() || par->isTableRow() || par->isTableSection() || par->isTableCol())
         return false;
-    }
     
-    if (style->whiteSpace() == PRE) {
+    if (style->whiteSpace() == PRE)
         return true;
-    }
     
+    RenderObject *prev = previousRenderer();
+    if (prev && prev->isBR()) // <span><br/> <br/></span>
+        return false;
+        
     if (par->isInline()) {
         // <span><div/> <div/></span>
-        RenderObject *prev = previousRenderer();
-        if (prev && prev->isRenderBlock()) {
+        if (prev && prev->isRenderBlock())
             return false;
-        }
     } else {
-        RenderObject *prev = previousRenderer();
-        if (par->isRenderBlock() && !par->childrenInline() && (!prev || !prev->isInline())) {
+        if (par->isRenderBlock() && !par->childrenInline() && (!prev || !prev->isInline()))
             return false;
-        }
         
         RenderObject *first = par->firstChild();
+        while (first && first->isFloatingOrPositioned())
+            first = first->nextSibling();
         RenderObject *next = nextRenderer();
-        if (!first || next == first) {
+        if (!first || next == first)
             // Whitespace at the start of a block just goes away.  Don't even
             // make a render object for this text.
             return false;
-        }
     }
     
     return true;
@@ -453,6 +497,29 @@ DOMString TextImpl::toString() const
     return nodeValue();
 }
 
+#ifndef NDEBUG
+void TextImpl::formatForDebugger(char *buffer, unsigned length) const
+{
+    DOMString result;
+    DOMString s;
+    
+    s = nodeName();
+    if (s.length() > 0) {
+        result += s;
+    }
+          
+    s = nodeValue();
+    if (s.length() > 0) {
+        if (result.length() > 0)
+            result += "; ";
+        result += "value=";
+        result += s;
+    }
+          
+    strncpy(buffer, result.string().latin1(), length - 1);
+}
+#endif
+
 // ---------------------------------------------------------------------------
 
 CDATASectionImpl::CDATASectionImpl(DocumentPtr *impl, const DOMString &_text) : TextImpl(impl,_text)
@@ -499,5 +566,24 @@ DOMString CDATASectionImpl::toString() const
     return DOMString("<![CDATA[") + nodeValue() + "]]>";
 }
 
+// ---------------------------------------------------------------------------
 
+EditingTextImpl::EditingTextImpl(DocumentPtr *impl, const DOMString &text)
+    : TextImpl(impl, text)
+{
+}
+
+EditingTextImpl::EditingTextImpl(DocumentPtr *impl)
+    : TextImpl(impl)
+{
+}
+
+EditingTextImpl::~EditingTextImpl()
+{
+}
+
+bool EditingTextImpl::rendererIsNeeded(RenderStyle *style)
+{
+    return true;
+}
 

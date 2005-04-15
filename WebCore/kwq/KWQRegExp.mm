@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,6 @@
 
 #import <sys/types.h>
 #import <JavaScriptCore/pcre.h>
-#import <JavaScriptCore/ustring.h>
-
-using KJS::convertUTF16OffsetsToUTF8Offsets;
-using KJS::convertUTF8OffsetsToUTF16Offsets;
 
 class QRegExp::KWQRegExpPrivate
 {
@@ -97,19 +93,11 @@ void QRegExp::KWQRegExpPrivate::compile(bool caseSensitive, bool glob)
     // to a different underlying engine, we may need to change client code that relies
     // on the regex syntax (see KWQKHTMLPart.mm for a couple examples).
     
-    QCString asUTF8;
-    const char *cpattern;
-    
-    if (p.isAllASCII()) {
-        cpattern = p.ascii();
-    } else {
-        asUTF8 = p.utf8();
-        cpattern = asUTF8;
-    }
-        
     const char *errorMessage;
     int errorOffset;
-    regex = pcre_compile(cpattern, PCRE_UTF8 | (caseSensitive ? 0 : PCRE_CASELESS), &errorMessage, &errorOffset, NULL);
+    char null = 0;
+    p.append(null);
+    regex = pcre_compile(reinterpret_cast<const uint16_t *>(p.unicode()), caseSensitive ? 0 : PCRE_CASELESS, &errorMessage, &errorOffset, NULL);
     if (regex == NULL) {
         ERROR("KWQRegExp: pcre_compile failed with '%s'", errorMessage);
     }
@@ -159,23 +147,11 @@ QString QRegExp::pattern() const
 }
 
 int QRegExp::match(const QString &str, int startFrom, int *matchLength) const
-{    
-    QCString asUTF8;
-    const char *cstring;
-    
-    if (str.isAllASCII()) {
-        cstring = str.ascii();
-    } else {
-        asUTF8 = str.utf8();
-        cstring = asUTF8;
-    }
-        
-    // first 2 offsets are start and end offsets; 3rd entry is used internally by pcre
+{
+    // First 2 offsets are start and end offsets; 3rd entry is used internally by pcre
     int offsets[3];
-    convertUTF16OffsetsToUTF8Offsets(cstring, &startFrom, 1);
-    int result = pcre_exec(d->regex, NULL, cstring, strlen(cstring), startFrom, 
+    int result = pcre_exec(d->regex, NULL, reinterpret_cast<const uint16_t *>(str.unicode()), str.length(), startFrom, 
                            startFrom == 0 ? 0 : PCRE_NOTBOL, offsets, 3);
-    
     if (result < 0) {
         if (result != PCRE_ERROR_NOMATCH) {
             ERROR("KWQRegExp: pcre_exec() failed with result %d", result);
@@ -185,9 +161,8 @@ int QRegExp::match(const QString &str, int startFrom, int *matchLength) const
         return -1;
     }
     
+    // 1 means 1 match; 0 means more than one match. First match is recorded in offsets.
     ASSERT(result < 2);
-    // 1 means 1 match; 0 means more than one match, first one is recorded in offsets
-    convertUTF8OffsetsToUTF16Offsets(cstring, offsets, 2);
     d->lastMatchPos = offsets[0];
     d->lastMatchLength = offsets[1] - offsets[0];
     if (matchLength != NULL) {

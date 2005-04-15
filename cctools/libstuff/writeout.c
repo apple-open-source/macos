@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <sys/time.h>
 #include <mach/mach.h>
 #include "stuff/openstep_mach.h"
@@ -54,6 +55,18 @@ static enum bool toc_symbol(
     struct nlist *symbol,
     enum bool commons_in_toc,
     struct section **sections);
+
+static enum bool toc_symbol_64(
+    struct nlist_64 *symbol64,
+    enum bool commons_in_toc,
+    struct section_64 **sections64);
+
+static enum bool toc(
+    uint32_t n_strx,
+    uint8_t n_type,
+    uint64_t n_value,
+    enum bool commons_in_toc,
+    enum bool attr_no_toc);
 
 static int ranlib_name_qsort(
     const struct ranlib *ran1,
@@ -116,7 +129,8 @@ unsigned long *throttle)
 	toc_time = time(0);
 
 	writeout_to_mem(archs, narchs, output, (void **)&file, &file_size, 
-                        sort_toc, commons_in_toc, library_warnings);
+                        sort_toc, commons_in_toc, library_warnings,
+			&seen_archive);
 
 	/*
 	 * Create the output file.  The unlink() is done to handle the problem
@@ -278,7 +292,8 @@ void **outputbuf,
 unsigned long *length,
 enum bool sort_toc,
 enum bool commons_in_toc,
-enum bool library_warnings)
+enum bool library_warnings,
+enum bool *seen_archive)
 {
     unsigned long i, j, k, l, file_size, offset, pad, size;
     enum byte_sex target_byte_sex, host_byte_sex;
@@ -288,25 +303,22 @@ enum bool library_warnings)
     struct fat_arch *fat_arch;
     struct dysymtab_command dyst;
     struct twolevel_hints_command hints_cmd;
-    unsigned long mh_flags;
     struct load_command *lc;
     struct dylib_command *dl;
-
-
-    /* 
-     * If filename is NULL, we use a dummy file name.
-     */
-    if(filename == NULL)
-        filename = "(file written out to memory)";
-        
-    /*
-     * The time the table of contents' are set to and the time to base the
-     * modification time of the output file to be set to.
-     */
     long toc_time, timestamp, index;
-    enum bool seen_archive;
+    uint32_t ncmds;
 
-	seen_archive = FALSE;
+	/* 
+	 * If filename is NULL, we use a dummy file name.
+	 */
+	if(filename == NULL)
+	    filename = "(file written out to memory)";
+        
+	/*
+	 * The time the table of contents' are set to and the time to base the
+	 * modification time of the output file to be set to.
+	 */
+	*seen_archive = FALSE;
 	toc_time = time(0);
 
 	fat_arch = NULL; /* here to quite compiler maybe warning message */
@@ -333,7 +345,7 @@ enum bool library_warnings)
 	     * For each arch that is an archive recreate the table of contents.
 	     */
 	    if(archs[i].type == OFILE_ARCHIVE){
-		seen_archive = TRUE;
+		*seen_archive = TRUE;
 		make_table_of_contents(archs + i, filename, toc_time, sort_toc,
 				       commons_in_toc, library_warnings);
 		archs[i].library_size += SARMAG + archs[i].toc_size;
@@ -403,7 +415,7 @@ enum bool library_warnings)
 		p = file;
 
 	    if(archs[i].type == OFILE_ARCHIVE){
-		seen_archive = TRUE;
+		*seen_archive = TRUE;
 		/*
 		 * If the input files only contains non-object files then the
 		 * byte sex of the output can't be determined which is needed
@@ -461,7 +473,9 @@ enum bool library_warnings)
 
 		if(archs[i].toc_long_name == TRUE){
 		    memcpy(p, archs[i].toc_name, archs[i].toc_name_size);
-		    p += round(archs[i].toc_name_size, sizeof(long));
+		    p += archs[i].toc_name_size +
+			 (round(sizeof(struct ar_hdr), 8) -
+			  sizeof(struct ar_hdr));
 		}
 
 		l = archs[i].toc_nranlibs * sizeof(struct ranlib);
@@ -498,8 +512,9 @@ enum bool library_warnings)
 		    if(archs[i].members[j].member_long_name == TRUE){
 			memcpy(p, archs[i].members[j].member_name,
 			       archs[i].members[j].member_name_size);
-			p += round(archs[i].members[j].member_name_size,
-				   sizeof(long));
+			p += round(archs[i].members[j].member_name_size, 8) +
+				   (round(sizeof(struct ar_hdr), 8) -
+				    sizeof(struct ar_hdr));
 		    }
 
 		    if(archs[i].members[j].type == OFILE_Mach_O){
@@ -514,20 +529,42 @@ enum bool library_warnings)
 			    dyst = *(archs[i].members[j].object->dyst);
 			if(archs[i].members[j].object->hints_cmd != NULL)
 			   hints_cmd = *(archs[i].members[j].object->hints_cmd);
-			mh_flags = archs[i].members[j].object->mh->flags;
 			if(archs[i].members[j].object->object_byte_sex !=
 								host_byte_sex){
-			    if(swap_object_headers(
-				archs[i].members[j].object->mh,
-			        archs[i].members[j].object->load_commands) ==
-									FALSE)
-				    fatal("internal error: swap_object_headers"
-					  "() failed");
-			    if(archs[i].members[j].object->output_nsymbols != 0)
-				swap_nlist(
-				   archs[i].members[j].object->output_symbols,
-				   archs[i].members[j].object->output_nsymbols,
-				   archs[i].members[j].object->object_byte_sex);
+			    if(archs[i].members[j].object->mh != NULL){
+				if(swap_object_headers(
+				    archs[i].members[j].object->mh,
+				    archs[i].members[j].object->load_commands)
+				    == FALSE)
+					fatal("internal error: "
+					    "swap_object_headers() failed");
+				if(archs[i].members[j].object->output_nsymbols
+				   != 0)
+				    swap_nlist(
+				       archs[i].members[j].object->
+					   output_symbols,
+				       archs[i].members[j].object->
+					   output_nsymbols,
+				       archs[i].members[j].object->
+					   object_byte_sex);
+			    }
+			    else{
+				if(swap_object_headers(
+				    archs[i].members[j].object->mh64,
+				    archs[i].members[j].object->load_commands)
+				    == FALSE)
+					fatal("internal error: "
+					    "swap_object_headers() failed");
+				if(archs[i].members[j].object->output_nsymbols
+				   != 0)
+				    swap_nlist_64(
+				       archs[i].members[j].object->
+					   output_symbols64,
+				       archs[i].members[j].object->
+					   output_nsymbols,
+				       archs[i].members[j].object->
+					   object_byte_sex);
+			    }
 			}
 			if(archs[i].members[j].object->
 				output_sym_info_size == 0 &&
@@ -549,14 +586,13 @@ enum bool library_warnings)
 				archs[i].members[j].object);
 			}
 			p += size;
-			pad = round(size, sizeof(long)) - size;
+			pad = round(size, 8) - size;
 		    }
 		    else{
 			memcpy(p, archs[i].members[j].unknown_addr, 
 			       archs[i].members[j].unknown_size);
 			p += archs[i].members[j].unknown_size;
-			pad = round(archs[i].members[j].unknown_size,
-								sizeof(long)) -
+			pad = round(archs[i].members[j].unknown_size, 8) -
 				    archs[i].members[j].unknown_size;
 		    }
 		    /* as with the UNIX ar(1) program pad with '\n' chars */
@@ -570,8 +606,7 @@ enum bool library_warnings)
 		    dyst = *(archs[i].object->dyst);
 		if(archs[i].object->hints_cmd != NULL)
 		    hints_cmd = *(archs[i].object->hints_cmd);
-		mh_flags = archs[i].object->mh->flags;
-		if(archs[i].object->mh->filetype == MH_DYLIB){
+		if(archs[i].object->mh_filetype == MH_DYLIB){
 		    /*
 		     * To avoid problems with prebinding and multiple
 		     * cpusubtypes we stager the time stamps of fat dylibs
@@ -580,11 +615,15 @@ enum bool library_warnings)
 		    timestamp = 0;
 		    for(index = i - 1; timestamp == 0 && index >= 0; index--){
 			if(archs[index].type == OFILE_Mach_O &&
-			   archs[index].object->mh->filetype == MH_DYLIB &&
-			   archs[index].object->mh->cputype ==
-			   archs[i].object->mh->cputype){
+			   archs[index].object->mh_filetype == MH_DYLIB &&
+			   archs[index].object->mh_cputype ==
+				archs[i].object->mh_cputype){
 			    lc = archs[index].object->load_commands;
-			    for(j = 0; j < archs[index].object->mh->ncmds; j++){
+			    if(archs[index].object->mh != NULL)
+				ncmds = archs[index].object->mh->ncmds;
+			    else
+				ncmds = archs[index].object->mh64->ncmds;
+			    for(j = 0; j < ncmds; j++){
 				if(lc->cmd == LC_ID_DYLIB){
 				    dl = (struct dylib_command *)lc;
 				    timestamp = dl->dylib.timestamp - 1;
@@ -598,7 +637,11 @@ enum bool library_warnings)
 		    if(timestamp == 0)
 			timestamp = toc_time;
 		    lc = archs[i].object->load_commands;
-		    for(j = 0; j < archs[i].object->mh->ncmds; j++){
+		    if(archs[i].object->mh != NULL)
+			ncmds = archs[i].object->mh->ncmds;
+		    else
+			ncmds = archs[i].object->mh64->ncmds;
+		    for(j = 0; j < ncmds; j++){
 			if(lc->cmd == LC_ID_DYLIB){
 			    dl = (struct dylib_command *)lc;
 			    if(archs[i].dont_update_LC_ID_DYLIB_timestamp ==
@@ -610,13 +653,26 @@ enum bool library_warnings)
 		    }
 		}
 		if(archs[i].object->object_byte_sex != host_byte_sex){
-		    if(swap_object_headers(archs[i].object->mh,
-			       archs[i].object->load_commands) == FALSE)
-			fatal("internal error: swap_object_headers() failed");
-		    if(archs[i].object->output_nsymbols != 0)
-			swap_nlist(archs[i].object->output_symbols,
-				   archs[i].object->output_nsymbols,
-				   archs[i].object->object_byte_sex);
+		    if(archs[i].object->mh != NULL){
+			if(swap_object_headers(archs[i].object->mh,
+				   archs[i].object->load_commands) == FALSE)
+			    fatal("internal error: swap_object_headers() "
+				  "failed");
+			if(archs[i].object->output_nsymbols != 0)
+			    swap_nlist(archs[i].object->output_symbols,
+				       archs[i].object->output_nsymbols,
+				       archs[i].object->object_byte_sex);
+		    }
+		    else{
+			if(swap_object_headers(archs[i].object->mh64,
+				   archs[i].object->load_commands) == FALSE)
+			    fatal("internal error: swap_object_headers() "
+				  "failed");
+			if(archs[i].object->output_nsymbols != 0)
+			    swap_nlist_64(archs[i].object->output_symbols64,
+					  archs[i].object->output_nsymbols,
+					  archs[i].object->object_byte_sex);
+		    }
 		}
 		if(archs[i].object->output_sym_info_size == 0 &&
 		   archs[i].object->input_sym_info_size == 0){
@@ -667,10 +723,18 @@ struct object *object)
 		   dyst->nlocrel * sizeof(struct relocation_info));
 	    *size += dyst->nlocrel *
 		     sizeof(struct relocation_info);
-	    memcpy(p + *size, object->output_symbols,
-		   object->output_nsymbols * sizeof(struct nlist));
-	    *size += object->output_nsymbols *
-		     sizeof(struct nlist);
+	    if(object->mh != NULL){
+		memcpy(p + *size, object->output_symbols,
+		       object->output_nsymbols * sizeof(struct nlist));
+		*size += object->output_nsymbols *
+			 sizeof(struct nlist);
+	    }
+	    else{
+		memcpy(p + *size, object->output_symbols64,
+		       object->output_nsymbols * sizeof(struct nlist_64));
+		*size += object->output_nsymbols *
+			 sizeof(struct nlist_64);
+	    }
 	    if(old_hints_cmd != NULL){
 		memcpy(p + *size, object->output_hints,
 		       hints_cmd->nhints * sizeof(struct twolevel_hint));
@@ -689,10 +753,18 @@ struct object *object)
 		   object->output_ntoc *sizeof(struct dylib_table_of_contents));
 	    *size += object->output_ntoc *
 		     sizeof(struct dylib_table_of_contents);
-	    memcpy(p + *size, object->output_mods,
-		   object->output_nmodtab * sizeof(struct dylib_module));
-	    *size += object->output_nmodtab *
-		     sizeof(struct dylib_module);
+	    if(object->mh != NULL){
+		memcpy(p + *size, object->output_mods,
+		       object->output_nmodtab * sizeof(struct dylib_module));
+		*size += object->output_nmodtab *
+			 sizeof(struct dylib_module);
+	    }
+	    else{
+		memcpy(p + *size, object->output_mods64,
+		       object->output_nmodtab * sizeof(struct dylib_module_64));
+		*size += object->output_nmodtab *
+			 sizeof(struct dylib_module_64);
+	    }
 	    memcpy(p + *size, object->output_refs,
 		   object->output_nextrefsyms * sizeof(struct dylib_reference));
 	    *size += object->output_nextrefsyms *
@@ -702,10 +774,18 @@ struct object *object)
 	    *size += object->output_strings_size;
 	}
 	else{
-	    memcpy(p + *size, object->output_symbols,
-		   object->output_nsymbols * sizeof(struct nlist));
-	    *size += object->output_nsymbols *
-		     sizeof(struct nlist);
+	    if(object->mh != NULL){
+		memcpy(p + *size, object->output_symbols,
+		       object->output_nsymbols * sizeof(struct nlist));
+		*size += object->output_nsymbols *
+			 sizeof(struct nlist);
+	    }
+	    else{
+		memcpy(p + *size, object->output_symbols64,
+		       object->output_nsymbols * sizeof(struct nlist_64));
+		*size += object->output_nsymbols *
+			 sizeof(struct nlist_64);
+	    }
 	    memcpy(p + *size, object->output_strings,
 		   object->output_strings_size);
 	    *size += object->output_strings_size;
@@ -732,7 +812,9 @@ enum bool library_warnings)
     struct object *object;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct nlist *symbols;
+    struct nlist_64 *symbols64;
     unsigned long nsymbols;
     char *strings;
     unsigned long strings_size;
@@ -741,8 +823,11 @@ enum bool library_warnings)
     int oumask, numask;
     char *ar_name;
     struct section *section;
+    struct section_64 *section64;
+    uint32_t ncmds;
 
 	symbols = NULL; /* here to quite compiler maybe warning message */
+	symbols64 = NULL;
 	strings = NULL; /* here to quite compiler maybe warning message */
 
 	/*
@@ -756,18 +841,34 @@ enum bool library_warnings)
 		nsymbols = 0;
 		nsects = 0;
 		lc = object->load_commands;
-		for(j = 0; j < object->mh->ncmds; j++){
+		if(object->mh != NULL)
+		    ncmds = object->mh->ncmds;
+		else
+		    ncmds = object->mh64->ncmds;
+		for(j = 0; j < ncmds; j++){
 		    if(lc->cmd == LC_SEGMENT){
 			sg = (struct segment_command *)lc;
 			nsects += sg->nsects;
 		    }
+		    else if(lc->cmd == LC_SEGMENT_64){
+			sg64 = (struct segment_command_64 *)lc;
+			nsects += sg64->nsects;
+		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
-		object->sections = allocate(nsects *
-					    sizeof(struct section *));
+		if(object->mh != NULL){
+		    object->sections = allocate(nsects *
+						sizeof(struct section *));
+		    object->sections64 = NULL;
+		}
+		else{
+		    object->sections = NULL;
+		    object->sections64 = allocate(nsects *
+						sizeof(struct section_64 *));
+		}
 		nsects = 0;
 		lc = object->load_commands;
-		for(j = 0; j < object->mh->ncmds; j++){
+		for(j = 0; j < ncmds; j++){
 		    if(lc->cmd == LC_SEGMENT){
 			sg = (struct segment_command *)lc;
 			section = (struct section *)
@@ -776,11 +877,19 @@ enum bool library_warnings)
 			    object->sections[nsects++] = section++;
 			}
 		    }
+		    else if(lc->cmd == LC_SEGMENT_64){
+			sg64 = (struct segment_command_64 *)lc;
+			section64 = (struct section_64 *)
+			    ((char *)sg64 + sizeof(struct segment_command_64));
+			for(k = 0; k < sg64->nsects; k++){
+			    object->sections64[nsects++] = section64++;
+			}
+		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
 		if(object->output_sym_info_size == 0){
 		    lc = object->load_commands;
-		    for(j = 0; j < object->mh->ncmds; j++){
+		    for(j = 0; j < ncmds; j++){
 			if(lc->cmd == LC_SYMTAB){
 			    object->st = (struct symtab_command *)lc;
 			    break;
@@ -788,28 +897,50 @@ enum bool library_warnings)
 			lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		    }
 		    if(object->st != NULL && object->st->nsyms != 0){
-			symbols = (struct nlist *)(object->object_addr +
-						   object->st->symoff);
-			if(object->object_byte_sex != get_host_byte_sex())
-			    swap_nlist(symbols, object->st->nsyms,
-				       get_host_byte_sex());
+			if(object->mh != NULL){
+			    symbols = (struct nlist *)(object->object_addr +
+						       object->st->symoff);
+			    if(object->object_byte_sex != get_host_byte_sex())
+				swap_nlist(symbols, object->st->nsyms,
+					   get_host_byte_sex());
+			}
+			else{
+			    symbols64 = (struct nlist_64 *)
+				(object->object_addr + object->st->symoff);
+			    if(object->object_byte_sex != get_host_byte_sex())
+				swap_nlist_64(symbols64, object->st->nsyms,
+					      get_host_byte_sex());
+			}
 			nsymbols = object->st->nsyms;
 			strings = object->object_addr + object->st->stroff;
 			strings_size = object->st->strsize;
 		    }
 		}
 		else /* object->output_sym_info_size != 0 */ {
-		    symbols = object->output_symbols;
+		    if(object->mh != NULL)
+			symbols = object->output_symbols;
+		    else
+			symbols64 = object->output_symbols64;
 		    nsymbols = object->output_nsymbols;
 		    strings = object->output_strings;
 		    strings_size = object->output_strings_size;
 		}
 		for(j = 0; j < nsymbols; j++){
-		    if(toc_symbol(symbols + j, commons_in_toc,
-		       object->sections) == TRUE){
-			arch->toc_nranlibs++;
-			arch->toc_strsize += strlen(strings +
-						    symbols[j].n_un.n_strx) + 1;
+		    if(object->mh != NULL){
+			if(toc_symbol(symbols + j, commons_in_toc,
+			   object->sections) == TRUE){
+			    arch->toc_nranlibs++;
+			    arch->toc_strsize +=
+				strlen(strings + symbols[j].n_un.n_strx) + 1;
+			}
+		    }
+		    else{
+			if(toc_symbol_64(symbols64 + j, commons_in_toc,
+			   object->sections64) == TRUE){
+			    arch->toc_nranlibs++;
+			    arch->toc_strsize +=
+				strlen(strings + symbols64[j].n_un.n_strx) + 1;
+			}
 		    }
 		}
 	    }
@@ -820,7 +951,7 @@ enum bool library_warnings)
 	 * table of contents.
 	 */
 	arch->toc_ranlibs = allocate(sizeof(struct ranlib) *arch->toc_nranlibs);
-	arch->toc_strsize = round(arch->toc_strsize, sizeof(long));
+	arch->toc_strsize = round(arch->toc_strsize, 8);
 	arch->toc_strings = allocate(arch->toc_strsize);
 
 	/*
@@ -841,8 +972,12 @@ enum bool library_warnings)
 		nsymbols = 0;
 		if(object->output_sym_info_size == 0){
 		    if(object->st != NULL){
-			symbols = (struct nlist *)(object->object_addr +
-						   object->st->symoff);
+			if(object->mh != NULL)
+			    symbols = (struct nlist *)
+				(object->object_addr + object->st->symoff);
+			else
+			    symbols64 = (struct nlist_64 *)
+				(object->object_addr + object->st->symoff);
 			nsymbols = object->st->nsyms;
 			strings = object->object_addr + object->st->stroff;
 			strings_size = object->st->strsize;
@@ -855,28 +990,54 @@ enum bool library_warnings)
 		    }
 		}
 		else{
-		    symbols = object->output_symbols;
+		    if(object->mh != NULL)
+			symbols = object->output_symbols;
+		    else
+			symbols64 = object->output_symbols64;
 		    nsymbols = object->output_nsymbols;
 		    strings = object->output_strings;
 		    strings_size = object->output_strings_size;
 		}
 		for(j = 0; j < nsymbols; j++){
-		    if((unsigned long)symbols[j].n_un.n_strx > strings_size)
-			continue;
-		    if(toc_symbol(symbols + j, commons_in_toc,
-		       object->sections) == TRUE){
-			strcpy(arch->toc_strings + s, 
-			       strings + symbols[j].n_un.n_strx);
-			arch->toc_ranlibs[r].ran_un.ran_name =
-						    arch->toc_strings + s;
-			arch->toc_ranlibs[r].ran_off = i + 1;
-			r++;
-			s += strlen(strings + symbols[j].n_un.n_strx) + 1;
+		    if(object->mh != NULL){
+			if((unsigned long)symbols[j].n_un.n_strx > strings_size)
+			    continue;
+			if(toc_symbol(symbols + j, commons_in_toc,
+			   object->sections) == TRUE){
+			    strcpy(arch->toc_strings + s, 
+				   strings + symbols[j].n_un.n_strx);
+			    arch->toc_ranlibs[r].ran_un.ran_name =
+							arch->toc_strings + s;
+			    arch->toc_ranlibs[r].ran_off = i + 1;
+			    r++;
+			    s += strlen(strings + symbols[j].n_un.n_strx) + 1;
+			}
+		    }
+		    else{
+			if((unsigned long)symbols64[j].n_un.n_strx >
+			   strings_size)
+			    continue;
+			if(toc_symbol_64(symbols64 + j, commons_in_toc,
+			   object->sections64) == TRUE){
+			    strcpy(arch->toc_strings + s, 
+				   strings + symbols64[j].n_un.n_strx);
+			    arch->toc_ranlibs[r].ran_un.ran_name =
+							arch->toc_strings + s;
+			    arch->toc_ranlibs[r].ran_off = i + 1;
+			    r++;
+			    s += strlen(strings + symbols64[j].n_un.n_strx) + 1;
+			}
 		    }
 		}
 		if(object->output_sym_info_size == 0){
-		    if(object->object_byte_sex != get_host_byte_sex())
-			swap_nlist(symbols, nsymbols, object->object_byte_sex);
+		    if(object->object_byte_sex != get_host_byte_sex()){
+			if(object->mh != NULL)
+			    swap_nlist(symbols, nsymbols,
+				       object->object_byte_sex);
+			else
+			    swap_nlist_64(symbols64, nsymbols,
+				          object->object_byte_sex);
+		    }
 		}
 	    }
 	}
@@ -919,8 +1080,13 @@ enum bool library_warnings)
 	 * This code assumes SYMDEF_SORTED is 16 characters.
 	 */
 	if(arch->toc_long_name == TRUE){
-	    ar_name = AR_EFMT1 "16";
-	    arch->toc_name_size = 16;
+	    /*
+	     * This assumes that "__.SYMDEF SORTED" is 16 bytes and
+	     * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+	     * is 4 bytes.
+	     */
+	    ar_name = AR_EFMT1 "20";
+	    arch->toc_name_size = sizeof(SYMDEF_SORTED) - 1;
 	    arch->toc_name = SYMDEF_SORTED;
 	}
 	else{
@@ -941,7 +1107,9 @@ enum bool library_warnings)
 			 sizeof(long) +
 			 arch->toc_strsize;
 	if(arch->toc_long_name == TRUE)
-	    arch->toc_size += round(arch->toc_name_size, sizeof(long));
+	    arch->toc_size += arch->toc_name_size +
+			      (round(sizeof(struct ar_hdr), 8) -
+			       sizeof(struct ar_hdr));
 	for(i = 0; i < arch->nmembers; i++)
 	    arch->members[i].offset += SARMAG + arch->toc_size;
 	for(i = 0; i < arch->toc_nranlibs; i++){
@@ -988,22 +1156,53 @@ struct nlist *symbol,
 enum bool commons_in_toc,
 struct section **sections)
 {
+	return(toc(symbol->n_un.n_strx,
+		   symbol->n_type,
+		   symbol->n_value,
+		   commons_in_toc,
+		   (symbol->n_type & N_TYPE) == N_SECT &&
+		       sections[symbol->n_sect - 1]->flags & S_ATTR_NO_TOC));
+}
+
+static
+enum bool
+toc_symbol_64(
+struct nlist_64 *symbol64,
+enum bool commons_in_toc,
+struct section_64 **sections64)
+{
+	return(toc(symbol64->n_un.n_strx,
+		   symbol64->n_type,
+		   symbol64->n_value,
+		   commons_in_toc,
+		   (symbol64->n_type & N_TYPE) == N_SECT &&
+		       sections64[symbol64->n_sect-1]->flags & S_ATTR_NO_TOC));
+}
+
+static
+enum bool
+toc(
+uint32_t n_strx,
+uint8_t n_type,
+uint64_t n_value,
+enum bool commons_in_toc,
+enum bool attr_no_toc)
+{
 	/* if the name is NULL then it won't be in the table of contents */
-	if(symbol->n_un.n_strx == 0)
+	if(n_strx == 0)
 	    return(FALSE);
 	/* if symbol is not external then it won't be in the toc */
-	if((symbol->n_type & N_EXT) == 0)
+	if((n_type & N_EXT) == 0)
 	    return(FALSE);
 	/* if symbol is undefined then it won't be in the toc */
-	if((symbol->n_type & N_TYPE) == N_UNDF && symbol->n_value == 0)
+	if((n_type & N_TYPE) == N_UNDF && n_value == 0)
 	    return(FALSE);
 	/* if symbol is common and the commons are not to be in the toc */
-	if((symbol->n_type & N_TYPE) == N_UNDF && symbol->n_value != 0 &&
+	if((n_type & N_TYPE) == N_UNDF && n_value != 0 &&
 	   commons_in_toc == FALSE)
 	    return(FALSE);
-	/* if the symbol is in a section marked NO_TOC then ... */
-	if((symbol->n_type & N_TYPE) == N_SECT &&
-	   (sections[symbol->n_sect - 1]->flags & S_ATTR_NO_TOC) != 0)
+	/* if the symbols is in a section marked NO_TOC then ... */
+	if(attr_no_toc != 0)
 	    return(FALSE);
 
 	return(TRUE);
@@ -1055,6 +1254,9 @@ enum bool library_warnings)
     unsigned long i;
     enum bool multiple_defs;
     struct member *member;
+
+	if(arch->toc_nranlibs == 0 || arch->toc_nranlibs == 1)
+	    return(TRUE);
 
 	/*
 	 * Since the symbol table is sorted by name look to any two adjcent
@@ -1134,3 +1336,4 @@ const char *format, ...)
         fprintf(stderr, "\n");
 	va_end(ap);
 }
+#endif /* !defined(RLD) */

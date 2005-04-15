@@ -356,6 +356,10 @@ deldriver
 Delete the specified printer driver for all architectures\&. This does not delete the actual driver files from the server, only the entry from the server's list of drivers\&.
 
 .TP
+deldriverex <driver> [architecture] [version]
+Delete the specified printer driver including driver files\&. You can limit this action to a specific architecture and a specific version\&. If no architecure is given, all driver files of that driver will be deleted\&.
+
+.TP
 enumdata
 Enumerate all printer setting data stored on the server\&. On Windows NT clients, these values are stored in the registry, while Samba servers store them in the printers TDB\&. This command corresponds to the MS Platform SDK GetPrinterData() function (* This command is currently unimplemented)\&.
 
@@ -444,6 +448,10 @@ Set printer comment
 .TP
 setprinterdata
 Set REG_SZ printer data
+
+.TP
+setprintername <printername> <newprintername>
+Set printer name
 
 .TP
 rffpcnex

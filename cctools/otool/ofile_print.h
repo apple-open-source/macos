@@ -21,12 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #import <ar.h>
+#include "stuff/target_arch.h"
 #import <mach-o/fat.h>
 #import <mach-o/loader.h>
 #import <mach-o/nlist.h>
 #import <mach-o/reloc.h>
 #import <stuff/bytesex.h>
 #import <stuff/bool.h>
+#include "stuff/symbol.h"
 
 extern void print_fat_headers(
     struct fat_header *fat_header,
@@ -54,11 +56,11 @@ extern void print_library_toc(
     enum bool verbose);
 
 extern void print_mach_header(
-    struct mach_header *mh,
+    mach_header_t *mh,
     enum bool verbose);
 
 extern void print_loadcmds(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     unsigned long object_size,
@@ -66,107 +68,107 @@ extern void print_loadcmds(
     enum bool very_verbose);
 
 extern void print_libraries(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     enum bool just_id,
     enum bool verbose);
 
 extern void print_reloc(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     char *object_addr,
     unsigned long object_size,
-    struct nlist *symbols,
+    nlist_t *symbols,
     long nsymbols,
     char *strings,
     long strings_size,
     enum bool verbose);
 
 extern void print_toc(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     char *object_addr,
     unsigned long object_size,
     struct dylib_table_of_contents *tocs,
     unsigned long ntocs,
-    struct dylib_module *mods,
+    dylib_module_t *mods,
     unsigned long nmods,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
     enum bool verbose);
 
 extern void print_module_table(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     char *object_addr,
     unsigned long object_size,
-    struct dylib_module *mods,
+    dylib_module_t *mods,
     unsigned long nmods,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
     enum bool verbose);
 
 void print_refs(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     char *object_addr,
     unsigned long object_size,
     struct dylib_reference *refs,
     unsigned long nrefs,
-    struct dylib_module *mods,
+    dylib_module_t *mods,
     unsigned long nmods,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
     enum bool verbose);
 
 extern void print_indirect_symbols(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     char *object_addr,
     unsigned long object_size,
     unsigned long *indirect_symbols,
     unsigned long nindirect_symbols,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
     enum bool verbose);
 
 extern void print_hints(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
     char *object_addr,
     unsigned long object_size,
     struct twolevel_hint *hints,
     unsigned long nhints,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
     enum bool verbose);
 
 extern void print_segment_command(
-    struct segment_command *sg,
+    segment_command_t *sg,
     unsigned long object_size,
     enum bool verbose);
 
 extern void print_section(
-    struct section *s,
-    struct segment_command *sg,
-    struct mach_header *mh,
+    section_t *s,
+    segment_command_t *sg,
+    mach_header_t *mh,
     unsigned long object_size,
     enum bool verbose);
 
@@ -221,7 +223,7 @@ extern void print_fvmfile_command(
     struct load_command *lc);
 
 extern void print_routines_command(
-    struct routines_command *rc);
+    routines_command_t *rc);
 
 extern void print_twolevel_hints_command(
     struct twolevel_hints_command *hints,
@@ -233,7 +235,7 @@ extern void print_prebind_cksum_command(
 extern void print_thread_states(
     char *begin, 
     char *end,
-    struct mach_header *mh,
+    mach_header_t *mh,
     enum byte_sex thread_states_byte_sex);
 
 extern void print_cstring_section(
@@ -257,7 +259,7 @@ extern void print_literal8_section(
     enum bool print_addresses);
 
 extern void print_literal_pointer_section(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *lc,
     enum byte_sex object_byte_sex,
     char *addr,
@@ -265,7 +267,7 @@ extern void print_literal_pointer_section(
     char *sect,
     unsigned long sect_size,
     unsigned long sect_addr,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
@@ -278,9 +280,9 @@ extern void print_shlib_init(
     char *sect,
     unsigned long sect_size,
     unsigned long sect_addr,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strings_size,
@@ -294,9 +296,9 @@ extern enum bool print_symbol(
     unsigned long dot_value,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -304,18 +306,18 @@ extern enum bool print_symbol(
 
 extern const char *guess_symbol(
     const unsigned long value,
-    const struct nlist *sorted_symbols,
+    const struct symbol *sorted_symbols,
     const unsigned long nsorted_symbols,
     const enum bool verbose);
 
 extern const char * guess_indirect_symbol(
     const unsigned long value,
-    const struct mach_header *mh,
+    const mach_header_t *mh,
     const struct load_command *load_commands,
     const enum byte_sex load_commands_byte_sex,
     const unsigned long *indirect_symbols,
     const unsigned long nindirect_symbols,
-    const struct nlist *symbols,
+    const nlist_t *symbols,
     const unsigned long nsymbols,
     const char *strings,
     const unsigned long strings_size);
@@ -328,17 +330,17 @@ extern void print_sect(
     unsigned long addr);
 
 extern void print_objc_segment(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex object_byte_sex,
     char *object_addr,
     unsigned long object_size,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     enum bool verbose);
 
 extern void print_objc_protocol_section(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex object_byte_sex,
     char *object_addr,
@@ -347,7 +349,7 @@ extern void print_objc_protocol_section(
 
 extern void print_objc_string_object_section(
     char *sectname,
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex object_byte_sex,
     char *object_addr,
@@ -355,7 +357,7 @@ extern void print_objc_string_object_section(
     enum bool verbose);
 
 extern void print_objc_runtime_setup_section(
-    struct mach_header *mh,
+    mach_header_t *mh,
     struct load_command *load_commands,
     enum byte_sex object_byte_sex,
     char *object_addr,
@@ -365,5 +367,5 @@ extern void print_objc_runtime_setup_section(
 extern void print_label(
     unsigned long addr,
     enum bool colon_and_newline,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols);

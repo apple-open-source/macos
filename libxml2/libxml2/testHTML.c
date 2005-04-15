@@ -627,7 +627,11 @@ parseSAXFile(char *filename) {
     if (push) {
 	FILE *f;
 
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
+	f = fopen(filename, "rb");
+#else
 	f = fopen(filename, "r");
+#endif
 	if (f != NULL) {
 	    int res, size = 3;
 	    char chars[4096];
@@ -653,7 +657,11 @@ parseSAXFile(char *filename) {
 	    fclose(f);
 	}
 	if (!noout) {
-	    f = fopen(filename, "r");
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
+		f = fopen(filename, "rb");
+#else
+		f = fopen(filename, "r");
+#endif
 	    if (f != NULL) {
 		int res, size = 3;
 		char chars[4096];
@@ -704,7 +712,7 @@ parseSAXFile(char *filename) {
 
 static void
 parseAndPrintFile(char *filename) {
-    htmlDocPtr doc = NULL, tmp;
+    htmlDocPtr doc = NULL;
 
     /*
      * build an HTML tree from a string;
@@ -713,7 +721,11 @@ parseAndPrintFile(char *filename) {
     if (push) {
 	FILE *f;
 
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
+	f = fopen(filename, "rb");
+#else
 	f = fopen(filename, "r");
+#endif
 	if (f != NULL) {
 	    int res, size = 3;
 	    char chars[4096];
@@ -745,14 +757,18 @@ parseAndPrintFile(char *filename) {
 		"Could not parse %s\n", filename);
     }
 
+#ifdef LIBXML_TREE_ENABLED
     /*
      * test intermediate copy if needed.
      */
     if (copy) {
+        htmlDocPtr tmp;
+
         tmp = doc;
 	doc = xmlCopyDoc(doc, 1);
 	xmlFreeDoc(tmp);
     }
+#endif
 
 #ifdef LIBXML_OUTPUT_ENABLED
     /*

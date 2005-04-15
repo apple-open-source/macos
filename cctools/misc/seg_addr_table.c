@@ -62,7 +62,8 @@
  * address and ends at an address with these top bits different then we have
  * overflowed the lower 128meg part that is to be allocated.
  */
-#define SPLIT_OVERFLOW_MASK 0xf8000000
+#define SPLIT_OVERFLOW_MASK_X10_3 0xf8000000
+#define SPLIT_OVERFLOW_MASK_X10_4 0xf0000000
 
 /*
  * For intel the kernel limits the address space to the lower 3 gig so we don't
@@ -89,7 +90,8 @@
  * split libraries and only the DEFAULT_ROUND.
  */
 #define DEFAULT_FACTOR 0x1  /* power of 2, so this is 1<<1 = 2 */
-#define DEFAULT_ROUND 0x10000
+#define DEFAULT_ROUND_X10_3 0x10000
+#define DEFAULT_ROUND_X10_4 0x1000
 
 /* used by error routines as the name of the program */
 char *progname = NULL;
@@ -186,6 +188,12 @@ struct info {
 
     /* the -disablewarnings flag */
     enum bool disablewarnings;
+
+    /* Mask for determining size of the split region */
+    unsigned long overflow_mask;
+
+    /* The MACOSX_DEPLOYMENT_TARGET */
+    enum macosx_deployment_target_value macosx_deployment_target;
 };
 
 static void usage(
@@ -327,13 +335,23 @@ char **envp)
 	segs_read_write_addr_specified = FALSE;
 
 	info.factor = DEFAULT_FACTOR;
-	info.round = DEFAULT_ROUND;
 	/*
 	 * Pick up the Mac OS X deployment target and set the defaults based
 	 * on it.
 	 */
 	get_macosx_deployment_target(&macosx_deployment_target,
 				     &macosx_deployment_target_name);
+	/*
+	 * In 10.4 and later we now only round to the nearest page and
+	 * allow the entire 256 mb split region to be used.
+	 */
+	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4) {
+	    info.round = DEFAULT_ROUND_X10_4;
+	    info.overflow_mask = SPLIT_OVERFLOW_MASK_X10_4;
+	} else {
+            info.round = DEFAULT_ROUND_X10_3;
+            info.overflow_mask = SPLIT_OVERFLOW_MASK_X10_3;
+	}
 	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_2){
 	    info.allocate_flat_increasing = FALSE;
 	    info.seg1addr = DEFAULT_SEG1ADDR_X10_2;
@@ -350,6 +368,7 @@ char **envp)
 	info.default_read_write_addr = info.segs_read_write_addr;
 	info.start_segs_read_only_addr = info.segs_read_only_addr;
 	info.start_segs_read_write_addr = info.segs_read_write_addr;
+	info.macosx_deployment_target = macosx_deployment_target;
 
 	info.debug_seg1addr = DEFAULT_DEBUG_ADDR_X10_3;
 
@@ -775,13 +794,15 @@ char **envp)
                         info.debug_seg1addr = entry->seg1addr;
 		}
 	    }
-	    if(next_flat == FALSE)
+	    if(next_flat == FALSE && 
+                  macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_4)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_FLAT_ADDRESS_TO_ASSIGN);
 	    if(next_split == FALSE)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN);
-	    if(next_debug == FALSE)
+	    if(next_debug == FALSE && 
+                  macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_4)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_DEBUG_ADDRESS_TO_ASSIGN);
 	    if(errors != 0)
@@ -1232,20 +1253,15 @@ char **envp)
 				     info.factor, info.round);
 			if(info.layout_info[i]->use_debug_region == FALSE){
                             info.seg1addr = next_flat_seg1addr(&info, size);
+                            info.layout_info[i]->seg1addr = info.seg1addr;
                             if(info.allocate_flat_increasing == TRUE){
-                                info.layout_info[i]->seg1addr = info.seg1addr;
                                 info.seg1addr += size;
-                            }
-                            else{
-                                info.layout_info[i]->seg1addr = info.seg1addr;
-                                info.seg1addr -= size;
                             }
                         }
                         else{
                             info.debug_seg1addr = 
                                         next_debug_seg1addr(&info, size);
                             info.layout_info[i]->seg1addr = info.debug_seg1addr;
-                            info.debug_seg1addr -= size;
                         }
 			info.layout_info[i]->assigned = TRUE;
 			if(info.seg1addr > MAX_ADDR)
@@ -1270,8 +1286,8 @@ char **envp)
 		    info.segs_read_only_addr += size;
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
-			SPLIT_OVERFLOW_MASK) !=
-		       (info.default_read_only_addr & SPLIT_OVERFLOW_MASK))
+			info.overflow_mask) !=
+	  	       (info.default_read_only_addr & info.overflow_mask))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1279,8 +1295,8 @@ char **envp)
 			      (unsigned int)size, 
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
-			SPLIT_OVERFLOW_MASK) !=
-		       (info.default_read_write_addr & SPLIT_OVERFLOW_MASK))
+			info.overflow_mask) !=
+		       (info.default_read_write_addr & info.overflow_mask))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1333,29 +1349,55 @@ char **envp)
 			    (unsigned int)info.segs_read_only_addr,
 		  	    (unsigned int)info.segs_read_write_addr,
 		    	    NEXT_SPLIT_ADDRESS_TO_ASSIGN);
-		if(info.segs_read_only_addr >
-	       		info.start_segs_read_only_addr + 0x08000000)
-		 error("segs_read_only_addr over flow (more than 128meg's of "
-		      "address space assigned, 0x%08x - 0x%08x)",
-		      (unsigned int)info.start_segs_read_only_addr,
-		      (unsigned int)info.segs_read_only_addr);
-		if(info.segs_read_write_addr >
-	       		info.start_segs_read_write_addr + 0x08000000)
-		 error("segs_read_write_addr over flow (more than 128meg's of "
-		      "address space assigned, 0x%08x - 0x%08x)",
-		      (unsigned int)info.start_segs_read_write_addr,
-		      (unsigned int)info.segs_read_write_addr);
+               /*
+                * If MACOSX_DEPLOYMENT_TARGET is greater then 10.4.  
+                * Then we need to:
+                * 1. Avoid outputting the NEXT_FLAT_ADDRESS_TO_ASSIGN and 
+                *    NEXT_DEBUG_ADDRESS_TO_ASSIGN.
+                * 2. Check if the we've overflowed the 256 mb region 
+                *    instead of the 128mb region
+                */
+                
+               if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4) {
+                   if(info.segs_read_only_addr >
+                           info.start_segs_read_only_addr + 0x10000000)
+                       error("segs_read_only_addr over flow (more than 256meg's"
+                             " of address space assigned, 0x%08x - 0x%08x)",
+                             (unsigned int)info.start_segs_read_only_addr,
+                             (unsigned int)info.segs_read_only_addr);
+                   if (info.segs_read_write_addr >
+                            info.start_segs_read_write_addr + 0x10000000)
+                       error("segs_read_write_addr over flow (more than "
+                             "256meg's of address space assigned, "
+                             "0x%08x - 0x%08x)",
+                             (unsigned int)info.start_segs_read_write_addr,
+                             (unsigned int)info.segs_read_write_addr);
+               } else {
+	           if(info.segs_read_only_addr >
+	       		   info.start_segs_read_only_addr + 0x08000000)
+		       error("segs_read_only_addr over flow (more than 128meg's"
+		             " of address space assigned, 0x%08x - 0x%08x)",
+		             (unsigned int)info.start_segs_read_only_addr,
+		             (unsigned int)info.segs_read_only_addr);
+		   if(info.segs_read_write_addr >
+	       		   info.start_segs_read_write_addr + 0x08000000)
+		        error("segs_read_write_addr over flow (more than"
+		              "128meg's of address space assigned, "
+                              " 0x%08x - 0x%08x)",
+		              (unsigned int)info.start_segs_read_write_addr,
+		              (unsigned int)info.segs_read_write_addr);
 
-		fprintf(out_fp, "#%s: Do not remove the following line, "
+		   fprintf(out_fp, "#%s: Do not remove the following line, "
 		  	    "it is used by the %s tool\n", progname, progname);
-		fprintf(out_fp, "0x%08x\t%s\n",
-		       (unsigned int)info.seg1addr,
-		       NEXT_FLAT_ADDRESS_TO_ASSIGN);
-		fprintf(out_fp, "#%s: Do not remove the following line, "
-		  	    "it is used by the %s tool\n", progname, progname);
-		fprintf(out_fp, "0x%08x\t%s\n",
-		       (unsigned int)info.debug_seg1addr,
-		       NEXT_DEBUG_ADDRESS_TO_ASSIGN);
+		   fprintf(out_fp, "0x%08x\t%s\n",
+		                   (unsigned int)info.seg1addr,
+		                    NEXT_FLAT_ADDRESS_TO_ASSIGN);
+		   fprintf(out_fp, "#%s: Do not remove the following line, "
+		  	   "it is used by the %s tool\n", progname, progname);
+		   fprintf(out_fp, "0x%08x\t%s\n",
+		                   (unsigned int)info.debug_seg1addr,
+		                   NEXT_DEBUG_ADDRESS_TO_ASSIGN);
+                }
 	    }
 	}
 
@@ -1396,20 +1438,15 @@ char **envp)
 				     info.factor, info.round);
 			if(info.layout_info[i]->use_debug_region == FALSE){
                             info.seg1addr = next_flat_seg1addr(&info, size);
+                            info.layout_info[i]->seg1addr = info.seg1addr;
                             if(info.allocate_flat_increasing == TRUE){
-                                info.layout_info[i]->seg1addr = info.seg1addr;
                                 info.seg1addr += size;
-                            }
-                            else{
-                                info.layout_info[i]->seg1addr = info.seg1addr;
-                                info.seg1addr -= size;
                             }
                         }
                         else{
                             info.debug_seg1addr = 
                                         next_debug_seg1addr(&info, size);
                             info.layout_info[i]->seg1addr = info.debug_seg1addr;
-                            info.debug_seg1addr -= size;
                         }
 			info.layout_info[i]->assigned = TRUE;
 			if(info.seg1addr > MAX_ADDR)
@@ -1433,7 +1470,8 @@ char **envp)
 		    info.layout_info[i]->seg1addr = entry->seg1addr;
 		}
 		else if(entry->split == TRUE &&
-			entry->segs_read_only_addr == 0){
+			(entry->segs_read_only_addr == 0 ||
+			 entry->segs_read_write_addr == 0)){
 		    info.layout_info[i]->segs_read_only_addr =
 			info.segs_read_only_addr;
 		    info.layout_info[i]->segs_read_write_addr =
@@ -1443,12 +1481,12 @@ char **envp)
 			max = info.layout_info[i]->max_sizes.read_only;
 		    else
 			max = info.layout_info[i]->max_sizes.read_write;
-		    size = round(max, info.round);
+		    size = round(max+info.round, info.round);
 		    info.segs_read_only_addr += size;
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
-			SPLIT_OVERFLOW_MASK) !=
-		       (info.default_read_only_addr & SPLIT_OVERFLOW_MASK))
+                       info.overflow_mask) !=
+                      (info.default_read_only_addr & info.overflow_mask))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1456,8 +1494,8 @@ char **envp)
 			      (unsigned int)size, 
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
-			SPLIT_OVERFLOW_MASK) !=
-		       (info.default_read_write_addr & SPLIT_OVERFLOW_MASK))
+                       info.overflow_mask) !=
+                      (info.default_read_write_addr & info.overflow_mask))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1495,17 +1533,22 @@ char **envp)
 		    (unsigned int)info.segs_read_only_addr,
 		    (unsigned int)info.segs_read_write_addr,
 		    NEXT_SPLIT_ADDRESS_TO_ASSIGN);
-
-	    fprintf(out_fp, "#%s: Do not remove the following line, "
+	    /* 
+	     * Output the next flat and next debug addresses to assign only
+ 	     * if the deployment target is less than 10.4.
+	     */
+	    if(macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_4) {
+		fprintf(out_fp, "#%s: Do not remove the following line, "
 		    "it is used by the %s tool\n", progname, progname);
-	    fprintf(out_fp, "0x%08x\t%s\n",
+		fprintf(out_fp, "0x%08x\t%s\n",
 		    (unsigned int)info.seg1addr,
 		    NEXT_FLAT_ADDRESS_TO_ASSIGN);
-	    fprintf(out_fp, "#%s: Do not remove the following line, "
+		fprintf(out_fp, "#%s: Do not remove the following line, "
 		    "it is used by the %s tool\n", progname, progname);
-	    fprintf(out_fp, "0x%08x\t%s\n",
+		fprintf(out_fp, "0x%08x\t%s\n",
 		    (unsigned int)info.debug_seg1addr,
 		    NEXT_DEBUG_ADDRESS_TO_ASSIGN);
+	    }
 	}
 
 	if(out_fp != NULL){
@@ -1952,8 +1995,15 @@ void *cookie)
 		   entry->install_name);
 	    return;
 	}
-
 	info = (struct info *)cookie;
+
+	/*
+	 * Skip non-split entries when MACOSX_DEPLOYMENT_TARGET is 10.4 or
+	 * greater.
+	 */
+	if(info->macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4 &&
+                  entry->split != TRUE)
+	    return;
 
 	/*
 	 * If the file exist then print out its previously assigned address.
@@ -1977,6 +2027,10 @@ void *cookie)
 		fatal("internal error (can't find entry in info->"
 		      "seg_addr_table for: %s\n", entry->install_name);
 	    if(entry->split == TRUE){
+		if(info->layout_info[f - info->seg_addr_table]->split != TRUE &&
+		   info->macosx_deployment_target >=
+		   MACOSX_DEPLOYMENT_TARGET_10_4)
+		    return;
 		fprintf(out_fp, "0x%08x\t0x%08x\t%s\n",
 		       (unsigned int)info->layout_info[
 				f - info->seg_addr_table]->segs_read_only_addr,
@@ -2015,6 +2069,9 @@ void *cookie)
     struct segment_command *sg, *first;
     struct layout_info *layout_info;
     enum bool split;
+
+	if(ofile->mh == NULL)
+	    return;
 
 #ifdef DEBUG
 	printf("In max_size() ofile->file_name = %s", ofile->file_name);
@@ -2149,6 +2206,9 @@ void *cookie)
     struct load_command *lc;
     struct segment_command *sg;
     unsigned long *seg1addr, first_addr;
+
+	if(ofile->mh == NULL)
+	    return;
 
 #ifdef DEBUG
 	printf("In get_seg1addr() ofile->file_name = %s", ofile->file_name);

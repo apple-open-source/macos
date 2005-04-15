@@ -53,9 +53,6 @@ typedef int BOOL;
 #define _BOOL       /* So we don't typedef BOOL again in vfs.h */
 #endif
 
-/* limiting size of ipc replies */
-#define REALLOC(ptr,size) Realloc(ptr,MAX((size),4*1024))
-
 #define SIZEOFWORD 2
 
 #ifndef DEF_CREATE_MASK
@@ -380,8 +377,7 @@ typedef struct
 
 #include "fake_file.h"
 
-typedef struct files_struct
-{
+typedef struct files_struct {
 	struct files_struct *next, *prev;
 	int fnum;
 	struct connection_struct *conn;
@@ -503,6 +499,11 @@ typedef struct connection_struct
 	time_t lastused;
 	BOOL used;
 	int num_files_open;
+
+	BOOL case_sensitive;
+	BOOL case_preserve;
+	BOOL short_case_preserve;
+
 	name_compare_entry *hide_list; /* Per-share list of files to return as hidden. */
 	name_compare_entry *veto_list; /* Per-share list of files to veto (never show). */
 	name_compare_entry *veto_oplock_list; /* Per-share list of files to refuse oplocks on. */       
@@ -579,6 +580,24 @@ struct interface
 	struct in_addr nmask;
 };
 
+/* struct used by share mode violation error processing */
+typedef struct {
+	pid_t pid;
+	uint16 mid;
+	struct timeval time;
+	SMB_DEV_T dev;
+	SMB_INO_T inode;
+	uint16 port;
+} deferred_open_entry;
+
+/* Internal message queue for deferred opens. */
+struct pending_message_list {
+	struct pending_message_list *next, *prev;
+	struct timeval msg_time; /* The timeout time */
+	DATA_BLOB buf;
+	DATA_BLOB private_data;
+};
+
 /* struct returned by get_share_modes */
 typedef struct {
 	pid_t pid;
@@ -601,6 +620,11 @@ typedef struct {
 
 #define NT_HASH_LEN 16
 #define LM_HASH_LEN 16
+
+/* Password history contants. */
+#define PW_HISTORY_SALT_LEN 16
+#define SALTED_MD5_HASH_LEN 16
+#define PW_HISTORY_ENTRY_LEN (PW_HISTORY_SALT_LEN+SALTED_MD5_HASH_LEN)
 
 /*
  * Flags for account policy.
@@ -658,28 +682,14 @@ struct locking_key {
 	SMB_INO_T inode;
 };
 
-struct locking_data {
-	union {
-		int num_share_mode_entries;
-		share_mode_entry dummy; /* Needed for alignment. */
-	} u;
-	/* the following two entries are implicit 
-	   share_mode_entry modes[num_share_mode_entries];
-           char file_name[];
-	*/
-};
-
-
 /* the following are used by loadparm for option lists */
-typedef enum
-{
-  P_BOOL,P_BOOLREV,P_CHAR,P_INTEGER,P_OCTAL,P_LIST,
-  P_STRING,P_USTRING,P_GSTRING,P_UGSTRING,P_ENUM,P_SEP
+typedef enum {
+	P_BOOL,P_BOOLREV,P_CHAR,P_INTEGER,P_OCTAL,P_LIST,
+	P_STRING,P_USTRING,P_GSTRING,P_UGSTRING,P_ENUM,P_SEP
 } parm_type;
 
-typedef enum
-{
-  P_LOCAL,P_GLOBAL,P_SEPARATOR,P_NONE
+typedef enum {
+	P_LOCAL,P_GLOBAL,P_SEPARATOR,P_NONE
 } parm_class;
 
 /* passed to br lock code */
@@ -1340,7 +1350,8 @@ enum ldap_ssl_types {LDAP_SSL_ON, LDAP_SSL_OFF, LDAP_SSL_START_TLS};
 enum ldap_passwd_sync_types {LDAP_PASSWD_SYNC_ON, LDAP_PASSWD_SYNC_OFF, LDAP_PASSWD_SYNC_ONLY};
 
 /* Remote architectures we know about. */
-enum remote_arch_types {RA_UNKNOWN, RA_WFWG, RA_OS2, RA_WIN95, RA_WINNT, RA_WIN2K, RA_WINXP, RA_WIN2K3, RA_SAMBA};
+enum remote_arch_types {RA_UNKNOWN, RA_WFWG, RA_OS2, RA_WIN95, RA_WINNT,
+			RA_WIN2K, RA_WINXP, RA_WIN2K3, RA_SAMBA, RA_CIFSFS};
 
 /* case handling */
 enum case_handling {CASE_LOWER,CASE_UPPER};
@@ -1405,6 +1416,7 @@ extern int chain_size;
 #define EXCLUSIVE_OPLOCK 1
 #define BATCH_OPLOCK 2
 #define LEVEL_II_OPLOCK 4
+#define INTERNAL_OPEN_ONLY 8
 
 #define EXCLUSIVE_OPLOCK_TYPE(lck) ((lck) & (EXCLUSIVE_OPLOCK|BATCH_OPLOCK))
 #define BATCH_OPLOCK_TYPE(lck) ((lck) & BATCH_OPLOCK)
@@ -1455,6 +1467,25 @@ extern int chain_size;
 #define KERNEL_OPLOCK_BREAK_CMD 0x2
 #define LEVEL_II_OPLOCK_BREAK_CMD 0x3
 #define ASYNC_LEVEL_II_OPLOCK_BREAK_CMD 0x4
+
+/* Add the "deferred open" message. */
+#define RETRY_DEFERRED_OPEN_CMD 0x5
+
+/*
+ * And the message format for it. Keep the same message length.
+ *
+ *  0     2       2+pid   2+pid+dev 2+pid+dev+ino
+ *  +----+--------+-------+--------+---------+
+ *  | cmd| pid    | dev   |  inode | mid     |
+ *  +----+--------+-------+--------+---------+
+ */
+
+#define DEFERRED_OPEN_CMD_OFFSET 0
+#define DEFERRED_OPEN_PID_OFFSET 2 /* pid we're *sending* from. */
+#define DEFERRED_OPEN_DEV_OFFSET (DEFERRED_OPEN_PID_OFFSET + sizeof(pid_t))
+#define DEFERRED_OPEN_INODE_OFFSET (DEFERRED_OPEN_DEV_OFFSET + sizeof(SMB_DEV_T))
+#define DEFERRED_OPEN_MID_OFFSET (DEFERRED_OPEN_INODE_OFFSET + sizeof(SMB_INO_T))
+#define DEFERRED_OPEN_MSG_LEN OPLOCK_BREAK_MSG_LEN
 
 /*
  * Capabilities abstracted for different systems.
@@ -1622,12 +1653,12 @@ struct unix_error_map {
 #define SAFE_NETBIOS_CHARS ". -_"
 
 /* generic iconv conversion structure */
-typedef struct {
-	size_t (*direct)(void *cd, char **inbuf, size_t *inbytesleft,
+typedef struct _smb_iconv_t {
+	size_t (*direct)(void *cd, const char **inbuf, size_t *inbytesleft,
 			 char **outbuf, size_t *outbytesleft);
-	size_t (*pull)(void *cd, char **inbuf, size_t *inbytesleft,
+	size_t (*pull)(void *cd, const char **inbuf, size_t *inbytesleft,
 		       char **outbuf, size_t *outbytesleft);
-	size_t (*push)(void *cd, char **inbuf, size_t *inbytesleft,
+	size_t (*push)(void *cd, const char **inbuf, size_t *inbytesleft,
 		       char **outbuf, size_t *outbytesleft);
 	void *cd_direct, *cd_pull, *cd_push;
 	char *from_name, *to_name;

@@ -129,3 +129,5 @@ int	get_arobj __P((int));
 int	open_archive __P((int));
 void	put_arobj __P((CF *, struct stat *));
 void	skip_arobj __P((int));
+
+extern int archive_opened_for_writing;

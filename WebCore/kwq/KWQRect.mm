@@ -30,7 +30,7 @@
 using std::max;
 using std::min;
 
-QRect::QRect() : xp(0), yp(0), w(1), h(1)
+QRect::QRect() : xp(0), yp(0), w(0), h(0)
 {
 }
 
@@ -88,6 +88,12 @@ QSize QRect::size() const
 
 QRect QRect::unite(const QRect &r) const
 {
+    if (r.isEmpty())
+        return *this;
+    
+    if (isEmpty())
+        return r;
+
     int nx, ny, nw, nh;
 
     nx = min(xp, r.xp);
@@ -133,6 +139,14 @@ QRect QRect::intersect(const QRect &r) const
     }
 
     return QRect(nx, ny, nw, nh);
+}
+
+void QRect::inflate(int s)
+{
+    xp -= s;
+    yp -= s;
+    w += 2*s;
+    h += 2*s;
 }
 
 QRect::operator NSRect() const

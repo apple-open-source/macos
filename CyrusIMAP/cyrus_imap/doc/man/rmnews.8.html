@@ -1,0 +1,85 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>RMNEWS</title>
+</head>
+<body>
+
+<h1 align=center>RMNEWS</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#FILES">FILES</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:19 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>rmnews &minus; expunge and remove news articles</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>rmnews</b></p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Rmnews</i> reads article data from the standard input.
+It then expunges and removes the listed articles.
+<i>Rmnews</i> is designed to be used by InterNetNews to
+remove canceled, superseded, and expired news articles.</p>
+<!-- INDENTATION -->
+<p>The input is processed as an INN <i>expirerm</i> file
+listing or an INN cancel stream written as a
+&lsquo;&lsquo;WC&rsquo;&rsquo; entry in the
+<i>newsfeeds</i>(5) file. This data consists of lines of
+text, each containing a list of relative article pathnames,
+with a single space between entries. If a listed file is
+contained in an IMAP news mailbox, it is expunged out of
+that mailbox. In any case, each listed file is unlinked.</p>
+<!-- INDENTATION -->
+<p><i>Rmnews</i> reads its configuration options out of the
+<i>imapd.conf</i>(5) file. The optional <i>newsprefix</i>
+option specifies a prefix to be prepended to newsgroup names
+to make the corresponding IMAP mailbox names. The required
+<i>partition-news</i> option specifies the pathname prefix
+to the IMAP news mailboxes. The value of
+<i>partition-news</i> concatenated with the
+dots-to-slashes-converted value of <i>newsprefix</i> must be
+the pathname of the news spool directory.</p>
+</td>
+</table></p>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf</b></p></td>
+</table></p>
+<hr>
+</body>
+</html>

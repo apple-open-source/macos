@@ -27,23 +27,46 @@
 #ifndef _APPLEEHCIHUBINFO_H
 #define _APPLEEHCIHUBINFO_H
 
+#include "AppleUSBEHCI.h"
+
 // this structure is used to monitor the hubs which are attached. there will
 // be an instance of this structure for every high speed hub with a FS/LS
 // device attached to it. If the hub is in single TT mode, then there will
 // just be one instance on port 0. If the hub is in multi-TT mode, then there
 // will be that instance AND an instance for each active port
-// note that this is NOT an OSObject because the overhead (data + vtable) 
-// would be too high.
 
-typedef struct AppleUSBEHCIHubInfo AppleUSBEHCIHubInfo, *AppleUSBEHCIHubInfoPtr;
-
-struct AppleUSBEHCIHubInfo
+class AppleUSBEHCIHubInfo : public OSObject
 {
-    AppleUSBEHCIHubInfoPtr	next;
-    UInt32			flags;
-    UInt16			bandwidthAvailable;
-    UInt8			hubAddr;
-    UInt8			hubPort;
+    OSDeclareDefaultStructors(AppleUSBEHCIHubInfo)
+	
+public:
+	static AppleUSBEHCIHubInfo *GetHubInfo(AppleUSBEHCIHubInfo **hubList, USBDeviceAddress hubAddress, int hubPort);
+	static AppleUSBEHCIHubInfo *NewHubInfoZero(AppleUSBEHCIHubInfo **hubList, USBDeviceAddress hubAddress, UInt32 flags);
+	static IOReturn				DeleteHubInfoZero(AppleUSBEHCIHubInfo **hubList, USBDeviceAddress hubAddress);
+	
+	
+	UInt32		AvailableInterruptBandwidth();
+	UInt32		AvailableIsochBandwidth(UInt32 direction);
+	
+	IOReturn	AllocateInterruptBandwidth(AppleEHCIQueueHead *pQH, UInt32 maxPacketSize);
+	IOReturn	DeallocateInterruptBandwidth(AppleEHCIQueueHead *pQH);
+	
+	IOReturn	AllocateIsochBandwidth(AppleEHCIIsochEndpointPtr pEP, UInt32 maxPacketSize);
+	IOReturn	DeallocateIsochBandwidth(AppleEHCIIsochEndpointPtr pEP);
+	IOReturn	ReallocateIsochBandwidth(AppleEHCIIsochEndpointPtr pEP, UInt32 maxPacketSize);
+
+private:
+    AppleUSBEHCIHubInfo		*next;
+    UInt32					flags;
+    UInt8					hubAddr;
+    UInt8					hubPort;
+	UInt8					isochOUTUsed[8];		// bytes per microframe of ISOCH out
+	UInt8					isochINUsed[8];			// bytes per microframe of ISOCH in
+	UInt8					interruptUsed[8];		// bytes per microframe of Interrupt
+	
+	static AppleUSBEHCIHubInfo *FindHubInfo(AppleUSBEHCIHubInfo *hubList, USBDeviceAddress hubAddress, int hubPort);
+	static AppleUSBEHCIHubInfo *NewHubInfo(USBDeviceAddress hubAddress, int hubPort);
+
 };
 
 enum

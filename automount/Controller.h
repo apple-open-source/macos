@@ -104,7 +104,8 @@ typedef struct
 - (unsigned int)autoMap:(Map *)map name:(String *)name directory:(String *)dir mountdirectory:(String *)mnt;
 - (unsigned int)mountmap:(String *)mapname directory:(String *)dir mountdirectory:(String *)mnt;
 - (unsigned int)nfsmount:(Vnode *)v withUid:(int)uid;
-- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID;
+- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID transactionID:(u_long)transactionID;
+- (BOOL)checkMountInProgressForTransaction:(u_long)transactionID;
 - (void)completeMountInProgressBy:(pid_t)mountPID exitStatus:(int)exitStatus;
 
 - (Server *)serverWithName:(String *)name;

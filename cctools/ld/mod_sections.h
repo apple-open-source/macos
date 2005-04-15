@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,16 +25,30 @@
 #endif
 
 /*
+ * The mod_term_data is only used when -dead_strip is specified to break up
+ * the section so each pointer has a fine relocation entry.
+ */
+struct mod_term_data {
+    unsigned long output_offset;
+};
+
+/*
  * Global types, variables and routines declared in the file modinit_sections.c.
  */
 __private_extern__ unsigned long ninit;
 __private_extern__ unsigned long nterm;
 
 __private_extern__ void mod_section_merge(
-    void *data, 
+    struct mod_term_data *data, 
     struct merged_section *ms,
     struct section *s, 
-    struct section_map *section_map);
+    struct section_map *section_map,
+    enum bool redo_live);
 __private_extern__ void mod_section_order(
-    void *data, 
+    struct mod_term_data *data, 
     struct merged_section *ms);
+__private_extern__ void mod_section_reset_live(
+    struct mod_term_data *data, 
+    struct merged_section *ms);
+__private_extern__ void mod_section_free(
+    struct mod_term_data *data);

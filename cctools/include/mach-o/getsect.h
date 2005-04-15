@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,19 +23,15 @@
 #ifndef _MACH_O_GETSECT_H_
 #define _MACH_O_GETSECT_H_
 
+#include <stdint.h>
 #include <mach-o/loader.h>
 
-extern const struct section *getsectbyname(
-    const char *segname,
-    const char *sectname);
-
+/*
+ * Runtime interfaces for Mach-O programs.  For both 32-bit and 64-bit programs,
+ * where the sizes returned will be 32-bit or 64-bit based on the size of
+ * 'unsigned long'.
+ */
 extern char *getsectdata(
-    const char *segname,
-    const char *sectname,
-    unsigned long *size);
-
-extern char *getsectdatafromheader(
-    const struct mach_header *mhp,
     const char *segname,
     const char *sectname,
     unsigned long *size);
@@ -46,16 +42,60 @@ extern char *getsectdatafromFramework(
     const char *sectname,
     unsigned long *size);
 
-extern const struct section *getsectbynamefromheader(
-    const struct mach_header *mhp,
+extern unsigned long get_end(void);
+extern unsigned long get_etext(void);
+extern unsigned long get_edata(void);
+
+#ifndef __LP64__
+/*
+ * Runtime interfaces for 32-bit Mach-O programs.
+ */
+extern const struct section *getsectbyname(
     const char *segname,
     const char *sectname);
 
 extern const struct segment_command *getsegbyname(
     const char *segname);
 
-extern unsigned long get_end(void);
-extern unsigned long get_etext(void);
-extern unsigned long get_edata(void);
+#else /* defined(__LP64__) */
+/*
+ * Runtime interfaces for 64-bit Mach-O programs.
+ */
+extern const struct section_64 *getsectbyname(
+    const char *segname,
+    const char *sectname);
+
+extern const struct segment_command_64 *getsegbyname(
+    const char *segname);
+
+#endif /* defined(__LP64__) */
+
+/*
+ * Interfaces for tools working with 32-bit Mach-O files.
+ */
+extern char *getsectdatafromheader(
+    const struct mach_header *mhp,
+    const char *segname,
+    const char *sectname,
+    uint32_t *size);
+
+extern const struct section *getsectbynamefromheader(
+    const struct mach_header *mhp,
+    const char *segname,
+    const char *sectname);
+
+/*
+ * Interfaces for tools working with 64-bit Mach-O files.
+ */
+extern char *getsectdatafromheader_64(
+    const struct mach_header_64 *mhp,
+    const char *segname,
+    const char *sectname,
+    uint64_t *size);
+
+extern const struct section_64 *getsectbynamefromheader_64(
+    const struct mach_header_64 *mhp,
+    const char *segname,
+    const char *sectname);
 
 #endif /* _MACH_O_GETSECT_H_ */

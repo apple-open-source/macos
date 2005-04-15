@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,10 +41,13 @@
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <mach-o/reloc.h>
+#include <mach-o/ppc/reloc.h>
+#include <mach-o/hppa/reloc.h>
 #include "stuff/arch.h"
 #include "stuff/reloc.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass2.h"
@@ -57,17 +60,20 @@
 
 /*
  * coalesced_section_merge() merges items from a coalesced section from the
- * specified section in the current object file (cur_obj).  It allocates a fine
- * relocation map and sets the fine_relocs field in the section_map to it (as
- * well as the count).
+ * specified section in the current object file (cur_obj).  When redo_live is
+ * FALSE it allocates a fine relocation map and sets the fine_relocs field in
+ * the section_map to it (as well as the count).
  *
- * After all the items for this section in this object file have been merged
- * two more things are done.  First the number of relocation entries that will
- * be in the output file is adjusted (incremented) based on which items are used
- * from this object's section.  Second the number of local symbol table entries
- * and the size of the string table is adjusted (decremented) based on the which
- * symbols are in the items from this object's section that will be in the
- * resulting object file.
+ * When redo_live is FALSE after all the items for this section in this object
+ * file have been merged two more things are done.  First the number of
+ * relocation entries that will be in the output file is adjusted (incremented)
+ * based on which items are used from this object's section.  Second the number
+ * of local symbol table entries and the size of the string table is adjusted
+ * (decremented) based on the which symbols are in the items from this object's
+ * section that will be in the resulting object file.
+ * 
+ * When redo_live is TRUE it re-merges only the live items from a coalesced
+ * section from the specified section in the current object file (cur_obj).
  */
 __private_extern__
 void
@@ -75,7 +81,8 @@ coalesced_section_merge(
 void *data,
 struct merged_section *ms,
 struct section *s, 
-struct section_map *section_map)
+struct section_map *section_map,
+enum bool redo_live)
 {
     unsigned long i, j, nsect, count;
     struct nlist *object_symbols;
@@ -128,13 +135,20 @@ struct section_map *section_map)
 	 */
 	count = 0;
 	start_section = FALSE;
-	object_symbols = NULL;
-	object_strings = NULL;
 	if(cur_obj->symtab != NULL){
 	    object_symbols = (struct nlist *)(cur_obj->obj_addr +
 					      cur_obj->symtab->symoff);
 	    object_strings = (char *)(cur_obj->obj_addr +
 				      cur_obj->symtab->stroff);
+	}
+	else{
+	    object_symbols = NULL;
+	    object_strings = NULL;
+	}
+	if(redo_live == TRUE)
+	    goto set_load_orders;
+
+	if(cur_obj->symtab != NULL){
 	    for(i = 0; i < cur_obj->symtab->nsyms; i++){
 		if((object_symbols[i].n_type & N_TYPE) == N_SECT &&
 		    object_symbols[i].n_sect == nsect &&
@@ -173,14 +187,24 @@ struct section_map *section_map)
 	    return;
 	}
 
+set_load_orders:
 	/*
 	 * Allocate a load order map for the symbols in this section.
 	 * We are not ordering the section but simpily needing to figure out
 	 * the sizes and offsets of each symbol and a load order map is now
 	 * this is normally done.
 	 */
-	load_orders = allocate(sizeof(struct load_order) * count);
-	memset(load_orders, '\0', sizeof(struct load_order) * count);
+	if(redo_live == FALSE){
+	    load_orders = allocate(sizeof(struct load_order) * count);
+	    memset(load_orders, '\0', sizeof(struct load_order) * count);
+	    section_map->load_orders = load_orders;
+	    section_map->nload_orders = count;
+	}
+	else{
+	    load_orders = section_map->load_orders;
+	    count = section_map->nload_orders;
+	    goto deal_with_contents;
+	}
 
 	/*
 	 * Fill in symbol names and values the load order map for this section
@@ -196,11 +220,11 @@ struct section_map *section_map)
 		load_orders[j].value =
 			      object_symbols[i].n_value;
 		/*
-		 * We fill in the 'order' field with a boolean test of if the
-		 * symbol is external or not.  This is a bit of a hack.  See
+		 * We fill in the 'global_coalesced_symbol' field with a
+		 * boolean test of if the symbol is external or not.  See
 		 * below where this is used.
 		 */
-		load_orders[j].order =
+		load_orders[j].global_coalesced_symbol =
 			      (object_symbols[i].n_type & N_EXT) == N_EXT;
 		j++;
 	    }
@@ -243,22 +267,32 @@ struct section_map *section_map)
 			     cur_obj, "sizes and offsets");
 #endif /* DEBUG */
 
+deal_with_contents:
 	/*
 	 * First deal with the contents of section for each symbol and determine
 	 * based on the symbol if the contents will be used from this object or
 	 * used from a previously merged object.  This information is encoded
 	 * into the fine_reloc structures for each item.
 	 */
-	fine_relocs = allocate(count * sizeof(struct fine_reloc));
-	memset(fine_relocs, '\0', count * sizeof(struct fine_reloc));
+	if(redo_live == FALSE){
+	    fine_relocs = allocate(count * sizeof(struct fine_reloc));
+	    memset(fine_relocs, '\0', count * sizeof(struct fine_reloc));
+	    section_map->fine_relocs = fine_relocs;
+	    section_map->nfine_relocs = count;
+	}
+	else{
+            fine_relocs = section_map->fine_relocs;
+            count = section_map->nfine_relocs;
+	}
 	for(i = 0; i < count; i++){
-	    fine_relocs[i].input_offset = load_orders[i].input_offset;
+	    if(redo_live == FALSE)
+		fine_relocs[i].input_offset = load_orders[i].input_offset;
 	    /*
-	     * We previously filled in the 'order' field with a boolean test of
-	     * if the symbol is external or not.  This is a bit of a hack.
-	     * See above where this is done.
+	     * We previously filled in the 'global_coalesced_symbol' field with 
+	     * a boolean test of if the symbol is external or not.  See above
+	     * where this is done.
 	     */
-	    if(load_orders[i].order){
+	    if(load_orders[i].global_coalesced_symbol == TRUE){
 		merged_symbol = *(lookup_symbol(load_orders[i].name));
 		if(merged_symbol == NULL)
 		    fatal("internal error, coalesced_section_merge() failed in "
@@ -268,44 +302,56 @@ struct section_map *section_map)
 		 * object's contents will be used.  If not it won't.
 		 */
 		if(merged_symbol->definition_object == cur_obj){
-		    fine_relocs[i].use_contents = TRUE;
-		    fine_relocs[i].indirect_defined = FALSE;
-		    /* align size before using it to assign output offset */
-		    ms->s.size = round(ms->s.size, 1 << ms->s.align);
-		    fine_relocs[i].output_offset = ms->s.size;
-		    ms->s.size += load_orders[i].input_size;
+		    if(redo_live == FALSE){
+			fine_relocs[i].use_contents = TRUE;
+			fine_relocs[i].indirect_defined = FALSE;
+		    }
+		    if(redo_live == FALSE || fine_relocs[i].live == TRUE){
+			/* align size before using it to assign output offset */
+			ms->s.size = round(ms->s.size, 1 << ms->s.align);
+			fine_relocs[i].output_offset = ms->s.size;
+			ms->s.size += load_orders[i].input_size;
+		    }
 		}
 		else{
-		    fine_relocs[i].use_contents = FALSE;
-		    fine_relocs[i].indirect_defined = FALSE;
-		    fine_relocs[i].output_offset = (unsigned long)merged_symbol;
+		    if(redo_live == FALSE){
+			fine_relocs[i].use_contents = FALSE;
+			fine_relocs[i].indirect_defined = FALSE;
+			fine_relocs[i].merged_symbol = merged_symbol;
+		    }
 		}
 		/*
 		 * We want to set local_symbol to TRUE if this symbol is a
 		 * private extern symbol so that section difference relocation
 		 * entries to it are not flagged as illegal references.
 		 */
-		if((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)
-		    fine_relocs[i].local_symbol = TRUE;
-		else
-		    fine_relocs[i].local_symbol = FALSE;
+		if((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT){
+		    if(redo_live == FALSE)
+			fine_relocs[i].local_symbol = TRUE;
+		}
+		else{
+		    if(redo_live == FALSE)
+			fine_relocs[i].local_symbol = FALSE;
+		}
 	    }
 	    else{
 		/*
 		 * This is a local or private_extern symbol so keep its
 		 * contents.
 		 */
-		fine_relocs[i].use_contents = TRUE;
-		fine_relocs[i].local_symbol = TRUE;
-		fine_relocs[i].indirect_defined = FALSE;
-		/* align size before using it to assign output offset */
-		ms->s.size = round(ms->s.size, 1 << ms->s.align);
-		fine_relocs[i].output_offset = ms->s.size;
-		ms->s.size += load_orders[i].input_size;
+		if(redo_live == FALSE){
+		    fine_relocs[i].use_contents = TRUE;
+		    fine_relocs[i].local_symbol = TRUE;
+		    fine_relocs[i].indirect_defined = FALSE;
+		}
+		if(redo_live == FALSE || fine_relocs[i].live == TRUE){
+		    /* align size before using it to assign output offset */
+		    ms->s.size = round(ms->s.size, 1 << ms->s.align);
+		    fine_relocs[i].output_offset = ms->s.size;
+		    ms->s.size += load_orders[i].input_size;
+		}
 	    }
 	}
-	section_map->fine_relocs = fine_relocs;
-	section_map->nfine_relocs = count;
 
 #ifdef COALESCE_DEBUG
 	/*
@@ -326,8 +372,7 @@ struct section_map *section_map)
 	    if(fine_relocs[i].use_contents == TRUE)
 		printf("\toutput_offset = %ld\n", fine_relocs[i].output_offset);
 	    else{
-		merged_symbol = (struct merged_symbol *)
-				fine_relocs[i].output_offset;
+		merged_symbol = fine_relocs[i].merged_symbol;
 		printf("\t%s from ", merged_symbol->nlist.n_un.n_name);
 		print_obj_name(merged_symbol->definition_object);
 		printf("\n");
@@ -349,7 +394,8 @@ struct section_map *section_map)
 	relocs = (struct relocation_info *)(cur_obj->obj_addr + s->reloff);
 	for(i = 0; i < s->nreloc; i++){
 	    reloc = relocs[i];
-	    if(cur_obj->swapped)
+	    if(cur_obj->swapped &&
+	       section_map->input_relocs_already_swapped == FALSE)
 		swap_relocation_info(&reloc, 1, host_byte_sex);
 	    /*
 	     * Break out the fields of the relocation entry we need here.
@@ -429,7 +475,8 @@ struct section_map *section_map)
 	    if(reloc_has_pair(arch_flag.cputype, r_type)){
 		if(i + 1 < s->nreloc){
 		    reloc = relocs[i + 1];
-		    if(cur_obj->swapped)
+		    if(cur_obj->swapped &&
+		       section_map->input_relocs_already_swapped == FALSE)
 			swap_relocation_info(&reloc, 1, host_byte_sex);
 		    if((reloc.r_address & R_SCATTERED) != 0){
 			spair_reloc = (struct scattered_relocation_info *)
@@ -478,6 +525,24 @@ struct section_map *section_map)
 		    (int (*)(const void *, const void *))undef_bsearch);
 		if(undefined_map != NULL){
 		    merged_symbol = undefined_map->merged_symbol;
+		    /*
+		     * We must allow and create references to defined global
+		     * coalesced symbols with external relocation entries so
+		     * that the dynamic linker can relocate all references to
+		     * the same symbol.
+		     */
+		    if((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
+		       (merged_symbol->definition_object->section_maps[
+			merged_symbol->nlist.n_sect - 1].s->flags &
+			SECTION_TYPE) == S_COALESCED){
+			if(((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
+			    keep_private_externs == FALSE) ||
+			   dynamic == FALSE ||
+			   (output_for_dyld && has_dynamic_linker_command))
+			    force_extern_reloc = FALSE;
+			else
+			    force_extern_reloc = TRUE;
+		    }
 		}
 		else{
 		    if((object_symbols[r_symbolnum].n_type & N_EXT) != N_EXT){
@@ -506,7 +571,17 @@ struct section_map *section_map)
 				  object_symbols[r_symbolnum].n_un.n_strx);
 			}
 			merged_symbol = *hash_pointer;
-			if(((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
+			/*
+			 * While the .o file's symbol is a coalesced symbol, it
+			 * may have been weak and the merged symbol now being
+			 * used is not a coalesced symbol. In that case we don't
+			 * force an external relocation entry.
+			 */
+			if(((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
+			    (merged_symbol->definition_object->section_maps[
+			      merged_symbol->nlist.n_sect-1].
+			      s->flags & SECTION_TYPE) != S_COALESCED) ||
+			  ((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
 			    keep_private_externs == FALSE) ||
 			    dynamic == FALSE ||
 			   (output_for_dyld && has_dynamic_linker_command))
@@ -555,6 +630,19 @@ struct section_map *section_map)
 		pair = 1;
 	    else
 		pair = 0;
+
+	    /*
+	     * For output_for_dyld PPC_RELOC_JBSR and HPPA_RELOC_JBSR's are
+	     * never put out.
+	     */
+	    if(output_for_dyld &&
+	       ((arch_flag.cputype == CPU_TYPE_POWERPC &&
+		 r_type == PPC_RELOC_JBSR) ||
+	        (arch_flag.cputype == CPU_TYPE_HPPA &&
+		 r_type == HPPA_RELOC_JBSR)) ){
+		i += pair;
+		continue;
+	    }
 #ifndef RLD
 	    /*
 	     * If saving relocation entries see if this relocation entry is for 
@@ -566,7 +654,8 @@ struct section_map *section_map)
 		/*
 		 * Mark this section as being relocated (staticly).
 		 */
-		ms->relocated = TRUE;
+		if(dead_strip == FALSE || redo_live == TRUE)
+		    ms->relocated = TRUE;
 		if(r_extern == 0)
 		    pic = (enum bool)
 			  (reloc_is_sectdiff(arch_flag.cputype, r_type) ||
@@ -637,8 +726,10 @@ struct section_map *section_map)
 	 * If the the number of relocation entries is not zero mark this section
 	 * as being relocated (staticly).
 	 */
-	if(ms->s.nreloc != 0)
-	    ms->relocated = TRUE;
+	if(ms->s.nreloc != 0){
+	    if(dead_strip == FALSE || redo_live == TRUE)
+		ms->relocated = TRUE;
+	}
 
 	/*
 	 * Third deal with the symbol table entries for local symbols and N_STAB
@@ -649,8 +740,16 @@ struct section_map *section_map)
 	discard_local_symbols_for_section(nsect, object_symbols, object_strings,
     					  s, section_map);
 
-	/* Should the load_order be set into the section_map or free()'ed? */
-	free(load_orders);
+	/*
+	 * The load_orders are free()'ed if -dead_strip is not specified.  Or
+	 * if this the second time we are called, when redo_live == TRUE, we
+	 * are done with the load_orders so they can be free()'ed at this point.
+	 */
+	if(dead_strip == FALSE || redo_live == TRUE){
+	    free(load_orders);
+	    section_map->load_orders = NULL;
+	    section_map->nload_orders = 0;
+	}
 }
 
 __private_extern__
@@ -690,4 +789,31 @@ struct merged_section *ms)
         dummy2 = ms;
 #endif
 #endif /* RLD */
+}
+
+/*
+ * coalesced_section_reset_live() is called when -dead_strip is specified after
+ * the coalesced sections the input objects are merged. It resets the merged
+ * section size and the count of relocation entries back to zero so the live
+ * coalesced items can be re-merged (by later calling coalesced_section_merge()
+ * with redo_live == TRUE.
+ */
+__private_extern__
+void
+coalesced_section_reset_live(
+void *data,
+struct merged_section *ms)
+{
+	/* reset the merge section size back to zero */
+	ms->s.size = 0;
+
+	/* reset the count of relocation entries for this merged section */
+	if(output_for_dyld){
+	    ms->nlocrel = 0;
+	    ms->nextrel = 0;
+	}
+	else if(save_reloc){
+	    nreloc -= ms->s.nreloc;
+	    ms->s.nreloc = 0;
+	}
 }

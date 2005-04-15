@@ -176,7 +176,13 @@ xmlC14NIsNodeInNodeset(xmlNodeSetPtr nodes, xmlNodePtr node, xmlNodePtr parent) 
 	    xmlNs ns;
 	    
 	    memcpy(&ns, node, sizeof(ns)); 
-	    ns.next = (xmlNsPtr)parent; /* this is a libxml hack! check xpath.c for details */
+	    
+	    /* this is a libxml hack! check xpath.c for details */
+	    if((parent != NULL) && (parent->type == XML_ATTRIBUTE_NODE)) {
+		ns.next = (xmlNsPtr)parent->parent;
+	    } else {
+		ns.next = (xmlNsPtr)parent; 
+	    }
 
 	    /* 
 	     * If the input is an XPath node-set, then the node-set must explicitly 
@@ -751,7 +757,7 @@ xmlExcC14NProcessNamespacesAxis(xmlC14NCtxPtr ctx, xmlNodePtr cur, int visible)
          */
 	if((attr->ns != NULL) && xmlC14NIsVisible(ctx, attr, cur)) {
 	    already_rendered = xmlExcC14NVisibleNsStackFind(ctx->ns_rendered, attr->ns, ctx);
-	    xmlC14NVisibleNsStackAdd(ctx->ns_rendered, attr->ns, (xmlNodePtr)attr); 
+	    xmlC14NVisibleNsStackAdd(ctx->ns_rendered, attr->ns, cur); 
 	    if(!already_rendered && visible) {
 		xmlListInsert(list, attr->ns); 
 	    }

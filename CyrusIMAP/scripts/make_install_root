@@ -1,0 +1,6 @@
+#!/bin/sh
+
+DIR=`pwd`
+
+make install_debug SRCROOT=$DIR DSTROOT=/
+

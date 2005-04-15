@@ -14,7 +14,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 </style>
     <title>The XML C parser and toolkit of Gnome</title>
   </head>
-  <body bgcolor="#8b7765" text="#000000" link="#000000" vlink="#000000">
+  <body bgcolor="#8b7765" text="#000000" link="#a06060" vlink="#000000">
     <table border="0" width="100%" cellpadding="5" cellspacing="0" align="center">
       <tr>
         <td width="120">
@@ -102,7 +102,7 @@ A:link, A:visited, A:active { text-decoration: underline }
                                 <a href="downloads.html">Downloads</a>
                               </li>
                               <li>
-                                <a href="news.html">News</a>
+                                <a href="news.html">Releases</a>
                               </li>
                               <li>
                                 <a href="XMLinfo.html">XML</a>
@@ -133,6 +133,9 @@ A:link, A:visited, A:active { text-decoration: underline }
                               </li>
                               <li>
                                 <a href="guidelines.html">XML Guidelines</a>
+                              </li>
+                              <li>
+                                <a href="ChangeLog.html">Recent Changes</a>
                               </li>
                             </ul>
                           </td>
@@ -198,6 +201,9 @@ A:link, A:visited, A:active { text-decoration: underline }
                               <tr>
                                 <td bgcolor="#fffacd">
                                   <p></p>
+                                  <p style="text-align: right; font-style: italic; font-size: 10pt">"Programming
+with libxml2 is like the thrilling embrace of an exotic stranger." <a href="http://diveintomark.org/archives/2004/02/18/libxml2">Mark
+Pilgrim</a></p>
                                   <p>Libxml2 is the XML C parser and toolkit developed for the Gnome project
 (but usable outside of the Gnome platform), it is free software available
 under the <a href="http://www.opensource.org/licenses/mit-license.html">MIT
@@ -230,24 +236,24 @@ languages:</p>
   <li>Relax NG, ISO/IEC 19757-2:2003, <a href="http://www.oasis-open.org/committees/relax-ng/spec-20011203.html">http://www.oasis-open.org/committees/relax-ng/spec-20011203.html</a></li>
   <li>W3C XML Schemas Part 2: Datatypes <a href="http://www.w3.org/TR/2001/REC-xmlschema-2-20010502/">REC 02 May
     2001</a></li>
+  <li>W3C <a href="http://www.w3.org/TR/xml-id/">xml:id</a> Working Draft 7
+    April 2004</li>
 </ul>
                                   <p>In most cases libxml2 tries to implement the specifications in a
-relatively strictly compliant way. As of release 2.4.16, libxml2 passes all
+relatively strictly compliant way. As of release 2.4.16, libxml2 passed all
 1800+ tests from the <a href="http://www.oasis-open.org/committees/xml-conformance/">OASIS XML Tests
 Suite</a>.</p>
                                   <p>To some extent libxml2 provides support for the following additional
 specifications but doesn't claim to implement them completely:</p>
                                   <ul><li>Document Object Model (DOM) <a href="http://www.w3.org/TR/DOM-Level-2-Core/">http://www.w3.org/TR/DOM-Level-2-Core/</a>
-    it doesn't implement the API itself, gdome2 does this on top of
-  libxml2</li>
+    the document model, but it doesn't implement the API itself, gdome2 does
+    this on top of libxml2</li>
   <li><a href="http://www.cis.ohio-state.edu/rfc/rfc959.txt">RFC 959</a> :
     libxml2 implements a basic FTP client code</li>
   <li><a href="http://www.cis.ohio-state.edu/rfc/rfc1945.txt">RFC 1945</a> :
     HTTP/1.0, again a basic HTTP client code</li>
-  <li>SAX: a minimal SAX implementation compatible with early expat
-  versions</li>
-  <li>DocBook SGML v4: libxml2 includes a hackish parser to transition to
-  XML</li>
+  <li>SAX: a SAX2 like interface and a minimal SAX1 implementation compatible
+    with early expat versions</li>
 </ul>
                                   <p>A partial implementation of <a href="http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/">XML Schemas Part
 1: Structure</a> is being worked on but it would be far too early to make any
@@ -264,11 +270,6 @@ conformance statement about it at the moment.</p>
   <li>also check the related links section below for more related and active
     projects.</li>
 </ul>
-                                  <p>Results of the <a href="http://xmlbench.sourceforge.net/results/benchmark/index.html">xmlbench
-benchmark</a> on sourceforge February 2004 (smaller is better):</p>
-                                  <p align="center">
-                                    <img src="benchmark.png" alt="benchmark results for Expat Xerces libxml2 Oracle and Sun toolkits" />
-                                  </p>
                                   <p>Logo designed by <a href="mailto:liyanage@access.ch">Marc Liyanage</a>.</p>
                                   <p>
                                     <a href="bugs.html">Daniel Veillard</a>

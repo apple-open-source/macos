@@ -54,7 +54,7 @@ AppleEHCIQueueHead::WithSharedMemory(EHCIQueueHeadSharedPtr sharedLogical, IOPhy
 {
     AppleEHCIQueueHead *me = new AppleEHCIQueueHead;
     if (!me || !me->init())
-	return NULL;
+		return NULL;
     me->_sharedLogical = sharedLogical;
     me->_sharedPhysical = sharedPhysical;
     return me;
@@ -92,7 +92,7 @@ void
 AppleEHCIQueueHead::print(int level)
 {
     EHCIQueueHeadSharedPtr shared = GetSharedLogical();
-
+	
     super::print(level);
     USBLog(level, "AppleEHCIQueueHead::print - shared.nextQH[%p]", USBToHostLong(shared->nextQH));
     USBLog(level, "AppleEHCIQueueHead::print - shared.flags[%p]", USBToHostLong(shared->flags));
@@ -119,11 +119,11 @@ void
 AppleEHCIIsochListElement::print(int level)
 {
     super::print(level);
-    USBLog(level, "AppleEHCIIsochListElement::print - myEndpoint[%x]", myEndpoint);
-    USBLog(level, "AppleEHCIIsochListElement::print - myFrames[%x]", myFrames);
-    USBLog(level, "AppleEHCIIsochListElement::print - completion[%x, %x, %x]", completion.action, completion.target, completion.parameter);
-    USBLog(level, "AppleEHCIIsochListElement::print - lowLatency[%x]", lowLatency);
-    USBLog(level, "AppleEHCIIsochListElement::print - frameNumber[%x]", (UInt32)frameNumber);
+    USBLog(level, "AppleEHCIIsochListElement::print - _pEndpoint[%p]", _pEndpoint);
+    USBLog(level, "AppleEHCIIsochListElement::print - _pFrames[%p]", _pFrames);
+    USBLog(level, "AppleEHCIIsochListElement::print - completion[%x, %x, %x]", _completion.action, _completion.target, _completion.parameter);
+    USBLog(level, "AppleEHCIIsochListElement::print - _lowLatency[%x]", _lowLatency);
+    USBLog(level, "AppleEHCIIsochListElement::print - frameNumber[%x]", (UInt32)_frameNumber);
 }
 
 
@@ -139,7 +139,7 @@ AppleEHCIIsochTransferDescriptor::WithSharedMemory(EHCIIsochTransferDescriptorSh
 {
     AppleEHCIIsochTransferDescriptor *me = new AppleEHCIIsochTransferDescriptor;
     if (!me || !me->init())
-	return NULL;
+		return NULL;
     me->_sharedLogical = sharedLogical;
     me->_sharedPhysical = sharedPhysical;
     return me;
@@ -177,33 +177,41 @@ AppleEHCIIsochTransferDescriptor::GetPhysicalAddrWithType(void)
 IOReturn 
 AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transferLen, UInt32 maxPacketSize, UInt8 direction)
 {
-/*  This is how I'm unmangling the EHCI error status 
-
-iTD has these possible status bits:
-
-31 Active.							- If Active, then not accessed.
-30 Data Buffer Error.				- Host data buffer under (out) over (in) run error
-29 Babble Detected.                 - Recevied data overrun
-28 Transaction Error (XactErr).	    - Everything else. Use not responding.
-
+	/*  This is how I'm unmangling the EHCI error status 
+	
+	iTD has these possible status bits:
+	
+	31 Active.							- If Active, then not accessed.
+	30 Data Buffer Error.				- Host data buffer under (out) over (in) run error
+	29 Babble Detected.                 - Recevied data overrun
+	28 Transaction Error (XactErr).	    - Everything else. Use not responding.
+	
 	if(active) kIOUSBNotSent1Err
 	else if(DBE) if(out)kIOUSBBufferUnderrunErr else kIOUSBBufferOverrunErr
 	else if(babble) kIOReturnOverrun
 	else if(Xacterr) kIOReturnNotResponding
 	else if(in) if(length < maxpacketsize) kIOReturnUnderrun
 	else
-		kIOReturnSuccess
-*/
-	if((status & (kEHCI_ITDStatus_Active | kEHCI_ITDStatus_BuffErr | kEHCI_ITDStatus_Babble | kEHCI_ITDStatus_XactErr)) == 0)
+	kIOReturnSuccess
+	*/
+	if((status & (kEHCI_ITDStatus_Active | kEHCI_ITDStatus_BuffErr | kEHCI_ITDStatus_Babble)) == 0)
 	{
-		/* all status bits clear */
-		
-		*transferLen = (status & kEHCI_ITDTr_Len) >> kEHCI_ITDTr_LenPhase;
-		if( (direction == kUSBIn) && (maxPacketSize != *transferLen) )
+		if (((status & kEHCI_ITDStatus_XactErr) == 0) || (direction == kUSBIn))
 		{
-			return(kIOReturnUnderrun);
+			// Isoch IN transactions can set the Xact_Err bit when the device sent the wrong PID (DATA2/1/0)
+			// for the amount of data sent. For example, a device based on the Cypress EZ-USB FX2 chip set can send up 
+			// to 3072 bytes per microframe (DATA2=1024, DATA1=1024, DATA0=1024). But if the device only has 1024 bytes
+			// on a particular microframe, it sends it with a DATA2 PID. It then ignores the subsequent
+			// IN PID - which it should not do, and which is a XactERR in the controller. However
+			// the first 1024 bytes was transferred correctly, so we need to count that as an Underrun instead
+			// of the XActErr. So this works around a bug in that Cypress chip set. (3915817)
+			*transferLen = (status & kEHCI_ITDTr_Len) >> kEHCI_ITDTr_LenPhase;
+			if( (direction == kUSBIn) && (maxPacketSize != *transferLen) )
+			{
+				return(kIOReturnUnderrun);
+			}
+			return(kIOReturnSuccess);
 		}
-		return(kIOReturnSuccess);
 	}
 	*transferLen = 0;
 	
@@ -236,25 +244,25 @@ iTD has these possible status bits:
 IOReturn
 AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 {
-    UInt32 				*TransactionP, statusWord;
+    UInt32							*TransactionP, statusWord;
     IOUSBLowLatencyIsocFrame 		*FrameP;
-    IOReturn 				ret, frStatus;
-    int 				i;
-
-    ret = myEndpoint->accumulatedStatus;
+    IOReturn						ret, frStatus;
+    int								i;
+	
+    ret = _pEndpoint->accumulatedStatus;
 	
     TransactionP = &GetSharedLogical()->Transaction0;
-    FrameP = (IOUSBLowLatencyIsocFrame *)myFrames;
+    FrameP = (IOUSBLowLatencyIsocFrame *)_pFrames;
     for(i=0; i<8; i++)
     {
 	    statusWord = USBToHostLong(*(TransactionP++));
-	    frStatus = mungeEHCIStatus(statusWord, &FrameP->frActCount,  myEndpoint->maxPacketSize,  myEndpoint->direction);
-	    if (lowLatency)
-		FrameP->frTimeStamp = timeStamp;
+	    frStatus = mungeEHCIStatus(statusWord, &FrameP->frActCount,  _pEndpoint->maxPacketSize,  _pEndpoint->direction);
+	    if (_lowLatency)
+			FrameP->frTimeStamp = timeStamp;
 	    
 	    if(frStatus != kIOReturnSuccess)
 	    {
-		    USBError(1, "AppleEHCIIsochTransferDescriptor::UpdateFrameList - bad status word %p gives status %p", statusWord, frStatus);
+		    USBError(5, "AppleEHCIIsochTransferDescriptor::UpdateFrameList - bad status word %p gives status %p", statusWord, frStatus);
 		    if(frStatus != kIOReturnUnderrun)
 		    {
 			    ret = frStatus;
@@ -265,7 +273,7 @@ AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 		    }
 	    }
 	    FrameP->frStatus = frStatus;
-	    if(lowLatency)
+	    if(_lowLatency)
 	    {
 		    FrameP++;
 	    }
@@ -274,7 +282,7 @@ AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 		    FrameP = (IOUSBLowLatencyIsocFrame *)(  ((IOUSBIsocFrame *)FrameP)+1);
 	    }
     }
-    myEndpoint->accumulatedStatus = ret;
+    _pEndpoint->accumulatedStatus = ret;
     return ret;
 }
 
@@ -320,7 +328,7 @@ AppleEHCISplitIsochTransferDescriptor::WithSharedMemory(EHCISplitIsochTransferDe
 {
     AppleEHCISplitIsochTransferDescriptor *me = new AppleEHCISplitIsochTransferDescriptor;
     if (!me || !me->init())
-	return NULL;
+		return NULL;
     me->_sharedLogical = sharedLogical;
     me->_sharedPhysical = sharedPhysical;
     return me;
@@ -357,97 +365,100 @@ AppleEHCISplitIsochTransferDescriptor::GetPhysicalAddrWithType(void)
 IOReturn
 AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 {
-    UInt32					statFlags;
+    UInt32						statFlags;
     IOUSBIsocFrame 				*pFrames;    
-    IOUSBLowLatencyIsocFrame 			*pLLFrames;    
+    IOUSBLowLatencyIsocFrame 	*pLLFrames;    
     IOReturn					frStatus = kIOReturnSuccess;
-    UInt16					frActualCount = 0;
-    UInt16					frReqCount;
+    UInt16						frActualCount = 0;
+    UInt16						frReqCount;
     
     statFlags = USBToHostLong(GetSharedLogical()->statFlags);
     // warning - this method can run at primary interrupt time, which can cause a panic if it logs too much
     // USBLog(7, "AppleEHCISplitIsochTransferDescriptor[%p]::UpdateFrameList statFlags (%x)", this, statFlags);
-    pFrames = myFrames;
-    pLLFrames = (IOUSBLowLatencyIsocFrame*)pFrames;
-    if (lowLatency)
+    pFrames = _pFrames;
+	if (!pFrames)							// this will be the case for the dummy TD
+		return kIOReturnSuccess;
+	
+    pLLFrames = (IOUSBLowLatencyIsocFrame*)_pFrames;
+    if (_lowLatency)
     {
-	frReqCount = pLLFrames[frameIndex].frReqCount;
+		frReqCount = pLLFrames[_frameIndex].frReqCount;
     }
     else
     {
-	frReqCount = pFrames[frameIndex].frReqCount;
+		frReqCount = pFrames[_frameIndex].frReqCount;
     }
 	
-    if (statFlags & kEHCIsiTDStatStatusActive)
+    if ((statFlags & kEHCIsiTDStatStatusActive) && !_isDummySITD)
     {
-	frStatus = kIOUSBNotSent2Err;
+		frStatus = kIOUSBNotSent2Err;
     }
     else if (statFlags & kEHCIsiTDStatStatusERR)
     {
-	frStatus = kIOReturnNotResponding;
+		frStatus = kIOReturnNotResponding;
     }
     else if (statFlags & kEHCIsiTDStatStatusDBE)
     {
-	if (myEndpoint->direction == kUSBOut)
-	    frStatus = kIOReturnUnderrun;
-	else
-	    frStatus = kIOReturnOverrun;
+		if (_pEndpoint->direction == kUSBOut)
+			frStatus = kIOReturnUnderrun;
+		else
+			frStatus = kIOReturnOverrun;
     }
     else if (statFlags & kEHCIsiTDStatStatusBabble)
     {
-	frStatus = kIOReturnNotResponding;
+		frStatus = kIOReturnNotResponding;
     }
     else if (statFlags & kEHCIsiTDStatStatusXActErr)
     {
-	frStatus = kIOUSBWrongPIDErr;
+		frStatus = kIOUSBWrongPIDErr;
     }
     else if (statFlags & kEHCIsiTDStatStatusMMF)
     {
-	frStatus = kIOUSBNotSent1Err;
+		frStatus = kIOUSBNotSent1Err;
     }
     else
     {
-	frActualCount = frReqCount - ((statFlags & kEHCIsiTDStatLength) >> kEHCIsiTDStatLengthPhase);
-	if (frActualCount != frReqCount)
-	{
-	    if (myEndpoint->direction == kUSBOut)
-	    {
-		// warning - this method can run at primary interrupt time, which can cause a panic if it logs too much
-		// USBLog(7, "AppleEHCISplitIsochTransferDescriptor[%p]::UpdateFrameList - (OUT) reqCount (%d) actCount (%d)", this, frReqCount, frActualCount);
-		frStatus = kIOReturnUnderrun;
-	    }
-	    else if (myEndpoint->direction == kUSBIn)
-	    {
-		// warning - this method can run at primary interrupt time, which can cause a panic if it logs too much
-		// USBLog(7, "AppleEHCISplitIsochTransferDescriptor[%p]::UpdateFrameList - (IN) reqCount (%d) actCount (%d)", this, frReqCount, frActualCount);
-		frStatus = kIOReturnUnderrun;
-	    }
-	}
+		frActualCount = frReqCount - ((statFlags & kEHCIsiTDStatLength) >> kEHCIsiTDStatLengthPhase);
+		if (frActualCount != frReqCount)
+		{
+			if (_pEndpoint->direction == kUSBOut)
+			{
+				// warning - this method can run at primary interrupt time, which can cause a panic if it logs too much
+				// USBLog(7, "AppleEHCISplitIsochTransferDescriptor[%p]::UpdateFrameList - (OUT) reqCount (%d) actCount (%d)", this, frReqCount, frActualCount);
+				frStatus = kIOReturnUnderrun;
+			}
+			else if (_pEndpoint->direction == kUSBIn)
+			{
+				// warning - this method can run at primary interrupt time, which can cause a panic if it logs too much
+				// USBLog(7, "AppleEHCISplitIsochTransferDescriptor[%p]::UpdateFrameList - (IN) reqCount (%d) actCount (%d)", this, frReqCount, frActualCount);
+				frStatus = kIOReturnUnderrun;
+			}
+		}
     }
-    if (lowLatency)
+    if (_lowLatency)
     {
-	pLLFrames[frameIndex].frActCount = frActualCount;
-	pLLFrames[frameIndex].frStatus = frStatus;
-	pLLFrames[frameIndex].frTimeStamp = timeStamp;
+		pLLFrames[_frameIndex].frActCount = frActualCount;
+		pLLFrames[_frameIndex].frStatus = frStatus;
+		pLLFrames[_frameIndex].frTimeStamp = timeStamp;
     }
     else
     {
-	pFrames[frameIndex].frActCount = frActualCount;
-	pFrames[frameIndex].frStatus = frStatus;
+		pFrames[_frameIndex].frActCount = frActualCount;
+		pFrames[_frameIndex].frStatus = frStatus;
     }
 	
     if(frStatus != kIOReturnSuccess)
     {
-	if(frStatus != kIOReturnUnderrun)
-	{
-	    myEndpoint->accumulatedStatus = frStatus;
-	}
-	else if(myEndpoint->accumulatedStatus == kIOReturnSuccess)
-	{
-	    myEndpoint->accumulatedStatus = kIOReturnUnderrun;
-	}
+		if(frStatus != kIOReturnUnderrun)
+		{
+			_pEndpoint->accumulatedStatus = frStatus;
+		}
+		else if(_pEndpoint->accumulatedStatus == kIOReturnSuccess)
+		{
+			_pEndpoint->accumulatedStatus = kIOReturnUnderrun;
+		}
     }
-
+	
     return frStatus;
 }
 

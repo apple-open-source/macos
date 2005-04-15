@@ -1,0 +1,367 @@
+<HTML>
+<HEAD>
+<TITLE>cyradm - Cyrus administration shell, alter ego of Cyrus::IMAP::Shell</TITLE>
+<LINK REV="made" HREF="mailto:advisor+@andrew.cmu.edu">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<LI><A HREF="#commands">COMMANDS</A></LI>
+	<LI><A HREF="#notes">NOTES</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>cyradm - Cyrus administration shell, alter ego of Cyrus::IMAP::Shell</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  $ cyradm [--user user] [--[no]rc] [--systemrc file] [--userrc file] \
+  &gt; [--port n] [--auth mechanism] [--server] server</PRE>
+<P>but possibly</P>
+<PRE>
+  $ perl -MCyrus::IMAP::Shell -e 'run(&quot;myscript&quot;)'</PRE>
+<P>or even (not recommended)</P>
+<PRE>
+  use Cyrus::IMAP::Admin::Shell;</PRE>
+<PRE>
+  run('myscriptname');</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>This module implements <STRONG>cyradm</STRONG> in Perl.  It is a shell around
+<A HREF="/Cyrus/IMAP/Admin.html">the Cyrus::IMAP::Admin manpage</A>.  Commands are provided in both Tcl-compatible
+forms and GNU-style long option forms.</P>
+<P>
+<HR>
+<H1><A NAME="commands">COMMANDS</A></H1>
+<DL>
+<DT><STRONG><A NAME="item_authenticate_%5B%2D%2Dminssf_N%5D_%5B%2D%2Dmaxssf_"><CODE>authenticate</CODE> [<CODE>--minssf</CODE> <EM>N</EM>] [<CODE>--maxssf</CODE> <EM>N</EM>] [<CODE>--mechanisms</CODE> <EM>list</EM>] [<EM>user</EM>]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_auth_%5B%2D%2Dminssf_N%5D_%5B%2D%2Dmaxssf_N%5D_%5B"><CODE>auth</CODE> [<CODE>--minssf</CODE> <EM>N</EM>] [<CODE>--maxssf</CODE> <EM>N</EM>] [<CODE>--mechanisms</CODE> <EM>list</EM>] [<EM>user</EM>]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_login_%5B%2D%2Dminssf_N%5D_%5B%2D%2Dmaxssf_N%5D_%5"><CODE>login</CODE> [<CODE>--minssf</CODE> <EM>N</EM>] [<CODE>--maxssf</CODE> <EM>N</EM>] [<CODE>--mechanisms</CODE> <EM>list</EM>] [<EM>user</EM>]</A></STRONG><BR>
+<DD>
+Authenticate to server.  You must already be connected to a server and
+Cyrus imapd will refuse to allow you to re-authenticate once you have
+authenticated once.
+<P></P>
+<DT><STRONG><A NAME="item_chdir_directory"><CODE>chdir</CODE> <EM>directory</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_cd_directory"><CODE>cd</CODE> <EM>directory</EM></A></STRONG><BR>
+<DD>
+Change directory.  A <CODE>pwd</CODE> builtin is not provided, but the default command
+action will run <CODE>pwd</CODE> from a shell if invoked.
+<P></P>
+<DT><STRONG><A NAME="item_createmailbox_%5B%2D%2Dpartition_partition%5D_mail"><CODE>createmailbox</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_createmailbox_mailbox_partition"><CODE>createmailbox</CODE> <EM>mailbox</EM> <EM>partition</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_create_%5B%2D%2Dpartition_partition%5D_mailbox"><CODE>create</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_create_mailbox_partition"><CODE>create</CODE> <EM>mailbox</EM> <EM>partition</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_cm_%5B%2D%2Dpartition_partition%5D_mailbox"><CODE>cm</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_cm_mailbox_partition"><CODE>cm</CODE> <EM>mailbox</EM> <EM>partition</EM></A></STRONG><BR>
+<DD>
+Create a mailbox on the default or a specified partition.  Both old-style
+and getopt-style usages are accepted (combining them will produce an error).
+<P></P>
+<DT><STRONG><A NAME="item_deleteaclmailbox_mailbox_id_%5B%2E%2E%2E%5D"><CODE>deleteaclmailbox</CODE> <EM>mailbox</EM> <EM>id</EM> [...]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_deleteacl_mailbox_id_%5B%2E%2E%2E%5D"><CODE>deleteacl</CODE> <EM>mailbox</EM> <EM>id</EM> [...]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_dam_mailbox_id_%5B%2E%2E%2E%5D"><CODE>dam</CODE> <EM>mailbox</EM> <EM>id</EM> [...]</A></STRONG><BR>
+<DD>
+Remove ACLs from the specified mailbox.
+<P></P>
+<DT><STRONG><A NAME="item_deletemailbox_mailbox"><CODE>deletemailbox</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_delete_mailbox"><CODE>delete</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_dm_mailbox"><CODE>dm</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+Delete the specified mailbox.
+<P>Administrators do not have implicit delete rights on mailboxes.  Use the
+<STRONG>setaclmailbox</STRONG> command to grant the <A HREF="#item_c"><CODE>c</CODE></A> permission (or other permission
+as specified by the deleteright configuration option in imapd.conf)
+to your principal if you need to delete a mailbox you do not own.</P>
+<P>Note that the online help admits to an optional host argument.  This argument
+is not currently used, and will be rejected with an error if specified; it
+is reserved for IMSP.</P>
+<P></P>
+<DT><STRONG><A NAME="item_disconnect"><CODE>disconnect</CODE></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_disc"><CODE>disc</CODE></A></STRONG><BR>
+<DD>
+Disconnect from the current server.  The prompt will revert to <CODE>cyradm&gt;</CODE>.
+<P></P>
+<DT><STRONG><A NAME="item_exit_%5Bnumber%5D"><CODE>exit</CODE> [<EM>number</EM>]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_quit_%5Bnumber%5D"><CODE>quit</CODE> [<EM>number</EM>]</A></STRONG><BR>
+<DD>
+Exit <STRONG>cyradm</STRONG>, optionally with a specific exit status; the exit status of the
+last command will be used if one is not specified.
+<P></P>
+<DT><STRONG><A NAME="item_help_%5Bcommand%5D">help [command]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_%3F_%5Bcommand%5D">? [command]</A></STRONG><BR>
+<DD>
+Show help for <CODE>command</CODE> or all commands.
+<P></P>
+<DT><STRONG><A NAME="item_info_%5Bmailbox%5D"><CODE>info</CODE> [<EM>mailbox</EM>]</A></STRONG><BR>
+<DD>
+Display the mailbox/server metadata.
+<P></P>
+<DT><STRONG><A NAME="item_listaclmailbox_mailbox"><CODE>listaclmailbox</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_listacl_mailbox"><CODE>listacl</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_lam_mailbox"><CODE>lam</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+List ACLs on the specified mailbox.
+<P></P>
+<DT><STRONG><A NAME="item_listmailbox_%5B%2D%2Dsubscribed%5D_%5Bpattern_%5Br"><CODE>listmailbox</CODE> [<CODE>--subscribed</CODE>] [<EM>pattern</EM> [<EM>reference</EM>]]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_list_%5B%2D%2Dsubscribed%5D_%5Bpattern_%5Breferenc"><CODE>list</CODE> [<CODE>--subscribed</CODE>] [<EM>pattern</EM> [<EM>reference</EM>]]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_lm_%5B%2D%2Dsubscribed%5D_%5Bpattern_%5Breference%"><CODE>lm</CODE> [<CODE>--subscribed</CODE>] [<EM>pattern</EM> [<EM>reference</EM>]]</A></STRONG><BR>
+<DD>
+List all, or all subscribed, mailboxes matching the specified pattern.
+The pattern may have embedded wildcards <CODE>'*'</CODE> or <CODE>'%'</CODE>, which match
+anything or anything except the separator character, respectively.
+<P>Mailboxes returned will be relative to the specified reference if one
+is specified.  This allows a mailbox list to be limited to a particular
+hierarchy.</P>
+<P>In some cases when the <CODE>'%'</CODE> wildcard is used to end a pattern, it may
+match an entry which is not a mailbox but which contains other mailboxes.
+In this case, the entry will be parenthesized to indicate that it is a
+root for other mailboxes, as opposed to a mailbox itself.</P>
+<P></P>
+<DT><STRONG><A NAME="item_listquota_root"><CODE>listquota</CODE> <EM>root</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_lq_root"><CODE>lq</CODE> <EM>root</EM></A></STRONG><BR>
+<DD>
+List quotas on specified root.  If the specified mailbox path does not have
+a quota assigned, an error will be raised; see <EM>listquotaroot</EM> for a way to
+find the quota root for a mailbox.
+<P></P>
+<DT><STRONG><A NAME="item_listquotaroot_mailbox"><CODE>listquotaroot</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_lqm_mailbox"><CODE>lqm</CODE> <EM>mailbox</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_lqr_mailbox%3F"><CODE>lqr</CODE> <EM>mailbox?</EM></A></STRONG><BR>
+<DD>
+show quota roots and quotas for mailbox
+<P></P>
+<DT><STRONG><A NAME="item_mboxconfig_mailbox_attribute_value"><CODE>mboxconfig</CODE> <EM>mailbox</EM> <EM>attribute</EM> <EM>value</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_mboxcfg_mailbox_attribute_value"><CODE>mboxcfg</CODE> <EM>mailbox</EM> <EM>attribute</EM> <EM>value</EM></A></STRONG><BR>
+<DD>
+Set mailbox metadata.  A value of ``none'' will remove the attribute.
+The currently supported attributes are:
+<DL>
+<DT><STRONG><A NAME="item_comment"><CODE>comment</CODE></A></STRONG><BR>
+<DD>
+Sets a comment or description associated with the mailbox.
+<P></P>
+<DT><STRONG><A NAME="item_expire"><CODE>expire</CODE></A></STRONG><BR>
+<DD>
+Sets the number of days after which messages will be expired from the mailbox.
+<P></P>
+<DT><STRONG><A NAME="item_squat"><CODE>squat</CODE></A></STRONG><BR>
+<DD>
+Indicates that the mailbox should have a squat index created for it.
+<P></P>
+<DT><STRONG><A NAME="item_news2mail"><CODE>news2mail</CODE></A></STRONG><BR>
+<DD>
+Sets an email address to which messages injected into the server via NNTP 
+will be sent.
+<P></P></DL>
+<DT><STRONG><A NAME="item_renamemailbox_%5B%2D%2Dpartition_partition%5D_oldn"><CODE>renamemailbox</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>oldname</EM> <EM>newname</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_rename_%5B%2D%2Dpartition_partition%5D_oldname_new"><CODE>rename</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>oldname</EM> <EM>newname</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_renm_%5B%2D%2Dpartition_partition%5D_oldname_newna"><CODE>renm</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>oldname</EM> <EM>newname</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_renamemailbox_oldname_newname_%5Bpartition%5D"><CODE>renamemailbox</CODE> <EM>oldname</EM> <EM>newname</EM> [<EM>partition</EM>]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_rename_oldname_newname_%5Bpartition%5D"><CODE>rename</CODE> <EM>oldname</EM> <EM>newname</EM> [<EM>partition</EM>]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_renm_oldname_newname_%5Bpartition%5D"><CODE>renm</CODE> <EM>oldname</EM> <EM>newname</EM> [<EM>partition</EM>]</A></STRONG><BR>
+<DD>
+Rename the specified mailbox, optionally moving it to a different partition.
+Both old-style and getopt-style usages are accepted; combining them will
+produce an error.
+<P></P>
+<DT><STRONG><A NAME="item_server_%5B%2D%2Dnoauthenticate%5D_%5Bserver%5D">server [--noauthenticate] [server]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_connect_%5B%2D%2Dnoauthenticate%5D_%5Bserver%5D">connect [--noauthenticate] [server]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_servername_%5B%2D%2Dnoauthenticate%5D_%5Bserver%5D">servername [--noauthenticate] [server]</A></STRONG><BR>
+<DD>
+With no arguments, show the current server.  With an argument, connect to that
+server.  It will prompt for automatic login unless the <CODE>--noauthenticate</CODE>
+option is specified.  (This may change; in particular, either automatic
+authentication will be removed or all <CODE>authenticate</CODE> options will be added.)
+<P>When connected to a server, <STRONG>cyradm</STRONG>'s prompt changes from <CODE>cyradm&gt;</CODE> to
+<CODE>servername&gt;</CODE>, where <EM>servername</EM> is the fully qualified domain name
+of the connected server.</P>
+<P></P>
+<DT><STRONG><A NAME="item_setaclmailbox_mailbox_id_rights_%5Bid_rights_%2E%2"><CODE>setaclmailbox</CODE> <EM>mailbox</EM> <EM>id</EM> <EM>rights</EM> [<EM>id</EM> <EM>rights</EM> ...]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_setacl_mailbox_id_rights_%5Bid_rights_%2E%2E%2E%5D"><CODE>setacl</CODE> <EM>mailbox</EM> <EM>id</EM> <EM>rights</EM> [<EM>id</EM> <EM>rights</EM> ...]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_sam_mailbox_id_rights_%5Bid_rights_%2E%2E%2E%5D"><CODE>sam</CODE> <EM>mailbox</EM> <EM>id</EM> <EM>rights</EM> [<EM>id</EM> <EM>rights</EM> ...]</A></STRONG><BR>
+<DD>
+Set ACLs on a mailbox.  The ACL may be one of the special strings <CODE>none</CODE>,
+<CODE>read</CODE> (<CODE>lrs</CODE>), <CODE>post</CODE> (<CODE>lrsp</CODE>), <CODE>append</CODE> (<CODE>lrsip</CODE>), <CODE>write</CODE>
+(<CODE>lrswipcd</CODE>), or <CODE>all</CODE> (<CODE>lrswipcda</CODE>), or any combinations of the ACL codes:
+<DL>
+<DT><STRONG><A NAME="item_l">l</A></STRONG><BR>
+<DD>
+Lookup (visible to LIST/LSUB/UNSEEN)
+<P></P>
+<DT><STRONG><A NAME="item_r">r</A></STRONG><BR>
+<DD>
+Read (SELECT, CHECK, FETCH, PARTIAL, SEARCH, COPY source)
+<P></P>
+<DT><STRONG><A NAME="item_s">s</A></STRONG><BR>
+<DD>
+Seen (STORE \SEEN)
+<P></P>
+<DT><STRONG><A NAME="item_w">w</A></STRONG><BR>
+<DD>
+Write flags other than \SEEN and \DELETED
+<P></P>
+<DT><STRONG><A NAME="item_i">i</A></STRONG><BR>
+<DD>
+Insert (APPEND, COPY destination)
+<P></P>
+<DT><STRONG><A NAME="item_p">p</A></STRONG><BR>
+<DD>
+Post (send mail to mailbox)
+<P></P>
+<DT><STRONG><A NAME="item_c">c</A></STRONG><BR>
+<DD>
+Create and Delete mailbox (CREATE new sub-mailboxes, RENAME or DELETE mailbox)
+<P></P>
+<DT><STRONG><A NAME="item_d">d</A></STRONG><BR>
+<DD>
+Delete (STORE \DELETED, EXPUNGE)
+<P></P>
+<DT><STRONG><A NAME="item_a">a</A></STRONG><BR>
+<DD>
+Administer (SETACL)
+<P></P></DL>
+<DT><STRONG><A NAME="item_setinfo_attribute_value"><CODE>setinfo</CODE> <EM>attribute</EM> <EM>value</EM></A></STRONG><BR>
+<DD>
+Set server metadata.  A value of ``none'' will remove the attribute.
+The currently supported attributes are:
+<DL>
+<DT><STRONG><A NAME="item_motd"><CODE>motd</CODE></A></STRONG><BR>
+<DD>
+Sets a ``message of the day''.  The message gets displayed as an ALERT after
+authentication.
+<P></P>
+<DT><STRONG><CODE>comment</CODE></STRONG><BR>
+<DD>
+Sets a comment or description associated with the server.
+<P></P>
+<DT><STRONG><A NAME="item_admin"><CODE>admin</CODE></A></STRONG><BR>
+<DD>
+Sets the administrator email address for the server.
+<P></P>
+<DT><STRONG><A NAME="item_shutdown"><CODE>shutdown</CODE></A></STRONG><BR>
+<DD>
+Sets a shutdown message.  The message gets displayed as an ALERT and
+all users are disconnected from the server (subsequent logins are disallowed).
+<P></P>
+<DT><STRONG><CODE>expire</CODE></STRONG><BR>
+<DD>
+Sets the number of days after which messages will be expired from the
+server (unless overridden by a mailbox annotation).
+<P></P>
+<DT><STRONG><CODE>squat</CODE></STRONG><BR>
+<DD>
+Indicates that all mailboxes should have a squat indexes created for
+them (unless overridden by a mailbox annotation).
+<P></P></DL>
+<DT><STRONG><A NAME="item_setquota_root_resource_value_%5Bresource_value_%2E"><CODE>setquota</CODE> <EM>root</EM> <EM>resource</EM> <EM>value</EM> [<EM>resource</EM> <EM>value</EM> ...]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_sq_root_resource_value_%5Bresource_value_%2E%2E%2E"><CODE>sq</CODE> <EM>root</EM> <EM>resource</EM> <EM>value</EM> [<EM>resource</EM> <EM>value</EM> ...]</A></STRONG><BR>
+<DD>
+Set a quota on the specified root, which may or may not be an actual mailbox.
+The only <EM>resource</EM> understood by <STRONG>Cyrus</STRONG> is <CODE>STORAGE</CODE>.  The <EM>value</EM> may
+be the special string <CODE>none</CODE> which will remove the quota.
+<P></P>
+<DT><STRONG><A NAME="item_version"><CODE>version</CODE></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_ver"><CODE>ver</CODE></A></STRONG><BR>
+<DD>
+Display the version info of the current server.
+<P></P>
+<DT><STRONG><A NAME="item_xfermailbox_%5B%2D%2Dpartition_partition%5D_mailbo"><CODE>xfermailbox</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>mailbox</EM> <EM>server</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_xfer_%5B%2D%2Dpartition_partition%5D_mailbox_serve"><CODE>xfer</CODE> [<CODE>--partition</CODE> <EM>partition</EM>] <EM>mailbox</EM> <EM>server</EM></A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_xfermailbox_mailbox_server_%5Bpartition%5D"><CODE>xfermailbox</CODE> <EM>mailbox</EM> <EM>server</EM> [<EM>partition</EM>]</A></STRONG><BR>
+<DD>
+<DT><STRONG><A NAME="item_xfer_mailbox_server_%5Bpartition%5D"><CODE>xfer</CODE> <EM>mailbox</EM> <EM>server</EM> [<EM>partition</EM>]</A></STRONG><BR>
+<DD>
+Transfer (relocate) the specified mailbox to a different server.
+Both old-style and getopt-style usages are accepted; combining them will
+produce an error.
+<P></P></DL>
+<P>
+<HR>
+<H1><A NAME="notes">NOTES</A></H1>
+<P>GNU-style long options must be given in their entirety; Tcl-style options
+may be abbreviated.</P>
+<P>Tcl-style options are provided as a compatibility feature.  They will
+probably go away in the future.</P>
+<P>Multiple commands can be given on a line, separated by <CODE>';'</CODE> characters.</P>
+<P>All commands set an exit status, which at present is not useful.</P>
+<P>Unknown commands are passed to a subshell for execution.</P>
+<P>The Tcl version of <STRONG>cyradm</STRONG> is used for scripting as well as interactively.
+While this is possible to a limited extent by use of the <CODE>run</CODE> method,
+scripting would normally be done with <CODE>Cyrus::IMAP::Admin</CODE>, which is far
+more flexible than either interactive <CODE>cyradm</CODE> or the Tcl scripting
+mechanism for Cyrus.</P>
+<P><STRONG>cyradm</STRONG> understands <STRONG>/bin/sh</STRONG>-style redirection:  any command can have
+its standard or error output redirected, with all <STRONG>sh</STRONG>-style redirections
+(except <CODE>&lt;&gt;</CODE>) supported.  It does not currently understand pipes
+or backgrounding.</P>
+<P>If the <CODE>Term::Readline::Perl</CODE> or <CODE>Term::Readline::GNU</CODE> modules are
+available, <STRONG>cyradm</STRONG> will use it.</P>
+<P>An alias facility is implemented internally, but no access is currently
+provided to it.  This will change, if only to allow some of the predefined
+aliases to be removed if they conflict with useful shell commands.</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Brandon S. Allbery, <A HREF="mailto:allbery@ece.cmu.edu">allbery@ece.cmu.edu</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>Cyrus::IMAP::Admin
+Term::ReadLine
+sh(1), perl(1), imapd(8).</P>
+
+</BODY>
+
+</HTML>

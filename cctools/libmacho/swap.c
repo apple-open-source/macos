@@ -20,8 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <mach-o/swap.h>
-#import <string.h>
+#ifndef RLD
+#include <stdint.h>
+#include <mach-o/swap.h>
+#include <string.h>
 
 void
 swap_fat_header(
@@ -35,10 +37,10 @@ enum NXByteOrder target_byte_sex)
 void
 swap_fat_arch(
 struct fat_arch *fat_archs,
-unsigned long nfat_arch,
+uint32_t nfat_arch,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nfat_arch; i++){
 	    fat_archs[i].cputype    = NXSwapLong(fat_archs[i].cputype);
@@ -93,10 +95,10 @@ enum NXByteOrder target_byte_sex)
 void
 swap_section(
 struct section *s,
-unsigned long nsects,
+uint32_t nsects,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nsects; i++){
 	    /* sectname[16] */
@@ -314,10 +316,10 @@ enum NXByteOrder target_byte_sex)
 void
 swap_nlist(
 struct nlist *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nsymbols; i++){
 	    symbols[i].n_un.n_strx = NXSwapLong(symbols[i].n_un.n_strx);
@@ -331,10 +333,10 @@ enum NXByteOrder target_byte_sex)
 void
 swap_ranlib(
 struct ranlib *ranlibs,
-unsigned long nranlibs,
+uint32_t nranlibs,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nranlibs; i++){
 	    ranlibs[i].ran_un.ran_strx = NXSwapLong(ranlibs[i].ran_un.ran_strx);
@@ -345,12 +347,12 @@ enum NXByteOrder target_byte_sex)
 void
 swap_relocation_info(
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
     enum NXByteOrder host_byte_sex;
-    unsigned long to_host_byte_sex, scattered;
+    uint32_t to_host_byte_sex, scattered;
 
     struct swapped_relocation_info {
 	long	r_address;
@@ -363,12 +365,12 @@ enum NXByteOrder target_byte_sex)
 		    r_pcrel:1,
 		    r_symbolnum:24;
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sr;
 
     struct swapped_scattered_relocation_info {
-	unsigned long word;
+	uint32_t word;
 	long	r_value;
     } *ssr;
 
@@ -414,11 +416,11 @@ enum NXByteOrder target_byte_sex)
 
 void
 swap_indirect_symbols(
-unsigned long *indirect_symbols,
-unsigned long nindirect_symbols,
+uint32_t *indirect_symbols,
+uint32_t nindirect_symbols,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nindirect_symbols; i++)
 	    indirect_symbols[i] = NXSwapLong(indirect_symbols[i]);
@@ -427,21 +429,21 @@ enum NXByteOrder target_byte_sex)
 void
 swap_dylib_reference(
 struct dylib_reference *refs,
-unsigned long nrefs,
+uint32_t nrefs,
 enum NXByteOrder target_byte_sex)
 {
     struct swapped_dylib_reference {
 	union {
 	    struct {
-		unsigned long
+		uint32_t
 		    flags:8,
 		    isym:24;
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sref;
 
-    unsigned long i;
+    uint32_t i;
     enum NXByteOrder host_byte_sex;
 
 	host_byte_sex = NXHostByteOrder();
@@ -466,10 +468,10 @@ enum NXByteOrder target_byte_sex)
 void
 swap_dylib_module(
 struct dylib_module *mods,
-unsigned long nmods,
+uint32_t nmods,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < nmods; i++){
 	    mods[i].module_name = NXSwapLong(mods[i].module_name);
@@ -489,13 +491,14 @@ enum NXByteOrder target_byte_sex)
 void
 swap_dylib_table_of_contents(
 struct dylib_table_of_contents *tocs,
-unsigned long ntocs,
+uint32_t ntocs,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 
 	for(i = 0; i < ntocs; i++){
 	    tocs[i].symbol_index = NXSwapLong(tocs[i].symbol_index);
 	    tocs[i].module_index = NXSwapLong(tocs[i].module_index);
 	}
 }
+#endif /* !defined(RLD) */

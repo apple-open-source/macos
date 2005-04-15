@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #import <libc.h>
 #import <ctype.h>
 #import <sys/types.h>
@@ -188,4 +189,4 @@ enum bool no_error_if_missing)
         return c;
     }
 }
-
+#endif /* !defined(RLD) */

@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbpasswd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbpasswd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbpasswd &#8212; change a user's SMB password</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbpasswd</tt>  [-a] [-x] [-d] [-e] [-D debuglevel] [-n] [-r &lt;remote machine&gt;] [-R &lt;name resolve order&gt;] [-m] [-U username[%password]] [-h] [-s] [-w pass] [-i] [-L] [username]</p></div></div><div class="refsect1" lang="en"><a name="id2432600"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p>The smbpasswd program has several different 
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbpasswd</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbpasswd.8"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbpasswd &#8212; change a user's SMB password</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbpasswd</tt>  [-a] [-x] [-d] [-e] [-D debuglevel] [-n] [-r &lt;remote machine&gt;] [-R &lt;name resolve order&gt;] [-m] [-U username[%password]] [-h] [-s] [-w pass] [-i] [-L] [username]</p></div></div><div class="refsect1" lang="en"><a name="id2478538"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p>The smbpasswd program has several different 
 	functions, depending on whether it is run by the <span class="emphasis"><em>root</em></span> user 
 	or not. When run as a normal user it allows the user to change 
 	the password used for their SMB sessions on any machines that store 
@@ -25,7 +25,7 @@
 	the attributes of the user in this file to be made. When run by root, <span><b class="command">
 	smbpasswd</b></span> accesses the local smbpasswd file 
 	directly, thus enabling changes to be made even if smbd is not 
-	running. </p></div><div class="refsect1" lang="en"><a name="id2479976"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-a</span></dt><dd><p>This option specifies that the username 
+	running. </p></div><div class="refsect1" lang="en"><a name="id2430133"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-a</span></dt><dd><p>This option specifies that the username 
 		following should be added to the local smbpasswd file, with the 
 		new password typed (type &lt;Enter&gt; for the old password). This 
 		option is ignored if the username following already exists in 
@@ -124,10 +124,9 @@
 		standard  input, rather than from <tt class="filename">/dev/tty</tt> 
 		(like the <span><b class="command">passwd(1)</b></span> program does). This option 
 		is to aid people writing scripts to drive smbpasswd</p></dd><dt><span class="term">-w password</span></dt><dd><p>This parameter is only available if Samba
-		has been configured to use the experimental
-		<span><b class="command">--with-ldapsam</b></span> option. The <i class="parameter"><tt>-w</tt></i> 
+		has been compiled with LDAP support. The <i class="parameter"><tt>-w</tt></i> 
 		switch is used to specify the password to be used with the 
-		<a class="indexterm" name="id2429334"></a>ldap admin dn.  Note that the password is stored in
+		<a class="indexterm" name="id2429468"></a>ldap admin dn.  Note that the password is stored in
 		the <tt class="filename">secrets.tdb</tt> and is keyed off 
 		of the admin's DN.  This means that if the value of <i class="parameter"><tt>ldap
 		admin dn</tt></i> ever changes, the password will need to be 
@@ -140,7 +139,7 @@
 		<span class="emphasis"><em>root only</em></span> options to operate on. Only root 
 		can specify this parameter as only root has the permission needed 
 		to modify attributes directly in the local smbpasswd file. 
-		</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2429410"></a><h2>NOTES</h2><p>Since <span><b class="command">smbpasswd</b></span> works in client-server 
+		</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2429544"></a><h2>NOTES</h2><p>Since <span><b class="command">smbpasswd</b></span> works in client-server 
 	mode communicating  with a local smbd for a non-root user then 
 	the smbd daemon must be running for this to work. A common problem 
 	is to add a restriction to the hosts that may access the <span><b class="command">
@@ -148,7 +147,7 @@
 	hosts</tt></i> or <i class="parameter"><tt>deny hosts</tt></i> entry in 
 	the <a href="smb.conf.5.html"><span class="citerefentry"><span class="refentrytitle">smb.conf</span>(5)</span></a> file and neglecting to 
 	allow "localhost" access to the smbd. </p><p>In addition, the smbpasswd command is only useful if Samba
-	has been set up to use encrypted passwords. </p></div><div class="refsect1" lang="en"><a name="id2429463"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2429474"></a><h2>SEE ALSO</h2><p><a href="smbpasswd.5.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(5)</span></a>, <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a>.</p></div><div class="refsect1" lang="en"><a name="id2429498"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+	has been set up to use encrypted passwords. </p></div><div class="refsect1" lang="en"><a name="id2429597"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2429608"></a><h2>SEE ALSO</h2><p><a href="smbpasswd.5.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(5)</span></a>, <a href="Samba.7.html"><span class="citerefentry"><span class="refentrytitle">Samba</span>(7)</span></a>.</p></div><div class="refsect1" lang="en"><a name="id2429632"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p>The original Samba man pages were written by Karl Auer. 

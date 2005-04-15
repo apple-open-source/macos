@@ -34,13 +34,19 @@ winbindd \- Name Service Switch daemon for resolving names from NT servers
 This program is part of the \fBsamba\fR(7) suite\&.
 
 .PP
-\fBwinbindd\fR is a daemon that provides a service for the Name Service Switch capability that is present in most modern C libraries\&. The Name Service Switch allows user and system information to be obtained from different databases services such as NIS or DNS\&. The exact behaviour can be configured throught the \fI/etc/nsswitch\&.conf\fR file\&. Users and groups are allocated as they are resolved to a range of user and group ids specified by the administrator of the Samba system\&.
+\fBwinbindd\fR is a daemon that provides a number of services to the Name Service Switch capability found in most modern C libraries, to arbitary applications via PAM and \fBntlm_auth\fR and to Samba itself\&.
+
+.PP
+Even if winbind is not used for nsswitch, it still provides a service to \fBsmbd\fR, \fBntlm_auth\fR and the \fBpam_winbind\&.so\fR PAM module, by managing connections to domain controllers\&. In this configuraiton the idmap uid and idmap gid parameters are not required\&. (This is known as `netlogon proxy only mode'\&.)
+
+.PP
+The Name Service Switch allows user and system information to be obtained from different databases services such as NIS or DNS\&. The exact behaviour can be configured throught the \fI/etc/nsswitch\&.conf\fR file\&. Users and groups are allocated as they are resolved to a range of user and group ids specified by the administrator of the Samba system\&.
 
 .PP
 The service provided by \fBwinbindd\fR is called `winbind' and can be used to resolve user and group information from a Windows NT server\&. The service can also provide authentication services via an associated PAM module\&.
 
 .PP
-The \fIpam_winbind\fR module in the 2\&.2\&.2 release only supports the \fIauth\fR and \fIaccount\fR module\-types\&. The latter simply performs a getpwnam() to verify that the system can obtain a uid for the user\&. If the \fIlibnss_winbind\fR library has been correctly installed, this should always succeed\&.
+The \fIpam_winbind\fR module supports the \fIauth\fR, \fIaccount\fR and \fIpassword\fR module\-types\&. It should be noted that the \fIaccount\fR module simply performs a getpwnam() to verify that the system can obtain a uid for the user, as the domain controller has already performed access control\&. If the \fIlibnss_winbind\fR library has been correctly installed, or an alternate source of names configured, this should always succeed\&.
 
 .PP
 The following nsswitch databases are implemented by the winbindd service:
@@ -126,13 +132,16 @@ Single daemon mode\&. This means winbindd will run as a single process (the mode
 .SH "NAME AND ID RESOLUTION"
 
 .PP
-Users and groups on a Windows NT server are assigned a relative id (rid) which is unique for the domain when the user or group is created\&. To convert the Windows NT user or group into a unix user or group, a mapping between rids and unix user and group ids is required\&. This is one of the jobs that \fB winbindd\fR performs\&.
+Users and groups on a Windows NT server are assigned a security id (SID) which is globally unique when the user or group is created\&. To convert the Windows NT user or group into a unix user or group, a mapping between SIDs and unix user and group ids is required\&. This is one of the jobs that \fB winbindd\fR performs\&.
 
 .PP
 As winbindd users and groups are resolved from a server, user and group ids are allocated from a specified range\&. This is done on a first come, first served basis, although all existing users and groups will be mapped as soon as a client performs a user or group enumeration command\&. The allocated unix ids are stored in a database file under the Samba lock directory and will be remembered\&.
 
 .PP
-WARNING: The rid to unix id database is the only location where the user and group mappings are stored by winbindd\&. If this file is deleted or corrupted, there is no way for winbindd to determine which user and group ids correspond to Windows NT user and group rids\&.
+WARNING: The SID to unix id database is the only location where the user and group mappings are stored by winbindd\&. If this file is deleted or corrupted, there is no way for winbindd to determine which user and group ids correspond to Windows NT user and group rids\&.
+
+.PP
+See the idmap backend parameter in \fIsmb\&.conf\fR for options for sharing this database, such as via LDAP\&.
 
 .SH "CONFIGURATION"
 
@@ -148,6 +157,9 @@ idmap uid
 .TP
 \(bu
 idmap gid
+.TP
+\(bu
+idmap backend
 .TP
 \(bu
 winbind cache time
@@ -240,16 +252,16 @@ Now start winbindd and you should find that your user and group database is expa
 The following notes are useful when configuring and running \fBwinbindd\fR:
 
 .PP
-\fBnmbd\fR(8) must be running on the local machine for \fBwinbindd\fR to work\&. \fBwinbindd\fR queries the list of trusted domains for the Windows NT server on startup and when a SIGHUP is received\&. Thus, for a running \fB winbindd\fR to become aware of new trust relationships between servers, it must be sent a SIGHUP signal\&.
+\fBnmbd\fR(8) must be running on the local machine for \fBwinbindd\fR to work\&.
 
 .PP
 PAM is really easy to misconfigure\&. Make sure you know what you are doing when modifying PAM configuration files\&. It is possible to set up PAM such that you can no longer log into your system\&.
 
 .PP
-If more than one UNIX machine is running \fBwinbindd\fR, then in general the user and groups ids allocated by winbindd will not be the same\&. The user and group ids will only be valid for the local machine\&.
+If more than one UNIX machine is running \fBwinbindd\fR, then in general the user and groups ids allocated by winbindd will not be the same\&. The user and group ids will only be valid for the local machine, unless a shared idmap backend is configured\&.
 
 .PP
-If the the Windows NT RID to UNIX user and group id mapping file is damaged or destroyed then the mappings will be lost\&.
+If the the Windows NT SID to UNIX user and group id mapping file is damaged or destroyed then the mappings will be lost\&.
 
 .SH "SIGNALS"
 
@@ -262,7 +274,7 @@ Reload the \fBsmb\&.conf\fR(5) file and apply any parameter changes to the runni
 
 .TP
 SIGUSR2
-The SIGUSR2 signal will cause \fB winbindd\fR to write status information to the winbind log file including information about the number of user and group ids allocated by \fBwinbindd\fR\&.
+The SIGUSR2 signal will cause \fB winbindd\fR to write status information to the winbind log file\&.
 
 Log files are stored in the filename specified by the log file parameter\&.
 
@@ -300,7 +312,7 @@ This man page is correct for version 3\&.0 of the Samba suite\&.
 .SH "SEE ALSO"
 
 .PP
-\fInsswitch\&.conf(5)\fR, \fBsamba\fR(7), \fBwbinfo\fR(8), \fBsmb\&.conf\fR(5)
+\fInsswitch\&.conf(5)\fR, \fBsamba\fR(7), \fBwbinfo\fR(1), \fBntlm_auth\fR(8), \fBsmb\&.conf\fR(5)
 
 .SH "AUTHOR"
 

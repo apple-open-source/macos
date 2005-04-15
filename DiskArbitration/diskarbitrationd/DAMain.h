@@ -44,6 +44,7 @@ extern CFMutableArrayRef      gDAFileSystemProbeList;
 extern Boolean                gDAIdle;
 extern io_iterator_t          gDAMediaAppearedNotification;
 extern io_iterator_t          gDAMediaDisappearedNotification;
+extern IONotificationPortRef  gDAMediaPort;
 extern CFMutableArrayRef      gDAMountMapList1;
 extern CFMutableArrayRef      gDAMountMapList2;
 extern CFMutableDictionaryRef gDAPreferenceList;

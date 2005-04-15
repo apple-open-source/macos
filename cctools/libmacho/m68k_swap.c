@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #import <mach-o/m68k/swap.h>
 
 void
@@ -64,3 +65,4 @@ enum NXByteOrder target_byte_sex)
 {
 	user_reg->user_reg = NXSwapLong(user_reg->user_reg);
 }
+#endif /* !defined(RLD) */

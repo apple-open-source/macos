@@ -2,7 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -108,8 +108,8 @@ const ClassInfo StringPrototypeImp::info = {"String", &StringInstanceImp::info, 
   charAt		StringProtoFuncImp::CharAt	DontEnum|Function	1
   charCodeAt		StringProtoFuncImp::CharCodeAt	DontEnum|Function	1
   concat		StringProtoFuncImp::Concat	DontEnum|Function	1
-  indexOf		StringProtoFuncImp::IndexOf	DontEnum|Function	2
-  lastIndexOf		StringProtoFuncImp::LastIndexOf	DontEnum|Function	2
+  indexOf		StringProtoFuncImp::IndexOf	DontEnum|Function	1
+  lastIndexOf		StringProtoFuncImp::LastIndexOf	DontEnum|Function	1
   match			StringProtoFuncImp::Match	DontEnum|Function	1
   replace		StringProtoFuncImp::Replace	DontEnum|Function	2
   search		StringProtoFuncImp::Search	DontEnum|Function	1
@@ -119,6 +119,8 @@ const ClassInfo StringPrototypeImp::info = {"String", &StringInstanceImp::info, 
   substring		StringProtoFuncImp::Substring	DontEnum|Function	2
   toLowerCase		StringProtoFuncImp::ToLowerCase	DontEnum|Function	0
   toUpperCase		StringProtoFuncImp::ToUpperCase	DontEnum|Function	0
+  toLocaleLowerCase	StringProtoFuncImp::ToLocaleLowerCase DontEnum|Function	0
+  toLocaleUpperCase     StringProtoFuncImp::ToLocaleUpperCase DontEnum|Function	0
 #
 # Under here: html extension, should only exist if KJS_PURE_ECMA is not defined
 # I guess we need to generate two hashtables in the .lut.h file, and use #ifdef
@@ -158,7 +160,7 @@ Value StringPrototypeImp::get(ExecState *exec, const Identifier &propertyName) c
 
 StringProtoFuncImp::StringProtoFuncImp(ExecState *exec, int i, int len)
   : InternalFunctionImp(
-    static_cast<FunctionPrototypeImp*>(exec->interpreter()->builtinFunctionPrototype().imp())
+    static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
     ), id(i)
 {
   Value protect(this);
@@ -168,6 +170,165 @@ StringProtoFuncImp::StringProtoFuncImp(ExecState *exec, int i, int len)
 bool StringProtoFuncImp::implementsCall() const
 {
   return true;
+}
+
+static inline bool regExpIsGlobal(RegExpImp *regExp, ExecState *exec)
+{
+    Value globalProperty = regExp->get(exec,"global");
+    return globalProperty.type() != UndefinedType && globalProperty.toBoolean(exec);
+}
+
+static inline void expandSourceRanges(UString::Range * & array, int& count, int& capacity)
+{
+  int newCapacity;
+  if (capacity == 0) {
+    newCapacity = 16;
+  } else {
+    newCapacity = capacity * 2;
+  }
+
+  UString::Range *newArray = new UString::Range[newCapacity];
+  for (int i = 0; i < count; i++) {
+    newArray[i] = array[i];
+  }
+
+  delete [] array;
+
+  capacity = newCapacity;
+  array = newArray;
+}
+
+static void pushSourceRange(UString::Range * & array, int& count, int& capacity, UString::Range range)
+{
+  if (count + 1 > capacity)
+    expandSourceRanges(array, count, capacity);
+
+  array[count] = range;
+  count++;
+}
+
+static inline void expandReplacements(UString * & array, int& count, int& capacity)
+{
+  int newCapacity;
+  if (capacity == 0) {
+    newCapacity = 16;
+  } else {
+    newCapacity = capacity * 2;
+  }
+
+  UString *newArray = new UString[newCapacity];
+  for (int i = 0; i < count; i++) {
+    newArray[i] = array[i];
+  }
+  
+  delete [] array;
+
+  capacity = newCapacity;
+  array = newArray;
+}
+
+static void pushReplacement(UString * & array, int& count, int& capacity, UString replacement)
+{
+  if (count + 1 > capacity)
+    expandReplacements(array, count, capacity);
+
+  array[count] = replacement;
+  count++;
+}
+
+static inline UString substituteBackreferences(const UString &replacement, const UString &source, int **ovector, RegExp *reg)
+{
+  UString substitutedReplacement = replacement;
+
+  bool converted;
+
+  for (int i = 0; (i = substitutedReplacement.find(UString("$"), i)) != -1; i++) {
+    if (i+1 < substitutedReplacement.size() && substitutedReplacement[i+1] == '$') {  // "$$" -> "$"
+      substitutedReplacement = substitutedReplacement.substr(0,i) + "$" + substitutedReplacement.substr(i+2);
+      continue;
+    }
+    // Assume number part is one char exactly
+    unsigned long backrefIndex = substitutedReplacement.substr(i+1,1).toULong(&converted, false /* tolerate empty string */);
+    if (converted && backrefIndex <= (unsigned)reg->subPatterns()) {
+      int backrefStart = (*ovector)[2*backrefIndex];
+      int backrefLength = (*ovector)[2*backrefIndex+1] - backrefStart;
+      substitutedReplacement = substitutedReplacement.substr(0,i)
+        + source.substr(backrefStart, backrefLength)
+        + substitutedReplacement.substr(i+2);
+      i += backrefLength - 1; // -1 offsets i++
+    }
+  }
+
+  return substitutedReplacement;
+}
+
+static Value replace(ExecState *exec, const UString &source, const Value &pattern, const Value &replacement)
+{
+  if (pattern.type() == ObjectType && pattern.toObject(exec).inherits(&RegExpImp::info)) {
+    RegExpImp* imp = static_cast<RegExpImp *>( pattern.toObject(exec).imp() );
+    RegExp *reg = imp->regExp();
+    bool global = regExpIsGlobal(imp, exec);
+
+    RegExpObjectImp* regExpObj = static_cast<RegExpObjectImp*>(exec->lexicalInterpreter()->builtinRegExp().imp());
+
+    UString replacementString = replacement.toString(exec);
+
+    int matchIndex = 0;
+    int lastIndex = 0;
+    int startPosition = 0;
+
+    UString::Range *sourceRanges = 0;
+    int sourceRangeCount = 0;
+    int sourceRangeCapacity = 0;
+    UString *replacements = 0;
+    int replacementCount = 0;
+    int replacementCapacity = 0;
+
+    // This is either a loop (if global is set) or a one-way (if not).
+    do {
+      int **ovector = regExpObj->registerRegexp( reg, source );
+      UString matchString = reg->match(source, startPosition, &matchIndex, ovector);
+      regExpObj->setSubPatterns(reg->subPatterns());
+      if (matchIndex == -1)
+        break;
+      int matchLen = matchString.size();
+
+      pushSourceRange(sourceRanges, sourceRangeCount, sourceRangeCapacity, UString::Range(lastIndex, matchIndex - lastIndex));
+
+      UString substitutedReplacement = substituteBackreferences(replacementString, source, ovector, reg);
+      pushReplacement(replacements, replacementCount, replacementCapacity, substitutedReplacement);
+
+      lastIndex = matchIndex + matchLen;
+      startPosition = lastIndex;
+
+      // special case of empty match
+      if (matchLen == 0) {
+        startPosition++;
+        if (startPosition > source.size())
+          break;
+      }
+    } while (global);
+
+    if (lastIndex < source.size())
+      pushSourceRange(sourceRanges, sourceRangeCount, sourceRangeCapacity, UString::Range(lastIndex, source.size() - lastIndex));
+
+    UString result = source.spliceSubstringsWithSeparators(sourceRanges, sourceRangeCount, replacements, replacementCount);
+
+    delete [] sourceRanges;
+    delete [] replacements;
+
+    return String(result);
+  } else { // First arg is a string
+    UString patternString = pattern.toString(exec);
+    int matchPos = source.find(patternString);
+    int matchLen = patternString.size();
+    // Do the replacement
+    if (matchPos == -1)
+      return String(source);
+    else {
+      return String(source.substr(0, matchPos) + replacement.toString(exec) + source.substr(matchPos + matchLen));
+    }
+  }
 }
 
 // ECMA 15.5.4.2 - 15.5.4.20
@@ -186,9 +347,9 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     return String(thisObj.internalValue().toString(exec));
   }
 
-  int n, m;
   UString u, u2, u3;
   int pos, p0, i;
+  double dpos;
   double d = 0.0;
 
   UString s = thisObj.toString(exec);
@@ -203,21 +364,23 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     // handled above
     break;
   case CharAt:
-    pos = a0.toInteger(exec);
-    if (pos < 0 || pos >= len)
-      u = "";
+    // Other browsers treat an omitted parameter as 0 rather than NaN.
+    // That doesn't match the ECMA standard, but is needed for site compatibility.
+    dpos = a0.isA(UndefinedType) ? 0 : a0.toInteger(exec);
+    if (dpos >= 0 && dpos < len) // false for NaN
+      u = s.substr(static_cast<int>(dpos), 1);
     else
-      u = s.substr(pos, 1);
+      u = "";
     result = String(u);
     break;
   case CharCodeAt:
-    pos = a0.toInteger(exec);
-    if (pos < 0 || pos >= len)
+    // Other browsers treat an omitted parameter as 0 rather than NaN.
+    // That doesn't match the ECMA standard, but is needed for site compatibility.
+    dpos = a0.isA(UndefinedType) ? 0 : a0.toInteger(exec);
+    if (dpos >= 0 && dpos < len) // false for NaN
+      d = s[static_cast<int>(dpos)].unicode();
+    else
       d = NaN;
-    else {
-      UChar c = s[pos];
-      d = (c.high() << 8) + c.low();
-    }
     result = Number(d);
     break;
   case Concat: {
@@ -231,22 +394,32 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
   case IndexOf:
     u2 = a0.toString(exec);
     if (a1.type() == UndefinedType)
-      pos = 0;
-    else
-      pos = a1.toInteger(exec);
-    d = s.find(u2, pos);
+      dpos = 0;
+    else {
+      dpos = a1.toInteger(exec);
+      if (dpos >= 0) { // false for NaN
+        if (dpos > len)
+          dpos = len;
+      } else
+        dpos = 0;
+    }
+    d = s.find(u2, static_cast<int>(dpos));
     result = Number(d);
     break;
   case LastIndexOf:
     u2 = a0.toString(exec);
     d = a1.toNumber(exec);
-    if (a1.type() == UndefinedType || KJS::isNaN(d) || KJS::isPosInf(d))
-      pos = len;
-    else
-      pos = a1.toInteger(exec);
-    if (pos < 0)
-      pos = 0;
-    d = s.rfind(u2, pos);
+    if (a1.type() == UndefinedType || KJS::isNaN(d))
+      dpos = len;
+    else {
+      dpos = a1.toInteger(exec);
+      if (dpos >= 0) { // false for NaN
+        if (dpos > len)
+          dpos = len;
+      } else
+        dpos = 0;
+    }
+    d = s.rfind(u2, static_cast<int>(dpos));
     result = Number(d);
     break;
   case Match:
@@ -267,7 +440,7 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
        */
       reg = tmpReg = new RegExp(a0.toString(exec), RegExp::None);
     }
-    RegExpObjectImp* regExpObj = static_cast<RegExpObjectImp*>(exec->interpreter()->builtinRegExp().imp());
+    RegExpObjectImp* regExpObj = static_cast<RegExpObjectImp*>(exec->lexicalInterpreter()->builtinRegExp().imp());
     int **ovector = regExpObj->registerRegexp(reg, u);
     UString mstr = reg->match(u, -1, &pos, ovector);
     if (id == Search) {
@@ -287,7 +460,10 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
 	List list;
 	int lastIndex = 0;
 	while (pos >= 0) {
-	  list.append(String(mstr));
+          if (mstr.isNull())
+            list.append(UndefinedImp::staticUndefined);
+          else
+	    list.append(String(mstr));
 	  lastIndex = pos;
 	  pos += mstr.isEmpty() ? 1 : mstr.size();
 	  delete [] *ovector;
@@ -301,7 +477,7 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
 	  // other browsers and because Null is a false value.
 	  result = Null(); 
 	} else {
-	  result = exec->interpreter()->builtinArray().construct(exec, list);
+	  result = exec->lexicalInterpreter()->builtinArray().construct(exec, list);
 	}
       }
     }
@@ -309,98 +485,43 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     break;
   }
   case Replace:
-    u = s;
-    if (a0.type() == ObjectType && a0.toObject(exec).inherits(&RegExpImp::info)) {
-      RegExpImp* imp = static_cast<RegExpImp *>( a0.toObject(exec).imp() );
-      RegExp *reg = imp->regExp();
-      bool global = false;
-      Value tmp = imp->get(exec,"global");
-      if (tmp.type() != UndefinedType && tmp.toBoolean(exec) == true)
-        global = true;
-
-      RegExpObjectImp* regExpObj = static_cast<RegExpObjectImp*>(exec->interpreter()->builtinRegExp().imp());
-      int lastIndex = 0;
-      u3 = a1.toString(exec); // replacement string
-      // This is either a loop (if global is set) or a one-way (if not).
-      do {
-        int **ovector = regExpObj->registerRegexp( reg, u );
-        UString mstr = reg->match(u, lastIndex, &pos, ovector);
-        regExpObj->setSubPatterns(reg->subPatterns());
-        if (pos == -1)
-          break;
-        len = mstr.size();
-        UString rstr(u3);
-        bool ok;
-        // check if u3 matches $1 or $2 etc
-        for (int i = 0; (i = rstr.find(UString("$"), i)) != -1; i++) {
-          if (i+1<rstr.size() && rstr[i+1] == '$') {  // "$$" -> "$"
-            rstr = rstr.substr(0,i) + "$" + rstr.substr(i+2);
-            continue;
-          }
-          // Assume number part is one char exactly
-          unsigned long pos = rstr.substr(i+1,1).toULong(&ok, false /* tolerate empty string */);
-          if (ok && pos <= (unsigned)reg->subPatterns()) {
-            rstr = rstr.substr(0,i)
-                      + u.substr((*ovector)[2*pos],
-                                     (*ovector)[2*pos+1]-(*ovector)[2*pos])
-                      + rstr.substr(i+2);
-            i += (*ovector)[2*pos+1]-(*ovector)[2*pos] - 1; // -1 offsets i++
-          }
-        }
-        lastIndex = pos + rstr.size();
-        u = u.substr(0, pos) + rstr + u.substr(pos + len);
-        //fprintf(stderr,"pos=%d,len=%d,lastIndex=%d,u=%s\n",pos,len,lastIndex,u.ascii());
-
-        // special case of empty match
-        if (len == 0) {
-          lastIndex = lastIndex + 1;
-          if (lastIndex > u.size())
-            break;
-        }
-      } while (global);
-
-      result = String(u);
-    } else { // First arg is a string
-      u2 = a0.toString(exec);
-      pos = u.find(u2);
-      len = u2.size();
-      // Do the replacement
-      if (pos == -1)
-        result = String(s);
-      else {
-        u3 = u.substr(0, pos) + a1.toString(exec) +
-             u.substr(pos + len);
-        result = String(u3);
-      }
-    }
+    result = replace(exec, s, a0, a1);
     break;
   case Slice: // http://developer.netscape.com/docs/manuals/js/client/jsref/string.htm#1194366
     {
         // The arg processing is very much like ArrayProtoFunc::Slice
-        int begin = args[0].toUInt32(exec);
-        if (begin < 0)
-          begin = maxInt(begin + len, 0);
-        else
-          begin = minInt(begin, len);
-        int end = len;
+        double begin = args[0].toInteger(exec);
+        if (begin >= 0) { // false for NaN
+          if (begin > len)
+            begin = len;
+        } else {
+          begin += len;
+          if (!(begin >= 0)) // true for NaN
+            begin = 0;
+        }
+        double end = len;
         if (args[1].type() != UndefinedType) {
           end = args[1].toInteger(exec);
-          if (end < 0)
-            end = maxInt(len + end, 0);
-          else
-            end = minInt(end, len);
+          if (end >= 0) { // false for NaN
+            if (end > len)
+              end = len;
+          } else {
+            end += len;
+            if (!(end >= 0)) // true for NaN
+              end = 0;
+          }
         }
         //printf( "Slicing from %d to %d \n", begin, end );
-        result = String(s.substr(begin, end-begin));
+        result = String(s.substr(static_cast<int>(begin), static_cast<int>(end-begin)));
         break;
     }
     case Split: {
-    Object constructor = exec->interpreter()->builtinArray();
+    Object constructor = exec->lexicalInterpreter()->builtinArray();
     Object res = Object::dynamicCast(constructor.construct(exec,List::empty()));
     result = res;
     u = s;
     i = p0 = 0;
-    d = (a1.type() != UndefinedType) ? a1.toInteger(exec) : -1; // optional max number
+    uint32_t limit = a1.type() == UndefinedType ? 0xFFFFFFFFU : a1.toUInt32(exec);
     if (a0.type() == ObjectType && Object::dynamicCast(a0).inherits(&RegExpImp::info)) {
       Object obj0 = Object::dynamicCast(a0);
       RegExp reg(obj0.get(exec,"source").toString(exec));
@@ -410,7 +531,7 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
 	break;
       }
       pos = 0;
-      while (pos < u.size()) {
+      while (static_cast<uint32_t>(i) != limit && pos < u.size()) {
 	// TODO: back references
         int mpos;
         int *ovector = 0L;
@@ -425,7 +546,7 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
 	  i++;
 	}
       }
-    } else if (a0.type() != UndefinedType) {
+    } else {
       u2 = a0.toString(exec);
       if (u2.isEmpty()) {
 	if (u.isEmpty()) {
@@ -433,11 +554,11 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
 	  put(exec,lengthPropertyName, Number(0));
 	  break;
 	} else {
-	  while (i != d && i < u.size()-1)
+	  while (static_cast<uint32_t>(i) != limit && i < u.size()-1)
 	    res.put(exec, i++, String(u.substr(p0++, 1)));
 	}
       } else {
-	while (i != d && (pos = u.find(u2, p0)) >= 0) {
+	while (static_cast<uint32_t>(i) != limit && (pos = u.find(u2, p0)) >= 0) {
 	  res.put(exec, i, String(u.substr(p0, pos-p0)));
 	  p0 = pos + u2.size();
 	  i++;
@@ -445,24 +566,28 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
       }
     }
     // add remaining string, if any
-    if (i != d)
+    if (static_cast<uint32_t>(i) != limit)
       res.put(exec, i++, String(u.substr(p0)));
     res.put(exec,lengthPropertyName, Number(i));
     }
     break;
   case Substr: {
-    n = a0.toInteger(exec);
-    m = a1.toInteger(exec);
-    int d, d2;
-    if (n >= 0)
-      d = n;
-    else
-      d = maxInt(len + n, 0);
-    if (a1.type() == UndefinedType)
+    double d = a0.toInteger(exec);
+    double d2 = a1.toInteger(exec);
+    if (!(d >= 0)) { // true for NaN
+      d += len;
+      if (!(d >= 0)) // true for NaN
+        d = 0;
+    }
+    if (isNaN(d2))
       d2 = len - d;
-    else
-      d2 = minInt(maxInt(m, 0), len - d);
-    result = String(s.substr(d, d2));
+    else {
+      if (d2 < 0)
+        d2 = 0;
+      if (d2 > len - d)
+        d2 = len - d;
+    }
+    result = String(s.substr(static_cast<int>(d), static_cast<int>(d2)));
     break;
   }
   case Substring: {
@@ -491,12 +616,14 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     }
     break;
   case ToLowerCase:
+  case ToLocaleLowerCase: // FIXME: To get this 100% right we need to detect Turkish and change I to lowercase i without a dot.
     u = s;
     for (i = 0; i < len; i++)
       u[i] = u[i].toLower();
     result = String(u);
     break;
   case ToUpperCase:
+  case ToLocaleUpperCase: // FIXME: To get this 100% right we need to detect Turkish and change i to uppercase I with a dot.
     u = s;
     for (i = 0; i < len; i++)
       u[i] = u[i].toUpper();
@@ -504,47 +631,43 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     break;
 #ifndef KJS_PURE_ECMA
   case Big:
-    result = String("<BIG>" + s + "</BIG>");
+    result = String("<big>" + s + "</big>");
     break;
   case Small:
-    result = String("<SMALL>" + s + "</SMALL>");
+    result = String("<small>" + s + "</small>");
     break;
   case Blink:
-    result = String("<BLINK>" + s + "</BLINK>");
+    result = String("<blink>" + s + "</blink>");
     break;
   case Bold:
-    result = String("<B>" + s + "</B>");
+    result = String("<b>" + s + "</b>");
     break;
   case Fixed:
-    result = String("<TT>" + s + "</TT>");
+    result = String("<tt>" + s + "</tt>");
     break;
   case Italics:
-    result = String("<I>" + s + "</I>");
+    result = String("<i>" + s + "</i>");
     break;
   case Strike:
-    result = String("<STRIKE>" + s + "</STRIKE>");
+    result = String("<strike>" + s + "</strike>");
     break;
   case Sub:
-    result = String("<SUB>" + s + "</SUB>");
+    result = String("<sub>" + s + "</sub>");
     break;
   case Sup:
-    result = String("<SUP>" + s + "</SUP>");
+    result = String("<sup>" + s + "</sup>");
     break;
   case Fontcolor:
-    result = String("<FONT COLOR=" + a0.toString(exec) + ">"
-		    + s + "</FONT>");
+    result = String("<font color=\"" + a0.toString(exec) + "\">" + s + "</font>");
     break;
   case Fontsize:
-    result = String("<FONT SIZE=" + a0.toString(exec) + ">"
-		    + s + "</FONT>");
+    result = String("<font size=\"" + a0.toString(exec) + "\">" + s + "</font>");
     break;
   case Anchor:
-    result = String("<a name=" + a0.toString(exec) + ">"
-		    + s + "</a>");
+    result = String("<a name=\"" + a0.toString(exec) + "\">" + s + "</a>");
     break;
   case Link:
-    result = String("<a href=" + a0.toString(exec) + ">"
-		    + s + "</a>");
+    result = String("<a href=\"" + a0.toString(exec) + "\">" + s + "</a>");
     break;
 #endif
   }
@@ -579,7 +702,7 @@ bool StringObjectImp::implementsConstruct() const
 // ECMA 15.5.2
 Object StringObjectImp::construct(ExecState *exec, const List &args)
 {
-  ObjectImp *proto = exec->interpreter()->builtinStringPrototype().imp();
+  ObjectImp *proto = exec->lexicalInterpreter()->builtinStringPrototype().imp();
   if (args.size() == 0)
     return Object(new StringInstanceImp(proto));
   return Object(new StringInstanceImp(proto, args.begin()->dispatchToString(exec)));

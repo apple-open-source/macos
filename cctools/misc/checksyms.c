@@ -324,7 +324,7 @@ void *cookie)
 		}
 		else
 		    printf("%s:", ofile->file_name);
-		printf(" has %lu symbols and %lu string bytes\n", st->nsyms,
+		printf(" has %u symbols and %u string bytes\n", st->nsyms,
 		       st->strsize);
 	    }
 	    if(cmd_flags->verification == TRUE)

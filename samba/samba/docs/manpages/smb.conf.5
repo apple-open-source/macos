@@ -324,12 +324,8 @@ All of these options can be set separately for each service (or globally, of cou
 The options are:
 
 .TP
-mangle case = yes/no
-controls whether names that have characters that aren't of the ``\fBdefault\fR'' case are mangled\&. For example, if this is yes, a name like ``\fBMail\fR'' will be mangled\&. Default \fBno\fR\&.
-
-.TP
-case sensitive = yes/no
-controls whether filenames are case sensitive\&. If they aren't, Samba must do a filename search and match on passed names\&. Default \fBno\fR\&.
+case sensitive = yes/no/auto
+controls whether filenames are case sensitive\&. If they aren't, Samba must do a filename search and match on passed names\&. The default setting of auto allows clients that support case sensitive filenames (Linux CIFSVFS and smbclient 3\&.0\&.5 and above currently) to tell the Samba server on a per\-packet basis that they wish to access the file system in a case\-sensitive manner (to support UNIX case sensitive semantics)\&. No Windows or DOS system supports case\-sensitive filename so setting this option to auto is that same as setting it to no for them\&. Default \fBauto\fR\&.
 
 .TP
 default case = upper/lower
@@ -375,7 +371,7 @@ If the service is a guest service, a connection is made as the username given in
 .LP
 
 .SH "EXPLANATION OF EACH PARAMETER"
-<xi:include></xi:include>
+
 .TP
 abort shutdown script (G)
 \fBThis parameter only exists in the HEAD cvs branch\fR This a full path name to a script called by \fBsmbd\fR(8) that should stop a shutdown procedure issued by the \fIshutdown script\fR\&.
@@ -499,6 +495,8 @@ Example: \fB\fIadd user script\fR = /usr/local/samba/bin/add_user %u \fR
 .TP
 add user to group script (G)
 Full path to the script that will be called when a user is added to a group using the Windows NT domain administration tools\&. It will be run by \fBsmbd\fR(8)\fBAS ROOT\fR\&. Any \fI%g\fR will be replaced with the group name and any \fI%u\fR will be replaced with the user name\&.
+
+Note that the \fBadduser\fR command used in the example below does not support the used syntax on all systems\&.
 
 Default: \fB\fIadd user to group script\fR = \fR 
 
@@ -716,7 +714,7 @@ Default: \fB\fIclient plaintext auth\fR = yes \fR
 
 .TP
 client schannel (G)
-This controls whether the client offers or even demands the use of the netlogon schannel\&. \fIclient schannel = no\fR does not offer the schannel, \fIserver schannel = auto\fR offers the schannel but does not enforce it, and \fIserver schannel = yes\fR denies access if the server is not able to speak netlogon schannel\&.
+This controls whether the client offers or even demands the use of the netlogon schannel\&. \fIclient schannel = no\fR does not offer the schannel, \fIclient schannel = auto\fR offers the schannel but does not enforce it, and \fIclient schannel = yes\fR denies access if the server is not able to speak netlogon schannel\&.
 
 Default: \fB\fIclient schannel\fR = auto \fR 
 
@@ -732,7 +730,7 @@ Default: \fB\fIclient signing\fR = auto \fR
 
 .TP
 client use spnego (G)
-This variable controls whether samba clients will try to use Simple and Protected NEGOciation (as specified by rfc2478) with WindowsXP and Windows2000 servers to agree upon an authentication mechanism\&. SPNEGO client support for SMB Signing is currently broken, so you might want to turn this option off when operating with Windows 2003 domain controllers in particular\&.
+This variable controls whether Samba clients will try to use Simple and Protected NEGOciation (as specified by rfc2478) with supporting servers (including WindowsXP, Windows2000 and Samba 3\&.0) to agree upon an authentication mechanism\&. This enables Kerberos authentication in particular\&.
 
 Default: \fB\fIclient use spnego\fR = yes \fR 
 
@@ -801,6 +799,28 @@ For example, shares containing roaming profiles can have offline caching disable
 Default: \fB\fIcsc policy\fR = manual \fR 
 
 Example: \fB\fIcsc policy\fR = programs \fR 
+
+.TP
+cups options (S)
+This parameter is only applicable if \fIprinting\fR is set to \fBcups\fR\&. Its value is a free form string of options passed directly to the cups library\&.
+
+You can pass any generic print option known to CUPS (as listed in the CUPS "Software Users' Manual")\&. You can also pass any printer specific option (as listed in "lpoptions \-d printername \-l") valid for the target queue\&.
+
+You should set this parameter to \fBraw\fR if your CUPS server \fIerror_log\fR file contains messages such as "Unsupported format 'application/octet\-stream'" when printing from a Windows client through Samba\&. It is no longer necessary to enable system wide raw printing in \fI/etc/cups/mime\&.{convs,types}\fR\&.
+
+Default: \fB\fIcups options\fR = "" \fR 
+
+Example: \fB\fIcups options\fR = "raw,media=a4,job\-sheets=secret,secret" \fR 
+
+.TP
+cups server (G)
+This parameter is only applicable if \fIprinting\fR is set to \fBcups\fR\&.
+
+If set, this option overrides the ServerName option in the CUPS \fIclient\&.conf\fR\&. This is necessary if you have virtual samba servers that connect to different CUPS daemons\&.
+
+Default: \fB\fIcups server\fR = "" \fR 
+
+Example: \fB\fIcups server\fR = MYCUPSSERVER \fR 
 
 .TP
 deadtime (G)
@@ -889,6 +909,16 @@ Note also that any "_" characters in the name of the service used in the default
 Default: \fB\fIdefault service\fR = \fR 
 
 Example: \fB\fIdefault service\fR = pub \fR 
+
+.TP
+defer sharing violations (G)
+Windows allows specifying how a file will be shared with other processes when it is opened\&. Sharing violations occur when a file is opened by a different process using options that violate the share settings specified by other processes\&. This parameter causes smbd to act as a Windows server does, and defer returning a "sharing violation" error message for up to one second, allowing the client to close the file causing the violation in the meantime\&.
+
+Unix by default does not have this behaviour\&.
+
+There should be no reason to turn off this parameter, as it is designed to enable Samba to more correctly emulate Windows\&.
+
+Default: \fB\fIdefer sharing violations\fR = True \fR 
 
 .TP
 delete group script (G)
@@ -1146,6 +1176,10 @@ Default: \fB\fIenable rid algorithm\fR = yes \fR
 encrypt passwords (G)
 This boolean controls whether encrypted passwords will be negotiated with the client\&. Note that Windows NT 4\&.0 SP3 and above and also Windows 98 will by default expect encrypted passwords unless a registry entry is changed\&. To use encrypted passwords in Samba see the chapter "User Database" in the Samba HOWTO Collection\&.
 
+MS Windows clients that expect Microsoft encrypted passwords and that do not have plain text password support enabled will be able to connect only to a Samba server that has encypted password support enabled and for which the user accounts have a valid encrypted password\&. Refer to the smbpasswd command man page for information regarding the creation of encrypted passwords for user accounts\&.
+
+The use of plain text passwords is NOT advised as support for this feature is no longer maintained in Microsoft Windows products\&. If you want to use plain text passwords you must set this parameter to no\&.
+
 In order for encrypted passwords to work correctly \fBsmbd\fR(8) must either have access to a local \fBsmbpasswd\fR(5) file (see the \fBsmbpasswd\fR(8) program for information on how to set up and maintain this file), or set the security = [server|domain|ads] parameter which causes \fBsmbd\fR to authenticate against another server\&.
 
 Default: \fB\fIencrypt passwords\fR = yes \fR 
@@ -1255,6 +1289,18 @@ Default: \fB\fIforce group\fR = \fR
 Example: \fB\fIforce group\fR = agroup \fR 
 
 .TP
+force printername (S)
+When printing from Windows NT (or later), each printer in \fIsmb\&.conf\fR has two associated names which can be used by the client\&. The first is the sharename (or shortname) defined in smb\&.conf\&. This is the only printername available for use by Windows 9x clients\&. The second name associated with a printer can be seen when browsing to the "Printers" (or "Printers and Faxes") folder on the Samba server\&. This is referred to simply as the printername (not to be confused with the \fIprinter name\fR option)\&.
+
+When assigning a new driver to a printer on a remote Windows compatible print server such as Samba, the Windows client will rename the printer to match the driver name just uploaded\&. This can result in confusion for users when multiple printers are bound to the same driver\&. To prevent Samba from allowing the printer's printername to differ from the sharename defined in smb\&.conf, set \fIforce printername = yes\fR\&.
+
+Be aware that enabling this parameter may affect migrating printers from a Windows server to Samba since Windows has no way to force the sharename and printername to match\&.
+
+It is recommended that this parameter's value not be changed once the printer is in use by clients as this could cause a user not be able to delete printer connections from their local Printers folder\&.
+
+Default: \fB\fIforce printername\fR = no \fR 
+
+.TP
 force security mode (S)
 This parameter controls what UNIX permission bits can be modified when a Windows NT client is manipulating the UNIX permission on a file using the native NT security dialog box\&.
 
@@ -1267,6 +1313,16 @@ If not set explicitly this parameter is set to 0, and allows a user to modify al
 Default: \fB\fIforce security mode\fR = 0 \fR 
 
 Example: \fB\fIforce security mode\fR = 700 \fR 
+
+.TP
+force unknown acl user (S)
+If this parameter is set, a Windows NT ACL that contains an unknown SID (security descriptor, or representation of a user or group id) as the owner or group owner of the file will be silently mapped into the current UNIX uid or gid of the currently connected user\&.
+
+This is designed to allow Windows NT clients to copy files and folders containing ACLs that were created locally on the client machine and contain users local to that machine only (no domain users) to be copied to a Samba server (usually with XCOPY /O) and have the unknown userid and groupid of the file owner map to the current connected user\&. This can only be fixed correctly when winbindd allows arbitrary mapping from any Windows NT SID to a UNIX uid or gid\&.
+
+Try using this parameter when XCOPY /O gives an ACCESS_DENIED error\&.
+
+Default: \fB\fIforce unknown acl user\fR = no \fR 
 
 .TP
 force user (S)
@@ -1477,9 +1533,9 @@ Default: \fB\fIhost msdfs\fR = no \fR
 hostname lookups (G)
 Specifies whether samba should use (expensive) hostname lookups or use the ip addresses instead\&. An example place where hostname lookups are currently used is when checking the \fBhosts deny\fR and \fBhosts allow\fR\&.
 
-Default: \fB\fIhostname lookups\fR = yes \fR 
+Default: \fB\fIhostname lookups\fR = no \fR 
 
-Example: \fB\fIhostname lookups\fR = no \fR 
+Example: \fB\fIhostname lookups\fR = yes \fR 
 
 .TP
 allow hosts
@@ -1561,9 +1617,13 @@ Example: \fB\fIhosts equiv\fR = hosts equiv = /etc/hosts\&.equiv \fR
 idmap backend (G)
 The purpose of the idmap backend parameter is to allow idmap to NOT use the local idmap tdb file to obtain SID to UID / GID mappings, but instead to obtain them from a common LDAP backend\&. This way all domain members and controllers will have the same UID and GID to SID mappings\&. This avoids the risk of UID / GID inconsistencies across UNIX / Linux systems that are sharing information over protocols other than SMB/CIFS (ie: NFS)\&.
 
+An alternate method of SID to UID / GID mapping can be achieved using the idmap_rid plug\-in\&. This plug\-in uses the account RID to derive the UID and GID by adding the RID to a base value specified\&. This utility requires that the parameter``\fBallow trusted domains = No\fR'' must be specified, as it is not compatible with multiple domain environments\&. The idmap uid and idmap gid ranges must also be specified\&.
+
 Default: \fB\fIidmap backend\fR = \fR 
 
 Example: \fB\fIidmap backend\fR = ldap:ldap://ldapslave\&.example\&.com \fR 
+
+Example: \fB\fIidmap backend\fR = idmap_rid:DOMNAME=1000\-100000000 \fR 
 
 .TP
 winbind gid
@@ -1679,7 +1739,7 @@ Example: \fB\fIkeepalive\fR = 600 \fR
 kernel change notify (G)
 This parameter specifies whether Samba should ask the kernel for change notifications in directories so that SMB clients can refresh whenever the data on the server changes\&.
 
-This parameter is only usd when your kernel supports change notification to user programs, using the F_NOTIFY fcntl\&.
+This parameter is only used when your kernel supports change notification to user programs, using the F_NOTIFY fcntl\&.
 
 Default: \fB\fIkernel change notify\fR = yes \fR 
 
@@ -1725,9 +1785,11 @@ Default: \fB\fIldap delete dn\fR = no \fR
 
 .TP
 ldap filter (G)
-This parameter specifies the RFC 2254 compliant LDAP search filter\&. The default is to match the login name with the \fBuid\fR attribute for all entries matching the \fBsambaAccount\fRobjectclass\&. Note that this filter should only return one entry\&.
+This parameter specifies the RFC 2254 compliant LDAP search filter\&. The default is to match the login name with the \fBuid\fR attribute\&. Note that this filter should only return one entry\&.
 
-Default: \fB\fIldap filter\fR = (&(uid=%u)(objectclass=sambaAccount)) \fR 
+Default: \fB\fIldap filter\fR = (uid=%u) \fR 
+
+Example: \fB\fIldap filter\fR = (&(uid=%u)(objectclass=sambaSamAccount)) \fR 
 
 .TP
 ldap group suffix (G)
@@ -1788,7 +1850,7 @@ When Samba is asked to write to a read\-only LDAP replica, we are redirected to 
 
 This option simply causes Samba to wait a short time, to allow the LDAP server to catch up\&. If you have a particularly high\-latency network, you may wish to time the LDAP replication with a network sniffer, and increase this value accordingly\&. Be aware that no checking is performed that the data has actually replicated\&.
 
-The value is specified in milliseconds
+The value is specified in milliseconds, the maximum value is 5000 (5 seconds)\&.
 
 Default: \fB\fIldap replication sleep\fR = 1000 \fR 
 
@@ -1826,6 +1888,12 @@ ldap suffix (G)
 Specifies where user and machine accounts are added to the tree\&. Can be overriden by \fBldap user suffix\fR and \fBldap machine suffix\fR\&. It also used as the base dn for all ldap searches\&.
 
 Default: \fB\fIldap suffix\fR = \fR 
+
+.TP
+ldap timeout (G)
+When Samba connects to an ldap server that server may be down or unreachable\&. To prevent Samba from hanging whilst waiting for the connection this parameter specifies in seconds how long Samba should wait before failing the connect\&. The default is to only wait fifteen seconds for the ldap server to respond to the connect request\&.
+
+Default: \fB\fIldap timeout\fR = 15 \fR 
 
 .TP
 ldap user suffix (G)
@@ -1907,7 +1975,7 @@ Be careful about disabling locking either globally or in a specific service, as 
 
 .TP
 lock spin count (G)
-This parameter controls the number of times that smbd should attempt to gain a byte range lock on the behalf of a client request\&. Experiments have shown that Windows 2k servers do not reply with a failure if the lock could not be immediately granted, but try a few more times in case the lock could later be aquired\&. This behavior is used to support PC database formats such as MS Access and FoxPro\&.
+This parameter controls the number of times that smbd should attempt to gain a byte range lock on the behalf of a client request\&. Experiments have shown that Windows 2k servers do not reply with a failure if the lock could not be immediately granted, but try a few more times in case the lock could later be acquired\&. This behavior is used to support PC database formats such as MS Access and FoxPro\&.
 
 Default: \fB\fIlock spin count\fR = 3 \fR 
 
@@ -1989,6 +2057,12 @@ Windows clients can sometimes maintain a connection to the [homes] share, even t
 
 This option takes the standard substitutions, allowing you to have separate logon scripts for each user or machine\&.
 
+
+.RS
+.Sh "Warning"
+Do not quote the value\&. Setting this as ``\fB\\\\%N\\profile\\%U\fR'' will break profile handling\&.
+
+.RE
 Note that this option is only useful if Samba is set up as a logon server\&.
 
 Default: \fB\fIlogon path\fR = \\\\%N\\%U\\profile \fR 
@@ -2105,9 +2179,9 @@ Example: \fB\fIlprm command\fR = /usr/bin/cancel %p\-%j \fR
 
 .TP
 machine password timeout (G)
-If a Samba server is a member of a Windows NT Domain (see the security = domain) parameter) then periodically a running smbd process will try and change the MACHINE ACCOUNT PASSWORD stored in the TDB called \fIprivate/secrets\&.tdb \fR\&. This parameter specifies how often this password will be changed, in seconds\&. The default is one week (expressed in seconds), the same as a Windows NT Domain member server\&.
+If a Samba server is a member of a Windows NT Domain (see the security = domain parameter) then periodically a running smbd process will try and change the MACHINE ACCOUNT PASSWORD stored in the TDB called \fIprivate/secrets\&.tdb \fR\&. This parameter specifies how often this password will be changed, in seconds\&. The default is one week (expressed in seconds), the same as a Windows NT Domain member server\&.
 
-See also \fBsmbpasswd\fR(8), and the security = domain) parameter\&.
+See also \fBsmbpasswd\fR(8), and the security = domain parameter\&.
 
 Default: \fB\fImachine password timeout\fR = 604800 \fR 
 
@@ -2140,12 +2214,6 @@ Magic scripts are \fBEXPERIMENTAL\fR and should \fBNOT\fR be relied upon\&.
 Default: \fB\fImagic script\fR = \fR 
 
 Example: \fB\fImagic script\fR = user\&.csh \fR 
-
-.TP
-mangle case (S)
-See the section on NAME MANGLING
-
-Default: \fB\fImangle case\fR = no \fR 
 
 .TP
 mangled map (S)
@@ -2215,7 +2283,7 @@ Example: \fB\fImangling char\fR = ^ \fR
 
 .TP
 mangling method (G)
-controls the algorithm used for the generating the mangled names\&. Can take two different values, "hash" and "hash2"\&. "hash" is the default and is the algorithm that has been used in Samba for many years\&. "hash2" is a newer and considered a better algorithm (generates less collisions) in the names\&. However, many Win32 applications store the mangled names and so changing to the new algorithm must not be done lightly as these applications may break unless reinstalled\&.
+controls the algorithm used for the generating the mangled names\&. Can take two different values, "hash" and "hash2"\&. "hash" is the algorithm that was used used in Samba for many years and was the default in Samba 2\&.2\&.x "hash2" is now the default and is newer and considered a better algorithm (generates less collisions) in the names\&. Many Win32 applications store the mangled names and so changing to algorithms must not be done lightly as these applications may break unless reinstalled\&.
 
 Default: \fB\fImangling method\fR = hash2 \fR 
 
@@ -2991,6 +3059,16 @@ Note that a printable service will ALWAYS allow writing to the service path (use
 Default: \fB\fIprintable\fR = no \fR 
 
 .TP
+printcap cache time (G)
+This option specifies the number of seconds before the printing subsystem is again asked for the known printers\&. If the value is greater than 60 the initial waiting time is set to 60 seconds to allow an earlier first rescan of the printing subsystem\&.
+
+Setting this parameter to 0 (the default) disables any rescanning for new or removed printers after the initial startup\&.
+
+Default: \fB\fIprintcap cache time\fR = 0 \fR 
+
+Example: \fB\fIprintcap cache time\fR = 600 \fR 
+
+.TP
 printcap
 This parameter is a synonym for printcap name\&.
 
@@ -3105,7 +3183,7 @@ Currently nine printing styles are supported\&. They are \fBBSD\fR, \fBAIX\fR, \
 
 To see what the defaults are for the other print commands when using the various options use the \fBtestparm\fR(1) program\&.
 
-This option can be set on a per printer basis
+This option can be set on a per printer basis\&. Please be aware however, that you must place any of the various printing commands (e\&.g\&. print command, lpq command, etc\&.\&.\&.) after defining the value for the \fIprinting\fR option since it will reset the printing commands to default values\&.
 
 See also the discussion in the [printers] section\&.
 
@@ -3832,6 +3910,19 @@ If this parameter is enabled for a printer, then any attempt to open the printer
 Default: \fB\fIuse client driver\fR = no \fR 
 
 .TP
+use kerberos keytab (G)
+Specifies whether Samba should attempt to maintain service principals in the systems keytab file for \fBhost/FQDN\fR and \fBcifs/FQDN\fR\&.
+
+When you are using the heimdal Kerberos libraries, you must also specify the following in \fI/etc/krb5\&.conf\fR:
+
+.nf
+
+[libdefaults]
+  default_keytab_name = FILE:/etc/krb5\&.keytab
+.fi
+Default: \fB\fIuse kerberos keytab\fR = False \fR 
+
+.TP
 use mmap (G)
 This global parameter determines if the tdb internals of Samba can depend on mmap working correctly on the running system\&. Samba requires a coherent mmap/read\-write system memory cache\&. Currently only HPUX does not have such a coherent cache, and so this parameter is set to \fBno\fR by default on HPUX\&. On all other systems this parameter should be left alone\&. This parameter is provided to help the Samba developers track down problems with the tdb internal code\&.
 
@@ -3927,15 +4018,23 @@ Note that the remapping is applied to all occurrences of usernames\&. Thus if yo
 
 Also note that no reverse mapping is done\&. The main effect this has is with printing\&. Users who have been mapped may have trouble deleting print jobs as PrintManager under WfWg will think they don't own the print job\&.
 
+Samba versions prior to 3\&.0\&.8 would only support reading the fully qualified username (e\&.g\&.: DOMAIN\\user) from the username map when performing a kerberos login from a client\&. However, when looking up a map entry for a user authenticated by NTLM[SSP], only the login name would be used for matches\&. This resulted in inconsistent behavior sometimes even on the same server\&.
+
+The following functionality is obeyed in version 3\&.0\&.8 and later:
+
+When performing local authentication, the username map is applied to the login name before attempting to authenticate the connection\&.
+
+When relying upon a external domain controller for validating authentication requests, smbd will apply the username map to the fully qualified username (i\&.e\&. DOMAIN\\user) only after the user has been successfully authenticated\&.
+
 Default: \fB\fIusername map\fR = # no username map \fR 
 
 Example: \fB\fIusername map\fR = /usr/local/samba/lib/users\&.map \fR 
 
 .TP
 use sendfile (S)
-If this parameter is \fByes\fR, and Samba was built with the \-\-with\-sendfile\-support option, and the underlying operating system supports sendfile system call, then some SMB read calls (mainly ReadAndX and ReadRaw) will use the more efficient sendfile system call for files that are exclusively oplocked\&. This may make more efficient use of the system CPU's and cause Samba to be faster\&. This is off by default as it's effects are unknown as yet\&. In particular, it appears that Windows 9X clients fail to work against Samba with this parameter enabled in config\&.
+If this parameter is \fByes\fR, and the \fBsendfile()\fR system call is supported by the underlying operating system, then some SMB read calls (mainly ReadAndX and ReadRaw) will use the more efficient sendfile system call for files that are exclusively oplocked\&. This may make more efficient use of the system CPU's and cause Samba to be faster\&. Samba automatically turns this off for clients that use protocol levels lower than NT LM 0\&.12 and when it detects a client is Windows 9x (using sendfile from Linux will cause these clients to fail)\&.
 
-Default: \fB\fIuse sendfile\fR = no \fR 
+Default: \fB\fIuse sendfile\fR = yes \fR 
 
 .TP
 use spnego (G)
@@ -4037,13 +4136,19 @@ Default: \fB\fIwide links\fR = yes \fR
 winbind cache time (G)
 This parameter specifies the number of seconds the \fBwinbindd\fR(8) daemon will cache user and group information before querying a Windows NT server again\&.
 
+
+.RS
+.Sh "Note"
+This does not apply to authentication requests, these are always evaluated in real time\&.
+
+.RE
 Default: \fB\fIwinbind cache time\fR = 300 \fR 
 
 .TP
 winbind enable local accounts (G)
 This parameter controls whether or not winbindd will act as a stand in replacement for the various account management hooks in smb\&.conf (e\&.g\&. 'add user script')\&. If enabled, winbindd will support the creation of local users and groups as another source of UNIX account information available via getpwnam() or getgrgid(), etc\&.\&.\&.
 
-Default: \fB\fIwinbind enable local accounts\fR = yes \fR 
+Default: \fB\fIwinbind enable local accounts\fR = no \fR 
 
 .TP
 winbind enum groups (G)
@@ -4144,7 +4249,7 @@ This specifies the IP address (or DNS name: IP address for preference) of the WI
 
 You should point this at your WINS server if you have a multi\-subnetted network\&.
 
-If you want to work in multiple namespaces, you can give every wins server a 'tag'\&. For each tag, only one (working) server will be queried for a name\&. The tag should be seperated from the ip address by a colon\&.
+If you want to work in multiple namespaces, you can give every wins server a 'tag'\&. For each tag, only one (working) server will be queried for a name\&. The tag should be separated from the ip address by a colon\&.
 
 
 .RS

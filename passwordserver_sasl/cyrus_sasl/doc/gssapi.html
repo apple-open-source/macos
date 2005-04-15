@@ -1,12 +1,13 @@
 <HTML><HEAD>
 <title>Configuring GSSAPI and Cyrus SASL</title>
-<!-- $Id: gssapi.html,v 1.1 2002/02/28 00:00:04 snsimon Exp $ -->
+<!-- $Id: gssapi.html,v 1.4 2005/01/10 19:13:36 snsimon Exp $ -->
 </HEAD>
 <BODY>
 <h1>Configuring GSSAPI and Cyrus SASL</h1>
 
 <p>This document was contributed by <a
-href="mailto:kenh@cmf.nrl.navy.mil">Ken Hornstein</a>.
+href="mailto:kenh@cmf.nrl.navy.mil">Ken Hornstein</a> and updated
+by <a href="mailto:Alexey.Melnikov@isode.com">Alexey Melnikov</a>.
 
 <p>A couple of people have asked me privately, "Hey, how did you get the
 GSSAPI mechanism to work?  I tried, but the sample apps kept failing".
@@ -20,8 +21,9 @@ and Kerberos.
 <ol>
 <li> Compile the Cyrus-SASL distribution with the GSSAPI plugin
   for your favorite GSS-API mechanism.  I personally use the GSSAPI
-  libraries included with the MIT Kerberos 5 distribution; Heimdal
-  should work as well.
+  libraries included with the <a href="http://web.mit.edu/kerberos/www/">MIT</a>
+  Kerberos 5 distribution; <a href="http://www.pdc.kth.se/heimdal/">Heimdal</a>
+  and <a href="http://www.cybersafe.com/">CyberSafe</a> work as well.
 
 <li> Start up the sample-server.  The command-line used for
   sample-server needs to specify the GSSAPI service name and the
@@ -31,13 +33,31 @@ and Kerberos.
 <pre>  ./sample-server -s host -p ../plugins/.libs
 </pre>
 
+on UNIX and like
+
+<pre>  sample-server -s host -p ..\plugins
+</pre>
+
+on Windows.
+
+
 <p> In this example, I am using "host", which already exists on my
   machine, <i>but</i> only root can read it, so I an running this as root.
   If you want to use an alternate service name, you will need to
   create that service in Kerberos, place it in a keytab readable by
-  you, _and_ point your Kerberos library at it (In MIT Kerberos, you
-  can change this by the <tt>KRB5_KTNAME</tt> environment variable or
-  the configuration file; I believe Heimdal has something similar).
+  you, _and_ point your Kerberos library at it.
+
+  Unix: both MIT Kerberos and Heimdal, 
+  use /etc/krb5.keytab on Unix by default, but this can be changed
+  by setting the <tt>KRB5_KTNAME</tt> environment variable; the default
+  for CyberSafe Kerberos is /krb5/v5srvtab for UNIX systems and can be
+  changed by setting the <tt>CSFC5KTNAME</tt> environment variable.
+
+  Windows: the default service key table location for CyberSafe is
+  C:\Program Files\CyberSafe\v5srvtab, unless the
+  CyberSafe registry setting for the KeyTab key is set to an
+  alternate path. MIT Kerberos on Windows uses the keytab filename
+  krb5kt.
 
 <p>  You should get a response similar to:
 
@@ -54,6 +74,12 @@ and Kerberos.
 
 <pre>  ( stty -icanon min 1 time 0 ; ./sample-server -s host -p ../plugins/.libs )
 </pre>
+
+<li> Obtain a Kerberos ticket for the user you want to authenticate as.
+
+<pre>  kinit kenh
+</pre>
+
 
 <li> Start up the sample client.  You need to specify the service
   name, the hostname, and the userid.  An example might be

@@ -3,7 +3,7 @@
  *  This file is part of the KDE libraries
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -57,7 +57,7 @@ static QString cssPropertyName(const Identifier &p, bool *hadPixelOrPosPrefix = 
         prop = prop.mid(4);
         if (hadPixelOrPosPrefix)
             *hadPixelOrPosPrefix = true;
-    } else if (prop.startsWith("khtml-")) {
+    } else if (prop.startsWith("khtml-") || prop.startsWith("apple-")) {
         prop.insert(0, '-');
     }
 
@@ -216,7 +216,7 @@ Value DOMCSSStyleDeclarationProtoFunc::tryCall(ExecState *exec, Object &thisObj,
                             args[2].toString(exec).string());
       return Undefined();
     case DOMCSSStyleDeclaration::Item:
-      return getStringOrNull(styleDecl.item(args[0].toInteger(exec)));
+      return getStringOrNull(styleDecl.item(args[0].toInt32(exec)));
     default:
       return Undefined();
   }
@@ -224,7 +224,7 @@ Value DOMCSSStyleDeclarationProtoFunc::tryCall(ExecState *exec, Object &thisObj,
 
 Value KJS::getDOMCSSStyleDeclaration(ExecState *exec, DOM::CSSStyleDeclaration s)
 {
-  return cacheDOMObject<DOM::CSSStyleDeclaration, KJS::DOMCSSStyleDeclaration>(exec, s);
+  return Value(cacheDOMObject<DOM::CSSStyleDeclaration, KJS::DOMCSSStyleDeclaration>(exec, s));
 }
 
 // -------------------------------------------------------------------------
@@ -287,7 +287,7 @@ Value KJS::getDOMStyleSheet(ExecState *exec, DOM::StyleSheet ss)
   DOMObject *ret;
   if (ss.isNull())
     return Null();
-  ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->interpreter());
+  ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter());
   if ((ret = interp->getDOMObject(ss.handle())))
     return Value(ret);
   else {
@@ -376,7 +376,7 @@ Value KJS::getDOMStyleSheetList(ExecState *exec, DOM::StyleSheetList ssl, DOM::D
   DOMObject *ret;
   if (ssl.isNull())
     return Null();
-  ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->interpreter());
+  ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter());
   if ((ret = interp->getDOMObject(ssl.handle())))
     return Value(ret);
   else {
@@ -395,7 +395,7 @@ Value DOMStyleSheetListFunc::tryCall(ExecState *exec, Object &thisObj, const Lis
   }
   DOM::StyleSheetList styleSheetList = static_cast<DOMStyleSheetList *>(thisObj.imp())->toStyleSheetList();
   if (id == DOMStyleSheetList::Item)
-    return getDOMStyleSheet(exec, styleSheetList.item(args[0].toInteger(exec)));
+    return getDOMStyleSheet(exec, styleSheetList.item(args[0].toInt32(exec)));
   return Undefined();
 }
 
@@ -464,7 +464,7 @@ Value KJS::DOMMediaListProtoFunc::tryCall(ExecState *exec, Object &thisObj, cons
   DOM::MediaList mediaList = static_cast<DOMMediaList *>(thisObj.imp())->toMediaList();
   switch (id) {
     case DOMMediaList::Item:
-      return getStringOrNull(mediaList.item(args[0].toInteger(exec)));
+      return getStringOrNull(mediaList.item(args[0].toInt32(exec)));
     case DOMMediaList::DeleteMedium:
       mediaList.deleteMedium(args[0].toString(exec).string());
       return Undefined();
@@ -481,15 +481,17 @@ Value KJS::DOMMediaListProtoFunc::tryCall(ExecState *exec, Object &thisObj, cons
 const ClassInfo DOMCSSStyleSheet::info = { "CSSStyleSheet", 0, &DOMCSSStyleSheetTable, 0 };
 
 /*
-@begin DOMCSSStyleSheetTable 2
+@begin DOMCSSStyleSheetTable 5
   ownerRule	DOMCSSStyleSheet::OwnerRule	DontDelete|ReadOnly
   cssRules	DOMCSSStyleSheet::CssRules	DontDelete|ReadOnly
 # MSIE extension
   rules		DOMCSSStyleSheet::Rules		DontDelete|ReadOnly
 @end
-@begin DOMCSSStyleSheetProtoTable 2
+@begin DOMCSSStyleSheetProtoTable 6
   insertRule	DOMCSSStyleSheet::InsertRule	DontDelete|Function 2
   deleteRule	DOMCSSStyleSheet::DeleteRule	DontDelete|Function 1
+# MSIE extension
+  addRule	DOMCSSStyleSheet::AddRule	DontDelete|Function 2
 @end
 */
 DEFINE_PROTOTYPE("DOMCSSStyleSheet",DOMCSSStyleSheetProto)
@@ -522,20 +524,21 @@ Value DOMCSSStyleSheetProtoFunc::tryCall(ExecState *exec, Object &thisObj, const
   }
   DOM::CSSStyleSheet styleSheet = static_cast<DOMCSSStyleSheet *>(thisObj.imp())->toCSSStyleSheet();
   Value result;
-  UString str = args[0].toString(exec);
-  DOM::DOMString s = str.string();
-
   switch (id) {
     case DOMCSSStyleSheet::InsertRule:
-      result = Number(styleSheet.insertRule(args[0].toString(exec).string(),(long unsigned int)args[1].toInteger(exec)));
+      return Number(styleSheet.insertRule(args[0].toString(exec).string(),(long unsigned int)args[1].toInt32(exec)));
       break;
     case DOMCSSStyleSheet::DeleteRule:
-      styleSheet.deleteRule(args[0].toInteger(exec));
-      break;
-    default:
-      result = Undefined();
+      styleSheet.deleteRule(args[0].toInt32(exec));
+      return Undefined();
+    case DOMCSSStyleSheet::AddRule: {
+      long index = args.size() >= 3 ? args[2].toInt32(exec) : -1;
+      styleSheet.addRule(args[0].toString(exec).string(), args[1].toString(exec).string(), index);
+      // As per Microsoft documentation, always return -1.
+      return Number(-1);
+    }
   }
-  return result;
+  return Undefined();
 }
 
 // -------------------------------------------------------------------------
@@ -580,7 +583,7 @@ Value DOMCSSRuleListFunc::tryCall(ExecState *exec, Object &thisObj, const List &
   DOM::CSSRuleList cssRuleList = static_cast<DOMCSSRuleList *>(thisObj.imp())->toCSSRuleList();
   switch (id) {
     case DOMCSSRuleList::Item:
-      return getDOMCSSRule(exec,cssRuleList.item(args[0].toInteger(exec)));
+      return getDOMCSSRule(exec,cssRuleList.item(args[0].toInt32(exec)));
     default:
       return Undefined();
   }
@@ -784,9 +787,9 @@ Value DOMCSSRuleFunc::tryCall(ExecState *exec, Object &thisObj, const List &args
   if (cssRule.type() == DOM::CSSRule::MEDIA_RULE) {
     DOM::CSSMediaRule rule = static_cast<DOM::CSSMediaRule>(cssRule);
     if (id == DOMCSSRule::Media_InsertRule)
-      return Number(rule.insertRule(args[0].toString(exec).string(),args[1].toInteger(exec)));
+      return Number(rule.insertRule(args[0].toString(exec).string(),args[1].toInt32(exec)));
     else if (id == DOMCSSRule::Media_DeleteRule)
-      rule.deleteRule(args[0].toInteger(exec));
+      rule.deleteRule(args[0].toInt32(exec));
   }
 
   return Undefined();
@@ -893,7 +896,7 @@ Value KJS::getDOMCSSValue(ExecState *exec, DOM::CSSValue v)
   DOMObject *ret;
   if (v.isNull())
     return Null();
-  ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->interpreter());
+  ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter());
   if ((ret = interp->getDOMObject(v.handle())))
     return Value(ret);
   else {
@@ -985,12 +988,12 @@ Value DOMCSSPrimitiveValueProtoFunc::tryCall(ExecState *exec, Object &thisObj, c
   DOM::CSSPrimitiveValue val = static_cast<DOMCSSPrimitiveValue *>(thisObj.imp())->toCSSPrimitiveValue();
   switch (id) {
     case DOMCSSPrimitiveValue::SetFloatValue:
-      val.setFloatValue(args[0].toInteger(exec),args[1].toNumber(exec));
+      val.setFloatValue(args[0].toInt32(exec),args[1].toNumber(exec));
       return Undefined();
     case DOMCSSPrimitiveValue::GetFloatValue:
-      return Number(val.getFloatValue(args[0].toInteger(exec)));
+      return Number(val.getFloatValue(args[0].toInt32(exec)));
     case DOMCSSPrimitiveValue::SetStringValue:
-      val.setStringValue(args[0].toInteger(exec),args[1].toString(exec).string());
+      val.setStringValue(args[0].toInt32(exec),args[1].toString(exec).string());
       return Undefined();
     case DOMCSSPrimitiveValue::GetStringValue:
       return getStringOrNull(val.getStringValue());
@@ -1099,7 +1102,7 @@ Value DOMCSSValueListFunc::tryCall(ExecState *exec, Object &thisObj, const List 
   DOM::CSSValueList valueList = static_cast<DOMCSSValueList *>(thisObj.imp())->toValueList();
   switch (id) {
     case DOMCSSValueList::Item:
-      return getDOMCSSValue(exec,valueList.item(args[0].toInteger(exec)));
+      return getDOMCSSValue(exec,valueList.item(args[0].toInt32(exec)));
     default:
       return Undefined();
   }

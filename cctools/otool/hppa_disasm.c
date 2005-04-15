@@ -26,6 +26,7 @@
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/hppa/reloc.h>
+#include "stuff/symbol.h"
 #include "stuff/bytesex.h"
 #include "stuff/hppa.h"
 #include "otool.h"
@@ -70,9 +71,9 @@ static void print_immediate(
     unsigned long pc,
     struct relocation_info *relocs,
     unsigned long nrelocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -113,9 +114,9 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -363,9 +364,9 @@ unsigned long value,
 unsigned long pc,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,

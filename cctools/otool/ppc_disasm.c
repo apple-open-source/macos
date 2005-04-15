@@ -22,11 +22,13 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include "stuff/target_arch.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/ppc/reloc.h>
 #include "stuff/bytesex.h"
+#include "stuff/symbol.h"
 #include "otool.h"
 #include "ofile_print.h"
 
@@ -132,9 +134,9 @@ static void print_immediate(
     unsigned long sect_offset,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -159,15 +161,15 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
 unsigned long *indirect_symbols,
 unsigned long nindirect_symbols,
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum bool verbose)
 {
@@ -285,6 +287,11 @@ enum bool verbose)
 	    if((opcode & 0xfc000003) == 0x48000001 && 
 	       get_reloc_r_type(sect_offset,relocs, nrelocs) == PPC_RELOC_JBSR){
 		printf("jbsr\t");
+		jbsr = TRUE;
+	    }
+	    else if((opcode & 0xfc000003) == 0x48000000 && 
+	       get_reloc_r_type(sect_offset,relocs, nrelocs) == PPC_RELOC_JBSR){
+		printf("jmp\t");
 		jbsr = TRUE;
 	    }
 	    else{
@@ -3079,9 +3086,9 @@ unsigned long value,
 unsigned long sect_offset,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -3136,6 +3143,7 @@ enum bool verbose)
 		       r_type == PPC_RELOC_LO16 ||
 		       r_type == PPC_RELOC_HA16 ||
 		       r_type == PPC_RELOC_SECTDIFF ||
+		       r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 		       r_type == PPC_RELOC_HI16_SECTDIFF ||
 		       r_type == PPC_RELOC_LO16_SECTDIFF ||
 		       r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -3175,6 +3183,7 @@ enum bool verbose)
 		   r_type == PPC_RELOC_LO16 ||
 		   r_type == PPC_RELOC_HA16 ||
 		   r_type == PPC_RELOC_SECTDIFF ||
+		   r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 		   r_type == PPC_RELOC_HI16_SECTDIFF ||
 		   r_type == PPC_RELOC_LO16_SECTDIFF ||
 		   r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -3334,58 +3343,58 @@ enum bool verbose)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].n_value == value){
+	    if(sorted_symbols[mid].nl.n_value == value){
 		if(reloc_found){
 		    switch(r_type){
 		    case PPC_RELOC_HI16:
 			if(offset == 0)
 			    printf("hi16(%s)",
-				   sorted_symbols[mid].n_un.n_name);
+				   sorted_symbols[mid].name);
 			else
 			    printf("hi16(%s+0x%x)",
-				    sorted_symbols[mid].n_un.n_name,
+				    sorted_symbols[mid].name,
 				    (unsigned int)offset);
 			break;
 		    case PPC_RELOC_HA16:
 			if(offset == 0)
 			    printf("ha16(%s)",
-				   sorted_symbols[mid].n_un.n_name);
+				   sorted_symbols[mid].name);
 			else
 			    printf("ha16(%s+0x%x)",
-				    sorted_symbols[mid].n_un.n_name,
+				    sorted_symbols[mid].name,
 				    (unsigned int)offset);
 			break;
 		    case PPC_RELOC_LO16:
 		    case PPC_RELOC_LO14:
 			if(offset == 0)
 			    printf("lo16(%s)",
-				   sorted_symbols[mid].n_un.n_name);
+				   sorted_symbols[mid].name);
 			else
 			    printf("lo16(%s+0x%x)",
-				   sorted_symbols[mid].n_un.n_name,
+				   sorted_symbols[mid].name,
 				   (unsigned int)offset);
 			break;
 		    default:
 			if(offset == 0)
-			    printf("%s",sorted_symbols[mid].n_un.n_name);
+			    printf("%s",sorted_symbols[mid].name);
 			else
 			    printf("%s+0x%x",
-				   sorted_symbols[mid].n_un.n_name,
+				   sorted_symbols[mid].name,
 				   (unsigned int)offset);
 			break;
 		    }
 		}
 		else{
 		    if(offset == 0)
-			printf("%s",sorted_symbols[mid].n_un.n_name);
+			printf("%s",sorted_symbols[mid].name);
 		    else
 			printf("%s+0x%x",
-			       sorted_symbols[mid].n_un.n_name,
+			       sorted_symbols[mid].name,
 			       (unsigned int)offset);
 		}
 		return;
 	    }
-	    if(sorted_symbols[mid].n_value > value){
+	    if(sorted_symbols[mid].nl.n_value > value){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }

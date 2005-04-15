@@ -121,6 +121,9 @@ struct dynamic_library {
  * libraries on the link line.
  */
 __private_extern__ struct dynamic_library *dynamic_libs;
+
+__private_extern__ unsigned int indirect_library_ratio;
+
 #endif /* !defined(RLD) */
 
 __private_extern__ void pass1(

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include "stuff/target_arch.h"
 #include <mach-o/nlist.h>
 #include <stuff/bool.h>
 
@@ -28,7 +29,7 @@
  */
 struct symbol_list {
     char *name;		/* name of the global symbol */
-    struct nlist *sym;	/* pointer to the nlist structure for this symbol */
+    void  *sym;		/* pointer to the nlist structure for this symbol */
     enum bool seen;	/* set if the symbol is seen in the input file */
 };
 

@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-A presentation system using TeX as a back end might allow you
-to insert inline markup, such as <markup role="tex">$x^2$</markup>,
-using TeX syntax directly.
-</para>

@@ -1,0 +1,84 @@
+$Id: NEWS,v 1.5 2002/02/19 18:09:46 ken3 Exp $
+
+CMU Sieve 2.1
+-------------
+
+- Compliant with RFC 3028.  As a result, fileinto and redirect only
+  accept a single string and NOT a string-list.
+
+- Compliant with draft-martin-sieve-notify-01.  As a result, notify
+  actions will need to be updated to the new syntax.
+
+CMU Sieve 2.0
+-------------
+
+- Compliant with draft-showalter-sieve-11.txt and 
+  draft-showalter-sieve-vacation-03.txt.
+
+- Added support for the regex, imapflags, notify and subaddress extensions.
+  See README for references.
+
+- Verifies email addresses in redirect and vacation actions are syntactically
+  correct (compliant with RFC822).
+
+- Run-time error reporting.
+
+- Changed callback interface to use callback contexts instead of individual
+  parameters.  Also added an error string buffer for run-time error reporting.
+
+- Vacation will not reply to any message containing an "auto-submitted"
+  header containing anything other than "no".
+
+CMU Sieve 1.4
+-------------
+
+Now included with imapd distribution (hell, why not?).
+
+Error returning and recovering:
+	added error recovering to the parser (but not much!)
+	added error messages to the parser
+
+Working on error returning and error recovering.
+	run-time errors
+	detect some errors in lexer?
+
+Working on even better parsing:
+	verify addresses could be addresses
+	verify mailboxes could be mailboxes
+	verify outgoing headers can be headers
+
+CMU Sieve 1.3
+-------------
+
+Changed for integration with cyrus deliver.
+
+CMU Sieve 1.2
+-------------
+
+Added additional callbacks (ok, so I want to make my integration with deliver
+easier) and envelope and vacation support.
+
+Made it compile without libcyrus.
+It should compile without libcyrus, but then it does not implement the
+"address" test.	 That's just too much work to do when I have a neato
+library to do it for me.
+
+Todo:
+- regex matching
+
+CMU Sieve 1.1
+-------------
+
+- Updated to draft-showalter-sieve-07bis.txt
+
+- Simple API (see sieve_interface.h; currently mostly undocumented)
+
+- Implements all of the optional features except "envelope"
+
+- Maintains "if it parses, it probably runs" behavior. (Goal: minimize
+  run-time errors.)
+
+CMU Sieve 1.0
+-------------
+
+- prototype implementation

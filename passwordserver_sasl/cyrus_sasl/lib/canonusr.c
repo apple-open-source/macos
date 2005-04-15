@@ -1,9 +1,9 @@
 /* canonusr.c - user canonicalization support
  * Rob Siemborski
- * $Id: canonusr.c,v 1.2 2002/05/22 17:56:55 snsimon Exp $
+ * $Id: canonusr.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ static canonuser_plug_list_t *canonuser_head = NULL;
  *                   null-terminate, and get into the outparams
  *
  *                   (handled by INTERNAL plugin) */
-/* Also does auxprop lookups once username is canonoicalized */
+/* Also does auxprop lookups once username is canonicalized */
 /* a zero ulen or alen indicates that it is strlen(value) */
 int _sasl_canon_user(sasl_conn_t *conn,
                      const char *user, unsigned ulen,
@@ -118,6 +118,7 @@ int _sasl_canon_user(sasl_conn_t *conn,
 
 	/* Point the input copy at the stored buffer */
 	user = user_buf;
+	ulen = *lenp;
     }
 
     /* which plugin are we supposed to use? */
@@ -237,7 +238,7 @@ int sasl_canonuser_add_plugin(const char *plugname,
     }
 
     if(!plug->canon_user_server && !plug->canon_user_client) {
-	/* We need atleast one of these implemented */
+	/* We need at least one of these implemented */
 	_sasl_log(NULL, SASL_LOG_ERR,
 		  "canonuser plugin without either client or server side");
 	return SASL_BADPROT;
@@ -269,7 +270,7 @@ static int _canonuser_internal(const sasl_utils_t *utils,
     unsigned i;
     char *in_buf, *userin;
     const char *begin_u;
-    unsigned u_apprealm = 0;
+    size_t u_apprealm = 0;
     sasl_server_conn_t *sconn = NULL;
 
     if(!utils || !user) return SASL_BADPARAM;
@@ -287,7 +288,7 @@ static int _canonuser_internal(const sasl_utils_t *utils,
     begin_u = &(userin[i]);
     if(i>0) ulen -= i;
 
-    for(;isspace((int)begin_u[ulen-1]) && ulen > 0; ulen--);
+    for(;ulen > 0 && isspace((int)begin_u[ulen-1]); ulen--);
     if(begin_u == &(userin[ulen])) {
 	sasl_FREE(in_buf);
 	utils->seterror(utils->conn, 0, "All-whitespace username.");
@@ -302,14 +303,17 @@ static int _canonuser_internal(const sasl_utils_t *utils,
 	u_apprealm = strlen(sconn->user_realm) + 1;
     }
     
-    /* Now copy! (FIXME: check for SASL_BUFOVER?) */
+    /* Now Copy */
     memcpy(out_user, begin_u, MIN(ulen, out_umax));
     if(sconn && u_apprealm) {
+	if(ulen >= out_umax) return SASL_BUFOVER;
 	out_user[ulen] = '@';
 	memcpy(&(out_user[ulen+1]), sconn->user_realm,
 	       MIN(u_apprealm-1, out_umax-ulen-1));
     }
     out_user[MIN(ulen + u_apprealm,out_umax)] = '\0';
+
+    if(ulen + u_apprealm > out_umax) return SASL_BUFOVER;
 
     if(out_ulen) *out_ulen = MIN(ulen + u_apprealm,out_umax);
     

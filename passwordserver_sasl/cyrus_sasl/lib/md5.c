@@ -30,6 +30,10 @@ documentation and/or software.
 #include "md5.h"
 #include "hmac-md5.h"
 
+#ifndef WIN32
+# include <arpa/inet.h>
+#endif
+
 /* Constants for MD5Transform routine.
 */
 
@@ -50,11 +54,11 @@ documentation and/or software.
 #define S43 15
 #define S44 21
 
-static void MD5Transform PROTO_LIST ((UINT4 [4], unsigned char [64]));
+static void MD5Transform PROTO_LIST ((UINT4 [4], const unsigned char [64]));
 static void Encode PROTO_LIST
        ((unsigned char *, UINT4 *, unsigned int)); 
 static void Decode PROTO_LIST
-       ((UINT4 *, unsigned char *, unsigned int)); 
+       ((UINT4 *, const unsigned char *, unsigned int)); 
 static void MD5_memcpy PROTO_LIST ((POINTER, POINTER, unsigned int));
 static void MD5_memset PROTO_LIST ((POINTER, int, unsigned int));
 
@@ -112,7 +116,7 @@ MD5_CTX *context; /* context */
 
 void _sasl_MD5Update (context, input, inputLen)
 MD5_CTX *context; /* context */
-unsigned char *input; /* input block */
+const unsigned char *input; /* input block */
 unsigned int inputLen; /* length of input block */
 {
        unsigned int i, index, partLen; 
@@ -184,7 +188,7 @@ MD5_CTX *context; /* context */
 
 static void MD5Transform (state, block)
 UINT4 state[4];
-unsigned char block[64];
+const unsigned char block[64];
 {
        UINT4 a = state[0], b = state[1], c = state[2], d = state[3], x[16]; 
 
@@ -299,7 +303,7 @@ unsigned int len;
 
 static void Decode (output, input, len)
 UINT4 *output;
-unsigned char *input;
+const unsigned char *input;
 unsigned int len;
 {
        unsigned int i, j; 
@@ -375,10 +379,10 @@ void _sasl_hmac_md5_init(HMAC_MD5_CTX *hmac,
    */
 
   /* start out by storing key in pads */
-  MD5_memset(k_ipad, '\0', sizeof k_ipad);
-  MD5_memset(k_opad, '\0', sizeof k_opad);
-  MD5_memcpy( k_ipad, key, key_len);
-  MD5_memcpy( k_opad, key, key_len);
+  MD5_memset((POINTER)k_ipad, '\0', sizeof k_ipad);
+  MD5_memset((POINTER)k_opad, '\0', sizeof k_opad);
+  MD5_memcpy( k_ipad, (POINTER)key, key_len);
+  MD5_memcpy( k_opad, (POINTER)key, key_len);
 
   /* XOR key with ipad and opad values */
   for (i=0; i<64; i++) {
@@ -393,9 +397,9 @@ void _sasl_hmac_md5_init(HMAC_MD5_CTX *hmac,
   _sasl_MD5Update(&hmac->octx, k_opad, 64);     /* apply outer pad */
 
   /* scrub the pads and key context (if used) */
-  MD5_memset(&k_ipad, 0, sizeof(k_ipad));
-  MD5_memset(&k_opad, 0, sizeof(k_opad));
-  MD5_memset(&tk, 0, sizeof(tk));
+  MD5_memset((POINTER)&k_ipad, 0, sizeof(k_ipad));
+  MD5_memset((POINTER)&k_opad, 0, sizeof(k_opad));
+  MD5_memset((POINTER)&tk, 0, sizeof(tk));
 
   /* and we're done. */
 }
@@ -420,7 +424,7 @@ void _sasl_hmac_md5_precalc(HMAC_MD5_STATE *state,
     state->istate[lupe] = htonl(hmac.ictx.state[lupe]);
     state->ostate[lupe] = htonl(hmac.octx.state[lupe]);
   }
-  MD5_memset(&hmac, 0, sizeof(hmac));
+  MD5_memset((POINTER)&hmac, 0, sizeof(hmac));
 }
 
 
@@ -428,7 +432,7 @@ void _sasl_hmac_md5_import(HMAC_MD5_CTX *hmac,
 		     HMAC_MD5_STATE *state)
 {
   unsigned lupe;
-  MD5_memset(hmac, 0, sizeof(HMAC_MD5_CTX));
+  MD5_memset((POINTER)hmac, 0, sizeof(HMAC_MD5_CTX));
   for (lupe = 0; lupe < 4; lupe++) {
     hmac->ictx.state[lupe] = ntohl(state->istate[lupe]);
     hmac->octx.state[lupe] = ntohl(state->ostate[lupe]);
@@ -492,8 +496,8 @@ unsigned char *digest; /* caller digest to be filled in */
   /* start out by storing key in pads */
   MD5_memset(k_ipad, '\0', sizeof k_ipad);
   MD5_memset(k_opad, '\0', sizeof k_opad);
-  MD5_memcpy( k_ipad, key, key_len);
-  MD5_memcpy( k_opad, key, key_len);
+  MD5_memcpy( k_ipad, (POINTER)key, key_len);
+  MD5_memcpy( k_opad, (POINTER)key, key_len);
 
   /* XOR key with ipad and opad values */
   for (i=0; i<64; i++) {

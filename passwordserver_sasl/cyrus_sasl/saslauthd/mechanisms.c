@@ -31,7 +31,7 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: mechanisms.c,v 1.2 2002/05/23 18:58:41 snsimon Exp $"
+#ident "$Id: mechanisms.c,v 1.5 2005/01/10 19:01:36 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -85,7 +85,7 @@ authmech_t mechanisms[] =
     {   "sia",		0,			auth_sia },
 #endif /* AUTH_SIA */
 #ifdef AUTH_LDAP
-    {   "ldap",		0,			auth_ldap },
+    {   "ldap",		auth_ldap_init,		auth_ldap },
 #endif /* AUTH_LDAP */
     {	0,		0,			0 }
 };

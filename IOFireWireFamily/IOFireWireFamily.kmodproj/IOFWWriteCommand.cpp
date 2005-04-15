@@ -301,6 +301,8 @@ IOReturn IOFWWriteCommand::execute()
 
 void IOFWWriteCommand::gotPacket( int rcode, const void* data, int size )
 {
+	setResponseCode( rcode );
+
     if( rcode != kFWResponseComplete ) 
 	{
         complete( kIOFireWireResponseBase+rcode );

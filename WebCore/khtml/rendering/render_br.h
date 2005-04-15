@@ -24,6 +24,10 @@
 
 #include "render_text.h"
 
+namespace DOM {
+    class Position;
+};
+
 /*
  * The whole class here is a hack to get <br> working, as long as we don't have support for
  * CSS2 :before and :after pseudo elements
@@ -37,25 +41,36 @@ public:
     virtual ~RenderBR();
 
     virtual const char *renderName() const { return "RenderBR"; }
+ 
+    virtual QRect selectionRect() { return QRect(); }
 
-    virtual void paint( QPainter *, int, int, int, int, int, int, int) {}
-    virtual void paintObject( QPainter *, int, int, int, int, int, int, int) {}
-
-    virtual void position(int, int, int, int, int, bool, bool, int) {}
     virtual unsigned int width(unsigned int, unsigned int, const Font *) const { return 0; }
     virtual unsigned int width( unsigned int, unsigned int, bool) const { return 0; }
 
-    virtual int height() const { return 0; }
+    virtual short lineHeight(bool firstLine, bool isRootLineBox=false) const;
+    virtual short baselinePosition( bool firstLine, bool isRootLineBox=false) const;
+    virtual void setStyle(RenderStyle* _style);
 
     // overrides
+    virtual InlineBox* createInlineBox(bool, bool, bool isOnlyRun = false);
     virtual void calcMinMaxWidth() {}
-    virtual short minWidth() const { return 0; }
-    virtual short maxWidth() const { return 0; }
+    virtual int minWidth() const { return 0; }
+    virtual int maxWidth() const { return 0; }
 
     virtual bool isBR() const { return true; }
-    virtual void cursorPos(int offset, int &_x, int &_y, int &height);
 
-    virtual FindSelectionResult checkSelectionPointIgnoringContinuations(int _x, int _y, int _tx, int _ty, DOM::NodeImpl*& node, int &offset);
+    virtual long caretMinOffset() const;
+    virtual long caretMaxOffset() const;
+    virtual unsigned long caretMaxRenderedOffset() const;
+    
+    virtual VisiblePosition positionForCoordinates(int x, int y);
+    virtual QRect caretRect(int offset, EAffinity affinity = UPSTREAM, int *extraWidthToEndOfLine = 0);
+
+    virtual InlineBox *inlineBox(long offset, EAffinity affinity = UPSTREAM);
+    
+private:
+    mutable short m_lineHeight;
+
 };
 
 }

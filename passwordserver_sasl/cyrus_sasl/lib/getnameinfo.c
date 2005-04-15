@@ -1,12 +1,12 @@
 /*
  * Mar  8, 2000 by Hajimu UMEMOTO <ume@mahoroba.org>
- * $Id: getnameinfo.c,v 1.2 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: getnameinfo.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  *
  * This module is besed on ssh-1.2.27-IPv6-1.5 written by
  * KIKUCHI Takahiro <kick@kyoto.wide.ad.jp>
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,7 +59,9 @@
  */
 
 #include "config.h"
-#include <arpa/inet.h>
+#ifndef WIN32
+# include <arpa/inet.h>
+#endif /* WIN32 */
 #include <stdio.h>
 #include <string.h>
 
@@ -89,13 +91,14 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen __attribute__((unused)),
 	} else {
 	    hp = gethostbyaddr((char *)&sin->sin_addr,
 			       sizeof(struct in_addr), AF_INET);
-	    if (hp)
+	    if (hp) {
 		if (strlen(hp->h_name) >= hostlen)
 		    return EAI_MEMORY;
 		else {
 		    strcpy(host, hp->h_name);
 		    return 0;
 		}
+	    }
 	    else
 		return EAI_NODATA;
 	}

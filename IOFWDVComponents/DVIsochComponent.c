@@ -290,8 +290,8 @@ static void dropMsg(DeviceDescription *deviceDescriptionPtr, UInt32 dropped)
         }
     }
     
-    syslog(LOG_INFO,"Just dropped %ld frames (total %ld)!\n",
-        dropped-deviceDescriptionPtr->fOldDrop, dropped);
+    // syslog(LOG_INFO,"Just dropped %ld frames (total %ld)!\n", dropped-deviceDescriptionPtr->fOldDrop, dropped);
+
     deviceDescriptionPtr->fOldDrop = dropped;
 }
 
@@ -373,6 +373,10 @@ static OSStatus closeDeviceControl( IsochComponentInstancePtr ih, DeviceDescript
 {
         OSStatus 						result = noErr;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: closeDeviceControl begin\n");
+#endif
+	
         if( deviceDescriptionPtr->deviceControlInstance)
         {
                 if( --deviceDescriptionPtr->deviceControlCount <= 0)
@@ -389,6 +393,10 @@ static OSStatus closeDeviceControl( IsochComponentInstancePtr ih, DeviceDescript
                 }
         }
 
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "IDH: closeDeviceControl end\n");
+#endif
+		
         return result;
 }
 
@@ -436,6 +444,10 @@ static OSStatus setupVideoAtoms( QTAtomContainer container, QTAtom isocAtom, UIn
     Component 				decoComponent;
     ComponentDescription 	compDescrip;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: setupVideoAtoms begin\n");
+#endif
+	
     // create a vide NTSC mode
     result = QTInsertChild( container, isocAtom, kIDHIsochModeAtomType,
                     0, 0, 0, nil, &configAtom);
@@ -525,7 +537,12 @@ static OSStatus setupVideoAtoms( QTAtomContainer container, QTAtom isocAtom, UIn
     FailWithVal( result != noErr, Exit, result);
 
 Exit:
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "IDH: setupVideoAtoms end\n");
+#endif
+	
+	return result;
 }
 
 static OSStatus setup48kAudioAtoms( QTAtomContainer container, QTAtom isocAtom, UInt32 standard)
@@ -745,7 +762,11 @@ static OSStatus cameraNameLookup(DeviceDescriptionPtr pDeviceDescription, UInt8 
 {
     OSStatus		result = noErr;
     int len = strlen(pDeviceDescription->fDevice->fName);
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: cameraNameLookup begin\n");
+#endif
+	
     if(len) {
         if(len>255)
             len = 255;
@@ -803,7 +824,12 @@ static OSStatus cameraNameLookup(DeviceDescriptionPtr pDeviceDescription, UInt8 
         }
         UseResFile(oldRes);
     }
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: cameraNameLookup end\n");
+#endif
+	
+	return result;
 }
 
 static OSStatus postEvent(IsochComponentGlobalsPtr g, IDHDeviceID deviceID, IDHEvent event)
@@ -885,7 +911,12 @@ static OSStatus postEvent(IsochComponentGlobalsPtr g, IDHDeviceID deviceID, IDHE
 
 static void deviceMessage(void * refcon, UInt32 messageType, void *messageArgument)
 {
-    // refcon is 1-based device index.
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: deviceMessage begin\n");
+#endif
+	
+	// refcon is 1-based device index.
     DeviceDescriptionPtr deviceDescriptionPtr = &globals.deviceDescription[(int)refcon-1];
     //syslog(LOG_INFO,"Got message: refcon %d, type 0x%x arg %p\n",
     //    refcon, messageType, messageArgument);
@@ -911,6 +942,10 @@ static void deviceMessage(void * refcon, UInt32 messageType, void *messageArgume
         // post a DV event to let the curious know...
         postEvent(deviceDescriptionPtr->fGlobals, (IDHDeviceID)deviceDescriptionPtr, kIDHEventDeviceRemoved);
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: deviceMessage end\n");
+#endif
 }
 
 
@@ -918,6 +953,10 @@ static OSStatus enableRead(DeviceDescription *deviceDescriptionPtr)
 {
     OSStatus		result;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: enableRead begin\n");
+#endif
+	
     deviceDescriptionPtr->fNumOutputFrames = 4;
     deviceDescriptionPtr->fRead = DVAllocRead(deviceDescriptionPtr->fDevice, globals.fDVThread);
 
@@ -955,18 +994,33 @@ static OSStatus enableRead(DeviceDescription *deviceDescriptionPtr)
         deviceDescriptionPtr->fOldDrop = deviceDescriptionPtr->fReadSharedVars->fDroppedFrames;
         DVSetTimeoutTime(deviceDescriptionPtr->fGlobals->fDVThread, CFAbsoluteTimeGetCurrent() + kDCLBlockTime);
     }
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: enableRead end\n");
+#endif
+	
+	return result;
 }
 
 static OSStatus disableRead(DeviceDescription *deviceDescriptionPtr)
 {
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: disableRead begin\n");
+#endif
+	
     if(deviceDescriptionPtr->fRead) {
         DVReadStop(deviceDescriptionPtr->fRead);
         DVReadFreeFrames(deviceDescriptionPtr->fRead);
         DVReadFree(deviceDescriptionPtr->fRead);
         deviceDescriptionPtr->fRead = NULL;
     }
-    return noErr;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: disableRead end\n");
+#endif
+	
+	return noErr;
 }
 
 static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
@@ -974,6 +1028,10 @@ static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
     OSStatus		result;
     int i;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: enableWrite begin\n");
+#endif
+	
     deviceDescriptionPtr->fNumOutputFrames = 4;
     deviceDescriptionPtr->fWrite = DVAllocWrite(deviceDescriptionPtr->fDevice,
                                                         deviceDescriptionPtr->fGlobals->fDVThread);
@@ -1005,12 +1063,20 @@ static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
     deviceDescriptionPtr->fOldDrop = deviceDescriptionPtr->fWriteSharedVars->fDroppedFrames;
 
     DVSetTimeoutTime(deviceDescriptionPtr->fGlobals->fDVThread, CFAbsoluteTimeGetCurrent() + kDCLBlockTime);
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: enableWrite end\n");
+#endif
+	
     return result;
 }
 
 static void disableWrite(DeviceDescription *deviceDescriptionPtr)
 {
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: disableWrite begin\n");
+#endif
+	
     DVWriteStop(deviceDescriptionPtr->fWrite);
     DVWriteFreeFrames(deviceDescriptionPtr->fWrite);
     DVWriteFree(deviceDescriptionPtr->fWrite);
@@ -1019,6 +1085,11 @@ static void disableWrite(DeviceDescription *deviceDescriptionPtr)
         DisposePtr((Ptr)deviceDescriptionPtr->fOldWriteTimeStamps);
         deviceDescriptionPtr->fOldWriteTimeStamps = NULL;
     }
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: disableWrite end\n");
+#endif
+	
 }
 
 static OSStatus sendMsg(IsochComponentInstancePtr ih, RequestFunc request, void *params)
@@ -1058,7 +1129,11 @@ static void deviceArrived(void *refcon, DVDevice *device, UInt32 index, UInt32 r
     DeviceDescriptionPtr	deviceDescriptionPtr;
     IDHDeviceStatus		deviceStatus;
     ComponentDescription	clkDesc;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: deviceArrived begin\n");
+#endif
+	
     RecordEventLogger( 'isoc', 'addv', (int)g, index);
     //syslog(LOG_INFO,"deviceArrived: device 0x%x\n", index);
 
@@ -1198,6 +1273,11 @@ static void deviceArrived(void *refcon, DVDevice *device, UInt32 index, UInt32 r
     } while(false);
 
     postEvent(g, (IDHDeviceID)deviceDescriptionPtr, kIDHEventDeviceAdded);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: deviceArrived end\n");
+#endif
+	
 }
 
 static UInt8 *getNextFrame(DeviceDescription *deviceDescriptionPtr, IsochComponentInstancePtr client, int slack, int waiting)
@@ -1587,7 +1667,11 @@ static ComponentResult processClose(IsochComponentInstancePtr ih, void *junk)
 {
     ComponentResult result = noErr;
     DeviceDescription *deviceDescriptionPtr;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: processClose begin\n");
+#endif
+	
     result = findDeviceDescriptionforDevice( ih, ih->deviceID, &deviceDescriptionPtr);	// find the device
     FailWithVal( result != noErr, Exit, result);
     if( ih->permissions & kIDHOpenForReadTransactions)	// tear down read
@@ -1632,8 +1716,13 @@ static ComponentResult processClose(IsochComponentInstancePtr ih, void *junk)
 
     deviceDescriptionPtr->fOpenClients[ih->fClientIndex] = nil;
 Exit:
-    
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+syslog(LOG_INFO, "IDH: processClose end\n");
+#endif
+
+return result;
+
 }
 
 static ComponentResult processCancelPendingIO(IsochComponentInstancePtr client, void *params)
@@ -1739,6 +1828,11 @@ static pascal ComponentResult
 FWDVComponentOpen(IsochComponentInstancePtr storage, ComponentInstance self)
 {
     IsochComponentGlobalsPtr g = &globals;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVComponentOpen begin\n");
+#endif
+	
     RecordEventLogger( 'isoc', 'open', g->fNumInstances, 0);
     if( nil == (storage = (IsochComponentInstancePtr)NewPtrClear(sizeof(IsochComponentInstance))))
         return(MemError());
@@ -1758,7 +1852,15 @@ FWDVComponentOpen(IsochComponentInstancePtr storage, ComponentInstance self)
     }
     
     g->fNumInstances++;
-    
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVComponentOpen fNumInstances: %d\n",g->fNumInstances);
+#endif
+	
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVComponentOpen end\n");
+#endif
+	
     return(noErr);
 }
 
@@ -1769,6 +1871,11 @@ FWDVComponentClose(IsochComponentInstancePtr ih, ComponentInstance self)
 {
     int i;
     IsochComponentGlobalsPtr g = &globals;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVComponentClose begin\n");
+#endif
+	
     RecordEventLogger( 'isoc', 'clos', ih, self);
     if( !ih)
         return( noErr );
@@ -1784,6 +1891,11 @@ FWDVComponentClose(IsochComponentInstancePtr ih, ComponentInstance self)
 
     //syslog(LOG_INFO, "%x: FWDVComponentClose count %d\n", pthread_self(), g->fNumInstances);
     g->fNumInstances--;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVComponentClose fNumInstances: %d\n",g->fNumInstances);
+#endif
+	
     if(g->fNumInstances == 0) {
     
         // Free all mach ports etc.
@@ -1810,7 +1922,12 @@ FWDVComponentClose(IsochComponentInstancePtr ih, ComponentInstance self)
 
     SetComponentInstanceStorage(self, (Handle) nil );
     RecordEventLogger( 'isoc', 'clos', 'end ', 0);
-    return( noErr );
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVComponentClose end\n");
+#endif
+	
+	return( noErr );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1840,6 +1957,10 @@ FWDVIDHGetDeviceList(IsochComponentInstancePtr storage,
     int			devIndex;
     UInt32		version;
     IsochComponentGlobalsPtr g = &globals;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHGetDeviceList begin\n");
+#endif
 
     RecordEventLogger( 'isoc', 'get ', 'dev ', 'list');
     do {
@@ -1888,8 +2009,12 @@ FWDVIDHGetDeviceList(IsochComponentInstancePtr storage,
         QTRemoveChildren( container, kParentAtomIsContainer);
         QTDisposeAtomContainer( container);
     }
-        
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHGetDeviceList end\n");
+#endif
+	
+	return result;
 }
 
 static pascal ComponentResult
@@ -1904,6 +2029,10 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
     IsochComponentGlobalsPtr g = &globals;
     Boolean				isSDL;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHSetDeviceConfiguration begin\n");
+#endif
+	
     RecordEventLogger( 'isoc', 'set ', 'conf', ih);
     
     FailWithAction( configID == nil, result = paramErr, Exit);
@@ -1980,6 +2109,11 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
             
 Exit:
     RecordEventLogger( 'isoc', 'set ', 'Exit', ih);
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHSetDeviceConfiguration end\n");
+#endif
+	
     return result;
 }
 
@@ -1989,6 +2123,10 @@ FWDVIDHOpenDevice(IsochComponentInstancePtr ih, UInt32 permissions)
     ComponentResult result = noErr;
     IsochComponentGlobalsPtr g = &globals;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHOpenDevice begin\n");
+#endif
+	
     RecordEventLogger( 'open', ' dev', ih, permissions);
     
     FailWithAction( permissions == 0, result = paramErr, Exit);
@@ -2016,7 +2154,12 @@ FWDVIDHOpenDevice(IsochComponentInstancePtr ih, UInt32 permissions)
 #endif	 
 
 Exit:
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "IDH: FWDVIDHOpenDevice end\n");
+#endif
+	
+	return result;
 }
 
 static pascal ComponentResult
@@ -2025,6 +2168,10 @@ FWDVIDHCloseDevice(IsochComponentInstancePtr ih)
     OSStatus 			result = noErr;
     IsochComponentGlobalsPtr g = &globals;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHCloseDevice begin\n");
+#endif
+	
     RecordEventLogger( 'isoc', 'clos', ' dev', ih);
 
     FailWithAction( ih->deviceID == nil, result = kIDHErrDeviceNotConfigured, Exit);
@@ -2042,6 +2189,11 @@ FWDVIDHCloseDevice(IsochComponentInstancePtr ih)
 Exit:
     ih->permissions = 0;	// make sure device is closed
     ih->fClientIndex = 0xdead;
+
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHCloseDevice end\n");
+#endif
+	
     return result;
 }
 
@@ -2051,6 +2203,10 @@ FWDVIDHGetDeviceConfiguration(IsochComponentInstancePtr ih, QTAtomSpec *configID
 {
     OSStatus 	result = noErr;
 
+#ifdef kIDH_Verbose_Debug_Logging
+	syslog(LOG_INFO, "IDH: FWDVIDHGetDeviceConfiguration begin\n");
+#endif
+	
     RecordEventLogger( 'isoc', 'get ', 'dev ', 'conf');
 
     FailWithAction( configID == nil, result = paramErr, Exit);
@@ -2060,7 +2216,12 @@ FWDVIDHGetDeviceConfiguration(IsochComponentInstancePtr ih, QTAtomSpec *configID
     *configID = ih->currentConfig;
 
 Exit:
-    return result;
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "IDH: FWDVIDHGetDeviceConfiguration end\n");
+#endif
+	
+	return result;
 }
 
 static pascal ComponentResult
@@ -2073,7 +2234,12 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
         DeviceDescription	*deviceDescriptionPtr;
         IsochComponentGlobalsPtr g = &globals;
         UInt8			inputFormat = kIDHDV_SD;
-        RecordEventLogger( 'isoc', 'get ', 'stat', ih);
+
+#ifdef kIDH_Verbose_Debug_Logging
+		syslog(LOG_INFO, "IDH: FWDVIDHGetDeviceStatus begin\n");
+#endif
+		
+		RecordEventLogger( 'isoc', 'get ', 'stat', ih);
         FailWithAction( devSpec == nil, result = paramErr, Exit);
         FailWithAction( status == nil, result = paramErr, Exit);
 
@@ -2172,6 +2338,11 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
         FailWithVal( result != noErr, Exit, result);
 
 Exit:
+
+#ifdef kIDH_Verbose_Debug_Logging
+			syslog(LOG_INFO, "IDH: FWDVIDHGetDeviceStatus end\n");
+#endif
+		
         return result;
 }
 

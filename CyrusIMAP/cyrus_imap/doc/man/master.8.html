@@ -1,0 +1,294 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>MASTER</title>
+</head>
+<body>
+
+<h1 align=center>MASTER</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#CONFIGURATION">CONFIGURATION</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:18 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>master &minus; master Cyrus process</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>master</b> [ <b>&minus;C</b> <i>alternate
+imapd.conf</i> ] [ <b>&minus;M</b> <i>alternate
+cyrus.conf</i> ] [ <b>&minus;l</b> <i>listen queue</i> ] [
+<b>&minus;p</b> <i>pidfile</i> ] [ <b>&minus;P</b> <i>snmp
+agentx ping interval</i> ] [ <b>&minus;j</b> <i>janitor
+period</i> ] [ <b>&minus;d</b> ] [ <b>&minus;D</b> ] [
+<b>&minus;x</b> <i>snmp agentx socket</i> ]</p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Master</i> is the process that controls all of the
+Cyrus processes. This process is responsible for creating
+all imapd, pop3d, lmtpd and sieved child processes. This
+process also initializes the Berkeley DB code and performs
+scheduled cleanup/maintenance.</p>
+<!-- INDENTATION -->
+<p>If this process dies, then no new sessions will be
+started.</p>
+<!-- INDENTATION -->
+<p>It kills itself and all child processes when it receives
+a SIGTERM.</p>
+</td>
+</table></p>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>alternate imapd.conf</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Specifies an alternate imapd.conf for use by master (note
+that this will not affect any sub-processes spawned by
+master, you should specify those specifically in the
+respective entries in cyrus.conf).</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;M</b> <i>alternate cyrus.conf</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Specifies an alternate cyrus.conf for use by master.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;l</b> <i>listen queue backlog</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Increase the listen queue backlog. By default, the listen
+queue is set to 32. On systems with a high connection rate,
+it may be desirable to increase this value. refer to
+<b>listen(2)</b> for details.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;j</b> <i>janitor full-sweeps per
+second</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Sets the amount of times per second the janitor should
+sweep the entire child table. Leave it at the default of 1
+unless you have a really high fork rate (and you have not
+increased the child hash table size when you compiled Cyrus
+from its default of 10000 entries).</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;p</b> <i>pidfile</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Use <i>pidfile</i> as the pidfile. If not specified,
+defaults to /var/run/cyrus-master.pid</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;P</b> <i>snmp agentx ping interval</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Sets the amount on time in seconds the subagent will try
+and reconnect to the master agent (snmpd) if it ever becomes
+(or starts) disconnected. Requires net-snmp 5.0 or
+higher.</p>
+</td>
+</table>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;d</b></p>
+</td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>Start in daemon mode (run in background and disconnect
+from controlling terminal).</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;D</b></p>
+</td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>Don&rsquo;t close stdin/stdout/stderr. Primiarly useful
+for debugging.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;x</b> <i>snmp agentx socket</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Address the master agent (most likely snmpd) listens on.
+Requires net-snmp 5.0 or higher.</p>
+</td>
+</table>
+<a name="CONFIGURATION"></a>
+<h2>CONFIGURATION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>Upon execution, <i>master</i> reads its configuration
+information out of the <i>cyrus.conf</i>(5) file.</p>
+<!-- INDENTATION -->
+<p><i>Master</i> rereads its configuration file when it
+receives a hangup signal, SIGHUP. Services and events may be
+added, deleted or modified when the configuration file is
+reread. Any active services removed from the configuration
+file will be allowed to run until completion.</p>
+</td>
+</table></p>
+<a name="NOTES"></a>
+<h2>NOTES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>The environment variable <b>CYRUS_VERBOSE</b> can be set
+to log additional debugging information. Setting the value
+to 1 results in base level logging. Setting it higher
+results in more log messages being generated.</p>
+</td>
+</table></p>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/cyrus.conf, /etc/imapd.conf,
+/var/run/cyrus-master.pid</b></p></td>
+</table></p>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>cyrus.conf(5)</b>, <b>imapd.conf(5)</b>,
+<b>imapd(8)</b>, <b>pop3d(8)</b>, <b>lmtpd(8)</b>,
+<b>timsieved(8)</b>, <b>idled(8)</b></p>
+</td>
+</table></p>
+<hr>
+</body>
+</html>

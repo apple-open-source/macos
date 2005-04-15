@@ -1695,3 +1695,37 @@ int connection_write(ber_socket_t s)
 	return 0;
 }
 
+void connection_invalid_socket( ber_socket_t s )
+{
+	Connection *c;
+
+#ifdef NEW_LOGGING
+	LDAP_LOG( CONNECTION, ENTRY, "connection_invalid_socket: socket %ld\n", (long)s, 0, 0 );
+#else
+	Debug( LDAP_DEBUG_ARGS,
+		"connection_invalid_socket(%ld)\n",
+		(long) s, 0, 0 );
+#endif
+
+	assert( connections != NULL );
+
+	ldap_pvt_thread_mutex_lock( &connections_mutex );
+
+	/* get (locked) connection */
+	c = connection_get( s );
+	
+	if ( c != NULL) {
+		if( c->c_struct_state == SLAP_C_USED ) {
+			if ( c->c_conn_state != SLAP_C_INVALID ) {
+				connection_closing( c );
+			}
+			if ( c->c_conn_state == SLAP_C_CLOSING ) {
+				connection_close( c );
+			}
+		}
+		connection_return( c );
+	}
+	ldap_pvt_thread_mutex_unlock( &connections_mutex );
+
+	slapd_remove( s, 1 );
+}

@@ -39,6 +39,26 @@
 #include "error_object.h"
 #include "nodes.h"
 
+#ifndef NDEBUG
+#define JAVASCRIPT_CALL_TRACING Yes
+#endif
+
+#ifdef JAVASCRIPT_CALL_TRACING
+static bool _traceJavaScript = false;
+
+extern "C" {
+    void setTraceJavaScript(bool f)
+    {
+        _traceJavaScript = f;
+    }
+
+    static bool traceJavaScript()
+    {
+        return _traceJavaScript;
+    }
+}
+#endif
+
 namespace KJS {
 
 // ------------------------------ Object ---------------------------------------
@@ -56,6 +76,23 @@ Value Object::call(ExecState *exec, Object &thisObj, const List &args)
 { 
 #if KJS_MAX_STACK > 0
   static int depth = 0; // sum of all concurrent interpreters
+
+#ifdef JAVASCRIPT_CALL_TRACING
+    static bool tracing = false;
+    if (traceJavaScript() && !tracing) {
+        tracing = true;
+        for (int i = 0; i < depth; i++)
+            putchar (' ');
+        printf ("*** calling:  %s\n", toString(exec).ascii());
+        for (int j = 0; j < args.size(); j++) {
+            for (int i = 0; i < depth; i++)
+                putchar (' ');
+            printf ("*** arg[%d] = %s\n", j, args[j].toString(exec).ascii());
+        }
+        tracing = false;
+    }
+#endif
+
   if (++depth > KJS_MAX_STACK) {
     --depth;
     Object err = Error::create(exec, RangeError,
@@ -69,6 +106,16 @@ Value Object::call(ExecState *exec, Object &thisObj, const List &args)
 
 #if KJS_MAX_STACK > 0
   --depth;
+#endif
+
+#ifdef JAVASCRIPT_CALL_TRACING
+    if (traceJavaScript() && !tracing) {
+        tracing = true;
+        for (int i = 0; i < depth; i++)
+            putchar (' ');
+        printf ("*** returning:  %s\n", ret.toString(exec).ascii());
+        tracing = false;
+    }
 #endif
 
   return ret;
@@ -293,7 +340,7 @@ Value ObjectImp::defaultValue(ExecState *exec, Type hint) const
 {
   if (hint != StringType && hint != NumberType) {
     /* Prefer String for Date objects */
-    if (_proto == exec->interpreter()->builtinDatePrototype().imp())
+    if (_proto == exec->lexicalInterpreter()->builtinDatePrototype().imp())
       hint = StringType;
     else
       hint = NumberType;
@@ -368,6 +415,11 @@ Object ObjectImp::construct(ExecState */*exec*/, const List &/*args*/)
   return Object(0);
 }
 
+Object ObjectImp::construct(ExecState *exec, const List &args, const UString &/*sourceURL*/, int /*lineNumber*/)
+{
+  return construct(exec, args);
+}
+
 bool ObjectImp::implementsCall() const
 {
   return false;
@@ -427,7 +479,9 @@ void ObjectImp::setInternalValue(const Value &v)
 
 void ObjectImp::setInternalValue(ValueImp *v)
 {
+#if !USE_CONSERVATIVE_GC
   v->setGcAllowed();
+#endif
   _internalValue = v;
 }
 
@@ -464,7 +518,9 @@ Object ObjectImp::toObject(ExecState */*exec*/) const
 
 void ObjectImp::putDirect(const Identifier &propertyName, ValueImp *value, int attr)
 {
+#if !USE_CONSERVATIVE_GC
     value->setGcAllowed();
+#endif
     _prop.put(propertyName, value, attr);
 }
 
@@ -488,31 +544,30 @@ const char * const errorNamesArr[] = {
 const char * const * const Error::errorNames = errorNamesArr;
 
 Object Error::create(ExecState *exec, ErrorType errtype, const char *message,
-                     int lineno, int sourceId)
+                     int lineno, int sourceId, const UString *sourceURL)
 {
   Object cons;
-
   switch (errtype) {
   case EvalError:
-    cons = exec->interpreter()->builtinEvalError();
+    cons = exec->lexicalInterpreter()->builtinEvalError();
     break;
   case RangeError:
-    cons = exec->interpreter()->builtinRangeError();
+    cons = exec->lexicalInterpreter()->builtinRangeError();
     break;
   case ReferenceError:
-    cons = exec->interpreter()->builtinReferenceError();
+    cons = exec->lexicalInterpreter()->builtinReferenceError();
     break;
   case SyntaxError:
-    cons = exec->interpreter()->builtinSyntaxError();
+    cons = exec->lexicalInterpreter()->builtinSyntaxError();
     break;
   case TypeError:
-    cons = exec->interpreter()->builtinTypeError();
+    cons = exec->lexicalInterpreter()->builtinTypeError();
     break;
   case URIError:
-    cons = exec->interpreter()->builtinURIError();
+    cons = exec->lexicalInterpreter()->builtinURIError();
     break;
   default:
-    cons = exec->interpreter()->builtinError();
+    cons = exec->lexicalInterpreter()->builtinError();
     break;
   }
 
@@ -527,6 +582,9 @@ Object Error::create(ExecState *exec, ErrorType errtype, const char *message,
   if (sourceId != -1)
     err.put(exec, "sourceId", Number(sourceId));
 
+  if(sourceURL)
+   err.put(exec,"sourceURL", String(*sourceURL));
+ 
   return err;
 
 /*

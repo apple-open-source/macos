@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -296,37 +296,27 @@ void QScrollView::addChild(QWidget* child, int x, int y)
 {
     ASSERT(child != this);
     
-    child->move(x, y);
+    // we don't need to do the offscreen position initialization that KDE needs
+    if (x != -500000)
+	child->move(x, y);
 
-    KWQ_BLOCK_EXCEPTIONS;
-
-    NSView * thisView;
-    NSView *thisDocView, *subview;
-    
-    thisView = getView();
-    thisDocView = getDocumentView();
+    NSView *thisView = getView();
+    NSView *thisDocView = getDocumentView();
     if (thisDocView)
         thisView = thisDocView;
 
-    subview = child->getOuterView();
-    ASSERT(subview != thisView);
+#ifndef NDEBUG
+    NSView *subview = child->getOuterView();
 
-    if ([subview superview] != thisView) {
-	[subview removeFromSuperview];
-	
-	LOG(Frames, "Adding %p %@ at (%d,%d) w %d h %d\n", subview,
-	    [(id)[subview class] className], x, y, (int)[subview frame].size.width, (int)[subview frame].size.height);
-	
-	[thisView addSubview:subview];
-    }
-    KWQ_UNBLOCK_EXCEPTIONS;
+    LOG(Frames, "Adding %p %@ at (%d,%d) w %d h %d\n", subview,
+        [(id)[subview class] className], x, y, (int)[subview frame].size.width, (int)[subview frame].size.height);
+#endif
+    child->addToSuperview(thisView);
 }
 
 void QScrollView::removeChild(QWidget* child)
 {
-    KWQ_BLOCK_EXCEPTIONS;
-    [child->getOuterView() removeFromSuperview];
-    KWQ_UNBLOCK_EXCEPTIONS;
+    child->removeFromSuperview();
 }
 
 void QScrollView::resizeContents(int w, int h)
@@ -361,15 +351,23 @@ void QScrollView::updateContents(int x, int y, int w, int h, bool now)
 void QScrollView::updateContents(const QRect &rect, bool now)
 {
     KWQ_BLOCK_EXCEPTIONS;
-    NSView * view = getView();
+
+    NSView *view = getView();
 
     if ([view _KWQ_isScrollView])
         view = getDocumentView();
 
-    if (now)
-        [view displayRect: rect];
-    else
-        [view setNeedsDisplayInRect:rect];
+    // Checking for rect visibility is an important optimization for the case of
+    // Select All of a large document. AppKit does not do this check, and so ends
+    // up building a large complicated NSRegion if we don't perform the check.
+    NSRect dirtyRect = NSIntersectionRect(rect, [view visibleRect]);
+    if (!NSIsEmptyRect(dirtyRect)) {
+        if (now)
+            [view displayRect:dirtyRect];
+        else
+            [view setNeedsDisplayInRect:dirtyRect];
+    }
+
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -384,6 +382,8 @@ QPoint QScrollView::contentsToViewport(const QPoint &p)
     contentsToViewport(p.x(), p.y(), vx, vy);
     return QPoint(vx, vy);
 }
+
+// NB, for us "viewport" means the NSWindow's coord system, which is origin lower left
 
 void QScrollView::contentsToViewport(int x, int y, int& vx, int& vy)
 {
@@ -473,10 +473,10 @@ void QScrollView::ensureVisible(int x, int y, int xmargin, int ymargin)
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-void QScrollView::ensureRectVisibleCentered(const QRect &rect)
+void QScrollView::ensureRectVisibleCentered(const QRect &rect, bool forceCentering)
 {
     KWQ_BLOCK_EXCEPTIONS;
-    [getDocumentView() _KWQ_scrollRectToVisible:NSMakeRect(rect.x(), rect.y(), rect.width(), rect.height())];
+    [getDocumentView() _KWQ_scrollRectToVisible:NSMakeRect(rect.x(), rect.y(), rect.width(), rect.height()) forceCentering:forceCentering];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -490,4 +490,9 @@ NSView *QScrollView::getDocumentView() const
     KWQ_UNBLOCK_EXCEPTIONS;
     
     return nil;
+}
+
+bool QScrollView::isQScrollView() const
+{
+    return true;
 }

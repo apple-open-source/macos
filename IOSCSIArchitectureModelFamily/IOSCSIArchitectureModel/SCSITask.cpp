@@ -306,13 +306,13 @@ SCSITask::SetLogicalUnitNumber ( UInt8 newLUN )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetLogicalUnitNumber - 	Utility method for getting the Logical Unit
+//	¥ GetLogicalUnitNumber - 	Utility method for getting the Logical Unit
 //								Number for which this Task is intended.
 //																	   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt8
-SCSITask::GetLogicalUnitNumber( void )
+SCSITask::GetLogicalUnitNumber ( void )
 {
 	return fLogicalUnitNumber;
 }
@@ -341,6 +341,7 @@ SCSITask::GetTaskAttribute ( void )
 {
 	return fTaskAttribute;
 }
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ SetTaggedTaskIdentifier - Sets the SCSITaggedTaskIdentifier.	   [PUBLIC]

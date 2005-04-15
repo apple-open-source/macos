@@ -1,5 +1,14 @@
 RC_OS = macos
 OFLAG = -O
+KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
+       -force_cpusubtype_ALL -msoft-float -nostdinc \
+-I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
+-I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders \
+       -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/libsa \
+       -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
+       -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers \
+       -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
+
 ifeq "macos" "$(RC_OS)"
   X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
@@ -29,8 +38,10 @@ endif
 SRCROOT = .
 SYMROOT = .
 OBJROOT = .
-OFILE_DIRS = $(OBJROOT)/static_obj $(OBJROOT)/dynamic_obj\
-	     $(OBJROOT)/profile_obj $(OBJROOT)/shlib_obj
+OFILE_DIRS = $(OBJROOT)/static_obj $(OBJROOT)/dynamic_obj \
+	     $(OBJROOT)/profile_obj $(OBJROOT)/shlib_obj \
+	     $(OBJROOT)/static64_obj $(OBJROOT)/dynamic64_obj \
+	     $(OBJROOT)/profile64_obj $(OBJROOT)/static_kld_obj
 OFILE_DIR = $(OBJROOT)
 VPATH = $(OFILE_DIR)
 
@@ -41,11 +52,12 @@ CFILES = allocate.c errors.c arch.c execute.c bytesex.c round.c hppa.c \
 	  breakout.c writeout.c checkout.c fatal_arch.c ofile_get_word.c \
 	  vm_flush_cache.c hash_string.c dylib_roots.c guess_short_name.c \
 	  SymLoc.c get_arch_from_host.c crc32.c macosx_deployment_target.c \
-	  symbol_list.c
+	  symbol_list.c unix_standard_mode.c
 OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) Makefile notes
 
-all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile $(RC_OS)
+all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile \
+	static64 dynamic64 profile64 static_kld $(RC_OS)
 
 teflon macos:
 
@@ -75,6 +87,66 @@ static: $(OBJROOT)/static_obj
 		SRCROOT=$(SRCROOT)					\
 		SYMROOT=$(SYMROOT)					\
 		COPTS="-static"						\
+		OFLAG="$(OFLAG)"					\
+		CFILES="$(CFILES)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	fi
+
+static_kld: $(OBJROOT)/static_kld_obj
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd static_kld_obj;						\
+		$(MAKE) -f ../Makefile libstuff_kld.a			\
+		PRODUCT=libstuff_kld.a					\
+		VPATH=.. 						\
+		OFILE_DIR=.						\
+		SRCROOT=..						\
+		SYMROOT=..						\
+		COPTS="-static -DRLD -DSA_RLD $(KERN)"			\
+		OFLAG="$(OFLAG)"					\
+		CFILES="$(CFILES)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	else								\
+	    cd $(OBJROOT)/static_kld_obj;				\
+		$(MAKE) -f $(SRCROOT)/Makefile libstuff_kld.a		\
+		PRODUCT=libstuff_kld.a					\
+		VPATH=$(SRCROOT)					\
+		OFILE_DIR=$(OBJROOT)/static_kld_obj			\
+		SRCROOT=$(SRCROOT)					\
+		SYMROOT=$(SYMROOT)					\
+		COPTS="-static -DRLD -DSA_RLD $(KERN)"			\
+		OFLAG="$(OFLAG)"					\
+		CFILES="$(CFILES)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	fi
+
+static64: $(OBJROOT)/static64_obj
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd static64_obj;						\
+		$(MAKE) -f ../Makefile libstuff64.a			\
+		PRODUCT=libstuff64.a					\
+		VPATH=.. 						\
+		OFILE_DIR=.						\
+		SRCROOT=..						\
+		SYMROOT=..						\
+		COPTS="-static -DARCH64"				\
+		OFLAG="$(OFLAG)"					\
+		CFILES="$(CFILES)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	else								\
+	    cd $(OBJROOT)/static64_obj;					\
+		$(MAKE) -f $(SRCROOT)/Makefile libstuff64.a		\
+		PRODUCT=libstuff64.a					\
+		VPATH=$(SRCROOT)					\
+		OFILE_DIR=$(OBJROOT)/static64_obj			\
+		SRCROOT=$(SRCROOT)					\
+		SYMROOT=$(SYMROOT)					\
+		COPTS="-static -DARCH64"				\
 		OFLAG="$(OFLAG)"					\
 		CFILES="$(CFILES)"					\
 		RC_CFLAGS="$(RC_CFLAGS)"				\
@@ -111,6 +183,36 @@ dynamic: $(OBJROOT)/dynamic_obj
 		RC_ARCHS="$(RC_ARCHS)";					\
 	fi
 
+dynamic64: $(OBJROOT)/dynamic64_obj
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd dynamic64_obj;						\
+		$(MAKE) -f ../Makefile libstuff64.dylib			\
+		PRODUCT=libstuff64.dylib				\
+		VPATH=.. 						\
+		OFILE_DIR=.						\
+		SRCROOT=..						\
+		SYMROOT=..						\
+		COPTS="-dynamic -DARCH64"				\
+		OFLAG="$(OFLAG)"					\
+		CFILES="$(CFILES)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	else								\
+	    cd $(OBJROOT)/dynamic64_obj;				\
+		$(MAKE) -f $(SRCROOT)/Makefile libstuff64.dylib		\
+		PRODUCT=libstuff64.dylib				\
+		VPATH=$(SRCROOT)					\
+		OFILE_DIR=$(OBJROOT)/dynamic64_obj			\
+		SRCROOT=$(SRCROOT)					\
+		SYMROOT=$(SYMROOT)					\
+		COPTS="-dynamic -DARCH64"				\
+		OFLAG="$(OFLAG)"					\
+		CFILES="$(CFILES)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	fi
+
 profile: $(OBJROOT)/profile_obj
 	@if [ $(SRCROOT) = . ];						\
 	then								\
@@ -134,6 +236,34 @@ profile: $(OBJROOT)/profile_obj
 		SRCROOT=$(SRCROOT)					\
 		SYMROOT=$(SYMROOT)					\
 		COPTS="-dynamic -pg"					\
+		OFLAG="$(OFLAG)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	fi
+
+profile64: $(OBJROOT)/profile64_obj
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd profile64_obj;						\
+		$(MAKE) -f ../Makefile libstuff64_p.a			\
+		PRODUCT=libstuff64_p.a					\
+		VPATH=.. 						\
+		OFILE_DIR=.						\
+		SRCROOT=..						\
+		SYMROOT=..						\
+		COPTS="-dynamic -pg -DARCH64"				\
+		OFLAG="$(OFLAG)"					\
+		RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)";					\
+	else								\
+	    cd $(OBJROOT)/profile64_obj;				\
+		$(MAKE) -f $(SRCROOT)/Makefile libstuff64_p.a		\
+		PRODUCT=libstuff64_p.a					\
+		VPATH=$(SRCROOT)					\
+		OFILE_DIR=$(OBJROOT)/profile64_obj			\
+		SRCROOT=$(SRCROOT)					\
+		SYMROOT=$(SYMROOT)					\
+		COPTS="-dynamic -pg -DARCH64"				\
 		OFLAG="$(OFLAG)"					\
 		RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)";					\
@@ -184,6 +314,7 @@ endif
 clean shlib_clean:
 	-rm -r -f $(OFILE_DIRS)
 	-rm -f libstuff.a libstuff.dylib libstuff_p.a libstuff_s.a
+	-rm -f libstuff64.a libstuff64.dylib libstuff64_p.a
 
 install: all
 
@@ -200,17 +331,17 @@ installGASsrc:
 	chmod 444 $(SRCROOT)/*
 
 fromGASsrc: $(OBJROOT)/dynamic_obj
-	@cd dynamic_obj;                                                \
-	    $(MAKE) -f ../Makefile libstuff.dylib                       \
-	    PRODUCT=libstuff.dylib                                      \
-	    VPATH=..                                                    \
-	    OFILE_DIR=.                                                 \
-	    SRCROOT=..                                                  \
-	    SYMROOT=..                                                  \
-	    COPTS="-dynamic"                                            \
-	    OFLAG="$(OFLAG)"                                            \
-	    CFILES="bytesex.c round.c"                                  \
-	    RC_CFLAGS="$(RC_CFLAGS)"                                    \
+	@cd dynamic_obj;						\
+	    $(MAKE) -f ../Makefile libstuff.dylib			\
+	    PRODUCT=libstuff.dylib					\
+	    VPATH=.. 							\
+	    OFILE_DIR=.							\
+	    SRCROOT=..							\
+	    SYMROOT=..							\
+	    COPTS="-dynamic"						\
+	    OFLAG="$(OFLAG)"						\
+	    CFILES="bytesex.c round.c"					\
+	    RC_CFLAGS="$(RC_CFLAGS)"					\
 	    RC_ARCHS="$(RC_ARCHS)";
 
 $(OFILE_DIRS) $(SYMROOT):

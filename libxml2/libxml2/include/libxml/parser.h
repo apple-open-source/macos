@@ -156,6 +156,20 @@ typedef enum {
 #define XML_SKIP_IDS		8
 
 /**
+ * xmlParserMode:
+ *
+ * A parser can operate in various modes
+ */
+typedef enum {
+    XML_PARSE_UNKNOWN = 0,
+    XML_PARSE_DOM = 1,
+    XML_PARSE_SAX = 2,
+    XML_PARSE_PUSH_DOM = 3,
+    XML_PARSE_PUSH_SAX = 4,
+    XML_PARSE_READER = 5
+} xmlParserMode;
+
+/**
  * xmlParserCtxt:
  *
  * The parser context.
@@ -240,7 +254,7 @@ struct _xmlParserCtxt {
 
     int                loadsubset;    /* should the external subset be loaded */
     int                linenumbers;   /* set line number in element content */
-    void              *catalogs;       /* document's own catalog */
+    void              *catalogs;      /* document's own catalog */
     int                recovery;      /* run in recovery mode */
     int                progressive;   /* is this a progressive parsing */
     xmlDictPtr         dict;          /* dictionnary for the parser */
@@ -282,6 +296,7 @@ struct _xmlParserCtxt {
      * the complete error informations for the last error.
      */
     xmlError          lastError;
+    xmlParserMode     parseMode;    /* the parser mode */
 };
 
 /**
@@ -900,6 +915,12 @@ XMLPUBFUN int XMLCALL
 					 int depth,
 					 const xmlChar *string,
 					 xmlNodePtr *lst);
+XMLPUBFUN xmlParserErrors XMLCALL
+		xmlParseInNodeContext	(xmlNodePtr node,
+					 const char *data,
+					 int datalen,
+					 int options,
+					 xmlNodePtr *lst);
 XMLPUBFUN int XMLCALL          
 		xmlParseBalancedChunkMemoryRecover(xmlDocPtr doc,
                      xmlSAXHandlerPtr sax,
@@ -1050,7 +1071,8 @@ typedef enum {
     XML_PARSE_NONET	= 1<<11,/* Forbid network access */
     XML_PARSE_NODICT	= 1<<12,/* Do not reuse the context dictionnary */
     XML_PARSE_NSCLEAN	= 1<<13,/* remove redundant namespaces declarations */
-    XML_PARSE_NOCDATA	= 1<<14 /* merge CDATA as text nodes */
+    XML_PARSE_NOCDATA	= 1<<14,/* merge CDATA as text nodes */
+    XML_PARSE_NOXINCNODE= 1<<15 /* do not generate XINCLUDE START/END nodes */
 } xmlParserOption;
 
 XMLPUBFUN void XMLCALL

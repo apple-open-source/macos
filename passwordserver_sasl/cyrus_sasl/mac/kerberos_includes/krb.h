@@ -1,5 +1,5 @@
 /*
- * $Id: krb.h,v 1.1 2002/02/28 00:10:31 snsimon Exp $
+ * $Id: krb.h,v 1.4 2005/01/10 19:13:36 snsimon Exp $
  *
  * Copyright 1987, 1988 by the Massachusetts Institute of Technology. 
  *

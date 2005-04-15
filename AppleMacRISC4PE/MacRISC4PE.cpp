@@ -458,6 +458,32 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
 		}
     }  
 
+    if ( !strcmp( service->getName(), "smu" ) )
+    {
+        OSString			 *platformModel;
+
+        // Set the platform-model property [4003701] so smu updates work
+        platformModel = OSString::withCString (provider_name);
+        if (platformModel) {
+            service->setProperty("platform-model", platformModel);
+            platformModel->release();
+        }
+
+    	//
+    	// [3942950] For original iMac G5, we need to indicate to the AppleSMU driver that the
+    	// new LED code can be used.  If this property already exists, then do not do anything.
+		//
+		if ( !strcmp( provider_name, "PowerMac8,1" ) )
+		{
+			if ( service->getProperty( "sleep-led-limits" ) == NULL )
+			{
+				service->setProperty( "sleep-led-limits", ( void * ) NULL, 0 );
+
+			}
+		}
+		return( true );
+    }  
+
     if (!strcmp(service->getName(), "programmer-switch"))
     {
         // Set property to tell AppleNMI to mask/unmask NMI @ sleep/wake
@@ -473,10 +499,18 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
         IORegistryEntry      *extInt = NULL;
         OSObject             *extIntControllerName;
         OSObject             *extIntControllerData;
+        OSString			 *platformModel;
     
         // Set the no-nvram property.
         service->setProperty("no-nvram", service);
 
+        // Set the platform-model property
+        platformModel = OSString::withCString (provider_name);
+        if (platformModel) {
+            service->setProperty("platform-model", platformModel);
+            platformModel->release();
+        }
+    
 		extIntList = extIntListOldWay = NULL;
 		
         // Find the new interrupt information.

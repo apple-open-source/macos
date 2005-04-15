@@ -43,6 +43,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass1.h"
@@ -349,7 +350,8 @@ struct section_map *section_map)
 			merged_symbol = *hash_pointer;
 		    }
 		    else{
-			if(nlists[symbolnum].n_type != (N_EXT | N_UNDF)){
+			if((nlists[symbolnum].n_type & N_EXT) != N_EXT ||
+			   (nlists[symbolnum].n_type & N_TYPE) != N_UNDF){
 			    error_with_cur_obj("r_symbolnum (%lu) field of "
 				"external relocation entry %lu in section "
 				"(%.16s,%.16s) refers to a non-undefined "
@@ -945,11 +947,11 @@ update_reloc:
 			     * to is defined so convert this external relocation
 			     * entry into a local or scattered relocation entry.
 			     * If the item to be relocated has an offset added
-			     * to the symbol's value make it a scattered
-			     * relocation entry else make it a local relocation
-			     * entry.
+			     * to the symbol's value and the output is not for
+			     * dyld make it a scattered relocation entry else
+			     * make it a local relocation entry.
 			     */
-			    if(offset == 0){
+			    if(offset == 0 || output_for_dyld){
 				reloc->r_symbolnum =merged_symbol->nlist.n_sect;
 			    }
 			    else{
@@ -1009,17 +1011,47 @@ update_reloc:
 		}
 		else{
 		    /*
-		     * For scattered relocation entries the r_value field is
-		     * relocated.
+		     * This is a scattered relocation entry.  If the output is
+		     * for dyld convert it to a local relocation entry so as
+		     * to not overflow the 24-bit r_address field in a scattered
+		     * relocation entry.  The overflow would happen in
+		     * reloc_output_for_dyld() in sections.c when it adjusts
+		     * the r_address fields of the relocation entries.
 		     */
-		    if(local_map->nfine_relocs == 0)
-			sreloc->r_value += - local_map->s->addr
+		    if(output_for_dyld){
+			reloc = (struct relocation_info *)sreloc;
+			r_scattered = 0;
+			reloc->r_address = r_address;
+			reloc->r_pcrel = r_pcrel;
+			reloc->r_extern = 0;
+			reloc->r_length = r_length;
+			reloc->r_type = r_type;
+			if(local_map->nfine_relocs == 0){
+			    reloc->r_symbolnum =
+				      local_map->output_section->output_sectnum;
+			}
+			else{
+			    reloc->r_symbolnum =
+				fine_reloc_output_sectnum(local_map,
+						r_value - local_map->s->addr);
+			}
+		    }
+		    else{
+			/*
+			 * For scattered relocation entries the r_value field is
+			 * relocated.
+			 */
+			if(local_map->nfine_relocs == 0)
+			    sreloc->r_value +=
+					   - local_map->s->addr
 					   + local_map->output_section->s.addr +
 					   local_map->offset;
-		    else
-			sreloc->r_value = fine_reloc_output_address(local_map,
-				     		r_value - local_map->s->addr,
+			else
+			    sreloc->r_value =
+					fine_reloc_output_address(local_map,
+						r_value - local_map->s->addr,
 					   local_map->output_section->s.addr);
+		    }
 		}
 		/*
 		 * If this section that the reloation is being done for has fine

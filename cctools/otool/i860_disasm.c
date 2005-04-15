@@ -26,6 +26,7 @@
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/i860/reloc.h>
+#include "stuff/symbol.h"
 #include "stuff/bytesex.h"
 #include "otool.h"
 #include "../as/i860-opcode.h"
@@ -37,9 +38,9 @@ static void i860_dump_operands(
     unsigned long sect_addr,
     struct relocation_info *relocs,
     unsigned long nrelocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -52,9 +53,9 @@ static void i860_dump_addr(
     unsigned long sect_addr,
     struct relocation_info *relocs,
     unsigned long nrelocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -63,9 +64,9 @@ static void i860_dump_addr(
 static enum bool i860_print_symbol(
     unsigned long value,
     struct relocation_info *rp,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -84,9 +85,9 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -180,9 +181,9 @@ unsigned long addr,
 unsigned long sect_addr,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -334,9 +335,9 @@ long addr,
 unsigned long sect_addr,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -480,9 +481,9 @@ enum bool
 i860_print_symbol(
 unsigned long value,
 struct relocation_info *rp,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -510,11 +511,11 @@ enum bool verbose)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].n_value == value){
-		printf("%s", sorted_symbols[mid].n_un.n_name);
+	    if(sorted_symbols[mid].nl.n_value == value){
+		printf("%s", sorted_symbols[mid].name);
 		return(TRUE);
 	    }
-	    if(sorted_symbols[mid].n_value > value){
+	    if(sorted_symbols[mid].nl.n_value > value){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }

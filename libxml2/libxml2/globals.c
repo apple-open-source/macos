@@ -71,6 +71,12 @@ void xmlCleanupGlobals()
 /*
  * Memory allocation routines
  */
+#undef	xmlFree
+#undef	xmlMalloc
+#undef	xmlMallocAtomic
+#undef	xmlMemStrdup
+#undef	xmlRealloc
+
 #if defined(DEBUG_MEMORY_LOCATION) || defined(DEBUG_MEMORY)
 #ifndef __DEBUG_MEMORY_ALLOC__
 extern void xmlMemFree(void *ptr);
@@ -163,18 +169,14 @@ xmlStrdupFunc xmlMemStrdup = (xmlStrdupFunc) xmlStrdup;
 #undef	xmlDeregisterNodeDefaultValue
 #undef	xmlLastError
 
-#undef	xmlFree
-#undef	xmlMalloc
-#undef	xmlMallocAtomic
-#undef	xmlMemStrdup
-#undef	xmlRealloc
-
+#undef  xmlParserInputBufferCreateFilenameValue
+#undef  xmlOutputBufferCreateFilenameValue
 /**
  * xmlParserVersion:
  *
  * Constant string describing the internal version of the library
  */
-const char *xmlParserVersion = LIBXML_VERSION_STRING;
+const char *xmlParserVersion = LIBXML_VERSION_STRING LIBXML_VERSION_EXTRA;
 
 /**
  * xmlBufferAllocScheme:
@@ -281,6 +283,12 @@ xmlRegisterNodeFunc xmlRegisterNodeDefaultValue = NULL;
 static xmlRegisterNodeFunc xmlRegisterNodeDefaultValueThrDef = NULL;
 xmlDeregisterNodeFunc xmlDeregisterNodeDefaultValue = NULL;
 static xmlDeregisterNodeFunc xmlDeregisterNodeDefaultValueThrDef = NULL;
+
+xmlParserInputBufferCreateFilenameFunc xmlParserInputBufferCreateFilenameValue = NULL;
+static xmlParserInputBufferCreateFilenameFunc xmlParserInputBufferCreateFilenameValueThrDef = NULL;
+
+xmlOutputBufferCreateFilenameFunc xmlOutputBufferCreateFilenameValue = NULL;
+static xmlOutputBufferCreateFilenameFunc xmlOutputBufferCreateFilenameValueThrDef = NULL;
 
 /*
  * Error handling
@@ -422,7 +430,7 @@ xmlSAXHandlerV1 htmlDefaultSAXHandler = {
     NULL,
     xmlSAX2Characters,
     xmlSAX2IgnorableWhitespace,
-    NULL,
+    xmlSAX2ProcessingInstruction,
     xmlSAX2Comment,
     xmlParserWarning,
     xmlParserError,
@@ -545,6 +553,9 @@ xmlInitializeGlobalState(xmlGlobalStatePtr gs)
     gs->xmlGenericErrorContext = xmlGenericErrorContextThrDef;
     gs->xmlRegisterNodeDefaultValue = xmlRegisterNodeDefaultValueThrDef;
     gs->xmlDeregisterNodeDefaultValue = xmlDeregisterNodeDefaultValueThrDef;
+
+	gs->xmlParserInputBufferCreateFilenameValue = xmlParserInputBufferCreateFilenameValueThrDef;
+	gs->xmlOutputBufferCreateFilenameValue = xmlOutputBufferCreateFilenameValueThrDef;
     memset(&gs->xmlLastError, 0, sizeof(xmlError));
 
     xmlMutexUnlock(xmlThrDefMutex);
@@ -639,6 +650,40 @@ xmlThrDefDeregisterNodeDefault(xmlDeregisterNodeFunc func)
     return(old);
 }
 
+xmlParserInputBufferCreateFilenameFunc
+xmlThrDefParserInputBufferCreateFilenameDefault(xmlParserInputBufferCreateFilenameFunc func)
+{
+    xmlParserInputBufferCreateFilenameFunc old;
+    
+    xmlMutexLock(xmlThrDefMutex);
+    old = xmlParserInputBufferCreateFilenameValueThrDef;
+    if (old == NULL) {
+		old = __xmlParserInputBufferCreateFilename;
+	}
+
+    xmlParserInputBufferCreateFilenameValueThrDef = func;
+    xmlMutexUnlock(xmlThrDefMutex);
+
+    return(old);
+}
+
+xmlOutputBufferCreateFilenameFunc
+xmlThrDefOutputBufferCreateFilenameDefault(xmlOutputBufferCreateFilenameFunc func)
+{
+    xmlOutputBufferCreateFilenameFunc old;
+    
+    xmlMutexLock(xmlThrDefMutex);
+    old = xmlOutputBufferCreateFilenameValueThrDef;
+#ifdef LIBXML_OUTPUT_ENABLED
+    if (old == NULL) {
+		old = __xmlOutputBufferCreateFilename;
+	}
+#endif
+    xmlOutputBufferCreateFilenameValueThrDef = func;
+    xmlMutexUnlock(xmlThrDefMutex);
+
+    return(old);
+}
 
 #ifdef LIBXML_DOCB_ENABLED
 #undef	docbDefaultSAXHandler
@@ -670,6 +715,58 @@ __xmlLastError(void) {
     else
 	return (&xmlGetGlobalState()->xmlLastError);
 }
+
+/*
+ * The following memory routines were apparently lost at some point,
+ * and were re-inserted at this point on June 10, 2004.  Hope it's
+ * the right place for them :-)
+ */
+#if defined(LIBXML_THREAD_ALLOC_ENABLED) && defined(LIBXML_THREAD_ENABLED)
+#undef xmlMalloc
+xmlMallocFunc *
+__xmlMalloc(void){
+    if (IS_MAIN_THREAD)
+        return (&xmlMalloc);
+    else
+    	return (&xmlGetGlobalState()->xmlMalloc);
+}
+
+#undef xmlMallocAtomic
+xmlMallocFunc *
+__xmlMallocAtomic(void){
+    if (IS_MAIN_THREAD)
+        return (&xmlMallocAtomic);
+    else
+        return (&xmlGetGlobalState()->xmlMallocAtomic);
+}
+
+#undef xmlRealloc
+xmlReallocFunc *
+__xmlRealloc(void){
+    if (IS_MAIN_THREAD)
+        return (&xmlRealloc);
+    else
+        return (&xmlGetGlobalState()->xmlRealloc);
+}
+
+#undef xmlFree
+xmlFreeFunc *
+__xmlFree(void){
+    if (IS_MAIN_THREAD)
+        return (&xmlFree);
+    else
+        return (&xmlGetGlobalState()->xmlFree);
+}
+
+xmlStrdupFunc *
+__xmlMemStrdup(void){
+    if (IS_MAIN_THREAD)
+        return (&xmlMemStrdup);
+    else
+        return (&xmlGetGlobalState()->xmlMemStrdup);
+}
+
+#endif
 
 /*
  * Everything starting from the line below is
@@ -980,4 +1077,22 @@ __xmlDeregisterNodeDefaultValue(void) {
 	return (&xmlDeregisterNodeDefaultValue);
     else
 	return (&xmlGetGlobalState()->xmlDeregisterNodeDefaultValue);
+}
+
+#undef	xmlParserInputBufferCreateFilenameValue
+xmlParserInputBufferCreateFilenameFunc *
+__xmlParserInputBufferCreateFilenameValue(void) {
+    if (IS_MAIN_THREAD)
+	return (&xmlParserInputBufferCreateFilenameValue);
+    else
+	return (&xmlGetGlobalState()->xmlParserInputBufferCreateFilenameValue);
+}
+
+#undef	xmlOutputBufferCreateFilenameValue
+xmlOutputBufferCreateFilenameFunc *
+__xmlOutputBufferCreateFilenameValue(void) {
+    if (IS_MAIN_THREAD)
+	return (&xmlOutputBufferCreateFilenameValue);
+    else
+	return (&xmlGetGlobalState()->xmlOutputBufferCreateFilenameValue);
 }

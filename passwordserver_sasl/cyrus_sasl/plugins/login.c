@@ -2,10 +2,10 @@
  * Rob Siemborski (SASLv2 Conversion)
  * contributed by Rainer Schoepf <schoepf@uni-mainz.de>
  * based on PLAIN, by Tim Martin <tmartin@andrew.cmu.edu>
- * $Id: login.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $
+ * $Id: login.c,v 1.5 2005/01/10 19:01:38 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,14 +52,9 @@
 
 #include "plugin_common.h"
 
-#ifdef WIN32
-/* This must be after sasl.h */
-# include "saslLOGIN.h"
-#endif /* WIN32 */
-
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: login.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $";
+//static const char plugin_id[] = "$Id: login.c,v 1.5 2005/01/10 19:01:38 snsimon Exp $";
 
 /*****************************  Server Section  *****************************/
 
@@ -92,19 +87,6 @@ static int login_server_mech_new(void *glob_context __attribute__((unused)),
     *conn_context = text;
     
     return SASL_OK;
-}
-
-/* fills in password; remember to free password and wipe it out correctly */
-static int verify_password(sasl_server_params_t *params, 
-			   const char *user, const char *pass)
-{
-    int result;
-    
-    /* if it's null, checkpass will default */
-    result = params->utils->checkpass(params->utils->conn,
-				      user, 0, pass, 0);
-    
-    return result;
 }
 
 #define USERNAME_CHALLENGE "Username:"
@@ -190,24 +172,22 @@ static int login_server_mech_step(void *conn_context,
 	strncpy(password->data, clientin, clientinlen);
 	password->data[clientinlen] = '\0';
 	password->len = clientinlen;
-	
-	/* verify_password - return sasl_ok on success */
-	result = verify_password(params, text->username,
-				 password->data);
-	
-	if (result != SASL_OK) {
-	    _plug_free_secret(params->utils, &password);
-	    return result;
-	}
-	
+
+	/* canonicalize username first, so that password verification is
+	 * done against the canonical id */
 	result = params->canon_user(params->utils->conn, text->username,
 				    text->username_len,
 				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
 	if (result != SASL_OK) return result;
 	
-	if (params->transition) {
-	    params->transition(params->utils->conn,
-			       password->data, password->len);
+	/* verify_password - return sasl_ok on success */
+	result = params->utils->checkpass(params->utils->conn,
+					  oparams->authid, oparams->alen,
+					  password->data, password->len);
+	
+	if (result != SASL_OK) {
+	    _plug_free_secret(params->utils, &password);
+	    return result;
 	}
 	
 	_plug_free_secret(params->utils, &password);
@@ -255,7 +235,7 @@ static sasl_server_plug_t login_server_plugins[] =
 	"LOGIN",			/* mech_name */
 	0,				/* max_ssf */
 	SASL_SEC_NOANONYMOUS,		/* security_flags */
-	SASL_FEAT_SERVER_FIRST,		/* features */
+	0,				/* features */
 	NULL,				/* glob_context */
 	&login_server_mech_new,		/* mech_new */
 	&login_server_mech_step,	/* mech_step */

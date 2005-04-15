@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdio.h>
 #include <stdlib.h>
 #include <libc.h>
@@ -371,3 +372,4 @@ char *name)
 
 	return(NULL);
 }
+#endif /* !defined(RLD) */

@@ -39,6 +39,8 @@
 #import "Config.h"
 #import <time.h>
 #import <arpa/inet.h>
+#import <string.h>
+#import <NetInfo/dsutil.h>
 
 #define DefaultTimeToLive 60
 
@@ -151,7 +153,33 @@ static NILAgent *_sharedNILAgent = nil;
 	value:(char *)val
 	category:(LUCategory)cat
 {
-	return [self itemWithKey:key value:val];
+	LUDictionary *item;
+
+	if (cat == LUCategoryHost)
+	{
+		if (streq(key, "namev46"))
+		{
+			item = [self itemWithKey:"name" value:val];
+			[item setValue:"0.0.0.0" forKey:"ip_address"];
+			[item setValue:"::0" forKey:"ipv6_address"];
+			return item;
+		}
+		else if (streq(key, "namev6"))
+		{
+			item = [self itemWithKey:"name" value:val];
+			[item setValue:"::0" forKey:"ipv6_address"];
+			return item;
+		}
+		else if (streq(key, "name"))
+		{
+			item = [self itemWithKey:"name" value:val];
+			[item setValue:"0.0.0.0" forKey:"ip_address"];
+			return item;
+		}
+	}
+
+	item = [self itemWithKey:key value:val];
+	return item;
 }
 
 - (LUArray *)allItemsWithCategory:(LUCategory)cat

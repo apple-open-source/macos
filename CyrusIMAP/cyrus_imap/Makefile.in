@@ -1,0 +1,167 @@
+#
+# @configure_input@
+# 
+# Copyright (c) 1998-2000 Carnegie Mellon University.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+#
+# 3. The name "Carnegie Mellon University" must not be used to
+#    endorse or promote products derived from this software without
+#    prior written permission. For permission or any other legal
+#    details, please contact  
+#      Office of Technology Transfer
+#      Carnegie Mellon University
+#      5000 Forbes Avenue
+#      Pittsburgh, PA  15213-3890
+#      (412) 268-4387, fax: (412) 268-7395
+#      tech-transfer@andrew.cmu.edu
+#
+# 4. Redistributions of any form whatsoever must retain the following
+#    acknowledgment:
+#    "This product includes software developed by Computing Services
+#     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+#
+# CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+# THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+# FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+# AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+# OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+# 
+
+SUBDIRS = man @PRE_SUBDIRS@ lib @SIEVE_SUBDIRS@ @SERVER_SUBDIRS@ \
+	imtest @SNMP_SUBDIRS@ @EXTRA_SUBDIRS@
+DISTSUBDIRS = doc
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+INSTALL = @INSTALL@
+
+SHELL = /bin/sh
+@SET_MAKE@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+cyrus_prefix = @cyrus_prefix@
+
+mandir = @mandir@
+
+YACC = @YACC@
+LEX = @LEX@
+COMPILE_ET = @COMPILE_ET@
+
+VERSION = 2.2.12
+
+all:: 
+	@for d in  $(SUBDIRS); \
+	do \
+		(cd $$d; echo "### Making" all "in" `pwd`;	\
+			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) all) || exit 1; \
+	done
+
+dist:: distcvs
+	@echo "creating configure"
+	@cd dist/cyrus-imapd-$(VERSION) ; sh SMakefile
+	@for d in $(SUBDIRS) $(DISTSUBDIRS); \
+	do \
+		(cd dist/cyrus-imapd-$(VERSION)/$$d; \
+		  if [ -f Makefile.dist ]; then \
+		    echo "### Making" dist "in" `pwd`;	\
+		    $(MAKE) $(MFLAGS) YACC='$(YACC)' LEX='$(LEX)' \
+			COMPILE_ET='$(COMPILE_ET)' -f Makefile.dist dist ; \
+		  fi) || exit 1; \
+	done
+	@echo "creating tarfile"
+	@cd dist ; tar cf - cyrus-imapd-$(VERSION) | \
+	  gzip -9 > ../cyrus-imapd-$(VERSION).tar.gz
+	rm -f distcvs
+	rm -rf dist
+
+distcvs:
+	if [ \! -d dist ]; then mkdir dist ; fi
+	@echo "checking out the distribution"
+	@cd dist ; cvs -Q -d :pserver:anoncvs@cvs.andrew.cmu.edu:/cvs \
+		co -d cyrus-imapd-$(VERSION) cyrus
+	touch distcvs
+
+install::
+	$(srcdir)/install-sh -d ${DESTDIR}$(exec_prefix)/bin
+	$(srcdir)/install-sh -d ${DESTDIR}$(exec_prefix)/lib
+	$(srcdir)/install-sh -d ${DESTDIR}$(prefix)/include/cyrus
+	$(srcdir)/install-sh -d ${DESTDIR}$(mandir)/man1
+	$(srcdir)/install-sh -d ${DESTDIR}$(mandir)/man3
+	$(srcdir)/install-sh -d ${DESTDIR}$(mandir)/man5
+	$(srcdir)/install-sh -d ${DESTDIR}$(mandir)/man8
+	@for d in  $(SUBDIRS); \
+	do \
+		(cd $$d; echo "### Making" install "in" `pwd`;	\
+			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) install) || exit 1; \
+	done
+
+clean::
+	@-for d in  $(SUBDIRS); \
+	do \
+		(cd $$d; echo "### Making" clean "in" `pwd`;	\
+			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) clean ;	\
+			echo "### Done with" `pwd`);		\
+	done
+
+distclean::
+	@-for d in  $(SUBDIRS); \
+	do \
+		(cd $$d; echo "### Making" clean "in" `pwd`;	\
+			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) distclean ; \
+			echo "### Done with" `pwd`);		\
+	done
+	rm -f Makefile Makefile.bak \
+	   config.status config.log config.cache config.h
+
+depend::
+	@for d in  $(SUBDIRS); \
+	do \
+		(cd $$d; echo "### Making" depend "in" `pwd`;	\
+			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) depend) || exit 1; \
+	done
+
+Makefile: Makefile.in config.status
+	$(SHELL) config.status
+config.status: configure
+	$(SHELL) config.status --recheck
+configure: configure.in
+	cd $(srcdir); rm -f config.cache; autoconf
+
+checkdepend::
+
+depend::
+	echo '/^# DO NOT DELETE THIS LINE/+2,$$d' >eddep
+	echo 'w' >>eddep
+	cp Makefile Makefile.bak
+	ed -s Makefile < eddep
+	rm eddep
+	echo '' >> Makefile
+	echo '# IF YOU PUT STUFF HERE IT WILL GO AWAY' >> Makefile
+	echo '# see make depend above' >> Makefile
+
+# DO NOT DELETE THIS LINE -- make depend uses it
+
+# The following rule ensures that "make depend" gets run at least
+# once before a "make all".  The "depend" rule above removes
+# this rule from the Makefile the first time the "make depend"
+# has been run after the Makefile is generated by Configure
+
+checkdepend:: depend
+
+# IF YOU PUT STUFF HERE IT WILL GO AWAY
+# see make depend above

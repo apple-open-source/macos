@@ -34,17 +34,17 @@ class AppleEHCIsitdMemoryBlock : public IOBufferMemoryDescriptor
 #define SITDsPerBlock	(kEHCIPageSize / sizeof(EHCISplitIsochTransferDescriptorShared))
 
 private:
-    IOPhysicalAddress					_sharedPhysical;
-    EHCISplitIsochTransferDescriptorSharedPtr		_sharedLogical;
-    AppleEHCIsitdMemoryBlock				*_nextBlock;
+    IOPhysicalAddress							_sharedPhysical;
+    EHCISplitIsochTransferDescriptorSharedPtr	_sharedLogical;
+    AppleEHCIsitdMemoryBlock					*_nextBlock;
     
 public:
 
     static AppleEHCIsitdMemoryBlock 			*NewMemoryBlock(void);
-    void						SetNextBlock(AppleEHCIsitdMemoryBlock *next);
-    AppleEHCIsitdMemoryBlock				*GetNextBlock(void);
-    UInt32						NumTDs(void);
-    IOPhysicalAddress					GetPhysicalPtr(UInt32 index);
-    EHCISplitIsochTransferDescriptorSharedPtr		GetLogicalPtr(UInt32 index);
+    void										SetNextBlock(AppleEHCIsitdMemoryBlock *next);
+    AppleEHCIsitdMemoryBlock					*GetNextBlock(void);
+    UInt32										NumTDs(void);
+    IOPhysicalAddress							GetPhysicalPtr(UInt32 index);
+    EHCISplitIsochTransferDescriptorSharedPtr	GetLogicalPtr(UInt32 index);
     
 };

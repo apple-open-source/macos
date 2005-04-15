@@ -1,6 +1,6 @@
-/* $Id: client.c,v 1.1 2002/02/28 00:18:29 snsimon Exp $ */
+/* $Id: client.c,v 1.2 2004/07/07 22:53:07 snsimon Exp $ */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +45,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <sysexits.h>
 #include <errno.h>
 #include <string.h>
 
@@ -336,6 +335,7 @@ int main(int argc, char *argv[])
     FILE *in, *out;
     int fd;
     int salen;
+    int niflags, error;
     struct sockaddr_storage local_ip, remote_ip;
 
     while ((c = getopt(argc, argv, "p:s:m:")) != EOF) {
@@ -378,9 +378,18 @@ int main(int argc, char *argv[])
 	perror("getsockname");
     }
 
-    getnameinfo((struct sockaddr *)&local_ip, salen,
-		hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-		NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+    niflags = (NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef NI_WITHSCOPEID
+    if (((struct sockaddr *)&local_ip)->sa_family == AF_INET6)
+      niflags |= NI_WITHSCOPEID;
+#endif
+    error = getnameinfo((struct sockaddr *)&local_ip, salen,
+			hbuf, sizeof(hbuf), pbuf, sizeof(pbuf), niflags);
+    if (error != 0) {
+	fprintf(stderr, "getnameinfo: %s\n", gai_strerror(error));
+	strcpy(hbuf, "unknown");
+	strcpy(pbuf, "unknown");
+    }
     snprintf(localaddr, sizeof(localaddr), "%s;%s", hbuf, pbuf);
 
     salen = sizeof(remote_ip);
@@ -388,11 +397,20 @@ int main(int argc, char *argv[])
 	perror("getpeername");
     }
 
-    getnameinfo((struct sockaddr *)&remote_ip, salen,
-		hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-		NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+    niflags = (NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef NI_WITHSCOPEID
+    if (((struct sockaddr *)&remote_ip)->sa_family == AF_INET6)
+	niflags |= NI_WITHSCOPEID;
+#endif
+    error = getnameinfo((struct sockaddr *)&remote_ip, salen,
+			hbuf, sizeof(hbuf), pbuf, sizeof(pbuf), niflags);
+    if (error != 0) {
+	fprintf(stderr, "getnameinfo: %s\n", gai_strerror(error));
+	strcpy(hbuf, "unknown");
+	strcpy(pbuf, "unknown");
+    }
     snprintf(remoteaddr, sizeof(remoteaddr), "%s;%s", hbuf, pbuf);
-
+    
     /* client new connection */
     r = sasl_client_new(service, host, localaddr, remoteaddr, NULL, 0, &conn);
     if (r != SASL_OK) saslfail(r, "allocating connection state");

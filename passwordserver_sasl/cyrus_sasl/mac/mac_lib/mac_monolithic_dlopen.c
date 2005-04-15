@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +37,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-/* $Id: mac_monolithic_dlopen.c,v 1.1 2002/02/28 00:13:37 snsimon Exp $ */
+/* $Id: mac_monolithic_dlopen.c,v 1.4 2005/01/10 19:09:04 snsimon Exp $ */
 
 #include <config.h>
 #include <stdlib.h>

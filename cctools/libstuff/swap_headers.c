@@ -21,13 +21,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <mach-o/loader.h>
-#import <mach/m68k/thread_status.h>
-#import <mach/ppc/thread_status.h>
-#import <mach/m88k/thread_status.h>
-#import <mach/i860/thread_status.h>
-#import <mach/i386/thread_status.h>
-#import <mach/hppa/thread_status.h>
-#import <mach/sparc/thread_status.h>
+#include <mach/m68k/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#include <mach/ppc/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#include <mach/m88k/thread_status.h>
+#include <mach/i860/thread_status.h>
+#include <mach/i386/thread_status.h>
+#include <mach/hppa/thread_status.h>
+#include <mach/sparc/thread_status.h>
 #include "stuff/bool.h"
 #include "stuff/bytesex.h"
 #include "stuff/errors.h"
@@ -41,14 +45,21 @@
 __private_extern__
 enum bool
 swap_object_headers(
-struct mach_header *mh,
+void *mach_header,
 struct load_command *load_commands)
 {
     unsigned long i;
+    uint32_t magic, ncmds, sizeofcmds, cmd_multiple;
+    cpu_type_t cputype;
+    cpu_subtype_t cpusubtype;
+    struct mach_header *mh;
+    struct mach_header_64 *mh64;
     enum byte_sex target_byte_sex;
     struct load_command *lc, l;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct symseg_command *ss;
@@ -63,26 +74,46 @@ struct load_command *load_commands)
     struct prebound_dylib_command *pbdylib;
     struct dylinker_command *dyld;
     struct routines_command *rc;
+    struct routines_command_64 *rc64;
     struct twolevel_hints_command *hints;
     struct prebind_cksum_command *cs;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
+	magic = *((uint32_t *)mach_header);
+	if(magic == MH_MAGIC){
+	    mh = (struct mach_header *)mach_header;
+	    ncmds = mh->ncmds;
+	    sizeofcmds = mh->sizeofcmds;
+	    cputype = mh->cputype;
+	    cpusubtype = mh->cpusubtype;
+	    cmd_multiple = 4;
+	    mh64 = NULL;
+	}
+	else{
+	    mh64 = (struct mach_header_64 *)mach_header;
+	    ncmds = mh64->ncmds;
+	    sizeofcmds = mh64->sizeofcmds;
+	    cputype = mh64->cputype;
+	    cpusubtype = mh64->cpusubtype;
+	    cmd_multiple = 8;
+	    mh = NULL;
+	}
 	/*
 	 * Make a pass through the load commands checking them to the level
 	 * that they can be parsed and then swapped.
 	 */
-	for(i = 0, lc = load_commands; i < mh->ncmds; i++){
+	for(i = 0, lc = load_commands; i < ncmds; i++){
 	    l = *lc;
-	    /* check load command size for a multiple of sizeof(long) */
-	    if(lc->cmdsize % sizeof(long) != 0){
+	    /* check load command size for a correct multiple size */
+	    if(lc->cmdsize % cmd_multiple != 0){
 		error("in swap_object_headers(): malformed load command %lu "
-		      "(cmdsize not a multiple of sizeof(long))", i);
+		      "(cmdsize not a multiple of %u)", i, cmd_multiple);
 		return(FALSE);
 	    }
 	    /* check that load command does not extends past end of commands */
 	    if((char *)lc + lc->cmdsize >
-	       (char *)load_commands + mh->sizeofcmds){
+	       (char *)load_commands + sizeofcmds){
 		error("in swap_object_headers(): truncated or malformed load "
 		      "command %lu (extends past the end of the all load "
 		      "commands)", i);
@@ -102,6 +133,17 @@ struct load_command *load_commands)
 		    error("in swap_object_headers(): malformed load command "
 			  "(inconsistant cmdsize in LC_SEGMENT command %lu for "
 			  "the number of sections)", i);
+		    return(FALSE);
+		}
+		break;
+
+	    case LC_SEGMENT_64:
+		sg64 = (struct segment_command_64 *)lc;
+		if(sg64->cmdsize != sizeof(struct segment_command_64) +
+				     sg64->nsects * sizeof(struct section_64)){
+		    error("in swap_object_headers(): malformed load command "
+			  "(inconsistant cmdsize in LC_SEGMENT_64 command %lu "
+			  "for the number of sections)", i);
 		    return(FALSE);
 		}
 		break;
@@ -293,7 +335,7 @@ struct load_command *load_commands)
 		ut = (struct thread_command *)lc;
 		state = (char *)ut + sizeof(struct thread_command);
 
-	    	if(mh->cputype == CPU_TYPE_MC680x0){
+	    	if(cputype == CPU_TYPE_MC680x0){
 		    struct m68k_thread_state_regs *cpu;
 		    struct m68k_thread_state_68882 *fpu;
 		    struct m68k_thread_state_user_reg *user_reg;
@@ -362,11 +404,13 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_POWERPC ||
-	    	   mh->cputype == CPU_TYPE_VEO){
+	    	if(cputype == CPU_TYPE_POWERPC ||
+	    	   cputype == CPU_TYPE_VEO ||
+		   cputype == CPU_TYPE_POWERPC64){
 		    ppc_thread_state_t *cpu;
 		    ppc_float_state_t *fpu;
 		    ppc_exception_state_t *except;
+		    ppc_thread_state64_t *cpu64;
 
 		    nflavor = 0;
 		    p = (char *)ut + ut->cmdsize;
@@ -418,6 +462,20 @@ struct load_command *load_commands)
 			    except = (ppc_exception_state_t *)state;
 			    state += sizeof(ppc_exception_state_t);
 			    break;
+			case PPC_THREAD_STATE64:
+			    if(count != PPC_THREAD_STATE64_COUNT){
+				error("in swap_object_headers(): malformed "
+				    "load commands (count "
+				    "not PPC_THREAD_STATE64_COUNT for "
+				    "flavor number %lu which is a PPC_THREAD_"
+				    "STATE64 flavor in %s command %lu)",
+				    nflavor, ut->cmd == LC_UNIXTHREAD ? 
+				    "LC_UNIXTHREAD" : "LC_THREAD", i);
+				return(FALSE);
+			    }
+			    cpu64 = (ppc_thread_state64_t *)state;
+			    state += sizeof(ppc_thread_state64_t);
+			    break;
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
@@ -431,7 +489,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_MC88000){
+	    	if(cputype == CPU_TYPE_MC88000){
 		    m88k_thread_state_grf_t *cpu;
 		    m88k_thread_state_xrf_t *fpu;
 		    m88k_thread_state_user_t *user;
@@ -514,7 +572,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_I860){
+	    	if(cputype == CPU_TYPE_I860){
 		    struct i860_thread_state_regs *cpu;
 
 		    nflavor = 0;
@@ -552,7 +610,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_I386){
+	    	if(cputype == CPU_TYPE_I386){
 		    i386_thread_state_t *cpu;
 		    i386_thread_fpstate_t *fpu;
 		    i386_thread_exceptstate_t *exc;
@@ -637,7 +695,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	        if(mh->cputype == CPU_TYPE_HPPA){
+	        if(cputype == CPU_TYPE_HPPA){
 		    struct hp_pa_integer_thread_state *cpu;
 		    struct hp_pa_frame_thread_state *frame;
 		    struct hp_pa_fp_thread_state *fpu;
@@ -705,7 +763,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-		if (mh->cputype == CPU_TYPE_SPARC) {
+		if(cputype == CPU_TYPE_SPARC) {
 		  struct sparc_thread_state_regs *cpu;
 		  struct sparc_thread_state_fpu *fpu;
 
@@ -752,14 +810,14 @@ struct load_command *load_commands)
 		    
 		error("in swap_object_headers(): malformed load commands "
 		    "(unknown cputype (%d) and cpusubtype (%d) of object and "
-                    "can't byte swap %s command %lu)", mh->cputype, 
-		    mh->cpusubtype, ut->cmd == LC_UNIXTHREAD ?
+                    "can't byte swap %s command %lu)", cputype, 
+		    cpusubtype, ut->cmd == LC_UNIXTHREAD ?
 		    "LC_UNIXTHREAD" : "LC_THREAD", i);
 		return(FALSE);
 	    case LC_IDENT:
 		id = (struct ident_command *)lc;
 		if((char *)id + id->cmdsize >
-		   (char *)load_commands + mh->sizeofcmds){
+		   (char *)load_commands + sizeofcmds){
 		    error("in swap_object_headers(): truncated or malformed "
 			"load commands (cmdsize field of LC_IDENT command %lu "
 			"extends past the end of the load commands)", i);
@@ -770,8 +828,19 @@ struct load_command *load_commands)
 	    case LC_ROUTINES:
 		rc = (struct routines_command *)lc;
 		if(rc->cmdsize != sizeof(struct routines_command)){
-		    error("in swap_object_headers(): malformed load commands "
-			  "(LC_ROUTINES command %lu has incorrect cmdsize", i);
+		    error("in swap_object_headers(): malformed load commands ("
+			  "LC_ROUTINES command %lu has incorrect cmdsize",
+			  i);
+		    return(FALSE);
+		}
+		break;
+
+	    case LC_ROUTINES_64:
+		rc64 = (struct routines_command_64 *)lc;
+		if(rc64->cmdsize != sizeof(struct routines_command)){
+		    error("in swap_object_headers(): malformed load commands ("
+			  "LC_ROUTINES_64 command %lu has incorrect cmdsize",
+			  i);
 		    return(FALSE);
 		}
 		break;
@@ -804,7 +873,7 @@ struct load_command *load_commands)
 
 	    lc = (struct load_command *)((char *)lc + l.cmdsize);
 	    /* check that next load command does not extends past the end */
-	    if((char *)lc > (char *)load_commands + mh->sizeofcmds){
+	    if((char *)lc > (char *)load_commands + sizeofcmds){
 		error("in swap_object_headers(): truncated or malformed load "
 		      "commands (load command %lu extends past the end of all "
 		      "load commands)", i + 1);
@@ -812,7 +881,7 @@ struct load_command *load_commands)
 	    }
 	}
 	/* check for an inconsistant size of the load commands */
-	if((char *)load_commands + mh->sizeofcmds != (char *)lc){
+	if((char *)load_commands + sizeofcmds != (char *)lc){
 	    error("in swap_object_headers(): malformed load commands "
 		  "(inconsistant sizeofcmds field in mach header)");
 	    return(FALSE);
@@ -824,7 +893,7 @@ struct load_command *load_commands)
 	 */
 	target_byte_sex = get_host_byte_sex() == BIG_ENDIAN_BYTE_SEX ?
 			  LITTLE_ENDIAN_BYTE_SEX : BIG_ENDIAN_BYTE_SEX;
-	for(i = 0, lc = load_commands; i < mh->ncmds; i++){
+	for(i = 0, lc = load_commands; i < ncmds; i++){
 	    l = *lc;
 	    switch(lc->cmd){
 	    case LC_SEGMENT:
@@ -833,6 +902,14 @@ struct load_command *load_commands)
 		    ((char *)sg + sizeof(struct segment_command));
 		swap_section(s, sg->nsects, target_byte_sex);
 		swap_segment_command(sg, target_byte_sex);
+		break;
+
+	    case LC_SEGMENT_64:
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)
+		      ((char *)sg64 + sizeof(struct segment_command_64));
+		swap_section_64(s64, sg64->nsects, target_byte_sex);
+		swap_segment_command_64(sg64, target_byte_sex);
 		break;
 
 	    case LC_SYMTAB:
@@ -901,7 +978,7 @@ struct load_command *load_commands)
 		p = (char *)ut + ut->cmdsize;
 		swap_thread_command(ut, target_byte_sex);
 
-	    	if(mh->cputype == CPU_TYPE_MC680x0){
+	    	if(cputype == CPU_TYPE_MC680x0){
 		    struct m68k_thread_state_regs *cpu;
 		    struct m68k_thread_state_68882 *fpu;
 		    struct m68k_thread_state_user_reg *user_reg;
@@ -935,9 +1012,11 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_POWERPC ||
-	    	   mh->cputype == CPU_TYPE_VEO){
+	    	if(cputype == CPU_TYPE_POWERPC ||
+	    	   cputype == CPU_TYPE_VEO ||
+		   cputype == CPU_TYPE_POWERPC64){
 		    ppc_thread_state_t *cpu;
+		    ppc_thread_state64_t *cpu64;
 		    ppc_float_state_t *fpu;
 		    ppc_exception_state_t *except;
 
@@ -954,6 +1033,11 @@ struct load_command *load_commands)
 			    swap_ppc_thread_state_t(cpu, target_byte_sex);
 			    state += sizeof(ppc_thread_state_t);
 			    break;
+			case PPC_THREAD_STATE64:
+			    cpu64 = (ppc_thread_state64_t *)state;
+			    swap_ppc_thread_state64_t(cpu64, target_byte_sex);
+			    state += sizeof(ppc_thread_state64_t);
+			    break;
 			case PPC_FLOAT_STATE:
 			    fpu = (ppc_float_state_t *)state;
 			    swap_ppc_float_state_t(fpu, target_byte_sex);
@@ -962,11 +1046,12 @@ struct load_command *load_commands)
 			    except = (ppc_exception_state_t *)state;
 			    swap_ppc_exception_state_t(except, target_byte_sex);
 			    state += sizeof(ppc_exception_state_t);
+			    break;
 			}
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_MC88000){
+	    	if(cputype == CPU_TYPE_MC88000){
 		    m88k_thread_state_grf_t *cpu;
 		    m88k_thread_state_xrf_t *fpu;
 		    m88k_thread_state_user_t *user;
@@ -1008,7 +1093,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_I860){
+	    	if(cputype == CPU_TYPE_I860){
 		    struct i860_thread_state_regs *cpu;
 
 		    while(state < p){
@@ -1028,7 +1113,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_I386){
+	    	if(cputype == CPU_TYPE_I386){
 		    i386_thread_state_t *cpu;
 		    i386_thread_fpstate_t *fpu;
 		    i386_thread_exceptstate_t *exc;
@@ -1066,7 +1151,7 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_HPPA){
+	    	if(cputype == CPU_TYPE_HPPA){
 		    struct hp_pa_integer_thread_state *cpu;
 		    struct hp_pa_frame_thread_state *frame;
 		    struct hp_pa_fp_thread_state *fpu;
@@ -1102,7 +1187,7 @@ struct load_command *load_commands)
 		    break;
 		}
 
-		if (mh->cputype == CPU_TYPE_SPARC) {
+		if(cputype == CPU_TYPE_SPARC) {
 		  struct sparc_thread_state_regs *cpu;
 		  struct sparc_thread_state_fpu *fpu;
 
@@ -1140,6 +1225,11 @@ struct load_command *load_commands)
 		swap_routines_command(rc, target_byte_sex);
 		break;
 
+	    case LC_ROUTINES_64:
+		rc64 = (struct routines_command_64 *)lc;
+		swap_routines_command_64(rc64, target_byte_sex);
+		break;
+
 	    case LC_TWOLEVEL_HINTS:
 		hints = (struct twolevel_hints_command *)lc;
 		swap_twolevel_hints_command(hints, target_byte_sex);
@@ -1153,7 +1243,10 @@ struct load_command *load_commands)
 
 	    lc = (struct load_command *)((char *)lc + l.cmdsize);
 	}
-	swap_mach_header(mh, target_byte_sex);
+	if(mh != NULL)
+	    swap_mach_header(mh, target_byte_sex);
+	else
+	    swap_mach_header_64(mh64, target_byte_sex);
 
 	return(TRUE);
 }

@@ -14,6 +14,8 @@
 #include <libxml/hash.h>
 #include <libxml/xmlstring.h>
 
+#ifdef LIBXML_SCHEMAS_ENABLED
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,6 +94,12 @@ typedef enum {
     XML_RELAXNGP_FREE_DOC = 1,
     XML_RELAXNGP_CRNG = 2
 } xmlRelaxNGParserFlag;
+
+XMLPUBFUN int XMLCALL
+		    xmlRelaxNGInitTypes		(void);
+XMLPUBFUN void XMLCALL			
+		    xmlRelaxNGCleanupTypes	(void);
+
 /*
  * Interfaces for parsing.
  */
@@ -151,8 +159,6 @@ XMLPUBFUN void XMLCALL
 XMLPUBFUN int XMLCALL			
 		    xmlRelaxNGValidateDoc	(xmlRelaxNGValidCtxtPtr ctxt,
 					 	 xmlDocPtr doc);
-XMLPUBFUN void XMLCALL			
-		    xmlRelaxNGCleanupTypes	(void);
 /*
  * Interfaces for progressive validation when possible
  */
@@ -176,4 +182,7 @@ XMLPUBFUN int XMLCALL
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* LIBXML_SCHEMAS_ENABLED */
+
 #endif /* __XML_RELAX_NG__ */

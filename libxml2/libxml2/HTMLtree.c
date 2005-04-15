@@ -170,7 +170,7 @@ htmlSetMetaEncoding(htmlDocPtr doc, const xmlChar *encoding) {
 
     if (encoding != NULL) {
 	snprintf(newcontent, sizeof(newcontent), "text/html; charset=%s",
-                encoding);
+                (char *)encoding);
 	newcontent[sizeof(newcontent) - 1] = 0;
     }
 
@@ -287,7 +287,7 @@ found_meta:
  * output as <option selected>, as per XSLT 1.0 16.2 "HTML Output Method"
  *
  */
-static const char* htmlBooleanAttrs[] = {
+static const char* const htmlBooleanAttrs[] = {
   "checked", "compact", "declare", "defer", "disabled", "ismap",
   "multiple", "nohref", "noresize", "noshade", "nowrap", "readonly",
   "selected", NULL
@@ -522,6 +522,8 @@ htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
 
     xmlInitParser();
 
+    if ((mem == NULL) || (size == NULL))
+        return;
     if (cur == NULL) {
 	*mem = NULL;
 	*size = 0;
@@ -745,7 +747,7 @@ htmlNodeDumpFormatOutput(xmlOutputBufferPtr buf, xmlDocPtr doc,
 
     xmlInitParser();
 
-    if (cur == NULL) {
+    if ((cur == NULL) || (buf == NULL)) {
 	return;
     }
     /*
@@ -753,7 +755,8 @@ htmlNodeDumpFormatOutput(xmlOutputBufferPtr buf, xmlDocPtr doc,
      */
     if (cur->type == XML_DTD_NODE)
 	return;
-    if (cur->type == XML_HTML_DOCUMENT_NODE) {
+    if ((cur->type == XML_HTML_DOCUMENT_NODE) ||
+        (cur->type == XML_DOCUMENT_NODE)){
 	htmlDocContentDumpOutput(buf, (xmlDocPtr) cur, encoding);
 	return;
     }
@@ -944,6 +947,9 @@ htmlDocContentDumpFormatOutput(xmlOutputBufferPtr buf, xmlDocPtr cur,
 
     xmlInitParser();
 
+    if ((buf == NULL) || (cur == NULL))
+        return;
+
     /*
      * force to output the stuff as HTML, especially for entities
      */
@@ -997,7 +1003,7 @@ htmlDocDump(FILE *f, xmlDocPtr cur) {
 
     xmlInitParser();
 
-    if (cur == NULL) {
+    if ((cur == NULL) || (f == NULL)) {
 	return(-1);
     }
 
@@ -1053,6 +1059,9 @@ htmlSaveFile(const char *filename, xmlDocPtr cur) {
     const char *encoding;
     int ret;
 
+    if ((cur == NULL) || (filename == NULL))
+        return(-1);
+       
     xmlInitParser();
 
     encoding = (const char *) htmlGetMetaEncoding(cur);
@@ -1113,6 +1122,9 @@ htmlSaveFileFormat(const char *filename, xmlDocPtr cur,
     xmlCharEncodingHandlerPtr handler = NULL;
     int ret;
 
+    if ((cur == NULL) || (filename == NULL))
+        return(-1);
+       
     xmlInitParser();
 
     if (encoding != NULL) {

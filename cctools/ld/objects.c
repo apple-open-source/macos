@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass1.h"
@@ -317,11 +318,13 @@ unsigned long input_offset)
 	 * to know if the r_address (output_offet) is not in the output.
 	 */
 	section_type = map->s->flags & SECTION_TYPE;
-	if((section_type == S_LAZY_SYMBOL_POINTERS ||
-	    section_type == S_NON_LAZY_SYMBOL_POINTERS ||
-	    section_type == S_SYMBOL_STUBS ||
-	    section_type == S_COALESCED) &&
-	   fine_reloc->use_contents == FALSE)
+
+	if(((section_type == S_LAZY_SYMBOL_POINTERS ||
+	     section_type == S_NON_LAZY_SYMBOL_POINTERS ||
+	     section_type == S_SYMBOL_STUBS ||
+	     section_type == S_COALESCED) &&
+	    fine_reloc->use_contents == FALSE) ||
+	   (dead_strip == TRUE && fine_reloc->live == FALSE))
 	    return(map->output_section->s.size +
 	       input_offset - fine_reloc->input_offset);
 
@@ -334,7 +337,7 @@ unsigned long input_offset)
  * in the section with the specified section map.  This can return one of two
  * things depending on the fine relocation entry for the input_offset.  If the
  * section is a symbol stub section and the fine_relocation entry's indirect
- * symbol is define then the value of the symbol is used.  Otherwise the output
+ * symbol is defined then the value of the symbol is used.  Otherwise the output
  * offset for the fine relocation entry is added to the specified
  * output_base_address.
  */
@@ -384,8 +387,7 @@ unsigned long output_base_address)
 			   input_offset - fine_reloc->input_offset);
 		}
 		else{
-		    merged_symbol =
-			(struct merged_symbol *)fine_reloc->output_offset;
+		    merged_symbol = fine_reloc->merged_symbol;
 		    if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
 			merged_symbol = (struct merged_symbol *)
 					merged_symbol->nlist.n_value;
@@ -407,8 +409,7 @@ unsigned long output_base_address)
 		       input_offset - fine_reloc->input_offset);
 	    }
 	    else{
-		merged_symbol =
-		    (struct merged_symbol *)fine_reloc->output_offset;
+		merged_symbol = fine_reloc->merged_symbol;
 		if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
 		    merged_symbol = (struct merged_symbol *)
 				    merged_symbol->nlist.n_value;
@@ -424,8 +425,7 @@ unsigned long output_base_address)
 		if(cur_obj == fine_reloc->merged_symbol->definition_object)
 		    merged_symbol = fine_reloc->merged_symbol;
 		else
-		    merged_symbol = (struct merged_symbol *)
-				    fine_reloc->output_offset;
+		    merged_symbol = fine_reloc->merged_symbol;
 		if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
 		    merged_symbol = (struct merged_symbol *)
 				    merged_symbol->nlist.n_value;
@@ -445,10 +445,122 @@ unsigned long output_base_address)
 }
 
 /*
+ * fine_reloc_output_ref() sets the live_ref for the input_offset in the section
+ * with the specified section map as to what is being referenced in the linked
+ * output.  This is used when -dead_strip is specified to drive the live marking
+ * pass.  The value field of the live_ref for LIVE_REF_VALUE is an address in
+ * the input object file (not it's address in the linked output).  This routine
+ * can set the live_ref to one of two things depending on the fine relocation
+ * entry for the input_offset.  If the section is a symbol stub section and the
+ * fine_relocation entry's indirect symbol is defined then the symbol is used 
+ * with a LIVE_REF_SYMBOL.  Otherwise the input_offset is added back to the
+ * map->s->addr for a LIVE_REF_VALUE.
+ */
+__private_extern__
+void
+fine_reloc_output_ref(
+struct section_map *map,
+unsigned long input_offset,
+struct live_ref *ref)
+{
+    struct fine_reloc *fine_reloc;
+    struct merged_symbol *merged_symbol;
+    unsigned long index;
+    struct nlist *nlists;
+
+	fine_reloc = fine_reloc_for_input_offset(map, input_offset);
+	if(fine_reloc->local_symbol == TRUE){
+	    if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS){
+		index = fine_reloc->output_offset;
+		nlists = (struct nlist *)(cur_obj->obj_addr +
+					  cur_obj->symtab->symoff);
+		ref->ref_type = LIVE_REF_VALUE;
+		ref->value = nlists[index].n_value;
+		return;
+	    }
+	    else if((map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
+		    (map->s->flags & SECTION_TYPE) ==
+						  S_NON_LAZY_SYMBOL_POINTERS){
+		ref->ref_type = LIVE_REF_VALUE;
+		ref->value = map->s->addr + input_offset;
+		return;
+	    }
+	    else if((map->s->flags & SECTION_TYPE) == S_COALESCED){
+		if(fine_reloc->use_contents == TRUE){
+		    ref->ref_type = LIVE_REF_VALUE;
+		    ref->value = map->s->addr + input_offset;
+		    return;
+		}
+		else{
+		    merged_symbol = fine_reloc->merged_symbol;
+		    if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
+			merged_symbol = (struct merged_symbol *)
+					merged_symbol->nlist.n_value;
+		    ref->ref_type = LIVE_REF_SYMBOL;
+		    ref->merged_symbol = merged_symbol;
+		    return;
+		}
+	    }
+	    else{
+		fatal("internal error, fine_reloc_output_ref() called with "
+		      "an input_offset which maps to a fine_reloc where "
+		      "local_symbol is TRUE but it's not in a S_SYMBOL_STUBS, "
+		      "S_LAZY_SYMBOL_POINTERS or S_COALESCED section");
+		return;
+	    }
+	}
+	else if((map->s->flags & SECTION_TYPE) == S_COALESCED){
+	    if(fine_reloc->use_contents == TRUE){
+		ref->ref_type = LIVE_REF_VALUE;
+		ref->value = map->s->addr + input_offset;
+		return;
+	    }
+	    else{
+		merged_symbol = fine_reloc->merged_symbol;
+		if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
+		    merged_symbol = (struct merged_symbol *)
+				    merged_symbol->nlist.n_value;
+		ref->ref_type = LIVE_REF_SYMBOL;
+		ref->merged_symbol = merged_symbol;
+		return;
+	    }
+	}
+	else if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
+	        fine_reloc->indirect_defined == TRUE){
+	    if(filetype != MH_DYLIB ||
+	       (filetype == MH_DYLIB && multi_module_dylib == FALSE) ||
+	       (cur_obj == fine_reloc->merged_symbol->definition_object &&
+		input_offset - fine_reloc->input_offset == 0)){
+		if(cur_obj == fine_reloc->merged_symbol->definition_object)
+		    merged_symbol = fine_reloc->merged_symbol;
+		else
+		    merged_symbol = fine_reloc->merged_symbol;
+		if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
+		    merged_symbol = (struct merged_symbol *)
+				    merged_symbol->nlist.n_value;
+		ref->ref_type = LIVE_REF_SYMBOL;
+		ref->merged_symbol = merged_symbol;
+		return;
+	    }
+	    else{
+		ref->ref_type = LIVE_REF_VALUE;
+		ref->value = map->s->addr + input_offset;
+		return;
+	    }
+	}
+	else{
+	    ref->ref_type = LIVE_REF_VALUE;
+	    ref->value = map->s->addr + input_offset;
+	    return;
+	}
+}
+
+/*
  * fine_reloc_offset_in_output() returns TRUE if the input offset is part of a
  * range that will be in the output file.  This is used in processing the parts
- * of sections (contents, reloccation entries, symbols) that get removed when
- * a section is a symbol stub section or lazy pointer section.
+ * of sections (contents, relocation entries, symbols) that get removed when
+ * a section is a symbol stub section, lazy pointer section or coalesced
+ * section or -dead_strip is specified.
  */
 __private_extern__
 enum bool
@@ -457,8 +569,20 @@ struct section_map *map,
 unsigned long input_offset)
 {
     struct fine_reloc *fine_reloc;
+    unsigned long section_type;
 
 	fine_reloc = fine_reloc_for_input_offset(map, input_offset);
+	if(dead_strip == TRUE){
+	    section_type = map->s->flags & SECTION_TYPE;
+	    if(section_type == S_LAZY_SYMBOL_POINTERS ||
+	       section_type == S_NON_LAZY_SYMBOL_POINTERS ||
+	       section_type == S_SYMBOL_STUBS ||
+	       section_type == S_COALESCED){
+		if(fine_reloc->use_contents == FALSE)
+		    return(FALSE);
+	    }
+	    return((enum bool)(fine_reloc->live));
+	}
 	return((enum bool)(fine_reloc->use_contents));
 }
 
@@ -477,21 +601,9 @@ fine_reloc_offset_in_output_for_output_offset(
 struct section_map *map,
 unsigned long output_offset)
 {
-    unsigned long section_type;
-
 	if(map->nfine_relocs == 0)
 	    fatal("internal error, fine_reloc_offset_in_output_for_output_"
 		  "offset() called with a map->nfine_relocs == 0");
-
-	section_type = map->s->flags & SECTION_TYPE;
-	if(section_type != S_LAZY_SYMBOL_POINTERS &&
-	   section_type != S_NON_LAZY_SYMBOL_POINTERS &&
-	   section_type != S_SYMBOL_STUBS &&
-	   section_type != S_COALESCED)
-	    fatal("internal error, fine_reloc_offset_in_output_for_output_"
-		  "offset() called with a section map for a non-indirect and "
-		  "non-coalesced section");
-
 	/*
 	 * For relocation entries that were part of a item who's contents is
 	 * not used in the output file fine_reloc_output_offset() was used to
@@ -562,7 +674,7 @@ unsigned long input_offset)
 	else if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
 	        fine_reloc->indirect_defined == TRUE &&
 	        (filetype != MH_DYLIB || multi_module_dylib == FALSE)){
-	    merged_symbol = (struct merged_symbol *)fine_reloc->output_offset;
+	    merged_symbol = fine_reloc->merged_symbol;
 	    if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
 		merged_symbol = (struct merged_symbol *)
 				merged_symbol->nlist.n_value;
@@ -789,7 +901,7 @@ print_object_list(void)
 		    for(k = 0;
 			k < object_file->section_maps[j].nfine_relocs;
 			k++){
-			print("\t\t%-6u %-6lu\n",
+			print("\t\t%-6lu %-6lu\n",
 			       fine_relocs[k].input_offset,
 			       fine_relocs[k].output_offset);
 		    }
@@ -805,6 +917,44 @@ print_object_list(void)
 		print("\tset_num = %d\n", object_file->set_num);
 #endif /* RLD */
 	    }
+	}
+}
+
+/*
+ * print_fine_relocs() prints fine_relocs.  Used for debugging.
+ */
+__private_extern__
+void
+print_fine_relocs(
+struct fine_reloc *fine_relocs,
+unsigned long nfine_relocs,
+char *string)
+{
+    unsigned long i;
+
+	print("%s\n", string);
+	for(i = 0; i < nfine_relocs; i++){
+	    print("fine_reloc[%lu]\n", i);
+	    print("\t         input_offset  0x%x\n",
+		  (unsigned int)(fine_relocs[i].input_offset));
+	    print("\t         output_offset 0x%x\n",
+		  (unsigned int)(fine_relocs[i].output_offset));
+	    print("\t      indirect_defined %s\n",
+		  fine_relocs[i].indirect_defined == 1 ? "TRUE" : "FALSE");
+	    print("\t          use_contents %s\n",
+		  fine_relocs[i].use_contents == 1 ? "TRUE" : "FALSE");
+	    print("\t          local_symbol %s\n",
+		  fine_relocs[i].local_symbol == 1 ? "TRUE" : "FALSE");
+	    print("\t                  live %s\n",
+		  fine_relocs[i].live == 1 ? "TRUE" : "FALSE");
+	    print("\t      refs_marked_live %s\n",
+		  fine_relocs[i].refs_marked_live == 1 ? "TRUE" : "FALSE");
+	    print("\tsearched_for_live_refs %s\n",
+		  fine_relocs[i].searched_for_live_refs == 1 ? "TRUE" :"FALSE");
+	    print("\t         merged_symbol 0x08%x %s\n",
+		  (unsigned int)(fine_relocs[i].merged_symbol),
+		  fine_relocs[i].merged_symbol == NULL ? "" :
+		      fine_relocs[i].merged_symbol->nlist.n_un.n_name);
 	}
 }
 #endif /* DEBUG */

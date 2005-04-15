@@ -91,18 +91,25 @@ NTSTATUS cli_net_auth2(struct cli_state *cli,
         NET_Q_AUTH_2 q;
         NET_R_AUTH_2 r;
         NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
+	fstring machine_acct;
 
         prs_init(&qbuf, MAX_PDU_FRAG_LEN, cli->mem_ctx, MARSHALL);
         prs_init(&rbuf, 0, cli->mem_ctx, UNMARSHALL);
 
+	if ( sec_chan == SEC_CHAN_DOMAIN )
+		fstr_sprintf( machine_acct, "%s$", lp_workgroup() );
+	else
+		fstrcpy( machine_acct, cli->mach_acct );
+	
         /* create and send a MSRPC command with api NET_AUTH2 */
 
         DEBUG(4,("cli_net_auth2: srv:%s acct:%s sc:%x mc: %s chal %s neg: %x\n",
-                 cli->srv_name_slash, cli->mach_acct, sec_chan, global_myname(),
+                 cli->srv_name_slash, machine_acct, sec_chan, global_myname(),
                  credstr(cli->clnt_cred.challenge.data), *neg_flags));
 
         /* store the parameters */
-        init_q_auth_2(&q, cli->srv_name_slash, cli->mach_acct, 
+
+        init_q_auth_2(&q, cli->srv_name_slash, machine_acct, 
                       sec_chan, global_myname(), &cli->clnt_cred.challenge, 
                       *neg_flags);
 
@@ -240,7 +247,7 @@ NTSTATUS cli_nt_setup_creds(struct cli_state *cli,
 
         /******************* Request Challenge ********************/
 
-        generate_random_buffer(clnt_chal.data, 8, False);
+        generate_random_buffer(clnt_chal.data, 8);
 	
         /* send a client challenge; receive a server challenge */
         result = cli_net_req_chal(cli, &clnt_chal, &srv_chal);
@@ -573,7 +580,7 @@ NTSTATUS cli_netlogon_sam_logon(struct cli_state *cli, TALLOC_CTX *mem_ctx,
                 unsigned char local_lm_response[24];
                 unsigned char local_nt_response[24];
 
-                generate_random_buffer(chal, 8, False);
+                generate_random_buffer(chal, 8);
 
                 SMBencrypt(password, chal, local_lm_response);
                 SMBNTencrypt(password, chal, local_nt_response);

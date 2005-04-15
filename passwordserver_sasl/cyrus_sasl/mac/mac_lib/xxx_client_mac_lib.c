@@ -1,5 +1,5 @@
-/* $Id: xxx_client_mac_lib.c,v 1.1 2002/02/28 00:13:38 snsimon Exp $
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+/* $Id: xxx_client_mac_lib.c,v 1.4 2005/01/10 19:09:05 snsimon Exp $
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

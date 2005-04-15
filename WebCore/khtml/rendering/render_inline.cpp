@@ -27,7 +27,9 @@
 #include "render_inline.h"
 #include "render_block.h"
 #include "xml/dom_docimpl.h"
+#include "xml/dom_position.h"
 
+using DOM::Position;
 using namespace khtml;
 
 RenderInline::RenderInline(DOM::NodeImpl* node)
@@ -59,6 +61,8 @@ void RenderInline::setStyle(RenderStyle* _style)
         currCont = currCont->continuation();
     }
 
+    m_lineHeight = -1;
+    
     // Update pseudos for :before and :after now.
     updatePseudoChild(RenderStyle::BEFORE, firstChild());
     updatePseudoChild(RenderStyle::AFTER, lastChild());
@@ -74,17 +78,14 @@ void RenderInline::addChildToFlow(RenderObject* newChild, RenderObject* beforeCh
     // Make sure we don't append things after :after-generated content if we have it.
     if (!beforeChild && lastChild() && lastChild()->style()->styleType() == RenderStyle::AFTER)
         beforeChild = lastChild();
-    
-    if (!newChild->isText() && newChild->style()->position() != STATIC)
-        setOverhangingContents();
-    
+
     if (!newChild->isInline() && !newChild->isFloatingOrPositioned() )
     {
         // We are placing a block inside an inline. We have to perform a split of this
         // inline into continuations.  This involves creating an anonymous block box to hold
         // |newChild|.  We then make that block box a continuation of this inline.  We take all of
         // the children after |beforeChild| and put them in a clone of this object.
-        RenderStyle *newStyle = new RenderStyle();
+        RenderStyle *newStyle = new (renderArena()) RenderStyle();
         newStyle->inheritFrom(style());
         newStyle->setDisplay(BLOCK);
 
@@ -106,7 +107,7 @@ void RenderInline::addChildToFlow(RenderObject* newChild, RenderObject* beforeCh
         return;
     }
 
-    RenderBox::addChild(newChild,beforeChild);
+    RenderContainer::addChild(newChild,beforeChild);
 
     newChild->setNeedsLayoutAndMinMaxRecalc();
 }
@@ -240,68 +241,18 @@ void RenderInline::splitFlow(RenderObject* beforeChild, RenderBlock* newBlockBox
     // connected, thus allowing newChild access to a renderArena should it need
     // to wrap itself in additional boxes (e.g., table construction).
     newBlockBox->addChildToFlow(newChild, 0);
-
-    // XXXdwh is any of this even necessary? I don't think it is.
-    pre->close();
-    pre->setPos(0, -500000);
-    pre->setNeedsLayout(true);
-    newBlockBox->close();
-    newBlockBox->setPos(0, -500000);
-    newBlockBox->setNeedsLayout(true);
-    post->close();
-    post->setPos(0, -500000);
-    post->setNeedsLayout(true);
-
+    
+    // Always just do a full layout in order to ensure that line boxes (especially wrappers for images)
+    // get deleted properly.  Because objects moves from the pre block into the post block, we want to
+    // make new line boxes instead of leaving the old line boxes around.
+    pre->setNeedsLayoutAndMinMaxRecalc();
     block->setNeedsLayoutAndMinMaxRecalc();
+    post->setNeedsLayoutAndMinMaxRecalc();
 }
 
-void RenderInline::paint(QPainter *p, int _x, int _y, int _w, int _h,
-                      int _tx, int _ty, PaintAction paintAction)
+void RenderInline::paint(PaintInfo& i, int _tx, int _ty)
 {
-    paintObject(p, _x, _y, _w, _h, _tx, _ty, paintAction);
-}
-
-void RenderInline::paintObject(QPainter *p, int _x, int _y,
-                             int _w, int _h, int _tx, int _ty, PaintAction paintAction)
-{
-#ifdef DEBUG_LAYOUT
-    //    kdDebug( 6040 ) << renderName() << "(RenderInline) " << this << " ::paintObject() w/h = (" << width() << "/" << height() << ")" << endl;
-#endif
-
-    // If we have an inline root, it has to call the special root box decoration painting
-    // function.
-    if (isRoot() &&
-        (paintAction == PaintActionElementBackground || paintAction == PaintActionChildBackground) &&
-        shouldPaintBackgroundOrBorder() && style()->visibility() == VISIBLE) {
-        paintRootBoxDecorations(p, _x, _y, _w, _h, _tx, _ty);
-    }
-    
-    // We're done.  We don't bother painting any children.
-    if (paintAction == PaintActionElementBackground)
-        return;
-    // We don't paint our own background, but we do let the kids paint their backgrounds.
-    if (paintAction == PaintActionChildBackgrounds)
-        paintAction = PaintActionChildBackground;
-
-    paintLineBoxBackgroundBorder(p, _x, _y, _w, _h, _tx, _ty, paintAction);
-    
-    RenderObject *child = firstChild();
-    while(child != 0)
-    {
-        if(!child->layer() && !child->isFloating())
-            child->paint(p, _x, _y, _w, _h, _tx, _ty, paintAction);
-        child = child->nextSibling();
-    }
-
-    paintLineBoxDecorations(p, _x, _y, _w, _h, _tx, _ty, paintAction);
-    if (style()->visibility() == VISIBLE && paintAction == PaintActionOutline) {
-#if APPLE_CHANGES
-        if (style()->outlineStyleIsAuto())
-            paintFocusRing(p, _tx, _ty);
-        else
-#endif
-        paintOutlines(p, _tx, _ty);
-    }
+    paintLines(i, _tx, _ty);
 }
 
 void RenderInline::absoluteRects(QValueList<QRect>& rects, int _tx, int _ty)
@@ -317,150 +268,6 @@ void RenderInline::absoluteRects(QValueList<QRect>& rects, int _tx, int _ty)
         continuation()->absoluteRects(rects, 
                                       _tx - containingBlock()->xPos() + continuation()->xPos(),
                                       _ty - containingBlock()->yPos() + continuation()->yPos());
-}
-
-#if APPLE_CHANGES
-void RenderInline::addFocusRingRects(QPainter *p, int _tx, int _ty)
-{
-    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-        p->addFocusRingRect(_tx + curr->xPos(), 
-                            _ty + curr->yPos(), 
-                            curr->width(), 
-                            curr->height());
-    }
-    
-    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
-        if (!curr->isText())
-            curr->addFocusRingRects(p, _tx + curr->xPos(), _ty + curr->yPos());
-    }
-    
-    if (continuation())
-        continuation()->addFocusRingRects(p, 
-                                          _tx - containingBlock()->xPos() + continuation()->xPos(),
-                                          _ty - containingBlock()->yPos() + continuation()->yPos());
-}
-
-void RenderInline::paintFocusRing(QPainter *p, int tx, int ty)
-{
-    int ow = style()->outlineWidth();
-    if (ow == 0 || m_isContinuation) // Continuations get painted by the original inline.
-        return;
-
-    QColor oc = style()->outlineColor();
-    if (!oc.isValid())
-        oc = style()->color();
-
-    p->initFocusRing(ow,  style()->outlineOffset(), oc);
-    addFocusRingRects(p, tx, ty);
-    p->drawFocusRing();
-    p->clearFocusRing();
-}
-#endif
-
-void RenderInline::paintOutlines(QPainter *p, int _tx, int _ty)
-{
-    if (style()->outlineWidth() == 0 || style()->outlineStyle() <= BHIDDEN)
-        return;
-    
-    QPtrList <QRect> rects;
-    rects.setAutoDelete(true);
-
-    rects.append(new QRect(0,0,0,0));
-    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-        rects.append(new QRect(curr->xPos(), curr->yPos(), curr->width(), curr->height()));
-    }
-    rects.append(new QRect(0,0,0,0));
-
-    for (unsigned int i = 1; i < rects.count() - 1; i++)
-        paintOutline(p, _tx, _ty, *rects.at(i-1), *rects.at(i), *rects.at(i+1));
-}
-
-void RenderInline::paintOutline(QPainter *p, int tx, int ty, const QRect &lastline, const QRect &thisline, const QRect &nextline)
-{
-    int ow = style()->outlineWidth();
-    if (ow == 0 || m_isContinuation) // Continuations get painted by the original inline.
-        return;
-    
-    EBorderStyle os = style()->outlineStyle();
-    QColor oc = style()->outlineColor();
-    if (!oc.isValid())
-        oc = style()->color();
-    
-    int offset = style()->outlineOffset();
-    
-    int t = ty + thisline.top() - offset;
-    int l = tx + thisline.left() - offset;
-    int b = ty + thisline.bottom() + offset + 1;
-    int r = tx + thisline.right() + offset + 1;
-    
-    // left edge
-    drawBorder(p,
-               l - ow,
-               t - (lastline.isEmpty() || thisline.left() < lastline.left() || lastline.right() <= thisline.left() ? ow : 0),
-               l,
-               b + (nextline.isEmpty() || thisline.left() <= nextline.left() || nextline.right() <= thisline.left() ? ow : 0),
-               BSLeft,
-               oc, style()->color(), os,
-               (lastline.isEmpty() || thisline.left() < lastline.left() || lastline.right() <= thisline.left() ? ow : -ow),
-               (nextline.isEmpty() || thisline.left() <= nextline.left() || nextline.right() <= thisline.left() ? ow : -ow),
-               true);
-    
-    // right edge
-    drawBorder(p,
-               r,
-               t - (lastline.isEmpty() || lastline.right() < thisline.right() || thisline.right() <= lastline.left() ? ow : 0),
-               r + ow,
-               b + (nextline.isEmpty() || nextline.right() <= thisline.right() || thisline.right() <= nextline.left() ? ow : 0),
-               BSRight,
-               oc, style()->color(), os,
-               (lastline.isEmpty() || lastline.right() < thisline.right() || thisline.right() <= lastline.left() ? ow : -ow),
-               (nextline.isEmpty() || nextline.right() <= thisline.right() || thisline.right() <= nextline.left() ? ow : -ow),
-               true);
-    // upper edge
-    if ( thisline.left() < lastline.left())
-        drawBorder(p,
-                   l - ow,
-                   t - ow,
-                   QMIN(r+ow, (lastline.isValid()? tx+lastline.left() : 1000000)),
-                   t ,
-                   BSTop, oc, style()->color(), os,
-                   ow,
-                   (lastline.isValid() && tx+lastline.left()+1<r+ow ? -ow : ow),
-                   true);
-    
-    if (lastline.right() < thisline.right())
-        drawBorder(p,
-                   QMAX(lastline.isValid()?tx + lastline.right() + 1:-1000000, l - ow),
-                   t - ow,
-                   r + ow,
-                   t ,
-                   BSTop, oc, style()->color(), os,
-                   (lastline.isValid() && l-ow < tx+lastline.right()+1 ? -ow : ow),
-                   ow,
-                   true);
-    
-    // lower edge
-    if ( thisline.left() < nextline.left())
-        drawBorder(p,
-                   l - ow,
-                   b,
-                   QMIN(r+ow, nextline.isValid()? tx+nextline.left()+1 : 1000000),
-                   b + ow,
-                   BSBottom, oc, style()->color(), os,
-                   ow,
-                   (nextline.isValid() && tx+nextline.left()+1<r+ow? -ow : ow),
-                   true);
-    
-    if (nextline.right() < thisline.right())
-        drawBorder(p,
-                   QMAX(nextline.isValid()?tx+nextline.right()+1:-1000000 , l-ow),
-                   b,
-                   r + ow,
-                   b + ow,
-                   BSBottom, oc, style()->color(), os,
-                   (nextline.isValid() && l-ow < tx+nextline.right()+1? -ow : ow),
-                   ow,
-                   true);
 }
 
 void RenderInline::calcMinMaxWidth()
@@ -482,11 +289,11 @@ bool RenderInline::requiresLayer() {
     return isRoot() || isRelPositioned() || style()->opacity() < 1.0f;
 }
 
-short RenderInline::width() const
+int RenderInline::width() const
 {
     // Return the width of the minimal left side and the maximal right side.
-    short leftSide = 0;
-    short rightSide = 0;
+    int leftSide = 0;
+    int rightSide = 0;
     for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
         if (curr == firstLineBox() || curr->xPos() < leftSide)
             leftSide = curr->xPos();
@@ -531,45 +338,17 @@ const char *RenderInline::renderName() const
 }
 
 bool RenderInline::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
-                               HitTestAction hitTestAction, bool inside)
+                               HitTestAction hitTestAction)
 {
-    // Check our kids if our HitTestAction says to.
-    if (hitTestAction != HitTestSelfOnly) {
-        for (RenderObject* child = lastChild(); child; child = child->previousSibling())
-            if (!child->layer() && !child->isFloating() && child->nodeAtPoint(info, _x, _y, _tx, _ty))
-                inside = true;
-    }
-    
-    // Check our line boxes if we're still not inside.
-    if (hitTestAction != HitTestChildrenOnly && !inside && style()->visibility() != HIDDEN) {
-        // See if we're inside one of our line boxes.
-        for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-            if((_y >=_ty + curr->m_y) && (_y < _ty + curr->m_y + curr->m_height) &&
-               (_x >= _tx + curr->m_x) && (_x <_tx + curr->m_x + curr->m_width) ) {
-                inside = true;
-                break;
-            }
-        }
-    }
-
-    if (inside && element()) {
-        if (info.innerNode() && info.innerNode()->renderer() &&
-            !info.innerNode()->renderer()->isInline()) {
-            // Within the same layer, inlines are ALWAYS fully above blocks.  Change inner node.
-            info.setInnerNode(element());
-
-            // Clear everything else.
-            info.setInnerNonSharedNode(0);
-            info.setURLElement(0);
-        }
-
-        if (!info.innerNode())
-            info.setInnerNode(element());
-
-        if(!info.innerNonSharedNode())
-            info.setInnerNonSharedNode(element());
-    }
-
-    return inside;
+    return hitTestLines(info, _x, _y, _tx, _ty, hitTestAction);
 }
 
+VisiblePosition RenderInline::positionForCoordinates(int x, int y)
+{
+    for (RenderObject *c = continuation(); c; c = c->continuation()) {
+        if (c->isInline() || c->firstChild())
+            return c->positionForCoordinates(x, y);
+    }
+
+    return RenderFlow::positionForCoordinates(x, y);
+}

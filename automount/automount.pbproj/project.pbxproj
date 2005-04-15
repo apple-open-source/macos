@@ -25,6 +25,30 @@
 //052
 //053
 //054
+//430
+//431
+//432
+//433
+//434
+		43D7623D062D243700ACAD0E = {
+			containerPortal = 9B56400302060BA317CA284C;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 9B56403902060BA317CA284C;
+			remoteInfo = "automount (Tool)";
+		};
+		43D7623E062D243700ACAD0E = {
+			containerPortal = 9B56400302060BA317CA284C;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 9B5DD9D90211E9D317CA284C;
+			remoteInfo = RPCGen;
+		};
+//430
+//431
+//432
+//433
+//434
 //9B0
 //9B1
 //9B2
@@ -987,7 +1011,7 @@
 		9B5DD9E10211F87E17CA284C = {
 			isa = PBXTargetDependency;
 			target = 9B5DD9D90211E9D317CA284C;
-			targetProxy = C1DB31570622022900F9B930;
+			targetProxy = 43D7623E062D243700ACAD0E;
 		};
 		9B5DD9E20211F87E17CA284C = {
 			fileRef = 9B5DD9DD0211F76A17CA284C;
@@ -1219,7 +1243,7 @@
 		9BE5B6A5020B6AC517CA284C = {
 			isa = PBXTargetDependency;
 			target = 9B56403902060BA317CA284C;
-			targetProxy = C1DB31560622022900F9B930;
+			targetProxy = 43D7623D062D243700ACAD0E;
 		};
 		9BE87EC602528CCA17CA284C = {
 			fileEncoding = 30;

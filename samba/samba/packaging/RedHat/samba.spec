@@ -4,7 +4,7 @@
 Summary: Samba SMB client and server
 Vendor: Samba Team
 Name: samba
-Version: 3.0.5
+Version: 3.0.10
 Release: 1
 License: GNU GPL version 2
 Group: Networking
@@ -16,7 +16,8 @@ Source998: filter-requires-samba_rh8.sh
 Source999: filter-requires-samba_rh9.sh
 
 Packager: Gerald Carter [Samba-Team] <jerry@samba.org>
-Requires: pam >= 0.72 kernel >= 2.2.1 glibc >= 2.1.2
+Requires: pam openldap krb5-libs 
+BuildRequires: openldap-devel krb5-devel pam-devel
 Prereq: chkconfig fileutils /sbin/ldconfig
 Provides: samba = %{version}
 Obsoletes: samba-common, samba-client, samba-swat
@@ -440,7 +441,6 @@ fi
 %{prefix}/share/swat/include/*.html
 %{prefix}/share/swat/lang/*/help/*
 %{prefix}/share/swat/lang/*/images/*
-%{prefix}/share/swat/lang/*/include/*.html
 %{prefix}/share/swat/using_samba/*
 %config(noreplace) /etc/samba/lmhosts
 %config(noreplace) /etc/samba/smb.conf

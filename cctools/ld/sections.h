@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,6 +97,8 @@ struct merged_section {
     void (*literal_output)();	/* The routine to write the literals. */
     void (*literal_free)();	/* The routine to free the literals. */
     void (*literal_order)();	/* The routine to order the literals. */
+    void (*literal_reset_live)(); /* The routine to reset literal data before
+				     only the live literals are re-merged */
     void *literal_data;		/* A pointer to a block of data to help merge */
 				/*  and hold the literals. */
     /* These three fields are used only if this section is created from a file*/
@@ -139,6 +141,7 @@ struct order_load_map {
 	*section_map;		/* section map to relocate symbol's value */
     unsigned long size;		/* size of symbol in the input file */
     unsigned long order;	/* order the symbol appears in the section */
+    struct load_order *load_order; /* the load_order for this map entry */
 };
 
 /* the pointer to the head of the output file's section list */
@@ -150,12 +153,21 @@ __private_extern__ struct merged_segment *original_merged_segments;
 /* the total number relocation entries */
 __private_extern__ unsigned long nreloc;
 
+/*
+ * This is set to TRUE if any of the input objects do not have the
+ * MH_SUBSECTIONS_VIA_SYMBOLS bit set in the mach_header flags field.
+ */
+__private_extern__ enum bool some_non_subsection_via_symbols_objects;
+
 __private_extern__ void merge_sections(
     void);
 __private_extern__ void merge_literal_sections(
-    void);
+    enum bool redo_live);
 __private_extern__ void layout_ordered_sections(
     void);
+__private_extern__ enum bool is_literal_output_offset_live(
+    struct merged_section *ms,
+    unsigned long output_offset);
 __private_extern__ void parse_order_line(
     char *line,
     char **archive_name,
@@ -163,7 +175,9 @@ __private_extern__ void parse_order_line(
     char **symbol_name,
     struct merged_section *ms,
     unsigned long line_number);
-__private_extern__ void layout_relocs_for_dyld(
+__private_extern__ void resize_live_sections(
+    void);
+__private_extern__ void relayout_relocs(
     void);
 __private_extern__ void output_literal_sections(
     void);
@@ -171,10 +185,17 @@ __private_extern__ void output_sections_from_files(
     void);
 __private_extern__ void output_section(
     struct section_map *map);
+__private_extern__ unsigned long pass2_nsect_merged_symbol_section_type(
+    struct merged_symbol *merged_symbol);
 __private_extern__ void nop_pure_instruction_scattered_sections(
     void);
 __private_extern__ void flush_scatter_copied_sections(
     void);
+__private_extern__ void live_marking(
+    void);
+__private_extern__ struct fine_reloc *get_fine_reloc_for_merged_symbol(
+    struct merged_symbol *merged_symbol,
+    struct section_map **local_map);
 __private_extern__ struct merged_section *create_merged_section(
     struct section *s);
 __private_extern__ struct merged_segment *lookup_merged_segment(

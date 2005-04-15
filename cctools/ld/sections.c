@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
+#include <mach-o/ppc/reloc.h>
 #include <mach-o/hppa/reloc.h>
 #include <ar.h>
 #include "stuff/arch.h"
@@ -49,6 +50,7 @@
 
 #include "ld.h"
 #include "specs.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "pass1.h"
 #include "symbols.h"
@@ -89,6 +91,12 @@ __private_extern__ struct merged_segment *original_merged_segments = NULL;
  * calculate the size of the link edit segment.
  */
 __private_extern__ unsigned long nreloc = 0;
+
+/*
+ * This is set to TRUE if any of the input objects do not have the
+ * MH_SUBSECTIONS_VIA_SYMBOLS bit set in the mach_header flags field.
+ */
+__private_extern__ enum bool some_non_subsection_via_symbols_objects = FALSE;
 
 /* table for S_* flags (section types) for error messages */
 static const char *
@@ -168,6 +176,10 @@ static unsigned long ambiguous_specifications = 0;
 
 static void layout_ordered_section(
     struct merged_section *ms);
+static unsigned long align_to_input_mod(
+    unsigned long output_offset,
+    unsigned long input_offset,
+    unsigned long align);
 static void create_name_arrays(
     void);
 static struct archive_name *create_archive_name(
@@ -181,7 +193,8 @@ static void create_object_name(
 static void free_name_arrays(
     void);
 static void create_load_symbol_hash_table(
-    unsigned long nsection_symbols);
+    unsigned long nsection_symbols,
+    struct merged_section *ms);
 static void free_load_symbol_hash_table(
     void);
 static void create_load_symbol_hash_table_for_object(
@@ -189,7 +202,8 @@ static void create_load_symbol_hash_table_for_object(
     char *object_name,
     unsigned long index_length,
     struct load_order *load_orders,
-    unsigned long nload_orders);
+    unsigned long nload_orders,
+    struct merged_section *ms);
 static struct load_order *lookup_load_order(
     char *archive_name,
     char *object_name,
@@ -207,6 +221,9 @@ static int qsort_load_order_names(
 static int bsearch_load_order_names(
     char *symbol_name,
     const struct load_order *load_order);
+static int qsort_load_order_input_offset(
+    const struct load_order *load_order1,
+    const struct load_order *load_order2);
 static int qsort_archive_names(
     const struct archive_name *archive_name1,
     const struct archive_name *archive_name2);
@@ -227,15 +244,24 @@ static int qsort_order_load_map_orders(
     const struct order_load_map *order_load_map2);
 static void create_order_load_maps(
     struct merged_section *ms,
-    unsigned long norders);
+    unsigned long norder_load_maps);
+#ifdef DEBUG
+static void print_symbol_name_from_order_load_maps(
+    struct section_map *map,
+    unsigned long value);
+#endif /* DEBUG */
+static void resize_live_section(
+    struct merged_section *ms);
 static void count_relocs(
     struct section_map *map,
     struct relocation_info *relocs,
     unsigned long *nlocrel,
     unsigned long *nextrel);
+#endif /* !defined(RLD) */
 static void scatter_copy(
     struct section_map *map,
     char *contents);
+#ifndef RLD
 static void reloc_output_for_dyld(
     struct section_map *map,
     struct relocation_info *relocs,
@@ -249,6 +275,42 @@ static unsigned long scatter_copy_relocs(
     struct section_map *map,
     struct relocation_info *relocs,
     struct relocation_info *output_relocs);
+static void mark_all_fine_relocs_live_in_section(
+    struct merged_section *ms);
+/*
+ * The routines that walk the references these are the operations:
+ * mark live references
+ * search down for any live references (and if so mark it live)
+ * check for references that touch a live block (and if so mark it live)
+ */
+enum walk_references_operation {
+    MARK_LIVE,
+    SEARCH_FOR_LIVE,
+    CHECK_FOR_LIVE_TOUCH
+};
+#ifdef DEBUG
+char * walk_references_operation_names[] = {
+    "MARK_LIVE",
+    "SEARCH_FOR_LIVE",
+    "CHECK_FOR_LIVE_TOUCH"
+};
+#endif /* DEBUG */
+static void walk_references_in_section(
+    enum walk_references_operation operation,
+    struct merged_section *ms);
+static enum bool walk_references(
+    enum walk_references_operation operation,
+    struct fine_reloc *fine_reloc,
+    struct section_map *map,
+    struct object_file *obj);
+static enum bool ref_operation(
+    enum walk_references_operation operation,
+    struct live_ref *ref,
+    struct object_file *obj);
+static unsigned long r_symbolnum_from_r_value(
+    unsigned long r_value,
+    struct object_file *obj);
+
 #endif /* !defined(RLD) */
 #ifdef DEBUG
 static void print_load_symbol_hash_table(
@@ -269,6 +331,21 @@ merge_sections(void)
     unsigned long i;
     struct section *s;
     struct merged_section *ms;
+    struct mach_header *mh;
+
+	/*
+	 * We need to preserve the marking of objects that can have their
+	 * sections safely divided up by the symbols for dead code stripping.
+	 * Only if all input objects are marked with this will the output also
+	 * be marked with this.
+	 */
+	if(cur_obj != base_obj){
+	    mh = (struct mach_header *)(cur_obj->obj_addr);
+	    if((mh->flags & MH_SUBSECTIONS_VIA_SYMBOLS) !=
+	       MH_SUBSECTIONS_VIA_SYMBOLS){
+		some_non_subsection_via_symbols_objects = TRUE;
+	    }
+	}
 
 	for(i = 0; i < cur_obj->nsection_maps; i++){
 	    s = cur_obj->section_maps[i].s;
@@ -305,8 +382,8 @@ merge_sections(void)
 #endif /* KLD */
 		    if(s->align > ms->s.align)
 			ms->s.align = s->align;
-		if(dynamic != TRUE)
-		    ms->s.flags |= (ms->s.flags & SECTION_ATTRIBUTES);
+		if(dynamic == TRUE)
+		    ms->s.flags |= (s->flags & SECTION_ATTRIBUTES);
 		break;
 
 	    case S_CSTRING_LITERALS:
@@ -332,8 +409,8 @@ merge_sections(void)
 #endif /* KLD */
 		    if(s->align > ms->s.align)
 			ms->s.align = s->align;
-		if(dynamic != TRUE)
-		    ms->s.flags |= (ms->s.flags & SECTION_ATTRIBUTES);
+		if(dynamic == TRUE)
+		    ms->s.flags |= (s->flags & SECTION_ATTRIBUTES);
 		break;
 
 	    default:
@@ -414,8 +491,8 @@ struct section *s)
 			if((ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
 			   ms->s.reserved2 != s->reserved2){
 			    error_with_cur_obj("section's (%.16s,%.16s) sizeof "
-				"stub %lu does not match previous objects "
-				"sizeof stub %lu", s->segname, s->sectname,
+				"stub %u does not match previous objects "
+				"sizeof stub %u", s->segname, s->sectname,
 				s->reserved2, ms->s.reserved2);
 			    return(NULL);
 			}
@@ -463,6 +540,7 @@ struct section *s)
 		    memset(ms->literal_data, '\0', sizeof(struct cstring_data));
 		    ms->literal_merge = cstring_merge;
 		    ms->literal_order = cstring_order;
+		    ms->literal_reset_live = cstring_reset_live;
 		    ms->literal_output = cstring_output;
 		    ms->literal_free = cstring_free;
 		}
@@ -471,6 +549,7 @@ struct section *s)
 		    memset(ms->literal_data, '\0',sizeof(struct literal4_data));
 		    ms->literal_merge = literal4_merge;
 		    ms->literal_order = literal4_order;
+		    ms->literal_reset_live = literal4_reset_live;
 		    ms->literal_output = literal4_output;
 		    ms->literal_free = literal4_free;
 		}
@@ -479,6 +558,7 @@ struct section *s)
 		    memset(ms->literal_data, '\0',sizeof(struct literal8_data));
 		    ms->literal_merge = literal8_merge;
 		    ms->literal_order = literal8_order;
+		    ms->literal_reset_live = literal8_reset_live;
 		    ms->literal_output = literal8_output;
 		    ms->literal_free = literal8_free;
 		}
@@ -489,6 +569,7 @@ struct section *s)
 					   sizeof(struct literal_pointer_data));
 		    ms->literal_merge = literal_pointer_merge;
 		    ms->literal_order = literal_pointer_order;
+		    ms->literal_reset_live = literal_pointer_reset_live;
 		    ms->literal_output = literal_pointer_output;
  		    ms->literal_free = literal_pointer_free;
 		}
@@ -502,6 +583,7 @@ struct section *s)
 			   sizeof(struct indirect_section_data));
 		    ms->literal_merge = indirect_section_merge;
 		    ms->literal_order = indirect_section_order;
+		    ms->literal_reset_live = indirect_section_reset_live;
 		    ms->literal_output = NULL;
 		    ms->literal_free = indirect_section_free;
 		    if((ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS)
@@ -512,16 +594,20 @@ struct section *s)
 			S_MOD_INIT_FUNC_POINTERS ||
 		        (ms->s.flags & SECTION_TYPE) ==
 			S_MOD_TERM_FUNC_POINTERS){
-		    ms->literal_data = NULL;
+		    ms->literal_data = allocate(sizeof(struct mod_term_data));
+		    memset(ms->literal_data, '\0',
+			   sizeof(struct mod_term_data));
 		    ms->literal_merge = mod_section_merge;
 		    ms->literal_order = mod_section_order;
+		    ms->literal_reset_live = mod_section_reset_live;
 		    ms->literal_output = NULL;
- 		    ms->literal_free = NULL;
+ 		    ms->literal_free = mod_section_free;
 		}
 		else if((ms->s.flags & SECTION_TYPE) == S_COALESCED){
 		    ms->literal_data = NULL;
 		    ms->literal_merge = coalesced_section_merge;
 		    ms->literal_order = coalesced_section_order;
+		    ms->literal_reset_live = coalesced_section_reset_live;
 		    ms->literal_output = NULL;
 		    ms->literal_free = NULL;
 		}
@@ -570,6 +656,7 @@ struct section *s)
 	    memset(ms->literal_data, '\0', sizeof(struct cstring_data));
 	    ms->literal_merge = cstring_merge;
 	    ms->literal_order = cstring_order;
+	    ms->literal_reset_live = cstring_reset_live;
 	    ms->literal_output = cstring_output;
 	    ms->literal_free = cstring_free;
 	}
@@ -578,6 +665,7 @@ struct section *s)
 	    memset(ms->literal_data, '\0', sizeof(struct literal4_data));
 	    ms->literal_merge = literal4_merge;
 	    ms->literal_order = literal4_order;
+	    ms->literal_reset_live = literal4_reset_live;
 	    ms->literal_output = literal4_output;
 	    ms->literal_free = literal4_free;
 	}
@@ -586,6 +674,7 @@ struct section *s)
 	    memset(ms->literal_data, '\0', sizeof(struct literal8_data));
 	    ms->literal_merge = literal8_merge;
 	    ms->literal_order = literal8_order;
+	    ms->literal_reset_live = literal8_reset_live;
 	    ms->literal_output = literal8_output;
 	    ms->literal_free = literal8_free;
 	}
@@ -594,6 +683,7 @@ struct section *s)
 	    memset(ms->literal_data, '\0', sizeof(struct literal_pointer_data));
 	    ms->literal_merge = literal_pointer_merge;
 	    ms->literal_order = literal_pointer_order;
+	    ms->literal_reset_live = literal_pointer_reset_live;
 	    ms->literal_output = literal_pointer_output;
 	    ms->literal_free = literal_pointer_free;
 	}
@@ -605,6 +695,7 @@ struct section *s)
 	    memset(ms->literal_data, '\0',sizeof(struct indirect_section_data));
 	    ms->literal_merge = indirect_section_merge;
 	    ms->literal_order = indirect_section_order;
+	    ms->literal_reset_live = indirect_section_reset_live;
 	    ms->literal_output = NULL;
 	    ms->literal_free = indirect_section_free;
 	    if((ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS)
@@ -616,6 +707,7 @@ struct section *s)
 	    ms->literal_data = NULL;
 	    ms->literal_merge = mod_section_merge;
 	    ms->literal_order = mod_section_order;
+	    ms->literal_reset_live = mod_section_reset_live;
 	    ms->literal_output = NULL;
 	    ms->literal_free = NULL;
 	}
@@ -623,6 +715,7 @@ struct section *s)
 	    ms->literal_data = NULL;
 	    ms->literal_merge = coalesced_section_merge;
 	    ms->literal_order = coalesced_section_order;
+	    ms->literal_reset_live = coalesced_section_reset_live;
 	    ms->literal_output = NULL;
 	    ms->literal_free = NULL;
 	}
@@ -699,15 +792,20 @@ char *sectname)
 
 /*
  * merge_literal_sections() goes through all the object files to be loaded and
- * merges the literal sections from them.  This is called from layout() and has
- * to be done after all the alignment from all the sections headers have been
- * merged and the command line section alignment has been folded in.  This way
- * the individual literal items from all the objects can be aligned to the
- * output alignment.
+ * merges the literal sections from them.  This is called from layout(), with
+ * redo_live == FALSE, and has to be done after all the alignment from all the
+ * sections headers have been merged and the command line section alignment has
+ * been folded in.  This way the individual literal items from all the objects
+ * can be aligned to the output alignment.
+ *
+ * If -dead_strip is specified this is called a second time from layout() with
+ * redo_live == TRUE.  In this case it is used to drive re-merging of only live
+ * literals.
  */
 __private_extern__
 void
-merge_literal_sections(void)
+merge_literal_sections(
+enum bool redo_live)
 {
     unsigned long i, j;
     struct object_list *object_list, **p;
@@ -718,7 +816,10 @@ merge_literal_sections(void)
 
 	/*
 	 * If any literal (except literal pointer) section has an order file
-	 * then process it for that section.
+	 * then process it for that section if redo_live == FALSE.  If redo_live
+	 * is TRUE then we are being called a second time so instead call the
+	 * literal_reset_live function that resets the literal section before
+	 * only the live literals are re-merged.
 	 */
 	q = &merged_segments;
 	while(*q){
@@ -726,17 +827,21 @@ merge_literal_sections(void)
 	    content = &(msg->content_sections);
 	    while(*content){
 		ms = *content;
-		if(ms->order_filename != NULL &&
-		   ((ms->s.flags & SECTION_TYPE) == S_CSTRING_LITERALS ||
-		    (ms->s.flags & SECTION_TYPE) == S_4BYTE_LITERALS ||
-		    (ms->s.flags & SECTION_TYPE) == S_8BYTE_LITERALS ||
-		    (ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
-		    (ms->s.flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS||
-		    (ms->s.flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
-		    (ms->s.flags & SECTION_TYPE) == S_MOD_INIT_FUNC_POINTERS ||
-		    (ms->s.flags & SECTION_TYPE) == S_MOD_TERM_FUNC_POINTERS ||
-		    (ms->s.flags & SECTION_TYPE) == S_COALESCED)){
-		    (*ms->literal_order)(ms->literal_data, ms);
+		if((ms->s.flags & SECTION_TYPE) == S_CSTRING_LITERALS ||
+		   (ms->s.flags & SECTION_TYPE) == S_4BYTE_LITERALS ||
+		   (ms->s.flags & SECTION_TYPE) == S_8BYTE_LITERALS ||
+		   (ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
+		   (ms->s.flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS||
+		   (ms->s.flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
+		   (ms->s.flags & SECTION_TYPE) == S_MOD_INIT_FUNC_POINTERS ||
+		   (ms->s.flags & SECTION_TYPE) == S_MOD_TERM_FUNC_POINTERS ||
+		   (ms->s.flags & SECTION_TYPE) == S_COALESCED){
+		    if(redo_live == FALSE){
+			if(ms->order_filename != NULL)
+			    (*ms->literal_order)(ms->literal_data, ms);
+		    }
+		    else
+			(*ms->literal_reset_live)(ms->literal_data, ms);
 		}
 		content = &(ms->next);
 	    }
@@ -780,7 +885,8 @@ merge_literal_sections(void)
 		       (ms->s.flags & SECTION_TYPE) == S_COALESCED)
 		       (*ms->literal_merge)(ms->literal_data, ms,
 					     cur_obj->section_maps[j].s,
-					     &(cur_obj->section_maps[j]));
+					     &(cur_obj->section_maps[j]),
+					     redo_live);
 		}
 	    }
 	}
@@ -788,7 +894,11 @@ merge_literal_sections(void)
 #ifndef RLD
 	/*
 	 * Now that the the literals are all merged if any literal pointer
-	 * section has an order file then process it for that section.
+	 * section has an order file then process it for that section if
+	 * redo_live == FALSE. If redo_live is TRUE then we are being called a
+	 * second time so instead call the literal_reset_live function that
+	 * resets the literal section before only the live literals are
+	 * re-merged.
 	 */
 	q = &merged_segments;
 	while(*q){
@@ -796,9 +906,14 @@ merge_literal_sections(void)
 	    content = &(msg->content_sections);
 	    while(*content){
 		ms = *content;
-		if(ms->order_filename != NULL &&
-		   (ms->s.flags & SECTION_TYPE) == S_LITERAL_POINTERS){
-		    (*ms->literal_order)(ms->literal_data, ms);
+		if((ms->s.flags & SECTION_TYPE) == S_LITERAL_POINTERS){
+		    if(redo_live == FALSE){
+			if(ms->order_filename != NULL)
+			    (*ms->literal_order)(ms->literal_data, ms);
+		    }
+		    else{
+			(*ms->literal_reset_live)(ms->literal_data, ms);
+		    }
 		}
 		content = &(ms->next);
 	    }
@@ -830,7 +945,8 @@ merge_literal_sections(void)
 		    if((ms->s.flags & SECTION_TYPE) == S_LITERAL_POINTERS)
 			(*ms->literal_merge)(ms->literal_data, ms,
 					     cur_obj->section_maps[j].s,
-					     &(cur_obj->section_maps[j]));
+					     &(cur_obj->section_maps[j]),
+					     redo_live);
 		}
 	    }
 	}
@@ -838,8 +954,9 @@ merge_literal_sections(void)
 
 #ifndef RLD
 /*
- * layout_ordered_sections() calles layout_ordered_section() for each section
- * that has an order file specified with -sectorder.
+ * layout_ordered_sections() calls layout_ordered_section() for each section
+ * that has an order file specified with -sectorder, or if -dead_strip is
+ * specified.
  */
 __private_extern__
 void
@@ -851,9 +968,9 @@ layout_ordered_sections(void)
     struct object_file *last_object;
 
 	/*
-	 * Determine if their are any sections that have an order file and if
-	 * not just return.  This saves creating the name arrays when there is
-	 * no need to.
+	 * Determine if their are any sections that have an order file or 
+	 * -dead_strip is specified and if not just return.  This saves
+	 * creating the name arrays when there is no need to.
 	 */
 	ordered_sections = FALSE;
 	p = &merged_segments;
@@ -881,7 +998,7 @@ layout_ordered_sections(void)
 		break;
 	    p = &(msg->next);
 	}
-	if(ordered_sections == FALSE)
+	if(ordered_sections == FALSE && dead_strip == FALSE)
 	    return;
 
 	/*
@@ -902,8 +1019,9 @@ layout_ordered_sections(void)
 #endif /* DEBUG */
 
 	/*
-	 * For each merged section that has a load order file layout all objects
-	 * that have this section in it.
+	 * For each merged section that has a load order file, or all merged
+	 * sections if -dead_strip is specified, layout all objects that have
+	 * this section in it.
 	 */
 	p = &merged_segments;
 	while(*p){
@@ -911,8 +1029,8 @@ layout_ordered_sections(void)
 	    content = &(msg->content_sections);
 	    while(*content){
 		ms = *content;
-		/* no load order for this section continue */
-		if(ms->order_filename == NULL){
+		/* no load order for this section, or no -dead_strip continue */
+		if(ms->order_filename == NULL && dead_strip == FALSE){
 		    content = &(ms->next);
 		    continue;
 		}
@@ -923,17 +1041,21 @@ layout_ordered_sections(void)
 		 */
 		if((ms->s.flags & SECTION_TYPE) == S_REGULAR)
 		    layout_ordered_section(ms);
+		if(errors != 0)
+		    return;
 		content = &(ms->next);
 	    }
 	    zerofill = &(msg->zerofill_sections);
 	    while(*zerofill){
 		ms = *zerofill;
-		/* no load order for this section continue */
-		if(ms->order_filename == NULL){
+		/* no load order for this section, or no -dead_strip continue */
+		if(ms->order_filename == NULL && dead_strip == FALSE){
 		    zerofill = &(ms->next);
 		    continue;
 		}
 		layout_ordered_section(ms);
+		if(errors != 0)
+		    return;
 		zerofill = &(ms->next);
 	    }
 	    p = &(msg->next);
@@ -979,7 +1101,6 @@ struct merged_section *ms)
     char *object_strings;
 
     unsigned long n, order, output_offset, line_number, line_length;
-    unsigned long prev_output_offset;
     unsigned long unused_specifications, no_specifications;
     char *line, *archive_name, *object_name, *symbol_name;
     struct load_order *load_order;
@@ -987,6 +1108,7 @@ struct merged_section *ms)
     kern_return_t r;
 
     struct fine_reloc *fine_relocs;
+    struct merged_symbol *merged_symbol;
 
 	/*
 	 * Reset the count of the number of symbol for this
@@ -1024,6 +1146,25 @@ struct merged_section *ms)
 			continue;
 		    if(cur_obj->section_maps[j].s->size == 0)
 			continue;
+		    /*
+		     * We can only handle only be one of these sections in
+		     * the section maps for a given object file but their might
+		     * be more than one.  So this test will check to see if
+		     * more than one section with the same name exists in the
+		     * same object.
+		     */
+		    if(cur_obj->cur_section_map != NULL){
+			error_with_cur_obj("can't use -sectorder or -dead_strip"
+			    " with objects that contain more than one section "
+			    "with the same name (section %d and %ld are both "
+			    "named (%.16s,%.16s))", cur_obj->cur_section_map -
+			    cur_obj->section_maps + 1, j + 1, ms->s.segname,
+			    ms->s.sectname);
+			return;
+		    }
+
+		    cur_obj->cur_section_map = &(cur_obj->section_maps[j]);
+
 		    /*
 		     * Count the number of symbols in this section in
 		     * this object file.  For this object nsect is the
@@ -1064,6 +1205,7 @@ struct merged_section *ms)
 		    cur_obj->section_maps[j].load_orders = load_orders;
 		    cur_obj->cur_section_map =
 					    &(cur_obj->section_maps[j]);
+		    cur_obj->cur_section_map->start_section = start_section;
 
 		    /*
 		     * Fill in symbol names and values the load order
@@ -1083,6 +1225,7 @@ struct merged_section *ms)
 					  object_symbols[k].n_un.n_strx;
 			    load_orders[l].value =
 					  object_symbols[k].n_value;
+			    load_orders[l].index = k;
 			    l++;
 			}
 		    }
@@ -1143,11 +1286,12 @@ struct merged_section *ms)
 		    nsection_symbols += nload_orders;
 
 		    /*
-		     * Since there can only be one of these sections in
-		     * the section map and it was found just break out
-		     * of the loop looking for it.
+		     * We can only handle one of these sections in the section
+		     * maps for a given object file but their might be more than
+		     * one.  So let the loop continue and the test at the top
+		     * of the loop will check to see if more than one section
+		     * with the same name exists in the same object.
 		     */
-		    break;
 		}
 	    }
 	}
@@ -1156,7 +1300,7 @@ struct merged_section *ms)
 	 * symbol names and trying to match load order file lines to
 	 * them if the line is not a perfect match.
 	 */
-	create_load_symbol_hash_table(nsection_symbols);
+	create_load_symbol_hash_table(nsection_symbols, ms);
 	
 	/*
 	 * Clear the counter of ambiguous secifications before the next
@@ -1183,12 +1327,20 @@ struct merged_section *ms)
 	 */
 	order = 1;
 	output_offset = 0;
-	prev_output_offset = 0;
 	line_number = 1;
 	unused_specifications = 0;
 	for(i = 0; i < ms->order_size; ){
 	    line = ms->order_addr + i;
 	    line_length = strlen(line);
+
+	    /*
+	     * Igore lines that start with a '#'.
+	     */
+	    if(*line == '#'){
+		i += line_length + 1;
+		line_number++;
+		continue;
+	    }
 
 	    parse_order_line(line, &archive_name, &object_name, &symbol_name,
 			     ms, line_number);
@@ -1197,13 +1349,24 @@ struct merged_section *ms)
 					   symbol_name, ms, line_number);
 	    if(load_order != NULL){
 		if(load_order->order != 0){
-		    if(archive_name == NULL)
-			warning("multiple specification of %s:%s in "
-				"-sectorder file: %s line %lu for "
-				"section (%.16s,%.16s)", object_name,
-				symbol_name, ms->order_filename,
-				line_number, ms->s.segname,
-				ms->s.sectname);
+		    if(archive_name == NULL){
+			if(*object_name == '\0'){
+			    warning("multiple specification of symbol: %s in "
+				    "-sectorder file: %s line %lu for "
+				    "section (%.16s,%.16s)",
+				    symbol_name, ms->order_filename,
+				    line_number, ms->s.segname,
+				    ms->s.sectname);
+			}
+			else{
+			    warning("multiple specification of %s:%s in "
+				    "-sectorder file: %s line %lu for "
+				    "section (%.16s,%.16s)", object_name,
+				    symbol_name, ms->order_filename,
+				    line_number, ms->s.segname,
+				    ms->s.sectname);
+			}
+		    }
 		    else
 			warning("multiple specification of %s:%s:%s in "
 				"-sectorder file: %s line %lu for "
@@ -1214,10 +1377,11 @@ struct merged_section *ms)
 		}
 		else{
 		    load_order->order = order++;
-		    output_offset = round(output_offset,
-					  (1 << ms->s.align));
+		    load_order->line_number = line_number;
+		    output_offset = align_to_input_mod(output_offset,
+						       load_order->input_offset,
+						       ms->s.align);
 		    load_order->output_offset = output_offset;
-		    prev_output_offset = output_offset;
 		    output_offset += load_order->input_size;
 		}
 	    }
@@ -1273,6 +1437,7 @@ struct merged_section *ms)
 						     object_name);
 		    if(section_map != NULL){
 			section_map->no_load_order = TRUE;
+			section_map->order = order++;
 			output_offset = round(output_offset,
 					      (1 << section_map->s->align));
 			section_map->offset = output_offset;
@@ -1334,7 +1499,7 @@ struct merged_section *ms)
 	/*
 	 * Deallocate the memory for the load order file now that it is
 	 * nolonger needed (since the memory has been written on it is
-	 * allways deallocated so it won't get written to the swap file
+	 * always deallocated so it won't get written to the swap file
 	 * unnecessarily).
 	 */
 	if((r = vm_deallocate(mach_task_self(), (vm_address_t)
@@ -1376,10 +1541,25 @@ struct merged_section *ms)
 		n = cur_obj->cur_section_map->nload_orders;
 
 		/*
+		 * When there is no load order or in the case of dead stripping,
+		 * we re-sort the load orders by input_offset to keep them in
+		 * the "natural" link order.  For dead code stripping this can
+		 * still lead to problems with assembly code where blocks can
+		 * get removed or padding can be added between blocks for
+		 * alignment.  For sections with order files that are incomplete
+		 * the "natural" link order is said to be better for symbols not
+		 * listed.
+		 */
+		qsort(load_order, n, sizeof(struct load_order),
+		      (int (*)(const void *, const void *))
+				       qsort_load_order_input_offset);
+
+		/*
 		 * If there is no orders in this object then cause it to be
-		 * treated as if it had a .section_all by default.  This is
-		 * done to help the default case work in more cases and not
-		 * scatter the object when no symbols were ordered from it.
+		 * treated as if it had a .section_all by default unless
+		 * -dead_strip is specified.  This is done to help the default
+		 * case work in more cases and not scatter the object when no
+		 * symbols were ordered from it.
 		 */
 		any_order = FALSE;
 		for(j = 0; j < n; j++){
@@ -1390,46 +1570,75 @@ struct merged_section *ms)
 		}
 		if(any_order == FALSE &&
 		   cur_obj->cur_section_map->no_load_order == FALSE){
-		    cur_obj->cur_section_map->no_load_order = TRUE;
-		    output_offset = round(output_offset,
+		    /*
+		     * If -dead_strip is specified, even if this there were
+		     * no orders listed in the order file we need to break up
+		     * the section into blocks so it can effectively dead
+		     * stripped by falling through to the code below.  However
+		     * if this section has the no dead strip attribute we will
+		     * be keeping all the blocks.  And in this case it is better
+		     * to make one block in order to make more cases work.  Or
+		     * If this section comes from an object file that is not
+		     * marked with MH_SUBSECTIONS_VIA_SYMBOLS we make one block
+		     * for the section.
+		     */
+		    if(dead_strip == FALSE ||
+		       (cur_obj->cur_section_map->s->flags &
+			S_ATTR_NO_DEAD_STRIP) == S_ATTR_NO_DEAD_STRIP ||
+		       (cur_obj->obj_addr != NULL &&
+		        (((struct mach_header *)(cur_obj->obj_addr))->flags &
+		         MH_SUBSECTIONS_VIA_SYMBOLS) !=
+			 MH_SUBSECTIONS_VIA_SYMBOLS)){
+
+			cur_obj->cur_section_map->no_load_order = TRUE;
+			if(cur_obj->cur_section_map->order == 0)
+			    cur_obj->cur_section_map->order = order++;
+			output_offset = round(output_offset,
 				  (1 << cur_obj->cur_section_map->s->align));
-		    cur_obj->cur_section_map->offset = output_offset;
-		    output_offset += cur_obj->cur_section_map->s->size;
-		    if(sectorder_detail == TRUE){
-			if(no_specifications == 0)
-			    warning("no specification for the following "
-				    "symbols in -sectorder file: %s for "
-				    "section (%.16s,%.16s):",
-				    ms->order_filename,
-				    ms->s.segname, ms->s.sectname);
-			for(j = 0; j < n; j++){
-			    if(cur_obj->ar_hdr == NULL){
-				if(nowarnings == FALSE)
-				    print("%s:%s\n", cur_obj->file_name,
-					  load_order[j].name);
-			    }
-			    else{
-				if(nowarnings == FALSE)
-				    print("%s:%.*s:%s\n", cur_obj->file_name,
-					  (int)cur_obj->ar_name_size,
-					  cur_obj->ar_name, load_order[j].name);
+			cur_obj->cur_section_map->offset = output_offset;
+			output_offset += cur_obj->cur_section_map->s->size;
+
+			if(sectorder_detail == TRUE &&
+			   ms->order_filename != NULL){
+			    if(no_specifications == 0)
+				warning("no specification for the following "
+					"symbols in -sectorder file: %s for "
+					"section (%.16s,%.16s):",
+					ms->order_filename,
+					ms->s.segname, ms->s.sectname);
+			    for(j = 0; j < n; j++){
+				if(cur_obj->ar_hdr == NULL){
+				    if(nowarnings == FALSE)
+					print("%s:%s\n", cur_obj->file_name,
+					      load_order[j].name);
+				}
+				else{
+				    if(nowarnings == FALSE)
+					print("%s:%.*s:%s\n",
+					      cur_obj->file_name,
+					      (int)cur_obj->ar_name_size,
+					      cur_obj->ar_name,
+					      load_order[j].name);
+				}
 			    }
 			}
+			no_specifications += n;
 		    }
-		    no_specifications += n;
 		}
 
 		for(j = 0; j < n; j++){
 		    if(load_order[j].order == 0){
-			if(cur_obj->cur_section_map->no_load_order ==
-			   TRUE)
+			if(cur_obj->cur_section_map->no_load_order == TRUE)
 			    continue;
 			load_order[j].order = order++;
-			output_offset = round(output_offset,
-					      (1 << ms->s.align));
+			output_offset = align_to_input_mod(
+						    output_offset,
+						    load_order[j].input_offset,
+						    ms->s.align);
 			load_order[j].output_offset = output_offset;
 			output_offset += load_order[j].input_size;
-			if(sectorder_detail == TRUE){
+			if(sectorder_detail == TRUE &&
+			   ms->order_filename != NULL){
 			    if(no_specifications == 0)
 				warning("no specification for the following "
 					"symbols in -sectorder file: %s for "
@@ -1451,8 +1660,8 @@ struct merged_section *ms)
 			no_specifications++;
 		    }
 		    else{
-			if(cur_obj->cur_section_map->no_load_order ==
-			   TRUE){
+			if(cur_obj->cur_section_map->no_load_order == TRUE &&
+			   any_order == TRUE){
 			    if(cur_obj->ar_hdr == NULL){
 				error("specification for both %s:%s "
 				      "and %s:%s in -sectorder file: "
@@ -1485,6 +1694,28 @@ struct merged_section *ms)
 			}
 		    }
 		}
+
+		/*
+		 * If .section_all has been seen for this object (or we forced
+		 * that effect) and we are creating a load map or -dead_strip
+		 * was specified toss the old load_orders and create one load
+		 * order that represents the entire section.
+		 */ 
+		if(cur_obj->cur_section_map->no_load_order == TRUE &&
+		   (load_map == TRUE || dead_strip == TRUE)){
+		    free(cur_obj->cur_section_map->load_orders);
+		    load_order = allocate(sizeof(struct load_order));
+		    n = 1;
+		    cur_obj->cur_section_map->load_orders = load_order;
+		    cur_obj->cur_section_map->nload_orders = n;
+		    load_order->order = cur_obj->cur_section_map->order;
+		    load_order->name = NULL;
+		    load_order->value = cur_obj->section_maps->s->addr;
+		    load_order->input_offset = 0;
+		    load_order->output_offset = output_offset;
+		    load_order->input_size = cur_obj->cur_section_map->s->size;
+		}
+
 #ifdef DEBUG
 		if(debug & (1 << 18))
 		    print_load_order(
@@ -1494,7 +1725,7 @@ struct merged_section *ms)
 #endif /* DEBUG */
 	    }
 	}
-	if(sectorder_detail == FALSE){
+	if(sectorder_detail == FALSE && ms->order_filename != NULL){
 	    if(unused_specifications != 0)
 		warning("%lu symbols specified in -sectorder file: %s "
 			"for section (%.16s,%.16s) not found in "
@@ -1532,6 +1763,8 @@ struct merged_section *ms)
 	 * Finally the fine relocation maps can be allocated and filled
 	 * in from the load order maps.
 	 */
+	object_symbols = NULL;
+	object_strings = NULL;
 	for(q = &objects; *q; q = &(object_list->next)){
 	    object_list = *q;
 	    for(i = 0; i < object_list->used; i++){
@@ -1547,12 +1780,17 @@ struct merged_section *ms)
 		if(cur_obj->cur_section_map == NULL)
 		    continue;
 		/*
-		 * If this object file has no load orders (a
-		 * .section_all for it was specified) then just
-		 * create a single fine relocation entry for it
-		 * that take care of the whole section.
+		 * If this object file has no load orders (a .section_all for it
+		 * was specified) or -dead_strip was spefified and this section
+		 * has the no dead strip attribute then just create a single
+		 * fine relocation entry for it that take care of the whole
+		 * section.
 		 */
-		if(cur_obj->cur_section_map->no_load_order == TRUE){
+		if(cur_obj->cur_section_map->no_load_order == TRUE ||
+		   (dead_strip == TRUE &&
+		    (cur_obj->cur_section_map->s->flags &
+		     S_ATTR_NO_DEAD_STRIP) == S_ATTR_NO_DEAD_STRIP &&
+		    ms->order_filename == NULL) ){
 		    fine_relocs = allocate(sizeof(struct fine_reloc));
 		    memset(fine_relocs, '\0', sizeof(struct fine_reloc));
 		    cur_obj->cur_section_map->fine_relocs = fine_relocs;
@@ -1560,19 +1798,42 @@ struct merged_section *ms)
 		    fine_relocs[0].input_offset = 0;
 		    fine_relocs[0].output_offset =
 				       cur_obj->cur_section_map->offset;
+		    if(dead_strip == TRUE){
+			load_orders = cur_obj->cur_section_map->load_orders;
+			load_orders[0].fine_reloc = fine_relocs + 0;
+			load_orders[0].order = cur_obj->cur_section_map->order;
+		    }
 		    continue;
 		}
 		n = cur_obj->cur_section_map->nload_orders;
 		load_orders = cur_obj->cur_section_map->load_orders;
+		start_section = cur_obj->cur_section_map->start_section;
 		fine_relocs = allocate(sizeof(struct fine_reloc) * n);
 		memset(fine_relocs, '\0', sizeof(struct fine_reloc) * n);
 		cur_obj->cur_section_map->fine_relocs = fine_relocs;
 		cur_obj->cur_section_map->nfine_relocs = n;
+		if(dead_strip == TRUE){
+		    object_symbols = (struct nlist *)(cur_obj->obj_addr 
+					     + cur_obj->symtab->symoff);
+		    object_strings = (char *)(cur_obj->obj_addr +
+					       cur_obj->symtab->stroff);
+		}
 		for(j = 0; j < n ; j++){
 		    fine_relocs[j].input_offset =
 					   load_orders[j].input_offset;
 		    fine_relocs[j].output_offset =
 					   load_orders[j].output_offset;
+		    if(dead_strip == TRUE){
+			if((start_section == TRUE || j != 0) &&
+			   object_symbols[load_orders[j].index].n_type & N_EXT){
+			    merged_symbol = *(lookup_symbol(object_strings +
+				object_symbols[load_orders[j].index].
+				    n_un.n_strx));
+			    if(merged_symbol != NULL &&
+			       merged_symbol->definition_object == cur_obj)
+				fine_relocs[j].merged_symbol = merged_symbol;
+			}
+		    }
 		}
 		/*
 		 * Leave the fine relocation map in sorted order by
@@ -1586,10 +1847,31 @@ struct merged_section *ms)
 					 qsort_fine_reloc_input_offset);
 
 		/*
-		 * The load order maps are now no longer needed unless
-		 * the load map (-M) has been specified.
+		 * When -dead_strip is specified resize_live_section() walks the
+		 * order_load_map that will be created in
+		 * create_order_load_maps() when reassigning the output_offset
+		 * to live items.  To know what is live the load_order structs
+		 * need to point at the fine_reloc so it can use the live field
+		 * in there.  We must set the pointer to the fine_reloc after
+		 * the above last sort of the fine_relocs.  To do that we also
+		 * sort the load_orders by the input_offset so we can then
+		 * assign the correct fine_reloc pointer to the corresponding
+		 * load_order.
 		 */
-		if(load_map == FALSE){
+		if(dead_strip == TRUE){
+		    qsort(load_orders, n, sizeof(struct load_order),
+			  (int (*)(const void *, const void *))
+					   qsort_load_order_input_offset);
+		    for(j = 0; j < n ; j++)
+			load_orders[j].fine_reloc = fine_relocs + j;
+		}
+
+		/*
+		 * The load order maps are now no longer needed unless
+		 * the load map (-M) has been specified or we are doing dead
+		 * stripping (-dead_strip).
+		 */
+		if(load_map == FALSE && dead_strip == FALSE){
 		    free(cur_obj->cur_section_map->load_orders);
 		    cur_obj->cur_section_map->load_orders = NULL;
 		    cur_obj->cur_section_map->nload_orders = 0;
@@ -1598,11 +1880,86 @@ struct merged_section *ms)
 	}
 
 	/*
-	 * If the load map option (-M) is specified build the
-	 * structures to print the map.
+	 * If the load map option (-M) or dead stripping (-dead_strip) is
+	 * specified build the structures to print the map.
 	 */
-	if(load_map == TRUE)
+	if(load_map == TRUE || dead_strip == TRUE)
 	    create_order_load_maps(ms, order - 1);
+}
+
+/*
+ * align_to_input_mod() is passed the current output_offset, and returns the
+ * next output_offset aligned to the passed input offset modulus the passed
+ * power of 2 alignment.
+ */
+static
+unsigned long
+align_to_input_mod(
+unsigned long output_offset,
+unsigned long input_offset,
+unsigned long align)
+{
+    unsigned long output_mod, input_mod;
+
+	output_mod = output_offset % (1 << align);
+	input_mod  = input_offset  % (1 << align);
+	if(output_mod <= input_mod)
+	    return(output_offset + (input_mod - output_mod));
+	else
+	    return(round(output_offset, (1 << align)) + input_mod);
+}
+
+/*
+ * is_literal_output_offset_live() is passed a pointer to a merged literal
+ * section and an output_offset in there and returns if the literal for that
+ * is live.  This is only used literal sections that have order files and when
+ * -dead_strip is specified.  It is very brute force and not fast.
+ */
+__private_extern__
+enum bool
+is_literal_output_offset_live(
+struct merged_section *ms,
+unsigned long output_offset)
+{
+    unsigned long i, j, k, n;
+    struct object_list *object_list, **q;
+    struct fine_reloc *fine_relocs;
+
+	/*
+	 * For each object file that has this section process it.
+	 */
+	for(q = &objects; *q; q = &(object_list->next)){
+	    object_list = *q;
+	    for(i = 0; i < object_list->used; i++){
+		cur_obj = &(object_list->object_files[i]);
+		if(cur_obj == base_obj)
+		    continue;
+		if(cur_obj->dylib)
+		    continue;
+		if(cur_obj->bundle_loader)
+		    continue;
+		if(cur_obj->dylinker)
+		    continue;
+		for(j = 0; j < cur_obj->nsection_maps; j++){
+		    if(cur_obj->section_maps[j].output_section != ms)
+			continue;
+		    fine_relocs = cur_obj->section_maps[j].fine_relocs;
+		    n = cur_obj->section_maps[j].nfine_relocs;
+		    for(k = 0; k < n ; k++){
+			if(fine_relocs[k].output_offset == output_offset &&
+			   fine_relocs[k].live == TRUE)
+			    return(TRUE);
+		    }
+		    /*
+		     * Since there can only be one of these sections in
+		     * the section map and it was found just break out
+		     * of the loop looking for it.
+		     */
+		    break;
+		}
+	    }
+	}
+	return(FALSE);
 }
 
 /*
@@ -1914,7 +2271,8 @@ free_name_arrays(void)
 static
 void
 create_load_symbol_hash_table(
-unsigned long nsection_symbols)
+unsigned long nsection_symbols,
+struct merged_section *ms)
 {
     unsigned long i, j;
 
@@ -1946,7 +2304,8 @@ unsigned long nsection_symbols)
 			    archive_names[i].object_names[j].object_file->
 						 cur_section_map->load_orders,
 			    archive_names[i].object_names[j].object_file->
-						 cur_section_map->nload_orders);
+						 cur_section_map->nload_orders,
+			    ms);
 	    }
 	}
 
@@ -1957,7 +2316,8 @@ unsigned long nsection_symbols)
 		    object_names[j].object_name,
 		    object_names[j].index_length,
 		    object_names[j].object_file->cur_section_map->load_orders,
-		    object_names[j].object_file->cur_section_map->nload_orders);
+		    object_names[j].object_file->cur_section_map->nload_orders,
+		    ms);
 	}
 }
 
@@ -1996,7 +2356,8 @@ char *archive_name,
 char *object_name,
 unsigned long index_length,
 struct load_order *load_orders,
-unsigned long nload_orders)
+unsigned long nload_orders,
+struct merged_section *ms)
 {
     unsigned long i, hash_index;
     struct load_symbol *load_symbol, *hash_load_symbol, *other_name;
@@ -2015,7 +2376,7 @@ unsigned long nload_orders)
 	    load_symbol->load_order = &(load_orders[i]);
 
 	    /* find this symbol's place in the hash table */
-	    hash_index = hash_string(load_orders[i].name) %
+	    hash_index = hash_string(load_orders[i].name, NULL) %
 			 LOAD_SYMBOL_HASHTABLE_SIZE;
 	    for(hash_load_symbol = load_symbol_hashtable[hash_index]; 
 		hash_load_symbol != NULL;
@@ -2039,7 +2400,7 @@ unsigned long nload_orders)
 		 * list of other names.
 		 */
 		for(other_name = hash_load_symbol;
-		    other_name != NULL;
+		    other_name != NULL && ms->order_filename != NULL;
 		    other_name = other_name->other_names){
 
 		    if(archive_name != NULL){
@@ -2141,7 +2502,8 @@ no_exact_match:
 	symbol_name = trim(symbol_name);
 
 	/* find this symbol's place in the hash table */
-	hash_index = hash_string(symbol_name) % LOAD_SYMBOL_HASHTABLE_SIZE;
+	hash_index = hash_string(symbol_name, NULL) %
+		     LOAD_SYMBOL_HASHTABLE_SIZE;
 	for(hash_load_symbol = load_symbol_hashtable[hash_index]; 
 	    hash_load_symbol != NULL;
 	    hash_load_symbol = hash_load_symbol->next){
@@ -2447,7 +2809,7 @@ const struct load_order *load_order2)
 
 #ifndef RLD
 /*
- * Function for qsort to sort load_order structs by their name
+ * Function for qsort to sort load_order structs by their name.
  */
 static
 int
@@ -2459,7 +2821,7 @@ const struct load_order *load_order2)
 }
 
 /*
- * Function for bsearch to search load_order structs for their name
+ * Function for bsearch to search load_order structs for their name.
  */
 static
 int
@@ -2468,6 +2830,27 @@ char *symbol_name,
 const struct load_order *load_order)
 {
 	return(strcmp(symbol_name, load_order->name));
+}
+
+/*
+ * Function for qsort to sort load_order structs by their input_offset.
+ */
+static
+int
+qsort_load_order_input_offset(
+const struct load_order *load_order1,
+const struct load_order *load_order2)
+{
+	/*
+	 * This test is needed to fix an obscure bug where two symbols have
+	 * the same value.  This fix makes the load_orders and the fine_relocs
+	 * sorted by value end up in the same order even though the load_order
+	 * was sorted by name between their sorts by value then by name.
+	 */
+	if(load_order1->input_offset == load_order2->input_offset)
+	    return(strcmp(load_order1->name, load_order2->name));
+	else
+	    return(load_order1->input_offset - load_order2->input_offset);
 }
 
 /*
@@ -2546,21 +2929,22 @@ const struct order_load_map *order_load_map2)
 
 /*
  * create_order_load_map() creates the structures to be use for printing the
- * load map.
+ * load map and for -dead_strip.
  */
 static
 void
 create_order_load_maps(
 struct merged_section *ms,
-unsigned long norders)
+unsigned long norder_load_maps)
 {
     unsigned long i, j, k, l, m, n;
     struct order_load_map *order_load_maps;
     struct load_order *load_orders;
 
-	order_load_maps = allocate(sizeof(struct order_load_map) * norders);
+	order_load_maps = allocate(sizeof(struct order_load_map) *
+				   norder_load_maps);
 	ms->order_load_maps = order_load_maps;
-	ms->norder_load_maps = norders;
+	ms->norder_load_maps = norder_load_maps;
 	l = 0;
 	for(i = 0; i < narchive_names; i++){
 	    for(j = 0; j < archive_names[i].nobject_names; j++){
@@ -2568,23 +2952,26 @@ unsigned long norders)
 		for(m = 0; m < cur_obj->nsection_maps; m++){
 		    if(cur_obj->section_maps[m].output_section != ms)
 			continue;
+/*
 		    if(cur_obj->section_maps[m].no_load_order == TRUE){
 			continue;
 		    }
+*/
 		    n = cur_obj->section_maps[m].nload_orders;
 		    load_orders = cur_obj->section_maps[m].load_orders;
 		    for(k = 0; k < n ; k++){
-		       order_load_maps[l].archive_name = 
-						  archive_names[i].archive_name;
-		       order_load_maps[l].object_name = 
-				   archive_names[i].object_names[j].object_name;
-		       order_load_maps[l].symbol_name = load_orders[k].name;
-		       order_load_maps[l].value = load_orders[k].value;
-		       order_load_maps[l].section_map =
-						    &(cur_obj->section_maps[m]);
-		       order_load_maps[l].size = load_orders[k].input_size;
-		       order_load_maps[l].order = load_orders[k].order;
-		       l++;
+		        order_load_maps[l].archive_name = 
+			    archive_names[i].archive_name;
+		        order_load_maps[l].object_name = 
+			    archive_names[i].object_names[j].object_name;
+		        order_load_maps[l].symbol_name = load_orders[k].name;
+		        order_load_maps[l].value = load_orders[k].value;
+		        order_load_maps[l].section_map =
+			    &(cur_obj->section_maps[m]);
+		        order_load_maps[l].size = load_orders[k].input_size;
+		        order_load_maps[l].order = load_orders[k].order;
+			order_load_maps[l].load_order = load_orders + k;
+		        l++;
 		    }
 		    break;
 		}
@@ -2595,47 +2982,175 @@ unsigned long norders)
 	    for(m = 0; m < cur_obj->nsection_maps; m++){
 		if(cur_obj->section_maps[m].output_section != ms)
 		    continue;
+/*
 		if(cur_obj->section_maps[m].no_load_order == TRUE)
 		    continue;
+*/
 		n = cur_obj->section_maps[m].nload_orders;
 		load_orders = cur_obj->section_maps[m].load_orders;
 		for(k = 0; k < n ; k++){
-		   order_load_maps[l].archive_name = NULL;
-		   order_load_maps[l].object_name = object_names[j].object_name;
-		   order_load_maps[l].symbol_name = load_orders[k].name;
-		   order_load_maps[l].value = load_orders[k].value;
-		   order_load_maps[l].section_map = &(cur_obj->section_maps[m]);
-		   order_load_maps[l].size = load_orders[k].input_size;
-		   order_load_maps[l].order = load_orders[k].order;
-		   l++;
+		    order_load_maps[l].archive_name = NULL;
+		    order_load_maps[l].object_name =
+			object_names[j].object_name;
+		    order_load_maps[l].symbol_name = load_orders[k].name;
+		    order_load_maps[l].value = load_orders[k].value;
+		    order_load_maps[l].section_map =
+			&(cur_obj->section_maps[m]);
+		    order_load_maps[l].size = load_orders[k].input_size;
+		    order_load_maps[l].order = load_orders[k].order;
+		    order_load_maps[l].load_order = load_orders + k;
+		    l++;
 		}
 	    }
 	}
 
 #ifdef DEBUG
 	if(debug & (1 << 19)){
-	    for(i = 0; i < norders; i++){
+	    for(i = 0; i < norder_load_maps; i++){
 		if(order_load_maps[i].archive_name != NULL)
 		    print("%s:", order_load_maps[i].archive_name);
-		print("%s:%s\n", order_load_maps[i].object_name,
-		order_load_maps[i].symbol_name);
+		if(order_load_maps[i].symbol_name != NULL)
+		    print("%s:%s\n", order_load_maps[i].object_name,
+		    order_load_maps[i].symbol_name);
+		else
+		    print("%s\n", order_load_maps[i].object_name);
 	    }
 	}
 #endif /* DEBUG */
 
 	qsort(order_load_maps,
-	      norders,
+	      norder_load_maps,
 	      sizeof(struct order_load_map),
 	      (int (*)(const void *, const void *))qsort_order_load_map_orders);
 }
 
+#ifdef DEBUG
 /*
- * layout_relocs_for_dyld() sets the counts and indexes for the relocation
- * entries that will be in the output file when it is output_for_dyld.
+ * print_symbol_name_from_order_load_maps() is used in printing a symbol name
+ * for a block in the -dead_code stripping debug printing.
+ */
+static
+void
+print_symbol_name_from_order_load_maps(
+struct section_map *map,
+unsigned long value)
+{
+    unsigned int i, n;
+    struct order_load_map *order_load_maps;
+
+	order_load_maps = map->output_section->order_load_maps;
+	n = map->output_section->norder_load_maps;
+	for(i = 0; i < n; i++){
+	   if(order_load_maps[i].value == value){
+		print(":%s", order_load_maps[i].symbol_name);
+		return;
+	   }
+	}
+}
+#endif /* DEBUG */
+
+/*
+ * resize_live_sections() resizes the regular and zerofill sections using the
+ * live file_reloc sizes.
  */
 __private_extern__
 void
-layout_relocs_for_dyld(
+resize_live_sections(
+void)
+{
+    struct merged_segment **p, *msg;
+    struct merged_section **content, **zerofill, *ms;
+
+	/*
+	 * For each merged S_REGULAR and zerofill section cause the section to
+	 * be resized to include only the live fine_relocs.
+	 */
+	p = &merged_segments;
+	while(*p){
+	    msg = *p;
+	    content = &(msg->content_sections);
+	    while(*content){
+		ms = *content;
+		/*
+		 * If a regular section (not a literal section) then call
+		 * resize_live_section() on it.
+		 */
+		if((ms->s.flags & SECTION_TYPE) == S_REGULAR)
+		    resize_live_section(ms);
+		content = &(ms->next);
+	    }
+	    zerofill = &(msg->zerofill_sections);
+	    while(*zerofill){
+		ms = *zerofill;
+		resize_live_section(ms);
+		zerofill = &(ms->next);
+	    }
+	    p = &(msg->next);
+	}
+}
+
+/*
+ * resize_live_section() resizes the merged section based on the live
+ * fine_relocs.
+ */
+static
+void
+resize_live_section(
+struct merged_section *ms)
+{
+    unsigned long n, i, output_offset;
+    struct order_load_map *order_load_maps;
+    struct load_order *load_order;
+    struct fine_reloc *fine_reloc;
+
+	/*
+	 * Using the order_load_map of the merged section reassign the
+	 * output_offset of each live fine_reloc.
+	 */
+	output_offset = 0;
+	n = ms->norder_load_maps;
+	order_load_maps = ms->order_load_maps;
+	for(i = 0; i < n; i++){
+	    if(order_load_maps[i].load_order->fine_reloc->live == FALSE){
+		if(ms->order_filename != NULL &&
+		   sectorder_detail == TRUE &&
+		   order_load_maps[i].load_order->line_number != 0)
+		    warning("specification of symbol: %s in -sectorder file: "
+			    "%s line %lu for section (%.16s,%.16s) not used "
+			    "(dead stripped)",
+			    order_load_maps[i].load_order->name,
+			    ms->order_filename,
+			    order_load_maps[i].load_order->line_number,
+			    ms->s.segname, ms->s.sectname);
+		continue;
+	    }
+
+	    load_order = order_load_maps[i].load_order;
+	    fine_reloc = load_order->fine_reloc;
+
+	    output_offset = align_to_input_mod(output_offset,
+					       load_order->input_offset,
+					       ms->s.align);
+	    load_order->output_offset = output_offset;
+	    fine_reloc->output_offset = output_offset;
+	    output_offset += load_order->input_size;
+	}
+
+	/*
+	 * Now the size of the resized merged section can be set with just
+	 * the sizes of the live file_relocs included in the section.
+	 */
+	ms->s.size = output_offset;
+}
+
+/*
+ * relayout_relocs() resets the counts and indexes for the relocation
+ * entries that will be in the output file when output_for_dyld is TRUE or
+ * -dead_strip is specified.
+ */
+__private_extern__
+void
+relayout_relocs(
 void)
 {
     unsigned long i, j, section_type, nlocrel, nextrel;
@@ -2648,8 +3163,9 @@ void)
 
 	/*
 	 * For regular and module initialization function pointer sections count
-	 * the number of relocation entries that will be in the type of output
-	 * file being created.
+	 * the number of relocation entries that will be in the output file
+	 * being created (which in the case of output_for_dyld depends on the
+	 * type of output file).
 	 */
 	nlocrel = 0;
 	nextrel = 0;
@@ -2736,7 +3252,7 @@ void)
 		     */
 		    if(ms->nextrel != 0){
 			if(filetype == MH_DYLIB && multi_module_dylib == TRUE)
-			    fatal("internal error: layout_relocs_for_dyld() "
+			    fatal("internal error: relayout_relocs() "
 			      "called with external relocation entries for "
 			      "merged section (%.16s,%.16s) for multi module "
 			      "MH_DYLIB output", ms->s.segname, ms->s.sectname);
@@ -2796,7 +3312,7 @@ unsigned long *nextrel)
 	     * routines to flag them.
 	     */
 	    reloc = relocs[i];
-	    if(cur_obj->swapped)
+	    if(cur_obj->swapped && map->input_relocs_already_swapped == FALSE)
 		swap_relocation_info(&reloc, 1, host_byte_sex);
 	    /*
 	     * Break out the fields of the relocation entry we need here.
@@ -2954,7 +3470,8 @@ unsigned long *nextrel)
 			fake_relocs[0].r_address = 0;
 		    if(pair){
 			pair_reloc = relocs[i+1];
-			if(cur_obj->swapped)
+			if(cur_obj->swapped &&
+	       		   map->input_relocs_already_swapped == FALSE)
 			    swap_relocation_info(&pair_reloc, 1, host_byte_sex);
 			fake_relocs[1] = pair_reloc;
 		    }
@@ -2975,13 +3492,14 @@ unsigned long *nextrel)
 		    /* do the fake relocation */
 		    if(arch_flag.cputype == CPU_TYPE_MC680x0)
 			generic_reloc(fake_contents, fake_relocs, &fake_map,
-				      FALSE);
+				      FALSE, NULL, 0);
 		    else if(arch_flag.cputype == CPU_TYPE_I386)
 			generic_reloc(fake_contents, fake_relocs, &fake_map,
-				      TRUE);
+				      TRUE, NULL, 0);
 		    else if(arch_flag.cputype == CPU_TYPE_POWERPC ||
 			    arch_flag.cputype == CPU_TYPE_VEO)
-			ppc_reloc(fake_contents, fake_relocs, &fake_map);
+			ppc_reloc(fake_contents, fake_relocs, &fake_map,
+				  NULL, 0);
 		    else if(arch_flag.cputype == CPU_TYPE_MC88000)
 			m88k_reloc(fake_contents, fake_relocs, &fake_map);
 		    else if(arch_flag.cputype == CPU_TYPE_HPPA)
@@ -3033,15 +3551,52 @@ unsigned long *nextrel)
 		       (r_pcrel == 1 &&
 		        (merged_symbol->nlist.n_type & N_TYPE) == N_SECT);
 	    /*
-	     * For output_for_dyld HPPA_RELOC_JBSR's are never put out.
+	     * For output_for_dyld PPC_RELOC_JBSR and HPPA_RELOC_JBSR's are
+	     * never put out.
 	     */
-	    if(arch_flag.cputype == CPU_TYPE_HPPA && r_type == HPPA_RELOC_JBSR){
+	    if((arch_flag.cputype == CPU_TYPE_POWERPC &&
+		r_type == PPC_RELOC_JBSR) ||
+	       (arch_flag.cputype == CPU_TYPE_HPPA &&
+		r_type == HPPA_RELOC_JBSR)){
 		i += pair;
 		continue;
 	    }
+
 	    /*
-	     * The number of relocation entries in the output file is based on
-	     * one of three different cases:
+	     * If -dead_strip is specified then this relocation entry may be
+	     * part of a dead block and thus will not be put out.
+	     */
+	    if(dead_strip == TRUE){
+		if(fine_reloc_offset_in_output(map, r_address) == FALSE){
+		    i += pair;
+		    continue;
+		}
+	    }
+
+	    /*
+	     * When output_for_dyld is FALSE all of relocation entries not in
+	     * dead blocks will be in the output if save_reloc == TRUE.  And
+	     * will be extern if from an extern reloc and the symbol is not
+	     * defined else it will be local.
+	     */
+	    if(output_for_dyld == FALSE){
+		if(save_reloc == TRUE){
+		    if(r_extern == TRUE && defined == FALSE){
+			(*nextrel) += 1 + pair;
+			cur_obj->nextrel += 1 + pair;
+		    }
+		    else{
+			(*nlocrel) += 1 + pair;
+			cur_obj->nlocrel += 1 + pair;
+		    }
+		}
+		i += pair;
+		continue;
+	    }
+
+	    /*
+	     * When output_for_dyld is TRUE the number of relocation entries in
+	     * the output file is based on one of three different cases:
 	     * 	The output file is a multi module dynamic shared library
 	     *  The output file has a dynamic linker load command
 	     *  The output does not have a dynamic linker load command
@@ -3242,7 +3797,6 @@ struct section_map *map)
 	}
 	memcpy(contents, cur_obj->obj_addr + map->s->offset, map->s->size);
 
-
 	/*
 	 * If the section has no relocation entries then no relocation is to be
 	 * done so just flush the contents and return.
@@ -3311,19 +3865,21 @@ struct section_map *map)
 	    relocs = (struct relocation_info *)(cur_obj->obj_addr +
 					        map->s->reloff);
 	}
-	if(cur_obj->swapped)
+	if(cur_obj->swapped && map->input_relocs_already_swapped == FALSE){
 	    swap_relocation_info(relocs, map->s->nreloc, host_byte_sex);
+	    map->input_relocs_already_swapped = TRUE;
+	}
 
 	/*
 	 * Relocate the contents of the section (based on the target machine)
 	 */
 	if(arch_flag.cputype == CPU_TYPE_MC680x0)
-	    generic_reloc(contents, relocs, map, FALSE);
+	    generic_reloc(contents, relocs, map, FALSE, NULL, 0);
 	else if(arch_flag.cputype == CPU_TYPE_I386)
-	    generic_reloc(contents, relocs, map, TRUE);
+	    generic_reloc(contents, relocs, map, TRUE, NULL, 0);
 	else if(arch_flag.cputype == CPU_TYPE_POWERPC ||
 		arch_flag.cputype == CPU_TYPE_VEO)
-	    ppc_reloc(contents, relocs, map);
+	    ppc_reloc(contents, relocs, map, NULL, 0);
 	else if(arch_flag.cputype == CPU_TYPE_MC88000)
 	    m88k_reloc(contents, relocs, map);
 	else if(arch_flag.cputype == CPU_TYPE_HPPA)
@@ -3337,13 +3893,12 @@ struct section_map *map)
 	else
 	    fatal("internal error: output_section() called with unknown "
 		  "cputype (%d) set", arch_flag.cputype);
-#ifndef RLD
 
 	/*
 	 * If the reloc routines caused errors then return as so to not cause
 	 * later internal error below.
 	 */
-	if(errors != 0)
+	if(errors)
 	    return;
 
 	/*
@@ -3353,6 +3908,7 @@ struct section_map *map)
 	    scatter_copy(map, contents);
 	    free(contents);
 	}
+#ifndef RLD
 	else
 	    output_flush(map->output_section->s.offset + map->flush_offset,
 			 map->s->size + (map->offset - map->flush_offset));
@@ -3524,6 +4080,36 @@ struct merged_symbol *merged_symbol)
 	}
 	return(FALSE);
 }
+#endif /* !defined(RLD) */
+
+/*
+ * pass2_nsect_merged_symbol_section_type() is passed an n_sect merged symbol as
+ * it appears in the second pass (that is with its n_sect) set to the output's
+ * section number) and returns the section type of that symbol in the output.
+ * otherwise.  This is used by legal_reference() in the case of weak coalesced
+ * symbols being discarded for some other symbol to figure out what section is
+ * being referenced in the output.
+ */
+__private_extern__
+unsigned long
+pass2_nsect_merged_symbol_section_type(
+struct merged_symbol *merged_symbol)
+{
+    unsigned long i;
+
+	if(merged_symbol == NULL ||
+	   (merged_symbol->nlist.n_type & N_TYPE) != N_SECT)
+	    fatal("internal error, s_pass2_merged_symbol_coalesced() passed "
+		  "a non-N_SECT symbol");
+	for(i = 0; i < merged_symbol->definition_object->nsection_maps; i++){
+	    if(merged_symbol->nlist.n_sect == merged_symbol->definition_object->
+			section_maps[i].output_section->output_sectnum)
+	    return(merged_symbol->definition_object->section_maps[i].
+		   output_section->s.flags & SECTION_TYPE);
+	}
+	fatal("internal error, s_pass2_merged_symbol_coalesced() failed\n");
+	return(0);
+}
 
 /*
  * scatter_copy() copies the relocated contents of a section into the output
@@ -3535,7 +4121,9 @@ scatter_copy(
 struct section_map *map,
 char *contents)
 {
-    unsigned long i, j;
+    unsigned long i;
+#ifndef RLD
+    unsigned long j;
     struct nlist *nlists;
     unsigned long *indirect_symtab, index, value;
     struct undefined_map *undefined_map;
@@ -3565,7 +4153,8 @@ char *contents)
 					    cur_obj->dysymtab->indirectsymoff);
 	    strings = cur_obj->obj_addr + cur_obj->symtab->stroff;
 	    for(i = 0; i < map->nfine_relocs - 1; i++){
-		if(map->fine_relocs[i].use_contents == TRUE){
+		if(map->fine_relocs[i].use_contents == TRUE &&
+		   (dead_strip == FALSE || map->fine_relocs[i].live == TRUE)){
 		    index = indirect_symtab[map->s->reserved1 + 
 			    (map->fine_relocs[i].input_offset / 4)];
 		    if(map->fine_relocs[i].indirect_defined == TRUE ||
@@ -3679,7 +4268,8 @@ char *contents)
 		    }
 		}
 	    }
-	    if(map->fine_relocs[i].use_contents == TRUE){
+	    if(map->fine_relocs[i].use_contents == TRUE &&
+	       (dead_strip == FALSE || map->fine_relocs[i].live == TRUE)){
 		index = indirect_symtab[map->s->reserved1 + 
 			(map->fine_relocs[i].input_offset / 4)];
 		if(map->fine_relocs[i].indirect_defined == TRUE ||
@@ -3795,11 +4385,14 @@ char *contents)
 	 * For other indirect sections and coalesced sections only copy those
 	 * parts of the section who's contents are used in the output file.
 	 */
-	else if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
+	else
+#endif /* !defined(RLD) */
+	     if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
 	        (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
 	        (map->s->flags & SECTION_TYPE) == S_COALESCED){
 	    for(i = 0; i < map->nfine_relocs - 1; i++){
-		if(map->fine_relocs[i].use_contents == TRUE){
+		if(map->fine_relocs[i].use_contents == TRUE &&
+		   (dead_strip == FALSE || map->fine_relocs[i].live == TRUE)){
 		    memcpy(output_addr + map->output_section->s.offset +
 					      map->fine_relocs[i].output_offset,
 			   contents + map->fine_relocs[i].input_offset,
@@ -3807,7 +4400,8 @@ char *contents)
 					      map->fine_relocs[i].input_offset);
 		}
 	    }
-	    if(map->fine_relocs[i].use_contents == TRUE){
+	    if(map->fine_relocs[i].use_contents == TRUE &&
+	       (dead_strip == FALSE || map->fine_relocs[i].live == TRUE)){
 		memcpy(output_addr + map->output_section->s.offset +
 					      map->fine_relocs[i].output_offset,
 		       contents + map->fine_relocs[i].input_offset,
@@ -3816,19 +4410,24 @@ char *contents)
 	}
 	else{
 	    for(i = 0; i < map->nfine_relocs - 1; i++){
+		if(dead_strip == FALSE || map->fine_relocs[i].live == TRUE){
+		    memcpy(output_addr + map->output_section->s.offset +
+					      map->fine_relocs[i].output_offset,
+			   contents + map->fine_relocs[i].input_offset,
+			   map->fine_relocs[i+1].input_offset -
+					      map->fine_relocs[i].input_offset);
+		}
+	    }
+	    if(dead_strip == FALSE || map->fine_relocs[i].live == TRUE){
 		memcpy(output_addr + map->output_section->s.offset +
 					      map->fine_relocs[i].output_offset,
 		       contents + map->fine_relocs[i].input_offset,
-		       map->fine_relocs[i+1].input_offset -
-					      map->fine_relocs[i].input_offset);
+		       map->s->size - map->fine_relocs[i].input_offset);
 	    }
-	    memcpy(output_addr + map->output_section->s.offset +
-					      map->fine_relocs[i].output_offset,
-		   contents + map->fine_relocs[i].input_offset,
-		   map->s->size - map->fine_relocs[i].input_offset);
 	}
 }
 
+#ifndef RLD
 /*
  * reloc_output_for_dyld() takes the relocation entries after being processed by
  * a relocation routine and copys the ones to be in the output file for a file
@@ -3873,7 +4472,8 @@ unsigned long *nextrel)
 	*nlocrel = 0;
 	*nextrel = 0;
 	partial_section = (enum bool)
-		((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
+		(dead_strip == TRUE ||
+		 (map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
 	         (map->s->flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS ||
 	         (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
 	         (map->s->flags & SECTION_TYPE) == S_COALESCED);
@@ -3951,12 +4551,17 @@ unsigned long *nextrel)
 	    else
 		pic = FALSE;
 	    /*
-	     * For output_for_dyld HPPA_RELOC_JBSR's are never put out.
+	     * For output_for_dyld PPC_RELOC_JBSR and HPPA_RELOC_JBSR's are
+	     * never put out.
 	     */
-	    if(arch_flag.cputype == CPU_TYPE_HPPA && r_type == HPPA_RELOC_JBSR){
+	    if((arch_flag.cputype == CPU_TYPE_POWERPC &&
+		r_type == PPC_RELOC_JBSR) ||
+	       (arch_flag.cputype == CPU_TYPE_HPPA &&
+		r_type == HPPA_RELOC_JBSR)){
 		i += pair;
 		continue;
 	    }
+
 	    /*
 	     * The relocation entries in the output file is based on one of
 	     * three different cases:
@@ -4170,9 +4775,10 @@ struct merged_symbol *merged_symbol)
 
 /*
  * scatter_copy_relocs() copies the relocation entries for an indirect section
- * or coalesced section into the output file based on which items in the section
- * are in the output file.  It returns the number of relocation entries that
- * were put in the output file.
+ * or coalesced section (or any regular section if -dead_strip is specified)
+ * into the output file based on which items in the section are in the output
+ * file.  It returns the number of relocation entries that were put in the
+ * output file.
  */
 static
 unsigned long
@@ -4279,7 +4885,7 @@ flush_scatter_copied_sections(void)
 	    content = &(msg->content_sections);
 	    while(*content){
 		ms = *content;
-		if((ms->order_filename != NULL &&
+		if(((ms->order_filename != NULL || dead_strip == TRUE) &&
 		    (ms->s.flags & SECTION_TYPE) == S_REGULAR) ||
 		   ((ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
 		    (ms->s.flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS||
@@ -4287,11 +4893,946 @@ flush_scatter_copied_sections(void)
 		    (ms->s.flags & SECTION_TYPE) == S_COALESCED)){
 		    output_flush(ms->s.offset, ms->s.size);
 		}
+		else if((dead_strip == TRUE) &&
+		   ((ms->s.flags & SECTION_TYPE) == S_MOD_INIT_FUNC_POINTERS ||
+		    (ms->s.flags & SECTION_TYPE) == S_MOD_TERM_FUNC_POINTERS)){
+		    output_flush(ms->s.offset, ms->s.size);
+		}
 		content = &(ms->next);
 	    }
 	    p = &(msg->next);
 	}
 }
+
+/*
+ * live_marking() is called when -dead_strip is specified and marks the
+ * fine_relocs of the sections and symbols live if they can be reached by the
+ * exported symbols or other live blocks.
+ */
+__private_extern__
+void
+live_marking(void)
+{
+    struct merged_symbol *merged_symbol;
+    enum bool found;
+    unsigned long i, input_offset, section_type;
+    struct fine_reloc *fine_reloc;
+    struct merged_segment *msg, **p;
+    struct merged_section *ms, **content, **zerofill;
+
+	/*
+	 * If the output filetype has an entry point mark it live.  If the
+	 * entry point symbol was specified mark it live and if it is in a
+	 * section mark the fine_reloc for it live.  Else if no entry point
+	 * symbol symbol specified mark the first non-zero sized fine_reloc in
+	 * the first content section if there is one.
+	 */
+ 	if(filetype != MH_FVMLIB &&
+	   filetype != MH_DYLIB &&
+	   filetype != MH_BUNDLE){
+	    if(entry_point_name != NULL){
+		merged_symbol = *(lookup_symbol(entry_point_name));
+		/*
+		 * If the symbol is not found the entry point it can't be
+		 * marked live. Note: the error of specifying a bad entry point
+		 * name is handled in layout_segments() in layout.c .
+		 */
+		if(merged_symbol != NULL){
+#ifdef DEBUG
+		    if(((debug & (1 << 25)) || (debug & (1 << 26)))){
+			print("** In live_marking() -e symbol ");
+			print_obj_name(merged_symbol->definition_object);
+			print("%s\n", merged_symbol->nlist.n_un.n_name);
+		    }
+#endif /* DEBUG */
+		    merged_symbol->live = TRUE;
+		    fine_reloc = get_fine_reloc_for_merged_symbol(
+					merged_symbol, NULL);
+		    if(fine_reloc != NULL)
+			fine_reloc->live = TRUE;
+		}
+	    }
+	    else{
+		/*
+		 * To find the first non-zero sized fine_reloc in the the first
+		 * content section we require that we have the info for the
+		 * load maps.
+		 */
+		found = FALSE;
+		for(msg = merged_segments;
+		    msg != NULL && found == FALSE;
+		    msg = msg->next){
+		    for(ms = msg->content_sections;
+			ms != NULL && found == FALSE;
+			ms = ms->next){
+			for(i = 0;
+			    i < ms->norder_load_maps && found == FALSE;
+			    i++){
+			    if(ms->order_load_maps[i].size != 0){
+				input_offset = ms->order_load_maps[i].value -
+				    ms->order_load_maps[i].section_map->s->addr;
+				fine_reloc = fine_reloc_for_input_offset(
+				    ms->order_load_maps[i].section_map,
+				    input_offset);
+				fine_reloc->live = TRUE;
+				if(fine_reloc->merged_symbol != NULL)
+				    fine_reloc->merged_symbol->live = TRUE;
+				found = TRUE;
+#ifdef DEBUG
+				if(((debug & (1 << 25)) ||
+				   (debug & (1 << 26)))){
+				    print("** In live_marking() entry point ");
+				    if(ms->order_load_maps[i].archive_name !=
+				       NULL)
+					print("%s(%s):",
+					    ms->order_load_maps[i].archive_name,
+					    ms->order_load_maps[i].object_name);
+				    else
+					print("%s:",
+					    ms->order_load_maps[i].object_name);
+				    print("(%.16s,%.16s):0x%x:",
+					  ms->s.segname, ms->s.sectname,
+					  (unsigned int)
+						(fine_reloc->input_offset));
+		       		    print("%s\n",
+					  ms->order_load_maps[i].symbol_name);
+				}
+#endif /* DEBUG */
+			    }
+			}
+		    }
+		}
+	    }
+	}
+
+	/*
+	 * If this is a shared library and a -init symbol was specified mark it
+	 * live.
+	 */
+	if(filetype == MH_DYLIB && init_name != NULL){
+	    merged_symbol = *(lookup_symbol(init_name));
+	    /*
+	     * If the symbol is not found the init routine it can't be marked
+	     * live. Note: the error of specifying a bad init routine name is
+	     * handled in layout_segments() in layout.c .
+	     */
+	    if(merged_symbol != NULL){
+#ifdef DEBUG
+		if(((debug & (1 << 25)) || (debug & (1 << 26)))){
+		    print("** In live_marking() -init symbol ");
+		    print_obj_name(merged_symbol->definition_object);
+		    print("%s\n", merged_symbol->nlist.n_un.n_name);
+		}
+#endif /* DEBUG */
+		merged_symbol->live = TRUE;
+		fine_reloc = get_fine_reloc_for_merged_symbol(merged_symbol,
+							      NULL);
+		if(fine_reloc != NULL)
+		    fine_reloc->live = TRUE;
+	    }
+	}
+
+	/*
+	 * Now mark the "exported" merged symbols and their fine_relocs live.
+	 */
+	mark_globals_live();
+
+	/*
+         * Now mark the fine_relocs for local symbols with the N_NO_DEAD_STRIP
+	 * bit set live.
+	 */
+	mark_N_NO_DEAD_STRIP_local_symbols_live();
+
+	/*
+	 * Now mark all the fine_relocs in sections with the
+	 * S_ATTR_NO_DEAD_STRIP attribute live.
+	 */
+	p = &merged_segments;
+	while(*p){
+	    msg = *p;
+	    content = &(msg->content_sections);
+	    while(*content){
+		ms = *content;
+		if(ms->s.flags & S_ATTR_NO_DEAD_STRIP)
+		    mark_all_fine_relocs_live_in_section(ms);
+		content = &(ms->next);
+	    }
+	    zerofill = &(msg->zerofill_sections);
+	    while(*zerofill){
+		ms = *zerofill;
+		if(ms->s.flags & S_ATTR_NO_DEAD_STRIP)
+		    mark_all_fine_relocs_live_in_section(ms);
+		zerofill = &(ms->next);
+	    }
+	    p = &(msg->next);
+	}
+
+	/*
+	 * If -no_dead_strip_inits_and_terms is specified for all things in
+	 * mod init and term sections to be live.
+	 */
+	if(no_dead_strip_inits_and_terms == TRUE){
+	    p = &merged_segments;
+	    while(*p){
+		msg = *p;
+		content = &(msg->content_sections);
+		while(*content){
+		    ms = *content;
+		    section_type = ms->s.flags & SECTION_TYPE;
+		    if(section_type == S_MOD_INIT_FUNC_POINTERS ||
+		       section_type == S_MOD_TERM_FUNC_POINTERS)
+			mark_all_fine_relocs_live_in_section(ms);
+		    content = &(ms->next);
+		}
+		p = &(msg->next);
+	    }
+	}
+
+	/*
+	 * Now with the above code marking the initial fine_relocs live cause
+	 * the references from the live fine relocs to be marked live.
+	 */
+	p = &merged_segments;
+	while(*p){
+	    msg = *p;
+	    content = &(msg->content_sections);
+	    while(*content){
+		ms = *content;
+#ifdef DEBUG
+		if(debug & (1 << 25))
+		    print("In live_marking() for section (%.16s,%.16s)\n",
+			  ms->s.segname, ms->s.sectname);
+#endif /* DEBUG */
+		walk_references_in_section(MARK_LIVE, ms);
+		/*
+		 * If walk_references_in_section() encountered a relocation
+		 * error just return now.
+		 */
+		if(errors)
+		    return;
+		content = &(ms->next);
+	    }
+	    p = &(msg->next);
+	}
+
+	/*
+	 * If -no_dead_strip_inits_and_terms was not specified, now with all
+	 * other things marked live determine if the mod init and term
+	 * routines are touching something live and if so mark them and their
+	 * references live.
+	 */
+	if(no_dead_strip_inits_and_terms == FALSE){
+	    p = &merged_segments;
+	    while(*p){
+		msg = *p;
+		content = &(msg->content_sections);
+		while(*content){
+		    ms = *content;
+		    section_type = ms->s.flags & SECTION_TYPE;
+		    if(section_type == S_MOD_INIT_FUNC_POINTERS ||
+		       section_type == S_MOD_TERM_FUNC_POINTERS)
+			walk_references_in_section(SEARCH_FOR_LIVE, ms);
+		    /*
+		     * If walk_references_in_section() encountered a relocation
+		     * error just return now.
+		     */
+		    if(errors)
+			return;
+		    content = &(ms->next);
+		}
+		p = &(msg->next);
+	    }
+	}
+
+	/*
+	 * Now with all other things marked live, for the sections marked with
+	 * the S_ATTR_LIVE_SUPPORT attribute check to see if any of the
+	 * references for each the fine_reloc touches some thing live.  If so
+	 * cause it and its references to be live.
+	 */
+	p = &merged_segments;
+	while(*p){
+	    msg = *p;
+	    content = &(msg->content_sections);
+	    while(*content){
+		ms = *content;
+		if(ms->s.flags & S_ATTR_LIVE_SUPPORT)
+		    walk_references_in_section(CHECK_FOR_LIVE_TOUCH, ms);
+		/*
+		 * If walk_references_in_section() encountered a relocation
+		 * error just return now.
+		 */
+		if(errors)
+		    return;
+		content = &(ms->next);
+	    }
+	    p = &(msg->next);
+	}
+}
+
+/*
+ * get_fine_reloc_for_merged_symbol() finds the fine_reloc for the
+ * specified merged_symbol (if any) and returns it or NULL.  It also returns
+ * the section map for the symbol if local_map is not NULL.
+ */
+__private_extern__
+struct fine_reloc *
+get_fine_reloc_for_merged_symbol(
+struct merged_symbol *merged_symbol,
+struct section_map **local_map)
+{
+    unsigned long n_sect, input_offset, i;
+    struct section_map *map;
+    struct fine_reloc *fine_reloc;
+
+	/* N_INDR symbols have had their indirection resolved at this point. */
+	if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
+	    merged_symbol = (struct merged_symbol *)
+			    merged_symbol->nlist.n_value;
+
+	/*
+	 * Find the fine_reloc for this symbol if any.  That will be in the
+	 * section map for the object that defines this symbol.
+	 */
+	if(merged_symbol->defined_in_dylib == FALSE &&
+	   (merged_symbol->nlist.n_type & N_TYPE) == N_SECT){
+	    n_sect = merged_symbol->nlist.n_sect;
+	    map = &(merged_symbol->definition_object->section_maps[n_sect - 1]);
+	    if(map->nfine_relocs != 0){
+		/*
+		 * The value of the merged symbol is the value in the input
+		 * file at this point.
+		 */
+		input_offset = merged_symbol->nlist.n_value - map->s->addr;
+		fine_reloc = fine_reloc_for_input_offset(map, input_offset);
+		/*
+		 * It is possible that there may be more than one merged symbol
+		 * at the same input_offset.  If this fine_reloc is not for this
+		 * merged symbol search the fine_relocs for one that has this
+		 * merged_symbol.
+		 */
+		if(fine_reloc->merged_symbol != merged_symbol){
+		    for(i = 0; i < map->nfine_relocs; i++){
+			if(map->fine_relocs[i].merged_symbol == merged_symbol){
+			    fine_reloc = map->fine_relocs + i;
+			    break;
+			}
+		    }
+		}
+		if(local_map != NULL)
+		    *local_map = map;
+		return(fine_reloc);
+	    }
+	}
+	return(NULL);
+}
+
+/*
+ * mark_all_fine_relocs_live_in_section() is called for sections that have the
+ * S_ATTR_NO_DEAD_STRIP section attribute and marks all the fine_relocs in
+ * objects with that section live.
+ */
+static
+void
+mark_all_fine_relocs_live_in_section(
+struct merged_section *ms)
+{
+    unsigned long i, j;
+    struct object_list *object_list, **q;
+    struct fine_reloc *fine_relocs;
+    struct object_file *obj;
+    struct section_map *map;
+
+	/*
+	 * For each object file that has this section process it.
+	 */
+	for(q = &objects; *q; q = &(object_list->next)){
+	    object_list = *q;
+	    for(i = 0; i < object_list->used; i++){
+		obj = &(object_list->object_files[i]);
+		if(obj == base_obj)
+		    continue;
+		if(obj->dylib)
+		    continue;
+		if(obj->bundle_loader)
+		    continue;
+		if(obj->dylinker)
+		    continue;
+		map = NULL;
+		for(j = 0; j < obj->nsection_maps; j++){
+		    if(obj->section_maps[j].output_section != ms)
+			continue;
+		    if(obj->section_maps[j].s->size == 0)
+			continue;
+		    map = &(obj->section_maps[j]);
+		    break;
+		}
+		if(map == NULL)
+		    continue;
+
+#ifdef DEBUG
+		if(debug & (1 << 25)){
+		    print(" mark_all_fine_relocs_live_in_section() with "
+			  "object");
+		    print_obj_name(obj);
+		    print("\n");
+		}
+#endif /* DEBUG */
+
+		fine_relocs = map->fine_relocs;
+		for(j = 0; j < map->nfine_relocs; j++){
+		    fine_relocs[j].live = TRUE;
+		}
+	    }
+	}
+}
+
+/*
+ * walk_references_in_section() is called with an operation and a merged section
+ * and walks the references of the fine_relocs in that section.
+ *
+ * If the operation is MARK_LIVE it looks for live fine_relocs in the specified
+ * section and causes its references to be marked live.
+ *
+ * If the operation is SEARCH_FOR_LIVE it is being called with a mod init or
+ * term section and for each fine_reloc in the section it determines if it's
+ * references reach something that is live.  If it does it marks the fine_reloc
+ * live and causes all of its references to be marked live.
+ *
+ * If the operation is CHECK_FOR_LIVE_TOUCH it is being called for a section
+ * with the live support attribute and for each fine_reloc in the section it
+ * determines if it directly references something that is live.  If it does it
+ * marks the fine_reloc live and causes all of its references to be marked live.
+ */
+static
+void
+walk_references_in_section(
+enum walk_references_operation operation,
+struct merged_section *ms)
+{
+    unsigned long i, j;
+    struct object_list *object_list, **q;
+    struct fine_reloc *fine_relocs;
+    struct object_file *obj;
+    struct section_map *map;
+    enum bool found_live;
+
+	/*
+	 * For each object file that has this section process it.
+	 */
+	for(q = &objects; *q; q = &(object_list->next)){
+	    object_list = *q;
+	    for(i = 0; i < object_list->used; i++){
+		obj = &(object_list->object_files[i]);
+		if(obj == base_obj)
+		    continue;
+		if(obj->dylib)
+		    continue;
+		if(obj->bundle_loader)
+		    continue;
+		if(obj->dylinker)
+		    continue;
+		map = NULL;
+		for(j = 0; j < obj->nsection_maps; j++){
+		    if(obj->section_maps[j].output_section != ms)
+			continue;
+		    if(obj->section_maps[j].s->size == 0)
+			continue;
+		    map = &(obj->section_maps[j]);
+		    break;
+		}
+		if(map == NULL)
+		    continue;
+
+#ifdef DEBUG
+		if(debug & (1 << 25)){
+		    print(" In walk_references_in_section() with object ");
+		    print_obj_name(obj);
+		    print("\n");
+		}
+#endif /* DEBUG */
+
+		fine_relocs = map->fine_relocs;
+		for(j = 0; j < map->nfine_relocs; j++){
+		    if(operation == MARK_LIVE){
+			if(fine_relocs[j].live == TRUE &&
+			   fine_relocs[j].refs_marked_live == FALSE){
+			    walk_references(
+				MARK_LIVE,
+				fine_relocs + j,
+				map,
+				obj);
+			}
+		    }
+		    else if(operation == SEARCH_FOR_LIVE ||
+		            operation == CHECK_FOR_LIVE_TOUCH){
+			found_live = FALSE;
+			if(fine_relocs[j].searched_for_live_refs == FALSE ||
+			   operation == CHECK_FOR_LIVE_TOUCH){
+			    found_live = walk_references(
+			        operation,
+				fine_relocs + j,
+				map,
+				obj);
+			    /*
+			     * If something reached or touched from this
+			     * fine_reloc was found to be live then mark it
+			     * live and cause its references to be marked live.
+			     */ 
+			    if(found_live == TRUE){
+#ifdef DEBUG
+				if(debug & (1 << 25)){
+				    print("  In walk_references_in_section("
+					  "%s) with object ",
+					  walk_references_operation_names[
+					  operation]);
+				    print_obj_name(obj);
+				    print("fine_relocs[%lu].input_offset = "
+					  "0x%x found_live == TRUE\n", j,
+					  (unsigned int)
+					  (fine_relocs[j].input_offset) );
+				}
+#endif /* DEBUG */
+				fine_relocs[j].live = TRUE;
+				if(fine_relocs[j].refs_marked_live == FALSE){
+				    walk_references(
+					MARK_LIVE,
+					fine_relocs + j,
+					map,
+					obj);
+				}
+			    }
+			}
+		    }
+		    else{
+			fatal("internal error: walk_references_in_section() "
+			      "called with unknown operation (%d)", operation);
+		    }
+		    /*
+		     * If walk_references() encountered a relocation error
+		     * just return now.
+		     */
+		    if(errors)
+			return;
+		}
+	    }
+	}
+}
+
+/*
+ * walk_references() walks the references of the specified fine_reloc in the
+ * specified map, in the the specified object.
+ *
+ * For the MARK_LIVE operation it is called with a fine_reloc that is live,
+ * this routine marks all the fine_reloc references live.  The return value is
+ * meaningless for the MARK_LIVE operation.
+ *
+ * For the SEARCH_FOR_LIVE operation it searches for any referenced fine_reloc
+ * that is marked live.  If it finds a referenced fine_reloc that is marked
+ * live it returns TRUE and stops searching.  If it completes it search without 
+ * finding a fine_reloc that is marked live it returns FALSE.
+ *
+ * For the CHECK_FOR_LIVE_TOUCH operation it checks only the directly referenced
+ * fine_reloc's to see if one of them is live. If it finds a referenced
+ * fine_reloc that is marked live it returns TRUE.  If it does not it returns
+ * FALSE.
+ */
+static
+enum bool
+walk_references(
+enum walk_references_operation operation,
+struct fine_reloc *fine_reloc,
+struct section_map *map,
+struct object_file *obj)
+{
+    unsigned long fine_reloc_size, i, pair;
+    struct relocation_info *relocs, reloc;
+    struct scattered_relocation_info *sreloc;
+    unsigned long r_address, r_type;
+    char *contents;
+    struct live_refs refs;
+    struct live_ref ref;
+    enum bool found_live;
+
+#ifdef DEBUG
+	if(debug & (1 << 25)){
+	    print("  In walk_references(%s) ",
+		  walk_references_operation_names[operation]);
+	    print_obj_name(obj);
+	    print("(%.16s,%.16s):0x%x", map->s->segname, map->s->sectname,
+		  (unsigned int)(fine_reloc->input_offset));
+	    if(fine_reloc->merged_symbol != NULL)
+		print(":%s", fine_reloc->merged_symbol->nlist.n_un.n_name);
+	    print("\n");
+	}
+#endif /* DEBUG */
+
+	if(operation == MARK_LIVE){
+	    fine_reloc->refs_marked_live = TRUE;
+	    /*
+	     * Since this fine_reloc is live if this is in a symbol stub or
+	     * or symbol pointer section we need to mark the indirect symbol
+	     * for it live.
+	     */
+	    if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
+	       (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
+	       (map->s->flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS){
+		indirect_live_ref(fine_reloc, map, obj, &ref);
+		if(ref.ref_type != LIVE_REF_NONE)
+		    ref_operation(MARK_LIVE, &ref, obj);
+	    }
+	}
+	else{ /* operation == SEARCH_FOR_LIVE */
+	    fine_reloc->searched_for_live_refs = TRUE;
+	    if(fine_reloc->live == TRUE)
+		return(TRUE);
+	}
+
+	i = fine_reloc - map->fine_relocs;
+	if(i + 1 == map->nfine_relocs)
+	    fine_reloc_size = map->s->size -
+			      fine_reloc->input_offset;
+	else
+	    fine_reloc_size = map->fine_relocs[i+1].input_offset -
+			      fine_reloc->input_offset;
+
+	/*
+	 * Walk all the relocation entries of this section looking for ones that
+	 * are in the block for this fine_reloc.
+	 */
+	relocs = (struct relocation_info *)(obj->obj_addr + map->s->reloff);
+	if(obj->swapped && map->input_relocs_already_swapped == FALSE){
+	    swap_relocation_info(relocs, map->s->nreloc, host_byte_sex);
+	    map->input_relocs_already_swapped = TRUE;
+	}
+	for(i = 0; i < map->s->nreloc; i++){
+	    /*
+	     * Note all errors are not flagged here but left for the *_reloc()
+	     * routines to flag them.  So for errors we just return from here.
+	     */
+	    reloc = relocs[i];
+	    /*
+	     * Break out just the fields of the relocation entry we need to
+	     * determine if this entry (and its possible pair) are for this
+	     * fine_reloc.
+	     */
+	    if((reloc.r_address & R_SCATTERED) != 0){
+		sreloc = (struct scattered_relocation_info *)(&reloc);
+		r_address = sreloc->r_address;
+		r_type = sreloc->r_type;
+	    }
+	    else{
+		r_address = reloc.r_address;
+		r_type = reloc.r_type;
+	    }
+	    if(reloc_has_pair(arch_flag.cputype, r_type)){
+		if(i + 1 >= map->s->nreloc)
+		    return(FALSE);
+		pair = 1;
+	    }
+	    else
+		pair = 0;
+	    if(r_address >= fine_reloc->input_offset &&
+	       r_address < fine_reloc->input_offset + fine_reloc_size){
+
+#ifdef DEBUG
+		if(debug & (1 << 25)){
+		    print("  reloc entry %lu", i);
+		    if(pair)
+			print(",%lu", i+1);
+		    print(" in fine_reloc ");
+		    print_obj_name(obj);
+		    print("(%.16s,%.16s):0x%x", map->s->segname,
+			  map->s->sectname,
+			  (unsigned int)(fine_reloc->input_offset));
+		    if(fine_reloc->merged_symbol != NULL)
+			print(":%s",
+			      fine_reloc->merged_symbol->nlist.n_un.n_name);
+		    print("\n");
+		}
+#endif /* DEBUG */
+
+		/*
+		 * Get the references for this relocation entry(s).
+		 */
+		cur_obj = obj;
+		contents = obj->obj_addr + map->s->offset;
+		if(arch_flag.cputype == CPU_TYPE_POWERPC ||
+			arch_flag.cputype == CPU_TYPE_VEO)
+		    ppc_reloc(contents, relocs, map, &refs, i);
+		else if(arch_flag.cputype == CPU_TYPE_MC680x0)
+		    generic_reloc(contents, relocs, map, FALSE, &refs, i);
+		else if(arch_flag.cputype == CPU_TYPE_I386)
+		    generic_reloc(contents, relocs, map, TRUE, &refs, i);
+		else if(arch_flag.cputype == CPU_TYPE_MC88000 ||
+			arch_flag.cputype == CPU_TYPE_HPPA ||
+			arch_flag.cputype == CPU_TYPE_SPARC ||
+			arch_flag.cputype == CPU_TYPE_I860)
+		    fatal("-dead_strip not supported with cputype (%d)",
+			  arch_flag.cputype);
+		else
+		    fatal("internal error: walk_references() "
+			  "called with unknown cputype (%d) set",
+			  arch_flag.cputype);
+		/* if there was a problem with the relocation just return now */
+		if(errors)
+		    return(FALSE);
+		if(operation == MARK_LIVE){
+		    /*
+		     * If this reloc has references then call ref_operation() to
+		     * determine which fine_relocs(s) if any the contain the
+		     * references and caused that fine_reloc's references to be
+		     * marked live.
+		     */
+		    if(refs.ref1.ref_type != LIVE_REF_NONE)
+			ref_operation(MARK_LIVE, &refs.ref1, obj);
+		    if(refs.ref2.ref_type != LIVE_REF_NONE)
+			ref_operation(MARK_LIVE, &refs.ref2, obj);
+		}
+		else if(operation == SEARCH_FOR_LIVE ||
+			operation == CHECK_FOR_LIVE_TOUCH){
+		    if(refs.ref1.ref_type != LIVE_REF_NONE){
+			found_live = ref_operation(operation, &refs.ref1, obj);
+			if(found_live == TRUE)
+			    return(TRUE);
+		    }
+		    if(refs.ref2.ref_type != LIVE_REF_NONE){
+			found_live = ref_operation(operation, &refs.ref2, obj);
+			if(found_live == TRUE)
+			    return(TRUE);
+		    }
+		}
+		else{
+		    fatal("internal error: walk_references() called with "
+			  "unknown operation (%d)", operation);
+		}
+	    }
+	    i += pair;
+	}
+	return(FALSE);
+}
+
+/*
+ * ref_operation() determines the fine_reloc being referenced from the specified
+ * live_ref in the specified object then preforms the specified operation.
+ *
+ * For the MARK_LIVE operation if the fine_reloc is not marked live, it is
+ * marked live and then walk_references() is called with the MARK_LIVE operation
+ * to mark its references live.  If the specified live_ref is a symbol defined
+ * in a dylib then
+mark_dylib_references_live() is called to mark that dylib's module's
+ * references live. For the MARK_LIVE operation the return value is meaningless.
+ *
+ * For the SEARCH_FOR_LIVE operation if the fine_reloc is marked live then TRUE
+ * is returned.  Else walk_references() is called with the SEARCH_FOR_LIVE
+ * operation and if it returns TRUE then TRUE is returned.  Else FALSE is
+ * returned.  If the specified live_ref is a symbol defined in a dylib then
+something will called to walk the references of the dylib searching for a live
+ * symbol.
+ * 
+ * For the CHECK_FOR_LIVE_TOUCH operation if the fine_reloc is marked live the
+ * TRUE is returned else FALSE is returned.
+ */
+static
+enum bool
+ref_operation(
+enum walk_references_operation operation,
+struct live_ref *ref,
+struct object_file *obj)
+{
+    unsigned long r_symbolnum;
+    struct section_map *local_map;
+    struct fine_reloc *ref_fine_reloc;
+    struct merged_symbol *indr_merged_symbol;
+    enum bool found_live;
+
+	if(ref->ref_type == LIVE_REF_VALUE){
+	    r_symbolnum = r_symbolnum_from_r_value(ref->value, obj);
+	    local_map = &(obj->section_maps[r_symbolnum - 1]);
+	    ref_fine_reloc = fine_reloc_for_input_offset(local_map,
+			      ref->value - local_map->s->addr);
+#ifdef DEBUG
+	    if((((debug & (1 << 25)) || (debug & (1 << 26))) &&
+	       ref_fine_reloc->live != TRUE)){
+		print("** In ref_operation(%s) ",
+		      walk_references_operation_names[operation]);
+		print_obj_name(obj);
+		print("(%.16s,%.16s):0x%x", local_map->s->segname,
+		      local_map->s->sectname,
+		      (unsigned int)(ref_fine_reloc->input_offset));
+		if(ref_fine_reloc->merged_symbol != NULL){
+		    print(":%s",
+			  ref_fine_reloc->merged_symbol->nlist.n_un.n_name);
+		}
+		else{
+		    print_symbol_name_from_order_load_maps(local_map,
+			local_map->s->addr + ref_fine_reloc->input_offset);
+		}
+		print("\n");
+	    }
+#endif /* DEBUG */
+
+	    if(operation == MARK_LIVE){
+		ref_fine_reloc->live = TRUE;
+		if(ref_fine_reloc->merged_symbol != NULL)
+		    ref_fine_reloc->merged_symbol->live = TRUE;
+		if(ref_fine_reloc->refs_marked_live == FALSE){
+		    walk_references(
+			MARK_LIVE,
+			ref_fine_reloc,
+			local_map,
+			obj);
+		}
+	    }
+	    else if(operation == SEARCH_FOR_LIVE){
+		if(ref_fine_reloc->live == TRUE)
+		    return(TRUE);
+		else{
+		    if(ref_fine_reloc->searched_for_live_refs == FALSE){
+			found_live = walk_references(
+			    SEARCH_FOR_LIVE,
+			    ref_fine_reloc,
+			    local_map,
+			    obj);
+			if(found_live == TRUE)
+			    return(TRUE);
+		    }
+		}
+	    }
+	    else if(operation == CHECK_FOR_LIVE_TOUCH){
+		if(ref_fine_reloc->live == TRUE)
+		    return(TRUE);
+		else
+		    return(FALSE);
+	    }
+	    else{
+		fatal("internal error: ref_operation() called with "
+		      "unknown operation (%d)", operation);
+	    }
+	}
+	else if(ref->ref_type == LIVE_REF_SYMBOL){
+	    if(operation == MARK_LIVE){
+		ref->merged_symbol->live = TRUE;
+		if((ref->merged_symbol->nlist.n_type & N_TYPE) == N_INDR){
+		    indr_merged_symbol = (struct merged_symbol *)
+				    ref->merged_symbol->nlist.n_value;
+		    indr_merged_symbol->live = TRUE;
+		}
+	    }
+	    else if(operation == SEARCH_FOR_LIVE){
+		if(ref->merged_symbol->live == TRUE)
+		    return(TRUE);
+	    }
+	    else if(operation == CHECK_FOR_LIVE_TOUCH){
+		if(ref->merged_symbol->live == TRUE)
+		    return(TRUE);
+		else
+		    return(FALSE);
+	    }
+	    else{
+		fatal("internal error: ref_operation() called with "
+		      "unknown operation (%d)", operation);
+	    }
+	    
+	    if(ref->merged_symbol->defined_in_dylib == TRUE){
+		if(operation == MARK_LIVE){
+		    /*
+		     * If this is defined in a dylib then we need to mark
+		     * that module's referernces live in case the references
+		     * loop back and reference something in the objects
+		     * being loaded.
+		    mark_dylib_references_live(ref->merged_symbol);
+		     */
+		    ;
+		}
+		else{ /* operation == SEARCH_FOR_LIVE */
+/* need to add code to search through a dylib's references for live symbols */
+		    ;
+		}
+	    }
+	    else{
+		ref_fine_reloc = get_fine_reloc_for_merged_symbol(
+				    ref->merged_symbol,
+				    &local_map);
+		if(ref_fine_reloc != NULL){
+#ifdef DEBUG
+		    if((((debug & (1 << 25)) || (debug & (1 << 26))) &&
+		       ref_fine_reloc->live != TRUE)){
+			print("** In ref_operation(%s) ",
+			      walk_references_operation_names[operation]);
+			print_obj_name(ref->merged_symbol->definition_object);
+			print("(%.16s,%.16s):%s\n", local_map->s->segname,
+			      local_map->s->sectname,
+			      ref->merged_symbol->nlist.n_un.n_name);
+		    }
+#endif /* DEBUG */
+		    if(operation == MARK_LIVE){
+			ref_fine_reloc->live = TRUE;
+			if(ref_fine_reloc->refs_marked_live == FALSE){
+			    walk_references(
+				MARK_LIVE,
+				ref_fine_reloc,
+				local_map,
+				ref->merged_symbol->definition_object);
+			}
+		    }
+		    else{ /* operation == SEARCH_FOR_LIVE */
+			if(ref_fine_reloc->live == TRUE)
+			    return(TRUE);
+			if(ref_fine_reloc->searched_for_live_refs == FALSE){
+			    found_live = walk_references(
+				SEARCH_FOR_LIVE,
+				ref_fine_reloc,
+				local_map,
+				ref->merged_symbol->definition_object);
+			    if(found_live == TRUE)
+				return(TRUE);
+			}
+		    }
+		}
+	    }
+	}
+	return(FALSE);
+}
+
+/*
+ * r_symbolnum_from_r_value calculates the r_symbolnum (n_sect) from the 
+ * specified r_value in the specified object_file.  If the r_value is not in
+ * any section then 0 (NO_SECT) is returned.
+ */
+static
+unsigned long
+r_symbolnum_from_r_value(
+unsigned long r_value,
+struct object_file *obj)
+{
+    unsigned i, r_symbolnum;
+
+	r_symbolnum = 0;
+	for(i = 0; i < obj->nsection_maps; i++){
+	    if(r_value >= obj->section_maps[i].s->addr &&
+	       r_value < obj->section_maps[i].s->addr +
+			 obj->section_maps[i].s->size){
+		r_symbolnum = i + 1;
+		break;
+	    }
+	}
+	if(r_symbolnum == 0){
+	    /*
+	     * The edge case where the last address past the end of
+	     * of the last section is referenced.
+	     */
+	    for(i = 0; i < obj->nsection_maps; i++){
+		if(r_value == obj->section_maps[i].s->addr +
+			      obj->section_maps[i].s->size){
+		    r_symbolnum = i + 1;
+		    break;
+		}
+	    }
+	}
+	return(r_symbolnum);
+}
+
 #endif /* !defined(RLD) */
 
 #ifdef RLD
@@ -4519,21 +6060,21 @@ char *string)
 	print("Merged section list (%s)\n", string);
 	for(msg = merged_segments; msg ; msg = msg->next){
 	    print("    Segment %.16s\n", msg->sg.segname);
-	    print("\tcmd %lu\n", msg->sg.cmd);
-	    print("\tcmdsize %lu\n", msg->sg.cmdsize);
+	    print("\tcmd %u\n", msg->sg.cmd);
+	    print("\tcmdsize %u\n", msg->sg.cmdsize);
 	    print("\tvmaddr 0x%x ", (unsigned int)msg->sg.vmaddr);
 	    print("(addr_set %s)\n", msg->addr_set ? "TRUE" : "FALSE");
 	    print("\tvmsize 0x%x\n", (unsigned int)msg->sg.vmsize);
-	    print("\tfileoff %lu\n", msg->sg.fileoff);
-	    print("\tfilesize %lu\n", msg->sg.filesize);
+	    print("\tfileoff %u\n", msg->sg.fileoff);
+	    print("\tfilesize %u\n", msg->sg.filesize);
 	    print("\tmaxprot ");
 	    print_prot(msg->sg.maxprot);
 	    print(" (prot_set %s)\n", msg->prot_set ? "TRUE" : "FALSE");
 	    print("\tinitprot ");
 	    print_prot(msg->sg.initprot);
 	    print("\n");
-	    print("\tnsects %lu\n", msg->sg.nsects);
-	    print("\tflags %lu\n", msg->sg.flags);
+	    print("\tnsects %u\n", msg->sg.nsects);
+	    print("\tflags %u\n", msg->sg.flags);
 #ifdef RLD
 	    print("\tset_num %lu\n", msg->set_num);
 #endif /* RLD */
@@ -4543,11 +6084,11 @@ char *string)
 		print("\t    Section (%.16s,%.16s)\n",
 		       ms->s.segname, ms->s.sectname);
 		print("\t\taddr 0x%x\n", (unsigned int)ms->s.addr);
-		print("\t\tsize %lu\n", ms->s.size);
-		print("\t\toffset %lu\n", ms->s.offset);
-		print("\t\talign %lu\n", ms->s.align);
-		print("\t\tnreloc %lu\n", ms->s.nreloc);
-		print("\t\treloff %lu\n", ms->s.reloff);
+		print("\t\tsize %u\n", ms->s.size);
+		print("\t\toffset %u\n", ms->s.offset);
+		print("\t\talign %u\n", ms->s.align);
+		print("\t\tnreloc %u\n", ms->s.nreloc);
+		print("\t\treloff %u\n", ms->s.reloff);
 		print("\t\tflags %s\n",
 		      section_flags[ms->s.flags & SECTION_TYPE]);
 #ifdef RLD
@@ -4589,11 +6130,11 @@ char *string)
 		print("\t    Section (%.16s,%.16s)\n",
 		       ms->s.segname, ms->s.sectname);
 		print("\t\taddr 0x%x\n", (unsigned int)ms->s.addr);
-		print("\t\tsize %lu\n", ms->s.size);
-		print("\t\toffset %lu\n", ms->s.offset);
-		print("\t\talign %lu\n", ms->s.align);
-		print("\t\tnreloc %lu\n", ms->s.nreloc);
-		print("\t\treloff %lu\n", ms->s.reloff);
+		print("\t\tsize %u\n", ms->s.size);
+		print("\t\toffset %u\n", ms->s.offset);
+		print("\t\talign %u\n", ms->s.align);
+		print("\t\tnreloc %u\n", ms->s.nreloc);
+		print("\t\treloff %u\n", ms->s.reloff);
 		print("\t\tflags %s\n",
 		      section_flags[ms->s.flags & SECTION_TYPE]);
 #ifdef RLD

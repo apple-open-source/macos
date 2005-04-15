@@ -1,10 +1,10 @@
 /* SRP SASL plugin
  * Ken Murchison
  * Tim Martin  3/17/00
- * $Id: srp.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $
+ * $Id: srp.c,v 1.5 2005/01/10 19:01:39 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,10 +43,43 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/*
+ * Notes:
+ *
+ * - The authentication exchanges *should* be correct (per draft -08)
+ *   but we won't know until we do some interop testing.
+ *
+ * - The security layers don't conform to draft -08:
+ *    o  We don't use eos() and os() elements in an SRP buffer, we send
+ *      just the bare octets.
+ *    o  We don't yet use the PRNG() and KDF() primatives described in
+ *       section 5.1.
+ *
+ * - Are we using cIV and sIV correctly for encrypt/decrypt?
+ *
+ * - We don't implement fast reauth.
+ */
+
 #include <config.h>
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <limits.h>
+#include <stdarg.h>
+
+#ifndef UINT32_MAX
+#define UINT32_MAX 4294967295U
+#endif
+
+#if UINT_MAX == UINT32_MAX
+typedef unsigned int uint32;
+#elif ULONG_MAX == UINT32_MAX
+typedef unsigned long uint32;
+#elif USHRT_MAX == UINT32_MAX
+typedef unsigned short uint32;
+#else
+#error dont know what to use for uint32
+#endif
 
 /* for big number support */
 #include <openssl/bn.h>
@@ -56,18 +89,10 @@
 #include <openssl/hmac.h>
 
 #include <sasl.h>
-#if OPENSSL_VERSION_NUMBER < 0x00907000L
 #define MD5_H  /* suppress internal MD5 */
-#endif
 #include <saslplug.h>
 
 #include "plugin_common.h"
-#include "sasldb.h"
-
-#ifdef WIN32
-/* This must be after sasl.h, saslutil.h */
-#include "saslSRP.h"
-#endif
 
 #ifdef macintosh
 #include <sasl_srp_plugin_decl.h>
@@ -75,19 +100,17 @@
 
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: srp.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $";
+static const char plugin_id[] = "$Id: srp.c,v 1.5 2005/01/10 19:01:39 snsimon Exp $";
 
-/* Size of diffie-hellman secrets a and b */
-#define BITSFORab 64
-/* How many bytes big should the salt be? */
-#define SRP_SALT_SIZE 16
+/* Size limit of cipher block size */
+#define SRP_MAXBLOCKSIZE 16
 /* Size limit of SRP buffer */
-#define MAXBUFFERSIZE 2147483643
+#define SRP_MAXBUFFERSIZE 2147483643
 
 #define DEFAULT_MDA		"SHA-1"
 
 #define OPTION_MDA		"mda="
-#define OPTION_REPLAY_DETECTION	"replay detection"
+#define OPTION_REPLAY_DETECTION	"replay_detection"
 #define OPTION_INTEGRITY	"integrity="
 #define OPTION_CONFIDENTIALITY	"confidentiality="
 #define OPTION_MANDATORY	"mandatory="
@@ -148,22 +171,22 @@ typedef struct layer_option_s {
 } layer_option_t;
 
 static layer_option_t digest_options[] = {
-    {"SHA-1",		0, (1<<0), 1,	"sha1"},
-    {"RIPEMD-160",	0, (1<<1), 1,	"rmd160"},
-    {"MD5",		0, (1<<2), 1,	"md5"},
-    {NULL,		0, (0<<0), 0,	NULL}
+    { "SHA-1",		0, (1<<0), 1,	"sha1" },
+    { "RIPEMD-160",	0, (1<<1), 1,	"rmd160" },
+    { "MD5",		0, (1<<2), 1,	"md5" },
+    { NULL,		0,      0, 0,	NULL }
 };
 static layer_option_t *default_digest = &digest_options[0];
 static layer_option_t *server_mda = NULL;
 
 static layer_option_t cipher_options[] = {
-    {"DES",		0, (1<<0), 56,	"des-ofb"},
-    {"3DES",		0, (1<<1), 112,	"des-ede-ofb"},
-    {"AES",		0, (1<<2), 128,	"aes-128-ofb"},
-    {"Blowfish",	0, (1<<3), 128,	"bf-ofb"},
-    {"CAST-128",	0, (1<<4), 128,	"cast5-ofb"},
-    {"IDEA",		0, (1<<5), 128,	"idea-ofb"},
-    {NULL,		0, (0<<0), 0,	NULL}
+    { "DES",		0, (1<<0), 56,	"des-ofb" },
+    { "3DES",		0, (1<<1), 112,	"des-ede-ofb" },
+    { "AES",		0, (1<<2), 128,	"aes-128-ofb" },
+    { "Blowfish",	0, (1<<3), 128,	"bf-ofb" },
+    { "CAST-128",	0, (1<<4), 128,	"cast5-ofb" },
+    { "IDEA",		0, (1<<5), 128,	"idea-ofb" },
+    { NULL,		0,      0, 0,	NULL}
 };
 /* XXX Hack until OpenSSL 0.9.7 */
 #if OPENSSL_VERSION_NUMBER < 0x00907000L
@@ -192,20 +215,21 @@ typedef struct srp_options_s {
 typedef struct context {
     int state;
     
-    BIGNUM N;
-    BIGNUM g;
+    BIGNUM N;			/* safe prime modulus */
+    BIGNUM g;			/* generator */
     
-    BIGNUM v;			/* verifier */
+    BIGNUM v;			/* password verifier */
     
-    BIGNUM B;
+    BIGNUM b;			/* server private key */
+    BIGNUM B;			/* server public key */
     
-    BIGNUM a;
-    BIGNUM A;
+    BIGNUM a;			/* client private key */
+    BIGNUM A;			/* client public key */
     
-    char *K;
+    char K[EVP_MAX_MD_SIZE];	/* shared context key */
     int Klen;
     
-    char *M1;
+    char M1[EVP_MAX_MD_SIZE];	/* client evidence */
     int M1len;
     
     char *authid;		/* authentication id (server) */
@@ -216,9 +240,10 @@ typedef struct context {
     char *client_options;
     char *server_options;
     
-    srp_options_t client_opts;
+    srp_options_t client_opts;	/* cache between client steps */
+    char cIV[SRP_MAXBLOCKSIZE];	/* cache between client steps */
     
-    char *salt;
+    char *salt;			/* password salt */
     int saltlen;
     
     const EVP_MD *md;		/* underlying MDA */
@@ -231,28 +256,25 @@ typedef struct context {
     unsigned out_buf_len;
     
     /* Layer foo */
-    unsigned enabled;		/* bitmask of enabled layers */
+    unsigned layer;		/* bitmask of enabled layers */
     const EVP_MD *hmac_md;	/* HMAC for integrity */
+    HMAC_CTX hmac_send_ctx;
+    HMAC_CTX hmac_recv_ctx;
+
     const EVP_CIPHER *cipher;	/* cipher for confidentiality */
+    EVP_CIPHER_CTX cipher_enc_ctx;
+    EVP_CIPHER_CTX cipher_dec_ctx;
     
     /* replay detection sequence numbers */
     int seqnum_out;
     int seqnum_in;
     
     /* for encoding/decoding mem management */
-    buffer_info_t  *enc_in_buf;
-    char           *encode_buf, *decode_buf, *decode_once_buf;
-    unsigned       encode_buf_len, decode_buf_len, decode_once_buf_len;
-    char           *encode_tmp_buf, *decode_tmp_buf;
-    unsigned       encode_tmp_buf_len, decode_tmp_buf_len;
+    char           *encode_buf, *decode_buf, *decode_pkt_buf;
+    unsigned       encode_buf_len, decode_buf_len, decode_pkt_buf_len;
     
     /* layers buffering */
-    char           *buffer;
-    int            bufsize;
-    char           sizebuf[4];
-    int            cursize;
-    int            size;
-    int            needsize;
+    decode_context_t decode_context;
     
 } context_t;
 
@@ -263,283 +285,170 @@ static int srp_encode(void *context,
 		      unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
-    int hashlen = 0;
-    char hash[EVP_MAX_MD_SIZE+1]; /* 1 for os() count */
-    int tmpnum;
-    struct buffer_info *inblob, bufinfo;
+    unsigned i;
     char *input;
-    unsigned inputlen;
+    unsigned long inputlen, tmpnum;
     int ret;
     
     if (!context || !invec || !numiov || !output || !outputlen) {
 	PARAMERROR( text->utils );
 	return SASL_BADPARAM;
     }
+
+    /* calculate total size of input */
+    for (i = 0, inputlen = 0; i < numiov; i++)
+	inputlen += invec[i].iov_len;
+
+    /* allocate a buffer for the output */
+    ret = _plug_buf_alloc(text->utils, &text->encode_buf,
+			  &text->encode_buf_len,
+			  4 +			/* for length */
+			  inputlen +		/* for content */
+			  SRP_MAXBLOCKSIZE +	/* for PKCS padding */
+			  EVP_MAX_MD_SIZE);	/* for HMAC */
+    if (ret != SASL_OK) return ret;
+
+    *outputlen = 4; /* length */
+
+    /* operate on each iovec */
+    for (i = 0; i < numiov; i++) {
+	input = invec[i].iov_base;
+	inputlen = invec[i].iov_len;
     
-    if (numiov > 1) {
-	ret = _plug_iovec_to_buf(text->utils, invec, numiov,
-				 &text->enc_in_buf);
-	if (ret != SASL_OK) return ret;
-	inblob = text->enc_in_buf;
-    } else {
-	/* avoid the data copy */
-	bufinfo.data = invec[0].iov_base;
-	bufinfo.curlen = invec[0].iov_len;
-	inblob = &bufinfo;
+	if (text->layer & BIT_CONFIDENTIALITY) {
+	    unsigned enclen;
+
+	    /* encrypt the data into the output buffer */
+	    EVP_EncryptUpdate(&text->cipher_enc_ctx,
+			      text->encode_buf + *outputlen, &enclen,
+			      input, inputlen);
+	    *outputlen += enclen;
+
+	    /* switch the input to the encrypted data */
+	    input = text->encode_buf + 4;
+	    inputlen = *outputlen - 4;
+	}
+	else {
+	    /* copy the raw input to the output */
+	    memcpy(text->encode_buf + *outputlen, input, inputlen);
+	    *outputlen += inputlen;
+	}
     }
     
-    input = inblob->data;
-    inputlen = inblob->curlen;
-    
-    if (text->enabled & BIT_CONFIDENTIALITY) {
-	EVP_CIPHER_CTX ctx;
-	unsigned char IV[EVP_MAX_IV_LENGTH];
-	unsigned char block1[EVP_MAX_IV_LENGTH];
-	unsigned k = 8; /* EVP_CIPHER_CTX_block_size() isn't working */
-	unsigned enclen = 0;
-	unsigned tmplen;
-	
-	ret = _plug_buf_alloc(text->utils, &(text->encode_tmp_buf),
-			      &(text->encode_tmp_buf_len),
-			      inputlen + 2 * k);
-	if (ret != SASL_OK) return ret;
-	
-	EVP_CIPHER_CTX_init(&ctx);
-	
-	memset(IV, 0, sizeof(IV));
-	EVP_EncryptInit(&ctx, text->cipher, text->K, IV);
-	
-	/* construct the first block so that octets #k-1 and #k
-	 * are exact copies of octets #1 and #2
-	 */
-	text->utils->rand(text->utils->rpool, block1, k - 2);
-	memcpy(block1 + k-2, block1, 2);
-	
-	EVP_EncryptUpdate(&ctx, text->encode_tmp_buf, &tmplen, block1, k);
-	enclen += tmplen;
-	
-	EVP_EncryptUpdate(&ctx, text->encode_tmp_buf + enclen, &tmplen,
-			  input, inputlen);
-	enclen += tmplen;
-	
-	EVP_EncryptFinal(&ctx, text->encode_tmp_buf + enclen, &tmplen);
-	enclen += tmplen;
-	
-	EVP_CIPHER_CTX_cleanup(&ctx);
-	
-	input = text->encode_tmp_buf;
-	inputlen = enclen;
+    if (text->layer & BIT_CONFIDENTIALITY) {
+	unsigned enclen;
+
+	/* encrypt the last block of data into the output buffer */
+	EVP_EncryptFinal(&text->cipher_enc_ctx,
+			 text->encode_buf + *outputlen, &enclen);
+	*outputlen += enclen;
     }
-    
-    if (text->enabled & BIT_INTEGRITY) {
-	HMAC_CTX hmac_ctx;
+
+    if (text->layer & BIT_INTEGRITY) {
+	unsigned hashlen;
+
+	/* hash the content */
+	HMAC_Update(&text->hmac_send_ctx, text->encode_buf+4, *outputlen-4);
 	
-	HMAC_Init(&hmac_ctx, text->K, text->Klen, text->hmac_md);
-	
-	HMAC_Update(&hmac_ctx, input, inputlen);
-	
-	if (text->enabled & BIT_REPLAY_DETECTION) {
+	if (text->layer & BIT_REPLAY_DETECTION) {
+	    /* hash the sequence number */
 	    tmpnum = htonl(text->seqnum_out);
-	    HMAC_Update(&hmac_ctx, (char *) &tmpnum, 4);
+	    HMAC_Update(&text->hmac_send_ctx, (char *) &tmpnum, 4);
 	    
 	    text->seqnum_out++;
 	}
-	
-	HMAC_Final(&hmac_ctx, hash+1, &hashlen);
-	hash[0] = hashlen++ & 0xFF; /* set os() count */
+
+	/* append the HMAC into the output buffer */
+	HMAC_Final(&text->hmac_send_ctx, text->encode_buf + *outputlen,
+		   &hashlen);
+	*outputlen += hashlen;
     }
-    
-    /* 4 for length + input size + hashlen for integrity (could be zero) */
-    *outputlen = 4 + inputlen + hashlen;
-    
-    ret = _plug_buf_alloc(text->utils, &(text->encode_buf),
-			  &(text->encode_buf_len),
-			  *outputlen);
-    if (ret != SASL_OK) return ret;
-    
-    tmpnum = inputlen+hashlen;
+
+    /* prepend the length of the output */
+    tmpnum = *outputlen - 4;
     tmpnum = htonl(tmpnum);
     memcpy(text->encode_buf, &tmpnum, 4);
-    memcpy(text->encode_buf+4, input, inputlen);
-    memcpy(text->encode_buf+4+inputlen, hash, hashlen);
-    
+
     *output = text->encode_buf;
     
     return SASL_OK;
 }
 
 /* decode a single SRP packet */
-static int srp_decode_once(void *context,
-			   const char **input,
-			   unsigned *inputlen,
-			   char **output,
-			   unsigned *outputlen)
+static int srp_decode_packet(void *context,
+			     const char *input,
+			     unsigned inputlen,
+			     char **output,
+			     unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
-    int tocopy;
-    unsigned diff;
     int ret;
-    
-    if (text->needsize > 0) { /* 4 bytes for how long message is */
-	/* if less than 4 bytes just copy those we have into text->size */
-	if (*inputlen < 4) 
-	    tocopy = *inputlen;
-	else
-	    tocopy = 4;
-	
-	if (tocopy > text->needsize)
-	    tocopy = text->needsize;
-	
-	memcpy(text->sizebuf + 4 - text->needsize, *input, tocopy);
-	text->needsize-=tocopy;
-	
-	*input += tocopy;
-	*inputlen -= tocopy;
-	    
-	if (text->needsize == 0) { /* got all of size */
-	    memcpy(&(text->size), text->sizebuf, 4);
-	    text->cursize = 0;
-	    text->size = ntohl(text->size);
-	    
-	    if ((text->size > 0xFFFF) || (text->size < 0)) {
-		return SASL_FAIL; /* too big probably error */
-	    }
-	    
-	    if (!text->buffer)
-		text->buffer=text->utils->malloc(text->size+5);
-	    else
-		text->buffer=text->utils->realloc(text->buffer,text->size+5);
-	    if (text->buffer == NULL) return SASL_NOMEM;
+
+    if (text->layer & BIT_INTEGRITY) {
+	const char *hash;
+	char myhash[EVP_MAX_MD_SIZE];
+	unsigned hashlen, myhashlen, i;
+	unsigned long tmpnum;
+
+	hashlen = EVP_MD_size(text->hmac_md);
+
+	if (inputlen < hashlen) {
+	    text->utils->seterror(text->utils->conn, 0,
+				  "SRP input is smaller "
+				  "than hash length: %d vs %d\n",
+				  inputlen, hashlen);
+	    return SASL_BADPROT;
 	}
 
-	*outputlen = 0;
-	*output = NULL;
+	inputlen -= hashlen;
+	hash = input + inputlen;
 
-	if (*inputlen == 0) /* have to wait until next time for data */
-	    return SASL_OK;
-	
-	if (text->size==0)  /* should never happen */
-	    return SASL_FAIL;
-    }
-    
-    diff = text->size - text->cursize; /* bytes need for full message */
-    
-    if (!text->buffer)
-	return SASL_FAIL;
-    
-    if (*inputlen < diff) { /* not enough for a decode */
-	memcpy(text->buffer + text->cursize, *input, *inputlen);
-	text->cursize += *inputlen;
-	*inputlen = 0;
-	*outputlen = 0;
-	*output = NULL;
-	return SASL_OK;
-    } else {
-	memcpy(text->buffer+text->cursize, *input, diff);
-	*input += diff;      
-	*inputlen -= diff;
-    }
-    
-    {
-	char *buf = text->buffer;
-	int buflen = text->size;
-	int hashlen = 0;
-	
-	if (text->enabled & BIT_INTEGRITY) {
-	    HMAC_CTX hmac_ctx;
-	    char hash[EVP_MAX_MD_SIZE+1]; /* 1 for os() count */
-	    int tmpnum;
-	    int i;
+	/* create our own hash from the input */
+	HMAC_Update(&text->hmac_recv_ctx, input, inputlen);
 	    
-	    HMAC_Init(&hmac_ctx, text->K, text->Klen, text->hmac_md);
-	    
-	    hashlen = EVP_MD_size(text->hmac_md) + 1; /* 1 for os() count */
-	    
-	    if (buflen < hashlen) {
-		text->utils->seterror(text->utils->conn, 0,
-				      "SRP input is smaller"
-				      "than hash length: %d vs %d\n",
-				      buflen, hashlen);
-		return SASL_BADPROT;
-	    }
-	    
-	    /* create my version of the hash */
-	    HMAC_Update(&hmac_ctx, buf, buflen - hashlen);
-	    
-	    if (text->enabled & BIT_REPLAY_DETECTION) {
-		tmpnum = htonl(text->seqnum_in);
-		HMAC_Update(&hmac_ctx, (char *) &tmpnum, 4);
+	if (text->layer & BIT_REPLAY_DETECTION) {
+	    /* hash the sequence number */
+	    tmpnum = htonl(text->seqnum_in);
+	    HMAC_Update(&text->hmac_recv_ctx, (char *) &tmpnum, 4);
 		
-		text->seqnum_in ++;
-	    }
+	    text->seqnum_in++;
+	}
 	    
-	    HMAC_Final(&hmac_ctx, hash+1, NULL);
-	    hash[0] = (hashlen-1) & 0xFF; /* set os() count */
-	    
-	    /* compare to hash given */
-	    for (i = 0; i < hashlen; i++) {
-		if (hash[i] != buf[buflen - hashlen + i]) {
-		    SETERROR(text->utils, "Hash is incorrect\n");
-		    return SASL_BADMAC;
-		}
+	HMAC_Final(&text->hmac_recv_ctx, myhash, &myhashlen);
+
+	/* compare hashes */
+	for (i = 0; i < hashlen; i++) {
+	    if ((myhashlen != hashlen) || (myhash[i] != hash[i])) {
+		SETERROR(text->utils, "Hash is incorrect\n");
+		return SASL_BADMAC;
 	    }
 	}
-	
-	if (text->enabled & BIT_CONFIDENTIALITY) {
-	    EVP_CIPHER_CTX ctx;
-	    unsigned char IV[EVP_MAX_IV_LENGTH];
-	    unsigned char block1[EVP_MAX_IV_LENGTH];
-	    unsigned k = 8; /* EVP_CIPHER_CTX_block_size() isn't working */
-	    
-	    unsigned declen = 0;
-	    unsigned tmplen;
-	    
-	    ret = _plug_buf_alloc(text->utils, &text->decode_tmp_buf,
-				  &text->decode_tmp_buf_len,
-				  buflen - hashlen);
-	    if (ret != SASL_OK) return ret;
-	    
-	    EVP_CIPHER_CTX_init(&ctx);
-	    
-	    memset(IV, 0, sizeof(IV));
-	    EVP_DecryptInit(&ctx, text->cipher, text->K, IV);
-	    
-	    /* check the first block and see if octets #k-1 and #k
-	     * are exact copies of octects #1 and #2
-	     */
-	    EVP_DecryptUpdate(&ctx, block1, &tmplen, buf, k);
-	    
-	    if ((block1[0] != block1[k-2]) || (block1[1] != block1[k-1])) {
-		return SASL_BADAUTH;
-	    }
-	    
-	    EVP_DecryptUpdate(&ctx, text->decode_tmp_buf, &tmplen,
-			      buf + k, buflen - k - hashlen);
-	    declen += tmplen;
-	    
-	    EVP_DecryptFinal(&ctx, text->decode_tmp_buf + declen, &tmplen);
-	    declen += tmplen;
-	    
-	    EVP_CIPHER_CTX_cleanup(&ctx);
-	    
-	    buf = text->decode_tmp_buf;
-	    *outputlen = declen;
-	} else {
-	    *outputlen = buflen - hashlen;
-	}
-	
-	ret = _plug_buf_alloc(text->utils, &(text->decode_once_buf),
-			      &(text->decode_once_buf_len),
-			      *outputlen);
-	if (ret != SASL_OK) return ret;
-	
-	memcpy(text->decode_once_buf, buf, *outputlen);
-	
-	*output = text->decode_once_buf;
     }
-    
-    text->size = -1;
-    text->needsize = 4;
+	
+    ret = _plug_buf_alloc(text->utils, &(text->decode_pkt_buf),
+			  &(text->decode_pkt_buf_len),
+			  inputlen);
+    if (ret != SASL_OK) return ret;
+	
+    if (text->layer & BIT_CONFIDENTIALITY) {
+	unsigned declen;
+
+	/* decrypt the data into the output buffer */
+	EVP_DecryptUpdate(&text->cipher_dec_ctx,
+			  text->decode_pkt_buf, &declen,
+			  (char *) input, inputlen);
+	*outputlen = declen;
+	    
+	EVP_DecryptFinal(&text->cipher_dec_ctx,
+			 text->decode_pkt_buf + declen, &declen);
+	*outputlen += declen;
+    } else {
+	/* copy the raw input to the output */
+	memcpy(text->decode_pkt_buf, input, inputlen);
+	*outputlen = inputlen;
+    }
+
+    *output = text->decode_pkt_buf;
     
     return SASL_OK;
 }
@@ -552,248 +461,13 @@ static int srp_decode(void *context,
     context_t *text = (context_t *) context;
     int ret;
     
-    ret = _plug_decode(text->utils, context, input, inputlen,
+    ret = _plug_decode(&text->decode_context, input, inputlen,
 		       &text->decode_buf, &text->decode_buf_len, outputlen,
-		       srp_decode_once);
+		       srp_decode_packet, text);
     
     *output = text->decode_buf;
     
     return ret;
-}
-
-#define MAX_BUFFER_LEN 2147483643
-#define MAX_UTF8_LEN 65535
-#define MAX_OS_LEN 255
-
-/*
- * Make a SRP buffer
- *
- * in1 must exist but the rest may be NULL
- *
- */
-static int MakeBuffer(context_t *text,
-		      char *in1, int in1len,
-		      char *in2, int in2len,
-		      char *in3, int in3len,
-		      char *in4, int in4len,
-		      const char **out,
-		      unsigned *outlen)
-{
-    int result;
-    int len;
-    int inbyteorder;
-    char *out2;
-    
-    if (!in1) {
-	text->utils->log(NULL, SASL_LOG_ERR,
-			 "At least one buffer must be active\n");
-	return SASL_FAIL;
-    }
-    
-    len = in1len + in2len + in3len + in4len;
-    
-    if (len > MAX_BUFFER_LEN) {
-	text->utils->log(NULL, SASL_LOG_ERR,
-			 "String too long to create SRP buffer string\n");
-	return SASL_FAIL;
-    }
-    
-    result = _plug_buf_alloc(text->utils, &text->out_buf, &text->out_buf_len,
-			     len + 4);
-    if (result != SASL_OK) return result;
-    
-    out2 = text->out_buf;
-    
-    /* put length in */
-    inbyteorder = htonl(len);
-    memcpy(out2, &inbyteorder, 4);
-    
-    /* copy in data */
-    memcpy((out2)+4, in1, in1len);
-    
-    if (in2len)
-	memcpy((out2)+4+in1len, in2, in2len);
-    
-    if (in3len)
-	memcpy((out2)+4+in1len+in2len, in3, in3len);
-    
-    if (in4len)
-	memcpy((out2)+4+in1len+in2len+in3len, in4, in4len);
-    
-    *outlen = len + 4;
-    
-    *out = out2;
-    
-    return SASL_OK;
-}
-
-/* Un'buffer' a string
- *
- * 'out' becomes a pointer into 'in' not an allocation
- */
-static int UnBuffer(const sasl_utils_t *utils, char *in, int inlen,
-		    char **out, int *outlen)
-{
-    int lenbyteorder;
-    int len;
-    
-    if ((!in) || (inlen < 4)) {
-	utils->seterror(utils->conn, 0,
-			"Buffer is not big enough to be SRP buffer: %d\n", inlen);
-	return SASL_BADPROT;
-    }
-    
-    /* get the length */
-    memcpy(&lenbyteorder, in, 4);
-    len = ntohl(lenbyteorder);
-    
-    /* make sure it's right */
-    if (len + 4 != inlen) {
-	SETERROR(utils, "SRP Buffer isn't of the right length\n");
-	return SASL_BADPROT;
-    }
-    
-    *out = in+4;
-    *outlen = len;
-    
-    return SASL_OK;
-}
-
-static int MakeUTF8(const sasl_utils_t *utils,
-		    char *in,
-		    char **out,
-		    int *outlen)
-{
-    int llen;
-    short len;
-    short inbyteorder;
-    
-    if (!in) {
-	utils->log(NULL, SASL_LOG_ERR, "Can't create utf8 string from null");
-	return SASL_FAIL;
-    }
-    
-    /* xxx actual utf8 conversion */
-    
-    llen = strlen(in);
-    
-    if (llen > MAX_UTF8_LEN) {
-	utils->log(NULL, SASL_LOG_ERR,
-		   "String too long to create utf8 string\n");
-	return SASL_FAIL;
-    }
-    len = (short)llen;
-    
-    *out = utils->malloc(len+2);
-    if (!*out) return SASL_NOMEM;
-    
-    /* put in len */
-    inbyteorder = htons(len);
-    memcpy(*out, &inbyteorder, 2);
-    
-    /* put in data */
-    memcpy((*out)+2, in, len);
-    
-    *outlen = len+2;
-    
-    return SASL_OK;
-}
-
-static int GetUTF8(const sasl_utils_t *utils, char *data, int datalen,
-		   char **outstr, char **left, int *leftlen)
-{
-    short lenbyteorder;
-    int len;
-    
-    if ((!data) || (datalen < 2)) {
-	SETERROR(utils, "Buffer is not big enough to be SRP UTF8\n");
-	return SASL_BADPROT;
-    }
-    
-    /* get the length */
-    memcpy(&lenbyteorder, data, 2);
-    len = ntohs(lenbyteorder);
-    
-    /* make sure it's right */
-    if (len + 2 > datalen) {
-	SETERROR(utils, "Not enough data for this SRP UTF8\n");
-	return SASL_BADPROT;
-    }
-    
-    *outstr = (char *)utils->malloc(len+1);
-    if (!*outstr) return SASL_NOMEM;
-    
-    memcpy(*outstr, data+2, len);
-    (*outstr)[len] = '\0';
-    
-    *left = data+len+2;
-    *leftlen = datalen - (len+2);
-    
-    return SASL_OK;
-}
-
-static int MakeOS(const sasl_utils_t *utils,
-		  char *in, 
-		  int inlen,
-		  char **out,
-		  int *outlen)
-{
-    if (!in) {
-	utils->log(NULL, SASL_LOG_ERR, "Can't create SRP os string from null");
-	return SASL_FAIL;
-    }
-    
-    if (inlen > MAX_OS_LEN) {
-	utils->log(NULL, SASL_LOG_ERR,
-		   "String too long to create SRP os string\n");
-	return SASL_FAIL;
-    }
-    
-    *out = utils->malloc(inlen+1);
-    if (!*out) return SASL_NOMEM;
-    
-    /* put in len */
-    (*out)[0] = inlen & 0xFF;
-    
-    /* put in data */
-    memcpy((*out)+1, in, inlen);
-    
-    *outlen = inlen+1;
-    
-    return SASL_OK;
-}
-
-static int GetOS(const sasl_utils_t *utils, char *data, int datalen,
-		 char **outstr, int *outlen, char **left, int *leftlen)
-{
-    int len;
-    
-    if ((!data) || (datalen < 1)) {
-	SETERROR(utils, "Buffer is not big enough to be SRP os\n");
-	return SASL_BADPROT;
-    }
-    
-    /* get the length */
-    len = (unsigned char)data[0];
-    
-    /* make sure it's right */
-    if (len + 1 > datalen) {
-	SETERROR(utils, "Not enough data for this SRP os\n");
-	return SASL_FAIL;
-    }
-    
-    *outstr = (char *)utils->malloc(len+1);
-    if (!*outstr) return SASL_NOMEM;
-    
-    memcpy(*outstr, data+1, len);
-    (*outstr)[len] = '\0';
-    
-    *outlen = len;
-    
-    *left = data+len+1;
-    *leftlen = datalen - (len+1);
-    
-    return SASL_OK;
 }
 
 /*
@@ -812,6 +486,9 @@ static int BigIntToBytes(BIGNUM *num, char *out, int maxoutlen, int *outlen)
     return SASL_OK;    
 }
 
+/*
+ * Compare a big integer against a word.
+ */
 static int BigIntCmpWord(BIGNUM *a, BN_ULONG w)
 {
     BIGNUM *b = BN_new();
@@ -823,210 +500,480 @@ static int BigIntCmpWord(BIGNUM *a, BN_ULONG w)
     return r;
 }
 
-static int MakeMPI(const sasl_utils_t *utils,
-		   BIGNUM *num,
-		   char **out,
-		   int *outlen)
-{
-    int shortlen;
-    int len;
-    short inbyteorder;
-    int alloclen;
-    int r;
-    
-    alloclen = BN_num_bytes(num);
-    
-    *out = utils->malloc(alloclen+2);
-    if (!*out) return SASL_NOMEM;
-    
-    r = BigIntToBytes(num, (*out)+2, alloclen, &len);
-    if (r) {
-	utils->free(*out);
-	return r;
-    }
-    
-    *outlen = 2+len;
-    
-    /* put in len */
-    shortlen = len;
-    inbyteorder = htons(shortlen);
-    memcpy(*out, &inbyteorder, 2);
-    
-    return SASL_OK;
-}
-
-static int GetMPI(const sasl_utils_t *utils,
-		  unsigned char *data, int datalen, BIGNUM *outnum,
-		  char **left, int *leftlen)
-{
-    
-    
-    short lenbyteorder;
-    int len;
-    
-    if ((!data) || (datalen < 2)) {
-	utils->seterror(utils->conn, 0,
-			"Buffer is not big enough to be SRP MPI: %d\n",
-			datalen);
-	return SASL_BADPROT;
-    }
-    
-    /* get the length */
-    memcpy(&lenbyteorder, data, 2);
-    len = ntohs(lenbyteorder);
-    
-    /* make sure it's right */
-    if (len + 2 > datalen) {
-	utils->seterror(utils->conn, 0,
-			"Not enough data for this SRP MPI: we have %d; "
-			"it says it's %d\n", datalen, len+2);
-	return SASL_BADPROT;
-    }
-    
-    BN_init(outnum);
-    BN_bin2bn(data+2, len, outnum);
-    
-    *left = data+len+2;
-    *leftlen = datalen - (len+2);
-    
-    return SASL_OK;
-}
-
+/*
+ * Generate a random big integer.
+ */
 static void GetRandBigInt(BIGNUM *out)
 {
     BN_init(out);
     
     /* xxx likely should use sasl random funcs */
-    BN_rand(out, BITSFORab, 0, 0);
+    BN_rand(out, SRP_MAXBLOCKSIZE*8, 0, 0);
 }
+
+#define MAX_BUFFER_LEN 2147483643
+#define MAX_MPI_LEN 65535
+#define MAX_UTF8_LEN 65535
+#define MAX_OS_LEN 255
 
 /*
- * Call the hash function on some data
+ * Make an SRP buffer from the data specified by the fmt string.
  */
-static void HashData(context_t *text, char *in, int inlen,
-		     unsigned char outhash[], int *outlen)
+static int MakeBuffer(const sasl_utils_t *utils, char **buf, unsigned *buflen,
+		      unsigned *outlen, const char *fmt, ...)
 {
-    EVP_MD_CTX mdctx;
-    
-    EVP_DigestInit(&mdctx, text->md);
-    EVP_DigestUpdate(&mdctx, in, inlen);
-    EVP_DigestFinal(&mdctx, outhash, outlen);
-}
+    va_list ap;
+    char *p, *out = NULL;
+    int r, alloclen, len;
+    BIGNUM *mpi;
+    char *os, *str, c;
+    uint32 u;
+    short ns;
+    long totlen;
 
-/*
- * Call the hash function on the data of a BigInt
- */
-static int HashBigInt(context_t *text, BIGNUM *in,
-		      unsigned char outhash[], int *outlen)
-{
-    int r;
-    char buf[4096];
-    int buflen;
-    EVP_MD_CTX mdctx;
-    
-    r = BigIntToBytes(in, buf, sizeof(buf)-1, &buflen);
-    if (r) return r;
-    
-    EVP_DigestInit(&mdctx, text->md);
-    EVP_DigestUpdate(&mdctx, buf, buflen);
-    EVP_DigestFinal(&mdctx, outhash, outlen);
-    
-    return 0;
-}
-
-static int HashInterleaveBigInt(context_t *text, BIGNUM *num,
-				char **out, int *outlen)
-{
-    int r;
-    char buf[4096];
-    int buflen;
-    
-    int klen;
-    int limit;
-    int i;
-    int offset;
-    int j;
-    EVP_MD_CTX mdEven;
-    EVP_MD_CTX mdOdd;
-    unsigned char Evenb[EVP_MAX_MD_SIZE];
-    unsigned char Oddb[EVP_MAX_MD_SIZE];
-    int hashlen;
-    
-    /* make bigint into bytes */
-    r = BigIntToBytes(num, buf, sizeof(buf)-1, &buflen);
-    if (r) return r;
-    
-    limit = buflen;
-    
-    /* skip by leading zero's */
-    for (offset = 0; offset < limit && buf[offset] == 0x00; offset++) {
-	/* nada */
-    }
-    
-    klen = (limit - offset) / 2;
-    
-    EVP_DigestInit(&mdEven, text->md);
-    EVP_DigestInit(&mdOdd, text->md);
-    
-    j = limit - 1;
-    for (i = 0; i < klen; i++) {
-	EVP_DigestUpdate(&mdEven, buf + j, 1);
-	j--;
-	EVP_DigestUpdate(&mdOdd, buf + j, 1);
-	j--;
-    }
-    
-    EVP_DigestFinal(&mdEven, Evenb, NULL);
-    EVP_DigestFinal(&mdOdd, Oddb, &hashlen);
-    
-    *outlen = 2 * hashlen;
-    *out = text->utils->malloc(*outlen);
-    if (!*out) return SASL_NOMEM;
-    
-    for (i = 0, j = 0; i < hashlen; i++)
-	{
-	    (*out)[j++] = Evenb[i];
-	    (*out)[j++] = Oddb[i];
+    /* first pass to calculate size of buffer */
+    va_start(ap, fmt);
+    for (p = (char *) fmt, alloclen = 0; *p; p++) {
+	if (*p != '%') {
+	    alloclen++;
+	    continue;
 	}
+
+	switch (*++p) {
+	case 'm':
+	    /* MPI */
+	    mpi = va_arg(ap, BIGNUM *);
+	    len = BN_num_bytes(mpi);
+	    if (len > MAX_MPI_LEN) {
+		utils->log(NULL, SASL_LOG_ERR,
+			   "String too long to create mpi string\n");
+		r = SASL_FAIL;
+		goto done;
+	    }
+	    alloclen += len + 2;
+	    break;
+
+	case 'o':
+	    /* octet sequence (len followed by data) */
+	    len = va_arg(ap, int);
+	    if (len > MAX_OS_LEN) {
+		utils->log(NULL, SASL_LOG_ERR,
+			   "String too long to create os string\n");
+		r = SASL_FAIL;
+		goto done;
+	    }
+	    alloclen += len + 1;
+	    os = va_arg(ap, char *);
+	    break;
+
+	case 's':
+	    /* string */
+	    str = va_arg(ap, char *);
+	    len = strlen(str);
+	    if (len > MAX_UTF8_LEN) {
+		utils->log(NULL, SASL_LOG_ERR,
+			   "String too long to create utf8 string\n");
+		r = SASL_FAIL;
+		goto done;
+	    }
+	    alloclen += len + 2;
+	    break;
+
+	case 'u':
+	    /* unsigned int */
+	    u = va_arg(ap, uint32);
+	    alloclen += sizeof(uint32);
+	    break;
+
+	case 'c':
+	    /* char */
+	    c = va_arg(ap, int) & 0xFF;
+	    alloclen += 1;
+	    break;
+
+	default:
+	    alloclen += 1;
+	    break;
+	}
+    }
+    va_end(ap);
+
+    if (alloclen > MAX_BUFFER_LEN) {
+	utils->log(NULL, SASL_LOG_ERR,
+		   "String too long to create SRP buffer string\n");
+	return SASL_FAIL;
+    }
+
+    alloclen += 4;
+    r = _plug_buf_alloc(utils, buf, buflen, alloclen);
+    if (r != SASL_OK) return r;
+
+    out = *buf + 4; /* skip size for now */
+
+    /* second pass to fill buffer */
+    va_start(ap, fmt);
+    for (p = (char *) fmt; *p; p++) {
+	if (*p != '%') {
+	    *out = *p;
+	    out++;
+	    continue;
+	}
+
+	switch (*++p) {
+	case 'm':
+	    /* MPI */
+	    mpi = va_arg(ap, BIGNUM *);
+	    r = BigIntToBytes(mpi, out+2, BN_num_bytes(mpi), &len);
+	    if (r) goto done;
+	    ns = htons(len);
+	    memcpy(out, &ns, 2);	/* add 2 byte len (network order) */
+	    out += len + 2;
+	    break;
+
+	case 'o':
+	    /* octet sequence (len followed by data) */
+	    len = va_arg(ap, int);
+	    os = va_arg(ap, char *);
+	    *out = len & 0xFF;		/* add 1 byte len */
+	    memcpy(out+1, os, len);	/* add data */
+	    out += len+1;
+	    break;
+
+	case 's':
+	    /* string */
+	    str = va_arg(ap, char *);
+	    /* xxx do actual utf8 conversion */
+	    len = strlen(str);
+	    ns = htons(len);
+	    memcpy(out, &ns, 2);	/* add 2 byte len (network order) */
+	    memcpy(out+2, str, len);	/* add string */
+	    out += len + 2;
+	    break;
+
+	case 'u':
+	    /* unsigned int */
+	    u = va_arg(ap, uint32);
+	    u = htonl(u);
+	    memcpy(out, &u, sizeof(uint32));
+	    out += sizeof(uint32);
+	    break;
+
+	case 'c':
+	    /* char */
+	    c = va_arg(ap, int) & 0xFF;
+	    *out = c;
+	    out++;
+	    break;
+
+	default:
+	    *out = *p;
+	    out++;
+	    break;
+	}
+    }
+  done:
+    va_end(ap);
+
+    *outlen = out - *buf;
+
+    /* add 4 byte len (network order) */
+    totlen = htonl(*outlen - 4);
+    memcpy(*buf, &totlen, 4);
+
+    return r;
+}
+
+/* 
+ * Extract an SRP buffer into the data specified by the fmt string.
+ *
+ * A '-' flag means don't allocate memory for the data ('o' only).
+ */
+static int UnBuffer(const sasl_utils_t *utils, const char *buf,
+		    unsigned buflen, const char *fmt, ...)
+{
+    va_list ap;
+    char *p;
+    int r = SASL_OK, noalloc;
+    BIGNUM *mpi;
+    char **os, **str;
+    uint32 *u;
+    unsigned short ns;
+    unsigned len;
+
+    if (!buf || buflen < 4) {
+	utils->seterror(utils->conn, 0,
+			"Buffer is not big enough to be SRP buffer: %d\n",
+			buflen);
+	return SASL_BADPROT;
+    }
     
-    return SASL_OK;
+    /* get the length */
+    memcpy(&len, buf, 4);
+    len = ntohl(len);
+    buf += 4;
+    buflen -= 4;
+
+    /* make sure it's right */
+    if (len != buflen) {
+	SETERROR(utils, "SRP Buffer isn't of the right length\n");
+	return SASL_BADPROT;
+    }
+    
+    va_start(ap, fmt);
+    for (p = (char *) fmt; *p; p++) {
+	if (*p != '%') {
+	    if (*buf != *p) {
+		r = SASL_BADPROT;
+		goto done;
+	    }
+	    buf++;
+	    buflen--;
+	    continue;
+	}
+
+	/* check for noalloc flag */
+	if ((noalloc = (*++p == '-'))) ++p;
+
+	switch (*p) {
+	case 'm':
+	    /* MPI */
+	    if (buflen < 2) {
+		SETERROR(utils, "Buffer is not big enough to be SRP MPI\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+    
+	    /* get the length */
+	    memcpy(&ns, buf, 2);
+	    len = ntohs(ns);
+	    buf += 2;
+	    buflen -= 2;
+    
+	    /* make sure it's right */
+	    if (len > buflen) {
+		SETERROR(utils, "Not enough data for this SRP MPI\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+	    
+	    mpi = va_arg(ap, BIGNUM *);
+	    BN_init(mpi);
+	    BN_bin2bn(buf, len, mpi);
+	    break;
+
+	case 'o':
+	    /* octet sequence (len followed by data) */
+	    if (buflen < 1) {
+		SETERROR(utils, "Buffer is not big enough to be SRP os\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+
+	    /* get the length */
+	    len = (unsigned char) *buf;
+	    buf++;
+	    buflen--;
+
+	    /* make sure it's right */
+	    if (len > buflen) {
+		SETERROR(utils, "Not enough data for this SRP os\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+	    
+	    *(va_arg(ap, int *)) = len;
+	    os = va_arg(ap, char **);
+
+	    if (noalloc)
+		*os = (char *) buf;
+	    else {
+		*os = (char *) utils->malloc(len);
+		if (!*os) {
+		    r = SASL_NOMEM;
+		    goto done;
+		}
+    
+		memcpy(*os, buf, len);
+	    }
+	    break;
+
+	case 's':
+	    /* string */
+	    if (buflen < 2) {
+		SETERROR(utils, "Buffer is not big enough to be SRP UTF8\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+    
+	    /* get the length */
+	    memcpy(&ns, buf, 2);
+	    len = ntohs(ns);
+	    buf += 2;
+	    buflen -= 2;
+    
+	    /* make sure it's right */
+	    if (len > buflen) {
+		SETERROR(utils, "Not enough data for this SRP UTF8\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+	    
+	    str = va_arg(ap, char **);
+	    *str = (char *) utils->malloc(len+1); /* +1 for NUL */
+	    if (!*str) {
+		r = SASL_NOMEM;
+		goto done;
+	    }
+    
+	    memcpy(*str, buf, len);
+	    (*str)[len] = '\0';
+	    break;
+
+	case 'u':
+	    /* unsigned int */
+	    if (buflen < sizeof(uint32)) {
+		SETERROR(utils, "Buffer is not big enough to be SRP uint\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+
+	    len = sizeof(uint32);
+	    u = va_arg(ap, uint32*);
+	    memcpy(u, buf, len);
+	    *u = ntohs(*u);
+	    break;
+
+	case 'c':
+	    /* char */
+	    if (buflen < 1) {
+		SETERROR(utils, "Buffer is not big enough to be SRP char\n");
+		r = SASL_BADPROT;
+		goto done;
+	    }
+
+	    len = 1;
+	    *(va_arg(ap, char *)) = *buf;
+	    break;
+
+	default:
+	    len = 1;
+	    if (*buf != *p) {
+		r = SASL_BADPROT;
+		goto done;
+	    }
+	    break;
+	}
+
+	buf += len;
+	buflen -= len;
+    }
+
+  done:
+    va_end(ap);
+
+    if (buflen != 0) {
+	SETERROR(utils, "Extra data in SRP buffer\n");
+	r = SASL_BADPROT;
+    }
+
+    return r;
 }
 
 /*
- * Calculate 'x' which is needed to calculate 'K'
- *
+ * Apply the hash function to the data specifed by the fmt string.
  */
-static int CalculateX(context_t *text,
-		      const char *salt, 
-		      int saltlen, 
-		      const char *user, 
-		      const char *pass, 
-		      int passlen, 
+static int MakeHash(const EVP_MD *md, unsigned char hash[], int *hashlen,
+		    const char *fmt, ...)
+{
+    va_list ap;
+    char *p, buf[4096], *in;
+    int inlen;
+    EVP_MD_CTX mdctx;
+    int r = 0, hflag;
+
+    EVP_DigestInit(&mdctx, md);
+
+    va_start(ap, fmt);
+    for (p = (char *) fmt; *p; p++) {
+	if (*p != '%') {
+	    in = p;
+	    inlen = 1;
+	    hflag = 0;
+	}
+	else {
+	    if ((hflag = (*++p == 'h'))) ++p;
+
+	    switch (*p) {
+	    case 'm': {
+		/* MPI */
+		BIGNUM *mval = va_arg(ap, BIGNUM *);
+
+		in = buf;
+		r = BigIntToBytes(mval, buf, sizeof(buf)-1, &inlen);
+		if (r) goto done;
+		break;
+	    }
+
+	    case 'o': {
+		/* octet sequence (len followed by data) */
+		inlen = va_arg(ap, int);
+		in = va_arg(ap, char *);
+		break;
+	    }
+
+	    case 's':
+		/* string */
+		in = va_arg(ap, char *);
+		inlen = strlen(in);
+		break;
+
+	    case 'u': {
+		/* unsigned int */
+		uint32 uval = va_arg(ap, uint32);
+
+		in = buf;
+		inlen = sizeof(uint32);
+		*((uint32 *) buf) = htonl(uval);
+		break;
+	    }
+
+	    default:
+		in = p;
+		inlen = 1;
+		break;
+	    }
+	}
+
+	if (hflag) {
+	    /* hash data separately before adding to current hash */
+	    EVP_MD_CTX tmpctx;
+
+	    EVP_DigestInit(&tmpctx, md);
+	    EVP_DigestUpdate(&tmpctx, in, inlen);
+	    EVP_DigestFinal(&tmpctx, buf, &inlen);
+	    in = buf;
+	}
+
+	EVP_DigestUpdate(&mdctx, in, inlen);
+    }
+  done:
+    va_end(ap);
+
+    EVP_DigestFinal(&mdctx, hash, hashlen);
+
+    return r;
+}
+
+static int CalculateX(context_t *text, const char *salt, int saltlen, 
+		      const char *user, const char *pass, int passlen, 
 		      BIGNUM *x)
 {
-    EVP_MD_CTX mdctx;
     char hash[EVP_MAX_MD_SIZE];
     int hashlen;
     
-    /* x = H(salt | H(user | ':' | pass))
-     *
-     */      
-    
-    EVP_DigestInit(&mdctx, text->md);
-    
-    EVP_DigestUpdate(&mdctx, (char*) user, strlen(user));
-    EVP_DigestUpdate(&mdctx, ":", 1);
-    EVP_DigestUpdate(&mdctx, (char*) pass, passlen);
-    
-    EVP_DigestFinal(&mdctx, hash, &hashlen);
-    
-    
-    EVP_DigestInit(&mdctx, text->md);
-    
-    EVP_DigestUpdate(&mdctx, (char*) salt, saltlen);
-    EVP_DigestUpdate(&mdctx, hash, hashlen);
-    
-    EVP_DigestFinal(&mdctx, hash, &hashlen);
+    /* x = H(salt | H(user | ':' | pass)) */
+    MakeHash(text->md, hash, &hashlen, "%s:%o", user, passlen, pass);
+    MakeHash(text->md, hash, &hashlen, "%o%o", saltlen, salt, hashlen, hash);
     
     BN_init(x);
     BN_bin2bn(hash, hashlen, x);
@@ -1034,204 +981,44 @@ static int CalculateX(context_t *text,
     return SASL_OK;
 }
 
-/*
- *  H(
- *            bytes(H( bytes(N) )) ^ bytes( H( bytes(g) )))
- *          | bytes(H( bytes(U) ))
- *          | bytes(s)
- *          | bytes(H( bytes(L) ))
- *          | bytes(A)
- *          | bytes(B)
- *          | bytes(K)
- *      )
- *
- * H() is the result of digesting the designated input/data with the
- * underlying Message Digest Algorithm function (see Section 1).
- *
- * ^ is the bitwise XOR operator.
- */
-static int CalculateM1(context_t *text,
-		       BIGNUM *N,
-		       BIGNUM *g,
-		       char *U,			/* username */
-		       char *salt, int saltlen,	/* salt */
-		       char *L,			/* server's options */
-		       BIGNUM *A,		/* client's public key */
-		       BIGNUM *B,		/* server's public key */
-		       char *K, int Klen,
-		       char **out, int *outlen)
+static int CalculateM1(context_t *text, BIGNUM *N, BIGNUM *g,
+		       char *U, char *salt, int saltlen,
+		       BIGNUM *A, BIGNUM *B, char *K, int Klen,
+		       char *I, char *L, char *M1, int *M1len)
 {
-    int i;
-    int r;
-    unsigned char p1a[EVP_MAX_MD_SIZE];
-    unsigned char p1b[EVP_MAX_MD_SIZE];
-    unsigned char p1[EVP_MAX_MD_SIZE];
-    int p1len;
-    char p2[EVP_MAX_MD_SIZE];
-    int p2len;
-    char *p3;
-    int p3len;
-    char p4[1024];
-    int p4len;
-    char p5[1024];
-    int p5len;
-    char *p6;
-    int p6len;
-    char p7[EVP_MAX_MD_SIZE];
-    int p7len;
-    char *tot;
-    int totlen = 0;
-    char *totp;
-    
-    /* p1) bytes(H( bytes(N) )) ^ bytes( H( bytes(g) )) */
-    r = HashBigInt(text, N, p1a, NULL);
+    int r, i, len;
+    unsigned char Nhash[EVP_MAX_MD_SIZE];
+    unsigned char ghash[EVP_MAX_MD_SIZE];
+    unsigned char Ng[EVP_MAX_MD_SIZE];
+
+    /* bytes(H( bytes(N) )) ^ bytes( H( bytes(g) ))
+       ^ is the bitwise XOR operator. */
+    r = MakeHash(text->md, Nhash, &len, "%m", N);
     if (r) return r;
-    r = HashBigInt(text, g, p1b, &p1len);
+    r = MakeHash(text->md, ghash, &len, "%m", g);
     if (r) return r;
     
-    for (i = 0; i < p1len; i++) {
-	p1[i] = (p1a[i] ^ p1b[i]);
+    for (i = 0; i < len; i++) {
+	Ng[i] = (Nhash[i] ^ ghash[i]);
     }
+
+    r = MakeHash(text->md, M1, M1len, "%o%hs%o%m%m%o%hs%hs",
+		 len, Ng, U, saltlen, salt, A, B, Klen, K, I, L);
     
-    /* p2) bytes(H( bytes(U) )) */
-    HashData(text, U, strlen(U), p2, &p2len);
-    
-    /* p3) bytes(s) */
-    p3 = salt;
-    p3len = saltlen;
-    
-    /* p4) bytes(A) */
-    r = BigIntToBytes(A, p4, sizeof(p4), &p4len);
-    if (r) return r;
-    
-    /* p5) bytes(B) */
-    r = BigIntToBytes(B, p5, sizeof(p5), &p5len);
-    if (r) return r;
-    
-    /* p6) bytes(K) */
-    p6 = K;
-    p6len = Klen;
-    
-    /* p7) bytes(H( bytes(L) )) */
-    HashData(text, L, strlen(L), p7, &p7len);
-    
-    /* merge p1-p7 together */
-    totlen = p1len + p2len + p3len + p4len + p5len + p6len + p7len;
-    tot = text->utils->malloc(totlen);
-    if (!tot) return SASL_NOMEM;
-    
-    totp = tot;
-    
-    memcpy(totp, p1, p1len); totp+=p1len;
-    memcpy(totp, p2, p2len); totp+=p2len;
-    memcpy(totp, p3, p3len); totp+=p3len;
-    memcpy(totp, p4, p4len); totp+=p4len;
-    memcpy(totp, p5, p5len); totp+=p5len;
-    memcpy(totp, p6, p6len); totp+=p6len;
-    memcpy(totp, p7, p7len); totp+=p7len;
-    
-    /* do the hash over the whole thing */
-    *out = text->utils->malloc(EVP_MAX_MD_SIZE);
-    if (!*out) {
-	text->utils->free(tot);
-	return SASL_NOMEM;
-    }
-    
-    HashData(text, tot, totlen, *out, outlen);
-    text->utils->free(tot);
-    
-    return SASL_OK;
+    return r;
 }
 
-/*
- *          H(
- *                  bytes(A)
- *                | bytes(H( bytes(U) ))
- *                | bytes(H( bytes(I) ))
- *                | bytes(H( bytes(o) ))
- *                | bytes(M1)
- *                | bytes(K)
- *            )
- *
- *
- * where: 
- *
- * H() is the result of digesting the designated input/data with the
- * underlying Message Digest Algorithm function (see Section 1)
- *
- */
-static int CalculateM2(context_t *text,
-		       BIGNUM *A,
-		       char *U,
-		       char *I,
-		       char *o,
-		       char *M1, int M1len,
-		       char *K, int Klen,
-		       char **out, int *outlen)
+static int CalculateM2(context_t *text, BIGNUM *A,
+		       char *M1, int M1len, char *K, int Klen,
+		       char *I, char *o, char *sid, uint32 ttl,
+		       char *M2, int *M2len)
 {
     int r;
-    unsigned char p1[1024];
-    int p1len;
-    char *p2;
-    int p2len;
-    char *p3;
-    int p3len;
-    char p4[EVP_MAX_MD_SIZE];
-    int p4len;
-    char p5[EVP_MAX_MD_SIZE];
-    int p5len;
-    char p6[EVP_MAX_MD_SIZE];
-    int p6len;
-    char *tot;
-    int totlen = 0;
-    char *totp;
     
-    /* p1) bytes(A) */
-    r = BigIntToBytes(A, p1, sizeof(p1), &p1len);
-    if (r) return r;    
-    
-    /* p2) bytes(M1) */
-    p2 = M1;
-    p2len = M1len;
-    
-    /* p3) bytes(K) */
-    p3 = K;
-    p3len = Klen;
-    
-    /* p4) bytes(H( bytes(U) )) */
-    HashData(text, U, strlen(U), p4, &p4len);
-    
-    /* p5) bytes(H( bytes(I) )) */
-    HashData(text, I, strlen(I), p5, &p5len);
-    
-    /* p6) bytes(H( bytes(o) )) */
-    HashData(text, o, strlen(o), p6, &p6len);
-    
-    /* merge p1-p6 together */
-    totlen = p1len + p2len + p3len + p4len + p5len + p6len;
-    tot = text->utils->malloc(totlen);
-    if (!tot) return SASL_NOMEM;
-    
-    totp = tot;
-    
-    memcpy(totp, p1, p1len); totp+=p1len;
-    memcpy(totp, p2, p2len); totp+=p2len;
-    memcpy(totp, p3, p3len); totp+=p3len;
-    memcpy(totp, p4, p4len); totp+=p4len;
-    memcpy(totp, p5, p5len); totp+=p5len;
-    memcpy(totp, p6, p6len); totp+=p6len;
-    
-    /* do the hash over the whole thing */
-    *out = text->utils->malloc(EVP_MAX_MD_SIZE);
-    if (!*out) {
-	return SASL_NOMEM;
-	text->utils->free(tot);
-    }
-    
-    HashData(text, tot, totlen, *out, outlen);
-    text->utils->free(tot);
-    
-    return SASL_OK;
+    r = MakeHash(text->md, M2, M2len, "%m%o%o%hs%hs%s%u",
+		 A, M1len, M1, Klen, K, I, o, sid, ttl);
+
+    return r;
 }
 
 /* Parse an option out of an option string
@@ -1317,7 +1104,7 @@ static int ParseOptionString(const sasl_utils_t *utils,
 	    return SASL_BADPROT;
 	}
 	
-	opts->mda = opts->mda | bit;
+	opts->mda |= bit;
 	
     } else if (!strcasecmp(str, OPTION_REPLAY_DETECTION)) {
 	if (opts->replay_detection) {
@@ -1342,7 +1129,7 @@ static int ParseOptionString(const sasl_utils_t *utils,
 	    return SASL_BADPROT;
 	}
 	
-	opts->integrity = opts->integrity | bit;
+	opts->integrity |= bit;
 	
     } else if (!strncasecmp(str, OPTION_CONFIDENTIALITY,
 			    strlen(OPTION_CONFIDENTIALITY))) {
@@ -1362,7 +1149,7 @@ static int ParseOptionString(const sasl_utils_t *utils,
 	    return SASL_FAIL;
 	}
 	
-	opts->confidentiality = opts->confidentiality | bit;
+	opts->confidentiality |= bit;
 	
     } else if (!isserver && !strncasecmp(str, OPTION_MANDATORY,
 					 strlen(OPTION_MANDATORY))) {
@@ -1388,10 +1175,10 @@ static int ParseOptionString(const sasl_utils_t *utils,
 	
 	opts->maxbufsize = strtoul(str+strlen(OPTION_MAXBUFFERSIZE), NULL, 10);
 	
-	if (opts->maxbufsize > MAXBUFFERSIZE) {
+	if (opts->maxbufsize > SRP_MAXBUFFERSIZE) {
 	    utils->seterror(utils->conn, 0,
 			    "SRP Maxbuffersize %lu too big (> %lu)\n",
-			    opts->maxbufsize, MAXBUFFERSIZE);
+			    opts->maxbufsize, SRP_MAXBUFFERSIZE);
 	    return SASL_BADPROT;
 	}
 	
@@ -1408,7 +1195,7 @@ static int ParseOptions(const sasl_utils_t *utils,
     int r;
     
     memset(out, 0, sizeof(srp_options_t));
-    out->maxbufsize = MAXBUFFERSIZE;
+    out->maxbufsize = SRP_MAXBUFFERSIZE;
     
     while (in) {
 	char *opt;
@@ -1522,7 +1309,7 @@ static int OptionsToString(const sasl_utils_t *utils,
     }
     
     if ((opts->integrity || opts->confidentiality) &&
-	opts->maxbufsize < MAXBUFFERSIZE) {
+	opts->maxbufsize < SRP_MAXBUFFERSIZE) {
 	alloced += strlen(OPTION_MAXBUFFERSIZE)+10+1;
 	ret = utils->realloc(ret, alloced);
 	if (!ret) return SASL_NOMEM;
@@ -1574,44 +1361,53 @@ static int OptionsToString(const sasl_utils_t *utils,
     return SASL_OK;
 }
 
-/* Set the options (called by client and server)
- *
- * Set up variables/hashes/that sorta thing so layers
- * will operate properly
+
+/*
+ * Set the selected MDA.
  */
-static int SetOptions(srp_options_t *opts,
-		      context_t *text,
-		      const sasl_utils_t *utils,
-		      sasl_out_params_t *oparams)
+static int SetMDA(srp_options_t *opts, context_t *text)
 {
     layer_option_t *opt;
     
     opt = FindOptionFromBit(opts->mda, digest_options);
     if (!opt) {
-	utils->log(NULL, SASL_LOG_ERR,
-		   "Unable to find SRP MDA option now\n");
+	text->utils->log(NULL, SASL_LOG_ERR,
+			 "Unable to find SRP MDA option now\n");
 	return SASL_FAIL;
     }
     
     text->md = EVP_get_digestbyname(opt->evp_name);
     
-    text->size = -1;
-    text->needsize = 4;
+    return SASL_OK;
+}
+
+/*
+ * Setup the selected security layer.
+ */
+static int LayerInit(srp_options_t *opts, context_t *text,
+		     sasl_out_params_t *oparams, char *enc_IV, char *dec_IV,
+		     unsigned maxbufsize)
+{
+    layer_option_t *opt;
     
     if ((opts->integrity == 0) && (opts->confidentiality == 0)) {
 	oparams->encode = NULL;
 	oparams->decode = NULL;
 	oparams->mech_ssf = 0;
-	utils->log(NULL, SASL_LOG_DEBUG, "Using no layer\n");
+	text->utils->log(NULL, SASL_LOG_DEBUG, "Using no protection\n");
 	return SASL_OK;
     }
     
     oparams->encode = &srp_encode;
     oparams->decode = &srp_decode;
-    oparams->maxoutbuf = opts->maxbufsize - 4; /* account for eos() count */
+    oparams->maxoutbuf = opts->maxbufsize - 4; /* account for 4-byte length */
+
+    _plug_decode_init(&text->decode_context, text->utils, maxbufsize);
     
     if (opts->replay_detection) {
-	text->enabled |= BIT_REPLAY_DETECTION;
+	text->utils->log(NULL, SASL_LOG_DEBUG, "Using replay detection\n");
+
+	text->layer |= BIT_REPLAY_DETECTION;
 	
 	/* If no integrity layer specified, use default */
 	if (!opts->integrity)
@@ -1619,41 +1415,69 @@ static int SetOptions(srp_options_t *opts,
     }
     
     if (opts->integrity) {
+	text->utils->log(NULL, SASL_LOG_DEBUG, "Using integrity protection\n");
 	
-	text->enabled |= BIT_INTEGRITY;
+	text->layer |= BIT_INTEGRITY;
 	
 	opt = FindOptionFromBit(opts->integrity, digest_options);
 	if (!opt) {
-	    utils->log(NULL, SASL_LOG_ERR,
-		       "Unable to find SRP integrity layer option now\n");
+	    text->utils->log(NULL, SASL_LOG_ERR,
+			     "Unable to find SRP integrity layer option\n");
 	    return SASL_FAIL;
 	}
 	
 	oparams->mech_ssf = opt->ssf;
+
+	/* Initialize the HMACs */
 	text->hmac_md = EVP_get_digestbyname(opt->evp_name);
+	HMAC_Init(&text->hmac_send_ctx, text->K, text->Klen, text->hmac_md);
+	HMAC_Init(&text->hmac_recv_ctx, text->K, text->Klen, text->hmac_md);
 	
-	/* account for os() */
-	oparams->maxoutbuf -= (EVP_MD_size(text->hmac_md) + 1);
+	/* account for HMAC */
+	oparams->maxoutbuf -= EVP_MD_size(text->hmac_md);
     }
     
     if (opts->confidentiality) {
+	text->utils->log(NULL, SASL_LOG_DEBUG,
+			 "Using confidentiality protection\n");
 	
-	text->enabled |= BIT_CONFIDENTIALITY;
+	text->layer |= BIT_CONFIDENTIALITY;
 	
 	opt = FindOptionFromBit(opts->confidentiality, cipher_options);
 	if (!opt) {
-	    utils->log(NULL, SASL_LOG_ERR,
-		       "Unable to find SRP confidentiality layer option now\n");
+	    text->utils->log(NULL, SASL_LOG_ERR,
+			     "Unable to find SRP confidentiality layer option\n");
 	    return SASL_FAIL;
 	}
 	
 	oparams->mech_ssf = opt->ssf;
+
+	/* Initialize the ciphers */
 	text->cipher = EVP_get_cipherbyname(opt->evp_name);
+
+	EVP_CIPHER_CTX_init(&text->cipher_enc_ctx);
+	EVP_EncryptInit(&text->cipher_enc_ctx, text->cipher, text->K, enc_IV);
+
+	EVP_CIPHER_CTX_init(&text->cipher_dec_ctx);
+	EVP_DecryptInit(&text->cipher_dec_ctx, text->cipher, text->K, dec_IV);
     }
     
     return SASL_OK;
 }
 
+static void LayerCleanup(context_t *text)
+{
+    if (text->layer & BIT_INTEGRITY) {
+	HMAC_cleanup(&text->hmac_send_ctx);
+	HMAC_cleanup(&text->hmac_recv_ctx);
+    }
+
+    if (text->layer & BIT_CONFIDENTIALITY) {
+	EVP_CIPHER_CTX_cleanup(&text->cipher_enc_ctx);
+	EVP_CIPHER_CTX_cleanup(&text->cipher_dec_ctx);
+    }
+}
+    
 
 /*
  * Dispose of a SRP context (could be server or client)
@@ -1668,12 +1492,10 @@ static void srp_common_mech_dispose(void *conn_context,
     BN_clear_free(&text->N);
     BN_clear_free(&text->g);
     BN_clear_free(&text->v);
+    BN_clear_free(&text->b);
     BN_clear_free(&text->B);
     BN_clear_free(&text->a);
     BN_clear_free(&text->A);
-    
-    if (text->K)		utils->free(text->K);
-    if (text->M1)		utils->free(text->M1);
     
     if (text->authid)		utils->free(text->authid);
     if (text->userid)		utils->free(text->userid);
@@ -1682,19 +1504,14 @@ static void srp_common_mech_dispose(void *conn_context,
     
     if (text->client_options)	utils->free(text->client_options);
     if (text->server_options)	utils->free(text->server_options);
-    
-    if (text->buffer)		utils->free(text->buffer);
+ 
+    LayerCleanup(text);
+    _plug_decode_free(&text->decode_context);
+
     if (text->encode_buf)	utils->free(text->encode_buf);
-    if (text->encode_tmp_buf)	utils->free(text->encode_tmp_buf);
     if (text->decode_buf)	utils->free(text->decode_buf);
-    if (text->decode_once_buf)	utils->free(text->decode_once_buf);
-    if (text->decode_tmp_buf)	utils->free(text->decode_tmp_buf);
+    if (text->decode_pkt_buf)	utils->free(text->decode_pkt_buf);
     if (text->out_buf)		utils->free(text->out_buf);
-    
-    if (text->enc_in_buf) {
-	if (text->enc_in_buf->data) utils->free(text->enc_in_buf->data);
-	utils->free(text->enc_in_buf);
-    }
     
     utils->free(text);
 }
@@ -1737,10 +1554,10 @@ static int CalculateV(context_t *text,
 {
     BIGNUM x;
     BN_CTX *ctx = BN_CTX_new();
-    int r;    
+    int r;
     
     /* generate <salt> */    
-    *saltlen = SRP_SALT_SIZE;
+    *saltlen = SRP_MAXBLOCKSIZE;
     *salt = (char *)text->utils->malloc(*saltlen);
     if (!*salt) return SASL_NOMEM;
     text->utils->rand(text->utils->rpool, *salt, *saltlen);
@@ -1762,55 +1579,62 @@ static int CalculateV(context_t *text,
     return r;   
 }
 
+static int CalculateB(context_t *text  __attribute__((unused)),
+		      BIGNUM *v, BIGNUM *N, BIGNUM *g, BIGNUM *b, BIGNUM *B)
+{
+    BIGNUM v3;
+    BN_CTX *ctx = BN_CTX_new();
+    
+    /* Generate b */
+    GetRandBigInt(b);
+	
+    /* Per [SRP]: make sure b > log[g](N) -- g is always 2 */
+    BN_add_word(b, BN_num_bits(N));
+	
+    /* B = (3v + g^b) % N */
+    BN_init(&v3);
+    BN_set_word(&v3, 3);
+    BN_mod_mul(&v3, &v3, v, N, ctx);
+    BN_init(B);
+    BN_mod_exp(B, g, b, N, ctx);
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L
+    BN_mod_add(B, B, &v3, N, ctx);
+#else
+    BN_add(B, B, &v3);
+    BN_mod(B, B, N, ctx);
+#endif
+
+    BN_CTX_free(ctx);
+    
+    return SASL_OK;
+}
+	
 static int ServerCalculateK(context_t *text, BIGNUM *v,
-			    BIGNUM *N, BIGNUM *g, BIGNUM *B, BIGNUM *A,
-			    char **key, int *keylen)
+			    BIGNUM *N, BIGNUM *A, BIGNUM *b, BIGNUM *B,
+			    char *K, int *Klen)
 {
     unsigned char hash[EVP_MAX_MD_SIZE];
-    BIGNUM b;
+    int hashlen;
     BIGNUM u;
     BIGNUM base;
     BIGNUM S;
     BN_CTX *ctx = BN_CTX_new();
     int r;
     
-    do {
-	/* Generate b */
-	GetRandBigInt(&b);
+    /* u = H(A | B) */
+    r = MakeHash(text->md, hash, &hashlen, "%m%m", A, B);
+    if (r) return r;
 	
-	/* Per [SRP]: make sure b > log[g](N) -- g is always 2 */
-        BN_add_word(&b, BN_num_bits(N));
+    BN_init(&u);
+    BN_bin2bn(hash, hashlen, &u);
 	
-	/* B = (v + g^b) % N */
-	BN_init(B);
-	BN_mod_exp(B, g, &b, N, ctx);
-#if OPENSSL_VERSION_NUMBER >= 0x00907000L
-	BN_mod_add(B, B, v, N, ctx);
-#else
-	BN_add(B, B, v);
-	BN_mod(B, B, N, ctx);
-#endif
-	
-	/* u is first 32 bits of B hashed; MSB first */
-	r = HashBigInt(text, B, hash, NULL);
-	if (r) return r;
-	
-	BN_init(&u);
-	BN_bin2bn(hash, 4, &u);
-	
-    } while (BN_is_zero(&u)); /* Per Tom Wu: make sure u != 0 */
-    
-    /* calculate K
-     *
-     * Host:  S = (Av^u) ^ b % N             (computes session key)
-     * Host:  K = Hi(S)
-     */
+    /* S = (Av^u) ^ b % N */
     BN_init(&base);
     BN_mod_exp(&base, v, &u, N, ctx);
     BN_mod_mul(&base, &base, A, N, ctx);
     
     BN_init(&S);
-    BN_mod_exp(&S, &base, &b, N, ctx);
+    BN_mod_exp(&S, &base, b, N, ctx);
     
     /* per Tom Wu: make sure Av^u != 1 (mod N) */
     if (BN_is_one(&base)) {
@@ -1827,15 +1651,14 @@ static int ServerCalculateK(context_t *text, BIGNUM *v,
 	goto err;
     }
     
-    /* K = Hi(S) */
-    r = HashInterleaveBigInt(text, &S, key, keylen);
+    /* K = H(S) */
+    r = MakeHash(text->md, K, Klen, "%m", &S);
     if (r) goto err;
     
     r = SASL_OK;
     
   err:
     BN_CTX_free(ctx);
-    BN_clear_free(&b);
     BN_clear_free(&u);
     BN_clear_free(&base);
     BN_clear_free(&S);
@@ -1848,49 +1671,20 @@ static int ParseUserSecret(const sasl_utils_t *utils,
 			   char **mda, BIGNUM *v, char **salt, int *saltlen)
 {
     int r;
-    char *data;
-    int datalen;
     
     /* The secret data is stored as suggested in RFC 2945:
      *
-     *  mda  - utf8
-     *  v    - mpi
-     *  salt - os 
+     *  { utf8(mda) mpi(v) os(salt) }  (base64 encoded)
      */
-    r = UnBuffer(utils, secret, seclen, &data, &datalen);
+    r = utils->decode64(secret, seclen, secret, seclen, &seclen);
+
+    if (!r)
+	r = UnBuffer(utils, secret, seclen, "%s%m%o", mda, v, saltlen, salt);
     if (r) {
 	utils->seterror(utils->conn, 0, 
-			"Error UnBuffering secret data");
-	return r;
+			"Error UnBuffering user secret");
     }
-    
-    r = GetUTF8(utils, data, datalen, mda, &data, &datalen);
-    if (r) {
-	utils->seterror(utils->conn, 0, 
-			"Error parsing out 'mda'");
-	return r;
-    }
-    
-    r = GetMPI(utils, data, datalen, v, &data, &datalen);
-    if (r) {
-	utils->seterror(utils->conn, 0, 
-			"Error parsing out 'v'");
-	return r;
-    }
-    
-    r = GetOS(utils, data, datalen, salt, saltlen, &data, &datalen);
-    if (r) {
-	utils->seterror(utils->conn, 0, 
-			"Error parsing out salt");
-	return r;
-    }
-    
-    if (datalen != 0) {
-	utils->seterror(utils->conn, 0, 
-			"Extra data in request step 2");
-	r = SASL_FAIL;
-    }
-    
+
     return r;
 }
 
@@ -1905,16 +1699,21 @@ static int CreateServerOptions(sasl_server_params_t *sparams, char **out)
     
     /* Add mda */
     opts.mda = server_mda->bit;
-    
-    if (sparams->props.max_ssf < sparams->external_ssf) {
+
+    if(sparams->props.maxbufsize == 0) {
 	limitssf = 0;
-    } else {
-	limitssf = sparams->props.max_ssf - sparams->external_ssf;
-    }
-    if (sparams->props.min_ssf < sparams->external_ssf) {
 	requiressf = 0;
     } else {
-	requiressf = sparams->props.min_ssf - sparams->external_ssf;
+	if (sparams->props.max_ssf < sparams->external_ssf) {
+	    limitssf = 0;
+	} else {
+	    limitssf = sparams->props.max_ssf - sparams->external_ssf;
+	}
+	if (sparams->props.min_ssf < sparams->external_ssf) {
+	    requiressf = 0;
+	} else {
+	    requiressf = sparams->props.min_ssf - sparams->external_ssf;
+	}
     }
     
     /*
@@ -1960,7 +1759,7 @@ static int CreateServerOptions(sasl_server_params_t *sparams, char **out)
 	opts.mandatory |= BIT_CONFIDENTIALITY;
     
     /* Add maxbuffersize */
-    opts.maxbufsize = MAXBUFFERSIZE;
+    opts.maxbufsize = SRP_MAXBUFFERSIZE;
     if (sparams->props.maxbufsize &&
 	sparams->props.maxbufsize < opts.maxbufsize)
 	opts.maxbufsize = sparams->props.maxbufsize;
@@ -2003,21 +1802,14 @@ static int srp_server_mech_step1(context_t *text,
 				 unsigned *serveroutlen,
 				 sasl_out_params_t *oparams)
 {
-    char *data;
-    int datalen;
-    int result;    
-    char *mpiN = NULL;
-    int mpiNlen;
-    char *mpig = NULL;
-    int mpiglen;
-    char *osS = NULL;
-    int osSlen;
-    char *utf8L = NULL;
-    int utf8Llen;
+    int result;
+    char *sid = NULL;
+    char *cn = NULL;
+    int cnlen;
     char *realm = NULL;
     char *user = NULL;
-    const char *password_request[] = { SASL_AUX_PASSWORD,
-				       "*cmusaslsecretSRP",
+    const char *password_request[] = { "*cmusaslsecretSRP",
+				       SASL_AUX_PASSWORD,
 				       NULL };
     struct propval auxprop_values[3];
     
@@ -2025,40 +1817,20 @@ static int srp_server_mech_step1(context_t *text,
      *
      * U - authentication identity
      * I - authorization identity
+     * sid - session id
+     * cn - client nonce
      *
-     * { utf8(U) utf8(I) }
+     * { utf8(U) utf8(I) utf8(sid) os(cn) }
      *
      */
-    result = UnBuffer(params->utils, (char *) clientin, clientinlen,
-		      &data, &datalen);
+    result = UnBuffer(params->utils, clientin, clientinlen,
+		      "%s%s%s%o", &text->authid, &text->userid, &sid,
+		      &cnlen, &cn);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
-				"Error 'unbuffer'ing input for step 1");
+				"Error UnBuffering input in step 1");
 	return result;
     }
-    
-    result = GetUTF8(params->utils, data, datalen, &text->authid,
-		     &data, &datalen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error getting UTF8 string from input");
-	return result;
-    }
-    
-    result = GetUTF8(params->utils, data, datalen, &text->userid,
-		     &data, &datalen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error parsing out userid");
-	return result;
-    }
-    
-    if (datalen != 0) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Extra data to SRP step 1");
-	return SASL_FAIL;
-    }
-    
     /* Get the realm */
     result = _plug_parseuser(params->utils, &user, &realm, params->user_realm,
 			     params->serverFQDN, text->authid);
@@ -2097,17 +1869,17 @@ static int srp_server_mech_step1(context_t *text,
 	/* We didn't find this username */
 	params->utils->seterror(params->utils->conn,0,
 				"no secret in database");
-	result = SASL_NOUSER;
+	result = params->transition ? SASL_TRANS : SASL_NOUSER;
 	goto cleanup;
     }
     
-    if (auxprop_values[1].name && auxprop_values[1].values) {
+    if (auxprop_values[0].name && auxprop_values[0].values) {
 	char *mda = NULL;
 	
 	/* We have a precomputed verifier */
 	result = ParseUserSecret(params->utils,
-				 (char*) auxprop_values[1].values[0],
-				 auxprop_values[1].valsize,
+				 (char*) auxprop_values[0].values[0],
+				 auxprop_values[0].valsize,
 				 &mda, &text->v, &text->salt, &text->saltlen);
 	
 	if (result) {
@@ -2134,9 +1906,9 @@ static int srp_server_mech_step1(context_t *text,
 	}
 	params->utils->free(mda);
 	
-    } else if (auxprop_values[0].name && auxprop_values[0].values) {
+    } else if (auxprop_values[1].name && auxprop_values[1].values) {
 	/* We only have the password -- calculate the verifier */
-	int len = strlen(auxprop_values[0].values[0]);
+	int len = strlen(auxprop_values[1].values[0]);
 
 	if (len == 0) {
 	    params->utils->seterror(params->utils->conn,0,
@@ -2146,8 +1918,8 @@ static int srp_server_mech_step1(context_t *text,
 	}
 	
 	result = CalculateV(text, &text->N, &text->g, user,
-		       auxprop_values[0].values[0], len,
-		       &text->v, &text->salt, &text->saltlen);
+			    auxprop_values[1].values[0], len,
+			    &text->v, &text->salt, &text->saltlen);
 	if (result) {
 	    params->utils->seterror(params->utils->conn, 0, 
 				    "Error calculating v");
@@ -2160,8 +1932,19 @@ static int srp_server_mech_step1(context_t *text,
 	goto cleanup;
     }    
     
-    params->utils->prop_clear(params->propctx, 1);
+    /* erase the plaintext password */
+    params->utils->prop_erase(params->propctx, password_request[1]);
     
+    /* Calculate B */
+    result = CalculateB(text, &text->v, &text->N, &text->g,
+			&text->b, &text->B);
+    if (result) {
+	params->utils->seterror(params->utils->conn, 0, 
+				"Error calculating B");
+	return result;
+    }
+
+    /* Create L */
     result = CreateServerOptions(params, &text->server_options);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
@@ -2174,58 +1957,31 @@ static int srp_server_mech_step1(context_t *text,
      * N - safe prime modulus
      * g - generator
      * s - salt
+     * B - server's public key
      * L - server options (available layers etc)
      *
-     * { mpi(N) mpi(g) os(s) utf8(L) }
+     * { 0x00 mpi(N) mpi(g) os(s) mpi(B) utf8(L) }
      *
      */
-    
-    result = MakeMPI(params->utils, &text->N, &mpiN, &mpiNlen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error creating 'mpi' string for N");
-	goto cleanup;
-    }
-    
-    result = MakeMPI(params->utils, &text->g, &mpig, &mpiglen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error creating 'mpi' string for g");
-	goto cleanup;
-    }
-    
-    result = MakeOS(params->utils, text->salt, text->saltlen, &osS, &osSlen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error turning salt into 'os' string");
-	goto cleanup;
-    }
-    
-    result = MakeUTF8(params->utils, text->server_options, &utf8L, &utf8Llen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error creating 'UTF8' string for L (server options)");
-	goto cleanup;
-    }
-    
-    result = MakeBuffer(text, mpiN, mpiNlen, mpig, mpiglen, osS, osSlen,
-		   utf8L, utf8Llen, serverout, serveroutlen);
+    result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
+			serveroutlen, "%c%m%m%o%m%s",
+			0x00, &text->N, &text->g, text->saltlen, text->salt,
+			&text->B, text->server_options);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error creating SRP buffer from data in step 1");
 	goto cleanup;
     }
+    *serverout = text->out_buf;
     
     text->state = 2;
     result = SASL_CONTINUE;
     
   cleanup:
+    if (sid) params->utils->free(sid);
+    if (cn) params->utils->free(cn);
     if (user) params->utils->free(user);
     if (realm) params->utils->free(realm);
-    if (mpiN) params->utils->free(mpiN);
-    if (mpig) params->utils->free(mpig);
-    if (osS) params->utils->free(osS);
-    if (utf8L) params->utils->free(utf8L);
     
     return result;
 }
@@ -2238,57 +1994,43 @@ static int srp_server_mech_step2(context_t *text,
 			unsigned *serveroutlen,
 			sasl_out_params_t *oparams)
 {
-    char *data;
-    int datalen;
     int result;    
-    char *mpiB = NULL;
-    int mpiBlen;
+    char *M1 = NULL, *cIV = NULL; /* don't free */
+    int M1len, cIVlen;
     srp_options_t client_opts;
+    char myM1[EVP_MAX_MD_SIZE];
+    int myM1len;
+    int i;
+    char M2[EVP_MAX_MD_SIZE];
+    int M2len;
+    char sIV[SRP_MAXBLOCKSIZE];
     
     /* Expect:
      *
      * A - client's public key
+     * M1 - client evidence
      * o - client option list
+     * cIV - client's initial vector
      *
-     * { mpi(A) utf8(o) }
+     * { mpi(A) os(M1) utf8(o) os(cIV) }
      *
      */
-    result = UnBuffer(params->utils, (char *) clientin, clientinlen,
-		      &data, &datalen);
+    result = UnBuffer(params->utils, clientin, clientinlen,
+		      "%m%-o%s%-o", &text->A, &M1len, &M1,
+		      &text->client_options, &cIVlen, &cIV);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error UnBuffering input in step 2");
-	return result;
-    }
-    
-    result = GetMPI(params->utils, data, datalen, &text->A, &data, &datalen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error parsing out 'A'");
-	return result;
+	goto cleanup;
     }
     
     /* Per [SRP]: reject A <= 0 */
     if (BigIntCmpWord(&text->A, 0) <= 0) {
 	SETERROR(params->utils, "Illegal value for 'A'\n");
-	return SASL_BADPROT;
+	result = SASL_BADPROT;
+	goto cleanup;
     }
-    
-    result = GetUTF8(params->utils, data, datalen, &text->client_options,
-		&data, &datalen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error parsing out SRP client options 'o'");
-	return result;
-    }
-    params->utils->log(NULL, SASL_LOG_DEBUG, "o: '%s'", text->client_options);
-    
-    if (datalen != 0) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Extra data in request step 2");
-	return SASL_FAIL;
-    }
-    
+
     /* parse client options */
     result = ParseOptions(params->utils, text->client_options, &client_opts, 1);
     if (result) {
@@ -2305,111 +2047,28 @@ static int srp_server_mech_step2(context_t *text,
 	}
 	return result;
     }
-    
-    result = SetOptions(&client_opts, text, params->utils, oparams);
+
+    result = SetMDA(&client_opts, text);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error setting options");
 	return result;   
     }
-    
-    /* Calculate K (and B) */
-    result = ServerCalculateK(text, &text->v,
-			      &text->N, &text->g, &text->B, &text->A,
-			      &text->K, &text->Klen);
+
+    /* Calculate K */
+    result = ServerCalculateK(text, &text->v, &text->N, &text->A,
+			      &text->b, &text->B, text->K, &text->Klen);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error calculating K");
 	return result;
     }
     
-    /* Send out:
-     *
-     * B - server's public key
-     *
-     * { mpi(B) }
-     */
-    
-    result = MakeMPI(params->utils, &text->B, &mpiB, &mpiBlen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error turning 'B' into 'mpi' string");
-	goto cleanup;
-    }
-    
-    result = MakeBuffer(text, mpiB, mpiBlen, NULL, 0, NULL, 0, NULL, 0,
-			serverout, serveroutlen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error putting all the data together in step 2");
-	goto cleanup;
-    }
-    
-    text->state = 3;
-
-    result = SASL_CONTINUE;
-    
-  cleanup:
-    if (mpiB) params->utils->free(mpiB);
-    
-    return result;
-}
-
-static int srp_server_mech_step3(context_t *text,
-				 sasl_server_params_t *params,
-				 const char *clientin,
-				 unsigned clientinlen,
-				 const char **serverout,
-				 unsigned *serveroutlen,
-				 sasl_out_params_t *oparams)
-{
-    char *data;
-    int datalen;
-    int result;
-    char *M1 = NULL;
-    int M1len;
-    char *myM1 = NULL;
-    int myM1len;
-    char *M2 = NULL;
-    int M2len;
-    int i;
-    char *osM2 = NULL;
-    int osM2len;
-    
-    /* Expect:
-     *
-     * M1 = client evidence
-     *
-     * { os(M1) }
-     *
-     */
-    result = UnBuffer(params->utils, (char *) clientin, clientinlen,
-		      &data, &datalen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error parsing input buffer in step 3");
-	goto cleanup;
-    }
-    
-    result = GetOS(params->utils, data, datalen, &M1,&M1len, &data, &datalen);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error getting 'os' M1 (client evidenice)");
-	goto cleanup;
-    }
-    
-    if (datalen != 0) {
-	result = SASL_FAIL;
-	params->utils->seterror(params->utils->conn, 0, 
-				"Extra data in input SRP step 3");
-	goto cleanup;
-    }
-    
     /* See if M1 is correct */
     result = CalculateM1(text, &text->N, &text->g, text->authid,
-			 text->salt, text->saltlen,
-			 text->server_options, &text->A, &text->B,
-			 text->K, text->Klen, &myM1, &myM1len);
+			 text->salt, text->saltlen, &text->A, &text->B,
+			 text->K, text->Klen, text->userid,
+			 text->server_options, myM1, &myM1len);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error calculating M1");
@@ -2433,49 +2092,47 @@ static int srp_server_mech_step3(context_t *text,
 	}
     }
     
-    /* if we have a confidentiality layer we're done - send nothing */
-    if (text->enabled & BIT_CONFIDENTIALITY) {
-	
-	/* set oparams */
-	oparams->doneflag = 1;
-	oparams->param_version = 0;
-	
-	result = SASL_OK;
-	goto cleanup;
-    }
-    
     /* calculate M2 to send */
-    result = CalculateM2(text, &text->A, text->authid, text->userid,
-			 text->client_options, myM1, myM1len,
-			 text->K, text->Klen, &M2, &M2len);
+    result = CalculateM2(text, &text->A, M1, M1len, text->K, text->Klen,
+			 text->userid, text->client_options, "", 0,
+			 M2, &M2len);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error calculating M2 (server evidence)");
 	goto cleanup;
     }
     
-    /* Send out:
+    /* Create sIV (server initial vector) */
+    text->utils->rand(text->utils->rpool, sIV, sizeof(sIV));
+    
+    /*
+     * Send out:
+     * M2 - server evidence
+     * sIV - server's initial vector
+     * sid - session id
+     * ttl - time to live
      *
-     * M2 = server evidence
-     *
-     * { os(M2) }
+     * { os(M2) os(sIV) utf8(sid) uint(ttl) }
      */
-    
-    result = MakeOS(params->utils, M2, M2len, &osM2, &osM2len);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error making 'os' string from M2 (server evidence)");
-	goto cleanup;
-    }
-    
-    result = MakeBuffer(text, osM2, osM2len, NULL, 0, NULL, 0, NULL, 0,
-			serverout, serveroutlen);
+    result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
+			serveroutlen, "%o%o%s%u", M2len, M2,
+			sizeof(sIV), sIV, "", 0);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error making output buffer in SRP step 3");
 	goto cleanup;
     }
-    
+    *serverout = text->out_buf;
+
+    /* configure security layer */
+    result = LayerInit(&client_opts, text, oparams, cIV, sIV,
+		       params->props.maxbufsize);
+    if (result) {
+	params->utils->seterror(params->utils->conn, 0, 
+				"Error initializing security layer");
+	return result;   
+    }
+
     /* set oparams */
     oparams->doneflag = 1;
     oparams->param_version = 0;
@@ -2483,12 +2140,8 @@ static int srp_server_mech_step3(context_t *text,
     result = SASL_OK;
     
   cleanup:
-    if (osM2) params->utils->free(osM2);
-    if (M2) params->utils->free(M2);
-    if (myM1) params->utils->free(myM1);
-    if (M1) params->utils->free(M1);
     
-    return result;    
+    return result;
 }
 
 static int srp_server_mech_step(void *conn_context,
@@ -2523,10 +2176,6 @@ static int srp_server_mech_step(void *conn_context,
 	return srp_server_mech_step2(text, sparams, clientin, clientinlen,
 				     serverout, serveroutlen, oparams);
 
-    case 3:
-	return srp_server_mech_step3(text, sparams, clientin, clientinlen,
-				     serverout, serveroutlen, oparams);
-
     default:
 	sparams->utils->seterror(sparams->utils->conn, 0,
 				 "Invalid SRP server step %d", text->state);
@@ -2550,13 +2199,15 @@ static int srp_setpass(void *glob_context __attribute__((unused)),
     char *user = NULL;
     char *realm = NULL;
     sasl_secret_t *sec = NULL;
+    struct propctx *propctx = NULL;
+    const char *store_request[] = { "cmusaslsecretSRP",
+				     NULL };
     
-    /* Do we have database support? */
-    /* Note that we can use a NULL sasl_conn_t because our
-     * sasl_utils_t is "blessed" with the global callbacks */
-    if(_sasl_check_db(sparams->utils, NULL) != SASL_OK) {
-	SETERROR(sparams->utils, "No database support");
-	return SASL_FAIL;
+    /* Do we have a backend that can store properties? */
+    if (!sparams->utils->auxprop_store ||
+	sparams->utils->auxprop_store(NULL, NULL, NULL) != SASL_OK) {
+	SETERROR(sparams->utils, "SRP: auxprop backend can't store properties");
+	return SASL_NOMECH;
     }
     
     r = _plug_parseuser(sparams->utils, &user, &realm, sparams->user_realm,
@@ -2576,17 +2227,11 @@ static int srp_setpass(void *glob_context __attribute__((unused)),
 	BIGNUM v;
 	char *salt;
 	int saltlen;
-	char *utf8mda = NULL;
-	int utf8mdalen;
-	char *mpiv = NULL;
-	int mpivlen;    
-	char *osSalt = NULL;
-	int osSaltlen;
-	const char *buffer = NULL;
-	int bufferlen;
+	char *buffer = NULL;
+	int bufferlen, alloclen, encodelen;
 	
 	text = sparams->utils->malloc(sizeof(context_t));
-	if (text==NULL) {
+	if (text == NULL) {
 	    MEMERROR(sparams->utils);
 	    return SASL_NOMEM;
 	}
@@ -2612,55 +2257,35 @@ static int srp_setpass(void *glob_context __attribute__((unused)),
 	
 	/* The secret data is stored as suggested in RFC 2945:
 	 *
-	 *  mda  - utf8
-	 *  v    - mpi
-	 *  salt - os 
+	 *  { utf8(mda) mpi(v) os(salt) }  (base64 encoded)
 	 */
 	
-	r = MakeUTF8(sparams->utils, (char*) server_mda->name,
-		     &utf8mda, &utf8mdalen);
-	if (r) {
-	    sparams->utils->seterror(sparams->utils->conn, 0, 
-				     "Error turning 'mda' into 'utf8' string");
-	    goto end;
-	}
-	
-	r = MakeMPI(sparams->utils, &v, &mpiv, &mpivlen);
-	if (r) {
-	    sparams->utils->seterror(sparams->utils->conn, 0, 
-				     "Error turning 'v' into 'mpi' string");
-	    goto end;
-	}
-	
-	r = MakeOS(sparams->utils, salt, saltlen, &osSalt, &osSaltlen);
-	if (r) {
-	    sparams->utils->seterror(sparams->utils->conn, 0, 
-				     "Error turning salt into 'os' string");
-	    goto end;
-	}
-	
-	r = MakeBuffer(text, utf8mda, utf8mdalen, mpiv, mpivlen,
-		       osSalt, osSaltlen, NULL, 0, &buffer, &bufferlen);
+	r = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
+		       &bufferlen, "%s%m%o",
+		       server_mda->name, &v, saltlen, salt);
 	
 	if (r) {
 	    sparams->utils->seterror(sparams->utils->conn, 0, 
 				     "Error making buffer for secret");
 	    goto end;
 	}
+	buffer = text->out_buf;
 	
-	/* Put 'buffer' into sasl_secret_t */
-	sec = sparams->utils->malloc(sizeof(sasl_secret_t)+bufferlen+1);
+	/* Put 'buffer' into sasl_secret_t.
+	 * This will be base64 encoded, so make sure its big enough.
+	 */
+	alloclen = (bufferlen/3 + 1) * 4 + 1;
+	sec = sparams->utils->malloc(sizeof(sasl_secret_t)+alloclen);
 	if (!sec) {
 	    r = SASL_NOMEM;
 	    goto end;
 	}
-	memcpy(sec->data, buffer, bufferlen);
-	sec->len = bufferlen;    
+	sparams->utils->encode64(buffer, bufferlen, sec->data, alloclen,
+				 &encodelen);
+	sec->len = encodelen;
 	
 	/* Clean everything up */
       end:
-	if (mpiv)   sparams->utils->free(mpiv);
-	if (osSalt) sparams->utils->free(osSalt);
 	if (buffer) sparams->utils->free((void *) buffer);
 	BN_clear_free(&N);
 	BN_clear_free(&g);
@@ -2671,13 +2296,23 @@ static int srp_setpass(void *glob_context __attribute__((unused)),
     }
     
     /* do the store */
-    r = (*_sasldb_putdata)(sparams->utils, sparams->utils->conn,
-			   user, realm, "cmusaslsecretSRP",
-			   (sec ? sec->data : NULL), (sec ? sec->len : 0));
+    propctx = sparams->utils->prop_new(0);
+    if (!propctx)
+	r = SASL_FAIL;
+    if (!r)
+	r = sparams->utils->prop_request(propctx, store_request);
+    if (!r)
+	r = sparams->utils->prop_set(propctx, "cmusaslsecretSRP",
+				     (sec ? sec->data : NULL),
+				     (sec ? sec->len : 0));
+    if (!r)
+	r = sparams->utils->auxprop_store(sparams->utils->conn, propctx, user);
+    if (propctx)
+	sparams->utils->prop_dispose(&propctx);
     
     if (r) {
 	sparams->utils->seterror(sparams->utils->conn, 0, 
-				 "Error putting secret");
+				 "Error putting SRP secret");
 	goto cleanup;
     }
     
@@ -2685,9 +2320,9 @@ static int srp_setpass(void *glob_context __attribute__((unused)),
     
   cleanup:
     
-    if (user) 	sparams->utils->free(user);
-    if (realm) 	sparams->utils->free(realm);
-    if (sec)    sparams->utils->free(sec);
+    if (user) 	_plug_free_string(sparams->utils, &user);
+    if (realm) 	_plug_free_string(sparams->utils, &realm);
+    if (sec)    _plug_free_secret(sparams->utils, &sec);
     
     return r;
 }
@@ -2718,13 +2353,14 @@ static sasl_server_plug_t srp_server_plugins[] =
 	| SASL_SEC_NODICTIONARY
 	| SASL_SEC_FORWARD_SECRECY
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* glob_context */
 	&srp_server_mech_new,		/* mech_new */
 	&srp_server_mech_step,		/* mech_step */
 	&srp_common_mech_dispose,	/* mech_dispose */
 	&srp_common_mech_free,		/* mech_free */
-#if DO_SRP_SETPASS
+#ifdef DO_SRP_SETPASS
 	&srp_setpass,			/* setpass */
 #else
 	NULL,
@@ -2821,38 +2457,48 @@ static int check_N_and_g(const sasl_utils_t *utils, BIGNUM *N, BIGNUM *g)
     return r;
 }
 
-/* Calculate shared context key K
- *
- * User:  x = H(s, password)
- * User:  S = (B - g^x) ^ (a + ux) % N
- *                  
- * User:  K = Hi(S)
- *
- */
-static int CalculateK_client(context_t *text,
-			     char *salt,
-			     int saltlen,
-			     char *user,
-			     char *pass,
-			     int passlen,
-			     char **key,
-			     int *keylen)
+static int CalculateA(context_t *text  __attribute__((unused)),
+		      BIGNUM *N, BIGNUM *g, BIGNUM *a, BIGNUM *A)
+{
+    BN_CTX *ctx = BN_CTX_new();
+    
+    /* Generate a */
+    GetRandBigInt(a);
+	
+    /* Per [SRP]: make sure a > log[g](N) -- g is always 2 */
+    BN_add_word(a, BN_num_bits(N));
+	
+    /* A = g^a % N */
+    BN_init(A);
+    BN_mod_exp(A, g, a, N, ctx);
+
+    BN_CTX_free(ctx);
+    
+    return SASL_OK;
+}
+	
+static int ClientCalculateK(context_t *text, char *salt, int saltlen,
+			    char *user, char *pass, int passlen,
+			    BIGNUM *N, BIGNUM *g, BIGNUM *a, BIGNUM *A,
+			    BIGNUM *B, char *K, int *Klen)
 {
     int r;
     unsigned char hash[EVP_MAX_MD_SIZE];
+    int hashlen;
     BIGNUM x;
     BIGNUM u;
     BIGNUM aux;
     BIGNUM gx;
+    BIGNUM gx3;
     BIGNUM base;
     BIGNUM S;
     BN_CTX *ctx = BN_CTX_new();
     
-    /* u is first 32 bits of B hashed; MSB first */
-    r = HashBigInt(text, &text->B, hash, NULL);
+    /* u = H(A | B) */
+    r = MakeHash(text->md, hash, &hashlen, "%m%m", A, B);
     if (r) goto err;
     BN_init(&u);
-    BN_bin2bn(hash, 4, &u);
+    BN_bin2bn(hash, hashlen, &u);
     
     /* per Tom Wu: make sure u != 0 */
     if (BN_is_zero(&u)) {
@@ -2861,36 +2507,41 @@ static int CalculateK_client(context_t *text,
 	goto err;
     }
     
+    /* S = (B - 3(g^x)) ^ (a + ux) % N */
+
     r = CalculateX(text, salt, saltlen, user, pass, passlen, &x);
     if (r) return r;
     
     /* a + ux */
     BN_init(&aux);
     BN_mul(&aux, &u, &x, ctx);
-    BN_add(&aux, &aux, &text->a);
+    BN_add(&aux, &aux, a);
     
-    /* gx = g^x % N */
+    /* gx3 = 3(g^x) % N */
     BN_init(&gx);
-    BN_mod_exp(&gx, &text->g, &x, &text->N, ctx);
+    BN_mod_exp(&gx, g, &x, N, ctx);
+    BN_init(&gx3);
+    BN_set_word(&gx3, 3);
+    BN_mod_mul(&gx3, &gx3, &gx, N, ctx);
     
-    /* base = (B - g^x) % N */
+    /* base = (B - 3(g^x)) % N */
     BN_init(&base);
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
-    BN_mod_sub(&base, &text->B, &gx, &text->N, ctx);
+    BN_mod_sub(&base, B, &gx3, N, ctx);
 #else
-    BN_sub(&base, &text->B, &gx);
-    BN_mod(&base, &base, &text->N, ctx);
+    BN_sub(&base, B, &gx3);
+    BN_mod(&base, &base, N, ctx);
     if (BigIntCmpWord(&base, 0) < 0) {
-	BN_add(&base, &base, &text->N);
+	BN_add(&base, &base, N);
     }
 #endif
     
     /* S = base^aux % N */
     BN_init(&S);
-    BN_mod_exp(&S, &base, &aux, &text->N, ctx);
+    BN_mod_exp(&S, &base, &aux, N, ctx);
     
-    /* K = Hi(S) */
-    r = HashInterleaveBigInt(text, &S, key, keylen);
+    /* K = H(S) */
+    r = MakeHash(text->md, K, Klen, "%m", &S);
     if (r) goto err;
     
     r = SASL_OK;
@@ -2901,6 +2552,7 @@ static int CalculateK_client(context_t *text,
     BN_clear_free(&u);
     BN_clear_free(&aux);
     BN_clear_free(&gx);
+    BN_clear_free(&gx3);
     BN_clear_free(&base);
     BN_clear_free(&S);
     
@@ -2920,7 +2572,7 @@ static int CreateClientOpts(sasl_client_params_t *params,
     memset(out, 0, sizeof(srp_options_t));
     
     params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Available MDA = %d\n",available->mda);
+		       "Available MDA = %d\n", available->mda);
     
     /* mda */
     opt = FindBest(available->mda, 0, 256, digest_options);
@@ -2937,22 +2589,28 @@ static int CreateClientOpts(sasl_client_params_t *params,
     external = params->external_ssf;
     
     /* what do we _need_?  how much is too much? */
-    if (params->props.max_ssf > external) {
-	limit = params->props.max_ssf - external;
-    } else {
-	limit = 0;
-    }
-    if (params->props.min_ssf > external) {
-	musthave = params->props.min_ssf - external;
-    } else {
+    if(params->props.maxbufsize == 0) {
 	musthave = 0;
+	limit = 0;
+    } else {
+	if (params->props.max_ssf > external) {
+	    limit = params->props.max_ssf - external;
+	} else {
+	    limit = 0;
+	}
+	if (params->props.min_ssf > external) {
+	    musthave = params->props.min_ssf - external;
+	} else {
+	    musthave = 0;
+	}
     }
-    
+        
     /* we now go searching for an option that gives us at least "musthave"
        and at most "limit" bits of ssf. */
     params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Available confidentiality = %d\n",
-		       available->confidentiality);
+		       "Available confidentiality = %d  "
+		       "musthave = %d  limit = %d",
+		       available->confidentiality, musthave, limit);
     
     /* confidentiality */
     if (limit > 1) {
@@ -2975,7 +2633,9 @@ static int CreateClientOpts(sasl_client_params_t *params,
     }
     
     params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Available integrity = %d\n",available->integrity);
+		       "Available integrity = %d "
+		       "musthave = %d  limit = %d",
+		       available->integrity, musthave, limit);
     
     /* integrity */
     if ((limit >= 1) && (musthave <= 1)) {
@@ -3011,7 +2671,7 @@ static int CreateClientOpts(sasl_client_params_t *params,
     }
     
     /* Add maxbuffersize */
-    out->maxbufsize = MAXBUFFERSIZE;
+    out->maxbufsize = SRP_MAXBUFFERSIZE;
     if (params->props.maxbufsize && params->props.maxbufsize < out->maxbufsize)
 	out->maxbufsize = params->props.maxbufsize;
     
@@ -3051,13 +2711,11 @@ srp_client_mech_step1(context_t *text,
 		      unsigned *clientoutlen,
 		      sasl_out_params_t *oparams)
 {
-    const char *authid, *userid;
+    const char *authid = NULL, *userid = NULL;
     int auth_result = SASL_OK;
     int pass_result = SASL_OK;
     int user_result = SASL_OK;
     int result;
-    char *utf8U = NULL, *utf8I = NULL;
-    int utf8Ulen, utf8Ilen;
     
     /* Expect: 
      *   absolutely nothing
@@ -3120,50 +2778,44 @@ srp_client_mech_step1(context_t *text,
 	return SASL_INTERACT;
     }
     
-    result = params->canon_user(params->utils->conn, authid, 0,
-				SASL_CU_AUTHID, oparams);
-    if (result != SASL_OK) return result;
-    result = params->canon_user(params->utils->conn, userid, 0,
-				SASL_CU_AUTHZID, oparams);
+    if (!userid || !*userid) {
+	result = params->canon_user(params->utils->conn, authid, 0,
+				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
+    }
+    else {
+	result = params->canon_user(params->utils->conn, authid, 0,
+				    SASL_CU_AUTHID, oparams);
+	if (result != SASL_OK) return result;
+
+	result = params->canon_user(params->utils->conn, userid, 0,
+				    SASL_CU_AUTHZID, oparams);
+    }
     if (result != SASL_OK) return result;
     
     /* Send out:
      *
      * U - authentication identity 
      * I - authorization identity
+     * sid - previous session id
+     * cn - client nonce
      *
-     * { utf8(U) utf8(I) }
+     * { utf8(U) utf8(I) utf8(sid) os(cn) }
      */
-    
-    result = MakeUTF8(params->utils, (char *) oparams->authid,
-		      &utf8U, &utf8Ulen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error making UTF8 string from authid ('U')\n");
-	goto cleanup;
-    }
-    
-    result = MakeUTF8(params->utils, (char *) oparams->user, &utf8I, &utf8Ilen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error making UTF8 string from userid ('I')\n");
-	goto cleanup;
-    }
-    
-    result = MakeBuffer(text, utf8U, utf8Ulen, utf8I, utf8Ilen, NULL, 0,
-			NULL, 0, clientout, clientoutlen);
+    result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
+			clientoutlen, "%s%s%s%o",
+			(char *) oparams->authid, (char *) oparams->user,
+			"", 0, "");
     if (result) {
 	params->utils->log(NULL, SASL_LOG_ERR, "Error making output buffer\n");
 	goto cleanup;
     }
+    *clientout = text->out_buf;
     
     text->state = 2;
 
     result = SASL_CONTINUE;
     
   cleanup:
-    if (utf8U) params->utils->free(utf8U);
-    if (utf8I) params->utils->free(utf8I);
     
     return result;
 }
@@ -3178,38 +2830,24 @@ srp_client_mech_step2(context_t *text,
 		      unsigned *clientoutlen,
 		      sasl_out_params_t *oparams)
 {
-    char *data;
-    int datalen;
-    int result;    
-    char *mpiA = NULL, *utf8o = NULL;
-    int mpiAlen, utf8olen;
+    int result;
+    char reuse;
     srp_options_t server_opts;
     
-    /* expect:
-     *  { mpi(N) mpi(g) os(s) utf8(L) }
+    /* Expect:
      *
+     *  { 0x00 mpi(N) mpi(g) os(s) mpi(B) utf8(L) }
      */
-    
-    result = UnBuffer(params->utils, (char *) serverin, serverinlen,
-		      &data, &datalen);
-    if (result) return result;
-    
-    result = GetMPI(params->utils, (unsigned char *)data, datalen, &text->N,
-		    &data, &datalen);
+    result = UnBuffer(params->utils, serverin, serverinlen,
+		      "%c%m%m%o%m%s", &reuse, &text->N, &text->g,
+		      &text->saltlen, &text->salt, &text->B,
+		      &text->server_options);
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error getting MPI string for 'N'\n");
+	params->utils->seterror(params->utils->conn, 0, 
+				"Error UnBuffering input in step 2");
 	goto cleanup;
     }
-    
-    result = GetMPI(params->utils, (unsigned char *) data, datalen, &text->g,
-		    &data, &datalen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error getting MPI string for 'g'\n");
-	goto cleanup;
-    }
-    
+
     /* Check N and g to see if they are one of the recommended pairs */
     result = check_N_and_g(params->utils, &text->N, &text->g);
     if (result) {
@@ -3218,28 +2856,13 @@ srp_client_mech_step2(context_t *text,
 	goto cleanup;
     }
     
-    result = GetOS(params->utils, (unsigned char *) data, datalen,
-		   &text->salt, &text->saltlen, &data, &datalen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error getting OS string for 's'\n");
+    /* Per [SRP]: reject B <= 0, B >= N */
+    if (BigIntCmpWord(&text->B, 0) <= 0 || BN_cmp(&text->B, &text->N) >= 0) {
+	SETERROR(params->utils, "Illegal value for 'B'\n");
+	result = SASL_BADPROT;
 	goto cleanup;
     }
-    
-    result = GetUTF8(params->utils, data, datalen, &text->server_options,
-		     &data, &datalen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error getting UTF8 string for 'L'");
-	goto cleanup;
-    }
-    params->utils->log(NULL, SASL_LOG_DEBUG, "L: '%s'", text->server_options);
-    
-    if (datalen != 0) {
-	params->utils->log(NULL, SASL_LOG_ERR, "Extra data parsing buffer\n");
-	goto cleanup;
-    }
-    
+
     /* parse server options */
     memset(&server_opts, 0, sizeof(srp_options_t));
     result = ParseOptions(params->utils, text->server_options, &server_opts, 0);
@@ -3249,24 +2872,7 @@ srp_client_mech_step2(context_t *text,
 	goto cleanup;
     }
     
-    /* create an 'a' */
-    GetRandBigInt(&text->a);
-    
-    /* Per [SRP]: make sure a > log[g](N) -- g is always 2 */
-    BN_add_word(&text->a, BN_num_bits(&text->N));
-    
-    /* calculate 'A' 
-     *
-     * A = g^a % N 
-     */
-    {
-	BN_CTX *ctx = BN_CTX_new();
-	BN_init(&text->A);
-	BN_mod_exp(&text->A, &text->g, &text->a, &text->N, ctx);
-	BN_CTX_free(ctx);
-    }
-    
-    /* make o */
+    /* Create o */
     result = CreateClientOpts(params, &server_opts, &text->client_opts);
     if (result) {
 	params->utils->log(NULL, SASL_LOG_ERR,
@@ -3281,50 +2887,72 @@ srp_client_mech_step2(context_t *text,
 			   "Error converting client options to an option string\n");
 	goto cleanup;
     }
-    
-    result = SetOptions(&text->client_opts, text, params->utils, oparams);
+
+    result = SetMDA(&text->client_opts, text);
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
-				"Error setting options");
+				"Error setting MDA");
 	goto cleanup;
     }
+
+    /* Calculate A */
+    result = CalculateA(text, &text->N, &text->g, &text->a, &text->A);
+    if (result) {
+	params->utils->seterror(params->utils->conn, 0, 
+				"Error calculating A");
+	return result;
+    }
+    
+    /* Calculate shared context key K */
+    result = ClientCalculateK(text, text->salt, text->saltlen,
+			      (char *) oparams->authid, 
+			      text->password->data, text->password->len,
+			      &text->N, &text->g, &text->a, &text->A, &text->B,
+			      text->K, &text->Klen);
+    if (result) {
+	params->utils->log(NULL, SASL_LOG_ERR,
+			   "Error creating K\n");
+	goto cleanup;
+    }
+    
+    /* Calculate M1 (client evidence) */
+    result = CalculateM1(text, &text->N, &text->g, (char *) oparams->authid,
+			 text->salt, text->saltlen, &text->A, &text->B,
+			 text->K, text->Klen, (char *) oparams->user,
+			 text->server_options, text->M1, &text->M1len);
+    if (result) {
+	params->utils->log(NULL, SASL_LOG_ERR,
+			   "Error creating M1\n");
+	goto cleanup;
+    }
+
+    /* Create cIV (client initial vector) */
+    text->utils->rand(text->utils->rpool, text->cIV, sizeof(text->cIV));
     
     /* Send out:
      *
      * A - client's public key
+     * M1 - client evidence
      * o - client option list
+     * cIV - client initial vector
      *
-     * { mpi(A) utf8(o) }
+     * { mpi(A) os(M1) utf8(o) os(cIV) }
      */
-    
-    result = MakeMPI(params->utils, &text->A, &mpiA, &mpiAlen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error making MPI string from A\n");
-	goto cleanup;
-    }
-    
-    result = MakeUTF8(params->utils, text->client_options, &utf8o, &utf8olen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error making UTF8 string from client options ('o')\n");
-	goto cleanup;
-    }
-    
-    result = MakeBuffer(text, mpiA, mpiAlen, utf8o, utf8olen,
-		   NULL, 0, NULL, 0, clientout, clientoutlen);
+    result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
+			clientoutlen, "%m%o%s%o",
+			&text->A, text->M1len, text->M1, text->client_options,
+			sizeof(text->cIV), text->cIV);
     if (result) {
 	params->utils->log(NULL, SASL_LOG_ERR, "Error making output buffer\n");
 	goto cleanup;
     }
+    *clientout = text->out_buf;
     
     text->state = 3;
 
     result = SASL_CONTINUE;
     
   cleanup:
-    if (mpiA) params->utils->free(mpiA);
-    if (utf8o) params->utils->free(utf8o);
     
     return result;
 }
@@ -3335,142 +2963,42 @@ srp_client_mech_step3(context_t *text,
 		      const char *serverin,
 		      unsigned serverinlen,
 		      sasl_interact_t **prompt_need __attribute__((unused)),
-		      const char **clientout,
-		      unsigned *clientoutlen,
-		      sasl_out_params_t *oparams)
-{
-    char *data;
-    int datalen;
-    int result;    
-    char *osM1 = NULL;
-    int osM1len;
-    
-    /* Expect:
-     *  { mpi(B) }
-     *
-     */
-    result = UnBuffer(params->utils, (char *) serverin, serverinlen,
-		 &data, &datalen);
-    if (result) return result;
-    
-    result = GetMPI(params->utils, (unsigned char *) data, datalen, &text->B,
-	       &data, &datalen);
-    if (result) return result;
-    
-    /* Per [SRP]: reject B <= 0, B >= N */
-    if (BigIntCmpWord(&text->B, 0) <= 0 || BN_cmp(&text->B, &text->N) >= 0) {
-	SETERROR(params->utils, "Illegal value for 'B'\n");
-	return SASL_BADPROT;
-    }
-    
-    if (datalen != 0) {
-	SETERROR(params->utils, "Extra data parsing buffer\n");
-	return SASL_BADPROT;
-    }
-    
-    /* Calculate shared context key K
-     *
-     */
-    result = CalculateK_client(text, text->salt, text->saltlen,
-			       (char *) oparams->authid, 
-			       text->password->data, text->password->len,
-			       &text->K, &text->Klen);
-    if (result) return result;
-    
-    /* Now calculate M1 (client evidence)
-     *
-     */
-    result = CalculateM1(text, &text->N, &text->g, (char *) oparams->authid,
-			 text->salt, text->saltlen,
-			 text->server_options, &text->A, &text->B,
-			 text->K, text->Klen,
-			 &text->M1, &text->M1len);
-    if (result) return result;
-    
-    /* Send:
-     *
-     * { os(M1) }
-     */
-    
-    result = MakeOS(params->utils, text->M1, text->M1len, &osM1, &osM1len);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error creating OS string for M1\n");
-	goto cleanup;
-    }
-    
-    result = MakeBuffer(text, osM1, osM1len, NULL, 0, NULL, 0, NULL, 0,
-		   clientout, clientoutlen);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error creating buffer in step 3\n");
-	goto cleanup;
-    }
-    
-    /* if we have a confidentiality layer we're done */
-    if (text->enabled & BIT_CONFIDENTIALITY) {
-	/* set oparams */
-	oparams->doneflag = 1;
-	oparams->param_version = 0;
-
-	result = SASL_OK;
-	goto cleanup;
-    }
-    
-    text->state = 4;
-
-    result = SASL_CONTINUE;
-
-  cleanup:
-    if (osM1) params->utils->free(osM1);
-    
-    return result;
-}
-
-static int
-srp_client_mech_step4(context_t *text,
-		      sasl_client_params_t *params,
-		      const char *serverin,
-		      unsigned serverinlen,
-		      sasl_interact_t **prompt_need __attribute__((unused)),
 		      const char **clientout __attribute__((unused)),
 		      unsigned *clientoutlen __attribute__((unused)),
 		      sasl_out_params_t *oparams)
 {
-    char *data;
-    int datalen;
     int result;    
-    char *serverM2 = NULL;
-    int serverM2len;
+    char *M2 = NULL, *sIV = NULL; /* don't free */
+    char *sid = NULL;
+    int M2len, sIVlen;
+    uint32 ttl;
     int i;
-    char *myM2 = NULL;
+    char myM2[EVP_MAX_MD_SIZE];
     int myM2len;
     
-    /* Input:
+    /* Expect:
      *
      * M2 - server evidence
+     * sIV - server initial vector
+     * sid - session id
+     * ttl - time to live
      *
-     *   { os(M2) }
+     *   { os(M2) os(sIV) utf8(sid) uint(ttl) }
      */
-    result = UnBuffer(params->utils, (char *) serverin, serverinlen,
-		      &data, &datalen);
-    if (result) return result;
-    
-    result = GetOS(params->utils, (unsigned char *)data, datalen,
-		   &serverM2, &serverM2len, &data, &datalen);
-    if (result) return result;
-    
-    if (datalen != 0) {
-	SETERROR(params->utils, "Extra data parsing buffer\n");
-	result = SASL_BADPROT;
+    result = UnBuffer(params->utils, serverin, serverinlen,
+		      "%-o%-o%s%u", &M2len, &M2, &sIVlen, &sIV,
+		      &sid, &ttl);
+    if (result) {
+	params->utils->seterror(params->utils->conn, 0, 
+				"Error UnBuffering input in step 3");
 	goto cleanup;
     }
-    
+
     /* calculate our own M2 */
-    result = CalculateM2(text, &text->A, (char *) oparams->authid,
-			 (char *) oparams->user,
-			 text->client_options, text->M1, text->M1len,
-			 text->K, text->Klen, &myM2, &myM2len);
+    result = CalculateM2(text, &text->A, text->M1, text->M1len,
+			 text->K, text->Klen, (char *) oparams->user,
+			 text->client_options, "", 0,
+			 myM2, &myM2len);
     if (result) {
 	params->utils->log(NULL, SASL_LOG_ERR,
 			   "Error calculating our own M2 (server evidence)\n");
@@ -3478,7 +3006,7 @@ srp_client_mech_step4(context_t *text,
     }
     
     /* compare to see if is server spoof */
-    if (myM2len != serverM2len) {
+    if (myM2len != M2len) {
 	SETERROR(params->utils, "SRP Server M2 length wrong\n");
 	result = SASL_BADSERV;
 	goto cleanup;
@@ -3486,7 +3014,7 @@ srp_client_mech_step4(context_t *text,
     
     
     for (i = 0; i < myM2len; i++) {
-	if (serverM2[i] != myM2[i]) {
+	if (M2[i] != myM2[i]) {
 	    SETERROR(params->utils,
 		     "SRP Server spoof detected. M2 incorrect\n");
 	    result = SASL_BADSERV;
@@ -3497,7 +3025,16 @@ srp_client_mech_step4(context_t *text,
     /*
      * Send out: nothing
      */
-    
+
+    /* configure security layer */
+    result = LayerInit(&text->client_opts, text, oparams, sIV, text->cIV,
+		       params->props.maxbufsize);
+    if (result) {
+	params->utils->seterror(params->utils->conn, 0, 
+				"Error initializing security layer");
+	return result;   
+    }
+
     /* set oparams */
     oparams->doneflag = 1;
     oparams->param_version = 0;
@@ -3505,8 +3042,7 @@ srp_client_mech_step4(context_t *text,
     result = SASL_OK;
     
   cleanup:
-    if (serverM2) params->utils->free(serverM2);
-    if (myM2) params->utils->free(myM2);
+    if (sid) params->utils->free(sid);
     
     return result;
 }
@@ -3545,11 +3081,6 @@ static int srp_client_mech_step(void *conn_context,
 				     prompt_need, clientout, clientoutlen,
 				     oparams);
 
-    case 4:
-	return srp_client_mech_step4(text, params, serverin, serverinlen, 
-				     prompt_need, clientout, clientoutlen,
-				     oparams);
-
     default:
 	params->utils->log(NULL, SASL_LOG_ERR,
 			   "Invalid SRP client step %d\n", text->state);
@@ -3571,7 +3102,8 @@ static sasl_client_plug_t srp_client_plugins[] =
 	| SASL_SEC_NODICTIONARY
 	| SASL_SEC_FORWARD_SECRECY
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* required_prompts */
 	NULL,				/* glob_context */
 	&srp_client_mech_new,		/* mech_new */

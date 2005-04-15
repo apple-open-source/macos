@@ -45,12 +45,12 @@ static struct timeval tp1,tp2;
 
 void start_timer(void)
 {
-	gettimeofday(&tp1,NULL);
+	GetTimeOfDay(&tp1);
 }
 
 double end_timer(void)
 {
-	gettimeofday(&tp2,NULL);
+	GetTimeOfDay(&tp2);
 	return((tp2.tv_sec - tp1.tv_sec) + 
 	       (tp2.tv_usec - tp1.tv_usec)*1.0e-6);
 }
@@ -493,7 +493,7 @@ static BOOL rw_torture2(struct cli_state *c1, struct cli_state *c2)
 			printf("%d\r", i); fflush(stdout);
 		}
 
-		generate_random_buffer(buf, buf_size, False);
+		generate_random_buffer(buf, buf_size);
 
 		if (cli_write(c1, fnum1, 0, buf, 0, buf_size) != buf_size) {
 			printf("write failed (%s)\n", cli_errstr(c1));

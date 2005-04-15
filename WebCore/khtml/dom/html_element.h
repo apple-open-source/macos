@@ -185,20 +185,37 @@ public:
     void setInnerText( const DOMString &text );
 
     /**
+     * The HTML code of this element, including the element itself.
+     * This function is not part of the DOM specifications as defined by the w3c.
+     */
+    DOMString outerHTML() const;
+
+    /**
+     * Replace the HTML code of this element, including the element itself.
+     * This function is not part of the DOM specifications as defined by the w3c.
+     */
+    void setOuterHTML( const DOMString &html );
+
+    /**
+     * The text contained in this element.
+     * This function is not part of the DOM specifications as defined by the w3c.
+     */
+    DOMString outerText() const;
+
+    /**
+     * Replace this element with the given text
+     *
+     * @exception DOMException
+     * NO_MODIFICATION_ALLOWED_ERR: Raised if there is the element does not allow
+     * children.
+     */
+    void setOuterText( const DOMString &text );
+
+    /**
      * Retrieves a collection of nodes that are direct descendants of this node.
      * IE-specific extension.
      */
     HTMLCollection children() const;
-
-    /*
-     * @internal
-     */
-    void removeCSSProperty( const DOMString& property );
-
-    /*
-     * @internal
-     */
-    void addCSSProperty( const DOMString &property, const DOMString &value );
 
     bool isContentEditable() const;
     DOMString contentEditable() const;

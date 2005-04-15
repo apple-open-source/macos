@@ -1031,7 +1031,7 @@ static char **extract_args(const char *command)
 	for( argcl = 1; ptr; ptr = strtok(NULL, " \t"))
 		argcl++;
 
-	if((argl = (char **)malloc((argcl + 1) * sizeof(char *))) == NULL)
+	if((argl = (char **)SMB_MALLOC((argcl + 1) * sizeof(char *))) == NULL)
 		return NULL;
 
 	/*
@@ -1113,7 +1113,7 @@ int sys_popen(const char *command)
 		goto err_exit;
 	}
 
-	if((entry = (popen_list *)malloc(sizeof(popen_list))) == NULL)
+	if((entry = SMB_MALLOC_P(popen_list)) == NULL)
 		goto err_exit;
 
 	ZERO_STRUCTP(entry);
@@ -1307,7 +1307,13 @@ int sys_dup2(int oldfd, int newfd)
 ssize_t sys_getxattr (const char *path, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_GETXATTR)
+	#if DARWINOS
+		int options = 0;
+
+		return getxattr(path, name, value, size, 0, options);		
+	#else
 	return getxattr(path, name, value, size);
+	#endif
 #elif defined(HAVE_ATTR_GET)
 	int retval, flags = 0;
 	int valuelength = (int)size;
@@ -1347,7 +1353,13 @@ ssize_t sys_lgetxattr (const char *path, const char *name, void *value, size_t s
 ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_FGETXATTR)
+	#if DARWINOS
+		int options = 0;
+
+		return fgetxattr(filedes, name, value, size, 0, options);		
+	#else
 	return fgetxattr(filedes, name, value, size);
+	#endif
 #elif defined(HAVE_ATTR_GETF)
 	int retval, flags = 0;
 	int valuelength = (int)size;
@@ -1435,7 +1447,12 @@ static ssize_t irix_attr_list(const char *path, int filedes, char *list, size_t 
 ssize_t sys_listxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LISTXATTR)
+	#if DARWINOS
+		int options = 0;
+		return listxattr(path, list, size, options);	
+	#else
 	return listxattr(path, list, size);
+	#endif
 #elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, 0);
 #else
@@ -1459,7 +1476,12 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 {
 #if defined(HAVE_FLISTXATTR)
+	#if DARWINOS
+		int options = 0;
+		return flistxattr(filedes, list, size, options);	
+	#else
 	return flistxattr(filedes, list, size);
+	#endif
 #elif defined(HAVE_ATTR_LISTF)
 	return irix_attr_list(NULL, filedes, list, size, 0);
 #else
@@ -1471,7 +1493,12 @@ ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 int sys_removexattr (const char *path, const char *name)
 {
 #if defined(HAVE_REMOVEXATTR)
+	#if DARWINOS
+		int options = 0;
+		return removexattr(path, name, options);	
+	#else
 	return removexattr(path, name);
+	#endif
 #elif defined(HAVE_ATTR_REMOVE)
 	int flags = 0;
 	char *attrname = strchr(name,'.') +1;
@@ -1505,7 +1532,12 @@ int sys_lremovexattr (const char *path, const char *name)
 int sys_fremovexattr (int filedes, const char *name)
 {
 #if defined(HAVE_FREMOVEXATTR)
+	#if DARWINOS
+		int options = 0;
+		return fremovexattr(filedes, name, options);	
+	#else
 	return fremovexattr(filedes, name);
+	#endif
 #elif defined(HAVE_ATTR_REMOVEF)
 	int flags = 0;
 	char *attrname = strchr(name,'.') +1;
@@ -1527,7 +1559,13 @@ int sys_fremovexattr (int filedes, const char *name)
 int sys_setxattr (const char *path, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_SETXATTR)
+	#if DARWINOS
+		int options = 0; 
+				
+		return setxattr(path, name, value, size, 0, options);		
+	#else
 	return setxattr(path, name, value, size, flags);
+	#endif
 #elif defined(HAVE_ATTR_SET)
 	int myflags = 0;
 	char *attrname = strchr(name,'.') +1;
@@ -1565,7 +1603,13 @@ int sys_lsetxattr (const char *path, const char *name, const void *value, size_t
 int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_FSETXATTR)
+	#if DARWINOS
+		int options = 0;
+
+		return fsetxattr(filedes, name, value, size, 0, options);		
+	#else
 	return fsetxattr(filedes, name, value, size, flags);
+	#endif
 #elif defined(HAVE_ATTR_SETF)
 	int myflags = 0;
 	char *attrname = strchr(name,'.') +1;
@@ -1578,5 +1622,31 @@ int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size
 #else
 	errno = ENOSYS;
 	return -1;
+#endif
+}
+
+/****************************************************************************
+ Return the major devicenumber for UNIX extensions.
+****************************************************************************/
+                                                                                                                
+uint32 unix_dev_major(SMB_DEV_T dev)
+{
+#if defined(HAVE_DEVICE_MAJOR_FN)
+        return (uint32)major(dev);
+#else
+        return (uint32)(dev >> 8);
+#endif
+}
+                                                                                                                
+/****************************************************************************
+ Return the minor devicenumber for UNIX extensions.
+****************************************************************************/
+                                                                                                                
+uint32 unix_dev_minor(SMB_DEV_T dev)
+{
+#if defined(HAVE_DEVICE_MINOR_FN)
+        return (uint32)minor(dev);
+#else
+        return (uint32)(dev & 0xff);
 #endif
 }

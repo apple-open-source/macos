@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: trio.h,v 1.1.1.2 2004/02/05 20:17:02 rbraun Exp $
+ * $Id: trio.h,v 1.6 2003/04/03 15:28:27 veillard Exp $
  *
  * Copyright (C) 1998 Bjorn Reese and Daniel Stenberg.
  *

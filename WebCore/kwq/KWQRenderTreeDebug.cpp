@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,26 +25,37 @@
 
 #include "KWQRenderTreeDebug.h"
 
+#include "dom_docimpl.h"
+#include "dom_position.h"
 #include "htmltags.h"
+#include "jsediting.h"
 #include "khtmlview.h"
+#include "render_canvas.h"
 #include "render_replaced.h"
 #include "render_table.h"
 #include "render_text.h"
-#include "render_canvas.h"
+#include "render_br.h"
+#include "selection.h"
 
 #include "KWQKHTMLPart.h"
 #include "KWQTextStream.h"
 
+using DOM::DocumentImpl;
+using DOM::JSEditor;
+using DOM::NodeImpl;
+using DOM::Position;
+
+using khtml::BorderValue;
+using khtml::EBorderStyle;
+using khtml::InlineTextBox;
 using khtml::RenderLayer;
 using khtml::RenderObject;
 using khtml::RenderTableCell;
 using khtml::RenderWidget;
 using khtml::RenderText;
 using khtml::RenderCanvas;
-using khtml::InlineTextBox;
-using khtml::InlineTextBoxArray;
-using khtml::BorderValue;
-using khtml::EBorderStyle;
+using khtml::RenderBR;
+using khtml::Selection;
 using khtml::transparentColor;
 
 static void writeLayers(QTextStream &ts, const RenderLayer* rootLayer, RenderLayer* l,
@@ -100,6 +111,15 @@ static void printBorderStyle(QTextStream &ts, const RenderObject &o, const EBord
     ts << " ";
 }
 
+static QString getTagName(NodeImpl *n)
+{
+    if (n->isDocumentNode())
+        return "";
+    if (n->id() <= ID_LAST_TAG)
+        return getTagName(n->id()).string();
+    return n->nodeName().string();
+}
+
 static QTextStream &operator<<(QTextStream &ts, const RenderObject &o)
 {
     ts << o.renderName();
@@ -109,13 +129,20 @@ static QTextStream &operator<<(QTextStream &ts, const RenderObject &o)
     }
     
     if (o.element()) {
-        QString tagName(getTagName(o.element()->id()).string());
+        QString tagName = getTagName(o.element());
         if (!tagName.isEmpty()) {
             ts << " {" << tagName << "}";
         }
     }
     
-    QRect r(o.xPos(), o.yPos(), o.width(), o.height());
+    // FIXME: Will remove this <br> code once all layout tests pass.  Until then, we can't really change
+    // all the results easily.
+    bool usePositions = true;
+    if (o.isBR()) {
+        const RenderBR* br = static_cast<const RenderBR*>(&o);
+        usePositions = (br->firstTextBox() && br->firstTextBox()->isText());
+    }
+    QRect r(usePositions ? o.xPos() : 0, usePositions ? o.yPos() : 0, o.width(), o.height());
     ts << " " << r;
     
     if (!o.isText()) {
@@ -235,12 +262,11 @@ static void write(QTextStream &ts, const RenderObject &o, int indent = 0)
     
     ts << o << "\n";
     
-    if (o.isText()) {
+    if (o.isText() && !o.isBR()) {
         const RenderText &text = static_cast<const RenderText &>(o);
-        InlineTextBoxArray runs = text.inlineTextBoxes();
-        for (unsigned int i = 0; i < runs.count(); i++) {
+        for (InlineTextBox* box = text.firstTextBox(); box; box = box->nextTextBox()) {
             writeIndent(ts, indent+1);
-            writeTextRun(ts, text, *runs[i]);
+            writeTextRun(ts, text, *box);
         }
     }
 
@@ -252,8 +278,9 @@ static void write(QTextStream &ts, const RenderObject &o, int indent = 0)
     }
     
     if (o.isWidget()) {
-        KHTMLView *view = dynamic_cast<KHTMLView *>(static_cast<const RenderWidget &>(o).widget());
-        if (view) {
+        QWidget *widget = static_cast<const RenderWidget &>(o).widget();
+        if (widget && widget->inherits("KHTMLView")) {
+            KHTMLView *view = static_cast<KHTMLView *>(widget);
             RenderObject *root = KWQ(view->part())->renderer();
             if (root) {
                 view->layout();
@@ -265,7 +292,7 @@ static void write(QTextStream &ts, const RenderObject &o, int indent = 0)
     }
 }
 
-static void write(QTextStream &ts, const RenderLayer &l,
+static void write(QTextStream &ts, RenderLayer &l,
                   const QRect& layerBounds, const QRect& backgroundClipRect, const QRect& clipRect,
                   int layerType = 0, int indent = 0)
 {
@@ -278,6 +305,17 @@ static void write(QTextStream &ts, const RenderLayer &l,
         ts << " backgroundClip " << backgroundClipRect;
     if (layerBounds != layerBounds.intersect(clipRect))
         ts << " clip " << clipRect;
+
+    if (l.renderer()->hasOverflowClip()) {
+        if (l.scrollXOffset())
+            ts << " scrollX " << l.scrollXOffset();
+        if (l.scrollYOffset())
+            ts << " scrollY " << l.scrollYOffset();
+        if (l.renderer()->clientWidth() != l.scrollWidth())
+            ts << " scrollWidth " << l.scrollWidth();
+        if (l.renderer()->clientHeight() != l.scrollHeight())
+            ts << " scrollHeight " << l.scrollHeight();
+    }
 
     if (layerType == -1)
         ts << " layerType: background only";
@@ -320,8 +358,98 @@ static void writeLayers(QTextStream &ts, const RenderLayer* rootLayer, RenderLay
     }
 }
 
+static QString nodePositionRelativeToRoot(NodeImpl *node, NodeImpl *root)
+{
+    QString result;
+
+    NodeImpl *n = node;
+    while (1) {
+        NodeImpl *p = n->parentNode();
+        if (!p || n == root) {
+            result += " of root {" + getTagName(n) + "}";
+            break;
+        }
+        if (n != node)
+            result +=  " of ";
+        int count = 1;
+        for (NodeImpl *search = p->firstChild(); search != n; search = search->nextSibling())
+            count++;
+        result +=  "child " + QString::number(count) + " {" + getTagName(n) + "}";
+        n = p;
+    }
+    
+    return result;
+}
+
+static void writeSelection(QTextStream &ts, const RenderObject *o)
+{
+    NodeImpl *n = o->element();
+    if (!n || !n->isDocumentNode())
+        return;
+
+    DocumentImpl *doc = static_cast<DocumentImpl *>(n);
+    if (!doc->part())
+        return;
+    
+    Selection selection = doc->part()->selection();
+    if (selection.isNone())
+        return;
+
+    if (!selection.start().node()->isContentEditable() || !selection.end().node()->isContentEditable())
+        return;
+
+    Position startPosition = selection.start();
+    Position endPosition = selection.end();
+
+    QString startNodeTagName(getTagName(startPosition.node()));
+    QString endNodeTagName(getTagName(endPosition.node()));
+    
+    NodeImpl *rootNode = doc->getElementById("root");
+    
+    if (selection.isCaret()) {
+        Position upstream = startPosition.upstream(DOM::StayInBlock);
+        Position downstream = startPosition.downstream(DOM::StayInBlock);
+        QString positionString = nodePositionRelativeToRoot(startPosition.node(), rootNode);
+        QString upstreamString = nodePositionRelativeToRoot(upstream.node(), rootNode);
+        QString downstreamString = nodePositionRelativeToRoot(downstream.node(), rootNode);
+        ts << "selection is CARET:\n" << 
+            "start:      position " << startPosition.offset() << " of " << positionString << "\n"
+            "upstream:   position " << upstream.offset() << " of " << upstreamString << "\n"
+            "downstream: position " << downstream.offset() << " of " << downstreamString << "\n"; 
+    }
+    else if (selection.isRange()) {
+        QString startString = nodePositionRelativeToRoot(startPosition.node(), rootNode);
+        Position upstreamStart = startPosition.upstream(DOM::StayInBlock);
+        QString upstreamStartString = nodePositionRelativeToRoot(upstreamStart.node(), rootNode);
+        Position downstreamStart = startPosition.downstream(DOM::StayInBlock);
+        QString downstreamStartString = nodePositionRelativeToRoot(downstreamStart.node(), rootNode);
+        QString endString = nodePositionRelativeToRoot(endPosition.node(), rootNode);
+        Position upstreamEnd = endPosition.upstream(DOM::StayInBlock);
+        QString upstreamEndString = nodePositionRelativeToRoot(upstreamEnd.node(), rootNode);
+        Position downstreamEnd = endPosition.downstream(DOM::StayInBlock);
+        QString downstreamEndString = nodePositionRelativeToRoot(downstreamEnd.node(), rootNode);
+        ts << "selection is RANGE:\n" <<
+            "start:      position " << startPosition.offset() << " of " << startString << "\n" <<
+            "upstream:   position " << upstreamStart.offset() << " of " << upstreamStartString << "\n"
+            "downstream: position " << downstreamStart.offset() << " of " << downstreamStartString << "\n"
+            "end:        position " << endPosition.offset() << " of " << endString << "\n"
+            "upstream:   position " << upstreamEnd.offset() << " of " << upstreamEndString << "\n"
+            "downstream: position " << downstreamEnd.offset() << " of " << downstreamEndString << "\n"; 
+    }
+}
+
+static bool debuggingRenderTreeFlag = false;
+
+bool debuggingRenderTree()
+{
+    return debuggingRenderTreeFlag;
+}
+
 QString externalRepresentation(RenderObject *o)
 {
+    debuggingRenderTreeFlag = true;
+    JSEditor::setSupportsPasteCommand(true);
+
     QString s;
     {
         QTextStream ts(&s);
@@ -331,8 +459,10 @@ QString externalRepresentation(RenderObject *o)
             o->canvas()->view()->setVScrollBarMode(QScrollView::AlwaysOff);
             o->canvas()->view()->layout();
             RenderLayer* l = o->layer();
-            if (l)
+            if (l) {
                 writeLayers(ts, l, l, QRect(l->xPos(), l->yPos(), l->width(), l->height()));
+                writeSelection(ts, o);
+            }
         }
     }
     return s;

@@ -1,0 +1,102 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>INSTALLSIEVE</title>
+</head>
+<body>
+
+<h1 align=center>INSTALLSIEVE</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:18 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>installsieve &minus; user utility for managing sieve
+scripts</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>installsieve</b></p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>installsieve</i> is a utility that allows users to
+manage their sieve scripts kept on the server.</p>
+</td>
+</table></p>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>-v &lt;name&gt;</i> View script with the given name.
+The script if retrieved sucessfully is output to standard
+output.</p>
+<!-- INDENTATION -->
+<p><i>-l</i> List all of the scripts currently on the
+server. If one of the scripts is active a arrow is printed
+indicating that it is the active script.</p>
+<!-- INDENTATION -->
+<p><i>-p &lt;port&gt;</i> Port to connect to. If left off
+this defaults to &quot;sieve&quot; as defined in
+/etc/services.</p>
+<!-- INDENTATION -->
+<p><i>-i &lt;file&gt;</i> Install a file onto the server. If
+a script with the same name already exists on the server it
+is overwritten. Upon sucessfully putting the script on the
+server the script is set active. If &lt;file&gt; has the
+extension .script it is chopped when put on the server since
+sieve names may not contain a &rsquo;.&rsquo;.</p>
+<!-- INDENTATION -->
+<p><i>-a &lt;name&gt;</i> Set &lt;name&gt; as the active
+script. The list of available names can be obtained from the
+&rsquo;-l&rsquo; option..</p>
+<!-- INDENTATION -->
+<p><i>-d &lt;name&gt;</i> Delete the sieve script on the
+server with &lt;name&gt;.</p>
+<!-- INDENTATION -->
+<p><i>-m &lt;mechanism&gt;</i> Force installsieve to use
+&lt;mechanism&gt; for authentication. If not specified the
+strongest authentication mechanism is chosen.</p>
+<!-- INDENTATION -->
+<p><i>-g &lt;name&gt;</i> Get the sieve script with
+&lt;name&gt; and save it to disk with a &quot;.script&quot;
+extension. If a file with that name already exists it is
+overwritten.</p>
+<!-- INDENTATION -->
+<p><i>-u &lt;user&gt;</i> Userid/Authname to use for
+authentication; by default, the current user.</p>
+</td>
+</table></p>
+<hr>
+</body>
+</html>

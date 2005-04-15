@@ -80,7 +80,7 @@ void writeToServer( FILE *out, char *buf )
 {
     DEBUGLOG( "sending: %s", buf);
     
-    if ( buf != NULL )
+    if ( buf != NULL && out != NULL )
     {
         fwrite(buf, strlen(buf), 1, out);
         fflush(out);

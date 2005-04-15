@@ -1,13 +1,13 @@
 <HTML>
-<!--This file created 4/16/04 4:13 PM by Claris Home Page version 3.0-->
+<!--This file created 1/13/05 5:30 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Mac OS X Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=46 BOTTOM=848 LEFT=123 RIGHT=807>
+   <X-CLARIS-WINDOW TOP=185 BOTTOM=987 LEFT=190 RIGHT=874>
    <X-CLARIS-TAGVIEW MODE=minimal>
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<H1>Mac OS X 10.3.4 Release Notes:<BR>
+<H1>Mac OS X Xcode 2.0 Release Notes:<BR>
 Compiler Tools</H1>
 
 <P><!-- start of path --> <TABLE BORDER=0 CELLSPACING=0 WIDTH=600 valign=left>
@@ -21,19 +21,310 @@ Compiler Tools</H1>
 <BR>
 <!-- end of path --> <A HREF="index.html"><IMG SRC="Images/up.gif" WIDTH=36 HEIGHT=16 BORDER=0 ALIGN=bottom></A></P>
 
-<P>These notes are for the MacOS X 10.3.4 Release of the compiler
+<P>These notes are for the MacOS X Xcode 2.0 Release of the compiler
 tools. They contain information about the following topics:</P>
 
 <UL>
    <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
    
-   <LI>The Mac OS X Mach-O static link editor</LI>
-   
-   <LI>The Mac OS X Mach-O dynamic link editor</LI>
+   <LI>The Mac OS X 32-bit Mach-O static link editor</LI>
    
    <LI>Mach-O object file tools (<B>nm</B>, <B>otool</B>, and so
    on)</LI>
 </UL>
+
+<H2>Notes Specific to Mac OS X Xcode 2.0 Release</H2>
+
+<H2>New Features</H2>
+
+<P>The tools now support development of 64-bit Mach-O binaries for
+the PowerPC with the -arch ppc64 flag. The one tool that has not been
+seamlessly ported for this release is otool(1). And there is an
+otool64(1) for 64-bit Mach-O binaries.</P>
+
+<H2>Notes Specific to Mac OS X Xcode 1.5 Release</H2>
+
+<H2>New Features</H2>
+
+<H3><FONT SIZE="+1">The static linker has an option to do dead code
+stripping</FONT></H3>
+
+<P>The static link editor now can do dead code stripping. The new
+<I>ld</I>(1) option to do this is <B>-dead_strip</B>. There is also
+an additional option <B>-no_dead_strip_inits_and_terms</B> that can
+be used when <B>-dead_strip</B> is specified to cause all
+constructors and destructors to never be dead code stripped. The load
+map printed with the <I>ld</I>(1) option <B>-M</B> notes what was
+dead stripped from the input files.</P>
+
+<P>There is one known bug with the tools that do dead code stripping.
+It is possible for some debugging information for types made to be
+stripped. This can lead to the debugger not being able to print the
+values of some variables and get unknow type errors.</P>
+
+<P>For testing, the environment variable LD_DEAD_STRIP can be set.
+which causes <B>-dead_strip</B> to specified for all <I>ld</I>(1)
+commands that don't specify the <B>-r</B> option. The environment
+variable LD_NO_DEAD_STRIP_INITS_AND_TERMS likewise causes
+<B>-no_dead_strip_inits_and_terms</B> to specified for all
+<I>ld</I>(1) commands that don't specify the <B>-r</B> option. And
+the environment variable LD_DEAD_STRIP_DYLIB causes
+<B>-dead_strip</B> to specified for all <I>ld</I>(1) commands that
+have the <B>-dylib</B> option specified.</P>
+
+<P>The static link editor determines what unreachable code and data
+can be stripped based on the references from the initial live symbols
+and blocks. The initial live symbols include the symbols to be
+exported in the linked output. The set of exported symbols are
+specified with the <B>-exported_symbols_list</B> option or a list of
+symbols not to be exported is specified with the
+<B>-unexported_symbols_list </B>option. If no exported symbols are
+specified and the output is not an executable (shared library,
+bundle, etc) it is assumed all global symbols are to be exported. If
+the output is a shared library and a shared library initialization
+symbol is specified with <B>-init</B> <I>symbol_name</I> option then
+that <I>symbol_name</I> is an initial live symbol. If the output is
+an executable then the block that contains the entry point or the
+symbol specified with the <B>-e</B> <I>symbol_name</I> is an initial
+live symbol. Other symbols can be marked by the programmer as an
+initial live symbols with the GNU compiler's __attribute__((used)).
+For Objective-C code, the compiler will also mark the blocks of
+Objective-C runtime data it produces so they are part of the initial
+live blocks. For symbols marked referenced dynamically (via the
+REFERENCED_DYNAMICALLY bit in &lt;mach-o/nlist.h&gt;), such as the
+symbol <B>_environ</B> from /usr/lib/crt1.o, they are also part of
+the initial live symbols.</P>
+
+<P>Before turning on the <B>-dead_strip</B> option your project will
+first have to be "ported" to work with dead code stripping. This will
+include changing from -gused (the default for -g) to -gfull and
+re-compiling all of the objects files being linked into your program
+with the new compiler from the Mac OS X June 2004 release. Also if
+your building an executable that loads plugins, which uses symbols
+from the executable, you will have to make sure the symbols the
+plugins use are not stripped (by using __attribute__((used)) or the
+<B>-exported_symbols_list</B> option). If you are using an export
+list and building a shared library, or an executable that will be
+used with ld(1)'s -bundle_loader flag, you need to include the
+symbols for exception frame information in the export list for your
+exported C++ symbols. These symbols end with .eh and can be seen with
+the nm(1) tool.</P>
+
+<P>Various auto configure test programs that expect to get undefined
+symbol errors when they have a possible undefined symbol referenced
+from dead code can't use the <B>-dead_strip</B> option. Because the
+dead code and the unused undefined reference will be stripped
+allowing the program to successfully linked. We have geneally found
+that auto configure programs on UNIX based system can't be configured
+with <B>the -dead_strip</B> option on.</P>
+
+<P>Recompiling with a new compiler is required to get effective dead
+code stripping. As it marks the object files it creates as OK to
+divide up the section contents into individual blocks by the symbols
+that are in the object files. Objects not marked are assumed to be
+generated from assembly code, older compilers, or from compilers that
+are not know to be safe to divide up their section contents by their
+symbols. For non-marked objects if any symbol is used from a section
+the entire section is kept and not dead stripped.</P>
+
+<H3>Work around for objects incorrectly marked object files as OK to
+divide up</H3>
+
+<P>The new compiler unconditionally marks the object files it creates
+as OK to divide up. There may be cases, especially with <B>asm()</B>
+statements, that it should not mark the object it creates as OK to
+divide up. In these cases turning on the <B>-dead_strip</B> option
+may fail to produce a working program because it can incorrectly
+strip a live block. The reason for this is that the heuristic of
+dividing up the section contents by their symbols is incorrect if any
+individual block has more than one symbol. This makes the heuristic
+fragile.</P>
+
+<P>The reason that the current dead code stripping inplementation is
+fragile is because the static linker is guessing at the structure of
+the program. Namely it is guess at which bytes of a section make up a
+individual block of code or data. It makes its guess based on the
+symbols that are in the object files being linked. In the same way it
+guesses for the blocks it uses for the <B>-sectorder</B> option. With
+the difference being that all sections are broken up into individual
+blocks with the goal to eliminate the unreachable (dead) blocks in
+the linked output. The reason this is fragile is that all the symbols
+in an object file may not be the start of an individual block.</P>
+
+<P>As a workaround to the problem of incorrectly strip a live block
+you can produce a <B>-sectorder</B> file for objects that have
+section contents that must be linked whole. You would create a line
+in the sectorder file specifying the object and the psuedo symbol
+<I>.section_all</I>. For example if .text section of crt1.o and the
+archive member of darwin-tramp.o in libgcc.a must be linked whole,
+you would add the following:</P>
+
+<BLOCKQUOTE>/usr/lib/crt1.o:.section_all<BR>
+   /usr/lib/libgcc.a:darwin-tramp.o:section_all</BLOCKQUOTE>
+
+<P>to your <I>order_file</I> for the __TEXT __text section. Then use
+the ld(1) option <B>-sectorder</B> __TEXT __text <I>order_file</I>
+when linking.</P>
+
+<H3>Current design limitations</H3>
+
+<P>There is a limitation in the current design for individual blocks
+that have no symbols visible in the object file. Symbols that are
+temporary labels that start with a 'L', or symbols that have been
+stripped. An individual block that starts with these symbols will
+appear to be part of the previous block that has a symbol in the
+object file. This can result in a linked image that does not have all
+of its dead code stripped. When what would have been a dead
+individual block becomes part of the previous block which is live.
+Causing the dead individual block and all of its references to be
+live.</P>
+
+<P>By default when there are multiply defined symbols in the linked
+objects this is treated as an error. Even when the <B>-dead_strip</B>
+option is specified. Unused multiply defined symbols can be stripped
+if the strongly discouraged <B>-m</B> option is also specified. The
+duplicate symbols other than the first symbol may still end up being
+used in the resulting output file through local references
+however.</P>
+
+<P>Symbols from the linked objects in the output file that are only
+referenced via a shared library will not be dead stripped. Currently
+the static linker marks them with the REFERENCED_DYNAMICALLY bit in
+&lt;mach-o/nlist.h&gt; which causes them to be live.</P>
+
+<P>There is no support in the current design to dead strip branch
+islands created with the compiler option <B>-mlongcall</B>.</P>
+
+<H2>Assembly level and object file support for dead code
+stripping</H2>
+
+<H3>Marking of objects that can have their section contents divided
+up</H3>
+
+<P>The marking of object files which are OK to divide their section
+contents into individual blocks is done with the new assembler
+directive <B>.subsections_via_symbols</B>. This directive sets a
+previously unused bit in the object file's mach_header structure in
+the flags field. This bit is defined as the following new constant in
+the header file &lt;mach-o/loader.h&gt;:</P>
+
+<BLOCKQUOTE>#define MH_SUBSECTIONS_VIA_SYMBOLS 0x2000 /* safe to
+   divide up the sections into<BR>
+   sub-sections via symbols for dead<BR>
+   code stripping */</BLOCKQUOTE>
+
+<P>This can be see with <I>otool</I>(1)'s <B>-hv</B> options and
+shows up as <B>SUBSECTIONS_VIA_SYMBOLS </B>in the following
+output:</P>
+
+<BLOCKQUOTE>% otool.NEW -hv a.out<BR>
+   a.out:<BR>
+   Mach header<BR>
+   magic cputype cpusubtype filetype ncmds sizeofcmds flags<BR>
+   MH_MAGIC PPC ALL OBJECT 3 228 <B>SUBSECTIONS_VIA_SYMBOLS</B></BLOCKQUOTE>
+
+<P>The new assembler directive <B>.subsections_via_symbols</B> can be
+added to hand written assembly files provided the symbols are at the
+start of individual blocks. Since this applies to the entire file,
+when multiple object files are combined by the static link ediror,
+ld(1), to produce a relocable object, using the -r flag, if any of
+the objects do not have this flag set the output file will not have
+this flag set.</P>
+
+<P>For example this assembly code contains only two individual blocks
+but four symbols:</P>
+
+<BLOCKQUOTE>.text<BR>
+   .globl _plus_three<BR>
+   _plus_three:<BR>
+   addi r3, r3, 1<BR>
+   .globl _plus_two<BR>
+   _plus_two:<BR>
+   addi r3, r3, 1<BR>
+   .globl _plus_one<BR>
+   _plus_one:<BR>
+   addi r3, r3, 1<BR>
+   blr<BR>
+   <BR>
+   .globl _some_other_routine<BR>
+   _some_other_routine:<BR>
+   blr</BLOCKQUOTE>
+
+<P>And if the new assembler directive <B>.subsections_via_symbols</B>
+were added to the above code the static link editor would make 4
+blocks about of the above code. Then if the program uses _add_three
+but not _add_two or _add_one it will get the wrong answer if the
+<B>-dead_strip</B> option is used. As the blocks for _add_two or
+_add_one will be dead stripped. And if _some_other_routine is not
+live then when _add_three is called it will fall through to what ever
+bit of code follows it and likely crash.</P>
+
+<H3>The .no_dead_strip assembler directive</H3>
+
+<P>The new assembler directive <B>.no_dead_strip</B>
+<I>symbol_name</I> can be used to specify that a symbol is not to be
+dead stripped. For example:</P>
+
+<BLOCKQUOTE>.no_dead_strip _my_version_string<BR>
+   .cstring<BR>
+   _my_version_string:<BR>
+   .ascii "cctools-501"</BLOCKQUOTE>
+
+<P>This can be seen (in object files only) with <I>nm</I>(1)'s
+<B>-m</B> option and shows up as <B>&#91;no dead strip&#93;</B> in
+the following output:</P>
+
+<BLOCKQUOTE>% nm -m x.o<BR>
+   00000000 (__TEXT,__cstring) non-external <B>&#91;no dead
+   strip&#93;</B> _my_version_string</BLOCKQUOTE>
+
+<P>The <B>.no_dead_strip</B> directive is generated by the new
+compiler when the __attribute__((used)) is specified on a symbol.</P>
+
+<P>In object files, this bit is N_NO_DEAD_STRIP as defined in
+&lt;mach-o/nlist.h&gt;. And is set in relocatable .o files (MH_OBJECT
+filetype) only in the n_desc field of an nlist struct.</P>
+
+<H3>The section attribute no_dead_strip</H3>
+
+<P>The new section attribute <B>no_dead_strip</B> can be specified on
+a section to cause its entire contents to not to be dead stripped.
+The new compiler uses this for all Objective-C sections it creates.
+For example:</P>
+
+<BLOCKQUOTE>.section __OBJC, __image_info, regular,
+   <B>no_dead_strip</B></BLOCKQUOTE>
+
+<P>In object files, this bit is S_ATTR_NO_DEAD_STRIP as defined in
+&lt;mach-o/loader.h&gt;. And is set in the flags field of a section
+struct.</P>
+
+<H3>The section attribute live_support</H3>
+
+<P>The new section attribute <B>live_support</B> can be specified on
+a section to cause its blocks to not be dead stripped if they
+reference something that is live. The new compiler uses this for C++
+exception frame information. For example:</P>
+
+<BLOCKQUOTE>.section __TEXT, __eh_frame, coalesced,
+   no_toc+strip_static_syms+<B>live_support</B></BLOCKQUOTE>
+
+<P>In object files, this bit is S_ATTR_LIVE_SUPPORT as defined in
+&lt;mach-o/loader.h&gt;. And is set in the flags field of a section
+struct.</P>
+
+<H3><FONT SIZE="+1">The assembler has a new .machine
+directive</FONT></H3>
+
+<P>The assembler now takes a new <B>.machine</B> directive as an
+alternate to using the command line <B>-arch</B> <I>arch_name</I>
+option. It is specified as for example as:</P>
+
+<BLOCKQUOTE>.machine ppc970</BLOCKQUOTE>
+
+<P>Where <I>ppc970</I> can be any <I>arch_name</I> that would appear
+in the <B>-arch</B> <I>arch_name</I> option as listed on the
+<I>arch</I>(3) man page for the assembler's architecture family.</P>
 
 <H2>Notes Specific to Mac OS X 10.3.4 Release</H2>
 

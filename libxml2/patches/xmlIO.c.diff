@@ -1,0 +1,11 @@
+--- xmlIO.c.orig.c	2004-09-28 05:17:49.000000000 -0700
++++ xmlIO.c	2004-11-29 10:07:20.000000000 -0800
+@@ -129,7 +129,7 @@
+  *									*
+  ************************************************************************/
+ 
+-static const char *IOerr[] = {
++static const char * const IOerr[] = {
+     "Unknown IO error",         /* UNKNOWN */
+     "Permission denied",	/* EACCES */
+     "Resource temporarily unavailable",/* EAGAIN */

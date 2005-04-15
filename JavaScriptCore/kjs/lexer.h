@@ -38,10 +38,11 @@ namespace KJS {
     ~Lexer();
     static Lexer *curr();
 
-    void setCode(const UChar *c, unsigned int len);
+    void setCode(const UString &sourceURL, int startingLineNumber, const UChar *c, unsigned int len);
     int lex();
 
-    int lineNo() const { return yylineno + 1; }
+    int lineNo() const { return yylineno; }
+    UString sourceURL() const { return m_sourceURL; }
 
     bool prevTerminator() const { return terminator; }
 
@@ -74,6 +75,7 @@ namespace KJS {
 
   private:
     int yylineno;
+    UString m_sourceURL;
     bool done;
     char *buffer8;
     UChar *buffer16;
@@ -98,7 +100,6 @@ namespace KJS {
 
     bool isWhiteSpace() const;
     bool isLineTerminator();
-    bool isHexDigit(unsigned short c) const;
     bool isOctalDigit(unsigned short c) const;
 
     int matchPunctuator(unsigned short c1, unsigned short c2,
@@ -113,6 +114,7 @@ namespace KJS {
                                 unsigned short c3, unsigned short c4);
     static bool isIdentLetter(unsigned short c);
     static bool isDecimalDigit(unsigned short c);
+    static bool isHexDigit(unsigned short c);
 
 #ifdef KJS_DEBUG_MEM
     /**
@@ -121,6 +123,7 @@ namespace KJS {
     static void globalClear();
 #endif
 
+    bool sawError() const { return error; }
     void doneParsing();
 
   private:
@@ -137,6 +140,7 @@ namespace KJS {
 #ifndef KJS_PURE_ECMA
     int bol;     // begin of line
 #endif
+    bool error;
 
     // current and following unicode characters
     unsigned short current, next1, next2, next3;

@@ -873,6 +873,7 @@ Optional Packages:
   --with-smbwrapper       Include SMB wrapper support (default=no)
   --with-afs              Include AFS clear-text auth support (default=no)
   --with-fake-kaserver    Include AFS fake-kaserver support (default=no)
+  --with-vfs-afsacl       Include AFS to NT ACL mapping module (default=no)
   --with-dce-dfs          Include DCE/DFS clear-text auth support (default=no)
   --with-ldap             LDAP support (default yes)
   --with-ads              Active Directory support (default auto)
@@ -1371,6 +1372,14 @@ esac
 else
   enable_shared=yes
 fi;
+
+SMB_VERSION_STRING=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_OFFICIAL_STRING' | cut -d '"' -f2`
+echo "SAMBA VERSION: ${SMB_VERSION_STRING}"
+
+SAMBA_VERSION_SVN_REVISION=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_SVN_REVISION' | cut -d ' ' -f3-`
+if test -n "${SAMBA_VERSION_SVN_REVISION}";then
+	echo "BUILD REVISION: ${SAMBA_VERSION_SVN_REVISION}"
+fi
 
 #################################################
 # Directory handling stuff to support both the
@@ -3067,6 +3076,39 @@ echo "$as_me:$LINENO: result: $ac_cv_prog_gnu_ld" >&5
 echo "${ECHO_T}$ac_cv_prog_gnu_ld" >&6
 
 
+if test "$ac_cv_prog_gnu_ld" = "yes"; then
+	ac_cv_gnu_ld_version=`$LD -v 2>/dev/null | head -1`
+	echo "$as_me:$LINENO: checking GNU ld release date" >&5
+echo $ECHO_N "checking GNU ld release date... $ECHO_C" >&6
+		ac_cv_gnu_ld_date=`echo $ac_cv_gnu_ld_version | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
+		echo "$as_me:$LINENO: result: ${ac_cv_gnu_ld_date}" >&5
+echo "${ECHO_T}${ac_cv_gnu_ld_date}" >&6
+        if test -n "$ac_cv_gnu_ld_date"; then
+           if test "$ac_cv_gnu_ld_date" -lt 20030217; then
+              ac_cv_gnu_ld_no_default_allow_shlib_undefined=yes
+           fi
+        else
+           echo "$as_me:$LINENO: checking GNU ld release version" >&5
+echo $ECHO_N "checking GNU ld release version... $ECHO_C" >&6
+                      ac_cv_gnu_ld_vernr=`echo $ac_cv_gnu_ld_version | sed -n 's,^.*\([1-9][0-9]*\.[0-9][0-9]*\).*$,\1,p'`
+           ac_cv_gnu_ld_vernr_major=`echo $ac_cv_gnu_ld_vernr | cut -d '.' -f 1`
+           ac_cv_gnu_ld_vernr_minor=`echo $ac_cv_gnu_ld_vernr | cut -d '.' -f 2`
+                      echo "$as_me:$LINENO: result: ${ac_cv_gnu_ld_vernr}" >&5
+echo "${ECHO_T}${ac_cv_gnu_ld_vernr}" >&6
+           echo "$as_me:$LINENO: checking GNU ld release version major" >&5
+echo $ECHO_N "checking GNU ld release version major... $ECHO_C" >&6
+           echo "$as_me:$LINENO: result: ${ac_cv_gnu_ld_vernr_major}" >&5
+echo "${ECHO_T}${ac_cv_gnu_ld_vernr_major}" >&6
+           echo "$as_me:$LINENO: checking GNU ld release version minor" >&5
+echo $ECHO_N "checking GNU ld release version minor... $ECHO_C" >&6
+           echo "$as_me:$LINENO: result: ${ac_cv_gnu_ld_vernr_minor}" >&5
+echo "${ECHO_T}${ac_cv_gnu_ld_vernr_minor}" >&6
+           if test "$ac_cv_gnu_ld_vernr_major" -lt 2 || test "$ac_cv_gnu_ld_vernr_minor" -lt 14; then
+             ac_cv_gnu_ld_no_default_allow_shlib_undefined=yes
+           fi
+        fi
+fi
+
 
 echo "$as_me:$LINENO: checking for library containing strerror" >&5
 echo $ECHO_N "checking for library containing strerror... $ECHO_C" >&6
@@ -3613,7 +3655,7 @@ DYNEXP=
 
 default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_net rpc_dfs rpc_srv rpc_spoolss auth_rhosts auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
 
-default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy"
+default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_full_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy charset_CP850 charset_CP437"
 
 if test "x$developer" = xyes; then
    default_static_modules="$default_static_modules rpc_echo"
@@ -3722,7 +3764,6 @@ _ACEOF
 
 				;;
       esac
-      DYNEXP="-Wl,-E"
       ;;
 
 #
@@ -3764,7 +3805,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 		case `uname -r` in
-			5.0*|5.1*|5.2*|5.3*|5.5*)
+			5.0|5.0.*|5.1|5.1.*|5.2|5.2.*|5.3|5.3.*|5.5|5.5.*)
 	  			echo "$as_me:$LINENO: result: no large file support" >&5
 echo "${ECHO_T}no large file support" >&6
 				;;
@@ -3777,7 +3818,8 @@ echo "${ECHO_T}enabling large file support" >&6
 				rm -fr conftest.c
 				case "$ac_cv_gcc_compiler_version_number" in
 					*"gcc version 2.6"*|*"gcc version 2.7"*)
-						CPPFLAGS="$CPPFLAGS -D_LARGEFILE64_SOURCE"
+						CPPFLAGS="$CPPFLAGS -D_LARGEFILE64_SOURCE -D_REENTRANT"
+						LDFLAGS="$LDFLAGS -lthread"
 
 cat >>confdefs.h <<\_ACEOF
 #define _LARGEFILE64_SOURCE 1
@@ -3785,7 +3827,8 @@ _ACEOF
 
 						;;
 					*)
-						CPPFLAGS="$CPPFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
+						CPPFLAGS="$CPPFLAGS -D_LARGEFILE_SOURCE -D_REENTRANT -D_FILE_OFFSET_BITS=64"
+						LDFLAGS="$LDFLAGS -lthread"
 
 cat >>confdefs.h <<\_ACEOF
 #define _LARGEFILE64_SOURCE 1
@@ -3799,7 +3842,8 @@ _ACEOF
 						;;
 				esac
 			else
-				CPPFLAGS="$CPPFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
+				CPPFLAGS="$CPPFLAGS -D_LARGEFILE_SOURCE -D_REENTRANT -D_FILE_OFFSET_BITS=64"
+				LDFLAGS="$LDFLAGS -lthread"
 
 cat >>confdefs.h <<\_ACEOF
 #define _LARGEFILE64_SOURCE 1
@@ -3824,7 +3868,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 		;;
-	*freebsd*)
+	*freebsd*|*DragonFly*)
 
 cat >>confdefs.h <<\_ACEOF
 #define FREEBSD 1
@@ -4034,6 +4078,15 @@ echo "${ECHO_T}$LINUX_LFS_SUPPORT" >&6
     *darwin*)
 
 cat >>confdefs.h <<\_ACEOF
+#define DARWINOS 1
+_ACEOF
+
+	cat >>confdefs.h <<\_ACEOF
+#define STAT_ST_BLOCKSIZE 512
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
 #define BROKEN_UNICODE_COMPOSE_CHARACTERS 1
 _ACEOF
 
@@ -4197,7 +4250,8 @@ done
 
 # Add a system specific charset module.
 
-	#DISABLE !!!charset_macosxfs!!! default_shared_modules="$default_shared_modules charset_macosxfs"
+	#default_shared_modules="$default_shared_modules charset_macosxfs"
+	default_shared_modules=""
 	;;
     *hurd*)
         echo "$as_me:$LINENO: checking for LFS support" >&5
@@ -5115,8 +5169,7 @@ done
 
 
 
-
-for ac_header in unistd.h utime.h grp.h sys/id.h limits.h memory.h net/if.h
+for ac_header in unistd.h utime.h grp.h sys/id.h limits.h memory.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -5996,7 +6049,7 @@ done
 
 
 
-for ac_header in pam/pam_modules.h pam/_pam_macros.h dlfcn.h
+for ac_header in sys/sysmacros.h security/_pam_macros.h dlfcn.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -6426,6 +6479,292 @@ done
 
 
 # Look for Darwin headers
+
+
+for ac_header in pam/pam_modules.h pam/_pam_macros.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+else
+  # Is the header compilable?
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <$ac_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_header_compiler=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
+
+# Is the header present?
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <$ac_header>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+rm -f conftest.err conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc in
+  yes:no )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
+    (
+      cat <<\_ASBOX
+## ------------------------------------ ##
+## Report this to bug-autoconf@gnu.org. ##
+## ------------------------------------ ##
+_ASBOX
+    ) |
+      sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+  no:yes )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: $ac_header: check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
+    (
+      cat <<\_ASBOX
+## ------------------------------------ ##
+## Report this to bug-autoconf@gnu.org. ##
+## ------------------------------------ ##
+_ASBOX
+    ) |
+      sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+esac
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  eval "$as_ac_Header=$ac_header_preproc"
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+
+fi
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+
+done
+
+
+
+for ac_header in pam/pam_appl.h pam/pam_modules.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+else
+  # Is the header compilable?
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <$ac_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_header_compiler=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
+
+# Is the header present?
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <$ac_header>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+rm -f conftest.err conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc in
+  yes:no )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
+    (
+      cat <<\_ASBOX
+## ------------------------------------ ##
+## Report this to bug-autoconf@gnu.org. ##
+## ------------------------------------ ##
+_ASBOX
+    ) |
+      sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+  no:yes )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: $ac_header: check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
+    (
+      cat <<\_ASBOX
+## ------------------------------------ ##
+## Report this to bug-autoconf@gnu.org. ##
+## ------------------------------------ ##
+_ASBOX
+    ) |
+      sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+esac
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  eval "$as_ac_Header=$ac_header_preproc"
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+
+fi
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+
+done
+
 old_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="-Iinclude $CPPFLAGS"
 
@@ -6917,8 +7256,7 @@ esac
 
 
 
-
-for ac_header in shadow.h netinet/ip.h netinet/tcp.h netinet/in_systm.h netinet/in_ip.h
+for ac_header in shadow.h netinet/tcp.h netinet/in_systm.h netinet/in_ip.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -7065,8 +7403,7 @@ done
 
 
 
-
-for ac_header in nss.h nss_common.h nsswitch.h ns_api.h sys/security.h security/pam_appl.h security/pam_modules.h
+for ac_header in nss.h nss_common.h nsswitch.h ns_api.h sys/security.h security/pam_appl.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -7632,6 +7969,64 @@ echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
 echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 
 fi
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+
+done
+
+# These faile to compile on Solaris so just check for their presence
+
+
+
+for ac_header in security/pam_modules.h net/if.h netinet/ip.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <$ac_header>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  eval "$as_ac_Header=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  eval "$as_ac_Header=no"
+fi
+rm -f conftest.err conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 if test `eval echo '${'$as_ac_Header'}'` = yes; then
   cat >>confdefs.h <<_ACEOF
 #define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
@@ -10112,6 +10507,10 @@ _ACEOF
 		CFLAGS="$CFLAGS `$CUPS_CONFIG --cflags`"
 		LDFLAGS="$LDFLAGS `$CUPS_CONFIG --ldflags`"
 		PRINT_LIBS="$PRINT_LIBS `$CUPS_CONFIG --libs`"
+	elif test x"$enable_cups" = x"yes"; then
+		{ { echo "$as_me:$LINENO: error: Cups support required but cups-config not located.  Make sure cups-devel related files are installed." >&5
+echo "$as_me: error: Cups support required but cups-config not located.  Make sure cups-devel related files are installed." >&2;}
+   { (exit 1); exit 1; }; }
         fi
 fi
 
@@ -13095,8 +13494,7 @@ done
 
 
 
-
-for ac_func in fstat strchr utime utimes getrlimit fsync bzero memset strlcpy strlcat setpgid
+for ac_func in fstat strchr utime utimes getrlimit fsync memset strlcpy strlcat setpgid
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -19188,7 +19586,11 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 			BLDSHARED="true"
-			LDSHFLAGS="-shared"
+			if test "${ac_cv_gnu_ld_no_default_allow_shlib_undefined}" = "yes"; then
+				LDSHFLAGS="-shared -Wl,-Bsymbolic -Wl,--allow-shlib-undefined"
+			else
+				LDSHFLAGS="-shared -Wl,-Bsymbolic"
+			fi
 			DYNEXP="-Wl,--export-dynamic"
 			PICFLAGS="-fPIC"
 			SONAMEFLAG="-Wl,-soname="
@@ -19247,7 +19649,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 			;;
-		*netbsd* | *freebsd*)  BLDSHARED="true"
+		*netbsd* | *freebsd* | *DragonFly* )
+			BLDSHARED="true"
 			LDSHFLAGS="-shared"
 			DYNEXP="-Wl,--export-dynamic"
 			SONAMEFLAG="-Wl,-soname,"
@@ -19326,6 +19729,16 @@ cat >>confdefs.h <<\_ACEOF
 #define STAT_ST_BLOCKSIZE DEV_BSIZE
 _ACEOF
 
+
+cat >>confdefs.h <<\_ACEOF
+#define BROKEN_STRNLEN 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define BROKEN_STRNDUP 1
+_ACEOF
+
 			;;
 		*hpux*)
 cat >>confdefs.h <<\_ACEOF
@@ -19336,9 +19749,9 @@ _ACEOF
 			# Use special PIC flags for the native HP-UX compiler.
 			if test $ac_cv_prog_cc_Ae = yes; then
 				BLDSHARED="true"
-				SHLD="/usr/bin/ld"
-				LDSHFLAGS="-B symbolic -b -z"
-				SONAMEFLAG="+h "
+				SHLD="cc"
+				LDSHFLAGS="-b -Wl,-B,symbolic,-b,-z"
+				SONAMEFLAG="-Wl,+h "
 				PICFLAGS="+z"
 			elif test "${GCC}" = "yes"; then
 				PICFLAGS="-fPIC"
@@ -19555,13 +19968,14 @@ if test "${ac_cv_shlib_works+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
-   ac_cv_shlib_works=no
    # try building a trivial shared library
+   ac_cv_shlib_works=no
+   # The $SHLD and $LDSHFLAGS variables may contain references to other
+   # variables so they need to be eval'ed.
    $CC $CPPFLAGS $CFLAGS $PICFLAGS -c -o \
 	shlib.$PICSUFFIX ${srcdir-.}/tests/shlib.c && \
-	$CC $CPPFLAGS $CFLAGS `eval echo $LDSHFLAGS` -o "shlib.$SHLIBEXT" \
-	shlib.$PICSUFFIX && \
-	ac_cv_shlib_works=yes
+   `eval echo $SHLD` `eval echo $LDSHFLAGS` -o "shlib.$SHLIBEXT" \
+        shlib.$PICSUFFIX && ac_cv_shlib_works=yes
    rm -f "shlib.$SHLIBEXT" shlib.$PICSUFFIX
 
 fi
@@ -20127,6 +20541,62 @@ if test x"$samba_cv_HAVE_DEVICE_MINOR_FN" = x"yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_DEVICE_MINOR_FN 1
+_ACEOF
+
+fi
+
+echo "$as_me:$LINENO: checking for makedev macro" >&5
+echo $ECHO_N "checking for makedev macro... $ECHO_C" >&6
+if test "${samba_cv_HAVE_MAKEDEV+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+if test "$cross_compiling" = yes; then
+  samba_cv_HAVE_MAKEDEV=cross
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#if defined(HAVE_UNISTD_H)
+#include <unistd.h>
+#endif
+#include <sys/types.h>
+main() { dev_t dev = makedev(1,2); return 0; }
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_HAVE_MAKEDEV=yes
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+samba_cv_HAVE_MAKEDEV=no
+fi
+rm -f core core.* *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+echo "$as_me:$LINENO: result: $samba_cv_HAVE_MAKEDEV" >&5
+echo "${ECHO_T}$samba_cv_HAVE_MAKEDEV" >&6
+if test x"$samba_cv_HAVE_MAKEDEV" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_MAKEDEV 1
 _ACEOF
 
 fi
@@ -21458,21 +21928,22 @@ echo "$as_me: error: argument to --with-libiconv must be a directory" >&2;}
 
 fi;
 
-ICONV_FOUND="no"
-libext=""
 for i in $LOOK_DIRS ; do
     save_LIBS=$LIBS
     save_LDFLAGS=$LDFLAGS
     save_CPPFLAGS=$CPPFLAGS
+    ICONV_FOUND="no"
+    unset libext
     CPPFLAGS="$CPPFLAGS -I$i/include"
 
-    for l in "lib" "lib32" ; do
-        LDFLAGS="$LDFLAGS -L$i/$l"
-        LIBS=
-        export LDFLAGS LIBS CPPFLAGS
+    for l in "lib32" "lib" ; do
+        if test -d "$i/$l" ; then
+                LDFLAGS="$save_LDFLAGS -L$i/$l"
+                LIBS=
+                export LDFLAGS LIBS CPPFLAGS
 
-      echo "$as_me:$LINENO: checking for iconv in $i" >&5
-echo $ECHO_N "checking for iconv in $i... $ECHO_C" >&6
+      echo "$as_me:$LINENO: checking for iconv in $i/$l" >&5
+echo $ECHO_N "checking for iconv in $i/$l... $ECHO_C" >&6
     jm_cv_func_iconv="no"
     jm_cv_lib_iconv=""
     jm_cv_giconv=no
@@ -21738,13 +22209,14 @@ echo "${ECHO_T}yes" >&6
 echo "${ECHO_T}no" >&6
   fi
 
-        if test "$ICONV_FOUND" = yes; then
-            libext="$l"
-            break;
+                if test x"$ICONV_FOUND" = "xyes" ; then
+                    libext="$l"
+                    break;
+                fi
         fi
     done
 
-    if test "$ICONV_FOUND" = yes; then
+    if test x"$ICONV_FOUND" = "xyes" ; then
 	LDFLAGS=$save_LDFLAGS
 
 if test ""$i/$libext"" != "/usr/lib" ; then
@@ -21764,7 +22236,7 @@ fi
         # check for iconv in libc
         ic_save_LIBS="$LIBS"
         if test x"$ICONV_PATH_SPEC" = "xyes" ; then
-           LIBS="$LIBS -L$ICONV_LOCATION/lib"
+           LIBS="$LIBS -L$ICONV_LOCATION/$libext"
         fi
         if test x"$jm_cv_lib_iconv" != x; then
            LIBS="$LIBS -l$jm_cv_lib_iconv"
@@ -24086,6 +24558,63 @@ _ACEOF
 
 fi
 
+echo "$as_me:$LINENO: checking if the realpath function allows a NULL argument" >&5
+echo $ECHO_N "checking if the realpath function allows a NULL argument... $ECHO_C" >&6
+if test "${samba_cv_REALPATH_TAKES_NULL+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+if test "$cross_compiling" = yes; then
+  samba_cv_REALPATH_TAKES_NULL=cross
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <stdio.h>
+#include <limits.h>
+main() {
+	char *newpath = realpath("/tmp", NULL);
+	exit ((newpath != NULL) ? 0 : 1);
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_REALPATH_TAKES_NULL=yes
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+samba_cv_REALPATH_TAKES_NULL=no
+fi
+rm -f core core.* *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+echo "$as_me:$LINENO: result: $samba_cv_REALPATH_TAKES_NULL" >&5
+echo "${ECHO_T}$samba_cv_REALPATH_TAKES_NULL" >&6
+if test x"$samba_cv_REALPATH_TAKES_NULL" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define REALPATH_TAKES_NULL 1
+_ACEOF
+
+fi
 
 #################################################
 # check for smbwrapper support
@@ -24363,73 +24892,42 @@ echo "$as_me: error: AFS cannot be supported without afs.h" >&2;}
     fi
 fi
 
-if test x"$samba_cv_WITH_FAKE_KASERVER" != x"no"; then
-	echo "$as_me:$LINENO: checking for DES_pcbc_encrypt in -lcrypto" >&5
-echo $ECHO_N "checking for DES_pcbc_encrypt in -lcrypto... $ECHO_C" >&6
-if test "${ac_cv_lib_crypto_DES_pcbc_encrypt+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-#line $LINENO "configure"
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char DES_pcbc_encrypt ();
-int
-main ()
-{
-DES_pcbc_encrypt ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_crypto_DES_pcbc_encrypt=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_crypto_DES_pcbc_encrypt=no
-fi
-rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_DES_pcbc_encrypt" >&5
-echo "${ECHO_T}$ac_cv_lib_crypto_DES_pcbc_encrypt" >&6
-if test $ac_cv_lib_crypto_DES_pcbc_encrypt = yes; then
-  LIBS="$LIBS -lcrypto"
-fi
-
-fi
-
-if test x"$samba_cv_WITH_FAKE_KASERVER" != x"no" && test x"$have_afs_headers" == x"yes"; then
+if test x"$samba_cv_WITH_FAKE_KASERVER" != x"no" && test x"$have_afs_headers" = x"yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define WITH_FAKE_KASERVER 1
 _ACEOF
 
+fi
+
+#################################################
+# check whether to compile AFS/NT ACL mapping module
+samba_cv_WITH_VFS_AFSACL=no
+echo "$as_me:$LINENO: checking whether to use AFS fake-kaserver" >&5
+echo $ECHO_N "checking whether to use AFS fake-kaserver... $ECHO_C" >&6
+
+# Check whether --with-vfs-afsacl or --without-vfs-afsacl was given.
+if test "${with_vfs_afsacl+set}" = set; then
+  withval="$with_vfs_afsacl"
+   case "$withval" in
+  yes|auto)
+    echo "$as_me:$LINENO: result: $withval" >&5
+echo "${ECHO_T}$withval" >&6
+    samba_cv_WITH_VFS_AFSACL=yes
+    ;;
+  *)
+    echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+    ;;
+  esac
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+
+fi;
+
+if test x"$samba_cv_WITH_VFS_AFSACL" = x"yes"; then
+   default_shared_modules="$default_shared_modules vfs_afsacl"
 fi
 
 if test x"$samba_cv_WITH_AFS" != x"no" && test x"$have_afs_headers" = x"yes"; then
@@ -25230,6 +25728,44 @@ if test x"$with_ads_support" != x"no"; then
   # Do no harm to the values of CFLAGS and LIBS while testing for
   # Kerberos support.
 
+  if test x$FOUND_KRB5 = x"no"; then
+    #################################################
+    # check for location of Kerberos 5 install
+    echo "$as_me:$LINENO: checking for kerberos 5 install path" >&5
+echo $ECHO_N "checking for kerberos 5 install path... $ECHO_C" >&6
+
+# Check whether --with-krb5 or --without-krb5 was given.
+if test "${with_krb5+set}" = set; then
+  withval="$with_krb5"
+   case "$withval" in
+      no)
+        echo "$as_me:$LINENO: result: no krb5-path given" >&5
+echo "${ECHO_T}no krb5-path given" >&6
+        ;;
+      yes)
+        echo "$as_me:$LINENO: result: /usr" >&5
+echo "${ECHO_T}/usr" >&6
+        FOUND_KRB5=yes
+        ;;
+      *)
+        echo "$as_me:$LINENO: result: $withval" >&5
+echo "${ECHO_T}$withval" >&6
+        KRB5_CFLAGS="-I$withval/include"
+        KRB5_CPPFLAGS="-I$withval/include"
+        KRB5_LDFLAGS="-L$withval/lib"
+        FOUND_KRB5=yes
+	if test -x "$withval/bin/krb5-config"; then
+		KRB5_CONFIG=$withval/bin/krb5-config
+	fi
+        ;;
+      esac
+else
+  echo "$as_me:$LINENO: result: no krb5-path given" >&5
+echo "${ECHO_T}no krb5-path given" >&6
+
+fi;
+  fi
+
   #################################################
   # check for krb5-config from recent MIT and Heimdal kerberos 5
   # Extract the first word of "krb5-config", so it can be a program name with args.
@@ -25279,6 +25815,7 @@ echo $ECHO_N "checking for working krb5-config... $ECHO_C" >&6
     ac_save_LDFLAGS=$LDFLAGS
     LDFLAGS="";export LDFLAGS
     KRB5_LIBS="`$KRB5_CONFIG --libs gssapi`"
+    KRB5_LDFLAGS="`$KRB5_CONFIG --libs gssapi | sed s/-lgss.*//`"
     KRB5_CFLAGS="`$KRB5_CONFIG --cflags | sed s/@INCLUDE_des@//`"
     KRB5_CPPFLAGS="`$KRB5_CONFIG --cflags | sed s/@INCLUDE_des@//`"
     CFLAGS=$ac_save_CFLAGS;export CFLAGS
@@ -25289,41 +25826,6 @@ echo "${ECHO_T}yes" >&6
   else
     echo "$as_me:$LINENO: result: no. Fallback to previous krb5 detection strategy" >&5
 echo "${ECHO_T}no. Fallback to previous krb5 detection strategy" >&6
-  fi
-
-  if test x$FOUND_KRB5 = x"no"; then
-    #################################################
-    # check for location of Kerberos 5 install
-    echo "$as_me:$LINENO: checking for kerberos 5 install path" >&5
-echo $ECHO_N "checking for kerberos 5 install path... $ECHO_C" >&6
-
-# Check whether --with-krb5 or --without-krb5 was given.
-if test "${with_krb5+set}" = set; then
-  withval="$with_krb5"
-   case "$withval" in
-      no)
-        echo "$as_me:$LINENO: result: no krb5-path given" >&5
-echo "${ECHO_T}no krb5-path given" >&6
-        ;;
-      yes)
-        echo "$as_me:$LINENO: result: /usr" >&5
-echo "${ECHO_T}/usr" >&6
-        FOUND_KRB5=yes
-        ;;
-      *)
-        echo "$as_me:$LINENO: result: $withval" >&5
-echo "${ECHO_T}$withval" >&6
-        KRB5_CFLAGS="-I$withval/include"
-        KRB5_CPPFLAGS="-I$withval/include"
-        KRB5_LDFLAGS="-L$withval/lib"
-        FOUND_KRB5=yes
-        ;;
-      esac
-else
-  echo "$as_me:$LINENO: result: no krb5-path given" >&5
-echo "${ECHO_T}no krb5-path given" >&6
-
-fi;
   fi
 
   if test x$FOUND_KRB5 = x"no"; then
@@ -25371,9 +25873,9 @@ echo "${ECHO_T}no" >&6
   ac_save_CPPFLAGS=$CPPFLAGS
   ac_save_LDFLAGS=$LDFLAGS
 
-  CFLAGS="$CFLAGS $KRB5_CFLAGS"
-  CPPFLAGS="$CPPFLAGS $KRB5_CPPFLAGS"
-  LDFLAGS="$LDFLAGS $KRB5_LDFLAGS"
+  CFLAGS="$KRB5_CFLAGS $CFLAGS"
+  CPPFLAGS="$KRB5_CPPFLAGS $CPPFLAGS"
+  LDFLAGS="$KRB5_LDFLAGS $LDFLAGS"
 
   KRB5_LIBS="$KRB5_LDFLAGS $KRB5_LIBS"
 
@@ -26308,6 +26810,94 @@ echo "${ECHO_T}$ac_cv_lib_ext_krb5_krb5_mk_req_extended" >&6
     if test $ac_cv_lib_ext_krb5_krb5_mk_req_extended = yes; then
   cat >>confdefs.h <<_ACEOF
 #define HAVE_KRB5_MK_REQ_EXTENDED 1
+_ACEOF
+
+fi
+
+LIBS=$ac_check_lib_ext_save_LIBS
+
+if test $ac_cv_lib_ext_krb5 = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBKRB5 1
+_ACEOF
+
+		case "$KRB5_LIBS" in
+		    *-lkrb5*)
+			;;
+		    *)
+			KRB5_LIBS="-lkrb5 $KRB5_LIBS"
+			;;
+		esac
+
+
+fi
+
+
+
+
+ac_check_lib_ext_save_LIBS=$LIBS
+LIBS="-lkrb5 $KRB5_LIBS  $LIBS"
+
+
+
+
+        echo "$as_me:$LINENO: checking for krb5_kt_compare in -lkrb5" >&5
+echo $ECHO_N "checking for krb5_kt_compare in -lkrb5... $ECHO_C" >&6
+if test "${ac_cv_lib_ext_krb5_krb5_kt_compare+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_kt_compare ();
+int
+main ()
+{
+krb5_kt_compare ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_ext_krb5_krb5_kt_compare=yes;
+		  ac_cv_lib_ext_krb5=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_ext_krb5_krb5_kt_compare=no;
+		  ac_cv_lib_ext_krb5=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_ext_krb5_krb5_kt_compare" >&5
+echo "${ECHO_T}$ac_cv_lib_ext_krb5_krb5_kt_compare" >&6
+    if test $ac_cv_lib_ext_krb5_krb5_kt_compare = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_KT_COMPARE 1
 _ACEOF
 
 fi
@@ -27787,7 +28377,571 @@ _ACEOF
 fi
 
 
-  LIBS="$LIBS $KRB5_LIBS"
+
+
+    ac_check_func_ext_save_LIBS=$LIBS
+    LIBS="$KRB5_LIBS $LIBS"
+        echo "$as_me:$LINENO: checking for krb5_free_unparsed_name" >&5
+echo $ECHO_N "checking for krb5_free_unparsed_name... $ECHO_C" >&6
+if test "${ac_cv_func_ext_krb5_free_unparsed_name+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char krb5_free_unparsed_name (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_free_unparsed_name ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_krb5_free_unparsed_name) || defined (__stub___krb5_free_unparsed_name)
+choke me
+#else
+char (*f) () = krb5_free_unparsed_name;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != krb5_free_unparsed_name;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_ext_krb5_free_unparsed_name=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_ext_krb5_free_unparsed_name=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_ext_krb5_free_unparsed_name" >&5
+echo "${ECHO_T}$ac_cv_func_ext_krb5_free_unparsed_name" >&6
+    LIBS=$ac_check_func_ext_save_LIBS
+    if test $ac_cv_func_ext_krb5_free_unparsed_name = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_FREE_UNPARSED_NAME 1
+_ACEOF
+
+fi
+
+
+
+
+    ac_check_func_ext_save_LIBS=$LIBS
+    LIBS="$KRB5_LIBS $LIBS"
+        echo "$as_me:$LINENO: checking for krb5_free_keytab_entry_contents" >&5
+echo $ECHO_N "checking for krb5_free_keytab_entry_contents... $ECHO_C" >&6
+if test "${ac_cv_func_ext_krb5_free_keytab_entry_contents+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char krb5_free_keytab_entry_contents (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_free_keytab_entry_contents ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_krb5_free_keytab_entry_contents) || defined (__stub___krb5_free_keytab_entry_contents)
+choke me
+#else
+char (*f) () = krb5_free_keytab_entry_contents;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != krb5_free_keytab_entry_contents;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_ext_krb5_free_keytab_entry_contents=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_ext_krb5_free_keytab_entry_contents=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_ext_krb5_free_keytab_entry_contents" >&5
+echo "${ECHO_T}$ac_cv_func_ext_krb5_free_keytab_entry_contents" >&6
+    LIBS=$ac_check_func_ext_save_LIBS
+    if test $ac_cv_func_ext_krb5_free_keytab_entry_contents = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_FREE_KEYTAB_ENTRY_CONTENTS 1
+_ACEOF
+
+fi
+
+
+
+
+    ac_check_func_ext_save_LIBS=$LIBS
+    LIBS="$KRB5_LIBS $LIBS"
+        echo "$as_me:$LINENO: checking for krb5_kt_free_entry" >&5
+echo $ECHO_N "checking for krb5_kt_free_entry... $ECHO_C" >&6
+if test "${ac_cv_func_ext_krb5_kt_free_entry+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char krb5_kt_free_entry (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_kt_free_entry ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_krb5_kt_free_entry) || defined (__stub___krb5_kt_free_entry)
+choke me
+#else
+char (*f) () = krb5_kt_free_entry;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != krb5_kt_free_entry;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_ext_krb5_kt_free_entry=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_ext_krb5_kt_free_entry=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_ext_krb5_kt_free_entry" >&5
+echo "${ECHO_T}$ac_cv_func_ext_krb5_kt_free_entry" >&6
+    LIBS=$ac_check_func_ext_save_LIBS
+    if test $ac_cv_func_ext_krb5_kt_free_entry = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_KT_FREE_ENTRY 1
+_ACEOF
+
+fi
+
+
+
+
+    ac_check_func_ext_save_LIBS=$LIBS
+    LIBS="$KRB5_LIBS $LIBS"
+        echo "$as_me:$LINENO: checking for krb5_krbhst_get_addrinfo" >&5
+echo $ECHO_N "checking for krb5_krbhst_get_addrinfo... $ECHO_C" >&6
+if test "${ac_cv_func_ext_krb5_krbhst_get_addrinfo+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char krb5_krbhst_get_addrinfo (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_krbhst_get_addrinfo ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_krb5_krbhst_get_addrinfo) || defined (__stub___krb5_krbhst_get_addrinfo)
+choke me
+#else
+char (*f) () = krb5_krbhst_get_addrinfo;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != krb5_krbhst_get_addrinfo;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_ext_krb5_krbhst_get_addrinfo=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_ext_krb5_krbhst_get_addrinfo=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_ext_krb5_krbhst_get_addrinfo" >&5
+echo "${ECHO_T}$ac_cv_func_ext_krb5_krbhst_get_addrinfo" >&6
+    LIBS=$ac_check_func_ext_save_LIBS
+    if test $ac_cv_func_ext_krb5_krbhst_get_addrinfo = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_KRBHST_GET_ADDRINFO 1
+_ACEOF
+
+fi
+
+
+
+
+    ac_check_func_ext_save_LIBS=$LIBS
+    LIBS="$KRB5_LIBS $LIBS"
+        echo "$as_me:$LINENO: checking for krb5_c_enctype_compare" >&5
+echo $ECHO_N "checking for krb5_c_enctype_compare... $ECHO_C" >&6
+if test "${ac_cv_func_ext_krb5_c_enctype_compare+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char krb5_c_enctype_compare (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_c_enctype_compare ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_krb5_c_enctype_compare) || defined (__stub___krb5_c_enctype_compare)
+choke me
+#else
+char (*f) () = krb5_c_enctype_compare;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != krb5_c_enctype_compare;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_ext_krb5_c_enctype_compare=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_ext_krb5_c_enctype_compare=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_ext_krb5_c_enctype_compare" >&5
+echo "${ECHO_T}$ac_cv_func_ext_krb5_c_enctype_compare" >&6
+    LIBS=$ac_check_func_ext_save_LIBS
+    if test $ac_cv_func_ext_krb5_c_enctype_compare = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_C_ENCTYPE_COMPARE 1
+_ACEOF
+
+fi
+
+
+
+
+    ac_check_func_ext_save_LIBS=$LIBS
+    LIBS="$KRB5_LIBS $LIBS"
+        echo "$as_me:$LINENO: checking for krb5_enctypes_compatible_keys" >&5
+echo $ECHO_N "checking for krb5_enctypes_compatible_keys... $ECHO_C" >&6
+if test "${ac_cv_func_ext_krb5_enctypes_compatible_keys+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char krb5_enctypes_compatible_keys (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_enctypes_compatible_keys ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_krb5_enctypes_compatible_keys) || defined (__stub___krb5_enctypes_compatible_keys)
+choke me
+#else
+char (*f) () = krb5_enctypes_compatible_keys;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != krb5_enctypes_compatible_keys;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_ext_krb5_enctypes_compatible_keys=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_ext_krb5_enctypes_compatible_keys=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_ext_krb5_enctypes_compatible_keys" >&5
+echo "${ECHO_T}$ac_cv_func_ext_krb5_enctypes_compatible_keys" >&6
+    LIBS=$ac_check_func_ext_save_LIBS
+    if test $ac_cv_func_ext_krb5_enctypes_compatible_keys = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_KRB5_ENCTYPES_COMPATIBLE_KEYS 1
+_ACEOF
+
+fi
+
+
+  LIBS="$KRB5_LIBS $LIBS"
+
+  echo "$as_me:$LINENO: checking for krb5_encrypt_block type" >&5
+echo $ECHO_N "checking for krb5_encrypt_block type... $ECHO_C" >&6
+if test "${samba_cv_HAVE_KRB5_ENCRYPT_BLOCK+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <krb5.h>
+int
+main ()
+{
+krb5_encrypt_block block;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_HAVE_KRB5_ENCRYPT_BLOCK=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+samba_cv_HAVE_KRB5_ENCRYPT_BLOCK=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $samba_cv_HAVE_KRB5_ENCRYPT_BLOCK" >&5
+echo "${ECHO_T}$samba_cv_HAVE_KRB5_ENCRYPT_BLOCK" >&6
+
+  if test x"$samba_cv_HAVE_KRB5_ENCRYPT_BLOCK" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_KRB5_ENCRYPT_BLOCK 1
+_ACEOF
+
+  fi
 
   echo "$as_me:$LINENO: checking for addrtype in krb5_address" >&5
 echo $ECHO_N "checking for addrtype in krb5_address... $ECHO_C" >&6
@@ -27950,6 +29104,114 @@ _ACEOF
 
   fi
 
+  echo "$as_me:$LINENO: checking for keyblock in krb5_creds" >&5
+echo $ECHO_N "checking for keyblock in krb5_creds... $ECHO_C" >&6
+if test "${samba_cv_HAVE_KRB5_KEYBLOCK_IN_CREDS+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <krb5.h>
+int
+main ()
+{
+krb5_creds creds; krb5_keyblock kb; creds.keyblock = kb;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_HAVE_KRB5_KEYBLOCK_IN_CREDS=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+samba_cv_HAVE_KRB5_KEYBLOCK_IN_CREDS=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $samba_cv_HAVE_KRB5_KEYBLOCK_IN_CREDS" >&5
+echo "${ECHO_T}$samba_cv_HAVE_KRB5_KEYBLOCK_IN_CREDS" >&6
+
+  if test x"$samba_cv_HAVE_KRB5_KEYBLOCK_IN_CREDS" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_KRB5_KEYBLOCK_IN_CREDS 1
+_ACEOF
+
+  fi
+
+  echo "$as_me:$LINENO: checking for session in krb5_creds" >&5
+echo $ECHO_N "checking for session in krb5_creds... $ECHO_C" >&6
+if test "${samba_cv_HAVE_KRB5_SESSION_IN_CREDS+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <krb5.h>
+int
+main ()
+{
+krb5_creds creds; krb5_keyblock kb; creds.session = kb;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_HAVE_KRB5_SESSION_IN_CREDS=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+samba_cv_HAVE_KRB5_SESSION_IN_CREDS=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $samba_cv_HAVE_KRB5_SESSION_IN_CREDS" >&5
+echo "${ECHO_T}$samba_cv_HAVE_KRB5_SESSION_IN_CREDS" >&6
+
+  if test x"$samba_cv_HAVE_KRB5_SESSION_IN_CREDS" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_KRB5_SESSION_IN_CREDS 1
+_ACEOF
+
+  fi
+
   echo "$as_me:$LINENO: checking for keyvalue in krb5_keyblock" >&5
 echo $ECHO_N "checking for keyvalue in krb5_keyblock... $ECHO_C" >&6
 if test "${samba_cv_HAVE_KRB5_KEYBLOCK_KEYVALUE+set}" = set; then
@@ -28105,59 +29367,6 @@ _ACEOF
 
   fi
 
-  echo "$as_me:$LINENO: checking for ENCTYPE_ARCFOUR_HMAC" >&5
-echo $ECHO_N "checking for ENCTYPE_ARCFOUR_HMAC... $ECHO_C" >&6
-if test "${samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-
-    cat >conftest.$ac_ext <<_ACEOF
-#line $LINENO "configure"
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <krb5.h>
-int
-main ()
-{
-krb5_enctype enctype; enctype = ENCTYPE_ARCFOUR_HMAC;
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC=no
-fi
-rm -f conftest.$ac_objext conftest.$ac_ext
-fi
-echo "$as_me:$LINENO: result: $samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC" >&5
-echo "${ECHO_T}$samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC" >&6
-  if test x"$samba_cv_HAVE_ENCTYPE_ARCFOUR_HMAC" = x"yes"; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_ENCTYPE_ARCFOUR_HMAC 1
-_ACEOF
-
-  fi
-
   echo "$as_me:$LINENO: checking for AP_OPTS_USE_SUBKEY" >&5
 echo $ECHO_N "checking for AP_OPTS_USE_SUBKEY... $ECHO_C" >&6
 if test "${samba_cv_HAVE_AP_OPTS_USE_SUBKEY+set}" = set; then
@@ -28208,6 +29417,60 @@ echo "${ECHO_T}$samba_cv_HAVE_AP_OPTS_USE_SUBKEY" >&6
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_AP_OPTS_USE_SUBKEY 1
+_ACEOF
+
+  fi
+
+  echo "$as_me:$LINENO: checking for KV5M_KEYTAB" >&5
+echo $ECHO_N "checking for KV5M_KEYTAB... $ECHO_C" >&6
+if test "${samba_cv_HAVE_KV5M_KEYTAB+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <krb5.h>
+int
+main ()
+{
+krb5_keytab_entry entry; entry.magic = KV5M_KEYTAB;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_HAVE_KV5M_KEYTAB=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+samba_cv_HAVE_KV5M_KEYTAB=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $samba_cv_HAVE_KV5M_KEYTAB" >&5
+echo "${ECHO_T}$samba_cv_HAVE_KV5M_KEYTAB" >&6
+
+  if test x"$samba_cv_HAVE_KV5M_KEYTAB" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_KV5M_KEYTAB 1
 _ACEOF
 
   fi
@@ -28401,7 +29664,134 @@ echo "$as_me: WARNING: libkrb5 is needed for Active Directory support" >&2;}
     KRB5_LIBS=""
     with_ads_support=no
   fi
-  LIBS="$ac_save_LIBS"
+
+  echo "$as_me:$LINENO: checking for WRFILE: keytab support" >&5
+echo $ECHO_N "checking for WRFILE: keytab support... $ECHO_C" >&6
+if test "${samba_cv_HAVE_WRFILE_KEYTAB+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    if test "$cross_compiling" = yes; then
+  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include<krb5.h>
+  main()
+  {
+    krb5_context context;
+    krb5_keytab keytab;
+/* B&I SystemVersion plist is incomplete on Panther builds which causes this test to hang
+   assume API is available
+    krb5_init_context(&context);
+    if (krb5_kt_resolve(context, "WRFILE:api", &keytab))
+      exit(0);
+*/
+   exit(1);
+  }
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_HAVE_WRFILE_KEYTAB=no
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+samba_cv_HAVE_WRFILE_KEYTAB=yes
+fi
+rm -f core core.* *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+echo "$as_me:$LINENO: result: $samba_cv_HAVE_WRFILE_KEYTAB" >&5
+echo "${ECHO_T}$samba_cv_HAVE_WRFILE_KEYTAB" >&6
+
+  if test x"$samba_cv_HAVE_WRFILE_KEYTAB" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_WRFILE_KEYTAB 1
+_ACEOF
+
+  fi
+
+  echo "$as_me:$LINENO: checking for krb5_princ_realm returns krb5_realm or krb5_data" >&5
+echo $ECHO_N "checking for krb5_princ_realm returns krb5_realm or krb5_data... $ECHO_C" >&6
+if test "${samba_cv_KRB5_PRINC_REALM_RETURNS_REALM+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <krb5.h>
+int
+main ()
+{
+
+    krb5_context context;
+    krb5_principal principal;
+    krb5_realm realm; realm = *krb5_princ_realm(context, principal);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  samba_cv_KRB5_PRINC_REALM_RETURNS_REALM=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+samba_cv_KRB5_PRINC_REALM_RETURNS_REALM=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $samba_cv_KRB5_PRINC_REALM_RETURNS_REALM" >&5
+echo "${ECHO_T}$samba_cv_KRB5_PRINC_REALM_RETURNS_REALM" >&6
+
+  if test x"$samba_cv_KRB5_PRINC_REALM_RETURNS_REALM" = x"yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define KRB5_PRINC_REALM_RETURNS_REALM 1
+_ACEOF
+
+  fi
+
+LIBS="$ac_save_LIBS"
 fi
 
 ########################################################
@@ -28995,6 +30385,7 @@ echo "${ECHO_T}no" >&6
 fi;
 
 
+
 #################################################
 # check for a PAM clear-text auth, accounts, password and session support
 with_pam_for_crypt=no
@@ -29541,7 +30932,7 @@ echo "${ECHO_T}${samba_cv_TRY_SYS_QUOTAS}" >&6
 
 fi;
 
-if test x"$samba_cv_TRY_SYS_QUOTAS" = x"auto"; then
+if test x"$samba_cv_TRY_SYS_QUOTAS" != x"no"; then
 echo "$as_me:$LINENO: checking whether to try the lib/sysquotas.c interface on ${host_os}" >&5
 echo $ECHO_N "checking whether to try the lib/sysquotas.c interface on ${host_os}... $ECHO_C" >&6
   case "$host_os" in
@@ -31809,20 +33200,6 @@ if test "${with_acl_support+set}" = set; then
   yes)
 
 	case "$host_os" in
-	*darwin*)
-		echo "$as_me:$LINENO: result: Using Darwin ACLs" >&5
-echo "${ECHO_T}Using Darwin ACLs" >&6
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DARWIN_ACLS 1
-_ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_ACL_GET_PERM_NP 1
-_ACEOF
-
-		;;
 	*sysv5*)
 		echo "$as_me:$LINENO: result: Using UnixWare ACLs" >&5
 echo "${ECHO_T}Using UnixWare ACLs" >&6
@@ -32546,7 +33923,7 @@ echo "${ECHO_T}no" >&6;
 	fi
 
 	;;
-	*freebsd*)
+	*freebsd* | *DragonFly* )
 		echo "$as_me:$LINENO: checking for freebsd sendfile support" >&5
 echo $ECHO_N "checking for freebsd sendfile support... $ECHO_C" >&6
 if test "${samba_cv_HAVE_SENDFILE+set}" = set; then
@@ -33113,7 +34490,7 @@ esac
 
 
 
-# Check the setting of --with-winbindd
+# Check the setting of --with-winbind
 
 
 # Check whether --with-winbind or --without-winbind was given.
@@ -33354,6 +34731,198 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
+
+
+# AIX 4.3.x and 5.1 do not have as many members in
+# struct secmethod_table as AIX 5.2
+echo "$as_me:$LINENO: checking for struct secmethod_table.method_attrlist" >&5
+echo $ECHO_N "checking for struct secmethod_table.method_attrlist... $ECHO_C" >&6
+if test "${ac_cv_member_struct_secmethod_table_method_attrlist+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <usersec.h>
+
+int
+main ()
+{
+static struct secmethod_table ac_aggr;
+if (ac_aggr.method_attrlist)
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_member_struct_secmethod_table_method_attrlist=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <usersec.h>
+
+int
+main ()
+{
+static struct secmethod_table ac_aggr;
+if (sizeof ac_aggr.method_attrlist)
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_member_struct_secmethod_table_method_attrlist=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_member_struct_secmethod_table_method_attrlist=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_member_struct_secmethod_table_method_attrlist" >&5
+echo "${ECHO_T}$ac_cv_member_struct_secmethod_table_method_attrlist" >&6
+if test $ac_cv_member_struct_secmethod_table_method_attrlist = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_SECMETHOD_TABLE_METHOD_ATTRLIST 1
+_ACEOF
+
+
+fi
+
+echo "$as_me:$LINENO: checking for struct secmethod_table.method_version" >&5
+echo $ECHO_N "checking for struct secmethod_table.method_version... $ECHO_C" >&6
+if test "${ac_cv_member_struct_secmethod_table_method_version+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <usersec.h>
+
+int
+main ()
+{
+static struct secmethod_table ac_aggr;
+if (ac_aggr.method_version)
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_member_struct_secmethod_table_method_version=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <usersec.h>
+
+int
+main ()
+{
+static struct secmethod_table ac_aggr;
+if (sizeof ac_aggr.method_version)
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_member_struct_secmethod_table_method_version=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_member_struct_secmethod_table_method_version=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_member_struct_secmethod_table_method_version" >&5
+echo "${ECHO_T}$ac_cv_member_struct_secmethod_table_method_version" >&6
+if test $ac_cv_member_struct_secmethod_table_method_version = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_SECMETHOD_TABLE_METHOD_VERSION 1
+_ACEOF
+
+
+fi
+
 
 
 #################################################
@@ -34242,6 +35811,42 @@ echo "${ECHO_T}not" >&6
 	fi
 
 
+	echo "$as_me:$LINENO: checking how to build idmap_rid" >&5
+echo $ECHO_N "checking how to build idmap_rid... $ECHO_C" >&6
+	if test "$MODULE_idmap_rid"; then
+		DEST=$MODULE_idmap_rid
+	elif test "$MODULE_idmap" -a "$MODULE_DEFAULT_idmap_rid"; then
+		DEST=$MODULE_idmap
+	else
+		DEST=$MODULE_DEFAULT_idmap_rid
+	fi
+
+	if test x"$DEST" = xSHARED; then
+
+cat >>confdefs.h <<\_ACEOF
+#define idmap_rid_init init_module
+_ACEOF
+
+		IDMAP_MODULES="$IDMAP_MODULES "bin/idmap_rid.$SHLIBEXT""
+		echo "$as_me:$LINENO: result: shared" >&5
+echo "${ECHO_T}shared" >&6
+
+		string_shared_modules="$string_shared_modules idmap_rid"
+	elif test x"$DEST" = xSTATIC; then
+		init_static_modules_idmap="$init_static_modules_idmap idmap_rid_init();"
+		string_static_modules="$string_static_modules idmap_rid"
+		IDMAP_STATIC="$IDMAP_STATIC sam/idmap_rid.o"
+
+
+		echo "$as_me:$LINENO: result: static" >&5
+echo "${ECHO_T}static" >&6
+	else
+	    string_ignored_modules="$string_ignored_modules idmap_rid"
+		echo "$as_me:$LINENO: result: not" >&5
+echo "${ECHO_T}not" >&6
+	fi
+
+
 
 
 
@@ -34779,6 +36384,42 @@ echo "${ECHO_T}not" >&6
 	fi
 
 
+	echo "$as_me:$LINENO: checking how to build vfs_full_audit" >&5
+echo $ECHO_N "checking how to build vfs_full_audit... $ECHO_C" >&6
+	if test "$MODULE_vfs_full_audit"; then
+		DEST=$MODULE_vfs_full_audit
+	elif test "$MODULE_vfs" -a "$MODULE_DEFAULT_vfs_full_audit"; then
+		DEST=$MODULE_vfs
+	else
+		DEST=$MODULE_DEFAULT_vfs_full_audit
+	fi
+
+	if test x"$DEST" = xSHARED; then
+
+cat >>confdefs.h <<\_ACEOF
+#define vfs_full_audit_init init_module
+_ACEOF
+
+		VFS_MODULES="$VFS_MODULES "bin/full_audit.$SHLIBEXT""
+		echo "$as_me:$LINENO: result: shared" >&5
+echo "${ECHO_T}shared" >&6
+
+		string_shared_modules="$string_shared_modules vfs_full_audit"
+	elif test x"$DEST" = xSTATIC; then
+		init_static_modules_vfs="$init_static_modules_vfs vfs_full_audit_init();"
+		string_static_modules="$string_static_modules vfs_full_audit"
+		VFS_STATIC="$VFS_STATIC \$(VFS_FULL_AUDIT_OBJ)"
+
+
+		echo "$as_me:$LINENO: result: static" >&5
+echo "${ECHO_T}static" >&6
+	else
+	    string_ignored_modules="$string_ignored_modules vfs_full_audit"
+		echo "$as_me:$LINENO: result: not" >&5
+echo "${ECHO_T}not" >&6
+	fi
+
+
 	echo "$as_me:$LINENO: checking how to build vfs_netatalk" >&5
 echo $ECHO_N "checking how to build vfs_netatalk... $ECHO_C" >&6
 	if test "$MODULE_vfs_netatalk"; then
@@ -35026,6 +36667,42 @@ echo "${ECHO_T}shared" >&6
 echo "${ECHO_T}static" >&6
 	else
 	    string_ignored_modules="$string_ignored_modules vfs_shadow_copy"
+		echo "$as_me:$LINENO: result: not" >&5
+echo "${ECHO_T}not" >&6
+	fi
+
+
+	echo "$as_me:$LINENO: checking how to build vfs_afsacl" >&5
+echo $ECHO_N "checking how to build vfs_afsacl... $ECHO_C" >&6
+	if test "$MODULE_vfs_afsacl"; then
+		DEST=$MODULE_vfs_afsacl
+	elif test "$MODULE_vfs" -a "$MODULE_DEFAULT_vfs_afsacl"; then
+		DEST=$MODULE_vfs
+	else
+		DEST=$MODULE_DEFAULT_vfs_afsacl
+	fi
+
+	if test x"$DEST" = xSHARED; then
+
+cat >>confdefs.h <<\_ACEOF
+#define vfs_afsacl_init init_module
+_ACEOF
+
+		VFS_MODULES="$VFS_MODULES "bin/afsacl.$SHLIBEXT""
+		echo "$as_me:$LINENO: result: shared" >&5
+echo "${ECHO_T}shared" >&6
+
+		string_shared_modules="$string_shared_modules vfs_afsacl"
+	elif test x"$DEST" = xSTATIC; then
+		init_static_modules_vfs="$init_static_modules_vfs vfs_afsacl_init();"
+		string_static_modules="$string_static_modules vfs_afsacl"
+		VFS_STATIC="$VFS_STATIC \$(VFS_AFSACL_OBJ)"
+
+
+		echo "$as_me:$LINENO: result: static" >&5
+echo "${ECHO_T}static" >&6
+	else
+	    string_ignored_modules="$string_ignored_modules vfs_afsacl"
 		echo "$as_me:$LINENO: result: not" >&5
 echo "${ECHO_T}not" >&6
 	fi

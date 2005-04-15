@@ -1,7 +1,0 @@
-<!DOCTYPE cmdsynopsis PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<cmdsynopsis>
-  <command>cal</command>
-  <arg>-j</arg>
-  <arg>-y</arg>
-  <arg>month <arg>year</arg></arg>
-</cmdsynopsis>

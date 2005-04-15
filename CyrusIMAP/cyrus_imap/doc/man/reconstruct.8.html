@@ -1,0 +1,222 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>RECONSTRUCT</title>
+</head>
+<body>
+
+<h1 align=center>RECONSTRUCT</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#FILES">FILES</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:19 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>reconstruct &minus; reconstruct mailboxes</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>reconstruct</b> [ <b>&minus;C</b> <i>config-file</i> ]
+[ <b>&minus;p</b> <i>partition</i> ] [ <b>&minus;x</b> ] [
+<b>&minus;r</b> ] [ <b>&minus;f</b> ]
+<i>mailbox</i>...<b><br>
+reconstruct</b> [ <b>&minus;C</b> <i>config-file</i> ]
+<b>&minus;m</b></p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Reconstruct</i> rebuilds one or more IMAP mailboxes.
+When invoked with the <b>&minus;m</b> switch, it rebuilds
+the master mailboxes file. It can be used to recover from
+almost any sort of data corruption.</p>
+<!-- INDENTATION -->
+<p>If <i>Reconstruct</i> can find existing header and index
+files, it attempts to preserve any data in them that is not
+derivable from the message files themselves. The state
+<i>reconstruct</i> attempts to preserve includes the flag
+names, flag state, and internaldate. <i>Reconstruct</i>
+derives all other information from the message files.</p>
+<!-- INDENTATION -->
+<p><i>Reconstruct</i> reads its configuration options out of
+the <i>imapd.conf</i>(5) file unless specified otherwise by
+<b>-C</b>. Any mailbox directory underneath the path
+specified in the <i>partition-news</i> configuration option
+is assumed to be in news format.</p>
+<!-- INDENTATION -->
+<p><i>Reconstruct</i> does not adjust the quota usage
+recorded in any quota root files. After running
+<i>reconstruct</i>, it is advisable to run <i>quota</i>(8)
+with the <i>&minus;f</i> switch in order to fix the quota
+root files.</p>
+</td>
+</table></p>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>config-file</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Read configuration options from <i>config-file</i>.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;p</b> <i>partition</i></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Search for the listed (non-existant) mailboxes on the
+indicated partition. Create the mailboxes in the database in
+addition to reconstructing them. (not compatible with the
+use of wildcards)</p>
+</td>
+</table>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;x</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>When processing a mailbox which is not in the mailbox
+list (e.g. via the -p or -f options), do not import the
+metadata from the mailbox, instead create it anew (this
+specifically affects atleast the mailbox&rsquo;s seen stat
+unique identifier, user flags, and ACL).</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;r</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Recursively reconstruct all sub-mailboxes of the
+mailboxes or mailbox prefixes given as arguments.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;f</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Examine the filesystem underneath mailbox, adding all
+directories with a cyrus.header found there as new
+mailboxes. Useful for restoring mailboxes from backups.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;m</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p><b>NOTE: CURRENTLY UNAVAILABLE</b></p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Rebuild the <i>mailboxes</i> file. Use whatever data in
+the existing <i>mailboxes</i> file it can scavenge, then
+scans all partitions listed in the <i>imapd.conf</i>(5) file
+for additional mailboxes.</p>
+</td>
+</table></p>
+<a name="EXAMPLES"></a>
+<h2>EXAMPLES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>You want to reconstruct the index files for a user, you
+have recovered a deleted mail file from backup and given it
+a suitable name (eg user/ben-lacy/33.), but it is not
+visible since it is not indexed:</p>
+<!-- INDENTATION -->
+<pre>reconstruct -r user.ben-lacy
+</pre>
+<!-- INDENTATION -->
+<p>If you have the <b>unixhierarchysep:yes</b> option set in
+<b>/etc/imapd.conf</b> you would need to run:</p>
+<!-- INDENTATION -->
+<pre>reconstruct -r user/ben.lacy
+</pre>
+</td>
+</table></p>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf</b></p></td>
+</table></p>
+<hr>
+</body>
+</html>

@@ -2,6 +2,7 @@
    Unix SMB/CIFS implementation.
    file closing
    Copyright (C) Andrew Tridgell 1992-1998
+   Copyright (C) Jeremy Allison 1992-2004.
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -105,6 +106,36 @@ static int close_filestruct(files_struct *fsp)
 }    
 
 /****************************************************************************
+ If any deferred opens are waiting on this close, notify them.
+****************************************************************************/
+
+static void notify_deferred_opens(files_struct *fsp)
+{
+	deferred_open_entry *de_array = NULL;
+	int num_de_entries, i;
+	pid_t mypid = sys_getpid();
+
+	if (!lp_defer_sharing_violations()) {
+		return;
+	}
+
+	num_de_entries = get_deferred_opens(fsp->conn, fsp->dev, fsp->inode, &de_array);
+	for (i = 0; i < num_de_entries; i++) {
+		deferred_open_entry *entry = &de_array[i];
+		if (entry->pid == mypid) {
+			/*
+			 * We need to notify ourself to retry the open.
+			 * Do this by finding the queued SMB record, moving it
+			 * to the head of the queue and changing the wait time to zero.
+			 */
+			schedule_sharing_violation_open_smb_message(entry->mid);
+		} else {
+			send_deferred_open_retry_message(entry);
+		}
+	}
+}
+
+/****************************************************************************
  Close a file.
 
  If normal_close is 1 then this came from a normal SMBclose (or equivalent)
@@ -119,6 +150,7 @@ static int close_normal_file(files_struct *fsp, BOOL normal_close)
 	size_t share_entry_count = 0;
 	BOOL delete_on_close = False;
 	connection_struct *conn = fsp->conn;
+	int saved_errno = 0;
 	int err = 0;
 	int err1 = 0;
 
@@ -129,8 +161,10 @@ static int close_normal_file(files_struct *fsp, BOOL normal_close)
 	 * error here, we must remember this.
 	 */
 
-	if (close_filestruct(fsp) == -1)
+	if (close_filestruct(fsp) == -1) {
+		saved_errno = errno;
 		err1 = -1;
+	}
 
 	if (fsp->print_file) {
 		print_fsp_end(fsp, normal_close);
@@ -177,6 +211,9 @@ static int close_normal_file(files_struct *fsp, BOOL normal_close)
 
 	SAFE_FREE(share_entry);
 
+	/* Notify any deferred opens waiting on this close. */
+	notify_deferred_opens(fsp);
+
 	/*
 	 * NT can set delete_on_close of the last open
 	 * reference to a file.
@@ -208,6 +245,12 @@ with error %s\n", fsp->fsp_name, strerror(errno) ));
 
 	err = fd_close(conn, fsp);
 
+	/* Only save errno if fd_close failed and we don't already
+	   have an errno saved from a flush call. */
+	if ((err1 != -1) && (err == -1)) {
+		saved_errno = errno;
+	}
+
 	/* check for magic scripts */
 	if (normal_close) {
 		check_magic(fsp,conn);
@@ -218,24 +261,25 @@ with error %s\n", fsp->fsp_name, strerror(errno) ));
 	 */
 
 	if(fsp->pending_modtime) {
-		int saved_errno = errno;
 		set_filetime(conn, fsp->fsp_name, fsp->pending_modtime);
-		errno = saved_errno;
 	}
 
 	DEBUG(2,("%s closed file %s (numopen=%d) %s\n",
-		 conn->user,fsp->fsp_name,
-		 conn->num_files_open, err ? strerror(err) : ""));
+		conn->user,fsp->fsp_name,
+		conn->num_files_open,
+		(err == -1 || err1 == -1) ? strerror(saved_errno) : ""));
 
 	if (fsp->fsp_name)
 		string_free(&fsp->fsp_name);
 
 	file_free(fsp);
 
-	if (err == -1 || err1 == -1)
-		return errno;
-	else
+	if (err == -1 || err1 == -1) {
+		errno = saved_errno;
+		return saved_errno;
+	} else {
 		return 0;
+	}
 }
 
 /****************************************************************************

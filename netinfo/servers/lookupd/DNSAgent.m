@@ -1072,6 +1072,12 @@ precsize_ntoa(u_int8_t prec)
 			}
 			if (streq(key, "namev6"))
 			{
+				item = [self hostWithKey:val dnstype:ns_t_aaaa];
+				if (item != nil) [item mergeValue:val forKey:"name"];
+				return item;
+			}
+			if (streq(key, "namev46"))
+			{
 				item = [self hostWithKey:val dnstype:ns_t_a];
 				[item mergeValue:val forKey:"name"];
 				ttl1 = [item unsignedLongForKey:"_lookup_DNS_time_to_live"];

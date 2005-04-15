@@ -42,6 +42,8 @@
 struct __DADisk
 {
     CFRuntimeBase          _base;
+    CFAbsoluteTime         _busy;
+    io_object_t            _busyNotification;
     CFURLRef               _bypath;
     DACallbackRef          _claim;
     CFTypeRef              _context;
@@ -114,29 +116,31 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
     {
         CFDataRef data;
 
-        disk->_bypath        = NULL;
-        disk->_claim         = NULL;
-        disk->_context       = NULL;
-        disk->_contextRe     = NULL;
-        disk->_description   = CFDictionaryCreateMutable( allocator, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-        disk->_device        = NULL;
-        disk->_deviceLink[0] = NULL;
-        disk->_deviceLink[1] = NULL;
-        disk->_deviceNode    = 0;
-        disk->_devicePath[0] = NULL;
-        disk->_devicePath[1] = NULL;
-        disk->_deviceUnit    = -1;
-        disk->_filesystem    = NULL;
-        disk->_id            = strdup( id );
-        disk->_media         = NULL;
-        disk->_mode          = 0;
-        disk->_options       = 0;
-        disk->_serialization = NULL;
-        disk->_state         = 0;
-        disk->_userEGID      = ___GID_WHEEL;
-        disk->_userEUID      = ___UID_ROOT;
-        disk->_userRGID      = ___GID_WHEEL;
-        disk->_userRUID      = ___UID_ROOT;
+        disk->_busy             = 0;
+        disk->_busyNotification = NULL;
+        disk->_bypath           = NULL;
+        disk->_claim            = NULL;
+        disk->_context          = NULL;
+        disk->_contextRe        = NULL;
+        disk->_description      = CFDictionaryCreateMutable( allocator, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+        disk->_device           = NULL;
+        disk->_deviceLink[0]    = NULL;
+        disk->_deviceLink[1]    = NULL;
+        disk->_deviceNode       = 0;
+        disk->_devicePath[0]    = NULL;
+        disk->_devicePath[1]    = NULL;
+        disk->_deviceUnit       = -1;
+        disk->_filesystem       = NULL;
+        disk->_id               = strdup( id );
+        disk->_media            = NULL;
+        disk->_mode             = 0;
+        disk->_options          = 0;
+        disk->_serialization    = NULL;
+        disk->_state            = 0;
+        disk->_userEGID         = ___GID_WHEEL;
+        disk->_userEUID         = ___UID_ROOT;
+        disk->_userRGID         = ___GID_WHEEL;
+        disk->_userRUID         = ___UID_ROOT;
 
         assert( disk->_description );
         assert( disk->_id          );
@@ -158,6 +162,7 @@ static void __DADiskDeallocate( CFTypeRef object )
 {
     DADiskRef disk = ( DADiskRef ) object;
 
+    if ( disk->_busyNotification )  IOObjectRelease( disk->_busyNotification );
     if ( disk->_bypath        )  CFRelease( disk->_bypath );
     if ( disk->_claim         )  CFRelease( disk->_claim );
     if ( disk->_context       )  CFRelease( disk->_context );
@@ -963,6 +968,16 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path )
     return disk;
 }
 
+CFAbsoluteTime DADiskGetBusy( DADiskRef disk )
+{
+    return disk->_busy;
+}
+
+io_object_t DADiskGetBusyNotification( DADiskRef disk )
+{
+    return disk->_busyNotification;
+}
+
 CFURLRef DADiskGetBypath( DADiskRef disk )
 {
     return disk->_bypath;
@@ -1192,6 +1207,28 @@ Boolean DADiskMatch( DADiskRef disk, CFDictionaryRef match )
     CFDictionaryApplyFunction( match, __DADiskMatch, &disk );
 
     return disk ? TRUE : FALSE;
+}
+
+void DADiskSetBusy( DADiskRef disk, CFAbsoluteTime busy )
+{
+    disk->_busy = busy;
+}
+
+void DADiskSetBusyNotification( DADiskRef disk, io_object_t notification )
+{
+    if ( disk->_busyNotification )
+    {
+        IOObjectRelease( disk->_busyNotification );
+
+        disk->_busyNotification = NULL;
+    }
+
+    if ( notification )
+    {
+        IOObjectRetain( notification );
+
+        disk->_busyNotification = notification;
+    }
 }
 
 void DADiskSetBypath( DADiskRef disk, CFURLRef bypath )

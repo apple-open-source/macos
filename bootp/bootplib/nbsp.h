@@ -31,6 +31,7 @@
 typedef struct {
     char *	name;
     char *	path;
+    int		is_hfs;
 } NBSPEntry, * NBSPEntryRef;
 
 struct NBSPList_s;

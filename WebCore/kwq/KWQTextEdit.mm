@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #import "KWQAssertions.h"
 #import "KWQExceptions.h"
+#import "KWQLineEdit.h"
 #import "KWQTextArea.h"
 
 QTextEdit::QTextEdit(QWidget *parent)
@@ -38,6 +39,12 @@ QTextEdit::QTextEdit(QWidget *parent)
     setView(textView);
     [textView release];
     KWQ_UNBLOCK_EXCEPTIONS;
+}
+
+QTextEdit::~QTextEdit()
+{
+    KWQTextArea *textArea = (KWQTextArea *)getView();
+    [textArea detachQTextEdit]; 
 }
 
 void QTextEdit::setText(const QString &string)
@@ -103,7 +110,6 @@ QTextEdit::WrapStyle QTextEdit::wordWrap() const
     return NoWrap;
 }
 
-
 void QTextEdit::setWordWrap(WrapStyle style)
 {
     KWQTextArea *textView = (KWQTextArea *)getView();
@@ -112,12 +118,31 @@ void QTextEdit::setWordWrap(WrapStyle style)
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-void QTextEdit::setTextFormat(TextFormat)
+void QTextEdit::setScrollBarModes(ScrollBarMode hMode, ScrollBarMode vMode)
 {
-}
+    KWQTextArea *textView = (KWQTextArea *)getView();
 
-void QTextEdit::setTabStopWidth(int)
-{
+    KWQ_BLOCK_EXCEPTIONS;
+
+#if !BUILDING_ON_PANTHER
+    // this declaration must be inside the KWQ_BLOCK_EXCEPTIONS block or the deployment build fails
+    bool autohides = hMode == Auto || vMode == Auto;
+    
+    ASSERT(!autohides || hMode != AlwaysOn);
+    ASSERT(!autohides || vMode != AlwaysOn);
+#endif
+
+    [textView setHasHorizontalScroller:hMode != AlwaysOff];
+    [textView setHasVerticalScroller:vMode != AlwaysOff];
+
+#if !BUILDING_ON_PANTHER
+    // Bugs 3890352 and 4005435 are the reason we can't handle auto-hiding on Panther.
+    // Basically, the text machinery seems to be able to handle the case where new text
+    // causes the text view to become more narrow on Tiger, but not on Panther.
+    [textView setAutohidesScrollers:autohides];
+#endif
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 bool QTextEdit::isReadOnly() const
@@ -188,10 +213,8 @@ void QTextEdit::setAlignment(AlignmentFlags alignment)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    ASSERT(alignment == AlignLeft || alignment == AlignRight);
     KWQTextArea *textArea = getView();
-
-    [textArea setAlignment:(alignment == AlignRight ? NSRightTextAlignment : NSLeftTextAlignment)];
+    [textArea setAlignment:KWQNSTextAlignmentForAlignmentFlags(alignment)];
 
     KWQ_UNBLOCK_EXCEPTIONS;
 }
@@ -218,8 +241,37 @@ QSize QTextEdit::sizeWithColumnsAndRows(int numColumns, int numRows) const
     return QSize((int)ceil(size.width), (int)ceil(size.height));
 }
 
+QWidget::FocusPolicy QTextEdit::focusPolicy() const
+{
+    FocusPolicy policy = QScrollView::focusPolicy();
+    return policy == TabFocus ? StrongFocus : policy;
+}
+
 bool QTextEdit::checksDescendantsForFocus() const
 {
     return true;
 }
 
+void QTextEdit::setPalette(const QPalette &palette)
+{
+    QWidget::setPalette(palette);
+
+    KWQTextArea *textArea = getView();
+
+    KWQ_BLOCK_EXCEPTIONS;
+    
+    // Below is a workaround for the following AppKit bug which causes transparent backgrounds to be 
+    // drawn opaque <rdar://problem/3142730>.  Without this workaround, some textareas would be drawn with black backgrounds
+    // as described in <rdar://problem/3854383>.  We now call setDrawsBackground:NO when the background color is completely 
+    // transparent.  This does not solve the problem for translucent background colors for textareas <rdar://problem/3865161>.
+
+    [textArea setTextColor:palette.foreground().getNSColor()];
+
+    QColor background = palette.background();
+    if (!background.isValid())
+        background = Qt::white;
+    [textArea setBackgroundColor:background.getNSColor()];
+    [textArea setDrawsBackground:background.alpha() != 0];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+}

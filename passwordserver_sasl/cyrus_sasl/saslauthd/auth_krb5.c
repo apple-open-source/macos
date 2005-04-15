@@ -28,7 +28,7 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_krb5.c,v 1.2 2002/05/23 18:58:37 snsimon Exp $"
+#ident "$Id: auth_krb5.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
 #endif
 
 /* ok, this is  wrong but the most convenient way of doing 
@@ -160,9 +160,14 @@ auth_krb5 (
 	return strdup("NO saslauthd internal krb5_parse_name error");
     }
     
+#ifdef SASLAUTHD_THREADED
     /* create a new CCACHE so we don't stomp on anything */
     snprintf(tfname,sizeof(tfname), "%s/k5cc_%d_%d", tf_dir,
 	     getpid(), pthread_self());
+#else
+    /* create a new CCACHE so we don't stomp on anything */
+    snprintf(tfname,sizeof(tfname), "%s/k5cc_%d", tf_dir, getpid());
+#endif
     if (krb5_cc_resolve(context, tfname, &ccache)) {
 	krb5_free_principal(context, auth_user);
 	krb5_free_context(context);
@@ -172,6 +177,7 @@ auth_krb5 (
     
     if (krb5_cc_initialize (context, ccache, auth_user)) {
 	krb5_free_principal(context, auth_user);
+	krb5_cc_destroy(context, ccache);
 	krb5_free_context(context);
 	syslog(LOG_ERR, "auth_krb5: krb5_cc_initialize");
 	return strdup("NO saslauthd internal error");
@@ -215,7 +221,7 @@ static int k5support_verify_tgt(krb5_context context,
     }
     
     if (keyblock) {
-	free(keyblock);
+	krb5_free_keyblock(context, keyblock);
     }
     
     /* this duplicates work done in krb5_sname_to_principal
@@ -246,7 +252,11 @@ static int k5support_verify_tgt(krb5_context context,
 	goto fini;
     }
     
-    
+    if (auth_context) {
+	krb5_auth_con_free(context, auth_context);
+	auth_context = NULL;
+    }
+
     /* all is good now */
     result = 1;
  fini:

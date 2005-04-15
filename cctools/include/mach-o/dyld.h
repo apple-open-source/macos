@@ -31,7 +31,11 @@ extern "C" {
 #define __private_extern__ __declspec(private_extern)
 #endif
 
-#include "mach-o/loader.h"
+#include <mach-o/loader.h>
+#include <AvailabilityMacros.h>
+#ifndef AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER
+#define AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER
+#endif
 
 #ifndef ENUM_DYLD_BOOL
 #define ENUM_DYLD_BOOL
@@ -104,7 +108,8 @@ extern void * NSGetSectionDataInObjectFileImage(
     unsigned long *size); /* can be NULL */
 /* SPI first appeared in Mac OS X 10.3 */
 extern enum DYLD_BOOL NSHasModInitObjectFileImage(
-    NSObjectFileImage objectFileImage);
+    NSObjectFileImage objectFileImage)
+    AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
 
 /* module API */
 typedef void * NSModule;
@@ -245,8 +250,13 @@ extern unsigned long _dyld_present(
 
 extern unsigned long _dyld_image_count(
     void);
+#ifdef __LP64__
+extern struct mach_header_64 * _dyld_get_image_header(
+    uint32_t image_index);
+#else /* !defined(__LP64__) */
 extern struct mach_header * _dyld_get_image_header(
     unsigned long image_index);
+#endif /* !defined(__LP64__) */
 extern unsigned long _dyld_get_image_vmaddr_slide(
     unsigned long image_index);
 extern char * _dyld_get_image_name(
@@ -276,7 +286,8 @@ extern enum DYLD_BOOL _dyld_image_containing_address(
     unsigned long address);
 /* SPI first appeared in Mac OS X 10.3 */
 extern struct mach_header * _dyld_get_image_header_containing_address(
-    unsigned long address);
+    unsigned long address)
+    AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
 
 extern void _dyld_moninit(
     void (*monaddition)(char *lowpc, char *highpc));
@@ -284,7 +295,8 @@ extern enum DYLD_BOOL _dyld_launched_prebound(
     void);
 /* SPI first appeared in Mac OS X 10.3 */
 extern enum DYLD_BOOL _dyld_all_twolevel_modules_prebound(
-    void);
+    void)
+    AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
 
 extern void _dyld_lookup_and_bind(
     const char *symbol_name,

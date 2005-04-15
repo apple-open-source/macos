@@ -1,0 +1,7 @@
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3982256
+	* ChangeLog.apple-ppc: New file.
+	* objcp-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Point at
+	objc_types_compatible_p().
+

@@ -44,7 +44,6 @@
 #include <netinfo/ni.h>
 #include <histedit.h>
 
-#define streq(A,B) (strcmp(A,B) == 0)
 #define forever for(;;)
 
 #define PROMPT_NONE 0

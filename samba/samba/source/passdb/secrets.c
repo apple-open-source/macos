@@ -30,10 +30,27 @@
 
 static TDB_CONTEXT *tdb;
 
+/**
+ * Use a TDB to store an incrementing random seed.
+ *
+ * Initialised to the current pid, the very first time Samba starts,
+ * and incremented by one each time it is needed.  
+ * 
+ * @note Not called by systems with a working /dev/urandom.
+ */
+static void get_rand_seed(int *new_seed) 
+{
+	*new_seed = sys_getpid();
+	if (tdb) {
+		tdb_change_int32_atomic(tdb, "INFO/random_seed", new_seed, 1);
+	}
+}
+
 /* open up the secrets database */
 BOOL secrets_init(void)
 {
 	pstring fname;
+	char dummy;
 
 	if (tdb)
 		return True;
@@ -47,6 +64,18 @@ BOOL secrets_init(void)
 		DEBUG(0,("Failed to open %s\n", fname));
 		return False;
 	}
+
+	/**
+	 * Set a reseed function for the crypto random generator 
+	 * 
+	 * This avoids a problem where systems without /dev/urandom
+	 * could send the same challenge to multiple clients
+	 */
+	set_rand_reseed_callback(get_rand_seed);
+
+	/* Ensure that the reseed is done now, while we are root, etc */
+	generate_random_buffer(&dummy, sizeof(dummy));
+
 	return True;
 }
 
@@ -317,7 +346,7 @@ BOOL secrets_fetch_trusted_domain_password(const char *domain, char** pwd,
 			
 	/* the trust's password */	
 	if (pwd) {
-		*pwd = strdup(pass.pass);
+		*pwd = SMB_STRDUP(pass.pass);
 		if (!*pwd) {
 			return False;
 		}
@@ -504,37 +533,6 @@ BOOL trusted_domain_password_delete(const char *domain)
 }
 
 
-/*******************************************************************
- Reset the 'done' variables so after a client process is created
- from a fork call these calls will be re-done. This should be
- expanded if more variables need reseting.
- ******************************************************************/
-
-void reset_globals_after_fork(void)
-{
-	unsigned char dummy;
-
-	secrets_init();
-
-	/*
-	 * Increment the global seed value to ensure every smbd starts
-	 * with a new random seed.
-	 */
-
-	if (tdb) {
-		uint32 initial_val = sys_getpid();
-		tdb_change_int32_atomic(tdb, "INFO/random_seed", (int *)&initial_val, 1);
-		set_rand_reseed_data((unsigned char *)&initial_val, sizeof(initial_val));
-	}
-
-	/*
-	 * Re-seed the random crypto generator, so all smbd's
-	 * started from the same parent won't generate the same
-	 * sequence.
-	 */
-	generate_random_buffer( &dummy, 1, True);
-}
-
 BOOL secrets_store_ldap_pw(const char* dn, char* pw)
 {
 	char *key = NULL;
@@ -579,7 +577,7 @@ NTSTATUS secrets_get_trusted_domains(TALLOC_CTX* ctx, int* enum_ctx, unsigned in
 	size_t size, packed_size = 0;
 	fstring dom_name;
 	char *packed_pass;
-	struct trusted_dom_pass *pass = talloc_zero(ctx, sizeof(struct trusted_dom_pass));
+	struct trusted_dom_pass *pass = TALLOC_ZERO_P(ctx, struct trusted_dom_pass);
 	NTSTATUS status;
 
 	if (!secrets_init()) return NT_STATUS_ACCESS_DENIED;
@@ -601,7 +599,7 @@ NTSTATUS secrets_get_trusted_domains(TALLOC_CTX* ctx, int* enum_ctx, unsigned in
 	DEBUG(5, ("secrets_get_trusted_domains: looking for %d domains, starting at index %d\n", 
 		  max_num_domains, *enum_ctx));
 
-	*domains = talloc_zero(ctx, sizeof(**domains)*max_num_domains);
+	*domains = TALLOC_ZERO_ARRAY(ctx, TRUSTDOM *, max_num_domains);
 
 	/* fetching trusted domains' data and collecting them in a list */
 	keys = tdb_search_keys(tdb, pattern);
@@ -617,7 +615,7 @@ NTSTATUS secrets_get_trusted_domains(TALLOC_CTX* ctx, int* enum_ctx, unsigned in
 		char *secrets_key;
 		
 		/* important: ensure null-termination of the key string */
-		secrets_key = strndup(k->node_key.dptr, k->node_key.dsize);
+		secrets_key = SMB_STRNDUP(k->node_key.dptr, k->node_key.dsize);
 		if (!secrets_key) {
 			DEBUG(0, ("strndup failed!\n"));
 			return NT_STATUS_NO_MEMORY;
@@ -640,7 +638,7 @@ NTSTATUS secrets_get_trusted_domains(TALLOC_CTX* ctx, int* enum_ctx, unsigned in
 		SAFE_FREE(secrets_key);
 
 		if (idx >= start_idx && idx < start_idx + max_num_domains) {
-			dom = talloc_zero(ctx, sizeof(*dom));
+			dom = TALLOC_ZERO_P(ctx, TRUSTDOM);
 			if (!dom) {
 				/* free returned tdb record */
 				return NT_STATUS_NO_MEMORY;

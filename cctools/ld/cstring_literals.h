@@ -41,6 +41,8 @@
 struct cstring_data {
     struct cstring_bucket **hashtable;		/* the hash table */
     struct cstring_block *cstring_blocks;	/* the cstrings */
+    struct cstring_load_order_data	 /* the load order info needed to */
+	*cstring_load_order_data;	 /*  re-merge when using -dead_strip */
 #ifdef DEBUG
     unsigned long nfiles;	/* number of files with this section */
     unsigned long nbytes;	/* total number of bytes in the input files*/
@@ -70,13 +72,30 @@ struct cstring_block {
     struct cstring_block *next;	/* the next block */
 };
 
+/* the load order info needed to re-merge when using -dead_strip */
+struct cstring_load_order_data {
+    char *order_line_buffer;
+    unsigned long ncstring_order_lines;
+    struct cstring_order_line *cstring_order_lines;
+};
+/* the load order info for a single cstring order line */
+struct cstring_order_line {
+    unsigned character_index;
+    unsigned long output_offset;
+};
+
 __private_extern__ void cstring_merge(
     struct cstring_data *data,
     struct merged_section *ms,
     struct section *s,
-    struct section_map *section_map);
+    struct section_map *section_map,
+    enum bool redo_live);
 
 __private_extern__ void cstring_order(
+    struct cstring_data *data,
+    struct merged_section *ms);
+
+__private_extern__ void cstring_reset_live(
     struct cstring_data *data,
     struct merged_section *ms);
 

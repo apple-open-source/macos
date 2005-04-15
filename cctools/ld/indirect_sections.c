@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include "stuff/reloc.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass2.h"
@@ -82,16 +83,20 @@ static unsigned long lookup_indirect_item(
 /*
  * indirect_section_merge() merges items from symbol pointers and symbol stub
  * sections from the specified section in the current object file (cur_obj).
- * It allocates a fine relocation map and sets the fine_relocs field in the
- * section_map to it (as well as the count).
+ * When redo_live is FALSE it allocates a fine relocation map and sets the
+ * fine_relocs field in the section_map to it (as well as the count).
  *
- * After all the items for this section in this object file have been merged
- * two more things are done.  First the number of relocation entries that will
- * be in the output file is adjusted (incremented) based on which items are used
- * from this object's section.  Second the number of local symbol table entries
- * and the size of the string table is adjusted (decremented) based on the which
- * symbols are in the items from this object's section that will be in the
- * resulting object file.
+ * When redo_live is FALSE after all the items for this section in this object
+ * file have been merged two more things are done.  First the number of
+ * relocation entries that will be in the output file is adjusted (incremented)
+ * based on which items are used from this object's section.  Second the number
+ * of local symbol table entries and the size of the string table is adjusted
+ * (decremented) based on the which symbols are in the items from this object's
+ * section that will be in the resulting object file.
+ *
+ * When redo_live is TRUE it re-merges only the live items from symbol pointers
+ * and symbol stub sections from the specified section in the current object
+ * file (cur_obj).
  */
 __private_extern__
 void
@@ -99,7 +104,8 @@ indirect_section_merge(
 struct indirect_section_data *data, 
 struct merged_section *ms,
 struct section *s, 
-struct section_map *section_map)
+struct section_map *section_map,
+enum bool redo_live)
 {
     unsigned long i, j, stride, section_type, nitems, index;
     struct fine_reloc *fine_relocs;
@@ -130,8 +136,9 @@ struct section_map *section_map)
 	pair_r_type = 0;
 	section_type = s->flags & SECTION_TYPE;
 	if(section_type == S_LAZY_SYMBOL_POINTERS ||
-	   section_type == S_NON_LAZY_SYMBOL_POINTERS)
+	   section_type == S_NON_LAZY_SYMBOL_POINTERS){
 	    stride = 4;
+	}
 	else if(section_type == S_SYMBOL_STUBS)
 	    stride = s->reserved2;
 	else
@@ -164,13 +171,17 @@ struct section_map *section_map)
 	    return;
 	}
 	if(s->size == 0){
-	    section_map->fine_relocs = NULL;
-	    section_map->nfine_relocs = 0;
+	    if(redo_live == FALSE){
+		section_map->fine_relocs = NULL;
+		section_map->nfine_relocs = 0;
+	    }
 	    return;
 	}
 #ifdef DEBUG
-	data->nfiles++;
-	data->nitems += nitems;
+	if(redo_live == FALSE){
+	    data->nfiles++;
+	    data->nitems += nitems;
+	}
 #endif /* DEBUG */
 
 	/*
@@ -187,8 +198,14 @@ struct section_map *section_map)
 	indirect_symtab = (unsigned long *)(cur_obj->obj_addr +
 					    cur_obj->dysymtab->indirectsymoff);
 	strings = cur_obj->obj_addr + cur_obj->symtab->stroff;
-	fine_relocs = allocate(nitems * sizeof(struct fine_reloc));
-	memset(fine_relocs, '\0', nitems * sizeof(struct fine_reloc));
+	if(redo_live == FALSE){
+	    fine_relocs = allocate(nitems * sizeof(struct fine_reloc));
+	    memset(fine_relocs, '\0', nitems * sizeof(struct fine_reloc));
+	}
+	else{
+	    fine_relocs = section_map->fine_relocs;
+	    nitems = section_map->nfine_relocs;
+	}
 	for(i = 0; i < nitems; i++){
 	    /* get the indirect symbol table entry for this item */
 	    index = indirect_symtab[s->reserved1 + i];
@@ -198,16 +215,22 @@ struct section_map *section_map)
 	     */
 	    if(index == INDIRECT_SYMBOL_LOCAL ||
 	       index == INDIRECT_SYMBOL_ABS){
-/*
-printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL_ABS\n");
-*/
-		fine_relocs[i].local_symbol = FALSE;
-		fine_relocs[i].indirect_defined = FALSE;
-		fine_relocs[i].use_contents = TRUE;
-		fine_relocs[i].input_offset = i * stride;
-		fine_relocs[i].output_offset = lookup_indirect_item(
-			    NULL, cur_obj, index, data, stride, &new);
-		fine_relocs[i].merged_symbol = NULL;
+		if(redo_live == FALSE){
+		    fine_relocs[i].local_symbol = TRUE;
+		    fine_relocs[i].indirect_defined = FALSE;
+		    fine_relocs[i].use_contents = TRUE;
+		    fine_relocs[i].input_offset = i * stride;
+		    fine_relocs[i].merged_symbol = NULL;
+		    if(index == INDIRECT_SYMBOL_LOCAL)
+			fine_relocs[i].indirect_symbol_local = TRUE;
+		}
+		if(redo_live == FALSE || fine_relocs[i].live == TRUE){
+		    fine_relocs[i].output_offset = lookup_indirect_item(
+				NULL, cur_obj, index, data, stride, &new);
+		}
+		else if(redo_live == TRUE && fine_relocs[i].live == FALSE){
+		    fine_relocs[i].use_contents = FALSE;
+		}
 		goto account_for_size;
 	    }
 
@@ -297,7 +320,8 @@ printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL
 	     * item's indirect symbol and if the output file is a dynamic
 	     * shared library file.
 	     */
-	    fine_relocs[i].input_offset = i * stride;
+	    if(redo_live == FALSE)
+		fine_relocs[i].input_offset = i * stride;
 	    if(merged_symbol == NULL){
 		/*
 		 * Indirect table entries which refer to local defined symbols
@@ -315,19 +339,28 @@ printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL
 		     * A non-lazy symbol pointer for a private extern that no
 		     * longer is external.
 		     */
-		    fine_relocs[i].local_symbol = TRUE;
-		    fine_relocs[i].indirect_defined = TRUE;
-		    fine_relocs[i].use_contents = TRUE;
-		    fine_relocs[i].output_offset = lookup_indirect_item(
-				NULL, cur_obj, index, data, stride, &new);
-		    fine_relocs[i].merged_symbol = NULL;
+		    if(redo_live == FALSE){
+			fine_relocs[i].local_symbol = TRUE;
+			fine_relocs[i].indirect_defined = TRUE;
+			fine_relocs[i].use_contents = TRUE;
+			fine_relocs[i].merged_symbol = NULL;
+		    }
+		    if(redo_live == FALSE || fine_relocs[i].live == TRUE){
+			fine_relocs[i].output_offset = lookup_indirect_item(
+				    NULL, cur_obj, index, data, stride, &new);
+		    }
+		    else if(redo_live == TRUE && fine_relocs[i].live == FALSE){
+			fine_relocs[i].use_contents = FALSE;
+		    }
 		}
 		else{
-		    fine_relocs[i].local_symbol = TRUE;
-		    fine_relocs[i].indirect_defined = TRUE;
-		    fine_relocs[i].use_contents = FALSE;
-		    fine_relocs[i].output_offset = index;
-		    fine_relocs[i].merged_symbol = NULL;
+		    if(redo_live == FALSE){
+			fine_relocs[i].local_symbol = TRUE;
+			fine_relocs[i].indirect_defined = TRUE;
+			fine_relocs[i].use_contents = FALSE;
+			fine_relocs[i].output_offset = index;
+			fine_relocs[i].merged_symbol = NULL;
+		    }
 		}
 	    }
 	    else{
@@ -357,31 +390,41 @@ printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL
 		    merged_symbol = indr_symbol;
 		}
 
-		fine_relocs[i].local_symbol = FALSE;
+		if(redo_live == FALSE)
+		    fine_relocs[i].local_symbol = FALSE;
 
 		if(merged_symbol->nlist.n_type == (N_EXT | N_UNDF) ||
 		   merged_symbol->nlist.n_type == (N_EXT | N_PBUD) ||
 		   (merged_symbol->nlist.n_type == (N_EXT | N_INDR) &&
 		    merged_symbol->defined_in_dylib == TRUE)){
-		    fine_relocs[i].indirect_defined = FALSE;
+		    if(redo_live == FALSE){
+			fine_relocs[i].indirect_defined = FALSE;
+		    }
 		}
 		else if((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
 			(merged_symbol->definition_object->section_maps[
 			 merged_symbol->nlist.n_sect - 1].
-			 s->flags & SECTION_TYPE) == S_COALESCED){
-		    if((output_for_dyld && has_dynamic_linker_command &&
+			 s->flags & SECTION_TYPE) == S_COALESCED &&
+			filetype != MH_DYLINKER){
+		    if((output_for_dyld &&
+		       (has_dynamic_linker_command || filetype == MH_BUNDLE) &&
 		       (((merged_symbol->nlist.n_desc & N_WEAK_DEF) !=
 			 N_WEAK_DEF) ||
 		       ((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
 			keep_private_externs == FALSE) ) ) ||
 		       (filetype == MH_DYLIB && multi_module_dylib == FALSE &&
-			(merged_symbol->nlist.n_type & N_PEXT) == N_PEXT) )
-			fine_relocs[i].indirect_defined = TRUE;
-		    else
-			fine_relocs[i].indirect_defined = FALSE;
+			(merged_symbol->nlist.n_type & N_PEXT) == N_PEXT) ){
+			if(redo_live == FALSE)
+			    fine_relocs[i].indirect_defined = TRUE;
+		    }
+		    else{
+			if(redo_live == FALSE)
+			    fine_relocs[i].indirect_defined = FALSE;
+		    }
 		}
 		else{
-		    fine_relocs[i].indirect_defined = TRUE;
+		    if(redo_live == FALSE)
+			fine_relocs[i].indirect_defined = TRUE;
 		}
 
 		if((merged_symbol->nlist.n_type & N_TYPE) == N_ABS)
@@ -390,15 +433,22 @@ printf("in indirect_section_merge() got INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL
 		if((filetype == MH_DYLIB && multi_module_dylib == TRUE) ||
 		   section_type == S_NON_LAZY_SYMBOL_POINTERS ||
 		   fine_relocs[i].indirect_defined == FALSE){
-		    fine_relocs[i].output_offset = lookup_indirect_item(
-				merged_symbol, NULL, 0, data, stride, &new);
-		    fine_relocs[i].merged_symbol = merged_symbol;
+		    if(redo_live == FALSE || fine_relocs[i].live == TRUE){
+			fine_relocs[i].output_offset = lookup_indirect_item(
+				    merged_symbol, NULL, 0, data, stride, &new);
+		    }
+		    else if(redo_live == TRUE && fine_relocs[i].live == FALSE){
+			new = FALSE;
+		    }
 		    fine_relocs[i].use_contents = new;
+		    if(redo_live == FALSE)
+			fine_relocs[i].merged_symbol = merged_symbol;
 		}
 		else{
-		    fine_relocs[i].use_contents = FALSE;
-		    fine_relocs[i].output_offset = (unsigned long)merged_symbol;
-		    fine_relocs[i].merged_symbol = merged_symbol;
+		    if(redo_live == FALSE){
+			fine_relocs[i].use_contents = FALSE;
+			fine_relocs[i].merged_symbol = merged_symbol;
+		    }
 		}
 	    }
 
@@ -409,12 +459,21 @@ account_for_size:
 	     * indirect symbol table.
 	     */
 	    if(fine_relocs[i].use_contents){
-		ms->s.size += stride;
-		nindirectsyms++;
+		/*
+		 * When -dead_strip is specified this will be called a second
+		 * time and redo_live will be TRUE.  If so only account for this
+		 * item if it is live.
+		 */
+		if(redo_live == FALSE || fine_relocs[i].live == TRUE){
+		    ms->s.size += stride;
+		    nindirectsyms++;
+		}
 	    }
 	}
-	section_map->fine_relocs = fine_relocs;
-	section_map->nfine_relocs = nitems;
+	if(redo_live == FALSE){
+	    section_map->fine_relocs = fine_relocs;
+	    section_map->nfine_relocs = nitems;
+	}
 
 	/*
 	 * Second deal with the relocation entries for the section in this
@@ -435,14 +494,15 @@ account_for_size:
 	}
 	/*
 	 * This loop loops through the relocation entries and using the
-	 * use_contents field of the fine_relocs just created determines how
-	 * many relocation entries will be in the output for this section of
-	 * this object file.
+	 * use_contents field (via a call to fine_reloc_offset_in_output())
+	 * of the fine_relocs just created determines how many relocation
+	 * entries will be in the output for this section of this object file.
 	 */
 	relocs = (struct relocation_info *)(cur_obj->obj_addr + s->reloff);
 	for(i = 0; i < s->nreloc; i++){
 	    reloc = relocs[i];
-	    if(cur_obj->swapped)
+	    if(cur_obj->swapped &&
+	       section_map->input_relocs_already_swapped == FALSE)
 		swap_relocation_info(&reloc, 1, host_byte_sex);
 	    /*
 	     * Break out the fields of the relocation entry we need here.
@@ -523,7 +583,8 @@ account_for_size:
 	    if(reloc_has_pair(arch_flag.cputype, r_type)){
 		if(i + 1 < s->nreloc){
 		    reloc = relocs[i + 1];
-		    if(cur_obj->swapped)
+		    if(cur_obj->swapped &&
+		       section_map->input_relocs_already_swapped == FALSE)
 			swap_relocation_info(&reloc, 1, host_byte_sex);
 		    if((reloc.r_address & R_SCATTERED) != 0){
 			spair_reloc = (struct scattered_relocation_info *)
@@ -751,7 +812,8 @@ account_for_size:
 		/*
 		 * Mark this section as being relocated (staticly).
 		 */
-		ms->relocated = TRUE;
+		if(dead_strip == FALSE || redo_live == TRUE)
+		    ms->relocated = TRUE;
 		if(r_extern == 0)
 		    pic = (enum bool)
 			  (reloc_is_sectdiff(arch_flag.cputype, r_type) ||
@@ -791,7 +853,7 @@ account_for_size:
 			if(defined == FALSE)
 			    ms->nextrel += 1 + pair;
 			/*
-			 * As of the PowerPC port relocation entries for
+			 * As of the PowerPC port, relocation entries for
 			 * lazy symbol pointers can be external so when the
 			 * the symbol is defined if we are doing prebinding and
 			 * this is for a lazy symbol pointer then this will
@@ -843,24 +905,30 @@ account_for_size:
 	 * If the the number of relocation entries is not zero mark this section
 	 * as being relocated (staticly).
 	 */
-	if(ms->s.nreloc != 0)
-	    ms->relocated = TRUE;
+	if(ms->s.nreloc != 0){
+	    if(dead_strip == FALSE || redo_live == TRUE)
+		ms->relocated = TRUE;
+	}
 
 	/*
 	 * Third deal with the symbol table entries for local symbols and N_STAB
 	 * symbols in this section in this object file.  Now that it has been
 	 * determined for which items the contents will be used from this
-	 * object file.  
+	 * object file.  If when -dead_strip is specified we have to wait to
+	 * do this until we are called a second time when redo_live is TRUE and
+	 * all the fine_relocs have had their live field set.
 	 */
-	/* determine the section number this has in this object */
-	for(nsect = 0; nsect < cur_obj->nsection_maps; nsect++)
-	    if(s == cur_obj->section_maps[nsect].s)
-		break;
-	nsect++; /* section numbers start at 1 (not zero) */
-	/* set up a pointer to the string table */
-	strings = (char *)(cur_obj->obj_addr + cur_obj->symtab->stroff);
-	discard_local_symbols_for_section(nsect, nlists, strings, s,
-					  section_map);
+	if(dead_strip == FALSE || redo_live == TRUE){
+	    /* determine the section number this has in this object */
+	    for(nsect = 0; nsect < cur_obj->nsection_maps; nsect++)
+		if(s == cur_obj->section_maps[nsect].s)
+		    break;
+	    nsect++; /* section numbers start at 1 (not zero) */
+	    /* set up a pointer to the string table */
+	    strings = (char *)(cur_obj->obj_addr + cur_obj->symtab->stroff);
+	    discard_local_symbols_for_section(nsect, nlists, strings, s,
+					      section_map);
+	}
 }
 
 static
@@ -990,6 +1058,135 @@ struct merged_section *ms)
 }
 
 /*
+ * indirect_section_reset_live() is called when -dead_strip is specified after
+ * the indirect sections the input objects are merged. It clears out
+ * the indirect_section_data so the live indirect items can be re-merged (by
+ * later calling indirect_section_merge() with redo_live == TRUE.
+ */
+__private_extern__
+void
+indirect_section_reset_live(
+struct indirect_section_data *data, 
+struct merged_section *ms)
+{
+	/*
+	 * reset the total number of indirect symbol table entries in the
+	 * output file.  Really needs to happen only once.  But placing it
+	 * here it will get reset once for each merged section.
+	 */
+	nindirectsyms = 0;
+
+	/* reset the merge section size back to zero */
+	ms->s.size = 0;
+
+	/* reset the count of relocation entries for this merged section */
+	if(output_for_dyld){
+	    ms->nlocrel = 0;
+	    ms->nextrel = 0;
+	}
+	else if(save_reloc){
+	    nreloc -= ms->s.nreloc;
+	    ms->s.nreloc = 0;
+	}
+
+	/* clear out the previously merged data */
+	indirect_section_free(data);
+}
+
+/*
+ * indirect_live_ref() is called by walk_references() as part of the live
+ * marking pass when -dead_strip is specified to get the live_ref when a
+ * indirect section is referenced.  The reference is specified by fine_reloc,
+ * map and obj.  This routine sets the live_ref struct passed to it for the
+ * reference.
+ */
+__private_extern__
+void
+indirect_live_ref(
+struct fine_reloc *fine_reloc,
+struct section_map *map,
+struct object_file *obj,
+struct live_ref *ref)
+{
+    unsigned long index, value;
+    struct nlist *nlists;
+    char *contents;
+
+	if((map->s->flags & SECTION_TYPE) != S_SYMBOL_STUBS &&
+	   (map->s->flags & SECTION_TYPE) != S_LAZY_SYMBOL_POINTERS &&
+	   (map->s->flags & SECTION_TYPE) != S_NON_LAZY_SYMBOL_POINTERS)
+	    fatal("internal error: indirect_live_ref() called with map not for "
+		  "indirect section");
+
+	/*
+	 * Note: that fine_relocs for indirect symbol which are
+	 * INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS have local_symbol set
+	 * to TRUE.
+	 */
+	ref->ref_type = LIVE_REF_NONE;
+	ref->value = 0;
+	ref->merged_symbol = NULL;
+
+	if(fine_reloc->local_symbol == TRUE){
+	    /*
+	     * Indirect table entries which refer to local defined symbols are
+	     * allowed only in symbol stub and lazy pointer sections so they can
+	     * always be removed and never created on output.  When this happens
+	     * the fine_reloc has use_contents set to FALSE and the symbol index
+	     * of the local symbol stored in output_offset.
+	     */
+	    if(fine_reloc->use_contents == FALSE){
+		if((map->s->flags & SECTION_TYPE) ==
+		   S_NON_LAZY_SYMBOL_POINTERS){
+		    fatal("internal error: indirect_live_ref() called "
+			  "with fine_reloc for non-lazy pointer with "
+			  "local_symbol == TRUE and use_contents == "
+			  "FALSE");
+		}
+		index = fine_reloc->output_offset;
+		nlists = (struct nlist *)(obj->obj_addr +
+					  obj->symtab->symoff);
+		ref->ref_type = LIVE_REF_VALUE;
+		ref->value = nlists[index].n_value;
+	    }
+	    else{
+		/*
+		 * Both local_symbol is TRUE and use_contents is TRUE.  This
+		 * happens for INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS.
+		 * In this case we need to get the reference from the indirect
+		 * symbol table entry (the section contents).  The contents of
+		 * the non-lazy pointer has the address of the item being
+		 * referenced.  If it is INDIRECT_SYMBOL_LOCAL then it will be
+		 * in this object.  If it is INDIRECT_SYMBOL_ABS we will not
+		 * return a reference.  If we have a INDIRECT_SYMBOL_ABS then
+		 * we will return the ref_type set to LIVE_REF_NONE.
+		 */
+		if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
+		   (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS)
+		    fatal("internal error: indirect_live_ref() called "
+			  "with fine_reloc for stub or lazy pointer "
+			  "with local_symbol == TRUE and use_contents "
+			  "== TRUE");
+		if(fine_reloc->indirect_symbol_local == TRUE){
+		    contents = obj->obj_addr + map->s->offset;
+		    memcpy(&value, contents + fine_reloc->input_offset, 4);
+		    if(obj->swapped)
+			value = SWAP_LONG(value);
+		    ref->ref_type = LIVE_REF_VALUE;
+		    ref->value = value;
+		}
+	    }
+	}
+	else{
+	    /*
+	     * Mark the external symbols being referenced live.
+	     */
+	    ref->ref_type = LIVE_REF_SYMBOL;
+	    ref->merged_symbol = fine_reloc->merged_symbol;
+	}
+}
+
+/*
  * indirect_section_free() free()'s up all space used by the data block except 
  * the data block itself.
  */
@@ -1054,6 +1251,7 @@ enum bool sectdiff_reloc)
     unsigned long *indirect_symtab;
     struct fine_reloc *to_fine_reloc, *from_fine_reloc;
     struct merged_symbol *merged_symbol;
+    unsigned long stride;
 
 	from_section_type = from_map->s->flags & SECTION_TYPE;
 	/*
@@ -1082,8 +1280,7 @@ enum bool sectdiff_reloc)
 	    if(to_fine_reloc->local_symbol == TRUE)
 		return(TRUE);
 	    if(to_fine_reloc->use_contents == FALSE){
-		merged_symbol = (struct merged_symbol *)
-				(to_fine_reloc->output_offset);
+		merged_symbol = to_fine_reloc->merged_symbol;
 		if(merged_symbol->defined_in_dylib == TRUE){
 		    if(sectdiff_reloc == TRUE && dynamic == TRUE){
 			error_with_cur_obj("illegal reference for -dynamic "
@@ -1098,9 +1295,14 @@ enum bool sectdiff_reloc)
 		    to_section_type = S_REGULAR;
 		}
 		else if((merged_symbol->nlist.n_type & N_TYPE) == N_SECT){
-		    to_section_type = merged_symbol->definition_object->
-				section_maps[merged_symbol->nlist.n_sect - 1].
-				s->flags & SECTION_TYPE;
+		    if(merged_symbols_relocated == FALSE)
+			to_section_type = merged_symbol->definition_object->
+			    section_maps[merged_symbol->nlist.n_sect - 1].s->
+			    flags & SECTION_TYPE;
+		    else
+			to_section_type =
+			    pass2_nsect_merged_symbol_section_type(
+				merged_symbol);
 		}
 		else{
 		    if(sectdiff_reloc == TRUE && dynamic == TRUE){
@@ -1201,7 +1403,9 @@ enum bool sectdiff_reloc)
 		 */
 		indirect_symtab = (unsigned long *)(cur_obj->obj_addr +
 					    cur_obj->dysymtab->indirectsymoff);
-		if(indirect_symtab[from_map->s->reserved1 + from_offset / 4] !=
+		stride = 4;
+		if(indirect_symtab[from_map->s->reserved1 + from_offset /
+							stride] !=
 		   indirect_symtab[to_map->s->reserved1 + to_offset /
 							to_map->s->reserved2]){
 		    error_with_cur_obj("malformed object, illegal reference "
@@ -1246,9 +1450,10 @@ enum bool sectdiff_reloc)
 		 */
 		indirect_symtab = (unsigned long *)(cur_obj->obj_addr +
 					    cur_obj->dysymtab->indirectsymoff);
+		stride = (arch_flag.cputype == CPU_TYPE_POWERPC64 ? 8 : 4);
 		if(indirect_symtab[from_map->s->reserved1 + from_offset /
 				   from_map->s->reserved2] !=
-		   indirect_symtab[to_map->s->reserved1 + to_offset / 4]){
+		   indirect_symtab[to_map->s->reserved1 + to_offset / stride]){
 		    error_with_cur_obj("malformed object, illegal reference "
 			"(reference to lazy symbol pointer section "
 			"(%.16s,%.16s) at address 0x%x from symbol stub "
@@ -1375,7 +1580,7 @@ void)
 	    p = &(msg->next);
 	}
 	if(nindirect_symbols != nindirectsyms)
-	    fatal("internal error, indirect_symbols != nindirectsyms in "
+	    fatal("internal error, nindirect_symbols != nindirectsyms in "
 		   "output_indirect_symbols()");
 	if(host_byte_sex != target_byte_sex)
 	    swap_indirect_symbols(indirect_symbols, nindirect_symbols,

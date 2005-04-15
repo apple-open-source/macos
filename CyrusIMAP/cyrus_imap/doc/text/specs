@@ -1,0 +1,156 @@
+Cyrus IMAP Server Protocol Specifications
+
+IMAP
+
+    RFC 3501 Internet Message Access Protocol - version 4rev1 
+    being updated by rfc3501-errata
+
+    RFC 1730 Internet Message Access Protocol - version 4
+
+    RFC 2086 IMAP4 ACL extension
+
+    RFC 2087 IMAP4 QUOTA extension
+
+    RFC 2088 IMAP4 non-synchronizing literals
+
+    RFC 2177 IMAP4 IDLE command
+
+    RFC 2192 IMAP URL Scheme
+
+    RFC 2193 IMAP4 Mailbox Referrals
+
+    RFC 2342 IMAP4 Namespace
+
+    RFC 2359 IMAP4 UIDPLUS extension
+
+    RFC 2971 IMAP4 ID extension
+
+    RFC 3348 IMAP4 Child Mailbox Extension
+
+    RFC 3502 IMAP MULTIAPPEND extension
+
+    RFC 3516 IMAP4 Binary Content Extension
+
+    RFC 3691 Internet Message Access Protocol (IMAP) UNSELECT command
+
+    draft-ietf-imapext-sort IMAP SORT and THREAD Extension
+
+    draft-ietf-imapext-list-extensions IMAP4 LIST Command Extensions
+
+    draft-daboo-imap-annotatemore IMAP ANNOTATEMORE Extension
+
+    draft-siemborski-imap-sasl-initial-response IMAP Extension for SASL
+    Initial Client Response
+
+POP
+
+    RFC 1939 Post Office Protocol - Version 3 (POP3)
+
+    RFC 1734 POP3 AUTHentication command 
+    being updated by draft-siemborski-rfc1734bis
+
+    RFC 2449 POP3 Extension Mechanism
+
+    RFC 2595 Using TLS with IMAP, POP3 and ACAP
+
+    RFC 3206The SYS and AUTH POP Response Codes
+
+NNTP
+
+    RFC 977 Network News Transfer Protocol 
+    being updated by draft-ietf-nntpext-base
+
+    RFC 2980 Common NNTP Extensions
+
+    draft-ietf-nntpext-streaming NNTP Extension for Streaming Feeds
+
+    draft-ietf-nntpext-authinfo NNTP Extension for Authentication
+
+    draft-ietf-nntpext-tls-nntp Using TLS with NNTP
+
+SASL
+
+    RFC 2222 Simple Authentication and Security Layer (SASL) 
+    being revised by draft-ietf-sasl-rfc2222bis
+
+    RFC 2195 IMAP/POP AUTHorize Extension for Simple Challenge/Response 
+    being revised by draft-ietf-sasl-crammd5
+
+    RFC 2245 Anonymous SASL Mechanism 
+    being revised by draft-ietf-sasl-anon
+
+    RFC 2444 The One-Time-Password SASL Mechanism
+
+    RFC 2595 Using TLS with IMAP, POP3 and ACAP 
+    being revised by draft-ietf-sasl-plain
+
+    RFC 2831 Using Digest Authentication as a SASL Mechanism 
+    being revised by draft-ietf-sasl-rfc2831bis
+
+TLS/SSL
+
+    RFC 2246 TLS Protocol
+
+    draft-freier-ssl-version3 The SSL Protocol Version 3.0
+
+    draft-hickman-netscape-ssl The SSL Protocol
+
+LMTP
+
+    RFC 2033 Local Mail Transfer Protocol 
+
+    RFC 2821 Simple Mail Transfer Protocol (SMTP)
+
+    RFC 1869 SMTP Service Extensions
+
+    RFC 1652 SMTP Service Extension for 8bit-MIMEtransport
+
+    RFC 1870 SMTP Service Extension for Message Size Declaration
+
+    RFC 2034 SMTP Service Extension for Returning Enhanced Error Codes
+
+    RFC 3463 Enhanced Mail System Status Codes
+
+    RFC 3207 SMTP Service Extension for Secure SMTP over TLS
+
+    RFC 2554 SMTP Service Extension for Authentication 
+    being updated by draft-siemborski-rfc2554bis
+
+    RFC 2920 SMTP Service Extension for Command Pipelining
+
+    RFC 3848 ESMTP and LMTP Transmission Types Registration
+
+    draft-murchison-lmtp-ignorequota LMTP Service Extension for Ignoring
+    Recipient Quotas
+
+Sieve
+
+    RFC 3028 Sieve: A Mail Filtering Language
+
+    RFC 3431 Sieve Extension: Relational Tests
+
+    RFC 3598 Sieve Email Filtering -- Subaddress Extension
+
+    RFC 2298 Extensible Message Format for Message Disposition
+    Notifications (MDNs)
+
+    draft-showalter-sieve-vacation Sieve -- Vacation Extension
+
+    draft-melnikov-sieve-imapflags Sieve -- IMAP flag Extension
+
+    draft-murchison-sieve-regex Sieve -- Regular Expression Extension
+
+    draft-martin-sieve-notify Sieve -- An extension for providing instant
+    notifications
+
+    draft-martin-managesieve Protocol for Remotely Managing Sieve Scripts
+
+Other
+
+    RFC 2822 Internet Message Format
+
+    RFC 1036 Standard for Interchange of USENET Messages 
+    being updated by draft-ietf-usefor-usefor and draft-ietf-usefor-usepro
+
+    RFC 3656 MUPDATE Protocol (For Cyrus Murder)
+

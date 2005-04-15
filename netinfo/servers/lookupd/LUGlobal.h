@@ -26,6 +26,8 @@
 #import <NetInfo/syslock.h>
 #import <NetInfo/DynaAPI.h>
 
+#define DefaultName "lookup daemon v2"
+
 /* RPC lock */
 extern syslock *rpcLock;
 
@@ -46,7 +48,15 @@ extern BOOL shutting_down;
 extern BOOL debug_enabled;
 extern BOOL statistics_enabled;
 extern BOOL coredump_enabled;
-extern BOOL parallel_gai;
 extern BOOL lookup_local_interfaces;
 
-#define DefaultName "lookup daemon v2"
+/* preferences for getaddrinfo */
+#define GAI_UNSET 0
+#define GAI_P 1
+#define GAI_4 2
+#define GAI_6 3
+#define GAI_S46 4
+#define GAI_S64 5
+
+extern uint32_t gai_pref;
+extern uint32_t gai_wait;

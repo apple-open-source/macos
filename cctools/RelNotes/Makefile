@@ -14,29 +14,34 @@ ifeq "macos" "$(RC_OS)"
   NOTESDIR := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] || \
 			 [ "$(RC_RELEASE)" = "Bunsen" ] || \
 			 [ "$(RC_RELEASE)" = "Gonzo" ]; then \
-			 echo /System/Documentation/Developer ; else \
-			 echo /Developer/Documentation; fi; \
-		)/ReleaseNotes
+	echo /System/Documentation/Developer/ReleaseNotes ; else \
+		      if [ "$(RC_RELEASE)" = "Kodiak"    ] || \
+		         [ "$(RC_RELEASE)" = "Cheetah"   ] || \
+		         [ "$(RC_RELEASE)" = "Puma"      ] || \
+		         [ "$(RC_RELEASE)" = "Jaguar"    ] || \
+		         [ "$(RC_RELEASE)" = "Panther" ]; then \
+	echo /Developer/Documentation/ReleaseNotes; else \
+	echo /Developer/ADC\ Reference\ Library/releasenotes/DeveloperTools ; \
+    fi; \
+  fi;)
 else
   NOTESDIR = /System/Documentation/Developer/ReleaseNotes
 endif
 PRIVATE_NOTESDIR = /usr/local/RelNotes
 
-install: ${DSTROOT}${NOTESDIR} ${DSTROOT}${PRIVATE_NOTESDIR} ${NOTES} ${PRIVATE_NOTES}
-	install -c -m 444 ${IFLAGS} ${NOTES} ${DSTROOT}${NOTESDIR}
-	install -c -m 444 ${IFLAGS} ${PRIVATE_NOTES} ${DSTROOT}${PRIVATE_NOTESDIR}
+install: ${NOTES} ${PRIVATE_NOTES}
+	$(MKDIRS) '${DSTROOT}${NOTESDIR}'
+	$(MKDIRS) ${DSTROOT}${PRIVATE_NOTESDIR}
+	install -c -m 444 ${IFLAGS} ${NOTES} \
+		'${DSTROOT}${NOTESDIR}'
+	install -c -m 444 ${IFLAGS} ${PRIVATE_NOTES} \
+		${DSTROOT}${PRIVATE_NOTESDIR}
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)
 	chmod 755 $(SRCROOT)
 	gnutar cf - $(INSTALL_FILES) | (cd $(SRCROOT); gnutar xf -)
 	chmod 444 $(SRCROOT)/*
-
-${DSTROOT}${NOTESDIR}:; $(MKDIRS) $@
-
-${DSTROOT}${PRIVATE_NOTESDIR}:; $(MKDIRS) $@
-
-${DSTROOT}${PPC_ASSEMBLER_DIR}:; $(MKDIRS) $@
 
 depend:
 

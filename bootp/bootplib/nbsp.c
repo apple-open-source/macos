@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/mount.h>
 #include <sys/errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,7 +13,6 @@
 #include <dirent.h>
 
 #include "dynarray.h"
-#include "hfsvols.h"
 #include "NetBootServer.h"
 #include "nbsp.h"
 
@@ -67,21 +68,44 @@ NBSPList_free(NBSPListRef * l)
     return;
 }
 
+static struct statfs *
+get_fsstat_list(int * number)
+{
+    int n;
+    struct statfs * stat_p;
+
+    n = getfsstat(NULL, 0, MNT_NOWAIT);
+    if (n <= 0)
+	return (NULL);
+
+    stat_p = (struct statfs *)malloc(n * sizeof(*stat_p));
+    if (stat_p == NULL)
+	return (NULL);
+
+    if (getfsstat(stat_p, n * sizeof(*stat_p), MNT_NOWAIT) <= 0) {
+	free(stat_p);
+	return (NULL);
+    }
+    *number = n;
+    return (stat_p);
+}
 
 NBSPListRef
 NBSPList_init(const char * symlink_name)
 {
-    hfsVolList_t		vols = NULL;	
-    dynarray_t *		list = NULL;			
     int				i;
+    dynarray_t *		list = NULL;			
+    struct statfs * 		stat_p;
+    int				stat_number;
 
-    vols = hfsVolList_init();
-    if (vols == NULL) {
+    stat_p = get_fsstat_list(&stat_number);
+    if (stat_p == NULL || stat_number == 0) {
 	goto done;
     }
 
-    for (i = 0; i < hfsVolList_count(vols); i++) {
+    for (i = 0; i < stat_number; i++) {
 	NBSPEntryRef	entry;
+	struct statfs * p = stat_p + i;
 	char		sharename[MAXNAMLEN];
 	int		sharename_len = 0;
 	char		sharedir[PATH_MAX];
@@ -89,9 +113,17 @@ NBSPList_init(const char * symlink_name)
 	char		sharelink[PATH_MAX];
 	char *		root;
 	struct stat	sb;
-	hfsVol_t *	vol = hfsVolList_entry(vols, i);
 
-	root = vol->mounted_on;
+	if ((p->f_flags & MNT_LOCAL) == 0) {
+	    /* skip non-local filesystems */
+	    continue;
+	}
+	if (strcmp(p->f_fstypename, "devfs") == 0
+	    || strcmp(p->f_fstypename, "fdesc") == 0) {
+	    /* don't bother with devfs, fdesc */
+	    continue;
+	}
+	root = p->f_mntonname;
 	if (strcmp(root, "/") == 0)
 	    root = "";
 	snprintf(sharelink, sizeof(sharelink), 
@@ -126,6 +158,9 @@ NBSPList_init(const char * symlink_name)
 	    continue;
 	}
 	bzero(entry, sizeof(*entry));
+	if (strcmp(p->f_fstypename, "hfs") == 0) {
+	    entry->is_hfs = TRUE;
+	}
 	entry->name = (char *)(entry + 1);
 	strncpy(entry->name, sharename, sharename_len);
 	entry->name[sharename_len] = '\0';
@@ -141,8 +176,9 @@ NBSPList_init(const char * symlink_name)
 	    list = NULL;
 	}
     }
-    if (vols)
-	hfsVolList_free(&vols);
+    if (stat_p != NULL) {
+	free(stat_p);
+    }
     return ((NBSPListRef)list);
 }
 
@@ -151,7 +187,7 @@ NBSPList_init(const char * symlink_name)
 int
 main()
 {
-    NBSPListRef list = NBSPList_init();
+    NBSPListRef list = NBSPList_init(".sharepoint");
 
     if (list != NULL) {
 	NBSPList_print(list);

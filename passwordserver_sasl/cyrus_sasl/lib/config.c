@@ -1,10 +1,10 @@
 /* SASL Config file API
  * Rob Siemborski
  * Tim Martin (originally in Cyrus distribution)
- * $Id: config.c,v 1.2 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: config.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -147,30 +147,3 @@ const char *sasl_config_getstring(const char *key,const char *def)
     }
     return def;
 }
-
-int sasl_config_getint(const char *key,int def)
-{
-    const char *val = sasl_config_getstring(key, (char *)0);
-
-    if (!val) return def;
-    if (!isdigit((int) *val) && (*val != '-' || !isdigit((int) val[1]))) return def;
-    return atoi(val);
-}
-
-int sasl_config_getswitch(const char *key,int def)
-{
-    const char *val = sasl_config_getstring(key, (char *)0);
-
-    if (!val) return def;
-
-    if (*val == '0' || *val == 'n' ||
-	(*val == 'o' && val[1] == 'f') || *val == 'f') {
-	return 0;
-    }
-    else if (*val == '1' || *val == 'y' ||
-	     (*val == 'o' && val[1] == 'n') || *val == 't') {
-	return 1;
-    }
-    return def;
-}
-

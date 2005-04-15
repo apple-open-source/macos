@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <string.h>
 #include "stuff/bool.h"
 #include "stuff/errors.h"
@@ -267,3 +268,4 @@ char *p)
 	}
 	return(NULL);
 }
+#endif /* !defined(RLD) */

@@ -855,12 +855,12 @@ public:
      *   kdDebug(300) << "node isn't an element node" << endl;
      * </pre>
      */
-    bool isNull() const;
+    bool isNull() const { return impl == 0; }
 
     /**
      * @internal handle to the implementation object
      */
-    NodeImpl *handle() const;
+    NodeImpl *handle() const { return impl; }
 
     /**
      * @internal returns the index of a node
@@ -868,12 +868,17 @@ public:
     unsigned long index() const;
     QString toHTML();
     void applyChanges();
-    void getCursor(int offset, int &_x, int &_y, int &height);
     /**
      * not part of the DOM.
      * @returns the exact coordinates and size of this element.
      */
     QRect getRect();
+
+    /**
+     * not part of the DOM.
+     * @returns whether this node is contenteditable.
+     */
+    bool isContentEditable() const;
 
 protected:
     NodeImpl *impl;
@@ -934,8 +939,11 @@ public:
      * @internal
      * not part of the DOM
      */
+    Node itemById (const DOMString& elementId) const;
+
     NodeListImpl *handle() const;
     bool isNull() const;
+
 
 protected:
     NodeList(const NodeListImpl *i);

@@ -4,7 +4,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -110,11 +110,7 @@ protected:
     virtual bool isRenderButton() const { return false; }
     virtual bool isEditable() const { return false; }
 
-    QPoint m_mousePos;
-    int m_state;
-    int m_button;
-    int m_clickCount;
-    bool m_isDoubleClick;
+    AlignmentFlags textAlignment() const;
 };
 
 // -------------------------------------------------------------------------
@@ -188,8 +184,6 @@ public:
 
     virtual const char *renderName() const { return "RenderSubmitButton"; }
 
-    virtual QString defaultLabel();
-
     virtual void calcMinMaxWidth();
     virtual void updateFromElement();
     virtual short baselinePosition( bool, bool ) const;
@@ -209,6 +203,7 @@ public:
     RenderImageButton(DOM::HTMLInputElementImpl *element);
 
     virtual const char *renderName() const { return "RenderImageButton"; }
+    virtual bool isImageButton() const { return true; }
 };
 
 
@@ -220,8 +215,6 @@ public:
     RenderResetButton(DOM::HTMLInputElementImpl *element);
 
     virtual const char *renderName() const { return "RenderResetButton"; }
-
-    virtual QString defaultLabel();
 };
 
 // -------------------------------------------------------------------------
@@ -230,8 +223,6 @@ class RenderPushButton : public RenderSubmitButton
 {
 public:
     RenderPushButton(DOM::HTMLInputElementImpl *element);
-
-    virtual QString defaultLabel();
 };
 
 // -------------------------------------------------------------------------
@@ -261,6 +252,11 @@ public:
 public slots:
     void slotReturnPressed();
     void slotTextChanged(const QString &string);
+#if APPLE_CHANGES
+    void slotPerformSearch();
+public:
+    void addSearchResult();
+#endif
 
 protected:
     virtual void handleFocusOut();
@@ -296,8 +292,7 @@ public:
     virtual void setStyle(RenderStyle* _style);
     
 protected:
-    virtual void paintBoxDecorations(QPainter *p,int, int _y,
-                                     int, int _h, int _tx, int _ty);
+    virtual void paintBoxDecorations(PaintInfo& i, int _tx, int _ty);
     void paintBorderMinusLegend(QPainter *p, int _tx, int _ty, int w,
                                 int h, const RenderStyle *style, int lx, int lw);
     RenderObject* findLegend();
@@ -328,7 +323,7 @@ public:
 #endif
 
 #if APPLE_CHANGES
-    void click();
+    void click(bool sendMouseEvents);
 #endif
 
 public slots:
@@ -438,7 +433,7 @@ protected slots:
 class TextAreaWidget : public KTextEdit
 {
 public:
-    TextAreaWidget(int wrap, QWidget* parent);
+    TextAreaWidget(QWidget* parent);
 
 protected:
     virtual bool event (QEvent *e );
@@ -457,7 +452,6 @@ public:
 
     virtual const char *renderName() const { return "RenderTextArea"; }
     virtual void calcMinMaxWidth();
-    virtual void close ( );
     virtual void updateFromElement();
     virtual void setStyle(RenderStyle *);
 
@@ -482,9 +476,31 @@ protected:
     virtual void handleFocusOut();
 
     virtual bool isEditable() const { return true; }
+
+    bool m_dirty;
 };
 
 // -------------------------------------------------------------------------
+
+#if APPLE_CHANGES
+class RenderSlider : public RenderFormElement
+{
+public:
+    RenderSlider(DOM::HTMLInputElementImpl *element);
+    
+    DOM::HTMLInputElementImpl* element() const
+    { return static_cast<DOM::HTMLInputElementImpl*>(RenderObject::element()); }
+
+    virtual const char *renderName() const { return "RenderSlider"; }
+    virtual bool canHaveIntrinsicMargins() const { return true; }
+    virtual void calcMinMaxWidth();
+    virtual void updateFromElement();
+
+protected slots:
+    void slotSliderValueChanged();
+    void slotClicked();
+};
+#endif
 
 }; //namespace
 

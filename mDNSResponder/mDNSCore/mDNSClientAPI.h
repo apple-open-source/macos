@@ -23,6 +23,9 @@
     Change History (most recent first):
 
 $Log: mDNSClientAPI.h,v $
+Revision 1.114.2.10  2005/01/28 05:02:05  cheshire
+<rdar://problem/3770559> SUPan: Replace IP TTL 255 check with local-subnet check
+
 Revision 1.114.2.9  2004/04/22 03:17:35  cheshire
 Fix use of "struct __attribute__((__packed__))" so it only applies on GCC >= 2.9
 
@@ -404,7 +407,7 @@ Revision 1.25  2002/09/21 20:44:49  zarzycki
 Added APSL info
 
 Revision 1.24  2002/09/19 23:47:35  cheshire
-Added mDNS_RegisterNoSuchService() function for assertion of non-existance
+Added mDNS_RegisterNoSuchService() function for assertion of non-existence
 of a particular named service
 
 Revision 1.23  2002/09/19 21:25:34  cheshire
@@ -885,6 +888,8 @@ struct NetworkInterfaceInfo_struct
 	// Client API fields: The client must set up these fields *before* calling mDNS_RegisterInterface()
 	mDNSInterfaceID InterfaceID;
 	mDNSAddr        ip;
+	mDNSAddr        mask;
+	char            ifname[16];
 	mDNSBool        Advertise;			// Set Advertise to false if you are only searching on this interface
 	mDNSBool        TxAndRx;			// Set to false if not sending and receiving packets on this interface
 	};
@@ -1336,6 +1341,7 @@ extern char *DNSTypeName(mDNSu16 rrtype);
 extern char *GetRRDisplayString_rdb(mDNS *const m, const ResourceRecord *rr, RDataBody *rd);
 #define GetRRDisplayString(m, rr) GetRRDisplayString_rdb((m), &(rr)->resrec, &(rr)->resrec.rdata->u)
 extern mDNSBool mDNSSameAddress(const mDNSAddr *ip1, const mDNSAddr *ip2);
+extern mDNSBool mDNSAddrIsDNSMulticast(const mDNSAddr *ip);
 extern void IncrementLabelSuffix(domainlabel *name, mDNSBool RichText);
 
 // ***************************************************************************

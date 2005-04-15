@@ -3,11 +3,11 @@
  * Rob Siemborski
  * Tim Martin
  * split from common.c by Rolf Braun
- * $Id: seterror.c,v 1.3 2002/05/23 18:59:47 snsimon Exp $
+ * $Id: seterror.c,v 1.4 2004/07/07 22:48:35 snsimon Exp $
  */
 
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,8 +85,8 @@ static int _sasl_seterror_usererr(int saslerr)
 }
 
 /* set the error string which will be returned by sasl_errdetail() using  
- *  syslog()-style formatting (e.g. printf-style with %m as most recent
- *  errno error)
+ *  syslog()-style formatting (e.g. printf-style with %m as the string form
+ *  of an errno error)
  * 
  *  primarily for use by server callbacks such as the sasl_authorize_t
  *  callback and internally to plug-ins
@@ -104,17 +104,17 @@ void sasl_seterror(sasl_conn_t *conn,
 		   unsigned flags,
 		   const char *fmt, ...) 
 {
-  int outlen=0; /* current length of output buffer */
-  int pos=0; /* current position in format string */
-  int formatlen;
+  size_t outlen=0; /* current length of output buffer */
+  size_t pos = 0; /* current position in format string */
+  size_t formatlen;
   int result;
-  sasl_log_t *log_cb;
+  sasl_log_t *log_cb = NULL;
   void *log_ctx;
   int ival;
   char *cval;
   va_list ap; /* varargs thing */
   char **error_buf;
-  unsigned *error_buf_len;
+  size_t *error_buf_len;
 
   if(!conn) {
 #ifndef SASL_OSX_CFMGLUE
@@ -145,7 +145,7 @@ void sasl_seterror(sasl_conn_t *conn,
   {
     if (fmt[pos]!='%') /* regular character */
     {
-      result = _buf_alloc(error_buf, (size_t*)error_buf_len, outlen+1);
+      result = _buf_alloc(error_buf, error_buf_len, outlen+1);
       if (result != SASL_OK)
 	return;
       (*error_buf)[outlen]=fmt[pos];
@@ -165,8 +165,8 @@ void sasl_seterror(sasl_conn_t *conn,
 	  {
 	  case 's': /* need to handle this */
 	    cval = va_arg(ap, char *); /* get the next arg */
-	    result = _sasl_add_string(error_buf, (size_t *)error_buf_len,
-				(size_t *)&outlen, cval);
+	    result = _sasl_add_string(error_buf, error_buf_len,
+				      &outlen, cval);
 	      
 	    if (result != SASL_OK) /* add the string */
 	      return;
@@ -175,8 +175,7 @@ void sasl_seterror(sasl_conn_t *conn,
 	    break;
 
 	  case '%': /* double % output the '%' character */
-	    result = _buf_alloc(error_buf, (size_t*)error_buf_len,
-				outlen+1);
+	    result = _buf_alloc(error_buf, error_buf_len, outlen+1);
 	    if (result != SASL_OK)
 	      return;
 	    (*error_buf)[outlen]='%';
@@ -185,18 +184,18 @@ void sasl_seterror(sasl_conn_t *conn,
 	    break;
 
 	  case 'm': /* insert the errno string */
-	    result = _sasl_add_string(error_buf, (size_t *)error_buf_len,
-				(size_t *)&outlen, strerror(va_arg(ap, int)));
+	    result = _sasl_add_string(error_buf, error_buf_len,
+				      &outlen,
+				      strerror(va_arg(ap, int)));
 	    if (result != SASL_OK)
 	      return;
 	    done=1;
 	    break;
 
 	  case 'z': /* insert the sasl error string */
-	    result = _sasl_add_string(error_buf, (size_t *)error_buf_len,
-				(size_t *)&outlen,
-				(char *)sasl_errstring(_sasl_seterror_usererr(
-				    va_arg(ap, int)),NULL,NULL));
+	    result = _sasl_add_string(error_buf, error_buf_len,	&outlen,
+			 (char *)sasl_errstring(_sasl_seterror_usererr(
+					        va_arg(ap, int)),NULL,NULL));
 	    if (result != SASL_OK)
 	      return;
 	    done=1;
@@ -209,8 +208,8 @@ void sasl_seterror(sasl_conn_t *conn,
 	    tempbuf[1]='\0';
 	    
 	    /* now add the character */
-	    result = _sasl_add_string(error_buf, (size_t *)error_buf_len,
-				(size_t *)&outlen, tempbuf);
+	    result = _sasl_add_string(error_buf, error_buf_len,
+				      &outlen, tempbuf);
 	    if (result != SASL_OK)
 	      return;
 	    done=1;
@@ -224,8 +223,8 @@ void sasl_seterror(sasl_conn_t *conn,
 
 	    snprintf(tempbuf,20,frmt,ival); /* have snprintf do the work */
 	    /* now add the string */
-	    result = _sasl_add_string(error_buf, (size_t *)error_buf_len,
-				(size_t *)&outlen, tempbuf);
+	    result = _sasl_add_string(error_buf, error_buf_len,
+				      &outlen, tempbuf);
 	    if (result != SASL_OK)
 	      return;
 	    done=1;

@@ -1,15 +1,21 @@
-.TH NM 1 "October 23, 1997" "Apple Computer, Inc."
+.TH NM 1 "November 11, 2004" "Apple Computer, Inc."
 .SH NAME
 nm \- display name list (symbol table)
 .SH SYNOPSIS
 .B nm
 [
-.B \-agnoprumxjlf
+.B \-agnoprumxjlfPA
 [
 .B s 
 .I segname sectname
 ]]
-[ 
+[
+.B \-
+] [
+.BI \-t " format"
+] [[
+.BI \-arch " arch_flag
+]...] [
 .IR file " ... ]"
 .SH DESCRIPTION
 .I Nm
@@ -158,7 +164,27 @@ are displayed.
 .B \-f
 Display the symbol table of a dynamic library flat (as one file not separate
 modules).
-
+.TP
+.B \-A
+Write the pathname or library name of an object on each line.
+.TP
+.B \-P
+Write information in a portable output format.
+.TP
+.BI \-t " format"
+For the
+.B \-P
+output, write the numeric value in the specified format. The format shall be
+dependent on the single character used as the format option-argument:
+.TP
+.I d
+The value shall be written in decimal (default).
+.TP
+.I o
+The value shall be written in octal.
+.TP
+.I x
+The value shall be written in hexadecimal.
 .SH SEE ALSO
 ar(1), ar(5), Mach-O(5), stab(5), nlist(3)
 .SH BUGS

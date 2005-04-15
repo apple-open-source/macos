@@ -1,0 +1,73 @@
+              Cyrus IMAP Server:  Alternate Namespace
+
+    This document describes the alternatives to the standard mailbox
+    presentation method. These alternatives may be used together or
+    independently. 
+
+    The namespace options do NOT change the rules governing the behavior of
+    mailboxes (as described in overview.html) or how mailboxes are stored
+    on the filesystem. The mailboxes are ALWAYS stored using the netnews
+    convention and internal namespace. When configured to use one (or both)
+    of the options below, the server simply translates mailbox names
+    between the internal names and the external names when used by the
+    client in the IMAP protocol and in Sieve scripts. 
+
+    This design allows the namespace to be changed at runtime (even on a
+    running server) without having to reconfigure the server. This also
+    means that one mailstore can support multiple namespaces if configured
+    correctly. 
+
+    NOTE: If you are upgrading an existing server which uses timsieved to
+    manage Sieve scripts and choose to enable one of the namespace options,
+    you should run the script "tools/translatesieve" after configuring the
+    namespace option(s). This script will translate the folder names in
+    fileinto actions. 
+
+Alternate Mailbox Namespace
+
+    The alternate namespace allows a user's personal mailboxes to appear as
+    if they reside at the same level as that user's INBOX as opposed to
+    children of it. For example, if user "bovik" had a personal "work"
+    mailbox, it would appear to user "bovik" as "work" instead of
+    "INBOX.work" as it would in the standard namespace. 
+
+    This configuration requires that a special prefix be used for shared
+    folders (to distinguish them from personal folders) and for accessing
+    other users' folders. By default, the prefix for shared folders is
+    "Shared Folders" and the prefix for other users folders is "Other
+    Users". For example, a shared folder "foo" in the standard namespace
+    would be presented as "Shared Folders.foo" in the alternate namespace. 
+
+    NOTE: All tools for administering the server, including admins using
+    cyradm, always use the internal namespace. 
+
+Configuring the Alternate Namespace
+
+    To use the alternate namespace, turn on the altnamespace option in
+    /etc/imapd.conf. The prefixes used for shared folders and other users
+    folders can be changed from the defaults by setting the sharedrefix and
+    userprefix options respectively. 
+
+UNIX Hierarchy Convention
+
+    The UNIX hierarchy convention uses the traditional UNIX separator
+    character ("/") to delimit levels of the mailbox hierarchy instead of
+    the netnews character ("."). For example, if user "bovik" had a
+    personal "work" mailbox, it would appear to user "bovik" as
+    "INBOX/work" in the standard namespace. 
+
+    When the UNIX hierarchy convention is used, the "." character MAY be
+    used in mailbox names, including user names. In order to maintain
+    backwards compatibility with the internal namespace, all "." characters
+    are translated to a benign character (currently "^") before any data is
+    stored to disk. For example, if user "elmer.fudd" had a personal
+    "rabbit.holes" mailbox, it would be stored as
+    "user.elmer^fud.rabbit^holes" in the internal namespace. It is
+    important to remember this phenomenon if/when reverting back to the
+    netnews hierarchy convention. 
+
+Configuring the UNIX Hierarchy Convention
+
+    To use the UNIX hierarchy separator, turn on the unixhierarchysep
+    option in /etc/imapd.conf. 
+

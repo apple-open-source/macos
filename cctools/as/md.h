@@ -117,7 +117,7 @@ extern char *md_atof(
  */
 extern void md_number_to_chars(
     char *buf,
-    long val,
+    signed_target_addr_t val,
     int n);
 
 /*
@@ -129,7 +129,7 @@ extern void md_number_to_chars(
  */
 extern void md_number_to_imm(
     unsigned char *buf,
-    long val,
+    signed_target_addr_t val,
     int n,
     fixS *fixP,
     int nsect);

@@ -1,32 +1,45 @@
 <HTML><HEAD>
 <title>Cyrus SASLv2 README</title>
-<!-- $Id: readme.html,v 1.1 2002/02/28 00:00:06 snsimon Exp $ -->
+<!-- $Id: readme.html,v 1.4 2005/01/10 19:13:37 snsimon Exp $ -->
 </HEAD>
 <BODY>
 <H1>Read Me First</H1>
 
-This document offers a general overview of the SASL library.
+This document offers a general overview of the Cyrus SASL library.
+The Cyrus SASL Libray provides applications with an implementation
+of the Simple Authentication and Security Layer (RFC2222), and
+several authentication mechanisms.  Users interested in the "big picture"
+of what is provided by the library should read about
+<a href=components.html>Cyrus SASL Components</a>.
 
 <H2>FEATURES</H2>
 
-The following mechanisms are included in this distribution:
+The following <a href="mechanisms.html">mechanisms</a> are included in
+this distribution:
 <ul>
 <li>ANONYMOUS
 <li>CRAM-MD5
 <li>DIGEST-MD5
-<li>GSSAPI (MIT Kerberos 5 or Heimdal Kerberos 5)
+<li>EXTERNAL
+<li>GSSAPI (MIT Kerberos 5, Heimdal Kerberos 5 or CyberSafe)
 <li>KERBEROS_V4
-<li>PLAIN
+<li>LOGIN
+<li>NTLM (requires OpenSSL libcrypto)
 <li>OTP (requires OpenSSL libcrypto)
+<li>PLAIN
 <li>SRP (work in progress; requires OpenSSL libcrypto)
 </ul>
 
-The library uses a Berkeley DB, gdbm or ndbm file on the server side
-to store per-user authentication secrets.  The utility
-<tt>saslpasswd</tt> has been included for adding authentication
-secrets to the file.<p>
+The library also supports storing user secrets in either a hash
+database (e.g. Berkeley DB, gdbm, ndbm), or in a SQL database 
+(MySQL, Postgres).
 
-PLAIN uses sasldb, the pwcheck daemon, or the saslauthd daemon.<p>
+
+Additionally, mechanisms such as PLAIN and LOGIN
+(where the plaintext password is directly supplied by the client)
+can perform direct password verification via the saslauthd daemon.  This
+allows the use of LDAP, PAM, and a variety of other password verification
+routines.
 
 The sample directory contains two programs which provide a reference
 for using the library, as well as making it easy to test a mechanism
@@ -38,53 +51,59 @@ This library is believed to be thread safe IF:
 <li>you supply mutex functions (see sasl_set_mutex())
 <li>you make no libsasl calls until sasl_client/server_init() completes
 <li>no libsasl calls are made after sasl_done() is begun
-<li>the GSSAPI plugin requires a thread-safe GSS Kerberos 5 library.
+<li>when using GSSAPI, you use a thread-safe GSS / Kerberos 5 library.
 </ul>
 
+<H2>TYPICAL UNIX INSTALLATION</H2>
 
-<H2>INSTALLATION</H2>
-
-If you are upgrading from libsasl v1, please see <a
+First, if you are upgrading from Cyrus SASLv1, please see <a
 href="upgrading.html">upgrading.html</a>.<p>
 
-Please see the file <a href="install.html">install.html</a> to install
-this package.  We hope it to be relatively straightforward; if you try
-it on systems that we haven't, please contact us with your
-experiences.<p>
+Please see the file <a href="install.html">install.html</a> for instructions
+on how to install this package.<p>
 
-The library uses the environment variable SASL_PATH to locate the
+Note that the library can use the environment variable SASL_PATH to locate the
 directory where the mechanisms are; this should be a colon-separated
-list of directories containing plugins.
+list of directories containing plugins.  Otherwise it will default to the
+value of <tt>--with-plugindir</tt> as supplied to <tt>configure</tt> (which
+itself defaults to <tt>/usr/local/lib</tt>).
 
 <H2>INSTALLATION ON MAC OS X</H2>
 Please read <A HREF="macosx.html">macosx.html</A>
 
+<H2>INSTALLATION ON WINDOWS</H2>
+Please read <A HREF="windows.html">windows.html</A>.  This configuration
+has not been extensively tested.
+
 <H2>CONFIGURATION</H2>
-By default, libsasl looks for configuration files in
+There are two main ways to configure the SASL library for a given
+application.  The first (and typically easiest) is to make use
+of the application's configuration files.  Provided the application supports it
+(via the <tt>SASL_CB_GETOPT</tt> callback), please refer to that documetation
+for how to supply <a href=options.html>SASL options</a>.<p>
+
+Alternatively, Cyrus SASL looks for configuration files in
 /usr/lib/sasl/Appname.conf where Appname is settable by the
 application (for example, Sendmail 8.10 and later set this to
-"Sendmail").  Applications can also override this default
-configuration mechanism.<p>
+"Sendmail").<p>
+
+Configuration using the application's configuration files (via
+the <tt>getopt</tt> callback) will override those supplied by
+the SASL configuration files.<p>
 
 For a detailed guide on configuring libsasl, please look at
-<A HREF=sysadmin.html>sysadmin.html</A> and <A HREF=options.html>options.html</A>
+<A HREF=sysadmin.html>sysadmin.html</A> and
+<A HREF=options.html>options.html</A>
 
 <H2>KNOWN BUGS</H2>
 <ul>
-<li>There are some interoperability problems with the DIGEST-MD5 plugin.
-<li>There is an API issue with the username canonicalization functions which
-will be fixed by the next release.
 <li>libtool doesn't always link libraries together.  In our environment,
 we only have static Krb5 libraries; the GSSAPI plugin should link
 these libraries in on platforms that support it (Solaris and Linux
 among them) but it does not.  It also doesn't always get the runpath
 of libraries correct.
-<li>Also see the "TODO" file and our <A HREF=http://bugzilla.andrew.cmu.edu>bugzilla</A>.
+<li>Also see our <A HREF=http://bugzilla.andrew.cmu.edu>bugzilla</A>.
 </ul>
-
-<H2>UPGRADING from Cyrus SASL v1</H2>
-
-See <a href="upgrading.html">upgrading.html</a>.
 
 <H2>AUTHORS</H2>
 
@@ -94,7 +113,13 @@ Be sure to include the version of libsasl and your operating system;
 messages without this information will not be answered.<p>
 
 Major contributors to the libsasl code can be found in the top-level
-file AUTHORS.<p>
+file AUTHORS.  Additionally saslauthd has an AUTHORS file that lists
+major contributors as well.<p>
+
+People considering doing binary distributions that include saslauthd
+should be aware that the code is covered by several slightly different
+(but compatible) licenses, due to how it was contributed.  Details can
+be found within the source code.<p>
 
 <hr>
 Back to the <A href=index.html>index</a>

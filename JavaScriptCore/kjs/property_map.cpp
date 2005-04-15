@@ -22,6 +22,7 @@
 #include "property_map.h"
 
 #include "object.h"
+#include "protect.h"
 #include "reference_list.h"
 
 #define DEBUG_PROPERTIES 0
@@ -83,7 +84,7 @@ struct PropertyMapHashTable
 class SavedProperty {
 public:
     Identifier key;
-    Value value;
+    ProtectedValue value;
     int attributes;
 };
 
@@ -278,7 +279,7 @@ void PropertyMap::put(const Identifier &name, ValueImp *value, int attributes)
     int i = h & _table->sizeMask;
     int k = 0;
     bool foundDeletedElement = false;
-    int deletedElementIndex = 0;   /* initialize to make the compiler happy */
+    int deletedElementIndex = 0;    /* initialize to make the compiler happy */
 #if DUMP_STATISTICS
     ++numProbes;
     numCollisions += _table->entries[i].key && _table->entries[i].key != rep;

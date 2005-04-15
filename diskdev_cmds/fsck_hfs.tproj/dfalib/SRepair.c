@@ -56,6 +56,10 @@ static	int		DelFThd( SGlobPtr GPtr, UInt32 fid );
 static	OSErr	FixDirThread( SGlobPtr GPtr, UInt32 did );
 static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr );
 static	OSErr	RepairReservedBTreeFields ( SGlobPtr GPtr );
+static 	OSErr   GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, CatalogKey *catKey, CatalogRecord *catRecord, UInt16 *recordSize); 
+static 	OSErr   RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus);
+static 	OSErr   RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus);
+static	OSErr	RepairAttributes( SGlobPtr GPtr );
 static	OSErr	FixFinderFlags( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixLinkCount( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixBSDInfo( SGlobPtr GPtr, RepairOrderPtr p );
@@ -252,7 +256,29 @@ int MRepair( SGlobPtr GPtr )
 		err = RepairReservedBTreeFields( GPtr );					//	update catalog fields
 		ReturnIfError( err );
 	}
+
+	// Check consistency of attribute btree and corresponding bits in
+	// catalog btree 
+	if ( (GPtr->ABTStat & S_AttributeCount) || 
+	     (GPtr->ABTStat & S_SecurityCount)) 
+	{
+		err = RepairAttributes( GPtr );
+		ReturnIfError( err );
+	}
 	
+	// Update the attribute BTree header and bit map 
+	if ( (GPtr->ABTStat & S_BTH) )
+	{
+		err = UpdateBTreeHeader( GPtr->calculatedAttributesFCB );	//	update attribute BTH
+		ReturnIfError( err );
+	}
+
+	if ( GPtr->ABTStat & S_BTM )
+	{
+		err = UpdBTM( GPtr, kCalculatedAttributesRefNum );		//	update attribute BTM
+		ReturnIfError( err );
+	}
+
 	//
 	//	Update the volume bit map
 	//
@@ -1948,6 +1974,427 @@ EXIT:
 	return( err );
 }
 
+/* Function:	GetCatalogRecord
+ *
+ * Description:
+ * This function returns a catalog file/folder record for a given
+ * file/folder ID from the catalog BTree.
+ *
+ * Input:	1. GPtr - pointer to global scavenger area
+ *        	2. fileID - file ID to search the file/folder record  
+ *      	3. isHFSPlus - boolean value to indicate if volume is HFSPlus 
+ *
+ * Output:	1. catKey - catalog key
+ *        	2. catRecord - catalog record for given ID
+ *         	3. recordSize - size of catalog record return back 
+ *
+ * Return value:	
+ * 		      zero means success
+ *		      non-zero means failure
+ */
+static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, CatalogKey *catKey, CatalogRecord *catRecord, UInt16 *recordSize) 
+{
+	OSErr err = noErr;
+	CatalogKey catThreadKey;
+	CatalogName catalogName;
+	UInt32 hint;
+
+	/* Look up for catalog thread record for the file that owns attribute */
+	BuildCatalogKey(fileID, NULL, isHFSPlus, &catThreadKey);
+	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &catThreadKey, kNoHint, catKey, catRecord, recordSize, &hint);
+	if (err) {
+#if DEBUG_XATTR
+		printf ("%s: No matching catalog thread record found\n", __FUNCTION__);
+#endif
+		goto out;
+	}
+
+#if DEBUG_XATTR
+	printf ("%s(%s,%d):1 recordType=%x, flags=%x\n", __FUNCTION__, __FILE__, __LINE__, 
+				catRecord->hfsPlusFile.recordType, 
+				catRecord->hfsPlusFile.flags);
+#endif
+
+	/* We were expecting a thread record.  The recordType says it is a file 
+	 * record or folder record.  Return error.
+	 */
+	if ((catRecord->hfsPlusFile.recordType == kHFSPlusFolderRecord) ||
+	    (catRecord->hfsPlusFile.recordType == kHFSPlusFileRecord)) {
+		err = fsBTRecordNotFoundErr; 
+		goto out;
+	}
+	
+	/* It is either a file thread record or folder thread record.
+	 * Look up for catalog record for the file that owns attribute */
+	CopyCatalogName((CatalogName *)&(catRecord->hfsPlusThread.nodeName), &catalogName, isHFSPlus);
+	BuildCatalogKey(catRecord->hfsPlusThread.parentID, &catalogName, isHFSPlus, catKey); 
+	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, catKey, kNoHint, catKey, catRecord, recordSize, &hint);
+	if (err) {
+#if DEBUG_XATTR	
+		printf ("%s: No matching catalog record found\n", __FUNCTION__);
+#endif
+		goto out;
+	}
+	
+#if DEBUG_XATTR
+	printf ("%s(%s,%d):2 recordType=%x, flags=%x\n", __FUNCTION__, __FILE__, __LINE__, 
+				catRecord->hfsPlusFile.recordType, 
+				catRecord->hfsPlusFile.flags);
+#endif
+
+out:
+	return err;
+}
+
+/* Function:	RepairAttributesCheckABT
+ *
+ * Description:
+ * This function is called from RepairAttributes (to repair extended 
+ * attributes) during repair stage of fsck_hfs.
+ *
+ * 1. Make full pass through attribute BTree.
+ * 2. For every unique fileID, lookup its catalog record in Catalog BTree.
+ * 3. If found, check the attributes/security bit in catalog record.
+ *              If not set correctly, set it and replace the catalog record.
+ * 4. If not found, return error 
+ * 
+ * Input:	1. GPtr - pointer to global scavenger area
+ *      	2. isHFSPlus - boolean value to indicate if volume is HFSPlus 
+ *
+ * Output:	err - Function result 
+ * 		      zero means success
+ *		      non-zero means failure
+ */
+static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus) 
+{
+	OSErr err = noErr;
+	UInt16 selCode;		/* select access pattern for BTree */
+	UInt32 hint;
+
+	AttributeKey attrKey;
+	CatalogRecord catRecord; 
+	CatalogKey catKey;
+	UInt16 catRecordSize;
+
+	lastAttrID lastID;	/* fileID for the last attribute searched */
+	Boolean didRecordChange = false; 	/* whether catalog record was changed after checks */
+
+#if DEBUG_XATTR
+	char attrName[XATTR_MAXNAMELEN];
+	size_t len;
+#endif
+
+	lastID.fileID = 0;
+	lastID.hasSecurity = false;
+	
+	selCode = 0x8001;	/* Get first record from BTree */
+	err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, NULL, NULL, &hint);
+	if (err != noErr) goto out; 
+
+	selCode = 1;	/* Get next record */
+	do {
+#if DEBUG_XATTR
+		/* Convert unicode attribute name to char for ACL check */
+		(void) utf_encodestr(attrKey.attrName, attrKey.attrNameLen * 2, attrName, &len);
+		attrName[len] = '\0';
+		printf ("%s(%s,%d): Found attrName=%s for fileID=%d\n", __FUNCTION__, __FILE__, __LINE__, attrName, attrKey.cnid);
+#endif
+	
+		if (attrKey.cnid != lastID.fileID) {
+			/* We found an attribute with new file ID */
+			
+			/* Replace the previous catalog record only if we updated the flags */
+			if (didRecordChange == true) {
+				err = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &catKey , kNoHint, &catRecord, catRecordSize, &hint);
+				if (err) {
+#if DEBUG_XATTR
+					printf ("%s: Error in replacing Catalog Record\n", __FUNCTION__);
+#endif		
+					goto out;
+				}
+			}
+			
+			didRecordChange = false; /* reset to indicate new record has not changed */
+
+			/* Get the catalog record for the new fileID */
+			err = GetCatalogRecord(GPtr, attrKey.cnid, isHFSPlus, &catKey, &catRecord, &catRecordSize);
+			if (err) {
+				/* No catalog record was found for this fileID. */
+#if DEBUG_XATTR
+				printf ("%s: No matching catalog record found\n", __FUNCTION__);
+#endif
+				/* 3984119 - Do not delete extended attributes for file IDs less
+	 			 * kHFSFirstUserCatalogNodeID but not equal to kHFSRootFolderID 
+	 			 * in prime modulus checksum.  These file IDs do not have 
+	 			 * any catalog record
+	 			 */
+				if ((attrKey.cnid < kHFSFirstUserCatalogNodeID) && 
+	    			    (attrKey.cnid != kHFSRootFolderID)) { 
+#if DEBUG_XATTR
+					printf ("%s: Ignore catalog check for fileID=%d for attribute=%s\n", __FUNCTION__, attrKey.cnid, attrName); 
+#endif
+					goto getnext;
+				}
+
+				/* Delete this orphan extended attribute */
+				err = DeleteBTreeRecord(GPtr->calculatedAttributesFCB, &attrKey);
+				if (err) {
+#if DEBUG_XATTR
+					printf ("%s: Error in deleting attribute record\n", __FUNCTION__);
+#endif
+					goto out;
+				}
+#if DEBUG_XATTR
+				printf ("%s: Deleted attribute=%s for fileID=%d\n", __FUNCTION__, attrName, attrKey.cnid);
+#endif
+				/* set flags to write back header and map */
+				GPtr->ABTStat |= S_BTH + S_BTM;	
+				goto getnext;
+			} 
+
+			lastID.fileID = attrKey.cnid;	/* set last fileID to the new ID */
+			lastID.hasSecurity = false; /* reset to indicate new fileID does not have security */
+				
+			/* Check the Attribute bit */
+			if (!(catRecord.hfsPlusFile.flags & kHFSHasAttributesMask)) {
+				/* kHFSHasAttributeBit should be set */
+				catRecord.hfsPlusFile.flags |= kHFSHasAttributesMask;
+				didRecordChange = true;
+			}
+
+			/* Check if attribute is ACL */
+			if (!bcmp(attrKey.attrName, GPtr->securityAttrName, GPtr->securityAttrLen)) {
+				lastID.hasSecurity = true;
+				/* Check the security bit */
+				if (!(catRecord.hfsPlusFile.flags & kHFSHasSecurityMask)) {
+					/* kHFSHasSecurityBit should be set */
+					catRecord.hfsPlusFile.flags |= kHFSHasSecurityMask;
+					didRecordChange = true;
+				}
+			}
+		} else {
+			/* We have seen attribute for fileID in past */
+
+			/* If last time we saw this fileID did not have an ACL and this 
+			 * extended attribute is an ACL, ONLY check consistency of 
+			 * security bit from Catalog record 
+			 */
+			if ((lastID.hasSecurity == false) && !bcmp(attrKey.attrName, GPtr->securityAttrName, GPtr->securityAttrLen)) {
+				lastID.hasSecurity = true;
+				/* Check the security bit */
+				if (!(catRecord.hfsPlusFile.flags & kHFSHasSecurityMask)) {
+					/* kHFSHasSecurityBit should be set */
+					catRecord.hfsPlusFile.flags |= kHFSHasSecurityMask;
+					didRecordChange = true;
+				}
+			}
+		}
+		
+getnext:
+		/* Access the next record */
+		err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, NULL, NULL, &hint);
+	} while (err == noErr);
+
+	err = noErr;
+
+	/* Replace the catalog record for last extended attribute in the attributes BTree
+	 * only if we updated the flags
+	 */
+	if (didRecordChange == true) {
+		err = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &catKey , kNoHint, &catRecord, catRecordSize, &hint);
+		if (err) {
+#if DEBUG_XATTR
+			printf ("%s: Error in replacing Catalog Record\n", __FUNCTION__);
+#endif		
+			goto out;
+		}
+	}
+
+out:
+	return err;
+}
+
+/* Function:	RepairAttributesCheckCBT
+ *
+ * Description:
+ * This function is called from RepairAttributes (to repair extended 
+ * attributes) during repair stage of fsck_hfs.
+ *
+ * NOTE: The case where attribute exists and bit is not set is being taken care in 
+ * RepairAttributesCheckABT.  This function determines relationship from catalog
+ * Btree to attribute Btree, and not vice-versa. 
+
+ * 1. Make full pass through catalog BTree.
+ * 2. For every fileID, if the attributes/security bit is set, 
+ *    lookup all the extended attributes in the attributes BTree.
+ * 3. If found, check that if bits are set correctly.
+ * 4. If not found, clear the bits.
+ * 
+ * Input:	1. GPtr - pointer to global scavenger area
+ *      	2. isHFSPlus - boolean value to indicate if volume is HFSPlus 
+ *
+ * Output:	err - Function result 
+ * 		      zero means success
+ *		      non-zero means failure
+ */
+static OSErr RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus)
+{
+	OSErr err = noErr;
+	UInt16 selCode;		/* select access pattern for BTree */
+	UInt16 recordSize;
+	UInt32 hint;
+
+	AttributeKey *attrKey;
+	CatalogRecord catRecord; 
+	CatalogKey catKey;
+
+	Boolean didRecordChange = false; 	/* whether catalog record was changed after checks */
+
+	BTreeIterator iterator;
+
+	UInt32 curFileID;
+	Boolean curRecordHasAttributes = false;
+	Boolean curRecordHasSecurity = false;
+
+	selCode = 0x8001;	/* Get first record from BTree */
+	err = GetBTreeRecord(GPtr->calculatedCatalogFCB, selCode, &catKey, &catRecord, &recordSize, &hint);
+	if ( err != noErr ) goto out;
+
+	selCode = 1;	/* Get next record */
+	do {
+		/* Check only file record and folder record, else skip to next record */
+		if ( (catRecord.hfsPlusFile.recordType != kHFSPlusFileRecord) && 
+		     (catRecord.hfsPlusFile.recordType != kHFSPlusFolderRecord)) {
+			goto getnext;
+		}
+
+		/* Check if catalog record has attribute and/or security bit set, else
+		 * skip to next record 
+		 */
+		if ( ((catRecord.hfsPlusFile.flags & kHFSHasAttributesMask) == 0) && 
+		   	 ((catRecord.hfsPlusFile.flags & kHFSHasSecurityMask) == 0) ) {
+			 goto getnext;
+		}
+
+		/* Initialize some flags */
+		didRecordChange = false;
+		curRecordHasSecurity = false;
+		curRecordHasAttributes = false;
+
+		/* Access all extended attributes for this fileID */ 
+		curFileID = catRecord.hfsPlusFile.fileID;
+
+		/* Initialize the iterator and attribute key */
+		ClearMemory(&iterator, sizeof(BTreeIterator));
+		attrKey = (AttributeKey *)&iterator.key;
+		attrKey->keyLength = kAttributeKeyMinimumLength;
+		attrKey->cnid = curFileID;
+
+		/* Search for attribute with NULL name.  This will place the iterator at correct fileID location in BTree */	
+		err = BTSearchRecord(GPtr->calculatedAttributesFCB, &iterator, kInvalidMRUCacheKey, NULL, NULL, &iterator);
+		if (err && (err != btNotFound)) {
+#if DEBUG_XATTR
+			printf ("%s: No matching attribute record found\n", __FUNCTION__);
+#endif
+			goto out;
+		}
+
+		/* Iterate over to all extended attributes for given fileID */
+		err = BTIterateRecord(GPtr->calculatedAttributesFCB, kBTreeNextRecord, &iterator, NULL, NULL);
+
+		/* Check only if we did _find_ an attribute record for the current fileID */
+		while ((err == noErr) && (attrKey->cnid == curFileID)) {
+			/* Current record should have attribute bit set */
+			curRecordHasAttributes = true;
+
+			/* Current record should have security bit set */
+			if (!bcmp(attrKey->attrName, GPtr->securityAttrName, GPtr->securityAttrLen)) {
+				curRecordHasSecurity = true;
+			}
+
+			/* Get the next record */
+			err = BTIterateRecord(GPtr->calculatedAttributesFCB, kBTreeNextRecord, &iterator, NULL, NULL);
+		}
+
+		/* Determine if we need to update the catalog record */
+		if ((curRecordHasAttributes == false) && (catRecord.hfsPlusFile.flags & kHFSHasAttributesMask)) {
+			/* If no attribute exists and attributes bit is set, clear it */
+			catRecord.hfsPlusFile.flags &= ~kHFSHasAttributesMask;		
+			didRecordChange = true;
+		}
+				
+		if ((curRecordHasSecurity == false) && (catRecord.hfsPlusFile.flags & kHFSHasSecurityMask)) {
+			/* If no security attribute exists and security bit is set, clear it */
+			catRecord.hfsPlusFile.flags &= ~kHFSHasSecurityMask;		
+			didRecordChange = true;
+		}
+			 
+		/* If there was any change in catalog record, write it back to disk */
+		if (didRecordChange == true) {
+			err = ReplaceBTreeRecord( GPtr->calculatedCatalogFCB, &catKey , kNoHint, &catRecord, recordSize, &hint );
+			if (err) {
+#if DEBUG_XATTR
+				printf ("%s: Error writing catalog record\n", __FUNCTION__);
+#endif
+				goto out;
+			}
+		}
+
+getnext:
+		/* Access the next record */
+		err = GetBTreeRecord( GPtr->calculatedCatalogFCB, selCode, &catKey, &catRecord, &recordSize, &hint );
+	} while (err == noErr); 
+
+	err = noErr;
+
+out:
+	return err;
+}
+
+/* Function:	RepairAttributes
+ *
+ * Description:
+ * This function fixes the extended attributes consistency by
+ * calling two functions:
+ * 1. RepairAttributesCheckABT:  Traverses attributes Btree and
+ * checks if each attribute has correct bits set in its corresponding 
+ * catalog record.
+ * 2. RepairAttributesCheckCBT:  Traverses catalog Btree and checks
+ * if each catalog record that has attribute/security bit set have
+ * corresponding extended attributes. 
+ * 
+ * Input:	1. GPtr - pointer to global scavenger area
+ *
+ * Output:	err - Function result 
+ * 		      zero means success
+ *		      non-zero means failure
+ */
+static OSErr RepairAttributes(SGlobPtr GPtr)
+{
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+	
+	/* Check if the volume is HFS Plus volume */
+	isHFSPlus = VolumeObjectIsHFSPlus();
+	if (!isHFSPlus) {
+		goto out;
+	}
+
+	/* Traverse Attributes BTree and access required records in Catalog BTree */
+	err = RepairAttributesCheckABT(GPtr, isHFSPlus);
+	if (err) {
+		goto out;
+	}
+
+	/* Traverse Catalog BTree and access required records in Attributes BTree */
+	err = RepairAttributesCheckCBT(GPtr, isHFSPlus);
+	if (err) {
+		goto out;
+	}
+
+out:
+	return err;
+}
 
 OSErr	ProcessFileExtents( SGlobPtr GPtr, SFCB *fcb, UInt8 forkType, UInt16 flags, Boolean isExtentsBTree, Boolean *hasOverflowExtents, UInt32 *blocksUsed  )
 {

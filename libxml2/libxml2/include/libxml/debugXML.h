@@ -61,6 +61,22 @@ XMLPUBFUN void XMLCALL
 	xmlDebugDumpEntities	(FILE *output,
 				 xmlDocPtr doc);
 
+/****************************************************************
+ *								*
+ *	 		Checking routines			*
+ *								*
+ ****************************************************************/
+
+XMLPUBFUN int XMLCALL
+	xmlDebugCheckDocument	(FILE * output,
+				 xmlDocPtr doc);
+
+/****************************************************************
+ *								*
+ *	 		XML shell helpers			*
+ *								*
+ ****************************************************************/
+
 XMLPUBFUN void XMLCALL	
 	xmlLsOneNode		(FILE *output, xmlNodePtr node);
 XMLPUBFUN int XMLCALL	
@@ -75,6 +91,7 @@ XMLPUBFUN const char * XMLCALL
  *								*
  ****************************************************************/
 
+#ifdef LIBXML_XPATH_ENABLED
 /**
  * xmlShellReadlineFunc:
  * @prompt:  a string prompt
@@ -188,6 +205,8 @@ XMLPUBFUN void XMLCALL
 				 xmlShellReadlineFunc input,
 				 FILE *output);
 			 
+#endif /* LIBXML_XPATH_ENABLED */
+
 #ifdef __cplusplus
 }
 #endif

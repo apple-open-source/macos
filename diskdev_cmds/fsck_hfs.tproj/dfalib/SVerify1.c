@@ -1751,8 +1751,84 @@ exit:
 	return (err);
 }
 
+/*------------------------------------------------------------------------------
 
+Function:	CheckAttributeRecord
 
+Function:	This is call back function called for all leaf records in 
+		Attribute BTree.  This function verifies that for every extended
+		attribute and security attribute the corresponding bits in 
+		Catalog BTree are set.  
+			
+Input:		GPtr		-	pointer to scavenger global area
+		key		-	key for current attribute
+		rec		- 	attribute record
+		reclen		- 	length of the record
+
+Output:		int		-	function result:			
+								0	= no error
+								n 	= error code 
+------------------------------------------------------------------------------*/
+
+static int 
+CheckAttributeRecord(SGlobPtr GPtr, const AttributeKey *key, const HFSPlusAttrRecord *rec, UInt16 reclen)
+{
+	int result = 0;
+	Boolean isHFSPlus;
+
+	/* Check if the volume is HFS Plus volume */
+	isHFSPlus = VolumeObjectIsHFSPlus();
+	if (!isHFSPlus) {
+		goto out;
+	}
+
+#if DEBUG_XATTR
+	char attrName[XATTR_MAXNAMELEN];
+	size_t len;
+
+	/* Convert unicode attribute name to char */
+	(void) utf_encodestr(key->attrName, key->attrNameLen * 2, attrName, &len);
+	attrName[len] = '\0';
+	printf ("%s(%s,%d): fileID=%d AttributeName=%s\n", __FUNCTION__, __FILE__, __LINE__, key->cnid, attrName);
+#endif
+	
+	/* 3984119 - Do not include extended attributes for file IDs less
+	 * kHFSFirstUserCatalogNodeID but not equal to kHFSRootFolderID 
+	 * in prime modulus checksum.  These file IDs do not have 
+	 * any catalog record
+	 */
+	if ((key->cnid < kHFSFirstUserCatalogNodeID) && 
+	    (key->cnid != kHFSRootFolderID)) {
+		goto out;
+	}
+	
+	if (GPtr->lastAttrFileID.fileID != key->cnid) {
+		/* fsck is seeing this fileID in Attribute BTree for first time */
+		GPtr->lastAttrFileID.fileID = key->cnid;
+		GPtr->lastAttrFileID.hasSecurity = false;
+		
+		if (!bcmp(key->attrName, GPtr->securityAttrName, GPtr->securityAttrLen)) {
+			/* file has both extended attribute and ACL */
+			RecordXAttrBits(GPtr, kHFSHasAttributesMask | kHFSHasSecurityMask, key->cnid, kCalculatedAttributesRefNum);
+			GPtr->lastAttrFileID.hasSecurity = true;
+		} else {
+			/* file only has extended attribute */
+			RecordXAttrBits(GPtr, kHFSHasAttributesMask, key->cnid, kCalculatedAttributesRefNum);
+		}
+	} else {
+		/* fsck has seen this fileID before */
+		if ((GPtr->lastAttrFileID.hasSecurity == false) && !bcmp(key->attrName, GPtr->securityAttrName, GPtr->securityAttrLen)) {
+			/* If GPtr->lastAttrFileID did not have security AND current xattr is ACL, 
+			 * we ONLY record ACL (as we have already recorded extended attribute
+			 */
+			RecordXAttrBits(GPtr, kHFSHasSecurityMask, key->cnid, kCalculatedAttributesRefNum);
+			GPtr->lastAttrFileID.hasSecurity = true;
+		}
+	}
+out:
+	return(result);
+}
+	
 /*------------------------------------------------------------------------------
 
 Function:	AttrBTChk - (Attributes BTree Check)
@@ -1787,8 +1863,16 @@ OSErr AttrBTChk( SGlobPtr GPtr )
 	//	check out the BTree structure
 	//
 
-	err = BTCheck( GPtr, kCalculatedAttributesRefNum, NULL);
+	err = BTCheck( GPtr, kCalculatedAttributesRefNum, (CheckLeafRecordProcPtr)CheckAttributeRecord);
 	ReturnIfError( err );														//	invalid attributes file BTree
+	
+	//	compare the attributes prime buckets calculated from catalog btree and attribute btree 
+	err = ComparePrimeBuckets(GPtr, kHFSHasAttributesMask);
+	ReturnIfError( err );
+
+	//	compare the security prime buckets calculated from catalog btree and attribute btree 
+	err = ComparePrimeBuckets(GPtr, kHFSHasSecurityMask);
+	ReturnIfError( err );
 
 	//
 	//	check out the allocation map structure

@@ -25,6 +25,8 @@
 
 #include "html_elementimpl.h"
 #include "misc/shared.h"
+#include <qdict.h>
+#include <qptrvector.h>
 
 namespace DOM {
 
@@ -50,8 +52,10 @@ class HTMLCollectionImpl : public khtml::Shared<HTMLCollectionImpl>
 public:
     enum Type {
         // from HTMLDocument
-        DOC_IMAGES,    // all IMG elements in the document
+        DOC_IMAGES = 0, // all IMG elements in the document
         DOC_APPLETS,   // all OBJECT and APPLET elements
+        DOC_EMBEDS,    // all EMBED elements
+        DOC_OBJECTS,   // all OBJECT elements
         DOC_FORMS,     // all FORMS
         DOC_LINKS,     // all A _and_ AREA elements with a value for href
         DOC_ANCHORS,      // all A elements with a value for name
@@ -65,40 +69,54 @@ public:
         // from HTMLMap
         MAP_AREAS,
         DOC_ALL,        // "all" elements (IE)
-        NODE_CHILDREN   // first-level children (IE)
+        NODE_CHILDREN,   // first-level children (IE)
+        DOC_NAMEABLE_ITEMS, // all IMG, FORM, APPLET, EMBED and OBJECT elements, used to look
+                            // up element name as document property
+        LAST_TYPE
     };
 
     HTMLCollectionImpl(NodeImpl *_base, int _tagId);
-
     virtual ~HTMLCollectionImpl();
+    
     unsigned long length() const;
-    // This method is o(n), so you should't use it to iterate over all items. Use firstItem/nextItem instead.
-    NodeImpl *item ( unsigned long index ) const;
+    
+    virtual NodeImpl *item ( unsigned long index ) const;
     virtual NodeImpl *firstItem() const;
     virtual NodeImpl *nextItem() const;
 
-    NodeImpl *namedItem ( const DOMString &name, bool caseSensitive = true ) const;
+    virtual NodeImpl *namedItem ( const DOMString &name, bool caseSensitive = true ) const;
     // In case of multiple items named the same way
-    NodeImpl *nextNamedItem( const DOMString &name ) const;
+    virtual NodeImpl *nextNamedItem( const DOMString &name ) const;
+
+    QValueList<Node> namedItems( const DOMString &name ) const;
+
+    struct CollectionInfo {
+        CollectionInfo();
+        void reset();
+        unsigned int version;
+        NodeImpl *current;
+        unsigned int position;
+        unsigned int length;
+        bool haslength;
+        int elementsArrayPosition;
+        QDict<QPtrVector<NodeImpl> > idCache;
+        QDict<QPtrVector<NodeImpl> > nameCache;
+        bool hasNameCache;
+     };
 
 protected:
-    virtual unsigned long calcLength(NodeImpl *current) const;
-    virtual NodeImpl *getItem(NodeImpl *current, int index, int &pos) const;
-    virtual NodeImpl *getNamedItem(NodeImpl *current, int attr_id, const DOMString &name, bool caseSensitive = true) const;
-    virtual NodeImpl *nextNamedItemInternal( const DOMString &name ) const;
+    virtual void updateNameCache() const;
+
+    virtual NodeImpl *traverseNextItem(NodeImpl *start) const;
+    bool checkForNameMatch(NodeImpl *node, bool checkName, const DOMString &name, bool caseSensitive) const;
+    virtual unsigned long calcLength() const;
+    virtual void resetCollectionInfo() const;
     // the base node, the collection refers to
     NodeImpl *base;
     // The collection list the following elements
     int type;
+    mutable CollectionInfo *info;
 
-    // ### add optimization, so that a linear loop through the
-    // Collection [using item(i)] is O(n) and not O(n^2)!
-    // But for that we need to get notified in case of changes in the dom structure...
-    //NodeImpl *current;
-    //int currentPos;
-
-    // For firstItem()/nextItem()
-    mutable NodeImpl *currentItem;
     // For nextNamedItem()
     mutable bool idsDone;
 };
@@ -110,21 +128,23 @@ class HTMLFormCollectionImpl : public HTMLCollectionImpl
 {
 public:
     // base must inherit HTMLGenericFormElementImpl or this won't work
-    HTMLFormCollectionImpl(NodeImpl* _base)
-        : HTMLCollectionImpl(_base, 0)
-    {};
-    ~HTMLFormCollectionImpl() { };
+    HTMLFormCollectionImpl(NodeImpl* _base);
+    ~HTMLFormCollectionImpl();
 
+    virtual NodeImpl *item ( unsigned long index ) const;
     virtual NodeImpl *firstItem() const;
     virtual NodeImpl *nextItem() const;
+
+    virtual NodeImpl *namedItem ( const DOMString &name, bool caseSensitive = true ) const;
+    virtual NodeImpl *nextNamedItem( const DOMString &name ) const;
+
 protected:
-    virtual unsigned long calcLength(NodeImpl* current) const;
-    virtual NodeImpl *getItem(NodeImpl *current, int index, int& pos) const;
+    virtual void updateNameCache() const;
+    virtual unsigned long calcLength() const;
     virtual NodeImpl *getNamedItem(NodeImpl* current, int attr_id, const DOMString& name, bool caseSensitive) const;
     virtual NodeImpl *nextNamedItemInternal( const DOMString &name ) const;
 private:
     NodeImpl* getNamedFormItem(int attr_id, const DOMString& name, int duplicateNumber, bool caseSensitive) const;
-    NodeImpl* getNamedImgItem(NodeImpl* current, int attr_id, const DOMString& name, int& duplicateNumber, bool caseSensitive) const;
     mutable int currentPos;
 };
 

@@ -1,4 +1,4 @@
-.Dd December 8, 2003
+.Dd December 8, 2004
 .Dt BOOTPD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -510,7 +510,7 @@ The NetBoot server looks for a symbolic link named:
     Library/NetBoot/.sharepoint
 .fi
 .Pp
-at the root of each HFS+ volume.  If the symlink is valid, and points to 
+at the root of each local volume.  If the symlink is valid, and points to 
 a directory, it assumes that the directory contains NetBoot images and 
 that the contents are accessible via TFTP, AFP, NFS, and HTTP.  By convention,
 the directory is named:
@@ -795,7 +795,7 @@ new user entries to make up the difference.
 .Pp
 Along with the per-client AFP login, the server creates per-client
 directories to store the "shadow" files.  The server creates these
-directories on each HFS+ volume that contains a symbolic link named:
+directories on each local volume that contains a symbolic link named:
 .Pp
 .nf
     Library/NetBoot/.clients
@@ -812,7 +812,7 @@ a valid AFP sharepoint of the same name.  By convention, the directory is named:
 .Pp
 where Y is a unique number starting at zero (0).
 .Pp
-The server "round-robins" client images across each such directory to distribute
+The server "round-robins" client files across each such directory to distribute
 load amongst multiple disk drives to improve overall performance.
 .Pp
 When the server responds to the client's NetBoot request, it ensures that the
@@ -821,6 +821,9 @@ that property high enough avoids having every client fail if the server
 runs out of disk space.   The only clients that fail if the server
 runs out of disk space are those that run of of space in their own
 pre-allocated "shadow" files.
+.Pp
+Note: the server allocates shadow files for Mac OS 9 NetBoot clients 
+only on local HFS volumes.
 .Sh "SEE ALSO"
 .Lp
 .Xr xinetd 8 ,

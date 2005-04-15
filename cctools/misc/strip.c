@@ -44,9 +44,11 @@
 #include "stuff/reloc.h"
 #include "stuff/reloc.h"
 #include "stuff/symbol_list.h"
+#include "stuff/unix_standard_mode.h"
 
 /* These are set from the command line arguments */
-char *progname;		/* name of the program for error messages (argv[0]) */
+__private_extern__
+char *progname = NULL;	/* name of the program for error messages (argv[0]) */
 static char *output_file;/* name of the output file */
 static char *sfile;	/* filename of global symbol names to keep */
 static char *Rfile;	/* filename of global symbol names to remove */
@@ -104,6 +106,7 @@ static enum bool *nmedits = NULL;
  * and the new counts of local, defined external and undefined symbols.
  */
 static struct nlist *new_symbols = NULL;
+static struct nlist_64 *new_symbols64 = NULL;
 static unsigned long new_nsyms = 0;
 static char *new_strings = NULL;
 static unsigned long new_strsize = 0;
@@ -121,6 +124,7 @@ static struct dylib_reference *new_refs = NULL;
 static unsigned long new_nextrefsyms = 0;
 #ifdef NMEDIT
 static struct dylib_module *new_mods = NULL;
+static struct dylib_module_64 *new_mods64 = NULL;
 static unsigned long new_nmodtab = 0;
 #endif
 
@@ -134,7 +138,10 @@ struct undef_map {
     unsigned long index;
     struct nlist symbol;
 };
-static struct undef_map *undef_map;
+struct undef_map64 {
+    unsigned long index;
+    struct nlist_64 symbol64;
+};
 static char *qsort_strings = NULL;
 #endif /* !defined(NMEDIT) */
 
@@ -161,18 +168,50 @@ static void strip_object(
     struct member *member,
     struct object *object);
 
+static void check_object_relocs(
+    struct arch *arch,
+    struct member *member,
+    struct object *object,
+    char *segname,
+    char *sectname,
+    unsigned long long sectsize,
+    char *contents,
+    struct relocation_info *relocs,
+    uint32_t nreloc,
+    struct nlist *symbols,
+    struct nlist_64 *symbols64,
+    unsigned long nsyms,
+    char *strings,
+    long *missing_reloc_symbols,
+    enum byte_sex host_byte_sex);
+
+static void check_indirect_symtab(
+    struct arch *arch,
+    struct member *member,
+    struct object *object,
+    unsigned long nitems,
+    unsigned long reserved1,
+    unsigned long section_type,
+    struct nlist *symbols,
+    struct nlist_64 *symbols64,
+    unsigned long nsyms,
+    char *strings,
+    long *missing_reloc_symbols);
+
 #ifndef NMEDIT
 static enum bool strip_symtab(
     struct arch *arch,
     struct member *member,
     struct object *object,
     struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsyms,
     char *strings,
     unsigned long strsize,
     struct dylib_table_of_contents *tocs,
     unsigned long ntoc,
     struct dylib_module *mods,
+    struct dylib_module_64 *mods64,
     unsigned long nmodtab,
     struct dylib_reference *refs,
     unsigned long nextrefsyms,
@@ -192,6 +231,10 @@ static enum bool symbol_pointer_used(
 static int cmp_qsort_undef_map(
     const struct undef_map *sym1,
     const struct undef_map *sym2);
+
+static int cmp_qsort_undef_map_64(
+    const struct undef_map64 *sym1,
+    const struct undef_map64 *sym2);
 #endif /* !defined(NMEDIT) */
 
 #ifdef NMEDIT
@@ -200,12 +243,14 @@ static enum bool edit_symtab(
     struct member *member,
     struct object *object,
     struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsyms,
     char *strings,
     unsigned long strsize,
     struct dylib_table_of_contents *tocs,
     unsigned long ntoc,
     struct dylib_module *mods,
+    struct dylib_module_64 *mods64,
     unsigned long nmodtab,
     struct dylib_reference *refs,
     unsigned long nextrefsyms);
@@ -234,9 +279,17 @@ static int cmp_qsort_global(
     const struct nlist **sym1,
     const struct nlist **sym2);
 
+static int cmp_qsort_global_64(
+    const struct nlist_64 **sym1,
+    const struct nlist_64 **sym2);
+
 static int cmp_bsearch_global_stab(
     const char *name,
     const struct nlist **sym);
+
+static int cmp_bsearch_global_stab_64(
+    const char *name,
+    const struct nlist_64 **sym);
 #endif /* NMEDIT */
 
 int
@@ -456,7 +509,12 @@ char *envp[])
 		    i++;
 	    }
 	    else{
-		strip_file(argv[i], arch_flags, narch_flags, all_archs);
+		char resolved_path[PATH_MAX + 1];
+
+		if(realpath(argv[i], resolved_path) == NULL)
+		    strip_file(argv[i], arch_flags, narch_flags, all_archs);
+		else
+		    strip_file(resolved_path, arch_flags,narch_flags,all_archs);
 		files_specified++;
 	    }
 	}
@@ -497,6 +555,12 @@ enum bool all_archs)
     unsigned long narchs;
     struct stat stat_buf;
     unsigned long previous_errors;
+    enum bool unix_standard_mode;
+    int cwd_fd;
+    char *rename_file;
+#ifndef NMEDIT
+    char *p;
+#endif
 
 	archs = NULL;
 	narchs = 0;
@@ -524,20 +588,86 @@ enum bool all_archs)
 		     TRUE, FALSE, FALSE, NULL);
 	}
 	else{
+	    unix_standard_mode = get_unix_standard_mode();
+	    rename_file = NULL;
+	    cwd_fd = -1;
 #ifdef NMEDIT
 	    output_file = makestr(input_file, ".nmedit", NULL);
 #else /* !defined(NMEDIT) */
+	    /*
+	     * In UNIX standard conformance mode we are not allowed to replace
+	     * a file that is not writeable.
+	     */
+	    if(unix_standard_mode == TRUE && 
+	       access(input_file, W_OK) == -1){
+		system_error("file: %s is not writable", input_file);
+		goto strip_file_return;
+	    }
 	    output_file = makestr(input_file, ".strip", NULL);
+
+	    /*
+	     * The UNIX standard conformance test suite expects files of
+	     * MAXPATHLEN to work.
+	     */
+	    if(strlen(output_file) >= MAXPATHLEN){
+		/*
+		 * If there is a directory path in the name try to change
+		 * the current working directory to that path.
+		 */
+		if((p = rindex(output_file, '/')) != NULL){
+		    if((cwd_fd = open(".", O_RDONLY, 0)) == -1){
+			system_error("can't open current working directory");
+			goto strip_file_return;
+		    }
+		    *p = '\0';
+		    if(chdir(output_file) == -1){
+			system_error("can't change current working directory "
+				     "to: %s", output_file);
+			goto strip_file_return;
+		    }
+		    p = rindex(input_file, '/');
+		    rename_file = makestr(p + 1, NULL);
+		}
+		/*
+		 * Create what might be a short enough name.
+		 */
+		free(output_file);
+		output_file = makestr("strip.XXXXXX", NULL);
+		output_file = mktemp(output_file);
+	    }
 #endif /* NMEDIT */
 	    writeout(archs, narchs, output_file, stat_buf.st_mode & 0777,
 		     TRUE, FALSE, FALSE, NULL);
-	    if(rename(output_file, input_file) == 1)
-		system_error("can't move temporary file: %s to input "
-			     "file: %s\n", output_file, input_file);
+	    if(rename_file != NULL){
+		if(rename(output_file, rename_file) == -1)
+		    system_error("can't move temporary file: %s to file: %s",
+				 output_file, rename_file);
+		free(rename_file);
+	    }
+	    else{
+		if(rename(output_file, input_file) == -1)
+		    system_error("can't move temporary file: %s to input "
+				 "file: %s", output_file, input_file);
+	    }
 	    free(output_file);
 	    output_file = NULL;
+
+	    /*
+	     * If we changed the current working directory change back to
+	     * the previous working directory.
+	     */
+	    if(cwd_fd != -1){
+		if(fchdir(cwd_fd) == -1)
+		    system_error("can't change back to previous working "
+				 "directory");
+		if(close(cwd_fd) == -1)
+		    system_error("can't close previous working directory");
+	    }
 	}
 
+#ifndef NMEDIT
+strip_file_return:
+#endif /* !defined(NMEDIT) */
 	/* clean-up data structures */
 	free_archs(archs, narchs);
 
@@ -578,15 +708,15 @@ enum bool all_archs)
 	    if(archs[i].type == OFILE_ARCHIVE){
 		for(j = 0; j < archs[i].nmembers; j++){
 		    if(archs[i].members[j].type == OFILE_Mach_O){
-			cputype = archs[i].members[j].object->mh->cputype;
-			cpusubtype = archs[i].members[j].object->mh->cpusubtype;
+			cputype = archs[i].members[j].object->mh_cputype;
+			cpusubtype = archs[i].members[j].object->mh_cpusubtype;
 			break;
 		    }
 		}
 	    }
 	    else if(archs[i].type == OFILE_Mach_O){
-		cputype = archs[i].object->mh->cputype;
-		cpusubtype = archs[i].object->mh->cpusubtype;
+		cputype = archs[i].object->mh_cputype;
+		cpusubtype = archs[i].object->mh_cpusubtype;
 	    }
 	    else if(archs[i].fat_arch != NULL){
 		cputype = archs[i].fat_arch->cputype;
@@ -677,14 +807,17 @@ enum bool all_archs)
 		    archs[i].members[j].offset = offset;
 		    size = 0;
 		    if(archs[i].members[j].member_long_name == TRUE){
-			size = round(archs[i].members[j].member_name_size,
-				     sizeof(long));
+			size = round(archs[i].members[j].member_name_size, 8) +
+			       (round(sizeof(struct ar_hdr), 8) -
+				sizeof(struct ar_hdr));
 			archs[i].toc_long_name = TRUE;
 		    }
 		    if(archs[i].members[j].object != NULL){
-			size += archs[i].members[j].object->object_size
-			   - archs[i].members[j].object->input_sym_info_size
-			   + archs[i].members[j].object->output_sym_info_size;
+			size += 
+			   round(archs[i].members[j].object->object_size -
+			     archs[i].members[j].object->input_sym_info_size +
+			     archs[i].members[j].object->output_sym_info_size, 
+			     8);
 			sprintf(archs[i].members[j].ar_hdr->ar_size, "%-*ld",
 			       (int)sizeof(archs[i].members[j].ar_hdr->ar_size),
 			       (long)(size));
@@ -733,6 +866,7 @@ struct object *object)
 {
     enum byte_sex host_byte_sex;
     struct nlist *symbols;
+    struct nlist_64 *symbols64;
     unsigned long nsyms;
     char *strings;
     unsigned long strsize;
@@ -740,23 +874,28 @@ struct object *object)
     struct dylib_table_of_contents *tocs;
     unsigned long ntoc;
     struct dylib_module *mods;
+    struct dylib_module_64 *mods64;
     unsigned long nmodtab;
     struct dylib_reference *refs;
     unsigned long nextrefsyms;
     unsigned long *indirectsyms;
     unsigned long nindirectsyms;
-    unsigned long i, j, k;
+    unsigned long i, j;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
     struct relocation_info *relocs;
     struct scattered_relocation_info *sreloc;
     long missing_reloc_symbols;
-    unsigned long stride, section_type, nitems, index;
-#ifdef NMEDIT
+    unsigned long stride, section_type, nitems;
     char *contents;
-    unsigned long value;
-#endif /* NMEDIT */
+#ifndef NMEDIT
+    uint32_t flags;
+    unsigned long k;
+#endif
+    uint32_t ncmds;
 
 	host_byte_sex = get_host_byte_sex();
 
@@ -765,35 +904,57 @@ struct object *object)
 	    return;
 	}
 
-	symbols = (struct nlist *)(object->object_addr + object->st->symoff);
 	nsyms = object->st->nsyms;
-	if(object->object_byte_sex != host_byte_sex)
-	    swap_nlist(symbols, nsyms, host_byte_sex);
+	if(object->mh != NULL){
+	    symbols = (struct nlist *)
+		      (object->object_addr + object->st->symoff);
+	    if(object->object_byte_sex != host_byte_sex)
+		swap_nlist(symbols, nsyms, host_byte_sex);
+	    symbols64 = NULL;
+	}
+	else{
+	    symbols = NULL;
+	    symbols64 = (struct nlist_64 *)
+		        (object->object_addr + object->st->symoff);
+	    if(object->object_byte_sex != host_byte_sex)
+		swap_nlist_64(symbols64, nsyms, host_byte_sex);
+	}
 	strings = object->object_addr + object->st->stroff;
 	strsize = object->st->strsize;
 
 #ifndef NMEDIT
-	if(object->mh->filetype != MH_DYLIB && cflag)
+	if(object->mh_filetype != MH_DYLIB && cflag)
 	    fatal_arch(arch, member, "-c can't be used on non-dynamic "
 		       "library: ");
 #endif /* !(NMEDIT) */
-	if(object->mh->filetype == MH_DYLIB_STUB)
+	if(object->mh_filetype == MH_DYLIB_STUB)
 	    fatal_arch(arch, member, "dynamic stub library can't be changed "
 		       "once created: ");
 
-	if(object->mh->filetype == MH_DYLIB){
+	if(object->mh_filetype == MH_DYLIB){
 	    tocs = (struct dylib_table_of_contents *)
 		    (object->object_addr + object->dyst->tocoff);
 	    ntoc = object->dyst->ntoc;
-	    mods = (struct dylib_module *)
-		    (object->object_addr + object->dyst->modtaboff);
 	    nmodtab = object->dyst->nmodtab;
+	    if(object->mh != NULL){
+		mods = (struct dylib_module *)
+			(object->object_addr + object->dyst->modtaboff);
+		if(object->object_byte_sex != host_byte_sex)
+		    swap_dylib_module(mods, nmodtab, host_byte_sex);
+		mods64 = NULL;
+	    }
+	    else{
+		mods = NULL;
+		mods64 = (struct dylib_module_64 *)
+			  (object->object_addr + object->dyst->modtaboff);
+		if(object->object_byte_sex != host_byte_sex)
+		    swap_dylib_module_64(mods64, nmodtab, host_byte_sex);
+	    }
 	    refs = (struct dylib_reference *)
 		    (object->object_addr + object->dyst->extrefsymoff);
 	    nextrefsyms = object->dyst->nextrefsyms;
 	    if(object->object_byte_sex != host_byte_sex){
 		swap_dylib_table_of_contents(tocs, ntoc, host_byte_sex);
-		swap_dylib_module(mods, nmodtab, host_byte_sex);
 		swap_dylib_reference(refs, nextrefsyms, host_byte_sex);
 	    }
 #ifndef NMEDIT
@@ -803,11 +964,20 @@ struct object *object)
 	     * creating a stub library the timestamp is not changed.
 	     */
 	    if(cflag){
-		object->mh->filetype = MH_DYLIB_STUB;
 		arch->dont_update_LC_ID_DYLIB_timestamp = TRUE;
 
 		lc = object->load_commands;
-		for(i = 0; i < object->mh->ncmds; i++){
+		if(object->mh != NULL){
+		    ncmds = object->mh->ncmds;
+		    object->mh_filetype = MH_DYLIB_STUB;
+		    object->mh->filetype = MH_DYLIB_STUB;
+		}
+		else{
+		    ncmds = object->mh64->ncmds;
+		    object->mh_filetype = MH_DYLIB_STUB;
+		    object->mh64->filetype = MH_DYLIB_STUB;
+		}
+		for(i = 0; i < ncmds; i++){
 		    if(lc->cmd == LC_SEGMENT){
 			sg = (struct segment_command *)lc;
 			if(strcmp(sg->segname, SEG_LINKEDIT) != 0){
@@ -815,7 +985,8 @@ struct object *object)
 			     * Zero out the section offset, reloff, and size
 			     * fields as the section contents are being removed.
 			     */
-			    s = (struct section *)&sg[1];
+			    s = (struct section *)
+				 ((char *)sg + sizeof(struct segment_command));
 			    for(j = 0; j < sg->nsects; j++){
 				/*
 				 * For section types with indirect tables we
@@ -841,6 +1012,41 @@ struct object *object)
 			    sg->filesize = 0;
 			}
 		    }
+		    else if(lc->cmd == LC_SEGMENT_64){
+			sg64 = (struct segment_command_64 *)lc;
+			if(strcmp(sg64->segname, SEG_LINKEDIT) != 0){
+			    /*
+			     * Zero out the section offset, reloff, and size
+			     * fields as the section contents are being removed.
+			     */
+			    s64 = (struct section_64 *)
+				  ((char *)sg64 +
+				   sizeof(struct segment_command_64));
+			    for(j = 0; j < sg64->nsects; j++){
+				/*
+				 * For section types with indirect tables we
+				 * do not zero out the section size in a stub
+				 * library.  As the section size is needed to
+				 * know now many indirect table entries the
+				 * section has.  This is a bit odd but programs
+				 * dealing with MH_DYLIB_STUB filetypes special
+				 * case this.
+				 */ 
+				section_type = s64[j].flags & SECTION_TYPE;
+				if(section_type != S_SYMBOL_STUBS &&
+				   section_type != S_LAZY_SYMBOL_POINTERS &&
+				   section_type != S_NON_LAZY_SYMBOL_POINTERS){
+				    s64[j].size = 0;
+				}
+				s64[j].addr    = 0;
+				s64[j].offset  = 0;
+				s64[j].reloff  = 0;
+			    }
+			    /* zero out file offset and size in the segment */
+			    sg64->fileoff = 0;
+			    sg64->filesize = 0;
+			}
+		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
 		/*
@@ -851,14 +1057,30 @@ struct object *object)
 		 * size minus the size of the input symbolic information is
 		 * copied out.
 		 */
-		object->object_size -= (object->seg_linkedit->fileoff -
-			(sizeof(struct mach_header) + object->mh->sizeofcmds));
-		/*
-		 * Set the file offset to the link edit information to be right
-		 * after the load commands.
-		 */
-		object->seg_linkedit->fileoff = 
-			sizeof(struct mach_header) + object->mh->sizeofcmds;
+		if(object->mh != NULL){
+		    object->object_size -= (object->seg_linkedit->fileoff -
+			(sizeof(struct mach_header) +
+			object->mh->sizeofcmds));
+		    /*
+		     * Set the file offset to the link edit information to be
+		     * right after the load commands.
+		     */
+		    object->seg_linkedit->fileoff = 
+			sizeof(struct mach_header) +
+			object->mh->sizeofcmds;
+		}
+		else{
+		    object->object_size -= (object->seg_linkedit64->fileoff -
+			(sizeof(struct mach_header_64) +
+			 object->mh64->sizeofcmds));
+		    /*
+		     * Set the file offset to the link edit information to be
+		     * right after the load commands.
+		     */
+		    object->seg_linkedit64->fileoff = 
+			sizeof(struct mach_header_64) +
+			object->mh64->sizeofcmds;
+		}
 	    }
 #endif /* !(NMEDIT) */
 	}
@@ -866,6 +1088,7 @@ struct object *object)
 	    tocs = NULL;
 	    ntoc = 0;
 	    mods = NULL;
+	    mods64 = NULL;
 	    nmodtab = 0;
 	    refs = NULL;
 	    nextrefsyms = 0;
@@ -889,13 +1112,22 @@ struct object *object)
 	    nindirectsyms = 0;
 	}
 
-	object->input_sym_info_size =
-	    nsyms * sizeof(struct nlist) +
-	    strsize;
+	if(object->mh != NULL)
+	    object->input_sym_info_size =
+		nsyms * sizeof(struct nlist) +
+		strsize;
+	else
+	    object->input_sym_info_size =
+		nsyms * sizeof(struct nlist_64) +
+		strsize;
 #ifndef NMEDIT
+	if(object->mh != NULL)
+	    flags = object->mh->flags;
+	else
+	    flags = object->mh64->flags;
 	if(strip_all &&
-	   (object->mh->flags & MH_DYLDLINK) == MH_DYLDLINK &&
-	   object->mh->filetype == MH_EXECUTE)
+	   (flags & MH_DYLDLINK) == MH_DYLDLINK &&
+	   object->mh_filetype == MH_EXECUTE)
 	    default_dyld_executable = TRUE;
 	else
 	    default_dyld_executable = FALSE;
@@ -903,27 +1135,38 @@ struct object *object)
 
 #ifndef NMEDIT
 	if(sfile != NULL || Rfile != NULL || dfile != NULL || Aflag || uflag ||
-	   Sflag || xflag || Xflag || nflag || rflag || default_dyld_executable)
+	   Sflag || xflag || Xflag || nflag || rflag || 
+	   default_dyld_executable || object->mh_filetype == MH_DYLIB ||
+	   object->mh_filetype == MH_DYLINKER)
 #endif /* !defined(NMEDIT) */
 	    {
 #ifdef NMEDIT
-	    if(edit_symtab(arch, member, object, symbols, nsyms, strings,
-		strsize, tocs, ntoc, mods, nmodtab, refs, nextrefsyms) == FALSE)
+	    if(edit_symtab(arch, member, object, symbols, symbols64, nsyms,
+		strings, strsize, tocs, ntoc, mods, mods64, nmodtab, refs,
+		nextrefsyms) == FALSE)
 		return;
 #else /* !defined(NMEDIT) */
-	    if(strip_symtab(arch, member, object, symbols, nsyms, strings,
-	        strsize, tocs, ntoc, mods, nmodtab, refs, nextrefsyms,
-	        indirectsyms, nindirectsyms) == FALSE)
+	    if(strip_symtab(arch, member, object, symbols, symbols64, nsyms,
+		strings, strsize, tocs, ntoc, mods, mods64, nmodtab, refs,
+		nextrefsyms, indirectsyms, nindirectsyms) == FALSE)
 		return;
 #endif /* !defined(NMEDIT) */
-	    object->output_sym_info_size =
-		new_nsyms * sizeof(struct nlist) +
-		new_strsize;
+	    if(object->mh != NULL)
+		object->output_sym_info_size =
+		    new_nsyms * sizeof(struct nlist) +
+		    new_strsize;
+	    else
+		object->output_sym_info_size =
+		    new_nsyms * sizeof(struct nlist_64) +
+		    new_strsize;
 
 	    object->st->nsyms = new_nsyms; 
 	    object->st->strsize = new_strsize;
 
-	    object->output_symbols = new_symbols;
+	    if(object->mh != NULL)
+		object->output_symbols = new_symbols;
+	    else
+		object->output_symbols64 = new_symbols64;
 	    object->output_nsymbols = new_nsyms;
 	    object->output_strings = new_strings;
 	    object->output_strings_size = new_strsize;
@@ -940,19 +1183,21 @@ struct object *object)
 		    if(object->object_byte_sex != host_byte_sex)
 			swap_indirect_symbols(indirectsyms, nindirectsyms,
 					      object->object_byte_sex);
-	    
 		}
 
 		/*
 		 * If the -c option is specified the object's filetype will
 		 * have been changed from MH_DYLIB to MH_DYLIB_STUB above.
 		 */
-		if(object->mh->filetype == MH_DYLIB ||
-		   object->mh->filetype == MH_DYLIB_STUB){
+		if(object->mh_filetype == MH_DYLIB ||
+		   object->mh_filetype == MH_DYLIB_STUB){
 		    object->output_tocs = new_tocs;
 		    object->output_ntoc = new_ntoc;
 #ifdef NMEDIT
-		    object->output_mods = new_mods;
+		    if(object->mh != NULL)
+			object->output_mods = new_mods;
+		    else
+			object->output_mods64 = new_mods64;
 		    object->output_nmodtab = new_nmodtab;
 #else
 		    object->output_mods = mods;
@@ -964,11 +1209,19 @@ struct object *object)
 			swap_dylib_table_of_contents(new_tocs, new_ntoc,
 			    object->object_byte_sex);
 #ifdef NMEDIT
-			swap_dylib_module(new_mods, new_nmodtab,
-			    object->object_byte_sex);
+			if(object->mh != NULL)
+			    swap_dylib_module(new_mods, new_nmodtab,
+				object->object_byte_sex);
+			else
+			    swap_dylib_module_64(new_mods64, new_nmodtab,
+				object->object_byte_sex);
 #else
-			swap_dylib_module(mods, nmodtab,
-			    object->object_byte_sex);
+			if(object->mh != NULL)
+			    swap_dylib_module(mods, nmodtab,
+				object->object_byte_sex);
+			else
+			    swap_dylib_module_64(mods64, nmodtab,
+				object->object_byte_sex);
 #endif
 			swap_dylib_reference(new_refs, new_nextrefsyms,
 			    object->object_byte_sex);
@@ -977,10 +1230,15 @@ struct object *object)
 		object->input_sym_info_size +=
 		    object->dyst->nlocrel * sizeof(struct relocation_info) +
 		    object->dyst->nextrel * sizeof(struct relocation_info) +
-		    object->dyst->nindirectsyms * sizeof(unsigned long) +
 		    object->dyst->ntoc * sizeof(struct dylib_table_of_contents)+
-		    object->dyst->nmodtab * sizeof(struct dylib_module) +
-		    object->dyst->nextrefsyms * sizeof(struct dylib_reference);
+		    object->dyst->nextrefsyms * sizeof(struct dylib_reference) +
+		    object->dyst->nindirectsyms * sizeof(uint32_t);
+		if(object->mh != NULL)
+		    object->input_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module);
+		else
+		    object->input_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module_64);
 #ifndef NMEDIT
 		/*
 		 * When stripping out the section contents to create a
@@ -995,10 +1253,15 @@ struct object *object)
 			object->dyst->nextrel * sizeof(struct relocation_info);
 		}
 		object->output_sym_info_size +=
-		    object->dyst->nindirectsyms * sizeof(unsigned long) +
 		    new_ntoc * sizeof(struct dylib_table_of_contents)+
-		    object->dyst->nmodtab * sizeof(struct dylib_module) +
-		    new_nextrefsyms * sizeof(struct dylib_reference);
+		    new_nextrefsyms * sizeof(struct dylib_reference) +
+		    object->dyst->nindirectsyms * sizeof(uint32_t);
+		if(object->mh != NULL)
+		    object->output_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module);
+		else
+		    object->output_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module_64);
 		if(object->hints_cmd != NULL){
 		    object->input_sym_info_size +=
 			object->hints_cmd->nhints *
@@ -1010,8 +1273,13 @@ struct object *object)
 		object->dyst->ntoc = new_ntoc;
 		object->dyst->nextrefsyms = new_nextrefsyms;
 
-		if(object->seg_linkedit != NULL)
-		    offset = object->seg_linkedit->fileoff;
+		if(object->seg_linkedit != NULL ||
+		   object->seg_linkedit64 != NULL){
+		    if(object->mh != NULL)
+			offset = object->seg_linkedit->fileoff;
+		    else
+			offset = object->seg_linkedit64->fileoff;
+		}
 		else{
 		    offset = ULONG_MAX;
 		    if(object->dyst->nlocrel != 0 &&
@@ -1066,7 +1334,10 @@ struct object *object)
 
 		if(object->st->nsyms != 0){
 		    object->st->symoff = offset;
-		    offset += object->st->nsyms * sizeof(struct nlist);
+		    if(object->mh != NULL)
+			offset += object->st->nsyms * sizeof(struct nlist);
+		    else
+			offset += object->st->nsyms * sizeof(struct nlist_64);
 		}
 		else
 		    object->st->symoff = 0;
@@ -1128,23 +1399,39 @@ struct object *object)
 		    /*
 		     * When stripping out the section contents to create a
 		     * dynamic library stub zero out the fields in the module
-		     * table for the sections and relocation information.
+		     * table for the sections and relocation information and
+		     * clear Objective-C address and size from modules.
 		     */
 		    if(cflag){
-			/* Clear Objective-C address and size from modules. */
-			for(k = 0; k < object->dyst->nmodtab; k++){
-			    mods[k].iinit_iterm = 0;
-			    mods[k].ninit_nterm = 0;
-			    mods[k].iextrel = 0;
-			    mods[k].nextrel = 0;
-			    mods[k].objc_module_info_addr = 0;
-			    mods[k].objc_module_info_size = 0;
+			if(object->mh != NULL){
+			    for(k = 0; k < object->dyst->nmodtab; k++){
+				mods[k].iinit_iterm = 0;
+				mods[k].ninit_nterm = 0;
+				mods[k].iextrel = 0;
+				mods[k].nextrel = 0;
+				mods[k].objc_module_info_addr = 0;
+				mods[k].objc_module_info_size = 0;
+			    }
+			}
+			else{
+			    for(k = 0; k < object->dyst->nmodtab; k++){
+				mods64[k].iinit_iterm = 0;
+				mods64[k].ninit_nterm = 0;
+				mods64[k].iextrel = 0;
+				mods64[k].nextrel = 0;
+				mods64[k].objc_module_info_addr = 0;
+				mods64[k].objc_module_info_size = 0;
+			    }
 			}
 		    }
 #endif /* !(NMEDIT) */
 		    object->dyst->modtaboff = offset;
-		    offset += object->dyst->nmodtab *
-			      sizeof(struct dylib_module);
+		    if(object->mh != NULL)
+			offset += object->dyst->nmodtab *
+				  sizeof(struct dylib_module);
+		    else
+			offset += object->dyst->nmodtab *
+				  sizeof(struct dylib_module_64);
 		}
 		else
 		    object->dyst->modtaboff = 0;
@@ -1166,9 +1453,14 @@ struct object *object)
 
 	    }
 	    else{
-		if(new_strsize != 0)
-		    object->st->stroff = object->st->symoff +
-				     new_nsyms * sizeof(struct nlist);
+		if(new_strsize != 0){
+		    if(object->mh != NULL)
+			object->st->stroff = object->st->symoff +
+					 new_nsyms * sizeof(struct nlist);
+		    else
+			object->st->stroff = object->st->symoff +
+					 new_nsyms * sizeof(struct nlist_64);
+		}
 		else
 		    object->st->stroff = 0;
 		if(new_nsyms == 0)
@@ -1209,11 +1501,13 @@ struct object *object)
 		}
 		if(object->dyst->nindirectsyms != 0){
 		    object->output_indirect_symtab = (unsigned long *)
-			(object->object_addr + object->dyst->indirectsymoff);
+			(object->object_addr +
+			 object->dyst->indirectsymoff);
 		    if(object->object_byte_sex != host_byte_sex)
-			swap_indirect_symbols(object->output_indirect_symtab,
-					      object->dyst->nindirectsyms,
-					      object->object_byte_sex);
+			swap_indirect_symbols(
+			    object->output_indirect_symtab,
+			    object->dyst->nindirectsyms,
+			    object->object_byte_sex);
 		}
 		/*
 		 * Since this file has a dynamic symbol table and if this file
@@ -1243,6 +1537,12 @@ struct object *object)
 					      object->input_sym_info_size;
 	    object->seg_linkedit->vmsize = object->seg_linkedit->filesize;
 	}
+	else if(object->seg_linkedit64 != NULL){
+	    /* Do this in two steps to avoid 32/64-bit casting problems. */
+	    object->seg_linkedit64->filesize -= object->input_sym_info_size;
+	    object->seg_linkedit64->filesize += object->output_sym_info_size;
+	    object->seg_linkedit64->vmsize = object->seg_linkedit64->filesize;
+	}
 
 	/*
 	 * Check and update the external relocation entries to make sure
@@ -1254,7 +1554,11 @@ struct object *object)
 	 */
 	missing_reloc_symbols = 0;
 	lc = object->load_commands;
-	for(i = 0; i < object->mh->ncmds; i++){
+	if(object->mh != NULL)
+	    ncmds = object->mh->ncmds;
+	else
+	    ncmds = object->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT &&
 	       object->seg_linkedit != (struct segment_command *)lc){
 		sg = (struct segment_command *)lc;
@@ -1275,7 +1579,6 @@ struct object *object)
 			if(object->object_byte_sex != host_byte_sex)
 			    swap_relocation_info(relocs, s->nreloc,
 						 host_byte_sex);
-#ifdef NMEDIT
 			if(s->offset + s->size > object->object_size){
 			    fatal_arch(arch, member, "truncated or malformed "
 				"object (contents of section (%.16s,"
@@ -1283,113 +1586,53 @@ struct object *object)
 				s->segname, s->sectname);
 			}
 			contents = object->object_addr + s->offset;
-#endif /* NMEDIT */
-			for(k = 0; k < s->nreloc; k++){
-			    if((relocs[k].r_address & R_SCATTERED) == 0 &&
-			       relocs[k].r_extern == 1){
-				if(relocs[k].r_symbolnum > nsyms){
-				    fatal_arch(arch, member, "bad r_symbolnum "
-					"for relocation entry %ld in section "
-					"(%.16s,%.16s) in: ", k, s->segname,
-					  s->sectname);
-				}
-#ifndef NMEDIT
-				if(saves[relocs[k].r_symbolnum] == 0){
-				    if(missing_reloc_symbols == 0){
-					error_arch(arch, member, "symbols "
-					    "referenced by relocation entries "
-					    "that can't be stripped in: ");
-					missing_reloc_symbols = 1;
-				    }
-				    fprintf(stderr, "%s\n", strings + symbols
-					  [relocs[k].r_symbolnum].n_un.n_strx);
-				    saves[relocs[k].r_symbolnum] = -1;
-				}
-#else /* defined(NMEDIT) */
-				/*
-				 * We are letting nmedit change global coalesed
-				 * symbols into statics in MH_OBJECT file types
-				 * only. Relocation entries to global coalesced
-			 	 * symbols are external relocs. 
-				 */
-				if((new_symbols[saves[relocs[k].r_symbolnum]-1].
-				    n_type & N_EXT) != N_EXT){
-				    /*
-				     * We need to do the relocation for this
-				     * external relocation entry so the item
-				     * to be relocated is correct for a local
-				     * relocation entry.
-				     */
-				    if(relocs[k].r_address + sizeof(long) >
-				       s->size){
-					fatal_arch(arch, member, "truncated or "
-					  "malformed object (r_address of "
-					  "relocation entry %lu of section "
-					  "(%.16s,%.16s) extends past the end "
-					  "of the section)", k, s->segname,
-					  s->sectname);
-				    }
-				    value = *(unsigned long *)
-					     (contents + relocs[k].r_address);
-				    /*
-				     * We handle a very limited form here.  Only
-				     * VANILLA (r_type == 0) long (r_length==2)
-				     * non-pcrel that won't need a scattered
-				     * relocation entry.
-				     */
-				    if(relocs[k].r_type != 0 ||
-				       relocs[k].r_length != 2 ||
-				       relocs[k].r_pcrel != 0 ||
-				       value != 0){
-					fatal_arch(arch, member, "don't have "
-					  "code to convert external relocation "
-					  "entry %ld in section (%.16s,%.16s) "
-					  "for global coalesced symbol: %s "
-					  "in: ", k, strings + symbols[
-					  relocs[k].r_symbolnum].n_un.n_strx,
-	   				  s->segname, s->sectname);
-				    }
-				    if(object->object_byte_sex != host_byte_sex)
-					value = SWAP_LONG(value);
-				    value += symbols[relocs[k].
-						r_symbolnum].n_value;
-				    if(object->object_byte_sex != host_byte_sex)
-					value = SWAP_LONG(value);
-				    *(unsigned long *)
-					(contents + relocs[k].r_address) = 
-					value;
-				    /*
-				     * Turn the extern reloc into a local.
-				     */
-				    relocs[k].r_symbolnum =
-					new_symbols[saves[relocs[k].
-					r_symbolnum] - 1].n_sect;
-				    relocs[k].r_extern = 0;
-				}
-#endif /* NMEDIT */
-				if(saves[relocs[k].r_symbolnum] != -1){
-				    relocs[k].r_symbolnum =
-					saves[relocs[k].r_symbolnum] - 1;
-				}
-			    }
-			    if((relocs[k].r_address & R_SCATTERED) == 0){
-				if(reloc_has_pair(object->mh->cputype,
-						  relocs[k].r_type) == TRUE)
-				    k++;
-			    }
-			    else{
-				sreloc = (struct scattered_relocation_info *)
-					 relocs + k;
-				if(reloc_has_pair(object->mh->cputype,
-						  sreloc->r_type) == TRUE)
-				    k++;
-			    }
-			}
+			check_object_relocs(arch, member, object, s->segname,
+    			    s->sectname, s->size, contents, relocs, s->nreloc,
+			    symbols, symbols64, nsyms, strings,
+			    &missing_reloc_symbols, host_byte_sex);
 			if(object->object_byte_sex != host_byte_sex)
 			    swap_relocation_info(relocs, s->nreloc,
 						 object->object_byte_sex);
 		    }
 		    s++;
+		}
+	    }
+	    else if(lc->cmd == LC_SEGMENT_64 &&
+	       object->seg_linkedit64 != (struct segment_command_64 *)lc){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)((char *)sg64 +
+					sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    if(s64->nreloc != 0){
+			if(s64->reloff + s64->nreloc *
+			   sizeof(struct relocation_info) >
+						object->object_size){
+			    fatal_arch(arch, member, "truncated or malformed "
+				"object (relocation entries for section (%.16s,"
+				"%.16s) extends past the end of the file)",
+				s64->segname, s64->sectname);
+			}
+			relocs = (struct relocation_info *)
+					(object->object_addr + s64->reloff);
+			if(object->object_byte_sex != host_byte_sex)
+			    swap_relocation_info(relocs, s64->nreloc,
+						 host_byte_sex);
+			if(s64->offset + s64->size > object->object_size){
+			    fatal_arch(arch, member, "truncated or malformed "
+				"object (contents of section (%.16s,"
+				"%.16s) extends past the end of the file)",
+				s64->segname, s64->sectname);
+			}
+			contents = object->object_addr + s64->offset;
+			check_object_relocs(arch, member, object, s64->segname,
+    			    s64->sectname, s64->size, contents, relocs,
+			    s64->nreloc, symbols, symbols64, nsyms, strings,
+			    &missing_reloc_symbols, host_byte_sex);
+			if(object->object_byte_sex != host_byte_sex)
+			    swap_relocation_info(relocs, s64->nreloc,
+						 object->object_byte_sex);
+		    }
+		    s64++;
 		}
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -1427,12 +1670,12 @@ struct object *object)
 			"%ld (not external) in: ", i);
 		}
 		if((relocs[i].r_address & R_SCATTERED) == 0){
-		    if(reloc_has_pair(object->mh->cputype, relocs[i].r_type))
+		    if(reloc_has_pair(object->mh_cputype, relocs[i].r_type))
 			i++;
 		}
 		else{
 		    sreloc = (struct scattered_relocation_info *)relocs + i;
-		    if(reloc_has_pair(object->mh->cputype, sreloc->r_type))
+		    if(reloc_has_pair(object->mh_cputype, sreloc->r_type))
 			i++;
 		}
 	    }
@@ -1452,7 +1695,11 @@ struct object *object)
 		    object->dyst->nindirectsyms, host_byte_sex);
 
 	    lc = object->load_commands;
-	    for(i = 0; i < object->mh->ncmds; i++){
+	    if(object->mh != NULL)
+		ncmds = object->mh->ncmds;
+	    else
+		ncmds = object->mh64->ncmds;
+	    for(i = 0; i < ncmds; i++){
 		if(lc->cmd == LC_SEGMENT &&
 		   object->seg_linkedit != (struct segment_command *)lc){
 		    sg = (struct segment_command *)lc;
@@ -1462,7 +1709,7 @@ struct object *object)
 			section_type = s->flags & SECTION_TYPE;
 			if(section_type == S_LAZY_SYMBOL_POINTERS ||
 			   section_type == S_NON_LAZY_SYMBOL_POINTERS)
-			    stride = 4;
+			  stride = 4;
 			else if(section_type == S_SYMBOL_STUBS)
 			    stride = s->reserved2;
 			else{
@@ -1470,76 +1717,33 @@ struct object *object)
 			    continue;
 			}
 			nitems = s->size / stride;
-			for(k = 0; k < nitems; k++){
-			    index = object->output_indirect_symtab[
-					s->reserved1 + k];
-			    if(index == INDIRECT_SYMBOL_LOCAL ||
-			       index == (INDIRECT_SYMBOL_LOCAL |
-				         INDIRECT_SYMBOL_ABS))
-				continue;
-			    if(index > nsyms)
-				fatal_arch(arch, member,"indirect symbol table "
-				    "entry %ld (past the end of the symbol "
-				    "table) in: ", s->reserved1 + k);
-#ifdef NMEDIT
-			    if(pflag == 0 &&
-			       nmedits[index] == TRUE && saves[index] != -1)
-#else
-			    if(saves[index] == 0)
-#endif
-			    {
-				/*
-				 * Indirect symbol table entries for defined
-				 * symbols in a non-lazy pointer section that
-				 * are not saved are changed to
-				 * INDIRECT_SYMBOL_LOCAL which their values
-				 * just have to be slid if the are not absolute
-				 * symbols.
-				 */
-				if((symbols[index].n_type && N_TYPE) !=
-				    N_UNDF &&
-				   (symbols[index].n_type && N_TYPE) !=
-				    N_PBUD &&
-				   section_type == S_NON_LAZY_SYMBOL_POINTERS){
-				    object->output_indirect_symtab[
-					s->reserved1 + k] =
-					    INDIRECT_SYMBOL_LOCAL;
-				    if((symbols[index].n_type &N_TYPE) == N_ABS)
-					object->output_indirect_symtab[
-					    s->reserved1 + k] |=
-						INDIRECT_SYMBOL_ABS;
-				}
-#ifdef NMEDIT
-				else {
-				    object->output_indirect_symtab[
-					s->reserved1+k] = saves[index] - 1;
-				}
-#else /* !defined(NMEDIT) */
-				else{
-				    if(missing_reloc_symbols == 0){
-					error_arch(arch, member, "symbols "
-					    "referenced by indirect symbol "
-					    "table entries that can't be "
-					    "stripped in: ");
-					missing_reloc_symbols = 1;
-				    }
-				    fprintf(stderr, "%s\n", strings +
-					    symbols[index].n_un.n_strx);
-				}
-				saves[index] = -1;
-#endif /* !defined(NMEDIT) */
-			    }
-#ifdef NMEDIT
-			    else
-#else /* !defined(NMEDIT) */
-			    if(saves[index] != -1)
-#endif /* !defined(NMEDIT) */
-			    {
-				object->output_indirect_symtab[s->reserved1+k] =
-				    saves[index] - 1;
-			    }
-			}
+			check_indirect_symtab(arch, member, object, nitems,
+			    s->reserved1, section_type, symbols, symbols64,
+			    nsyms, strings, &missing_reloc_symbols);
 			s++;
+		    }
+		}
+		else if(lc->cmd == LC_SEGMENT_64 &&
+		   object->seg_linkedit64 != (struct segment_command_64 *)lc){
+		    sg64 = (struct segment_command_64 *)lc;
+		    s64 = (struct section_64 *)((char *)sg64 +
+					    sizeof(struct segment_command_64));
+		    for(j = 0; j < sg64->nsects; j++){
+			section_type = s64->flags & SECTION_TYPE;
+			if(section_type == S_LAZY_SYMBOL_POINTERS ||
+			   section_type == S_NON_LAZY_SYMBOL_POINTERS)
+			  stride = 8;
+			else if(section_type == S_SYMBOL_STUBS)
+			    stride = s64->reserved2;
+			else{
+			    s64++;
+			    continue;
+			}
+			nitems = s64->size / stride;
+			check_indirect_symtab(arch, member, object, nitems,
+			    s64->reserved1, section_type, symbols, symbols64,
+			    nsyms, strings, &missing_reloc_symbols);
+			s64++;
 		    }
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -1548,6 +1752,224 @@ struct object *object)
 	    if(object->object_byte_sex != host_byte_sex)
 		swap_indirect_symbols(object->output_indirect_symtab,
 		    object->dyst->nindirectsyms, object->object_byte_sex);
+	}
+}
+
+/*
+ * check_object_relocs() is used to check and update the external relocation
+ * entries from a section in an object file, to make sure referenced symbols
+ * are not stripped and are changed to refer to the new symbol table indexes.
+ */
+static
+void
+check_object_relocs(
+struct arch *arch,
+struct member *member,
+struct object *object,
+char *segname,
+char *sectname,
+unsigned long long sectsize,
+char *contents,
+struct relocation_info *relocs,
+uint32_t nreloc,
+struct nlist *symbols,
+struct nlist_64 *symbols64,
+unsigned long nsyms,
+char *strings,
+long *missing_reloc_symbols,
+enum byte_sex host_byte_sex)
+{
+    unsigned long k, n_strx, n_value;
+#ifdef NMEDIT
+    unsigned long value, n_ext;
+#endif
+    struct scattered_relocation_info *sreloc;
+
+	for(k = 0; k < nreloc; k++){
+	    if((relocs[k].r_address & R_SCATTERED) == 0 &&
+	       relocs[k].r_extern == 1){
+		if(relocs[k].r_symbolnum > nsyms){
+		    fatal_arch(arch, member, "bad r_symbolnum for relocation "
+			"entry %ld in section (%.16s,%.16s) in: ", k, segname,
+			sectname);
+		}
+		if(object->mh != NULL){
+		    n_strx = symbols[relocs[k].r_symbolnum].n_un.n_strx;
+		    n_value = symbols[relocs[k].r_symbolnum].n_value;
+		}
+		else{
+		    n_strx = symbols64[relocs[k].r_symbolnum].n_un.n_strx;
+		    n_value = symbols64[relocs[k].r_symbolnum].n_value;
+		}
+#ifndef NMEDIT
+		if(saves[relocs[k].r_symbolnum] == 0){
+		    if(*missing_reloc_symbols == 0){
+			error_arch(arch, member, "symbols referenced by "
+			    "relocation entries that can't be stripped in: ");
+			*missing_reloc_symbols = 1;
+		    }
+		    fprintf(stderr, "%s\n", strings + n_strx);
+		    saves[relocs[k].r_symbolnum] = -1;
+		}
+#else /* defined(NMEDIT) */
+		/*
+		 * We are letting nmedit change global coalesed symbols into
+		 * statics in MH_OBJECT file types only. Relocation entries to
+		 * global coalesced symbols are external relocs. 
+		 */
+		if(object->mh != NULL)
+		    n_ext = new_symbols[saves[relocs[k].r_symbolnum] - 1].
+				n_type & N_EXT;
+		else
+		    n_ext = new_symbols64[saves[relocs[k].r_symbolnum] - 1].
+				n_type & N_EXT;
+		if(n_ext != N_EXT){
+		    /*
+		     * We need to do the relocation for this external relocation
+		     * entry so the item to be relocated is correct for a local
+		     * relocation entry.
+		     */
+		    if(relocs[k].r_address + sizeof(long) > sectsize){
+			fatal_arch(arch, member, "truncated or malformed "
+			    "object (r_address of relocation entry %lu of "
+			    "section (%.16s,%.16s) extends past the end "
+			    "of the section)", k, segname, sectname);
+		    }
+		    value = *(unsigned long *)(contents + relocs[k].r_address);
+		    if(object->object_byte_sex != host_byte_sex)
+			value = SWAP_LONG(value);
+		    /*
+		     * We handle a very limited form here.  Only VANILLA
+		     * (r_type == 0) long (r_length==2) absolute or pcrel that
+		     * won't need a scattered relocation entry.
+		     */
+		    if(relocs[k].r_type != 0 ||
+		       relocs[k].r_length != 2){
+			fatal_arch(arch, member, "don't have "
+			  "code to convert external relocation "
+			  "entry %ld in section (%.16s,%.16s) "
+			  "for global coalesced symbol: %s "
+			  "in: ", k, segname, sectname,
+			  strings + n_strx);
+		    }
+		    value += n_value;
+		    if(object->object_byte_sex != host_byte_sex)
+			value = SWAP_LONG(value);
+		    *(unsigned long *)(contents + relocs[k].r_address) = value;
+		    /*
+		     * Turn the extern reloc into a local.
+		     */
+		    if(object->mh != NULL)
+			relocs[k].r_symbolnum =
+			 new_symbols[saves[relocs[k].r_symbolnum] - 1].n_sect;
+		    else
+			relocs[k].r_symbolnum =
+			 new_symbols64[saves[relocs[k].r_symbolnum] - 1].n_sect;
+		    relocs[k].r_extern = 0;
+		}
+#endif /* NMEDIT */
+		if(saves[relocs[k].r_symbolnum] != -1){
+		    relocs[k].r_symbolnum = saves[relocs[k].r_symbolnum] - 1;
+		}
+	    }
+	    if((relocs[k].r_address & R_SCATTERED) == 0){
+		if(reloc_has_pair(object->mh_cputype, relocs[k].r_type) == TRUE)
+		    k++;
+	    }
+	    else{
+		sreloc = (struct scattered_relocation_info *)relocs + k;
+		if(reloc_has_pair(object->mh_cputype, sreloc->r_type) == TRUE)
+		    k++;
+	    }
+	}
+}
+
+/*
+ * check_indirect_symtab() checks and updates the indirect symbol table entries
+ * to make sure referenced symbols are not stripped and refer to the new symbol
+ * table indexes.
+ */
+static
+void
+check_indirect_symtab(
+struct arch *arch,
+struct member *member,
+struct object *object,
+unsigned long nitems,
+unsigned long reserved1,
+unsigned long section_type,
+struct nlist *symbols,
+struct nlist_64 *symbols64,
+unsigned long nsyms,
+char *strings,
+long *missing_reloc_symbols)
+{
+    unsigned long k, index;
+    uint8_t n_type;
+    uint32_t n_strx;
+
+	for(k = 0; k < nitems; k++){
+	    index = object->output_indirect_symtab[reserved1 + k];
+	    if(index == INDIRECT_SYMBOL_LOCAL ||
+	       index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS))
+		continue;
+	    if(index > nsyms)
+		fatal_arch(arch, member,"indirect symbol table entry %ld (past "		    "the end of the symbol table) in: ", reserved1 + k);
+#ifdef NMEDIT
+	    if(pflag == 0 && nmedits[index] == TRUE && saves[index] != -1)
+#else
+	    if(saves[index] == 0)
+#endif
+	    {
+		/*
+		 * Indirect symbol table entries for defined symbols in a
+		 * non-lazy pointer section that are not saved are changed to
+		 * INDIRECT_SYMBOL_LOCAL which their values just have to be
+		 * slid if the are not absolute symbols.
+		 */
+		if(object->mh != NULL){
+		    n_type = symbols[index].n_type;
+		    n_strx = symbols[index].n_un.n_strx;
+		}
+		else{
+		    n_type = symbols64[index].n_type;
+		    n_strx = symbols64[index].n_un.n_strx;
+		}
+		if((n_type && N_TYPE) != N_UNDF &&
+		   (n_type && N_TYPE) != N_PBUD &&
+		   section_type == S_NON_LAZY_SYMBOL_POINTERS){
+		    object->output_indirect_symtab[reserved1 + k] =
+			    INDIRECT_SYMBOL_LOCAL;
+		    if((n_type & N_TYPE) == N_ABS)
+			object->output_indirect_symtab[reserved1 + k] |=
+				INDIRECT_SYMBOL_ABS;
+		}
+#ifdef NMEDIT
+		else {
+		    object->output_indirect_symtab[reserved1 + k] =
+			saves[index] - 1;
+		}
+#else /* !defined(NMEDIT) */
+		else{
+		    if(*missing_reloc_symbols == 0){
+			error_arch(arch, member, "symbols referenced by "
+			    "indirect symbol table entries that can't be "
+			    "stripped in: ");
+			*missing_reloc_symbols = 1;
+		    }
+		    fprintf(stderr, "%s\n", strings + n_strx);
+		}
+		saves[index] = -1;
+#endif /* !defined(NMEDIT) */
+	    }
+#ifdef NMEDIT
+	    else
+#else /* !defined(NMEDIT) */
+	    if(saves[index] != -1)
+#endif /* !defined(NMEDIT) */
+	    {
+		object->output_indirect_symtab[reserved1+k] = saves[index] - 1;
+	    }
 	}
 }
 
@@ -1623,12 +2045,14 @@ struct arch *arch,
 struct member *member,
 struct object *object,
 struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsyms,
 char *strings,
 unsigned long strsize,
 struct dylib_table_of_contents *tocs,
 unsigned long ntoc,
 struct dylib_module *mods,
+struct dylib_module_64 *mods64,
 unsigned long nmodtab,
 struct dylib_reference *refs,
 unsigned long nextrefsyms,
@@ -1643,7 +2067,18 @@ unsigned long nindirectsyms)
     unsigned char nsects;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s, **sections;
+    struct section_64 *s64, **sections64;
+    uint32_t ncmds, mh_flags, s_flags, n_strx;
+    struct nlist *sym;
+    struct undef_map *undef_map;
+    struct undef_map64 *undef_map64;
+    uint8_t n_type, n_sect;
+    uint16_t n_desc;
+    uint64_t n_value;
+    uint32_t module_name, iextdefsym, nextdefsym, ilocalsym, nlocalsym;
+    uint32_t irefsym, nrefsym;
 
 	save_debug = 0;
 	if(saves != NULL)
@@ -1677,17 +2112,32 @@ unsigned long nindirectsyms)
 	 */
 	nsects = 0;
 	lc = object->load_commands;
-	for(i = 0; i < object->mh->ncmds; i++){
+	if(object->mh != NULL)
+	    ncmds = object->mh->ncmds;
+	else
+	    ncmds = object->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		nsects += sg->nsects;
 	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		nsects += sg64->nsects;
+	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	sections = allocate(nsects * sizeof(struct section *));
+	if(object->mh != NULL){
+	    sections = allocate(nsects * sizeof(struct section *));
+	    sections64 = NULL;
+	}
+	else{
+	    sections = NULL;
+	    sections64 = allocate(nsects * sizeof(struct section_64 *));
+	}
 	nsects = 0;
 	lc = object->load_commands;
-	for(i = 0; i < object->mh->ncmds; i++){
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)((char *)sg +
@@ -1695,49 +2145,80 @@ unsigned long nindirectsyms)
 		for(j = 0; j < sg->nsects; j++)
 		    sections[nsects++] = s++;
 	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)((char *)sg64 +
+					sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++)
+		    sections64[nsects++] = s64++;
+	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 
 	for(i = 0; i < nsyms; i++){
-	    if(symbols[i].n_un.n_strx != 0){
-		if(symbols[i].n_un.n_strx < 0 ||
-		   (unsigned long)symbols[i].n_un.n_strx > strsize){
+	    s_flags = 0;
+	    if(object->mh != NULL){
+		mh_flags = object->mh->flags;
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+		n_sect = symbols[i].n_sect;
+		if((n_type & N_TYPE) == N_SECT){
+		    if(n_sect == 0 || n_sect > nsects){
+			error_arch(arch, member, "bad n_sect for symbol "
+				   "table entry %ld in: ", i);
+			return(FALSE);
+		    }
+		    s_flags = sections[n_sect - 1]->flags;
+		}
+		n_desc = symbols[i].n_desc;
+		n_value = symbols[i].n_value;
+	    }
+	    else{
+		mh_flags = object->mh64->flags;
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+		n_sect = symbols64[i].n_sect;
+		if((n_type & N_TYPE) == N_SECT){
+		    if(n_sect == 0 || n_sect > nsects){
+			error_arch(arch, member, "bad n_sect for symbol "
+				   "table entry %ld in: ", i);
+			return(FALSE);
+		    }
+		    s_flags = sections64[n_sect - 1]->flags;
+		}
+		n_desc = symbols64[i].n_desc;
+		n_value = symbols64[i].n_value;
+	    }
+	    if(n_strx != 0){
+		if(n_strx > strsize){
 		    error_arch(arch, member, "bad string index for symbol "
 			       "table entry %ld in: ", i);
 		    return(FALSE);
 		}
 	    }
-	    if((symbols[i].n_type & N_TYPE) == N_INDR){
-		if(symbols[i].n_value != 0){
-		    if(symbols[i].n_value > strsize){
+	    if((n_type & N_TYPE) == N_INDR){
+		if(n_value != 0){
+		    if(n_value > strsize){
 			error_arch(arch, member, "bad string index for "
 				   "indirect symbol table entry %ld in: ", i);
 			return(FALSE);
 		    }
 		}
 	    }
-	    if((symbols[i].n_type & N_TYPE) == N_SECT){
-		if(symbols[i].n_sect > nsects){
-		    error_arch(arch, member, "bad n_sect for symbol "
-			       "table entry %ld in: ", i);
-		    return(FALSE);
-		}
-	    }
-	    if((symbols[i].n_type & N_EXT) == 0){ /* local symbol */
+	    if((n_type & N_EXT) == 0){ /* local symbol */
 		/*
 		 * The cases a local symbol might be saved is with -X -S or
 		 * with -d filename.
 		 */
 		if((!strip_all && (Xflag || Sflag)) || dfile){
-		    if(symbols[i].n_type & N_STAB){ /* debug symbol */
-			if(dfile && symbols[i].n_type == N_SO){
-			    if(symbols[i].n_un.n_strx != 0){
-				basename = strrchr(strings +
-						   symbols[i].n_un.n_strx, '/');
+		    if(n_type & N_STAB){ /* debug symbol */
+			if(dfile && n_type == N_SO){
+			    if(n_strx != 0){
+				basename = strrchr(strings + n_strx, '/');
 				if(basename != NULL)
 				    basename++;
 				else
-				    basename = strings + symbols[i].n_un.n_strx;
+				    basename = strings + n_strx;
 				pp = bsearch(basename, debug_filenames,
 					    ndebug_filenames, sizeof(char *),
 			 		    (int (*)(const void *, const void *)
@@ -1760,9 +2241,9 @@ unsigned long nindirectsyms)
 				     * last one and turn off saving debug syms.
 				     */
 				    if(save_debug){
-					if(symbols[i].n_un.n_strx != 0)
+					if(n_strx != 0)
 					    new_strsize += strlen(strings +
-						  symbols[i].n_un.n_strx) + 1;
+						  	          n_strx) + 1;
 					new_nlocalsym++;
 					new_nsyms++;
 					saves[i] = new_nsyms;
@@ -1775,9 +2256,8 @@ unsigned long nindirectsyms)
 			    }
 			}
 			if(saves[i] == 0 && (!Sflag || save_debug)){
-			    if(symbols[i].n_un.n_strx != 0)
-				new_strsize += strlen(strings +
-						  symbols[i].n_un.n_strx) + 1;
+			    if(n_strx != 0)
+				new_strsize += strlen(strings + n_strx) + 1;
 			    new_nlocalsym++;
 			    new_nsyms++;
 			    saves[i] = new_nsyms;
@@ -1786,22 +2266,19 @@ unsigned long nindirectsyms)
 		    else{ /* non-debug local symbol */
 			if(xflag == 0 && (Sflag || Xflag)){
 			    if(Xflag == 0 ||
-			       (symbols[i].n_un.n_strx != 0 &&
-		                strings[symbols[i].n_un.n_strx] != 'L')){
+			       (n_strx != 0 &&
+		                strings[n_strx] != 'L')){
 				/*
 				 * If this file is a for the dynamic linker and
 				 * this symbol is in a section marked so that
 				 * static symbols are stripped then don't
 				 * keep this symbol.
 				 */
-				if((object->mh->flags & MH_DYLDLINK) !=
-				    MH_DYLDLINK ||
-				   (symbols[i].n_type & N_TYPE) != N_SECT ||
-			   	   (sections[symbols[i].n_sect - 1]->flags &
-				    S_ATTR_STRIP_STATIC_SYMS) != 
+				if((mh_flags & MH_DYLDLINK) != MH_DYLDLINK ||
+				   (n_type & N_TYPE) != N_SECT ||
+			   	   (s_flags & S_ATTR_STRIP_STATIC_SYMS) != 
 					      S_ATTR_STRIP_STATIC_SYMS){
-				    new_strsize += strlen(strings +
-						  symbols[i].n_un.n_strx) + 1;
+				    new_strsize += strlen(strings + n_strx) + 1;
 				    new_nlocalsym++;
 				    new_nsyms++;
 				    saves[i] = new_nsyms;
@@ -1813,13 +2290,12 @@ unsigned long nindirectsyms)
 			 * were global if it is referenced by a module and save
 			 * it.
 			 */
-			if((symbols[i].n_type & N_PEXT) == N_PEXT){
+			if((n_type & N_PEXT) == N_PEXT){
 			    if(saves[i] == 0 &&
 			       private_extern_reference_by_module(
 				i, refs ,nextrefsyms) == TRUE){
-				if(symbols[i].n_un.n_strx != 0)
-				    new_strsize += strlen(strings +
-						  symbols[i].n_un.n_strx) + 1;
+				if(n_strx != 0)
+				    new_strsize += strlen(strings + n_strx) + 1;
 				new_nlocalsym++;
 				new_nsyms++;
 				saves[i] = new_nsyms;
@@ -1831,9 +2307,8 @@ unsigned long nindirectsyms)
 			    if(saves[i] == 0 &&
 			       symbol_pointer_used(i, indirectsyms,
 						   nindirectsyms) == TRUE){
-				if(symbols[i].n_un.n_strx != 0){
-				    len = strlen(strings +
-						 symbols[i].n_un.n_strx) + 1;
+				if(n_strx != 0){
+				    len = strlen(strings + n_strx) + 1;
 				    new_strsize += len;
 				}
 				new_nlocalsym++;
@@ -1847,21 +2322,23 @@ unsigned long nindirectsyms)
 		 * Treat a local symbol that was a private extern as if were
 		 * global if it is not referenced by a module.
 		 */
-		else if((symbols[i].n_type & N_PEXT) == N_PEXT){
+		else if((n_type & N_PEXT) == N_PEXT){
 		    if(saves[i] == 0 && sfile){
-			sp = bsearch(strings + symbols[i].n_un.n_strx,
+			sp = bsearch(strings + n_strx,
 				     save_symbols, nsave_symbols,
 				     sizeof(struct symbol_list),
 				     (int (*)(const void *, const void *))
 					symbol_list_bsearch);
 			if(sp != NULL){
 			    if(sp->sym == NULL){
-				sp->sym = &(symbols[i]);
+				if(object->mh != NULL)
+				    sp->sym = &(symbols[i]);
+				else
+				    sp->sym = &(symbols64[i]);
 				sp->seen = TRUE;
 			    }
-			    if(symbols[i].n_un.n_strx != 0)
-				new_strsize += strlen(strings +
-						  symbols[i].n_un.n_strx) + 1;
+			    if(n_strx != 0)
+				new_strsize += strlen(strings + n_strx) + 1;
 			    new_nlocalsym++;
 			    new_nsyms++;
 			    saves[i] = new_nsyms;
@@ -1870,9 +2347,8 @@ unsigned long nindirectsyms)
 		    if(saves[i] == 0 &&
 		       private_extern_reference_by_module(
 			i, refs ,nextrefsyms) == TRUE){
-			if(symbols[i].n_un.n_strx != 0)
-			    new_strsize += strlen(strings +
-					      symbols[i].n_un.n_strx) + 1;
+			if(n_strx != 0)
+			    new_strsize += strlen(strings + n_strx) + 1;
 			new_nlocalsym++;
 			new_nsyms++;
 			saves[i] = new_nsyms;
@@ -1884,8 +2360,8 @@ unsigned long nindirectsyms)
 		    if(saves[i] == 0 &&
 		       symbol_pointer_used(i, indirectsyms, nindirectsyms) ==
 									TRUE){
-			if(symbols[i].n_un.n_strx != 0){
-			    len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+			if(n_strx != 0){
+			    len = strlen(strings + n_strx) + 1;
 			    new_strsize += len;
 			}
 			new_nlocalsym++;
@@ -1896,35 +2372,38 @@ unsigned long nindirectsyms)
 	    }
 	    else{ /* global symbol */
 		if(Rfile){
-		    sp = bsearch(strings + symbols[i].n_un.n_strx,
+		    sp = bsearch(strings + n_strx,
 				 remove_symbols, nremove_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
 				    symbol_list_bsearch);
 		    if(sp != NULL){
-			if((symbols[i].n_type & N_TYPE) == N_UNDF ||
-			   (symbols[i].n_type & N_TYPE) == N_PBUD){
+			if((n_type & N_TYPE) == N_UNDF ||
+			   (n_type & N_TYPE) == N_PBUD){
 			    error_arch(arch, member, "symbol: %s undefined"
 				       " and can't be stripped from: ",
 				       sp->name);
 			}
-			else if(sp->sym != NULL &&
-			   (sp->sym->n_type & N_PEXT) != N_PEXT){
-			    error_arch(arch, member, "more than one symbol "
-				       "for: %s found in: ", sp->name);
+			else if(sp->sym != NULL){
+			    sym = (struct nlist *)sp->sym;
+			    if((sym->n_type & N_PEXT) != N_PEXT)
+				error_arch(arch, member, "more than one symbol "
+					   "for: %s found in: ", sp->name);
 			}
 			else{
-			    sp->sym = &(symbols[i]);
+			    if(object->mh != NULL)
+				sp->sym = &(symbols[i]);
+			    else
+				sp->sym = &(symbols64[i]);
 			    sp->seen = TRUE;
 			}
-			if(symbols[i].n_desc & REFERENCED_DYNAMICALLY){
+			if(n_desc & REFERENCED_DYNAMICALLY){
 			    error_arch(arch, member, "symbol: %s is dynamically"
 				       " referenced and can't be stripped "
 				       "from: ", sp->name);
 			}
-	    		if((symbols[i].n_type & N_TYPE) == N_SECT &&
-			   (sections[symbols[i].n_sect - 1]->flags &
-			    SECTION_TYPE) == S_COALESCED){
+	    		if((n_type & N_TYPE) == N_SECT &&
+			   (s_flags & SECTION_TYPE) == S_COALESCED){
 			    error_arch(arch, member, "symbol: %s is a global "
 				       "coalesced symbol and can't be "
 				       "stripped from: ", sp->name);
@@ -1933,13 +2412,13 @@ unsigned long nindirectsyms)
 			continue;
 		    }
 		}
-		if(Aflag && (symbols[i].n_type & N_TYPE) == N_ABS &&
-		   (symbols[i].n_value != 0 ||
-		   (symbols[i].n_un.n_strx != 0 &&
-		    strncmp(strings + symbols[i].n_un.n_strx,
+		if(Aflag && (n_type & N_TYPE) == N_ABS &&
+		   (n_value != 0 ||
+		   (n_strx != 0 &&
+		    strncmp(strings + n_strx,
 			    ".objc_class_name_",
 			    sizeof(".objc_class_name_") - 1) == 0))){
-		    len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+		    len = strlen(strings + n_strx) + 1;
 		    new_strsize += len;
 		    new_ext_strsize += len;
 		    new_nextdefsym++;
@@ -1947,11 +2426,11 @@ unsigned long nindirectsyms)
 		    saves[i] = new_nsyms;
 		}
 		if(saves[i] == 0 && (uflag || default_dyld_executable) &&
-		   ((((symbols[i].n_type & N_TYPE) == N_UNDF) &&
-		     symbols[i].n_value == 0) ||
-		    (symbols[i].n_type & N_TYPE) == N_PBUD)){
-		    if(symbols[i].n_un.n_strx != 0){
-			len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+		   ((((n_type & N_TYPE) == N_UNDF) &&
+		     n_value == 0) ||
+		    (n_type & N_TYPE) == N_PBUD)){
+		    if(n_strx != 0){
+			len = strlen(strings + n_strx) + 1;
 			new_strsize += len;
 			new_ext_strsize += len;
 		    }
@@ -1960,9 +2439,9 @@ unsigned long nindirectsyms)
 		    saves[i] = new_nsyms;
 		}
 		if(saves[i] == 0 && nflag &&
-		   (symbols[i].n_type & N_TYPE) == N_SECT){
-		    if(symbols[i].n_un.n_strx != 0){
-			len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+		   (n_type & N_TYPE) == N_SECT){
+		    if(n_strx != 0){
+			len = strlen(strings + n_strx) + 1;
 			new_strsize += len;
 			new_ext_strsize += len;
 		    }
@@ -1971,25 +2450,29 @@ unsigned long nindirectsyms)
 		    saves[i] = new_nsyms;
 		}
 		if(saves[i] == 0 && sfile){
-		    sp = bsearch(strings + symbols[i].n_un.n_strx,
+		    sp = bsearch(strings + n_strx,
 				 save_symbols, nsave_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
 				    symbol_list_bsearch);
 		    if(sp != NULL){
-			if(sp->sym != NULL &&
-			   (sp->sym->n_type & N_PEXT) != N_PEXT){
-			    error_arch(arch, member, "more than one symbol "
-				       "for: %s found in: ", sp->name);
+			if(sp->sym != NULL){
+			    sym = (struct nlist *)sp->sym;
+			    if((sym->n_type & N_PEXT) != N_PEXT)
+				error_arch(arch, member, "more than one symbol "
+					   "for: %s found in: ", sp->name);
 			}
 			else{
-			    sp->sym = &(symbols[i]);
+			    if(object->mh != NULL)
+				sp->sym = &(symbols[i]);
+			    else
+				sp->sym = &(symbols64[i]);
 			    sp->seen = TRUE;
-			    len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+			    len = strlen(strings + n_strx) + 1;
 			    new_strsize += len;
 			    new_ext_strsize += len;
-			    if((symbols[i].n_type & N_TYPE) == N_UNDF ||
-			       (symbols[i].n_type & N_TYPE) == N_PBUD)
+			    if((n_type & N_TYPE) == N_UNDF ||
+			       (n_type & N_TYPE) == N_PBUD)
 				new_nundefsym++;
 			    else
 				new_nextdefsym++;
@@ -2003,12 +2486,11 @@ unsigned long nindirectsyms)
 		 * indirect symbols.
 		 */
 		if(saves[i] == 0 &&
-		   (symbols[i].n_type & N_TYPE) == N_SECT &&
-		   (sections[symbols[i].n_sect - 1]->flags &
-		    SECTION_TYPE) == S_COALESCED &&
+		   (n_type & N_TYPE) == N_SECT &&
+		   (s_flags & SECTION_TYPE) == S_COALESCED &&
 		   symbol_pointer_used(i, indirectsyms, nindirectsyms) == TRUE){
-		    if(symbols[i].n_un.n_strx != 0){
-			len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+		    if(n_strx != 0){
+			len = strlen(strings + n_strx) + 1;
 			new_strsize += len;
 			new_ext_strsize += len;
 		    }
@@ -2018,17 +2500,17 @@ unsigned long nindirectsyms)
 		}
 		if(saves[i] == 0 && ((Xflag || Sflag || xflag) ||
 		   ((rflag || default_dyld_executable) &&
-		    symbols[i].n_desc & REFERENCED_DYNAMICALLY))){
-		    len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+		    n_desc & REFERENCED_DYNAMICALLY))){
+		    len = strlen(strings + n_strx) + 1;
 		    new_strsize += len;
 		    new_ext_strsize += len;
-		    if((symbols[i].n_type & N_TYPE) == N_INDR){
-			len = strlen(strings + symbols[i].n_value) + 1;
+		    if((n_type & N_TYPE) == N_INDR){
+			len = strlen(strings + n_value) + 1;
 			new_strsize += len;
 			new_ext_strsize += len;
 		    }
-		    if((symbols[i].n_type & N_TYPE) == N_UNDF ||
-		       (symbols[i].n_type & N_TYPE) == N_PBUD)
+		    if((n_type & N_TYPE) == N_UNDF ||
+		       (n_type & N_TYPE) == N_PBUD)
 			new_nundefsym++;
 		    else
 			new_nextdefsym++;
@@ -2042,13 +2524,16 @@ unsigned long nindirectsyms)
 	 * So size them and add this to the external string size.
 	 */
 	for(i = 0; i < nmodtab; i++){
-	    if(mods[i].module_name == 0 ||
-	       mods[i].module_name > strsize){
+	    if(object->mh != NULL)
+		module_name = mods[i].module_name;
+	    else
+		module_name = mods64[i].module_name;
+	    if(module_name == 0 || module_name > strsize){
 		error_arch(arch, member, "bad string index for module_name "
 			   "of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    len = strlen(strings + mods[i].module_name) + 1;
+	    len = strlen(strings + module_name) + 1;
 	    new_strsize += len;
 	    new_ext_strsize += len;
 	}
@@ -2085,8 +2570,11 @@ unsigned long nindirectsyms)
 		if(refs[i].flags == REFERENCE_FLAG_UNDEFINED_NON_LAZY ||
 		   refs[i].flags == REFERENCE_FLAG_UNDEFINED_LAZY){
 		    if(changes[refs[i].isym] == 0){
-			len = strlen(strings +
-				     symbols[refs[i].isym].n_un.n_strx) + 1;
+			if(object->mh != NULL)
+			    n_strx = symbols[refs[i].isym].n_un.n_strx;
+			else
+			    n_strx = symbols64[refs[i].isym].n_un.n_strx;
+			len = strlen(strings + n_strx) + 1;
 			new_strsize += len;
 			new_ext_strsize += len;
 			new_nundefsym++;
@@ -2105,8 +2593,11 @@ unsigned long nindirectsyms)
 			      "referenced by modules can't be stripped in: ");
 			    missing_symbols = 1;
 			}
-			fprintf(stderr, "%s\n", strings + symbols
-			      [refs[i].isym].n_un.n_strx);
+			if(object->mh != NULL)
+			    n_strx = symbols[refs[i].isym].n_un.n_strx;
+			else
+			    n_strx = symbols64[refs[i].isym].n_un.n_strx;
+			fprintf(stderr, "%s\n", strings + n_strx);
 			saves[refs[i].isym] = -1;
 		    }
 		}
@@ -2144,7 +2635,16 @@ unsigned long nindirectsyms)
 	    }
 	}
 
-	new_symbols =(struct nlist *)allocate(new_nsyms * sizeof(struct nlist));
+	if(object->mh != NULL){
+	    new_symbols = (struct nlist *)
+			  allocate(new_nsyms * sizeof(struct nlist));
+	    new_symbols64 = NULL;
+	}
+	else{
+	    new_symbols = NULL;
+	    new_symbols64 = (struct nlist_64 *)
+			  allocate(new_nsyms * sizeof(struct nlist_64));
+	}
 	new_strsize = round(new_strsize, sizeof(long));
 	new_strings = (char *)allocate(new_strsize);
 	new_strings[new_strsize - 3] = '\0';
@@ -2172,11 +2672,27 @@ unsigned long nindirectsyms)
 	inew_syms = 0;
 	for(i = 0; i < nsyms; i++){
 	    if(saves[i]){
-		if((symbols[i].n_type & N_EXT) == 0){
-		    new_symbols[inew_syms] = symbols[i];
-		    if(symbols[i].n_un.n_strx != 0){
-			strcpy(q, strings + symbols[i].n_un.n_strx);
-			new_symbols[inew_syms].n_un.n_strx = q - new_strings;
+		if(object->mh != NULL){
+		    n_strx = symbols[i].n_un.n_strx;
+		    n_type = symbols[i].n_type;
+		}
+		else{
+		    n_strx = symbols64[i].n_un.n_strx;
+		    n_type = symbols64[i].n_type;
+		}
+		if((n_type & N_EXT) == 0){
+		    if(object->mh != NULL)
+			new_symbols[inew_syms] = symbols[i];
+		    else
+			new_symbols64[inew_syms] = symbols64[i];
+		    if(n_strx != 0){
+			strcpy(q, strings + n_strx);
+			if(object->mh != NULL)
+			    new_symbols[inew_syms].n_un.n_strx =
+				q - new_strings;
+			else
+			    new_symbols64[inew_syms].n_un.n_strx =
+				q - new_strings;
 			q += strlen(q) + 1;
 		    }
 		    inew_syms++;
@@ -2186,19 +2702,42 @@ unsigned long nindirectsyms)
 	}
 	for(i = 0; i < nsyms; i++){
 	    if(saves[i]){
-		if((symbols[i].n_type & N_EXT) == N_EXT &&
-		   ((symbols[i].n_type & N_TYPE) != N_UNDF &&
-		    (symbols[i].n_type & N_TYPE) != N_PBUD)){
-		    new_symbols[inew_syms] = symbols[i];
-		    if(symbols[i].n_un.n_strx != 0){
-			strcpy(p, strings + symbols[i].n_un.n_strx);
-			new_symbols[inew_syms].n_un.n_strx = p - new_strings;
+		if(object->mh != NULL){
+		    n_strx = symbols[i].n_un.n_strx;
+		    n_type = symbols[i].n_type;
+		    n_value = symbols[i].n_value;
+		}
+		else{
+		    n_strx = symbols64[i].n_un.n_strx;
+		    n_type = symbols64[i].n_type;
+		    n_value = symbols64[i].n_value;
+		}
+		if((n_type & N_EXT) == N_EXT &&
+		   ((n_type & N_TYPE) != N_UNDF &&
+		    (n_type & N_TYPE) != N_PBUD)){
+		    if(object->mh != NULL)
+			new_symbols[inew_syms] = symbols[i];
+		    else
+			new_symbols64[inew_syms] = symbols64[i];
+		    if(n_strx != 0){
+			strcpy(p, strings + n_strx);
+			if(object->mh != NULL)
+			    new_symbols[inew_syms].n_un.n_strx =
+				p - new_strings;
+			else
+			    new_symbols64[inew_syms].n_un.n_strx =
+				p - new_strings;
 			p += strlen(p) + 1;
 		    }
-		    if((symbols[i].n_type & N_TYPE) == N_INDR){
-			if(symbols[i].n_value != 0){
-			    strcpy(p, strings + symbols[i].n_value);
-			    new_symbols[inew_syms].n_value = p - new_strings;
+		    if((n_type & N_TYPE) == N_INDR){
+			if(n_value != 0){
+			    strcpy(p, strings + n_value);
+			    if(object->mh != NULL)
+				new_symbols[inew_syms].n_value =
+				    p - new_strings;
+			    else
+				new_symbols64[inew_syms].n_value =
+				    p - new_strings;
 			    p += strlen(p) + 1;
 			}
 		    }
@@ -2211,50 +2750,104 @@ unsigned long nindirectsyms)
 	 * Build the new undefined symbols into a map and sort it.
 	 */
 	inew_undefsyms = 0;
-	undef_map = (struct undef_map *)allocate(new_nundefsym *
-						 sizeof(struct undef_map));
+	if(object->mh != NULL){
+	    undef_map = (struct undef_map *)allocate(new_nundefsym *
+						     sizeof(struct undef_map));
+	    undef_map64 = NULL;
+	}
+	else{
+	    undef_map = NULL;
+	    undef_map64 = (struct undef_map64 *)allocate(new_nundefsym *
+						sizeof(struct undef_map64));
+	}
 	for(i = 0; i < nsyms; i++){
 	    if(saves[i]){
-		if((symbols[i].n_type & N_EXT) == N_EXT &&
-		   ((symbols[i].n_type & N_TYPE) == N_UNDF ||
-		    (symbols[i].n_type & N_TYPE) == N_PBUD)){
-		    undef_map[inew_undefsyms].symbol = symbols[i];
-		    if(symbols[i].n_un.n_strx != 0){
-			strcpy(p, strings + symbols[i].n_un.n_strx);
-			undef_map[inew_undefsyms].symbol.n_un.n_strx =
-			    p - new_strings;
+		if(object->mh != NULL){
+		    n_strx = symbols[i].n_un.n_strx;
+		    n_type = symbols[i].n_type;
+		}
+		else{
+		    n_strx = symbols64[i].n_un.n_strx;
+		    n_type = symbols64[i].n_type;
+		}
+		if((n_type & N_EXT) == N_EXT &&
+		   ((n_type & N_TYPE) == N_UNDF ||
+		    (n_type & N_TYPE) == N_PBUD)){
+		    if(object->mh != NULL)
+			undef_map[inew_undefsyms].symbol = symbols[i];
+		    else
+			undef_map64[inew_undefsyms].symbol64 = symbols64[i];
+		    if(n_strx != 0){
+			strcpy(p, strings + n_strx);
+			if(object->mh != NULL)
+			    undef_map[inew_undefsyms].symbol.n_un.n_strx =
+				p - new_strings;
+			else
+			    undef_map64[inew_undefsyms].symbol64.n_un.n_strx =
+				p - new_strings;
 			p += strlen(p) + 1;
 		    }
-		    undef_map[inew_undefsyms].index = i;
+		    if(object->mh != NULL)
+			undef_map[inew_undefsyms].index = i;
+		    else
+			undef_map64[inew_undefsyms].index = i;
 		    inew_undefsyms++;
 		}
 	    }
 	}
 	for(i = 0; i < nsyms; i++){
 	    if(changes[i]){
-		if(symbols[i].n_un.n_strx != 0){
-		    strcpy(p, strings + symbols[i].n_un.n_strx);
-		     undef_map[inew_undefsyms].symbol.n_un.n_strx =
-			p - new_strings;
+		if(object->mh != NULL)
+		    n_strx = symbols[i].n_un.n_strx;
+		else
+		    n_strx = symbols64[i].n_un.n_strx;
+		if(n_strx != 0){
+		    strcpy(p, strings + n_strx);
+		    if(object->mh != NULL)
+			undef_map[inew_undefsyms].symbol.n_un.n_strx =
+			    p - new_strings;
+		    else
+			undef_map64[inew_undefsyms].symbol64.n_un.n_strx =
+			    p - new_strings;
 		    p += strlen(p) + 1;
 		}
-		undef_map[inew_undefsyms].symbol.n_type = N_UNDF | N_EXT;
-		undef_map[inew_undefsyms].symbol.n_sect = NO_SECT;
-		undef_map[inew_undefsyms].symbol.n_desc = 0;
-		undef_map[inew_undefsyms].symbol.n_value = 0;
-		undef_map[inew_undefsyms].index = i;
+		if(object->mh != NULL){
+		    undef_map[inew_undefsyms].symbol.n_type = N_UNDF | N_EXT;
+		    undef_map[inew_undefsyms].symbol.n_sect = NO_SECT;
+		    undef_map[inew_undefsyms].symbol.n_desc = 0;
+		    undef_map[inew_undefsyms].symbol.n_value = 0;
+		    undef_map[inew_undefsyms].index = i;
+		}
+		else{
+		    undef_map64[inew_undefsyms].symbol64.n_type = N_UNDF |N_EXT;
+		    undef_map64[inew_undefsyms].symbol64.n_sect = NO_SECT;
+		    undef_map64[inew_undefsyms].symbol64.n_desc = 0;
+		    undef_map64[inew_undefsyms].symbol64.n_value = 0;
+		    undef_map64[inew_undefsyms].index = i;
+		}
 		inew_undefsyms++;
 	    }
 	}
 	/* Sort the undefined symbols by name */
 	qsort_strings = new_strings;
-	qsort(undef_map, new_nundefsym, sizeof(struct undef_map),
-	      (int (*)(const void *, const void *))cmp_qsort_undef_map);
+	if(object->mh != NULL)
+	    qsort(undef_map, new_nundefsym, sizeof(struct undef_map),
+		  (int (*)(const void *, const void *))cmp_qsort_undef_map);
+	else
+	    qsort(undef_map64, new_nundefsym, sizeof(struct undef_map64),
+		  (int (*)(const void *, const void *))cmp_qsort_undef_map_64);
 	/* Copy the symbols now in sorted order into new_symbols */
 	for(i = 0; i < new_nundefsym; i++){
-	    new_symbols[inew_syms] = undef_map[i].symbol;
-	    inew_syms++;
-	    saves[undef_map[i].index] = inew_syms;
+	    if(object->mh != NULL){
+		new_symbols[inew_syms] = undef_map[i].symbol;
+		inew_syms++;
+		saves[undef_map[i].index] = inew_syms;
+	    }
+	    else{
+		new_symbols64[inew_syms] = undef_map64[i].symbol64;
+		inew_syms++;
+		saves[undef_map64[i].index] = inew_syms;
+	    }
 	}
 
 	/*
@@ -2264,104 +2857,146 @@ unsigned long nindirectsyms)
 	 * reference table.
 	 */
 	for(i = 0; i < nmodtab; i++){
-	    strcpy(p, strings + mods[i].module_name);
-	    mods[i].module_name = p - new_strings;
+	    if(object->mh != NULL){
+		strcpy(p, strings + mods[i].module_name);
+		mods[i].module_name = p - new_strings;
+		iextdefsym = mods[i].iextdefsym;
+		nextdefsym = mods[i].nextdefsym;
+		ilocalsym = mods[i].ilocalsym;
+		nlocalsym = mods[i].nlocalsym;
+		irefsym = mods[i].irefsym;
+		nrefsym = mods[i].nrefsym;
+	    }
+	    else{
+		strcpy(p, strings + mods64[i].module_name);
+		mods64[i].module_name = p - new_strings;
+		iextdefsym = mods64[i].iextdefsym;
+		nextdefsym = mods64[i].nextdefsym;
+		ilocalsym = mods64[i].ilocalsym;
+		nlocalsym = mods64[i].nlocalsym;
+		irefsym = mods64[i].irefsym;
+		nrefsym = mods64[i].nrefsym;
+	    }
 	    p += strlen(p) + 1;
 
-	    if(mods[i].iextdefsym > nsyms){
+	    if(iextdefsym > nsyms){
 		error_arch(arch, member, "bad index into externally defined "
 		    "symbols of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    if(mods[i].iextdefsym + mods[i].nextdefsym > nsyms){
+	    if(iextdefsym + nextdefsym > nsyms){
 		error_arch(arch, member, "bad number of externally defined "
 		    "symbols of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    for(j = mods[i].iextdefsym;
-		j < mods[i].iextdefsym + mods[i].nextdefsym;
-		j++){
+	    for(j = iextdefsym; j < iextdefsym + nextdefsym; j++){
 		if(saves[j] != 0 && changes[j] == 0)
 		    break;
 	    }
 	    n = 0;
-	    for(k = j;
-		k < mods[i].iextdefsym + mods[i].nextdefsym;
-		k++){
+	    for(k = j; k < iextdefsym + nextdefsym; k++){
 		if(saves[k] != 0 && changes[k] == 0)
 		    n++;
 	    }
 	    if(n == 0){
-		mods[i].iextdefsym = 0;
-		mods[i].nextdefsym = 0;
+		if(object->mh != NULL){
+		    mods[i].iextdefsym = 0;
+		    mods[i].nextdefsym = 0;
+		}
+		else{
+		    mods64[i].iextdefsym = 0;
+		    mods64[i].nextdefsym = 0;
+		}
 	    }
 	    else{
-		mods[i].iextdefsym = saves[j] - 1;
-		mods[i].nextdefsym = n;
+		if(object->mh != NULL){
+		    mods[i].iextdefsym = saves[j] - 1;
+		    mods[i].nextdefsym = n;
+		}
+		else{
+		    mods64[i].iextdefsym = saves[j] - 1;
+		    mods64[i].nextdefsym = n;
+		}
 	    }
 
-	    if(mods[i].ilocalsym > nsyms){
+	    if(ilocalsym > nsyms){
 		error_arch(arch, member, "bad index into symbols for local "
 		    "symbols of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    if(mods[i].ilocalsym + mods[i].nlocalsym > nsyms){
+	    if(ilocalsym + nlocalsym > nsyms){
 		error_arch(arch, member, "bad number of local "
 		    "symbols of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    for(j = mods[i].ilocalsym;
-		j < mods[i].ilocalsym + mods[i].nlocalsym;
-		j++){
+	    for(j = ilocalsym; j < ilocalsym + nlocalsym; j++){
 		if(saves[j] != 0)
 		    break;
 	    }
 	    n = 0;
-	    for(k = j;
-		k < mods[i].ilocalsym + mods[i].nlocalsym;
-		k++){
+	    for(k = j; k < ilocalsym + nlocalsym; k++){
 		if(saves[k] != 0)
 		    n++;
 	    }
 	    if(n == 0){
-		mods[i].ilocalsym = 0;
-		mods[i].nlocalsym = 0;
+		if(object->mh != NULL){
+		    mods[i].ilocalsym = 0;
+		    mods[i].nlocalsym = 0;
+		}
+		else{
+		    mods64[i].ilocalsym = 0;
+		    mods64[i].nlocalsym = 0;
+		}
 	    }
 	    else{
-		mods[i].ilocalsym = saves[j] - 1;
-		mods[i].nlocalsym = n;
+		if(object->mh != NULL){
+		    mods[i].ilocalsym = saves[j] - 1;
+		    mods[i].nlocalsym = n;
+		}
+		else{
+		    mods64[i].ilocalsym = saves[j] - 1;
+		    mods64[i].nlocalsym = n;
+		}
 	    }
 
-	    if(mods[i].irefsym > nextrefsyms){
+	    if(irefsym > nextrefsyms){
 		error_arch(arch, member, "bad index into reference table "
 		    "of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    if(mods[i].irefsym + mods[i].nrefsym > nextrefsyms){
+	    if(irefsym + nrefsym > nextrefsyms){
 		error_arch(arch, member, "bad number of reference table "
 		    "entries of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    for(j = mods[i].irefsym;
-		j < mods[i].irefsym + mods[i].nrefsym;
-		j++){
+	    for(j = irefsym; j < irefsym + nrefsym; j++){
 		if(ref_saves[j] != 0)
 		    break;
 	    }
 	    n = 0;
-	    for(k = j;
-		k < mods[i].irefsym + mods[i].nrefsym;
-		k++){
+	    for(k = j; k < irefsym + nrefsym; k++){
 		if(ref_saves[k] != 0)
 		    n++;
 	    }
 	    if(n == 0){
-		mods[i].irefsym = 0;
-		mods[i].nrefsym = 0;
+		if(object->mh != NULL){
+		    mods[i].irefsym = 0;
+		    mods[i].nrefsym = 0;
+		}
+		else{
+		    mods64[i].irefsym = 0;
+		    mods64[i].nrefsym = 0;
+		}
 	    }
 	    else{
-		mods[i].irefsym = ref_saves[j] - 1;
-		mods[i].nrefsym = n;
+		if(object->mh != NULL){
+		    mods[i].irefsym = ref_saves[j] - 1;
+		    mods[i].nrefsym = n;
+		}
+		else{
+		    mods64[i].irefsym = ref_saves[j] - 1;
+		    mods64[i].nrefsym = n;
+		}
 	    }
 	}
 
@@ -2412,9 +3047,16 @@ unsigned long nindirectsyms)
 	    }
 	}
 
+	if(undef_map != NULL)
+	    free(undef_map);
+	if(undef_map64 != NULL)
+	    free(undef_map64);
 	if(changes != NULL)
 	    free(changes);
-	free(sections);
+	if(sections != NULL)
+	    free(sections);
+	if(sections64 != NULL)
+	    free(sections64);
 
 	if(errors == 0)
 	    return(TRUE);
@@ -2480,6 +3122,16 @@ const struct undef_map *sym2)
 	return(strcmp(qsort_strings + sym1->symbol.n_un.n_strx,
 		      qsort_strings + sym2->symbol.n_un.n_strx));
 }
+
+static
+int
+cmp_qsort_undef_map_64(
+const struct undef_map64 *sym1,
+const struct undef_map64 *sym2)
+{
+	return(strcmp(qsort_strings + sym1->symbol64.n_un.n_strx,
+		      qsort_strings + sym2->symbol64.n_un.n_strx));
+}
 #endif /* !defined(NMEDIT) */
 
 #ifndef NMEDIT
@@ -2516,25 +3168,31 @@ struct arch *arch,
 struct member *member,
 struct object *object,
 struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsyms,
 char *strings,
 unsigned long strsize,
 struct dylib_table_of_contents *tocs,
 unsigned long ntoc,
 struct dylib_module *mods,
+struct dylib_module_64 *mods64,
 unsigned long nmodtab,
 struct dylib_reference *refs,
 unsigned long nextrefsyms)
 {
     unsigned long i, j, k;
-    unsigned char data_n_sect, n_sect, nsects;
+    unsigned char data_n_sect, nsects;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s, **sections;
+    struct section_64 *s64, **sections64;
 
     unsigned long missing_syms;
     struct symbol_list *sp;
     struct nlist **global_symbol;
+    struct nlist_64 **global_symbol64;
+    enum bool global_symbol_found;
     char *global_name, save_char;
     enum byte_sex host_byte_sex;
     long missing_reloc_symbols;
@@ -2544,7 +3202,12 @@ unsigned long nextrefsyms)
     unsigned long new_ext_strsize, len, inew_syms;
 
     struct nlist **changed_globals;
+    struct nlist_64 **changed_globals64;
     unsigned long nchanged_globals;
+    uint32_t ncmds, s_flags, n_strx, module_name, ilocalsym, nlocalsym;
+    uint32_t iextdefsym, nextdefsym;
+    uint8_t n_type, n_sect, global_symbol_n_sect;
+    uint64_t n_value;
 
 	edit_symtab_return = TRUE;
 	host_byte_sex = get_host_byte_sex();
@@ -2560,7 +3223,7 @@ unsigned long nextrefsyms)
 	 * If nmedit is operating on a dynamic library then symbols are turned
 	 * into private externs with the extern bit off not into static symbols.
 	 */
-	if(object->mh->filetype == MH_DYLIB && pflag == TRUE){
+	if(object->mh_filetype == MH_DYLIB && pflag == TRUE){
 	    error_arch(arch, member, "can't use -p with dynamic libraries");
 	    return(FALSE);
 	}
@@ -2584,7 +3247,11 @@ unsigned long nextrefsyms)
 	n_sect = 1;
 	data_n_sect = NO_SECT;
 	lc = object->load_commands;
-	for(i = 0; i < object->mh->ncmds; i++){
+	if(object->mh != NULL)
+	    ncmds = object->mh->ncmds;
+	else
+	    ncmds = object->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)((char *)sg +
@@ -2601,18 +3268,49 @@ unsigned long nextrefsyms)
 		    s++;
 		}
 	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)((char *)sg64 +
+					sizeof(struct segment_command_64));
+		nsects += sg64->nsects;
+		for(j = 0; j < sg64->nsects; j++){
+		    if(strcmp(s64->segname, SEG_DATA) == 0 &&
+		       strcmp(s64->sectname, SECT_DATA) == 0 &&
+		       data_n_sect == NO_SECT){
+			data_n_sect = n_sect;
+			break;
+		    }
+		    n_sect++;
+		    s64++;
+		}
+	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	sections = allocate(nsects * sizeof(struct section *));
+	if(object->mh != NULL){
+	    sections = allocate(nsects * sizeof(struct section *));
+	    sections64 = NULL;
+	}
+	else{
+	    sections = NULL;
+	    sections64 = allocate(nsects * sizeof(struct section_64 *));
+	}
 	nsects = 0;
 	lc = object->load_commands;
-	for(i = 0; i < object->mh->ncmds; i++){
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)((char *)sg +
 					sizeof(struct segment_command));
 		for(j = 0; j < sg->nsects; j++){
 		    sections[nsects++] = s++;
+		}
+	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)((char *)sg64 +
+					sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    sections64[nsects++] = s64++;
 		}
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -2633,9 +3331,18 @@ unsigned long nextrefsyms)
 	}
 
 	nchanged_globals = 0;
-	changed_globals = allocate(nsyms * sizeof(struct nlist *));
-	for(i = 0; i < nsyms; i++)
-	    changed_globals[i] = NULL;
+	if(object->mh != NULL){
+	    changed_globals = allocate(nsyms * sizeof(struct nlist *));
+	    changed_globals64 = NULL;
+	    for(i = 0; i < nsyms; i++)
+		changed_globals[i] = NULL;
+	}
+	else{
+	    changed_globals = NULL;
+	    changed_globals64 = allocate(nsyms * sizeof(struct nlist_64 *));
+	    for(i = 0; i < nsyms; i++)
+		changed_globals64[i] = NULL;
+	}
 
 	/*
 	 * These are the variables for the new symbol table and new string
@@ -2656,33 +3363,48 @@ unsigned long nextrefsyms)
 	 */
 	for(i = 0; i < nsyms; i++){
 	    len = 0;
-	    if(symbols[i].n_un.n_strx != 0){
-		if(symbols[i].n_un.n_strx < 0 ||
-		   (unsigned long)symbols[i].n_un.n_strx > strsize){
+	    s_flags = 0;
+	    if(object->mh != NULL){
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+		n_sect = symbols[i].n_sect;
+		if((n_type & N_TYPE) == N_SECT)
+		    s_flags = sections[n_sect - 1]->flags;
+		n_value = symbols[i].n_value;
+	    }
+	    else{
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+		n_sect = symbols64[i].n_sect;
+		if((n_type & N_TYPE) == N_SECT)
+		    s_flags = sections64[n_sect - 1]->flags;
+		n_value = symbols64[i].n_value;
+	    }
+	    if(n_strx != 0){
+		if(n_strx > strsize){
 		    error_arch(arch, member, "bad string index for symbol "
 			       "table entry %lu in: ", i);
 		    return(FALSE);
 		}
-		len = strlen(strings + symbols[i].n_un.n_strx) + 1;
+		len = strlen(strings + n_strx) + 1;
 	    }
-	    if(symbols[i].n_type & N_EXT){
-		if((symbols[i].n_type & N_TYPE) != N_UNDF &&
-		   (symbols[i].n_type & N_TYPE) != N_PBUD){
-		    if((symbols[i].n_type & N_TYPE) == N_SECT){
-			if(symbols[i].n_sect > nsects){
+	    if(n_type & N_EXT){
+		if((n_type & N_TYPE) != N_UNDF &&
+		   (n_type & N_TYPE) != N_PBUD){
+		    if((n_type & N_TYPE) == N_SECT){
+			if(n_sect > nsects){
 			    error_arch(arch, member, "bad n_sect for symbol "
 				       "table entry %lu in: ", i);
 			    return(FALSE);
 			}
-			if(((sections[symbols[i].n_sect - 1]->flags &
-			     SECTION_TYPE) == S_COALESCED) &&
+			if(((s_flags & SECTION_TYPE) == S_COALESCED) &&
 			   pflag == FALSE &&
-			   object->mh->filetype != MH_OBJECT){
+			   object->mh_filetype != MH_OBJECT){
 			    /* this remains a global defined symbol */
 			    new_nextdefsym++;
 			    new_ext_strsize += len;
 			    new_strsize += len;
-			    sp = bsearch(strings + symbols[i].n_un.n_strx,
+			    sp = bsearch(strings + n_strx,
 					 remove_symbols, nremove_symbols,
 					 sizeof(struct symbol_list),
 					 (int (*)(const void *, const void *))
@@ -2694,7 +3416,10 @@ unsigned long nextrefsyms)
 				    return(FALSE);
 				}
 				else{
-				    sp->sym = &(symbols[i]);
+				    if(object->mh != NULL)
+					sp->sym = &(symbols[i]);
+				    else
+					sp->sym = &(symbols64[i]);
 				    sp->seen = TRUE;
 				    warning_arch(arch, member, "can't make "
 					"global coalesced symbol: %s into a "
@@ -2706,7 +3431,7 @@ unsigned long nextrefsyms)
 			     * symbol in the save list look for it and mark it
 			     * as seen so we don't complain about not seeing it.
 			     */
-			    sp = bsearch(strings + symbols[i].n_un.n_strx,
+			    sp = bsearch(strings + n_strx,
 					 save_symbols, nsave_symbols,
 					 sizeof(struct symbol_list),
 					 (int (*)(const void *, const void *))
@@ -2718,14 +3443,17 @@ unsigned long nextrefsyms)
 				    return(FALSE);
 				}
 				else{
-				    sp->sym = &(symbols[i]);
+				    if(object->mh != NULL)
+					sp->sym = &(symbols[i]);
+				    else
+					sp->sym = &(symbols64[i]);
 				    sp->seen = TRUE;
 				}
 			    }
 			    continue; /* leave this symbol unchanged */
 			}
 		    }
-		    sp = bsearch(strings + symbols[i].n_un.n_strx,
+		    sp = bsearch(strings + n_strx,
 				 remove_symbols, nremove_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
@@ -2737,7 +3465,10 @@ unsigned long nextrefsyms)
 			    return(FALSE);
 			}
 			else{
-			    sp->sym = &(symbols[i]);
+			    if(object->mh != NULL)
+				sp->sym = &(symbols[i]);
+			    else
+				sp->sym = &(symbols64[i]);
 			    sp->seen = TRUE;
 			    goto change_symbol;
 			}
@@ -2754,7 +3485,7 @@ unsigned long nextrefsyms)
 			     * remove list but the -p flag is specified or it is
 			     * a dynamic library then change all symbols.
 			     */
-			    if((pflag || object->mh->filetype == MH_DYLIB)
+			    if((pflag || object->mh_filetype == MH_DYLIB)
 			        && nremove_symbols == 0)
 				goto change_symbol;
 			    /* this remains a global defined symbol */
@@ -2764,7 +3495,7 @@ unsigned long nextrefsyms)
 			    continue; /* leave this symbol unchanged */
 			}
 		    }
-		    sp = bsearch(strings + symbols[i].n_un.n_strx,
+		    sp = bsearch(strings + n_strx,
 				 save_symbols, nsave_symbols,
 				 sizeof(struct symbol_list),
 				 (int (*)(const void *, const void *))
@@ -2776,7 +3507,10 @@ unsigned long nextrefsyms)
 			    return(FALSE);
 			}
 			else{
-			    sp->sym = &(symbols[i]);
+			    if(object->mh != NULL)
+				sp->sym = &(symbols[i]);
+			    else
+				sp->sym = &(symbols64[i]);
 			    sp->seen = TRUE;
 			    /* this remains a global defined symbol */
 			    new_nextdefsym++;
@@ -2785,10 +3519,10 @@ unsigned long nextrefsyms)
 			}
 		    }
 		    else{
-			if(Aflag && symbols[i].n_type == (N_EXT | N_ABS) &&
-		            (symbols[i].n_value != 0 ||
-		            (symbols[i].n_un.n_strx != 0 &&
-			     strncmp(strings + symbols[i].n_un.n_strx,
+			if(Aflag && n_type == (N_EXT | N_ABS) &&
+		            (n_value != 0 ||
+		            (n_strx != 0 &&
+			     strncmp(strings + n_strx,
 				".objc_class_name_",
 				sizeof(".objc_class_name_") - 1) == 0))){
 			    /* this remains a global defined symbol */
@@ -2798,10 +3532,14 @@ unsigned long nextrefsyms)
 			}
 			else{
 change_symbol:
-			    if((symbols[i].n_type & N_TYPE) != N_INDR){
+			    if((n_type & N_TYPE) != N_INDR){
 				nmedits[i] = TRUE;
-				changed_globals[nchanged_globals++] =
-				    symbols + i;
+				if(object->mh != NULL)
+				    changed_globals[nchanged_globals++] =
+					symbols + i;
+				else
+				    changed_globals64[nchanged_globals++] =
+					symbols64 + i;
 				if(pflag){
 				    /* this remains a global defined symbol */
 				    new_nextdefsym++;
@@ -2842,13 +3580,16 @@ change_symbol:
 	 * strings. So size them and add this to the external string size.
 	 */
 	for(i = 0; i < nmodtab; i++){
-	    if(mods[i].module_name == 0 ||
-	       mods[i].module_name > strsize){
+	    if(object->mh != NULL)
+		module_name = mods[i].module_name;
+	    else
+		module_name = mods64[i].module_name;
+	    if(module_name == 0 || module_name > strsize){
 		error_arch(arch, member, "bad string index for module_name "
 			   "of module table entry %ld in: ", i);
 		return(FALSE);
 	    }
-	    len = strlen(strings + mods[i].module_name) + 1;
+	    len = strlen(strings + module_name) + 1;
 	    new_strsize += len;
 	    new_ext_strsize += len;
 	}
@@ -2890,30 +3631,38 @@ change_symbol:
 	 * the compiler generates and trying to match that here.
 	 */
 	global_strings = strings;
-	qsort(changed_globals, nchanged_globals, sizeof(struct nlist *),
-	      (int (*)(const void *, const void *))cmp_qsort_global);
+	if(object->mh != NULL)
+	    qsort(changed_globals, nchanged_globals, sizeof(struct nlist *),
+		  (int (*)(const void *, const void *))cmp_qsort_global);
+	else
+	    qsort(changed_globals64, nchanged_globals,sizeof(struct nlist_64 *),
+		  (int (*)(const void *, const void *))cmp_qsort_global_64);
 	for(i = 0; i < nsyms; i++){
-	    if(symbols[i].n_type & N_STAB &&
-	       (symbols[i].n_type == N_GSYM || symbols[i].n_type == N_FUN) &&
-	       (symbols[i].n_un.n_strx != 0 &&
-		strings[symbols[i].n_un.n_strx] != '\0')){
-		global_name = strings + symbols[i].n_un.n_strx;
+	    if(object->mh != NULL){
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+	    }
+	    else{
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+	    }
+	    if(n_type & N_STAB &&
+	       (n_type == N_GSYM || n_type == N_FUN) &&
+	       (n_strx != 0 && strings[n_strx] != '\0')){
+		global_name = strings + n_strx;
 		if((global_name[0] == '+' || global_name[0] == '-') &&
 		   global_name[1] == '['){
 		    j = 2;
-		    while(j + (unsigned long)symbols[i].n_un.n_strx < strsize &&
-			  global_name[j] != ']')
+		    while(j + n_strx < strsize && global_name[j] != ']')
 			j++;
-		    if(j + (unsigned long)symbols[i].n_un.n_strx < strsize &&
-		       global_name[j] == ']')
+		    if(j + n_strx < strsize && global_name[j] == ']')
 			j++;
 		}
 		else
 		    j = 0;
-		while(j + (unsigned long)symbols[i].n_un.n_strx < strsize &&
-		      global_name[j] != ':')
+		while(j + n_strx < strsize && global_name[j] != ':')
 		    j++;
-		if(j + (unsigned long)symbols[i].n_un.n_strx >= strsize){
+		if(j + n_strx >= strsize){
 		    error_arch(arch, member, "bad N_STAB symbol name for entry "
 			"%lu (does not contain ':' separating name from type) "
 			"in: ", i);
@@ -2922,22 +3671,57 @@ change_symbol:
 		save_char = global_name[j];
 		global_name[j] = '\0';
 
-		global_symbol = bsearch(global_name, changed_globals,
+		global_symbol_found = FALSE;
+		global_symbol_n_sect = 0;
+		if(object->mh != NULL){
+		    global_symbol = bsearch(global_name, changed_globals,
 					nchanged_globals,sizeof(struct nlist *),
 			     		(int (*)(const void *, const void *))
 					cmp_bsearch_global_stab);
+		    global_symbol64 = NULL;
+		    if(global_symbol != NULL){
+			global_symbol_found = TRUE;
+			global_symbol_n_sect = (*global_symbol)->n_sect;
+		    }
+		}
+		else{
+		    global_symbol64 = bsearch(global_name, changed_globals64,
+					nchanged_globals,
+					sizeof(struct nlist_64 *),
+			     		(int (*)(const void *, const void *))
+					cmp_bsearch_global_stab_64);
+		    global_symbol = NULL;
+		    if(global_symbol64 != NULL){
+			global_symbol_found = TRUE;
+			global_symbol_n_sect = (*global_symbol64)->n_sect;
+		    }
+		}
 		global_name[j] = save_char;
-		if(global_symbol != NULL){
-		    if(symbols[i].n_type == N_GSYM){
-			if((*global_symbol)->n_sect == data_n_sect)
-			    symbols[i].n_type = N_STSYM;
-			else
-			    symbols[i].n_type = N_FUN;
-			symbols[i].n_sect = (*global_symbol)->n_sect;
-			symbols[i].n_value = (*global_symbol)->n_value;
-			symbols[i].n_desc = (*global_symbol)->n_desc;
-			if(j + 1 + (unsigned long)symbols[i].n_un.n_strx >=
-			   strsize ||
+		if(global_symbol_found == TRUE){
+		    if(n_type == N_GSYM){
+			if(global_symbol_n_sect == data_n_sect){
+			    if(object->mh != NULL)
+				symbols[i].n_type = N_STSYM;
+			    else
+				symbols64[i].n_type = N_STSYM;
+			}
+			else{
+			    if(object->mh != NULL)
+				symbols[i].n_type = N_FUN;
+			    else
+				symbols64[i].n_type = N_FUN;
+			}
+			if(object->mh != NULL){
+			    symbols[i].n_sect = (*global_symbol)->n_sect;
+			    symbols[i].n_value = (*global_symbol)->n_value;
+			    symbols[i].n_desc = (*global_symbol)->n_desc;
+			}
+			else{
+			    symbols64[i].n_sect = (*global_symbol64)->n_sect;
+			    symbols64[i].n_value = (*global_symbol64)->n_value;
+			    symbols64[i].n_desc = (*global_symbol64)->n_desc;
+			}
+			if(j + 1 + n_strx >= strsize ||
 			   global_name[j+1] != 'G'){
 			    error_arch(arch, member, "bad N_GSYM symbol name "
 				"for entry %lu (does not have type 'G' after "
@@ -2946,9 +3730,8 @@ change_symbol:
 			}
 		        global_name[j+1] = 'S';
 		    }
-		    else{ /* symbols[i].n_type == N_FUN */
-			if(j + 1 + (unsigned long)symbols[i].n_un.n_strx >=
-			   strsize ||
+		    else{ /* n_type == N_FUN */
+			if(j + 1 + n_strx >= strsize ||
 			   global_name[j+1] == 'F'){
 			    global_name[j+1] = 'f';
 			}
@@ -2977,7 +3760,16 @@ change_symbol:
 	saves = (long *)allocate(nsyms * sizeof(long));
 	bzero(saves, nsyms * sizeof(long));
 
-	new_symbols =(struct nlist *)allocate(new_nsyms * sizeof(struct nlist));
+	if(object->mh != NULL){
+	    new_symbols = (struct nlist *)
+			  allocate(new_nsyms * sizeof(struct nlist));
+	    new_symbols64 = NULL;
+	}
+	else{
+	    new_symbols = NULL;
+	    new_symbols64 = (struct nlist_64 *)
+			    allocate(new_nsyms * sizeof(struct nlist_64));
+	}
 	new_strsize = round(new_strsize, sizeof(long));
 	new_strings = (char *)allocate(new_strsize);
 	new_strings[new_strsize - 3] = '\0';
@@ -2995,9 +3787,18 @@ change_symbol:
 	 * module table needs to be created with the new indexes into the symbol
 	 * table for each module.
 	 */
-	if(object->mh->filetype == MH_DYLIB){
-	    new_nmodtab = nmodtab;
-	    new_mods = allocate(nmodtab * sizeof(struct dylib_module));
+	new_nmodtab = nmodtab;
+	new_ntoc = ntoc;
+	new_nextrefsyms = nextrefsyms;
+	if(object->mh_filetype == MH_DYLIB && nmodtab != 0){
+	    if(object->mh != NULL){
+		new_mods = allocate(nmodtab * sizeof(struct dylib_module));
+		new_mods64 = NULL;
+	    }
+	    else{
+		new_mods = NULL;
+		new_mods64 = allocate(nmodtab * sizeof(struct dylib_module_64));
+	    }
 
 	    inew_syms = 0;
 	    /*
@@ -3009,22 +3810,48 @@ change_symbol:
 		 * First put the existing local symbols into the new symbol
 		 * table.
 		 */
-		new_mods[i].ilocalsym = inew_syms;
-		new_mods[i].nlocalsym = 0;
-		for(j = mods[i].ilocalsym;
-		    j < mods[i].ilocalsym + mods[i].nlocalsym;
-		    j++){
-		    if((symbols[j].n_type & N_EXT) == 0){
-			new_symbols[inew_syms] = symbols[j];
-			if(symbols[j].n_un.n_strx != 0){
-			    strcpy(q, strings + symbols[j].n_un.n_strx);
-			    new_symbols[inew_syms].n_un.n_strx =
-				q - new_strings;
+		if(object->mh != NULL){
+		    new_mods[i].ilocalsym = inew_syms;
+		    new_mods[i].nlocalsym = 0;
+		    ilocalsym = mods[i].ilocalsym;
+		    nlocalsym = mods[i].nlocalsym;
+		}
+		else{
+		    new_mods64[i].ilocalsym = inew_syms;
+		    new_mods64[i].nlocalsym = 0;
+		    ilocalsym = mods64[i].ilocalsym;
+		    nlocalsym = mods64[i].nlocalsym;
+		}
+		for(j = ilocalsym; j < ilocalsym + nlocalsym; j++){
+		    if(object->mh != NULL){
+			n_strx = symbols[j].n_un.n_strx;
+			n_type = symbols[j].n_type;
+		    }
+		    else{
+			n_strx = symbols64[j].n_un.n_strx;
+			n_type = symbols64[j].n_type;
+		    }
+		    if((n_type & N_EXT) == 0){
+			if(object->mh != NULL)
+			    new_symbols[inew_syms] = symbols[j];
+			else
+			    new_symbols64[inew_syms] = symbols64[j];
+			if(n_strx != 0){
+			    strcpy(q, strings + n_strx);
+			    if(object->mh != NULL)
+				new_symbols[inew_syms].n_un.n_strx =
+				    q - new_strings;
+			    else
+				new_symbols64[inew_syms].n_un.n_strx =
+				    q - new_strings;
 			    q += strlen(q) + 1;
 			}
 			inew_syms++;
 			saves[j] = inew_syms;
-			new_mods[i].nlocalsym++;
+			if(object->mh != NULL)
+			    new_mods[i].nlocalsym++;
+			else
+			    new_mods64[i].nlocalsym++;
 		    }
 		}
 		/*
@@ -3032,27 +3859,55 @@ change_symbol:
 		 * non-global symbols into the new symbol table and moved their
 		 * counts to the local symbol counts.
 		 */
-		for(j = mods[i].iextdefsym;
-		    j < mods[i].iextdefsym + mods[i].nextdefsym;
-		    j++){
-		    if((symbols[j].n_type & N_EXT) != 0){
+		if(object->mh != NULL){
+		    iextdefsym = mods[i].iextdefsym;
+		    nextdefsym = mods[i].nextdefsym;
+		}
+		else{
+		    iextdefsym = mods64[i].iextdefsym;
+		    nextdefsym = mods64[i].nextdefsym;
+		}
+		for(j = iextdefsym; j < iextdefsym + nextdefsym; j++){
+		    if(object->mh != NULL){
+			n_strx = symbols[j].n_un.n_strx;
+			n_type = symbols[j].n_type;
+		    }
+		    else{
+			n_strx = symbols64[j].n_un.n_strx;
+			n_type = symbols64[j].n_type;
+		    }
+		    if((n_type & N_EXT) != 0){
 			if(nmedits[j] == TRUE){
-			    new_symbols[inew_syms] = symbols[j];
 			    /*
 			     * Change the new symbol to a private extern symbol
 			     * with the extern bit off.
 			     */
-			    new_symbols[inew_syms].n_type |= N_PEXT;
-			    new_symbols[inew_syms].n_type &= ~N_EXT;
-			    if(symbols[j].n_un.n_strx != 0){
-				strcpy(q, strings + symbols[j].n_un.n_strx);
-				new_symbols[inew_syms].n_un.n_strx =
-				    q - new_strings;
+			    if(object->mh != NULL){
+				new_symbols[inew_syms] = symbols[j];
+				new_symbols[inew_syms].n_type |= N_PEXT;
+				new_symbols[inew_syms].n_type &= ~N_EXT;
+			    }
+			    else{
+				new_symbols64[inew_syms] = symbols64[j];
+				new_symbols64[inew_syms].n_type |= N_PEXT;
+				new_symbols64[inew_syms].n_type &= ~N_EXT;
+			    }
+			    if(n_strx != 0){
+				strcpy(q, strings + n_strx);
+				if(object->mh != NULL)
+				    new_symbols[inew_syms].n_un.n_strx =
+					q - new_strings;
+				else
+				    new_symbols64[inew_syms].n_un.n_strx =
+					q - new_strings;
 				q += strlen(q) + 1;
 			    }
 			    inew_syms++;
 			    saves[j] = inew_syms;
-			    new_mods[i].nlocalsym++;
+			    if(object->mh != NULL)
+				new_mods[i].nlocalsym++;
+			    else
+				new_mods64[i].nlocalsym++;
 			}
 		    }
 		}
@@ -3062,23 +3917,49 @@ change_symbol:
 	     * symbol table.
 	     */
 	    for(i = 0; i < nmodtab; i++){
-		new_mods[i].iextdefsym = inew_syms;
-		new_mods[i].nextdefsym = 0;
-		for(j = mods[i].iextdefsym;
-		    j < mods[i].iextdefsym + mods[i].nextdefsym;
-		    j++){
-		    if((symbols[j].n_type & N_EXT) != 0){
+		if(object->mh != NULL){
+		    new_mods[i].iextdefsym = inew_syms;
+		    new_mods[i].nextdefsym = 0;
+		    iextdefsym = mods[i].iextdefsym;
+		    nextdefsym = mods[i].nextdefsym;
+		}
+		else{
+		    new_mods64[i].iextdefsym = inew_syms;
+		    new_mods64[i].nextdefsym = 0;
+		    iextdefsym = mods64[i].iextdefsym;
+		    nextdefsym = mods64[i].nextdefsym;
+		}
+		for(j = iextdefsym; j < iextdefsym + nextdefsym; j++){
+		    if(object->mh != NULL){
+			n_strx = symbols[j].n_un.n_strx;
+			n_type = symbols[j].n_type;
+		    }
+		    else{
+			n_strx = symbols64[j].n_un.n_strx;
+			n_type = symbols64[j].n_type;
+		    }
+		    if((n_type & N_EXT) != 0){
 			if(nmedits[j] == FALSE){
-			    new_symbols[inew_syms] = symbols[j];
-			    if(symbols[j].n_un.n_strx != 0){
-				strcpy(p, strings + symbols[j].n_un.n_strx);
-				new_symbols[inew_syms].n_un.n_strx =
-				    p - new_strings;
+			    if(object->mh != NULL)
+				new_symbols[inew_syms] = symbols[j];
+			    else
+				new_symbols64[inew_syms] = symbols64[j];
+			    if(n_strx != 0){
+				strcpy(p, strings + n_strx);
+				if(object->mh != NULL)
+				    new_symbols[inew_syms].n_un.n_strx =
+					p - new_strings;
+				else
+				    new_symbols64[inew_syms].n_un.n_strx =
+					p - new_strings;
 				p += strlen(p) + 1;
 			    }
 			    inew_syms++;
 			    saves[j] = inew_syms;
-			    new_mods[i].nextdefsym++;
+			    if(object->mh != NULL)
+				new_mods[i].nextdefsym++;
+			    else
+				new_mods64[i].nextdefsym++;
 			}
 		    }
 		}
@@ -3087,14 +3968,29 @@ change_symbol:
 	     * Last put the undefined symbols into the new symbol table.
 	     */
 	    for(i = 0; i < nsyms; i++){
-		if((symbols[i].n_type & N_EXT) != 0 &&
-		   ((symbols[i].n_type & N_TYPE) == N_UNDF ||
-		    (symbols[i].n_type & N_TYPE) == N_PBUD)){
-		    new_symbols[inew_syms] = symbols[i];
-		    if(symbols[i].n_un.n_strx != 0){
-			strcpy(p, strings + symbols[i].n_un.n_strx);
-			new_symbols[inew_syms].n_un.n_strx =
-			    p - new_strings;
+		if(object->mh != NULL){
+		    n_strx = symbols[i].n_un.n_strx;
+		    n_type = symbols[i].n_type;
+		}
+		else{
+		    n_strx = symbols64[i].n_un.n_strx;
+		    n_type = symbols64[i].n_type;
+		}
+		if((n_type & N_EXT) != 0 &&
+		   ((n_type & N_TYPE) == N_UNDF ||
+		    (n_type & N_TYPE) == N_PBUD)){
+		    if(object->mh != NULL)
+			new_symbols[inew_syms] = symbols[i];
+		    else
+			new_symbols64[inew_syms] = symbols64[i];
+		    if(n_strx != 0){
+			strcpy(p, strings + n_strx);
+			if(object->mh != NULL)
+			    new_symbols[inew_syms].n_un.n_strx =
+				p - new_strings;
+			else
+			    new_symbols64[inew_syms].n_un.n_strx =
+				p - new_strings;
 			p += strlen(p) + 1;
 		    }
 		    inew_syms++;
@@ -3108,20 +4004,38 @@ change_symbol:
 	     * other unchanged fields.
 	     */
 	    for(i = 0; i < nmodtab; i++){
-		strcpy(p, strings + mods[i].module_name);
-		new_mods[i].module_name = p - new_strings;
-		p += strlen(p) + 1;
+		if(object->mh != NULL){
+		    strcpy(p, strings + mods[i].module_name);
+		    new_mods[i].module_name = p - new_strings;
+		    p += strlen(p) + 1;
 
-		new_mods[i].irefsym = mods[i].irefsym;
-		new_mods[i].nrefsym = mods[i].nrefsym;
-		new_mods[i].iextrel = mods[i].iextrel;
-		new_mods[i].nextrel = mods[i].nextrel;
-		new_mods[i].iinit_iterm = mods[i].iinit_iterm;
-		new_mods[i].ninit_nterm = mods[i].ninit_nterm;
-		new_mods[i].objc_module_info_addr =
-		    mods[i].objc_module_info_addr;
-		new_mods[i].objc_module_info_size =
-		    mods[i].objc_module_info_size;
+		    new_mods[i].irefsym = mods[i].irefsym;
+		    new_mods[i].nrefsym = mods[i].nrefsym;
+		    new_mods[i].iextrel = mods[i].iextrel;
+		    new_mods[i].nextrel = mods[i].nextrel;
+		    new_mods[i].iinit_iterm = mods[i].iinit_iterm;
+		    new_mods[i].ninit_nterm = mods[i].ninit_nterm;
+		    new_mods[i].objc_module_info_addr =
+			mods[i].objc_module_info_addr;
+		    new_mods[i].objc_module_info_size =
+			mods[i].objc_module_info_size;
+		}
+		else{
+		    strcpy(p, strings + mods64[i].module_name);
+		    new_mods64[i].module_name = p - new_strings;
+		    p += strlen(p) + 1;
+
+		    new_mods64[i].irefsym = mods64[i].irefsym;
+		    new_mods64[i].nrefsym = mods64[i].nrefsym;
+		    new_mods64[i].iextrel = mods64[i].iextrel;
+		    new_mods64[i].nextrel = mods64[i].nextrel;
+		    new_mods64[i].iinit_iterm = mods64[i].iinit_iterm;
+		    new_mods64[i].ninit_nterm = mods64[i].ninit_nterm;
+		    new_mods64[i].objc_module_info_addr =
+			mods64[i].objc_module_info_addr;
+		    new_mods64[i].objc_module_info_size =
+			mods64[i].objc_module_info_size;
+		}
 	    }
 
 	    /*
@@ -3186,11 +4100,27 @@ change_symbol:
 	     */
 	    inew_syms = 0;
 	    for(i = 0; i < nsyms; i++){
-		if((symbols[i].n_type & N_EXT) == 0){
-		    new_symbols[inew_syms] = symbols[i];
-		    if(symbols[i].n_un.n_strx != 0){
-			strcpy(q, strings + symbols[i].n_un.n_strx);
-			new_symbols[inew_syms].n_un.n_strx = q - new_strings;
+		if(object->mh != NULL){
+		    n_strx = symbols[i].n_un.n_strx;
+		    n_type = symbols[i].n_type;
+		}
+		else{
+		    n_strx = symbols64[i].n_un.n_strx;
+		    n_type = symbols64[i].n_type;
+		}
+		if((n_type & N_EXT) == 0){
+		    if(object->mh != NULL)
+			new_symbols[inew_syms] = symbols[i];
+		    else
+			new_symbols64[inew_syms] = symbols64[i];
+		    if(n_strx != 0){
+			strcpy(q, strings + n_strx);
+			if(object->mh != NULL)
+			    new_symbols[inew_syms].n_un.n_strx =
+				q - new_strings;
+			else
+			    new_symbols64[inew_syms].n_un.n_strx =
+				q - new_strings;
 			q += strlen(q) + 1;
 		    }
 		    inew_syms++;
@@ -3203,19 +4133,38 @@ change_symbol:
 	     */
 	    if(pflag == FALSE){
 		for(i = 0; i < nsyms; i++){
-		    if((symbols[i].n_type & N_EXT) != 0){
+		    if(object->mh != NULL){
+			n_strx = symbols[i].n_un.n_strx;
+			n_type = symbols[i].n_type;
+		    }
+		    else{
+			n_strx = symbols64[i].n_un.n_strx;
+			n_type = symbols64[i].n_type;
+		    }
+		    if((n_type & N_EXT) != 0){
 			if(nmedits[i] == TRUE){
-			    new_symbols[inew_syms] = symbols[i];
 			    /*
 			     * Change the new symbol to not be an extern symbol
 			     * by turning off the extern bit.
 			     */
-			    new_symbols[inew_syms].n_type &= ~N_EXT;
-			    new_symbols[inew_syms].n_desc &= ~N_WEAK_DEF;
-			    if(symbols[i].n_un.n_strx != 0){
-				strcpy(q, strings + symbols[i].n_un.n_strx);
-				new_symbols[inew_syms].n_un.n_strx =
-				    q - new_strings;
+			    if(object->mh != NULL){
+				new_symbols[inew_syms] = symbols[i];
+				new_symbols[inew_syms].n_type &= ~N_EXT;
+				new_symbols[inew_syms].n_desc &= ~N_WEAK_DEF;
+			    }
+			    else{
+				new_symbols64[inew_syms] = symbols64[i];
+				new_symbols64[inew_syms].n_type &= ~N_EXT;
+				new_symbols64[inew_syms].n_desc &= ~N_WEAK_DEF;
+			    }
+			    if(n_strx != 0){
+				strcpy(q, strings + n_strx);
+				if(object->mh != NULL)
+				    new_symbols[inew_syms].n_un.n_strx =
+					q - new_strings;
+				else
+				    new_symbols64[inew_syms].n_un.n_strx =
+					q - new_strings;
 				q += strlen(q) + 1;
 			    }
 			    inew_syms++;
@@ -3229,19 +4178,38 @@ change_symbol:
 	     * and symbols changed into private externs.
 	     */
 	    for(i = 0; i < nsyms; i++){
-		if((symbols[i].n_type & N_EXT) != 0){
+		if(object->mh != NULL){
+		    n_strx = symbols[i].n_un.n_strx;
+		    n_type = symbols[i].n_type;
+		}
+		else{
+		    n_strx = symbols64[i].n_un.n_strx;
+		    n_type = symbols64[i].n_type;
+		}
+		if((n_type & N_EXT) != 0){
 		    if(nmedits[i] == FALSE || pflag == TRUE){
-			new_symbols[inew_syms] = symbols[i];
-			if(nmedits[i] == TRUE && pflag == TRUE)
+			if(object->mh != NULL)
+			    new_symbols[inew_syms] = symbols[i];
+			else
+			    new_symbols64[inew_syms] = symbols64[i];
+			if(nmedits[i] == TRUE && pflag == TRUE){
 			    /*
 			     * Change the new symbol to be a private extern
 			     * symbol by turning on the private extern bit.
 			     */
-			    new_symbols[inew_syms].n_type |= N_PEXT;
-			if(symbols[i].n_un.n_strx != 0){
-			    strcpy(p, strings + symbols[i].n_un.n_strx);
-			    new_symbols[inew_syms].n_un.n_strx =
-				p - new_strings;
+			    if(object->mh != NULL)
+				new_symbols[inew_syms].n_type |= N_PEXT;
+			    else
+				new_symbols64[inew_syms].n_type |= N_PEXT;
+			}
+			if(n_strx != 0){
+			    strcpy(p, strings + n_strx);
+			    if(object->mh != NULL)
+				new_symbols[inew_syms].n_un.n_strx =
+				    p - new_strings;
+			    else
+				new_symbols64[inew_syms].n_un.n_strx =
+				    p - new_strings;
 			    p += strlen(p) + 1;
 			}
 			inew_syms++;
@@ -3251,7 +4219,10 @@ change_symbol:
 	    }
 	}
 
-	free(sections);
+	if(sections != NULL);
+	    free(sections);
+	if(sections64 != NULL);
+	    free(sections64);
 
 	if(errors == 0)
 	    return(TRUE);
@@ -3267,6 +4238,16 @@ int
 cmp_qsort_global(
 const struct nlist **sym1,
 const struct nlist **sym2)
+{
+	return(strcmp(global_strings + (*sym1)->n_un.n_strx,
+		      global_strings + (*sym2)->n_un.n_strx));
+}
+
+static
+int
+cmp_qsort_global_64(
+const struct nlist_64 **sym1,
+const struct nlist_64 **sym2)
 {
 	return(strcmp(global_strings + (*sym1)->n_un.n_strx,
 		      global_strings + (*sym2)->n_un.n_strx));
@@ -3288,17 +4269,16 @@ const struct nlist **sym)
 	return(strcmp(name, global_strings + (*sym)->n_un.n_strx + 1));
 }
 
-#ifdef remove
-/*
- * Function for bsearch for finding a global symbol name.
- */
 static
 int
-cmp_bsearch_global(
+cmp_bsearch_global_stab_64(
 const char *name,
-const struct nlist **sym)
+const struct nlist_64 **sym)
 {
-	return(strcmp(name, global_strings + (*sym)->n_un.n_strx));
+	/*
+	 * The +1 is for the '_' on the global symbol that is not on the
+	 * stab string that is trying to be matched.
+	 */
+	return(strcmp(name, global_strings + (*sym)->n_un.n_strx + 1));
 }
-#endif
 #endif /* defined(NMEDIT) */

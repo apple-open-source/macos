@@ -1,0 +1,539 @@
+// !$*UTF8*$!
+{
+	2C818C0C06CAC7570089B214 = {
+		activeExec = 0;
+	};
+	2C818C1006CAC7820089B214 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 15358}}";
+			sepNavSelRange = "{14680, 21}";
+			sepNavVisRect = "{{0, 8301}, {712, 443}}";
+			sepNavWindowFrame = "{{201, 390}, {750, 502}}";
+		};
+	};
+	2C818C1606CAC7820089B214 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {786, 8932}}";
+			sepNavSelRange = "{13896, 0}";
+			sepNavVisRect = "{{0, 6137}, {786, 758}}";
+			sepNavWindowFrame = "{{178, 96}, {824, 817}}";
+		};
+	};
+	2CBB605A06CA6944006AA7C8 = {
+		activeExec = 0;
+	};
+	4C4CAC06071E046B0034AB23 = {
+		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		configStateDict = {
+		};
+		cppStopOnCatchEnabled = 0;
+		cppStopOnThrowEnabled = 0;
+		customDataFormattersEnabled = 1;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		isa = PBXExecutable;
+		libgmallocEnabled = 0;
+		name = pcscd;
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
+	};
+	4C4CAC07071E046B0034AB23 = {
+		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		configStateDict = {
+		};
+		cppStopOnCatchEnabled = 0;
+		cppStopOnThrowEnabled = 0;
+		customDataFormattersEnabled = 1;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		isa = PBXExecutable;
+		libgmallocEnabled = 0;
+		name = pcsctest;
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
+	};
+	4C4CAC08071E046B0034AB23 = {
+		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		configStateDict = {
+		};
+		cppStopOnCatchEnabled = 0;
+		cppStopOnThrowEnabled = 0;
+		customDataFormattersEnabled = 1;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		isa = PBXExecutable;
+		libgmallocEnabled = 0;
+		name = pcsctool;
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
+	};
+	4C4CAC16071E046E0034AB23 = {
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		isa = PBXSourceControlManager;
+		scmConfiguration = {
+		};
+		scmType = "";
+	};
+	4C4CAC17071E046E0034AB23 = {
+		indexTemplatePath = "";
+		isa = PBXCodeSenseManager;
+	};
+	F51121270272F895017BB957 = {
+		activeExec = 0;
+		executables = (
+			4C4CAC08071E046B0034AB23,
+		);
+	};
+	F5294A4F0090C4CA01CD285A = {
+		activeBuildStyle = 4C6C32CD071E04AD006A2CAE;
+		activeExecutable = 4C4CAC06071E046B0034AB23;
+		activeTarget = F5294A510090C54E01CD285A;
+		breakpoints = (
+		);
+		codeSenseManager = 4C4CAC17071E046E0034AB23;
+		executables = (
+			4C4CAC06071E046B0034AB23,
+			4C4CAC07071E046B0034AB23,
+			4C4CAC08071E046B0034AB23,
+		);
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 120510561;
+			PBXPrepackagedSmartGroups_v2 = (
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					activationKey = OldTargetSmartGroup;
+					clz = PBXTargetSmartGroup;
+					description = "Displays all targets of the project.";
+					globalID = 1C37FABC04509CD000000102;
+					name = Targets;
+					preferences = {
+						image = Targets;
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXTargetSmartGroup2;
+					description = "Displays all targets of the project as well as nested build phases.";
+					globalID = 1C37FBAC04509CD000000102;
+					name = Targets;
+					preferences = {
+						image = Targets;
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXExecutablesSmartGroup;
+					description = "Displays all executables of the project.";
+					globalID = 1C37FAAC04509CD000000102;
+					name = Executables;
+					preferences = {
+						image = Executable;
+					};
+				},
+				{
+					" PBXTransientLocationAtTop " = bottom;
+					absolutePathToBundle = "";
+					clz = PBXErrorsWarningsSmartGroup;
+					description = "Displays files with errors or warnings.";
+					globalID = 1C08E77C0454961000C914BD;
+					name = "Errors and Warnings";
+					preferences = {
+						fnmatch = "";
+						image = WarningsErrors;
+						recursive = 1;
+						regex = "";
+						root = "<PROJECT>";
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXFilenameSmartGroup;
+					description = "Filters items in a given group (potentially recursively) based on matching the name with the regular expression of the filter.";
+					globalID = 1CC0EA4004350EF90044410B;
+					name = "Implementation Files";
+					preferences = {
+						canSave = 1;
+						fnmatch = "";
+						image = SmartFolder;
+						isLeaf = 0;
+						recursive = 1;
+						regex = "?*\\.[mcMC]";
+						root = "<PROJECT>";
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXFilenameSmartGroup;
+					description = "This group displays Interface Builder NIB Files.";
+					globalID = 1CC0EA4004350EF90041110B;
+					name = "NIB Files";
+					preferences = {
+						canSave = 1;
+						fnmatch = "*.nib";
+						image = SmartFolder;
+						isLeaf = 0;
+						recursive = 1;
+						regex = "";
+						root = "<PROJECT>";
+					};
+				},
+				{
+					PBXTransientLocationAtTop = no;
+					absolutePathToBundle = "";
+					clz = PBXFindSmartGroup;
+					description = "Displays Find Results.";
+					globalID = 1C37FABC05509CD000000102;
+					name = "Find Results";
+					preferences = {
+						image = spyglass;
+					};
+				},
+				{
+					PBXTransientLocationAtTop = no;
+					absolutePathToBundle = "";
+					clz = PBXBookmarksSmartGroup;
+					description = "Displays Project Bookmarks.";
+					globalID = 1C37FABC05539CD112110102;
+					name = Bookmarks;
+					preferences = {
+						image = Bookmarks;
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = XCSCMSmartGroup;
+					description = "Displays files with interesting SCM status.";
+					globalID = E2644B35053B69B200211256;
+					name = SCM;
+					preferences = {
+						image = PBXRepository;
+						isLeaf = 0;
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXSymbolsSmartGroup;
+					description = "Displays all symbols for the project.";
+					globalID = 1C37FABC04509CD000100104;
+					name = "Project Symbols";
+					preferences = {
+						image = ProjectSymbols;
+						isLeaf = 1;
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXFilenameSmartGroup;
+					description = "Filters items in a given group (potentially recursively) based on matching the name with the regular expression of the filter.";
+					globalID = PBXTemplateMarker;
+					name = "Simple Filter SmartGroup";
+					preferences = {
+						canSave = 1;
+						fnmatch = "*.nib";
+						image = SmartFolder;
+						isLeaf = 0;
+						recursive = 1;
+						regex = "";
+						root = "<PROJECT>";
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					absolutePathToBundle = "";
+					clz = PBXFilenameSmartGroup;
+					description = "Filters items in a given group (potentially recursively) based on matching the name with the regular expression of the filter.";
+					globalID = PBXTemplateMarker;
+					name = "Simple Regular Expression SmartGroup";
+					preferences = {
+						canSave = 1;
+						fnmatch = "";
+						image = SmartFolder;
+						isLeaf = 0;
+						recursive = 1;
+						regex = "?*\\.[mcMC]";
+						root = "<PROJECT>";
+					};
+				},
+				{
+					PBXTransientLocationAtTop = bottom;
+					clz = XDDesignSmartGroup;
+					description = "Displays Xdesign models";
+					globalID = 2E4A936305E6979E00701470;
+					name = Design;
+					preferences = {
+						image = Design;
+						isLeaf = 0;
+					};
+				},
+			);
+			PBXWorkspaceStateSaveDate = 120510561;
+		};
+		sourceControlManager = 4C4CAC16071E046E0034AB23;
+		userBuildSettings = {
+		};
+	};
+	F5294A510090C54E01CD285A = {
+		activeExec = 0;
+	};
+	F5294A800090C73501CD285A = {
+		activeExec = 0;
+		executables = (
+			4C4CAC06071E046B0034AB23,
+		);
+	};
+	F5294AD40090CAE601CD285A = {
+		activeExec = 0;
+		executables = (
+			4C4CAC07071E046B0034AB23,
+		);
+	};
+	F52A93D402541D8C01B94B21 = {
+		activeExec = 0;
+	};
+	F52A94910254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 630}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRect = "{{0, 186}, {712, 443}}";
+			sepNavWindowFrame = "{{247, 348}, {750, 502}}";
+		};
+	};
+	F52A94920254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 4354}}";
+			sepNavSelRange = "{2369, 8}";
+			sepNavVisRect = "{{0, 963}, {712, 443}}";
+			sepNavWindowFrame = "{{86, 495}, {750, 502}}";
+		};
+	};
+	F52A94930254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 1372}}";
+			sepNavSelRange = "{2315, 9}";
+			sepNavVisRect = "{{0, 686}, {712, 443}}";
+			sepNavWindowFrame = "{{224, 369}, {750, 502}}";
+		};
+	};
+	F52A94950254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 1876}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRect = "{{0, 0}, {712, 443}}";
+			sepNavWindowFrame = "{{132, 453}, {750, 502}}";
+		};
+	};
+	F52A949B0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 12558}}";
+			sepNavSelRange = "{16536, 69}";
+			sepNavVisRect = "{{0, 11504}, {712, 443}}";
+			sepNavWindowFrame = "{{155, 432}, {750, 502}}";
+		};
+	};
+	F52A949D0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {556, 8778}}";
+			sepNavSelRange = "{5363, 0}";
+			sepNavVisRect = "{{0, 2566}, {556, 912}}";
+			sepNavWindowFrame = "{{303, 31}, {594, 971}}";
+		};
+	};
+	F52A949E0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {685, 3304}}";
+			sepNavSelRange = "{3118, 22}";
+			sepNavVisRect = "{{0, 994}, {685, 810}}";
+			sepNavWindowFrame = "{{430, 105}, {729, 869}}";
+		};
+	};
+	F52A94A40254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 3948}}";
+			sepNavSelRange = "{5065, 10}";
+			sepNavVisRect = "{{0, 2166}, {712, 443}}";
+			sepNavWindowFrame = "{{178, 411}, {750, 502}}";
+		};
+	};
+	F52A94A60254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 1876}}";
+			sepNavSelRange = "{1761, 13}";
+			sepNavVisRect = "{{0, 396}, {712, 443}}";
+			sepNavWindowFrame = "{{201, 390}, {750, 502}}";
+		};
+	};
+	F52A94A70254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {737, 3990}}";
+			sepNavSelRange = "{1109, 0}";
+			sepNavVisRect = "{{0, 0}, {737, 760}}";
+			sepNavWindowFrame = "{{1488, 205}, {775, 819}}";
+		};
+	};
+	F52A94A80254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {843, 3164}}";
+			sepNavSelRange = "{2162, 19}";
+			sepNavVisRect = "{{0, 228}, {843, 943}}";
+			sepNavWindowFrame = "{{97, 0}, {881, 1002}}";
+		};
+	};
+	F52A94A90254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {509, 9758}}";
+			sepNavSelRange = "{12649, 22}";
+			sepNavVisRect = "{{0, 6524}, {509, 811}}";
+			sepNavWindowFrame = "{{663, 132}, {547, 870}}";
+		};
+	};
+	F52A94AA0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {544, 1596}}";
+			sepNavSelRange = "{1558, 0}";
+			sepNavVisRect = "{{0, 0}, {544, 932}}";
+			sepNavWindowFrame = "{{198, 11}, {582, 991}}";
+		};
+	};
+	F52A94AB0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {835, 18774}}";
+			sepNavSelRange = "{26547, 0}";
+			sepNavVisRect = "{{0, 17772}, {835, 787}}";
+			sepNavWindowFrame = "{{224, 25}, {873, 846}}";
+		};
+	};
+	F52A94AC0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {760, 1596}}";
+			sepNavSelRange = "{2418, 0}";
+			sepNavVisRect = "{{0, 0}, {760, 806}}";
+			sepNavWindowFrame = "{{1421, 152}, {804, 865}}";
+		};
+	};
+	F52A94AD0254242101B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {706, 1078}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRect = "{{0, 634}, {706, 443}}";
+			sepNavWindowFrame = "{{205, 390}, {750, 502}}";
+		};
+	};
+	F52A94CE025424AC01B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {804, 31948}}";
+			sepNavSelRange = "{9057, 9}";
+			sepNavVisRect = "{{0, 4691}, {804, 489}}";
+		};
+	};
+	F52A94CF025424AC01B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 14714}}";
+			sepNavSelRange = "{8135, 15}";
+			sepNavVisRect = "{{0, 3638}, {712, 443}}";
+			sepNavWindowFrame = "{{109, 474}, {750, 502}}";
+		};
+	};
+	F52A94D0025424AC01B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 11032}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRect = "{{0, 1765}, {712, 443}}";
+			sepNavWindowFrame = "{{155, 432}, {750, 502}}";
+		};
+	};
+	F52A94D4025424AC01B94B21 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {804, 30702}}";
+			sepNavSelRange = "{36126, 0}";
+			sepNavVisRect = "{{0, 24053}, {804, 489}}";
+			sepNavWindowFrame = "{{205, 0}, {887, 1002}}";
+		};
+	};
+	F537A7B30379EB7B01B94948 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 784}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRect = "{{0, 227}, {712, 443}}";
+			sepNavWindowFrame = "{{270, 327}, {750, 502}}";
+		};
+	};
+	F537A7D10379ED7501B94948 = {
+		activeExec = 0;
+	};
+	F538896903953B79012F6BBF = {
+		activeExec = 0;
+	};
+	F5448E020379EE2A01B94948 = {
+		activeExec = 0;
+	};
+	F5448E090379EE3601B94948 = {
+		activeExec = 0;
+	};
+	F5448E100379EE6401B94948 = {
+		activeExec = 0;
+	};
+	F5448E120379EEA101B94948 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {804, 31010}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRect = "{{0, 0}, {804, 489}}";
+		};
+	};
+	F5448E2A0379EF2501B94948 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {804, 4060}}";
+			sepNavSelRange = "{520, 3}";
+			sepNavVisRect = "{{0, 106}, {804, 222}}";
+		};
+	};
+	F5448E300379EF2501B94948 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {712, 2030}}";
+			sepNavSelRange = "{443, 20}";
+			sepNavVisRect = "{{0, 0}, {712, 443}}";
+			sepNavWindowFrame = "{{339, 264}, {750, 502}}";
+		};
+	};
+}

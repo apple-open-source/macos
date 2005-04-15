@@ -49,7 +49,8 @@
 #include "stuff/bytesex.h"
 
 /* These variables are set from the command line arguments */
-char *progname;	/* name of the program for error messages (argv[0]) */
+__private_extern__
+char *progname = NULL;	/* name of the program for error messages (argv[0]) */
 
 static char *input,	/* object file to extract/replace sections from */
      	    *output;	/* new object file with replaced sections, if any

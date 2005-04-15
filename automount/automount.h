@@ -71,13 +71,16 @@ struct MountProgressRecord {
 	LIST_ENTRY(MountProgressRecord) mpr_link;
 	pid_t mpr_mountpid;
 	Vnode *mpr_vp;
+	u_long mpr_xid;
 };
 typedef LIST_HEAD(MountProgressRecord_List, MountProgressRecord) MountProgressRecord_List;
 
 extern MountProgressRecord_List gMountsInProgress;
 
 extern BOOL gForkedMountInProgress;
+extern pid_t gForkedMountPID; 
 extern BOOL gForkedMount;
+extern BOOL gSubMounter;
 extern BOOL gBlockedMountDependency;
 extern unsigned long gBlockingMountTransactionID;
 extern int gMountResult;

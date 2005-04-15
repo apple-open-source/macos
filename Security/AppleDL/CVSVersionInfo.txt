@@ -1,5 +1,5 @@
 # Created and modified by checkpoint; do not edit
 # $Id: CVSVersionInfo.txt,v 1.1.1.1 2001/05/18 23:13:52 mb Exp $
-# $Name: Security-177 $
+# $Name:  $
 ProjectName: AppleDL
 ProjectVersion: 13

@@ -1233,8 +1233,6 @@ slapd_daemon_task(
 		int ns;
 		int at;
 		ber_socket_t nfds;
-#define SLAPD_EBADF_LIMIT 16
-		int ebadf = 0;
 
 		time_t	now;
 
@@ -1364,8 +1362,34 @@ slapd_daemon_task(
 					|| err == WSAENOTSOCK
 #endif
 				) {
-					if (++ebadf < SLAPD_EBADF_LIMIT)
-						continue;
+					/* loop through the file descriptors */
+
+#if !HAVE_WINSOCK
+					for ( i = 0; i < nfds; i++ )
+					{
+						ber_socket_t fd;
+						ber_socket_t nd;
+
+						if( !FD_ISSET( i, &readfds ) && !FD_ISSET( i, &writefds) ) {
+							continue;
+						}
+						fd = i;
+						nd = dup( fd );
+						if (nd != -1) {
+							close(nd);
+							/* file descriptor is OK */
+						} else {
+							if (errno == EBADF) {
+								/* bad file descriptor, close the connection */
+								connection_invalid_socket( fd );
+							}
+							Debug( LDAP_DEBUG_CONNS,
+								"daemon: fd %d dup failed (%d): %s\n",
+								fd, errno, sock_errstr(errno) );
+						}
+					}
+#endif
+					continue;
 				}
 
 				if( err != EINTR ) {
@@ -1384,7 +1408,6 @@ slapd_daemon_task(
 			continue;
 
 		case 0:		/* timeout - let threads run */
-			ebadf = 0;
 #ifdef NEW_LOGGING
 			LDAP_LOG( CONNECTION, DETAIL2,
 				   "slapd_daemon_task: select timeout - yielding\n", 0, 0, 0 );
@@ -1398,7 +1421,6 @@ slapd_daemon_task(
 		default:	/* something happened - deal with it */
 			if( slapd_shutdown ) continue;
 
-			ebadf = 0;
 #ifdef NEW_LOGGING
 			LDAP_LOG( CONNECTION, DETAIL2, 
 				   "slapd_daemon_task: activity on %d descriptors\n", ns, 0, 0 );
@@ -1901,9 +1923,6 @@ slapd_daemon_task(
 		close_listeners ( 0 );
 	}
 
-	free ( slap_listeners );
-	slap_listeners = NULL;
-
 	if( !slapd_gentle_shutdown ) {
 		connections_shutdown();
 	}
@@ -1918,6 +1937,9 @@ slapd_daemon_task(
 	    ldap_pvt_thread_pool_backload(&connection_pool), 0, 0 );
 #endif
 	ldap_pvt_thread_pool_destroy(&connection_pool, 1);
+
+	free ( slap_listeners );
+	slap_listeners = NULL;
 
 	return NULL;
 }

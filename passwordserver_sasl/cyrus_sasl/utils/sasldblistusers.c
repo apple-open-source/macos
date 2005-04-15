@@ -1,10 +1,10 @@
 /* sasldblistusers.c -- list users in sasldb
- * $Id: sasldblistusers.c,v 1.2 2002/05/23 18:57:35 snsimon Exp $
+ * $Id: sasldblistusers.c,v 1.3 2004/07/07 22:51:51 snsimon Exp $
  * Rob Siemborski
  * Tim Martin
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,68 +48,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #include <sasl.h>
 #include "../sasldb/sasldb.h"
 
+#ifdef WIN32
+#include <saslutil.h>
+__declspec(dllimport) char *optarg;
+__declspec(dllimport) int optind;
+#endif
+
 /* Cheating to make the utils work out right */
-extern const sasl_utils_t *sasl_global_utils;
-
-/*
- * List all users in database
- */
-int listusers(sasl_conn_t *conn)
-{
-    int result;
-    char key_buf[32768];
-    size_t key_len;
-    sasldb_handle dbh;
-    
-    dbh = _sasldb_getkeyhandle(sasl_global_utils, conn);
-
-    if(!dbh) {
-	printf("can't getkeyhandle\n");
-	return SASL_FAIL;
-    }
-
-    result = _sasldb_getnextkey(sasl_global_utils, dbh,
-				key_buf, 32768, &key_len);
-
-    while (result == SASL_CONTINUE)
-    {
-	char authid_buf[16384];
-	char realm_buf[16384];
-	char property_buf[16384];
-	int ret;
-
-	ret = _sasldb_parse_key(key_buf, key_len,
-				authid_buf, 16384,
-				realm_buf, 16384,
-				property_buf, 16384);
-
-	if(ret == SASL_BUFOVER) {
-	    printf("Key too large\n");
-	    continue;
-	} else if(ret != SASL_OK) {
-	    printf("Bad Key!\n");
-	    continue;
-	}
-	
-	printf("%s@%s: %s\n",authid_buf,realm_buf,property_buf);
-
-	result = _sasldb_getnextkey(sasl_global_utils, dbh,
-				    key_buf, 32768, &key_len);
-    }
-
-    if (result == SASL_BUFOVER) {
-	fprintf(stderr, "Key too large!\n");
-    } else if (result != SASL_OK) {
-	fprintf(stderr,"db failure\n");
-    }
-
-    return _sasldb_releasekeyhandle(sasl_global_utils, dbh);
-}
+LIBSASL_VAR const sasl_utils_t *sasl_global_utils;
 
 char *sasldb_path = SASL_DB_PATH;
+const char *progname = NULL;
 
 int good_getopt(void *context __attribute__((unused)), 
 		const char *plugin_name __attribute__((unused)), 
@@ -134,14 +90,86 @@ static struct sasl_callback goodsasl_cb[] = {
 
 int main(int argc, char **argv)
 {
+    int c;
     int result;
     sasl_conn_t *conn;
-    if (argc > 1)
-	sasldb_path = argv[1];
+    int bad_option = 0;
+    int display_usage = 0;
+    const char *sasl_implementation;
+    int libsasl_version;
+    int libsasl_major;
+    int libsasl_minor;
+    int libsasl_step;
 
+    if (! argv[0])
+       progname = "sasldblistusers2";
+    else {
+       progname = strrchr(argv[0], HIER_DELIMITER);
+       if (progname)
+           progname++;
+       else
+           progname = argv[0];
+    }
+
+    /* A single parameter not starting with "-" denotes sasldb to use */
+    if ((argc == 2) && argv[1][0] != '-') {
+	sasldb_path = argv[1];
+	goto START_WORK;
+    }
+
+    while ((c = getopt(argc, argv, "vf:h?")) != EOF) {
+       switch (c) {
+         case 'f':
+	   sasldb_path = optarg;
+	   break;
+         case 'h':
+           bad_option = 0;
+            display_usage = 1;
+           break;
+	 case 'v':
+	   sasl_version (&sasl_implementation, &libsasl_version);
+	   libsasl_major = libsasl_version >> 24;
+	   libsasl_minor = (libsasl_version >> 16) & 0xFF;
+	   libsasl_step = libsasl_version & 0xFFFF;
+
+	   (void)fprintf(stderr, "\nThis product includes software developed by Computing Services\n"
+		"at Carnegie Mellon University (http://www.cmu.edu/computing/).\n\n"
+		"Built against SASL API version %u.%u.%u\n"
+		"LibSasl version %u.%u.%u by \"%s\"\n",
+		SASL_VERSION_MAJOR, SASL_VERSION_MINOR, SASL_VERSION_STEP,
+		libsasl_major, libsasl_minor, libsasl_step, sasl_implementation);
+	   exit(0);
+	   break;
+
+         default:
+           bad_option = 1;
+            display_usage = 1;
+            break;
+       }
+    }
+
+    if (optind != argc)
+       display_usage = 1;
+
+    if (display_usage) {
+           fprintf(stderr,
+             "\nThis product includes software developed by Computing Services\n"
+             "at Carnegie Mellon University (http://www.cmu.edu/computing/).\n\n");
+
+           fprintf(stderr, "%s: usage: %s [-v] [[-f] sasldb]\n",
+		   progname, progname);
+           fprintf(stderr, "\t-f sasldb\tuse given file as sasldb\n"
+                           "\t-v\tprint version numbers and exit\n");
+       if (bad_option) {
+           fprintf(stderr, "Unrecognized command line option\n");
+       }
+       return 1;
+    }
+ 
+START_WORK:
     result = sasl_server_init(goodsasl_cb, "sasldblistusers");
     if(result != SASL_OK) {
-	fprintf(stderr, "Couldn't init server\n");
+	fprintf(stderr, "Couldn't initialize server API\n");
 	return 1;
     }
     
@@ -159,7 +187,7 @@ int main(int argc, char **argv)
 	return 1;
     }
 
-    if(listusers(conn) != SASL_OK) {
+    if(_sasldb_listusers (sasl_global_utils, conn, NULL, NULL) != SASL_OK) {
 	fprintf(stderr, "listusers failed\n");
     }
 

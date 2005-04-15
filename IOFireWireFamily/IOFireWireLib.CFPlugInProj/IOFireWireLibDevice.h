@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibDevice.h,v $
+ *	Revision 1.7.12.1  2005/03/08 03:48:49  collin
+ *	*** empty log message ***
+ *	
  *	Revision 1.7  2003/11/07 21:24:28  niels
  *	*** empty log message ***
  *	
@@ -312,16 +315,17 @@ namespace IOFireWireLib {
 											Boolean					inTalking,
 											REFIID 					iid) ;
 			IOFireWireLibLocalIsochPortRef
-									CreateLocalIsochPort(
-											Boolean					inTalking,
-											DCLCommand*				inDCLProgram,
-											UInt32					inStartEvent,
-											UInt32					inStartState,
-											UInt32					inStartMask,
-											IOVirtualRange			inDCLProgramRanges[],			// optional optimization parameters
-											UInt32					inDCLProgramRangeCount,
-											IOVirtualRange			inBufferRanges[],
-											UInt32					inBufferRangeCount,
+									CreateLocalIsochPortWithOptions(
+											Boolean					talking,
+											DCLCommand*				dclProgram,
+											UInt32					startEvent,
+											UInt32					startState,
+											UInt32					startMask,
+											IOVirtualRange			dclProgramRanges[],			// optional optimization parameters
+											UInt32					dclProgramRangeCount,
+											IOVirtualRange			bufferRanges[],
+											UInt32					bufferRangeCount,
+											IOFWIsochPortOptions	options,
 											REFIID 					iid) ;
 			IOFireWireLibDCLCommandPoolRef
 									CreateDCLCommandPool(
@@ -685,6 +689,30 @@ namespace IOFireWireLib {
 			static IOFireWireLibNuDCLPoolRef				S_CreateNuDCLPool( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
 			static IOFireWireLibBufferFillIsochPortRef		S_CreateBufferFillIsochPort( IOFireWireLibDeviceRef self, UInt32 interruptMicroseconds, UInt32 numRanges, IOVirtualRange* ranges, REFIID iid ) ;
 
-			static IOFireWireSessionRef						S_GetSessionRef( IOFireWireLibDeviceRef self ) ;
+			//
+			// v7
+			//
+			
+			static IOFireWireSessionRef						S_GetSessionRef( IOFireWireLibDeviceRef self ) ;			
+			
+			//
+			// v8
+			//
+			
+			static IOFireWireLibLocalIsochPortRef
+									S_CreateLocalIsochPortWithOptions(
+											IOFireWireLibDeviceRef 	self, 
+											Boolean					inTalking,
+											DCLCommand*		inDCLProgram,
+											UInt32					inStartEvent,
+											UInt32					inStartState,
+											UInt32					inStartMask,
+											IOVirtualRange			inDCLProgramRanges[],			// optional optimization parameters
+											UInt32					inDCLProgramRangeCount,
+											IOVirtualRange			inBufferRanges[],
+											UInt32					inBufferRangeCount,
+											IOFWIsochPortOptions	options,
+											REFIID 					iid) ;
+
 	} ;
 } // namespace

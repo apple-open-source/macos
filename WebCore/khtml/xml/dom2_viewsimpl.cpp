@@ -2,6 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * (C) 2001 Peter Kelly (pmk@post.com)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,7 +23,10 @@
 
 #include "dom2_viewsimpl.h"
 
-using namespace DOM;
+#include "css/css_computedstyle.h"
+#include "dom_elementimpl.h"
+
+namespace DOM {
 
 AbstractViewImpl::AbstractViewImpl(DocumentImpl *_document)
 {
@@ -33,8 +37,14 @@ AbstractViewImpl::~AbstractViewImpl()
 {
 }
 
-CSSStyleDeclarationImpl *AbstractViewImpl::getComputedStyle(ElementImpl */*elt*/, DOMStringImpl */*pseudoElt*/)
+CSSStyleDeclarationImpl *AbstractViewImpl::getComputedStyle(ElementImpl *elt, DOMStringImpl *pseudoElt)
 {
-    return 0; // ###
+    // FIXME: This should work even if we do not have a renderer.
+    
+    if (!elt || !elt->renderer())
+        return 0;
+
+    return new CSSComputedStyleDeclarationImpl(elt);
 }
 
+}

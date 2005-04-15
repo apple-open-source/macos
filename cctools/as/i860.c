@@ -22,6 +22,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include "stuff/target_arch.h"
 #include <mach-o/i860/reloc.h>
 
 #include "i860-opcode.h"
@@ -131,7 +132,7 @@ static int insn_count;	/* Track insns assembled, as a word count */
 struct i860_it {
     char    *error;
     unsigned long opcode;
-    struct nlist *nlistp;
+    nlist_t *nlistp;
     expressionS exp;
     int pcrel;
     enum reloc_type_i860 reloc;
@@ -268,8 +269,8 @@ int value)
 	else if ( exp.X_add_number & 3 )
 	{
 	    exp.X_add_number &= ~3;
-	    as_warn(".org not on instruction boundry. Adjusted to \".org %ld\"",
-		exp.X_add_number);
+	    as_warn(".org not on instruction boundry. Adjusted to \".org "
+		    TA_DFMT "\"", exp.X_add_number);
 	}
 	if ( exp.X_add_symbol == NULL )
 		insn_count = exp.X_add_number >> 2;
@@ -289,7 +290,7 @@ void
 md_begin(
 void)
 {
-    register char *retval = NULL;
+    const char *retval = NULL;
     unsigned long i;
     int j = 0;
 
@@ -775,14 +776,14 @@ char *str)
 		    	if ( IS_LOGOP(opcode) )
 			{
 			    if ( ((unsigned)the_insn.exp.X_add_number) > 0xFFFF )
-			    	as_warn("%lu is too big for 16 bit unsigned value!",
+			    	as_warn(TA_DFMT " is too big for 16 bit unsigned value!",
 					the_insn.exp.X_add_number);
 			}
 			else
 			{
 			    if ( ((int)the_insn.exp.X_add_number) > 32767 ||
 			    	 ((int)the_insn.exp.X_add_number) < -32768 )
-				as_warn("%ld is out of range for 16 bit signed value!",
+				as_warn(TA_DFMT " is out of range for 16 bit signed value!",
 					the_insn.exp.X_add_number);
 					
 			    if ((align_mask & the_insn.exp.X_add_number) != 0)
@@ -953,7 +954,7 @@ int *sizeP)
 void
 md_number_to_chars(
 char *buf,
-long val,
+signed_target_addr_t val,
 int n)
 {
 
@@ -1024,7 +1025,7 @@ int n)
 void
 md_number_to_imm(
 unsigned char *buf,
-long val,
+signed_target_addr_t val,
 int n,
 fixS *fixP,
 int nsect)

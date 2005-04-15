@@ -160,6 +160,18 @@ HTMLCollection HTMLDocument::applets() const
     return HTMLCollection(impl, HTMLCollectionImpl::DOC_APPLETS);
 }
 
+HTMLCollection HTMLDocument::embeds() const
+{
+    if(!impl) return HTMLCollection();
+    return HTMLCollection(impl, HTMLCollectionImpl::DOC_EMBEDS);
+}
+
+HTMLCollection HTMLDocument::objects() const
+{
+    if(!impl) return HTMLCollection();
+    return HTMLCollection(impl, HTMLCollectionImpl::DOC_OBJECTS);
+}
+
 HTMLCollection HTMLDocument::links() const
 {
     if(!impl) return HTMLCollection();
@@ -182,6 +194,12 @@ HTMLCollection HTMLDocument::all() const
 {
     if(!impl) return HTMLCollection();
     return HTMLCollection(impl, HTMLCollectionImpl::DOC_ALL);
+}
+
+HTMLCollection HTMLDocument::nameableItems() const
+{
+    if(!impl) return HTMLCollection();
+    return HTMLCollection(impl, HTMLCollectionImpl::DOC_NAMEABLE_ITEMS);
 }
 
 DOMString HTMLDocument::cookie() const
@@ -236,16 +254,3 @@ NodeList HTMLDocument::getElementsByName( const DOMString &elementName )
     if(!impl) return 0;
     return new NameNodeListImpl(impl, elementName);
 }
-
-DOMString HTMLDocument::designMode() const
-{
-    if(!impl) return "inherit";
-    return ((HTMLDocumentImpl *)impl)->designMode();
-}
-
-void HTMLDocument::setDesignMode(const DOMString &s)
-{
-    if(impl)
-        ((HTMLDocumentImpl *)impl)->setDesignMode(s);
-}
-

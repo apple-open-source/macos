@@ -70,7 +70,6 @@ struct winbindd_cm_conn {
 	fstring domain;
 	fstring controller;
 	fstring pipe_name;
-	size_t mutex_ref_count;
 	struct cli_state *cli;
 	POLICY_HND pol;
 };
@@ -117,21 +116,40 @@ static void cm_get_ipc_userpass(char **username, char **domain, char **password)
 /*
   setup for schannel on any pipes opened on this connection
 */
-static NTSTATUS setup_schannel(struct cli_state *cli)
+static NTSTATUS setup_schannel( struct cli_state *cli, const char *domain )
 {
 	NTSTATUS ret;
 	uchar trust_password[16];
 	uint32 sec_channel_type;
+	DOM_SID sid;
+	time_t lct;
 
-	if (!secrets_fetch_trust_account_password(lp_workgroup(),
-						  trust_password,
-						  NULL, &sec_channel_type)) {
-		return NT_STATUS_UNSUCCESSFUL;
+	/* use the domain trust password if we're on a DC 
+	   and this is not our domain */
+	
+	if ( IS_DC && !strequal(domain, lp_workgroup()) ) {
+		char *pass = NULL;
+		
+		if ( !secrets_fetch_trusted_domain_password( domain, 
+			&pass, &sid, &lct) )
+		{
+			return NT_STATUS_UNSUCCESSFUL;
+		}	
+
+		sec_channel_type = SEC_CHAN_DOMAIN;
+		E_md4hash(pass, trust_password);
+		SAFE_FREE( pass );
+		
+	} else {
+		if (!secrets_fetch_trust_account_password(lp_workgroup(),
+			trust_password, NULL, &sec_channel_type)) 
+		{
+			return NT_STATUS_UNSUCCESSFUL;
+		}
 	}
 
 	ret = cli_nt_setup_netsec(cli, sec_channel_type, 
-				  AUTH_PIPE_NETSEC | AUTH_PIPE_SIGN, 
-				  trust_password);
+		AUTH_PIPE_NETSEC | AUTH_PIPE_SIGN, trust_password);
 
 	return ret;
 }
@@ -216,7 +234,8 @@ static NTSTATUS cm_open_connection(const struct winbindd_domain *domain, const i
 	/* Initialise SMB connection */
 	fstrcpy(new_conn->pipe_name, get_pipe_name_from_index(pipe_index));
 
-/* grab stored passwords */
+	/* grab stored passwords */
+	
 	machine_password = secrets_fetch_machine_password(lp_workgroup(), NULL, NULL);
 	
 	if (asprintf(&machine_krb5_principal, "%s$@%s", global_myname(), lp_realm()) == -1) {
@@ -335,9 +354,13 @@ static NTSTATUS cm_open_connection(const struct winbindd_domain *domain, const i
 	/* try and use schannel if possible, but continue anyway if it
 	   failed. This allows existing setups to continue working,
 	   while solving the win2003 '100 user' limit for systems that
-	   are joined properly */
-	if (NT_STATUS_IS_OK(result) && (domain->primary)) {
-		NTSTATUS status = setup_schannel(new_conn->cli);
+	   are joined properly.
+	
+	   Only do this for our own domain or perhaps a trusted domain
+	   if we are on a Samba DC */
+
+	if (NT_STATUS_IS_OK(result) && (domain->primary || IS_DC) ) {
+		NTSTATUS status = setup_schannel( new_conn->cli, domain->name );
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(3,("schannel refused - continuing without schannel (%s)\n", 
 				 nt_errstr(status)));
@@ -466,7 +489,7 @@ static NTSTATUS new_cm_connection(struct winbindd_domain *domain, const char *pi
 	struct winbindd_cm_conn *conn;
 	NTSTATUS result;
 
-	if (!(conn = malloc(sizeof(*conn))))
+	if (!(conn = SMB_MALLOC_P(struct winbindd_cm_conn)))
 		return NT_STATUS_NO_MEMORY;
 		
 	ZERO_STRUCTP(conn);

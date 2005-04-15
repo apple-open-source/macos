@@ -21,6 +21,7 @@
 
 #include "kjs_binding.h"
 #include "kjs_dom.h"
+#include "kjs_window.h"
 #include <kjs/internal.h> // for InterpreterImp
 
 #include "dom/dom_exception.h"
@@ -140,14 +141,34 @@ Value DOMFunction::call(ExecState *exec, Object &thisObj, const List &args)
   return val;
 }
 
+static QPtrDict<DOMObject> * staticDomObjects = 0;
+QPtrDict< QPtrDict<DOMObject> > * staticDomObjectsPerDocument = 0;
+
+QPtrDict<DOMObject> & ScriptInterpreter::domObjects()
+{
+  if (!staticDomObjects) {
+    staticDomObjects = new QPtrDict<DOMObject>(1021);
+  }
+  return *staticDomObjects;
+}
+
+QPtrDict< QPtrDict<DOMObject> > & ScriptInterpreter::domObjectsPerDocument()
+{
+  if (!staticDomObjectsPerDocument) {
+    staticDomObjectsPerDocument = new QPtrDict<QPtrDict<DOMObject> >();
+    staticDomObjectsPerDocument->setAutoDelete(true);
+  }
+  return *staticDomObjectsPerDocument;
+}
+
+
 ScriptInterpreter::ScriptInterpreter( const Object &global, KHTMLPart* part )
-  : Interpreter( global ), m_part( part ), m_domObjects(1021),
+  : Interpreter( global ), m_part( part ),
     m_evt( 0L ), m_inlineCode(false), m_timerCallback(false)
 {
 #ifdef KJS_VERBOSE
   kdDebug(6070) << "ScriptInterpreter::ScriptInterpreter " << this << " for part=" << m_part << endl;
 #endif
-  m_domObjectsPerDocument.setAutoDelete(true);
 }
 
 ScriptInterpreter::~ScriptInterpreter()
@@ -159,20 +180,12 @@ ScriptInterpreter::~ScriptInterpreter()
 
 void ScriptInterpreter::forgetDOMObject( void* objectHandle )
 {
-  InterpreterImp *first = InterpreterImp::firstInterpreter();
-  if (first) {
-    InterpreterImp *scr = first;
-    do {
-      if ( scr->interpreter()->rtti() == 1 )
-        static_cast<ScriptInterpreter *>(scr->interpreter())->deleteDOMObject( objectHandle );
-      scr = scr->nextInterpreter();
-    } while (scr != first);
-  }
+  deleteDOMObject( objectHandle );
 }
 
-DOMObject* ScriptInterpreter::getDOMObjectForDocument( DOM::DocumentImpl* documentHandle, void *objectHandle ) const
+DOMObject* ScriptInterpreter::getDOMObjectForDocument( DOM::DocumentImpl* documentHandle, void *objectHandle )
 {
-  QPtrDict<DOMObject> *documentDict = (QPtrDict<DOMObject> *)m_domObjectsPerDocument[documentHandle];
+  QPtrDict<DOMObject> *documentDict = (QPtrDict<DOMObject> *)domObjectsPerDocument()[documentHandle];
   if (documentDict) {
     return (*documentDict)[objectHandle];
   }
@@ -182,10 +195,10 @@ DOMObject* ScriptInterpreter::getDOMObjectForDocument( DOM::DocumentImpl* docume
 
 void ScriptInterpreter::putDOMObjectForDocument( DOM::DocumentImpl* documentHandle, void *objectHandle, DOMObject *obj )
 {
-  QPtrDict<DOMObject> *documentDict = (QPtrDict<DOMObject> *)m_domObjectsPerDocument[documentHandle];
+  QPtrDict<DOMObject> *documentDict = (QPtrDict<DOMObject> *)domObjectsPerDocument()[documentHandle];
   if (!documentDict) {
     documentDict = new QPtrDict<DOMObject>();
-    m_domObjectsPerDocument.insert(documentHandle, documentDict);
+    domObjectsPerDocument().insert(documentHandle, documentDict);
   }
 
   documentDict->insert( objectHandle, obj );
@@ -193,12 +206,12 @@ void ScriptInterpreter::putDOMObjectForDocument( DOM::DocumentImpl* documentHand
 
 bool ScriptInterpreter::deleteDOMObjectsForDocument( DOM::DocumentImpl* documentHandle )
 {
-  return m_domObjectsPerDocument.remove( documentHandle );
+  return domObjectsPerDocument().remove( documentHandle );
 }
 
 void ScriptInterpreter::mark()
 {
-  QPtrDictIterator<QPtrDict<DOMObject> > dictIterator(m_domObjectsPerDocument);
+  QPtrDictIterator<QPtrDict<DOMObject> > dictIterator(domObjectsPerDocument());
 
   QPtrDict<DOMObject> *objectDict;
   while ((objectDict = dictIterator.current())) {
@@ -217,34 +230,14 @@ void ScriptInterpreter::mark()
 
 void ScriptInterpreter::forgetDOMObjectsForDocument( DOM::DocumentImpl* documentHandle )
 {
-  InterpreterImp *first = InterpreterImp::firstInterpreter();
-  if (first) {
-    InterpreterImp *scr = first;
-    do {
-      if ( scr->interpreter()->rtti() == 1 )
-        static_cast<ScriptInterpreter *>(scr->interpreter())->deleteDOMObjectsForDocument( documentHandle );
-      scr = scr->nextInterpreter();
-    } while (scr != first);
-  }
+  deleteDOMObjectsForDocument( documentHandle );
 }
 
 void ScriptInterpreter::updateDOMObjectDocument(void *objectHandle, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc)
 {
-  InterpreterImp *first = InterpreterImp::firstInterpreter();
-  if (first) {
-    InterpreterImp *scr = first;
-    do {
-      if ( scr->interpreter()->rtti() == 1 ) {
-	ScriptInterpreter *interp = static_cast<ScriptInterpreter *>(scr->interpreter());
-	
-	DOMObject* cachedObject = interp->getDOMObjectForDocument(oldDoc, objectHandle);
-	if (cachedObject) {
-	  interp->putDOMObjectForDocument(newDoc, objectHandle, cachedObject);
-	}
-      }
-	
-      scr = scr->nextInterpreter();
-    } while (scr != first);
+  DOMObject* cachedObject = getDOMObjectForDocument(oldDoc, objectHandle);
+  if (cachedObject) {
+    putDOMObjectForDocument(newDoc, objectHandle, cachedObject);
   }
 }
 
@@ -280,6 +273,45 @@ bool ScriptInterpreter::wasRunByUserGesture() const
   }
   return false;
 }
+
+#if APPLE_CHANGES
+bool ScriptInterpreter::isGlobalObject(const Value &v)
+{
+    if (v.type() == ObjectType) {
+	Object o = v.toObject (globalExec());
+	if (o.classInfo() == &Window::info)
+	    return true;
+    }
+    return false;
+}
+
+bool ScriptInterpreter::isSafeScript (const Interpreter *_target)
+{
+    const KJS::ScriptInterpreter *target = static_cast<const ScriptInterpreter *>(_target);
+
+    return KJS::Window::isSafeScript (this, target);
+}
+
+Interpreter *ScriptInterpreter::interpreterForGlobalObject (const ValueImp *imp)
+{
+    const KJS::Window *win = static_cast<const KJS::Window *>(imp);
+    return win->interpreter();
+}
+
+void *ScriptInterpreter::createLanguageInstanceForValue (ExecState *exec, Bindings::Instance::BindingLanguage language, const Object &value, const Bindings::RootObject *origin, const Bindings::RootObject *current)
+{
+    void *result = 0;
+    
+    if (language == Bindings::Instance::ObjectiveCLanguage)
+	result = createObjcInstanceForValue (exec, value, origin, current);
+    
+    if (!result)
+	result = Interpreter::createLanguageInstanceForValue (exec, language, value, origin, current);
+	
+    return result;
+}
+
+#endif
 
 //////
 

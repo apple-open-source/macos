@@ -5,7 +5,7 @@
              (C) 1998, 1999 Torben Weis (weis@kde.org)
              (C) 1999 Lars Knoll (knoll@kde.org)
              (C) 1999 Antti Koivisto (koivisto@kde.org)
-   Copyright (C) 2003 Apple Computer, Inc.
+   Copyright (C) 2004 Apple Computer, Inc.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -32,12 +32,10 @@
 class QPainter;
 class QRect;
 
-// Uncomment to enable INCREMENTAL_REPAINTING
-#define INCREMENTAL_REPAINTING
-
 namespace DOM {
     class HTMLDocumentImpl;
     class DocumentImpl;
+    class ClipboardImpl;
     class ElementImpl;
     class HTMLElementImpl;
     class HTMLTitleElementImpl;
@@ -59,6 +57,7 @@ namespace khtml {
     class RenderPartObject;
     class RenderWidget;
     class CSSStyleSelector;
+    class InlineBox;
     void applyRule(DOM::CSSProperty *prop);
 };
 
@@ -159,34 +158,35 @@ public:
     bool inLayout() const;
     int layoutCount() const;
 
-#ifdef INCREMENTAL_REPAINTING
     bool needsFullRepaint() const;
-#endif
     
+    void addRepaintInfo(khtml::RenderObject* o, const QRect& r);
+
 #if APPLE_CHANGES
     void resetScrollBars();
 #endif
 
+     void clear();
+
 signals:
-    void cleared();
-
+        void cleared();
+    
 protected:
-    void clear();
-
 #if APPLE_CHANGES
 public:
-    void clearPart();
+        void clearPart();
 #endif
     virtual void resizeEvent ( QResizeEvent * event );
     virtual void showEvent ( QShowEvent * );
     virtual void hideEvent ( QHideEvent *);
-    virtual bool focusNextPrevChild( bool next );
 #if !APPLE_CHANGES
+    virtual bool focusNextPrevChild( bool next );
     virtual void drawContents ( QPainter * p, int clipx, int clipy, int clipw, int cliph );
     virtual void drawContents( QPainter* );
 #endif
-
+    
     virtual void viewportMousePressEvent( QMouseEvent * );
+    virtual void focusInEvent( QFocusEvent * );
     virtual void focusOutEvent( QFocusEvent * );
     virtual void viewportMouseDoubleClickEvent( QMouseEvent * );
     virtual void viewportMouseMoveEvent(QMouseEvent *);
@@ -204,15 +204,31 @@ public:
     void contentsContextMenuEvent ( QContextMenuEvent *_ce );
     void doAutoScroll();
 
+    bool updateDragAndDrop(const QPoint &, DOM::ClipboardImpl *clipboard);
+    void cancelDragAndDrop(const QPoint &, DOM::ClipboardImpl *clipboard);
+    bool performDragAndDrop(const QPoint &, DOM::ClipboardImpl *clipboard);
+
     void timerEvent ( QTimerEvent * );
 
     void repaintRectangle(const QRect& r, bool immediate);
+
+    bool isTransparent() const;
+    void setTransparent(bool isTransparent);
     
+    void scheduleRelayout();
+    void unscheduleRelayout();
+    bool haveDelayedLayoutScheduled();
+    bool layoutPending();
+
 #if APPLE_CHANGES
     QWidget *topLevelWidget() const;
     QPoint mapToGlobal(const QPoint &) const;
+    // maps "viewport" (actually Cocoa window coords) to screen coords
+    QPoint viewportToGlobal(const QPoint &) const;
     void adjustViewSize();
     void initScrollBars();
+    
+    void updateDashboardRegions();
 #endif
 
     void ref() { ++_refCount; }
@@ -225,13 +241,7 @@ protected slots:
 private:
 
     void resetCursor();
-
-#ifdef INCREMENTAL_REPAINTING
-    void scheduleRelayout();
-#else
-    void scheduleRelayout(khtml::RenderObject* clippedObj=0);
-#endif
-    void unscheduleRelayout();
+    void invalidateClick();
 
     /**
      * Paints the HTML document to a QPainter.
@@ -276,16 +286,14 @@ private:
     bool dispatchMouseEvent(int eventId, DOM::NodeImpl *targetNode, bool cancelable,
 			    int detail,QMouseEvent *_mouse, bool setUnder,
 			    int mouseEventType);
-
-    void complete();
+    bool dispatchDragEvent(int eventId, DOM::NodeImpl *dragTarget, const QPoint &loc, DOM::ClipboardImpl *clipboard);
 
     void applyBodyScrollQuirk(khtml::RenderObject* o, ScrollBarMode& hMode, ScrollBarMode& vMode);
-    
-#ifndef INCREMENTAL_REPAINTING
-    // Returns the clipped object we will repaint when we perform our scheduled layout.
-    khtml::RenderObject* layoutObject() { return m_layoutObject; }
+
+#if APPLE_CHANGES
+    virtual bool isKHTMLView() const;
 #endif
-    
+
     // ------------------------------------- member variables ------------------------------------
  private:
     unsigned _refCount;
@@ -300,12 +308,6 @@ private:
     KHTMLViewPrivate *d;
 
     QString m_medium;   // media type
-
-#ifndef INCREMENTAL_REPAINTING
-    // An overflow: hidden clipped object.  If this is set, a scheduled layout will only repaint
-    // the object's clipped area, and it will not do a full repaint.
-    khtml::RenderObject* m_layoutObject;
-#endif
 };
 
 #endif

@@ -21,7 +21,7 @@ class TestCase(unittest.TestCase):
         # disable the default error handler
         libxml2.registerErrorHandler(None,None)
         try:
-            f(*args)
+	    apply(f,args)
         except exc:
             e = libxml2.lastError()
             if e is None:

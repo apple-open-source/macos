@@ -1,10 +1,10 @@
 /* db_berkeley.c--SASL berkeley db interface
  * Rob Siemborski
  * Tim Martin
- * $Id: allockey.c,v 1.2 2002/05/22 17:57:42 snsimon Exp $
+ * $Id: allockey.c,v 1.5 2005/01/10 19:01:34 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,8 @@
  */
 
 #include <config.h>
+
+#include <stdio.h>
 
 #include <sys/stat.h>
 #include <stdlib.h>
@@ -146,13 +148,15 @@ int _sasldb_getsecret(const sasl_utils_t *utils,
     size_t len;
     sasl_secret_t *out;
     int ret;
+    const char *param = SASL_AUX_PASSWORD;
+    param++;
     
     if(!secret) {
 	utils->seterror(context, 0, "No secret pointer in _sasldb_getsecret");
 	return SASL_BADPARAM;
     }
 
-    ret = _sasldb_getdata(utils, context, authid, realm, SASL_AUX_PASSWORD,
+    ret = _sasldb_getdata(utils, context, authid, realm, param,
 			  buf, 8192, &len);
     
     if(ret != SASL_OK) {
@@ -187,3 +191,86 @@ int _sasldb_putsecret(const sasl_utils_t *utils,
 			   (secret ? secret->len : 0));
 }
 
+int __sasldb_internal_list (const char *authid,
+			    const char *realm,
+			    const char *property,
+			    void *rock __attribute__((unused)))
+{
+    printf("%s@%s: %s\n", authid, realm, property);
+
+    return (SASL_OK);
+}
+
+/* List all users in database */
+int _sasldb_listusers (const sasl_utils_t *utils,
+		       sasl_conn_t *context,
+		       sasldb_list_callback_t callback,
+		       void *callback_rock)
+{
+    int result;
+    char key_buf[32768];
+    size_t key_len;
+    sasldb_handle dbh;
+
+    if (callback == NULL) {
+	callback = &__sasldb_internal_list;
+	callback_rock = NULL;
+    }
+
+    dbh = _sasldb_getkeyhandle(utils, context);
+
+    if(!dbh) {
+	utils->log (context, SASL_LOG_ERR, "_sasldb_getkeyhandle has failed");
+	return SASL_FAIL;
+    }
+
+    result = _sasldb_getnextkey(utils,
+			        dbh,
+				key_buf,
+				32768,
+				&key_len);
+
+    while (result == SASL_CONTINUE)
+    {
+	char authid_buf[16384];
+	char realm_buf[16384];
+	char property_buf[16384];
+	int ret;
+
+	ret = _sasldb_parse_key(key_buf, key_len,
+				authid_buf, 16384,
+				realm_buf, 16384,
+				property_buf, 16384);
+
+	if(ret == SASL_BUFOVER) {
+	    utils->log (context, SASL_LOG_ERR, "Key is too large in _sasldb_parse_key");
+	    continue;
+	} else if(ret != SASL_OK) {
+	    utils->log (context, SASL_LOG_ERR, "Bad Key in _sasldb_parse_key");
+	    continue;
+	}
+	
+	result = callback (authid_buf,
+			   realm_buf,
+			   property_buf,
+			   callback_rock);
+
+	if (result != SASL_OK && result != SASL_CONTINUE) {
+	    break;
+	}
+
+	result = _sasldb_getnextkey(utils,
+				    dbh,
+				    key_buf,
+				    32768,
+				    &key_len);
+    }
+
+    if (result == SASL_BUFOVER) {
+	utils->log (context, SASL_LOG_ERR, "Key is too large in _sasldb_getnextkey");
+    } else if (result != SASL_OK) {
+	utils->log (context, SASL_LOG_ERR, "DB failure in _sasldb_getnextkey");
+    }
+
+    return _sasldb_releasekeyhandle(utils, dbh);
+}

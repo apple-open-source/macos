@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <libc.h> /* first to get rid of pre-comp warning */
 #include <mach/mach.h> /* first to get rid of pre-comp warning */
 #include "stdio.h"
@@ -144,3 +145,4 @@ long verbose)
 {
 	return(execute(runlist.strings, verbose));
 }
+#endif /* !defined(RLD) */

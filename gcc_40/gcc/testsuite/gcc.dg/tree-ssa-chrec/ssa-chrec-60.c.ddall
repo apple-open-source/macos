@@ -1,0 +1,51 @@
+;; APPLE LOCAL file lno
+;; Function bar (bar)
+
+(Data Dep (A = 0, B = 0):
+ (subscript 0:
+  access_fn_A: {0, +, 3}_1
+  access_fn_B: {0, +, 3}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(0
+)
+ )
+)
+(Data Dep (A = 0, B = 1):
+ (subscript 0:
+  access_fn_A: {0, +, 3}_1
+  access_fn_B: {7, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {3, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: {2, +, 3}_1
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+([-oo, +oo]
+)
+ )
+)
+(Data Dep (A = 0, B = 2):    (no dependence)
+)
+(Data Dep (A = 1, B = 1):
+ (subscript 0:
+  access_fn_A: {7, +, 1}_1
+  access_fn_B: {7, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(0
+)
+ )
+)
+(Data Dep (A = 1, B = 2):    (no dependence)
+)
+
+

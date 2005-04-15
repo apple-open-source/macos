@@ -2,6 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,7 +19,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_stylesheetimpl.cpp,v 1.6 2003/03/04 00:39:28 hyatt Exp $
+ * $Id: css_stylesheetimpl.cpp,v 1.11 2004/08/04 22:05:48 hyatt Exp $
  */
 
 //#define CSS_STYLESHEET_DEBUG
@@ -36,6 +37,8 @@
 #include "xml/dom_nodeimpl.h"
 #include "html/html_documentimpl.h"
 #include "misc/loader.h"
+
+#include "xml_namespace_table.h"
 
 #include <kdebug.h>
 
@@ -102,16 +105,18 @@ CSSStyleSheetImpl::CSSStyleSheetImpl(CSSStyleSheetImpl *parentSheet, DOMString h
     : StyleSheetImpl(parentSheet, href)
 {
     m_lstChildren = new QPtrList<StyleBaseImpl>;
-    m_doc = 0;
+    m_doc = parentSheet ? parentSheet->doc() : 0;
     m_implicit = false;
+    m_namespaces = 0;
 }
 
-CSSStyleSheetImpl::CSSStyleSheetImpl(DOM::NodeImpl *parentNode, DOMString href, bool _implicit)
+CSSStyleSheetImpl::CSSStyleSheetImpl(NodeImpl *parentNode, DOMString href, bool _implicit)
     : StyleSheetImpl(parentNode, href)
 {
     m_lstChildren = new QPtrList<StyleBaseImpl>;
     m_doc = parentNode->getDocument();
-    m_implicit = _implicit;
+    m_implicit = _implicit; 
+    m_namespaces = 0;
 }
 
 CSSStyleSheetImpl::CSSStyleSheetImpl(CSSRuleImpl *ownerRule, DOMString href)
@@ -120,6 +125,7 @@ CSSStyleSheetImpl::CSSStyleSheetImpl(CSSRuleImpl *ownerRule, DOMString href)
     m_lstChildren = new QPtrList<StyleBaseImpl>;
     m_doc = 0;
     m_implicit = false;
+    m_namespaces = 0;
 }
 
 CSSStyleSheetImpl::CSSStyleSheetImpl(DOM::NodeImpl *parentNode, CSSStyleSheetImpl *orig)
@@ -134,6 +140,7 @@ CSSStyleSheetImpl::CSSStyleSheetImpl(DOM::NodeImpl *parentNode, CSSStyleSheetImp
     }
     m_doc = parentNode->getDocument();
     m_implicit = false;
+    m_namespaces = 0;
 }
 
 CSSStyleSheetImpl::CSSStyleSheetImpl(CSSRuleImpl *ownerRule, CSSStyleSheetImpl *orig)
@@ -149,6 +156,7 @@ CSSStyleSheetImpl::CSSStyleSheetImpl(CSSRuleImpl *ownerRule, CSSStyleSheetImpl *
     }
     m_doc  = 0;
     m_implicit = false;
+    m_namespaces = 0;
 }
 
 CSSRuleImpl *CSSStyleSheetImpl::ownerRule() const
@@ -179,6 +187,13 @@ unsigned long CSSStyleSheetImpl::insertRule( const DOMString &rule, unsigned lon
     return index;
 }
 
+unsigned long CSSStyleSheetImpl::addRule( const DOMString &selector, const DOMString &style, long index, int &exceptioncode )
+{
+    if (index == -1)
+        index = m_lstChildren->count();
+    return insertRule(selector + " { " + style + " }", index, exceptioncode);
+}
+
 CSSRuleList CSSStyleSheetImpl::cssRules()
 {
     return this;
@@ -193,6 +208,38 @@ void CSSStyleSheetImpl::deleteRule( unsigned long index, int &exceptioncode )
         return;
     }
     b->deref();
+}
+
+void CSSStyleSheetImpl::addNamespace(CSSParser* p, const DOM::DOMString& prefix, const DOM::DOMString& uri)
+{
+    if (uri.isEmpty())
+        return;
+
+    m_namespaces = new CSSNamespace(prefix, uri, m_namespaces);
+    
+    if (prefix.isEmpty())
+        // Set the default namespace on the parser so that selectors that omit namespace info will
+        // be able to pick it up easily.
+        p->defaultNamespace = XmlNamespaceTable::getNamespaceID(uri, false);
+}
+
+void CSSStyleSheetImpl::determineNamespace(Q_UINT32& id, const DOM::DOMString& prefix)
+{
+    // If the stylesheet has no namespaces we can just return.  There won't be any need to ever check
+    // namespace values in selectors.
+    if (!m_namespaces)
+        return;
+    
+    if (prefix.isEmpty())
+        id = makeId(noNamespace, localNamePart(id)); // No namespace. If an element/attribute has a namespace, we won't match it.
+    else if (prefix == "*")
+        id = makeId(anyNamespace, localNamePart(id)); // We'll match any namespace.
+    else {
+        CSSNamespace* ns = m_namespaces->namespaceForPrefix(prefix);
+        if (ns)
+            // Look up the id for this namespace URI.
+            id = makeId(XmlNamespaceTable::getNamespaceID(ns->uri(), false), localNamePart(id));
+    }
 }
 
 bool CSSStyleSheetImpl::parseString(const DOMString &string, bool strict)
@@ -235,17 +282,6 @@ void CSSStyleSheetImpl::checkLoaded()
     if(isLoading()) return;
     if(m_parent) m_parent->checkLoaded();
     if(m_parentNode) m_parentNode->sheetLoaded();
-}
-
-void CSSStyleSheetImpl::setNonCSSHints()
-{
-    StyleBaseImpl *rule = m_lstChildren->first();
-    while(rule) {
-        if(rule->isStyleRule()) {
-            static_cast<CSSStyleRuleImpl *>(rule)->setNonCSSHints();
-        }
-        rule = m_lstChildren->next();
-    }
 }
 
 khtml::DocLoader *CSSStyleSheetImpl::docLoader()

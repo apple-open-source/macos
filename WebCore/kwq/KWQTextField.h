@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,25 +29,22 @@ class QLineEdit;
 @class KWQTextFieldFormatter;
 @protocol KWQWidgetHolder;
 
-@interface KWQTextField : NSTextField <KWQWidgetHolder>
+@interface KWQTextFieldController : NSObject
 {
 @private
+    NSTextField* field;
     QLineEdit *widget;
-    NSTextField *secureField;
     KWQTextFieldFormatter *formatter;
     BOOL hasFocus;
     BOOL edited;
-    BOOL inNextValidKeyView;
     NSRange lastSelectedRange;
     BOOL inDrawingMachinery;
+    NSWritingDirection baseWritingDirection;
 }
 
-- (id)initWithQLineEdit:(QLineEdit *)widget;
+- (void)detachQLineEdit;
 
-- (void)invalidate;
-
-- (void)setPasswordMode:(BOOL)flag;
-- (BOOL)passwordMode;
+- (void)setHasFocus:(BOOL)hasFocus;
 
 - (void)setMaximumLength:(int)len;
 - (int)maximumLength;
@@ -56,5 +53,46 @@ class QLineEdit;
 - (BOOL)edited;
 
 - (void)setBaseWritingDirection:(NSWritingDirection)direction;
+- (NSWritingDirection)baseWritingDirection;
+
+- (NSString *)string;
 
 @end
+
+@interface KWQTextField : NSTextField <KWQWidgetHolder>
+{
+@private
+    KWQTextFieldController* controller;
+    BOOL inNextValidKeyView;
+}
+
+- (id)initWithQLineEdit:(QLineEdit *)widget;
+- (KWQTextFieldController *)controller;
+
+@end
+
+@interface KWQSecureTextField : NSSecureTextField <KWQWidgetHolder>
+{
+@private
+    KWQTextFieldController* controller;
+    BOOL inNextValidKeyView;
+    BOOL inSetFrameSize;
+}
+
+- (id)initWithQLineEdit:(QLineEdit *)widget;
+- (KWQTextFieldController *)controller;
+
+@end
+
+@interface KWQSearchField : NSSearchField <KWQWidgetHolder>
+{
+@private
+    KWQTextFieldController* controller;
+    BOOL inNextValidKeyView;
+}
+
+- (id)initWithQLineEdit:(QLineEdit *)widget;
+- (KWQTextFieldController *)controller;
+
+@end
+

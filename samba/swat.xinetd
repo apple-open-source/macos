@@ -1,5 +1,6 @@
 service swat
 {
+	type	= UNLISTED
 	port	= 901
 	socket_type	= stream
 	wait 	= no

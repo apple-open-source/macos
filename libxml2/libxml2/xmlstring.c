@@ -92,8 +92,10 @@ xmlCharStrndup(const char *cur, int len) {
         xmlErrMemory(NULL, NULL);
         return(NULL);
     }
-    for (i = 0;i < len;i++)
+    for (i = 0;i < len;i++) {
         ret[i] = (xmlChar) cur[i];
+        if (ret[i] == 0) return(ret);
+    }
     ret[len] = 0;
     return(ret);
 }
@@ -209,7 +211,7 @@ xmlStrncmp(const xmlChar *str1, const xmlChar *str2, int len) {
     if (str1 == NULL) return(-1);
     if (str2 == NULL) return(1);
 #ifdef __GNUC__
-    tmp = strncmp(str1, str2, len);
+    tmp = strncmp((const char *)str1, (const char *)str2, len);
     return tmp;
 #else
     do {
@@ -478,6 +480,8 @@ xmlStrncatNew(const xmlChar *str1, const xmlChar *str2, int len) {
     int size;
     xmlChar *ret;
 
+    if (len < 0)
+        len = xmlStrlen(str2);
     if ((str2 == NULL) || (len == 0))
         return(xmlStrdup(str1));
     if (str1 == NULL)
@@ -681,12 +685,14 @@ xmlUTF8Strlen(const xmlChar *utf) {
 /**
  * xmlGetUTF8Char:
  * @utf:  a sequence of UTF-8 encoded bytes
- * @len:  a pointer to @bytes len
+ * @len:  a pointer to the minimum number of bytes present in
+ *        the sequence.  This is used to assure the next character
+ *        is completely contained within the sequence.
  *
- * Read one UTF8 Char from @utf
+ * Read the first UTF8 character from @utf
  *
- * Returns the char value or -1 in case of error, and updates *len with the
- *        number of bytes consumed
+ * Returns the char value or -1 in case of error, and sets *len to
+ *        the actual number of bytes consumed (0 in case of error)
  */
 int
 xmlGetUTF8Char(const unsigned char *utf, int *len) {
@@ -741,7 +747,8 @@ xmlGetUTF8Char(const unsigned char *utf, int *len) {
     return(c);
 
 error:
-    *len = 0;
+    if (len != NULL)
+	*len = 0;
     return(-1);
 }
 
@@ -764,27 +771,36 @@ xmlCheckUTF8(const unsigned char *utf)
     int ix;
     unsigned char c;
 
-    for (ix = 0; (c = utf[ix]);) {
-        if (c & 0x80) {
-            if ((utf[ix + 1] & 0xc0) != 0x80)
-                return(0);
-            if ((c & 0xe0) == 0xe0) {
-                if ((utf[ix + 2] & 0xc0) != 0x80)
-                    return(0);
-                if ((c & 0xf0) == 0xf0) {
-                    if ((c & 0xf8) != 0xf0 || (utf[ix + 3] & 0xc0) != 0x80)
-                        return(0);
-                    ix += 4;
-                    /* 4-byte code */
-                } else
-                    /* 3-byte code */
-                    ix += 3;
-            } else
-                /* 2-byte code */
-                ix += 2;
-        } else
-            /* 1-byte code */
+    if (utf == NULL)
+        return(0);
+    /*
+     * utf is a string of 1, 2, 3 or 4 bytes.  The valid strings
+     * are as follows (in "bit format"):
+     *    0xxxxxxx                                      valid 1-byte
+     *    110xxxxx 10xxxxxx                             valid 2-byte
+     *    1110xxxx 10xxxxxx 10xxxxxx                    valid 3-byte
+     *    11110xxx 10xxxxxx 10xxxxxx 10xxxxxx           valid 4-byte
+     */
+    for (ix = 0; (c = utf[ix]);) {      /* string is 0-terminated */
+        if ((c & 0x80) == 0x00) {	/* 1-byte code, starts with 10 */
             ix++;
+	} else if ((c & 0xe0) == 0xc0) {/* 2-byte code, starts with 110 */
+	    if ((utf[ix+1] & 0xc0 ) != 0x80)
+	        return 0;
+	    ix += 2;
+	} else if ((c & 0xf0) == 0xe0) {/* 3-byte code, starts with 1110 */
+	    if (((utf[ix+1] & 0xc0) != 0x80) ||
+	        ((utf[ix+2] & 0xc0) != 0x80))
+		    return 0;
+	    ix += 3;
+	} else if ((c & 0xf8) == 0xf0) {/* 4-byte code, starts with 11110 */
+	    if (((utf[ix+1] & 0xc0) != 0x80) ||
+	        ((utf[ix+2] & 0xc0) != 0x80) ||
+		((utf[ix+3] & 0xc0) != 0x80))
+		    return 0;
+	    ix += 4;
+	} else				/* unknown encoding */
+	    return 0;
       }
       return(1);
 }
@@ -795,16 +811,19 @@ xmlCheckUTF8(const unsigned char *utf)
  * @len:  the number of characters in the array
  *
  * storage size of an UTF8 string
+ * the behaviour is not garanteed if the input string is not UTF-8
  *
  * Returns the storage size of
  * the first 'len' characters of ARRAY
- *
  */
 
 int
 xmlUTF8Strsize(const xmlChar *utf, int len) {
     const xmlChar   *ptr=utf;
     xmlChar         ch;
+
+    if (utf == NULL)
+        return(0);
 
     if (len <= 0)
         return(0);
@@ -813,8 +832,10 @@ xmlUTF8Strsize(const xmlChar *utf, int len) {
         if ( !*ptr )
             break;
         if ( (ch = *ptr++) & 0x80)
-            while ( (ch<<=1) & 0x80 )
+            while ((ch<<=1) & 0x80 ) {
                 ptr++;
+		if (*ptr == 0) break;
+	    }
     }
     return (ptr - utf);
 }
@@ -858,7 +879,7 @@ xmlUTF8Strndup(const xmlChar *utf, int len) {
  *
  * Returns a pointer to the UTF8 character or NULL
  */
-xmlChar *
+const xmlChar *
 xmlUTF8Strpos(const xmlChar *utf, int pos) {
     xmlChar ch;
 

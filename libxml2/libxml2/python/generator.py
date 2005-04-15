@@ -270,6 +270,7 @@ py_types = {
     'xmlParserCtxt *': ('O', "parserCtxt", "xmlParserCtxtPtr", "xmlParserCtxtPtr"),
     'htmlParserCtxtPtr': ('O', "parserCtxt", "xmlParserCtxtPtr", "xmlParserCtxtPtr"),
     'htmlParserCtxt *': ('O', "parserCtxt", "xmlParserCtxtPtr", "xmlParserCtxtPtr"),
+    'xmlValidCtxtPtr': ('O', "ValidCtxt", "xmlValidCtxtPtr", "xmlValidCtxtPtr"),
     'xmlCatalogPtr': ('O', "catalog", "xmlCatalogPtr", "xmlCatalogPtr"),
     'FILE *': ('O', "File", "FILEPtr", "FILE *"),
     'xmlURIPtr': ('O', "URI", "xmlURIPtr", "xmlURIPtr"),
@@ -282,6 +283,9 @@ py_types = {
     'xmlRelaxNGPtr': ('O', "relaxNgSchema", "xmlRelaxNGPtr", "xmlRelaxNGPtr"),
     'xmlRelaxNGParserCtxtPtr': ('O', "relaxNgParserCtxt", "xmlRelaxNGParserCtxtPtr", "xmlRelaxNGParserCtxtPtr"),
     'xmlRelaxNGValidCtxtPtr': ('O', "relaxNgValidCtxt", "xmlRelaxNGValidCtxtPtr", "xmlRelaxNGValidCtxtPtr"),
+    'xmlSchemaPtr': ('O', "Schema", "xmlSchemaPtr", "xmlSchemaPtr"),
+    'xmlSchemaParserCtxtPtr': ('O', "SchemaParserCtxt", "xmlSchemaParserCtxtPtr", "xmlSchemaParserCtxtPtr"),
+    'xmlSchemaValidCtxtPtr': ('O', "SchemaValidCtxt", "xmlSchemaValidCtxtPtr", "xmlSchemaValidCtxtPtr"),
 }
 
 py_return_types = {
@@ -297,10 +301,19 @@ unknown_types = {}
 #
 #######################################################################
 
+# Class methods which are written by hand in libxml.c but the Python-level
+# code is still automatically generated (so they are not in skip_function()).
+skip_impl = (
+    'xmlSaveFileTo',
+    'xmlSaveFormatFileTo',
+)
+
 def skip_function(name):
     if name[0:12] == "xmlXPathWrap":
         return 1
     if name == "xmlFreeParserCtxt":
+        return 1
+    if name == "xmlCleanupParser":
         return 1
     if name == "xmlFreeTextReader":
         return 1
@@ -333,6 +346,14 @@ def skip_function(name):
         return 1
     if name == "xmlErrMemory":
         return 1
+
+    if name == "xmlValidBuildContentModel":
+        return 1
+    if name == "xmlValidateElementDecl":
+        return 1
+    if name == "xmlValidateAttributeDecl":
+        return 1
+
     return 0
 
 def print_function_wrapper(name, output, export, include):
@@ -351,6 +372,9 @@ def print_function_wrapper(name, output, export, include):
         return 0
     if skip_function(name) == 1:
         return 0
+    if name in skip_impl:
+	# Don't delete the function entry in the caller.
+	return 1
 
     c_call = "";
     format=""
@@ -432,7 +456,7 @@ def print_function_wrapper(name, output, export, include):
         include.write("#ifdef LIBXML_DEBUG_ENABLED\n");
         export.write("#ifdef LIBXML_DEBUG_ENABLED\n");
         output.write("#ifdef LIBXML_DEBUG_ENABLED\n");
-    elif file == "HTMLtree" or file == "HTMLparser":
+    elif file == "HTMLtree" or file == "HTMLparser" or name[0:4] == "html":
         include.write("#ifdef LIBXML_HTML_ENABLED\n");
         export.write("#ifdef LIBXML_HTML_ENABLED\n");
         output.write("#ifdef LIBXML_HTML_ENABLED\n");
@@ -470,9 +494,17 @@ def print_function_wrapper(name, output, export, include):
 
     if file == "python":
         # Those have been manually generated
+        if name[0:4] == "html":
+	    include.write("#endif /* LIBXML_HTML_ENABLED */\n");
+	    export.write("#endif /* LIBXML_HTML_ENABLED */\n");
+	    output.write("#endif /* LIBXML_HTML_ENABLED */\n");
         return 1
     if file == "python_accessor" and ret[0] != "void" and ret[2] is None:
         # Those have been manually generated
+        if name[0:4] == "html":
+	    include.write("#endif /* LIBXML_HTML_ENABLED */\n");
+	    export.write("#endif /* LIBXML_HTML_ENABLED */\n");
+	    output.write("#endif /* LIBXML_HTML_ENABLED */\n");
         return 1
 
     output.write("PyObject *\n")
@@ -501,7 +533,7 @@ def print_function_wrapper(name, output, export, include):
         include.write("#endif /* LIBXML_DEBUG_ENABLED */\n");
         export.write("#endif /* LIBXML_DEBUG_ENABLED */\n");
         output.write("#endif /* LIBXML_DEBUG_ENABLED */\n");
-    elif file == "HTMLtree" or file == "HTMLparser":
+    elif file == "HTMLtree" or file == "HTMLparser" or name[0:4] == "html":
         include.write("#endif /* LIBXML_HTML_ENABLED */\n");
         export.write("#endif /* LIBXML_HTML_ENABLED */\n");
         output.write("#endif /* LIBXML_HTML_ENABLED */\n");
@@ -645,6 +677,7 @@ classes_type = {
     "xmlParserCtxt *": ("._o", "parserCtxt(_obj=%s)", "parserCtxt"),
     "htmlParserCtxtPtr": ("._o", "parserCtxt(_obj=%s)", "parserCtxt"),
     "htmlParserCtxt *": ("._o", "parserCtxt(_obj=%s)", "parserCtxt"),
+    "xmlValidCtxtPtr": ("._o", "ValidCtxt(_obj=%s)", "ValidCtxt"),
     "xmlCatalogPtr": ("._o", "catalog(_obj=%s)", "catalog"),
     "xmlURIPtr": ("._o", "URI(_obj=%s)", "URI"),
     "xmlErrorPtr": ("._o", "Error(_obj=%s)", "Error"),
@@ -656,6 +689,9 @@ classes_type = {
     'xmlRelaxNGPtr': ('._o', "relaxNgSchema(_obj=%s)", "relaxNgSchema"),
     'xmlRelaxNGParserCtxtPtr': ('._o', "relaxNgParserCtxt(_obj=%s)", "relaxNgParserCtxt"),
     'xmlRelaxNGValidCtxtPtr': ('._o', "relaxNgValidCtxt(_obj=%s)", "relaxNgValidCtxt"),
+    'xmlSchemaPtr': ("._o", "Schema(_obj=%s)", "Schema"),
+    'xmlSchemaParserCtxtPtr': ("._o", "SchemaParserCtxt(_obj=%s)", "SchemaParserCtxt"),
+    'xmlSchemaValidCtxtPtr': ("._o", "SchemaValidCtxt(_obj=%s)", "SchemaValidCtxt"),
 }
 
 converter_type = {
@@ -689,6 +725,10 @@ classes_destructors = {
     "relaxNgSchema": "xmlRelaxNGFree",
     "relaxNgParserCtxt": "xmlRelaxNGFreeParserCtxt",
     "relaxNgValidCtxt": "xmlRelaxNGFreeValidCtxt",
+	"Schema": "xmlSchemaFree",
+	"SchemaParserCtxt": "xmlSchemaFreeParserCtxt",
+	"SchemaValidCtxt": "xmlSchemaFreeValidCtxt",
+        "ValidCtxt": "xmlFreeValidCtxt",
 }
 
 functions_noexcept = {
@@ -700,6 +740,7 @@ functions_noexcept = {
 reference_keepers = {
     "xmlTextReader": [('inputBuffer', 'input')],
     "relaxNgValidCtxt": [('relaxNgSchema', 'schema')],
+	"SchemaValidCtxt": [('Schema', 'schema')],
 }
 
 function_classes = {}
@@ -1006,6 +1047,13 @@ def buildWrappers():
 		classes.write("class %s(%s):\n" % (classname,
 			      classes_ancestor[classname]))
 		classes.write("    def __init__(self, _obj=None):\n")
+		if classes_ancestor[classname] == "xmlCore" or \
+		   classes_ancestor[classname] == "xmlNode":
+		    classes.write("        if type(_obj).__name__ != ")
+		    classes.write("'PyCObject':\n")
+		    classes.write("            raise TypeError, ")
+		    classes.write("'%s needs a PyCObject argument'\n" % \
+		                classname)
 		if reference_keepers.has_key(classname):
 		    rlist = reference_keepers[classname]
 		    for ref in rlist:
@@ -1029,17 +1077,25 @@ def buildWrappers():
 		        classes.write("        self.%s = None\n" % ref[1])
 		classes.write("        if _obj != None:self._o = _obj;return\n")
 		classes.write("        self._o = None\n\n");
+	    destruct=None
 	    if classes_destructors.has_key(classname):
 		classes.write("    def __del__(self):\n")
 		classes.write("        if self._o != None:\n")
 		classes.write("            libxml2mod.%s(self._o)\n" %
 			      classes_destructors[classname]);
 		classes.write("        self._o = None\n\n");
+		destruct=classes_destructors[classname]
 	    flist = function_classes[classname]
 	    flist.sort(functionCompare)
 	    oldfile = ""
 	    for info in flist:
 		(index, func, name, ret, args, file) = info
+		#
+		# Do not provide as method the destructors for the class
+		# to avoid double free
+		#
+		if name == destruct:
+		    continue;
 		if file != oldfile:
 		    if file == "python_accessor":
 			classes.write("    # accessors for %s\n" % (classname))

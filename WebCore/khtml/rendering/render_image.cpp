@@ -54,23 +54,24 @@ RenderImage::RenderImage(NodeImpl *_node)
 {
     image = 0;
     berrorPic = false;
-    loadEventSent = false;
     m_selectionState = SelectionNone;
 
     setIntrinsicWidth( 0 );
     setIntrinsicHeight( 0 );
+    if (element())
+        updateAltText();
 }
 
 RenderImage::~RenderImage()
 {
     if(image) image->deref(this);
+    pix.decreaseUseCount();
 }
 
 void RenderImage::setStyle(RenderStyle* _style)
 {
     RenderReplaced::setStyle(_style);
     
-    setOverhangingContents(style()->height().isPercent());
     setShouldPaintBackgroundOrBorder(true);
 }
 
@@ -80,6 +81,19 @@ void RenderImage::setContentObject(CachedObject* co)
         if (image) image->deref(this);
         image = static_cast<CachedImage*>(co);
         if (image) image->ref(this);
+    }
+}
+
+void RenderImage::setImage(CachedImage* newImage)
+{
+    if (image != newImage) {
+        if (image)
+            image->deref(this);
+        image = newImage;
+        if (image)
+            image->ref(this);
+        if (image->isErrorImage())
+            setPixmap(image->pixmap(), QRect(0,0,16,16), image);
     }
 }
 
@@ -93,11 +107,11 @@ void RenderImage::setPixmap( const QPixmap &p, const QRect& r, CachedImage *o)
     bool iwchanged = false;
 
     if(o->isErrorImage()) {
-        int iw = p.width() + 8;
-        int ih = p.height() + 8;
+        int iw = p.width() + 4;
+        int ih = p.height() + 4;
 
         // we have an alt and the user meant it (its not a text we invented)
-        if ( element() && !alt.isEmpty() && !element()->getAttribute( ATTR_ALT ).isNull()) {
+        if (!alt.isEmpty()) {
             const QFontMetrics &fm = style()->fontMetrics();
             QRect br = fm.boundingRect (  0, 0, 1024, 256, Qt::AlignAuto|Qt::WordBreak, alt.string() );
             if ( br.width() > iw )
@@ -155,7 +169,13 @@ void RenderImage::setPixmap( const QPixmap &p, const QRect& r, CachedImage *o)
     pix.stopAnimations();
 #endif
     
+#if APPLE_CHANGES
+    pix.decreaseUseCount();
+#endif
     pix = p;
+#if APPLE_CHANGES
+    p.increaseUseCount();
+#endif
 
     if (needlayout) {
         if (!selfNeedsLayout())
@@ -193,30 +213,38 @@ void RenderImage::setPixmap( const QPixmap &p, const QRect& r, CachedImage *o)
 }
 
 #if APPLE_CHANGES
-QColor RenderImage::selectionTintColor(QPainter *p) const
+void RenderImage::resetAnimation()
 {
-    QColor color;
-    RenderStyle* pseudoStyle = getPseudoStyle(RenderStyle::SELECTION);
-    if (pseudoStyle && pseudoStyle->backgroundColor().isValid()) {
-        color = pseudoStyle->backgroundColor();
-    } else {
-        color = p->selectedTextBackgroundColor();
-    }
-    return QColor(qRgba(color.red(), color.green(), color.blue(), 160));
+    pix.resetAnimation();
+    if (!needsLayout())
+        repaint();
 }
 #endif
 
-void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, int /*_h*/, int _tx, int _ty, PaintAction paintAction)
+void RenderImage::paint(PaintInfo& i, int _tx, int _ty)
 {
-    if (paintAction == PaintActionOutline && style()->outlineWidth() && style()->visibility() == VISIBLE)
+    if (!shouldPaint(i, _tx, _ty)) return;
+
+    _tx += m_x;
+    _ty += m_y;
+        
+    if (shouldPaintBackgroundOrBorder() && i.phase != PaintActionOutline) 
+        paintBoxDecorations(i, _tx, _ty);
+
+    QPainter* p = i.p;
+    
+    if (i.phase == PaintActionOutline && style()->outlineWidth() && style()->visibility() == VISIBLE)
         paintOutline(p, _tx, _ty, width(), height(), style());
     
-    if (paintAction != PaintActionForeground && paintAction != PaintActionSelection)
+    if (i.phase != PaintActionForeground && i.phase != PaintActionSelection)
         return;
 
+    if (!shouldPaintWithinRoot(i))
+        return;
+        
 #if APPLE_CHANGES
     bool drawSelectionTint = selectionState() != SelectionNone;
-    if (paintAction == PaintActionSelection) {
+    if (i.phase == PaintActionSelection) {
         if (selectionState() == SelectionNone) {
             return;
         }
@@ -237,9 +265,9 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
     //kdDebug( 6040 ) << "    contents (" << contentWidth << "/" << contentHeight << ") border=" << borderLeft() << " padding=" << paddingLeft() << endl;
     if ( pix.isNull() || berrorPic)
     {
-        if (paintAction == PaintActionSelection) {
+        if (i.phase == PaintActionSelection)
             return;
-        }
+
         if(cWidth > 2 && cHeight > 2)
         {
 #if APPLE_CHANGES
@@ -251,11 +279,10 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
             
             bool errorPictureDrawn = false;
             int imageX = 0, imageY = 0;
-            int usableWidth = cWidth - leftBorder - borderRight() - leftPad - paddingRight();
-            int usableHeight = cHeight - topBorder - borderBottom() - topPad - paddingBottom();
+            int usableWidth = cWidth;
+            int usableHeight = cHeight;
             
-            if(berrorPic && !pix.isNull() && (usableWidth >= pix.width()) && (usableHeight >= pix.height()) )
-            {
+            if (berrorPic && !pix.isNull() && (usableWidth >= pix.width()) && (usableHeight >= pix.height())) {
                 // Center the error image, accounting for border and padding.
                 int centerX = (usableWidth - pix.width())/2;
                 if (centerX < 0)
@@ -265,13 +292,13 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
                     centerY = 0;
                 imageX = leftBorder + leftPad + centerX;
                 imageY = topBorder + topPad + centerY;
-                p->drawPixmap( QPoint(_tx + imageX, _ty + imageY), pix, pix.rect() );
+                p->drawPixmap(QPoint(_tx + imageX, _ty + imageY), pix, pix.rect());
                 errorPictureDrawn = true;
             }
             
-            if(!alt.isEmpty()) {
+            if (!alt.isEmpty()) {
                 QString text = alt.string();
-                text.replace('\\', backslashAsCurrencySymbol());
+                text.replace(QChar('\\'), backslashAsCurrencySymbol());
                 p->setFont (style()->font());
                 p->setPen (style()->color());
                 int ax = _tx + leftBorder + leftPad;
@@ -282,11 +309,11 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
                 // Only draw the alt text if it'll fit within the content box,
                 // and only if it fits above the error image.
                 int textWidth = fm.width (text, text.length());
-                if (errorPictureDrawn){
-                    if (usableWidth > textWidth && fm.height() <= imageY)
+                if (errorPictureDrawn) {
+                    if (usableWidth >= textWidth && fm.height() <= imageY)
                         p->drawText(ax, ay+ascent, 0 /* ignored */, 0 /* ignored */, Qt::WordBreak  /* not supported */, text );
                 }
-                else if (usableWidth >= textWidth && cHeight>=fm.height())
+                else if (usableWidth >= textWidth && cHeight >= fm.height())
                     p->drawText(ax, ay+ascent, 0 /* ignored */, 0 /* ignored */, Qt::WordBreak  /* not supported */, text );
             }
 #else /* not APPLE_CHANGES */
@@ -315,8 +342,7 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
 #endif /* APPLE_CHANGES not defined */
         }
     }
-    else if (image && !image->isTransparent())
-    {
+    else if (image && !image->isTransparent()) {
         if ( (cWidth != intrinsicWidth() ||  cHeight != intrinsicHeight()) &&
              pix.width() > 0 && pix.height() > 0 && image->valid_rect().isValid())
         {
@@ -365,7 +391,9 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
             }
 #if APPLE_CHANGES
             if (drawSelectionTint) {
-                p->fillRect(_tx + leftBorder + leftPad, _ty + topBorder + topPad, tintSize.width(), tintSize.height(), QBrush(selectionTintColor(p)));
+                QBrush brush(selectionColor(p));
+                QRect selRect(selectionRect());
+                p->fillRect(selRect.x(), selRect.y(), selRect.width(), selRect.height(), brush);
             }
 #endif
         }
@@ -390,10 +418,18 @@ void RenderImage::paintObject(QPainter *p, int /*_x*/, int /*_y*/, int /*_w*/, i
 
 
 //             p->drawPixmap( offs.x(), y, pix, rect.x(), rect.y(), rect.width(), rect.height() );
-             p->drawPixmap(offs, pix, rect);
+             HTMLImageElementImpl* i = (element() && element()->id() == ID_IMG) ? static_cast<HTMLImageElementImpl*>(element()) : 0;
+             if (i && !i->compositeOperator().isNull()){
+                p->drawPixmap (offs, pix, rect, i->compositeOperator());
+             }
+             else {
+                 p->drawPixmap(offs, pix, rect);
+             }
 #if APPLE_CHANGES
              if (drawSelectionTint) {
-                 p->fillRect(offs.x() + rect.x(), offs.y() + rect.y(), rect.width(), rect.height(), QBrush(selectionTintColor(p)));
+                 QBrush brush(selectionColor(p));
+                 QRect selRect(selectionRect());
+                 p->fillRect(selRect.x(), selRect.y(), selRect.width(), selRect.height(), brush);
              }
 #endif
         }
@@ -405,14 +441,12 @@ void RenderImage::layout()
     KHTMLAssert(needsLayout());
     KHTMLAssert( minMaxKnown() );
 
-#ifdef INCREMENTAL_REPAINTING
     QRect oldBounds;
     bool checkForRepaint = checkForRepaintDuringLayout();
     if (checkForRepaint)
         oldBounds = getAbsoluteRepaintRect();
-#endif
     
-    short oldwidth = m_width;
+    int oldwidth = m_width;
     int oldheight = m_height;
 
     // minimum height
@@ -443,84 +477,29 @@ void RenderImage::layout()
     if ( m_width != oldwidth || m_height != oldheight )
         resizeCache = QPixmap();
 
-#ifdef INCREMENTAL_REPAINTING
     if (checkForRepaint)
         repaintAfterLayoutIfNeeded(oldBounds, oldBounds);
-#endif
     
     setNeedsLayout(false);
-}
-
-void RenderImage::notifyFinished(CachedObject *finishedObj)
-{
-    if (image == finishedObj) {
-        NodeImpl *node = element();
-        if (node) {
-            DocumentImpl *document = node->getDocument();
-            if (document) {
-                document->dispatchImageLoadEventSoon(this);
-            }
-        }
-    }
-}
-
-void RenderImage::dispatchLoadEvent()
-{
-    if (!loadEventSent) {
-        NodeImpl *node = element();
-        if (node) {
-            loadEventSent = true;
-            if (image->isErrorImage()) {
-                node->dispatchHTMLEvent(EventImpl::ERROR_EVENT, false, false);
-            } else {
-                node->dispatchHTMLEvent(EventImpl::LOAD_EVENT, false, false);
-            }
-        }
-    }
-}
-
-#ifdef FIX_3109150
-void RenderImage::reload()
-{
-    khtml::DocLoader *loader = element()->getDocument()->docLoader();
-    KIO::CacheControl savedCachePolicy = loader->cachePolicy();
-    loader->setCachePolicy(KIO::CC_Reload);
-    updateFromElement();
-    loader->setCachePolicy(savedCachePolicy);
-}
-#endif
-
-void RenderImage::detach()
-{
-    NodeImpl *node = element();
-    if (node) {
-        DocumentImpl *document = node->getDocument();
-        if (document) {
-            document->removeImage(this);
-        }
-    }
-    RenderReplaced::detach();
 }
 
 HTMLMapElementImpl* RenderImage::imageMap()
 {
     HTMLImageElementImpl* i = element()->id() == ID_IMG ? static_cast<HTMLImageElementImpl*>(element()) : 0;
-    return i ? static_cast<HTMLDocumentImpl*>(i->getDocument())->getMap(i->imageMap()) : 0;
+    return i ? i->getDocument()->getImageMap(i->imageMap()) : 0;
 }
 
 bool RenderImage::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
-                              HitTestAction hitTestAction, bool inside)
+                              HitTestAction hitTestAction)
 {
-    inside |= RenderReplaced::nodeAtPoint(info, _x, _y, _tx, _ty, hitTestAction, inside);
+    bool inside = RenderReplaced::nodeAtPoint(info, _x, _y, _tx, _ty, hitTestAction);
 
     if (inside && element()) {
         int tx = _tx + m_x;
         int ty = _ty + m_y;
         
-        HTMLImageElementImpl* i = element()->id() == ID_IMG ? static_cast<HTMLImageElementImpl*>(element()) : 0;
-        HTMLMapElementImpl* map;
-        if (i && i->getDocument()->isHTMLDocument() &&
-            (map = static_cast<HTMLDocumentImpl*>(i->getDocument())->getMap(i->imageMap()))) {
+        HTMLMapElementImpl* map = imageMap();
+        if (map) {
             // we're a client side image map
             inside = map->mapMouseEvent(_x - tx, _y - ty, contentWidth(), contentHeight(), info);
             info.setInnerNonSharedNode(element());
@@ -530,34 +509,8 @@ bool RenderImage::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
     return inside;
 }
 
-void RenderImage::updateFromElement()
+void RenderImage::updateAltText()
 {
-    DOMString attr;
-    // Support images in OBJECT tags.
-    if (element()->id() == ID_OBJECT) {
-        attr = element()->getAttribute(ATTR_DATA);
-    } else {
-        attr = element()->getAttribute(ATTR_SRC);
-    }
-    
-    // Treat a lack of src or empty string for src as no image at all, not the page itself
-    // loaded as an image.
-    CachedImage *new_image;
-    if (attr.isEmpty()) {
-        new_image = NULL;
-    } else {
-        new_image = element()->getDocument()->docLoader()->requestImage(khtml::parseURL(attr));
-    }
-
-    if(new_image && new_image != image && (!style() || !style()->contentData())) {
-        loadEventSent = false;
-        CachedImage *old_image = image;
-        image = new_image;
-        image->ref(this);
-        berrorPic = image->isErrorImage();
-        if (old_image) old_image->deref(this);
-    }
-
     if (element()->id() == ID_INPUT)
         alt = static_cast<HTMLInputElementImpl*>(element())->altText();
     else if (element()->id() == ID_IMG)
@@ -570,9 +523,7 @@ bool RenderImage::isWidthSpecified() const
         case Fixed:
         case Percent:
             return true;
-        case Variable:
-        case Relative:
-        case Static:
+        default:
             return false;
     }
     assert(false);
@@ -585,22 +536,21 @@ bool RenderImage::isHeightSpecified() const
         case Fixed:
         case Percent:
             return true;
-        case Variable:
-        case Relative:
-        case Static:
+        default:
             return false;
     }
     assert(false);
     return false;
 }
 
-short RenderImage::calcReplacedWidth() const
+int RenderImage::calcReplacedWidth() const
 {
     // If height is specified and not width, preserve aspect ratio.
     if (isHeightSpecified() && !isWidthSpecified()) {
-        if (intrinsicHeight() == 0){
+        if (intrinsicHeight() == 0)
             return 0;
-        }
+        if (!image || image->isErrorImage())
+            return intrinsicWidth(); // Don't bother scaling.
         return calcReplacedHeight() * intrinsicWidth() / intrinsicHeight();
     }
     return RenderReplaced::calcReplacedWidth();
@@ -610,9 +560,10 @@ int RenderImage::calcReplacedHeight() const
 {
     // If width is specified and not height, preserve aspect ratio.
     if (isWidthSpecified() && !isHeightSpecified()) {
-        if (intrinsicWidth() == 0){
+        if (intrinsicWidth() == 0)
             return 0;
-        }
+        if (!image || image->isErrorImage())
+            return intrinsicHeight(); // Don't bother scaling.
         return calcReplacedWidth() * intrinsicHeight() / intrinsicWidth();
     }
     return RenderReplaced::calcReplacedHeight();

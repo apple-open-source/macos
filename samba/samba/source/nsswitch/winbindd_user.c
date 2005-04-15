@@ -46,17 +46,19 @@ static BOOL winbindd_fill_pwent(char *dom_name, char *user_name,
 	
 	/* Resolve the uid number */
 
-	if (!NT_STATUS_IS_OK(idmap_sid_to_uid(user_sid, &(pw->pw_uid), 0))) {
+	if (!NT_STATUS_IS_OK(idmap_sid_to_uid(user_sid, &pw->pw_uid, 0))) {
 		DEBUG(1, ("error getting user id for sid %s\n", sid_to_string(sid_string, user_sid)));
 		return False;
 	}
 	
 	/* Resolve the gid number */   
 
-	if (!NT_STATUS_IS_OK(idmap_sid_to_gid(group_sid, &(pw->pw_gid), 0))) {
+	if (!NT_STATUS_IS_OK(idmap_sid_to_gid(group_sid, &pw->pw_gid, 0))) {
 		DEBUG(1, ("error getting group id for sid %s\n", sid_to_string(sid_string, group_sid)));
 		return False;
 	}
+
+	strlower_m(user_name);
 
 	/* Username */
 
@@ -185,7 +187,7 @@ enum winbindd_result winbindd_getpwnam(struct winbindd_cli_state *state)
 	}
     
 	/* Now take all this information and fill in a passwd structure */	
-	if (!winbindd_fill_pwent(name_domain, name_user, 
+	if (!winbindd_fill_pwent(name_domain, user_info.acct_name, 
 				 user_info.user_sid, user_info.group_sid, 
 				 user_info.full_name,
 				 &state->response.data.pw)) {
@@ -283,7 +285,7 @@ enum winbindd_result winbindd_getpwuid(struct winbindd_cli_state *state)
 
 	/* Fill in password structure */
 
-	if (!winbindd_fill_pwent(domain->name, user_name, user_info.user_sid, 
+	if (!winbindd_fill_pwent(domain->name, user_info.acct_name, user_info.user_sid, 
 				 user_info.group_sid,
 				 user_info.full_name, &state->response.data.pw)) {
 		talloc_destroy(mem_ctx);
@@ -349,8 +351,7 @@ enum winbindd_result winbindd_setpwent(struct winbindd_cli_state *state)
 						
 		/* Create a state record for this domain */
                 
-		if ((domain_state = (struct getent_state *)
-		     malloc(sizeof(struct getent_state))) == NULL)
+		if ((domain_state = SMB_MALLOC_P(struct getent_state)) == NULL)
 			return WINBINDD_ERROR;
                 
 		ZERO_STRUCTP(domain_state);
@@ -384,8 +385,6 @@ enum winbindd_result winbindd_endpwent(struct winbindd_cli_state *state)
    and num_sam_entries fields with domain user information.  The dispinfo_ndx
    field is incremented to the index of the next user to fetch.  Return True if
    some users were returned, False otherwise. */
-
-#define MAX_FETCH_SAM_ENTRIES 100
 
 static BOOL get_sam_user_entries(struct getent_state *ent)
 {
@@ -429,10 +428,7 @@ static BOOL get_sam_user_entries(struct getent_state *ent)
 	if (num_entries) {
 		struct getpwent_user *tnl;
 		
-		tnl = (struct getpwent_user *)Realloc(name_list, 
-						      sizeof(struct getpwent_user) *
-						      (ent->num_sam_entries + 
-						       num_entries));
+		tnl = SMB_REALLOC_ARRAY(name_list, struct getpwent_user, ent->num_sam_entries + num_entries);
 		
 		if (!tnl) {
 			DEBUG(0,("get_sam_user_entries realloc failed.\n"));
@@ -498,8 +494,7 @@ enum winbindd_result winbindd_getpwent(struct winbindd_cli_state *state)
 
 	num_users = MIN(MAX_GETPWENT_USERS, state->request.data.num_entries);
 	
-	if ((state->response.extra_data = 
-	     malloc(num_users * sizeof(struct winbindd_pw))) == NULL)
+	if ((state->response.extra_data = SMB_MALLOC_ARRAY(struct winbindd_pw, num_users)) == NULL)
 		return WINBINDD_ERROR;
 
 	memset(state->response.extra_data, 0, num_users * 
@@ -624,7 +619,7 @@ enum winbindd_result winbindd_list_users(struct winbindd_cli_state *state)
 		/* Allocate some memory for extra data */
 		total_entries += num_entries;
 			
-		ted = Realloc(extra_data, sizeof(fstring) * total_entries);
+		ted = SMB_REALLOC(extra_data, sizeof(fstring) * total_entries);
 			
 		if (!ted) {
 			DEBUG(0,("failed to enlarge buffer!\n"));

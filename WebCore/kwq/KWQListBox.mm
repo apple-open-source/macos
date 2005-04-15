@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,27 +32,44 @@
 #import "KWQView.h"
 #import "WebCoreBridge.h"
 #import "WebCoreScrollView.h"
+#import "WebCoreTextRenderer.h"
+#import "WebCoreTextRendererFactory.h"
 
-#define MIN_LINES 4 /* ensures we have a scroll bar */
+@interface NSTableView (KWQListBoxKnowsAppKitSecrets)
+- (NSCell *)_accessibilityTableCell:(int)row tableColumn:(NSTableColumn *)tableColumn;
+@end
 
-@interface KWQListBoxScrollView : WebCoreScrollView
+const int minLines = 4; /* ensures we have a scroll bar */
+const float bottomMargin = 1;
+const float leftMargin = 2;
+const float rightMargin = 2;
+
+@interface KWQListBoxScrollView : WebCoreScrollView <KWQWidgetHolder>
+{
+    QListBox *_box;
+}
 @end
 
 @interface KWQTableView : NSTableView <KWQWidgetHolder>
 {
     QListBox *_box;
-    NSArray *_items;
     BOOL processingMouseEvent;
     BOOL clickedDuringMouseEvent;
     BOOL inNextValidKeyView;
     NSWritingDirection _direction;
 }
-- initWithListBox:(QListBox *)b items:(NSArray *)items;
+- (id)initWithListBox:(QListBox *)b;
+- (void)detach;
 - (void)_KWQ_setKeyboardFocusRingNeedsDisplay;
 - (QWidget *)widget;
 - (void)setBaseWritingDirection:(NSWritingDirection)direction;
 - (NSWritingDirection)baseWritingDirection;
 @end
+
+static id <WebCoreTextRenderer> itemScreenRenderer;
+static id <WebCoreTextRenderer> itemPrinterRenderer;
+static id <WebCoreTextRenderer> groupLabelScreenRenderer;
+static id <WebCoreTextRenderer> groupLabelPrinterRenderer;
 
 static NSFont *itemFont()
 {
@@ -66,36 +83,42 @@ static NSFont *groupLabelFont()
     return font;
 }
 
-static NSParagraphStyle *paragraphStyle(NSWritingDirection direction)
+static id <WebCoreTextRenderer> itemTextRenderer()
 {
-    static NSParagraphStyle *leftStyle;
-    static NSParagraphStyle *rightStyle;
-    NSParagraphStyle **style = direction == NSWritingDirectionRightToLeft ? &rightStyle : &leftStyle;
-    if (*style == nil) {
-        NSMutableParagraphStyle *mutableStyle = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
-        [mutableStyle setBaseWritingDirection:direction];
-        *style = [mutableStyle copy];
-        [mutableStyle release];
+    if ([NSGraphicsContext currentContextDrawingToScreen]) {
+        if (itemScreenRenderer == nil) {
+            itemScreenRenderer = [[[WebCoreTextRendererFactory sharedFactory]
+                rendererWithFont:itemFont() usingPrinterFont:NO] retain];
+        }
+        return itemScreenRenderer;
+    } else {
+        if (itemPrinterRenderer == nil) {
+            itemPrinterRenderer = [[[WebCoreTextRendererFactory sharedFactory]
+                rendererWithFont:itemFont() usingPrinterFont:YES] retain];
+        }
+        return itemPrinterRenderer;
     }
-    return *style;
 }
 
-static NSDictionary *stringAttributes(NSWritingDirection direction, bool isGroupLabel)
+static id <WebCoreTextRenderer> groupLabelTextRenderer()
 {
-    static NSDictionary *attributeGlobals[4];
-    NSDictionary **attributes = &attributeGlobals[(direction == NSWritingDirectionRightToLeft ? 0 : 1) + (isGroupLabel ? 0 : 2)];
-    if (*attributes == nil) {
-        *attributes = [[NSDictionary dictionaryWithObjectsAndKeys:
-            isGroupLabel ? groupLabelFont() : itemFont(), NSFontAttributeName,
-            paragraphStyle(direction), NSParagraphStyleAttributeName,
-            nil] retain];
+    if ([NSGraphicsContext currentContextDrawingToScreen]) {
+        if (groupLabelScreenRenderer == nil) {
+            groupLabelScreenRenderer = [[[WebCoreTextRendererFactory sharedFactory]
+                rendererWithFont:groupLabelFont() usingPrinterFont:NO] retain];
+        }
+        return groupLabelScreenRenderer;
+    } else {
+        if (groupLabelPrinterRenderer == nil) {
+            groupLabelPrinterRenderer = [[[WebCoreTextRendererFactory sharedFactory]
+                rendererWithFont:groupLabelFont() usingPrinterFont:YES] retain];
+        }
+        return groupLabelPrinterRenderer;
     }
-    return *attributes;
 }
 
 QListBox::QListBox(QWidget *parent)
     : QScrollView(parent)
-    , _insertingItems(false)
     , _changingSelection(false)
     , _enabled(true)
     , _widthGood(false)
@@ -104,8 +127,7 @@ QListBox::QListBox(QWidget *parent)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    _items = [[NSMutableArray alloc] init];
-    NSScrollView *scrollView = [[KWQListBoxScrollView alloc] init];
+    NSScrollView *scrollView = [[KWQListBoxScrollView alloc] initWithListBox:this];
     setView(scrollView);
     [scrollView release];
     
@@ -124,7 +146,7 @@ QListBox::QListBox(QWidget *parent)
     // <rdar://problem/3226083>: REGRESSION (Panther): white box overlaying select lists at nvidia.com drivers page
     [[scrollView contentView] releaseGState];
     
-    KWQTableView *tableView = [[KWQTableView alloc] initWithListBox:this items:_items];
+    KWQTableView *tableView = [[KWQTableView alloc] initWithListBox:this];
     [scrollView setDocumentView:tableView];
     [tableView release];
     [scrollView setVerticalLineScroll:[tableView rowHeight]];
@@ -137,33 +159,15 @@ QListBox::~QListBox()
     NSScrollView *scrollView = getView();
     
     KWQ_BLOCK_EXCEPTIONS;
-    NSTableView *tableView = [scrollView documentView];
-    [tableView setDelegate:nil];
-    [tableView setDataSource:nil];
-    [_items release];
+    KWQTableView *tableView = [scrollView documentView];
+    [tableView detach];
     KWQ_UNBLOCK_EXCEPTIONS;
-}
-
-uint QListBox::count() const
-{
-    KWQ_BLOCK_EXCEPTIONS;
-    return [_items count];
-    KWQ_UNBLOCK_EXCEPTIONS;
-
-    return 0;
 }
 
 void QListBox::clear()
 {
-    KWQ_BLOCK_EXCEPTIONS;
-    [_items removeAllObjects];
-    if (!_insertingItems) {
-        NSScrollView *scrollView = getView();
-        NSTableView *tableView = [scrollView documentView];
-        [tableView reloadData];
-    }
-    KWQ_UNBLOCK_EXCEPTIONS;
-    _widthGood = NO;
+    _items.clear();
+    _widthGood = false;
 }
 
 void QListBox::setSelectionMode(SelectionMode mode)
@@ -176,47 +180,14 @@ void QListBox::setSelectionMode(SelectionMode mode)
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-void QListBox::insertItem(const QString &text, int index, bool isLabel)
+void QListBox::appendItem(const QString &text, bool isLabel)
 {
-    ASSERT(index >= 0);
-
-    KWQ_BLOCK_EXCEPTIONS;
-
-    NSScrollView *scrollView = getView();
-    KWQTableView *tableView = [scrollView documentView];
-
-    NSAttributedString *s = [[NSAttributedString alloc] initWithString:text.getNSString()
-        attributes:stringAttributes([tableView baseWritingDirection], isLabel)];
-
-    int c = count();
-    if (index >= c) {
-        [_items addObject:s];
-    } else {
-        [_items replaceObjectAtIndex:index withObject:s];
-    }
- 
-    [s release];
-
-    if (!_insertingItems) {
-        [tableView reloadData];
-    }
-
-    KWQ_UNBLOCK_EXCEPTIONS;
-
-    _widthGood = NO;
+    _items.append(KWQListBoxItem(text, isLabel));
+    _widthGood = false;
 }
 
-void QListBox::beginBatchInsert()
+void QListBox::doneAppendingItems()
 {
-    ASSERT(!_insertingItems);
-    _insertingItems = true;
-}
-
-void QListBox::endBatchInsert()
-{
-    ASSERT(_insertingItems);
-    _insertingItems = false;
-
     KWQ_BLOCK_EXCEPTIONS;
 
     NSScrollView *scrollView = getView();
@@ -229,7 +200,6 @@ void QListBox::endBatchInsert()
 void QListBox::setSelected(int index, bool selectIt)
 {
     ASSERT(index >= 0);
-    ASSERT(!_insertingItems);
 
     KWQ_BLOCK_EXCEPTIONS;
 
@@ -251,7 +221,6 @@ void QListBox::setSelected(int index, bool selectIt)
 bool QListBox::isSelected(int index) const
 {
     ASSERT(index >= 0);
-    ASSERT(!_insertingItems);
 
     KWQ_BLOCK_EXCEPTIONS;
 
@@ -266,12 +235,19 @@ bool QListBox::isSelected(int index) const
 
 void QListBox::setEnabled(bool enabled)
 {
-    _enabled = enabled;
-    // You would think this would work, but not until AK fixes 2177792
-    //KWQ_BLOCK_EXCEPTIONS;
-    //NSTableView *tableView = [(NSScrollView *)getView() documentView];
-    //[tableView setEnabled:enabled];
-    //KWQ_UNBLOCK_EXCEPTIONS;
+    if (enabled != _enabled) {
+        // You would think this would work, but not until AppKit bug 2177792 if fixed.
+        //KWQ_BLOCK_EXCEPTIONS;
+        //NSTableView *tableView = [(NSScrollView *)getView() documentView];
+        //[tableView setEnabled:enabled];
+        //KWQ_UNBLOCK_EXCEPTIONS;
+
+        _enabled = enabled;
+
+        NSScrollView *scrollView = getView();
+        NSTableView *tableView = [scrollView documentView];
+        [tableView reloadData];
+    }
 }
 
 bool QListBox::isEnabled()
@@ -281,37 +257,44 @@ bool QListBox::isEnabled()
 
 QSize QListBox::sizeForNumberOfLines(int lines) const
 {
-    ASSERT(!_insertingItems);
-
-    NSScrollView *scrollView = getView();
-
     NSSize size = {0,0};
 
     KWQ_BLOCK_EXCEPTIONS;
-    NSTableView *tableView = [scrollView documentView];
+
+    NSScrollView *scrollView = getView();
+    KWQTableView *tableView = [scrollView documentView];
     
-    float width;
-    if (_widthGood) {
-        width = _width;
-    } else {
-        width = 0;
-        NSCell *cell = [[[tableView tableColumns] objectAtIndex:0] dataCell];
-        NSEnumerator *e = [_items objectEnumerator];
-        NSString *text;
-        while ((text = [e nextObject])) {
-            [cell setStringValue:text];
-            NSSize size = [cell cellSize];
-            width = MAX(width, size.width);
+    if (!_widthGood) {
+        float width = 0;
+        QValueListConstIterator<KWQListBoxItem> i = const_cast<const QValueList<KWQListBoxItem> &>(_items).begin();
+        QValueListConstIterator<KWQListBoxItem> e = const_cast<const QValueList<KWQListBoxItem> &>(_items).end();
+        if (i != e) {
+            WebCoreTextStyle style;
+            WebCoreInitializeEmptyTextStyle(&style);
+            style.rtl = [tableView baseWritingDirection] == NSWritingDirectionRightToLeft;
+            style.applyRunRounding = NO;
+            style.applyWordRounding = NO;
+            do {
+                const QString &s = (*i).string;
+                id <WebCoreTextRenderer> renderer = (*i).isGroupLabel ? groupLabelTextRenderer() : itemTextRenderer();
+                ++i;
+
+                WebCoreTextRun run;
+                int length = s.length();
+                WebCoreInitializeTextRun(&run, reinterpret_cast<const UniChar *>(s.unicode()), length, 0, length);
+
+                float textWidth = [renderer floatWidthForRun:&run style:&style widths:0];
+                width = kMax(width, textWidth);
+            } while (i != e);
         }
-        _width = width;
-        _widthGood = YES;
+        _width = ceilf(width);
+        _widthGood = true;
     }
     
-    NSSize contentSize;
-    contentSize.width = ceil(width);
-    contentSize.height = ceil(([tableView rowHeight] + [tableView intercellSpacing].height) * MAX(MIN_LINES, lines));
-    size = [NSScrollView frameSizeForContentSize:contentSize
+    size = [NSScrollView frameSizeForContentSize:NSMakeSize(_width, [tableView rowHeight] * MAX(minLines, lines))
         hasHorizontalScroller:NO hasVerticalScroller:YES borderType:NSBezelBorder];
+    size.width += [NSScroller scrollerWidthForControlSize:NSSmallControlSize] - [NSScroller scrollerWidth] + leftMargin + rightMargin;
+
     KWQ_UNBLOCK_EXCEPTIONS;
 
     return QSize(size);
@@ -321,12 +304,10 @@ QWidget::FocusPolicy QListBox::focusPolicy() const
 {
     KWQ_BLOCK_EXCEPTIONS;
     
-    // Add an additional check here.
-    // For now, selects are only focused when full
-    // keyboard access is turned on.
-    unsigned keyboardUIMode = [KWQKHTMLPart::bridgeForWidget(this) keyboardUIMode];
-    if ((keyboardUIMode & WebCoreKeyboardAccessFull) == 0)
+    WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(this);
+    if (!bridge || ![bridge part] || ![bridge part]->tabsToAllControls()) {
         return NoFocus;
+    }
     
     KWQ_UNBLOCK_EXCEPTIONS;
     
@@ -346,14 +327,6 @@ void QListBox::setWritingDirection(QPainter::TextDirection d)
     KWQTableView *tableView = [scrollView documentView];
     NSWritingDirection direction = d == QPainter::RTL ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
     if ([tableView baseWritingDirection] != direction) {
-        int n = count();
-        for (int i = 0; i < n; i++) {
-            NSAttributedString *o = [_items objectAtIndex:i];
-            NSAttributedString *s = [[NSAttributedString alloc] initWithString:[o string]
-                attributes:stringAttributes([tableView baseWritingDirection], itemIsGroupLabel(i))];
-            [_items replaceObjectAtIndex:i withObject:s];
-            [s release];
-        }
         [tableView setBaseWritingDirection:direction];
         [tableView reloadData];
     }
@@ -361,22 +334,36 @@ void QListBox::setWritingDirection(QPainter::TextDirection d)
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-bool QListBox::itemIsGroupLabel(int index) const
+void QListBox::clearCachedTextRenderers()
 {
-    ASSERT(index >= 0);
+    [itemScreenRenderer release];
+    itemScreenRenderer = nil;
 
-    KWQ_BLOCK_EXCEPTIONS;
+    [itemPrinterRenderer release];
+    itemPrinterRenderer = nil;
 
-    NSAttributedString *s = [_items objectAtIndex:index];
-    NSFont *f = [s attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL];
-    return f == groupLabelFont();
+    [groupLabelScreenRenderer release];
+    groupLabelScreenRenderer = nil;
 
-    KWQ_UNBLOCK_EXCEPTIONS;
-
-    return false;
+    [groupLabelPrinterRenderer release];
+    groupLabelPrinterRenderer = nil;
 }
 
 @implementation KWQListBoxScrollView
+
+- (id)initWithListBox:(QListBox *)b
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _box = b;
+    return self;
+}
+
+- (QWidget *)widget
+{
+    return _box;
+}
 
 - (void)setFrameSize:(NSSize)size
 {
@@ -399,16 +386,15 @@ bool QListBox::itemIsGroupLabel(int index) const
 
 @implementation KWQTableView
 
-- initWithListBox:(QListBox *)b items:(NSArray *)i
+- (id)initWithListBox:(QListBox *)b
 {
     [super init];
+
     _box = b;
-    _items = i;
 
     NSTableColumn *column = [[NSTableColumn alloc] initWithIdentifier:nil];
 
     [column setEditable:NO];
-    [[column dataCell] setFont:itemFont()];
 
     [self addTableColumn:column];
 
@@ -417,7 +403,7 @@ bool QListBox::itemIsGroupLabel(int index) const
     [self setAllowsMultipleSelection:NO];
     [self setHeaderView:nil];
     [self setIntercellSpacing:NSMakeSize(0, 0)];
-    [self setRowHeight:ceil([[column dataCell] cellSize].height)];
+    [self setRowHeight:ceilf([itemFont() ascender] - [itemFont() descender] + bottomMargin)];
     
     [self setDataSource:self];
     [self setDelegate:self];
@@ -425,21 +411,40 @@ bool QListBox::itemIsGroupLabel(int index) const
     return self;
 }
 
--(void)mouseDown:(NSEvent *)event
+- (void)detach
 {
-    processingMouseEvent = TRUE;
+    _box = 0;
+    [self setDelegate:nil];
+    [self setDataSource:nil];
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    if (!_box) {
+        [super mouseDown:event];
+        return;
+    }
+
+    processingMouseEvent = YES;
+    NSView *outerView = [_box->getOuterView() retain];
+    QWidget::beforeMouseDown(outerView);
     [super mouseDown:event];
-    processingMouseEvent = FALSE;
+    QWidget::afterMouseDown(outerView);
+    [outerView release];
+    processingMouseEvent = NO;
 
     if (clickedDuringMouseEvent) {
 	clickedDuringMouseEvent = false;
-    } else {
+    } else if (_box) {
 	_box->sendConsumedMouseUp();
     }
 }
 
 - (void)keyDown:(NSEvent *)event
 {
+    if (!_box)  {
+        return;
+    }
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(_box);
     if (![bridge interceptKeyEvent:event toView:self]) {
 	[super keyDown:event];
@@ -448,6 +453,9 @@ bool QListBox::itemIsGroupLabel(int index) const
 
 - (void)keyUp:(NSEvent *)event
 {
+    if (!_box)  {
+        return;
+    }
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(_box);
     if (![bridge interceptKeyEvent:event toView:self]) {
 	[super keyUp:event];
@@ -456,15 +464,22 @@ bool QListBox::itemIsGroupLabel(int index) const
 
 - (BOOL)becomeFirstResponder
 {
+    if (!_box) {
+        return NO;
+    }
+
     BOOL become = [super becomeFirstResponder];
     
     if (become) {
-        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(_box)) {
+        if (_box && !KWQKHTMLPart::currentEventIsMouseDownInWidget(_box)) {
             [self _KWQ_scrollFrameToVisible];
         }        
 	[self _KWQ_setKeyboardFocusRingNeedsDisplay];
-	QFocusEvent event(QEvent::FocusIn);
-	const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
+
+        if (_box) {
+            QFocusEvent event(QEvent::FocusIn);
+            const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
+        }
     }
 
     return become;
@@ -473,28 +488,38 @@ bool QListBox::itemIsGroupLabel(int index) const
 - (BOOL)resignFirstResponder
 {
     BOOL resign = [super resignFirstResponder];
-    if (resign) {
+    if (resign && _box) {
         QFocusEvent event(QEvent::FocusOut);
         const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
     }
     return resign;
 }
 
--(NSView *)nextKeyView
+- (BOOL)canBecomeKeyView
+{
+    // Simplified method from NSView; overridden to replace NSView's way of checking
+    // for full keyboard access with ours.
+    if (!_box || !KWQKHTMLPart::partForWidget(_box)->tabsToAllControls()) {
+        return NO;
+    }
+    return ([self window] != nil) && ![self isHiddenOrHasHiddenAncestor] && [self acceptsFirstResponder];
+}
+
+- (NSView *)nextKeyView
 {
     return _box && inNextValidKeyView
         ? KWQKHTMLPart::nextKeyViewForWidget(_box, KWQSelectingNext)
         : [super nextKeyView];
 }
 
--(NSView *)previousKeyView
+- (NSView *)previousKeyView
 {
     return _box && inNextValidKeyView
         ? KWQKHTMLPart::nextKeyViewForWidget(_box, KWQSelectingPrevious)
         : [super previousKeyView];
 }
 
--(NSView *)nextValidKeyView
+- (NSView *)nextValidKeyView
 {
     inNextValidKeyView = YES;
     NSView *view = [super nextValidKeyView];
@@ -502,7 +527,7 @@ bool QListBox::itemIsGroupLabel(int index) const
     return view;
 }
 
--(NSView *)previousValidKeyView
+- (NSView *)previousValidKeyView
 {
     inNextValidKeyView = YES;
     NSView *view = [super previousValidKeyView];
@@ -512,40 +537,88 @@ bool QListBox::itemIsGroupLabel(int index) const
 
 - (int)numberOfRowsInTableView:(NSTableView *)tableView
 {
-    return [_items count];
+    return _box ? _box->count() : 0;
 }
 
 - (id)tableView:(NSTableView *)tableView objectValueForTableColumn:(NSTableColumn *)column row:(int)row
 {
-    return [_items objectAtIndex:row];
+    return nil;
 }
 
 - (void)tableViewSelectionDidChange:(NSNotification *)notification
 {
-    _box->selectionChanged();
-    if (!_box->changingSelection()) {
+    if (_box) {
+        _box->selectionChanged();
+    }
+    if (_box && !_box->changingSelection()) {
 	if (processingMouseEvent) {
 	    clickedDuringMouseEvent = true;
 	    _box->sendConsumedMouseUp();
 	}
-        _box->clicked();
+        if (_box) {
+            _box->clicked();
+        }
     }
 }
 
 - (BOOL)tableView:(NSTableView *)tableView shouldSelectRow:(int)row
 {
-    return !_box->itemIsGroupLabel(row);
+    return _box && !_box->itemAtIndex(row).isGroupLabel;
 }
 
 - (BOOL)selectionShouldChangeInTableView:(NSTableView *)aTableView
 {
-    return _box->isEnabled();
+    return _box && _box->isEnabled();
 }
 
-- (void)tableView:(NSTableView *)tableView willDisplayCell:(id)cell forTableColumn:(NSTableColumn *)tableColumn row:(int)row
+- (void)drawRow:(int)row clipRect:(NSRect)clipRect
 {
-    ASSERT([cell isKindOfClass:[NSCell class]]);
-    [(NSCell *)cell setEnabled:_box->isEnabled()];
+    if (!_box) {
+        return;
+    }
+
+    const KWQListBoxItem &item = _box->itemAtIndex(row);
+
+    NSColor *color;
+    if (_box->isEnabled()) {
+        if ([self isRowSelected:row] && [[self window] firstResponder] == self && ([[self window] isKeyWindow] || ![[self window] canBecomeKeyWindow])) {
+            color = [NSColor alternateSelectedControlTextColor];
+        } else {
+            color = [NSColor controlTextColor];
+        }
+    } else {
+        color = [NSColor disabledControlTextColor];
+    }
+
+    bool RTL = _direction == NSWritingDirectionRightToLeft;
+
+    id <WebCoreTextRenderer> renderer = item.isGroupLabel ? groupLabelTextRenderer() : itemTextRenderer();
+
+    WebCoreTextStyle style;
+    WebCoreInitializeEmptyTextStyle(&style);
+    style.rtl = RTL;
+    style.applyRunRounding = NO;
+    style.applyWordRounding = NO;
+    style.textColor = color;
+
+    WebCoreTextRun run;
+    int length = item.string.length();
+    WebCoreInitializeTextRun(&run, reinterpret_cast<const UniChar *>(item.string.unicode()), length, 0, length);
+
+    NSRect cellRect = [self frameOfCellAtColumn:0 row:row];
+    NSPoint point;
+    if (!RTL) {
+        point.x = NSMinX(cellRect) + leftMargin;
+    } else {
+        point.x = NSMaxX(cellRect) - rightMargin - [renderer floatWidthForRun:&run style:&style widths:0];
+    }
+    point.y = NSMaxY(cellRect) + [itemFont() descender] - bottomMargin;
+
+    WebCoreTextGeometry geometry;
+    WebCoreInitializeEmptyTextGeometry(&geometry);
+    geometry.point = point;
+    
+    [renderer drawRun:&run style:&style geometry:&geometry];
 }
 
 - (void)_KWQ_setKeyboardFocusRingNeedsDisplay
@@ -566,6 +639,15 @@ bool QListBox::itemIsGroupLabel(int index) const
 - (NSWritingDirection)baseWritingDirection
 {
     return _direction;
+}
+
+- (NSCell *)_accessibilityTableCell:(int)row tableColumn:(NSTableColumn *)tableColumn
+{
+    NSCell *cell = [super _accessibilityTableCell:row tableColumn:tableColumn];
+    if (_box) {
+        [cell setStringValue:_box->itemAtIndex(row).string.getNSString()];
+    }
+    return cell;
 }
 
 @end

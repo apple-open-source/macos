@@ -64,7 +64,7 @@ private:
 class JavaInstance : public Instance
 {
 public:
-    JavaInstance (jobject instance);
+    JavaInstance (jobject instance, const RootObject *r);
         
     ~JavaInstance ();
     
@@ -90,20 +90,21 @@ public:
     virtual void begin();
     virtual void end();
     
-    virtual KJS::Value valueOf() const;
-    virtual KJS::Value defaultValue (KJS::Type hint) const;
+    virtual Value valueOf() const;
+    virtual Value defaultValue (Type hint) const;
 
-    virtual KJS::Value invokeMethod (KJS::ExecState *exec, const MethodList *method, const KJS::List &args);
+    virtual Value invokeMethod (ExecState *exec, const MethodList &method, const List &args);
+    virtual Value invokeDefaultMethod (ExecState *exec, const List &args);
 
     jobject javaInstance() const { return _instance->_instance; }
     
-    KJS::Value stringValue() const;
-    KJS::Value numberValue() const;
-    KJS::Value booleanValue() const;
-    
+    Value stringValue() const;
+    Value numberValue() const;
+    Value booleanValue() const;
+        
 private:
     JObjectWrapper *_instance;
-	mutable JavaClass *_class;
+    mutable JavaClass *_class;
 };
 
 } // namespace Bindings

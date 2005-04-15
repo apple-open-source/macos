@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,6 +47,11 @@ class NSString;
 
 class QWMatrix;
 
+namespace khtml
+{
+    class CachedImageCallback;
+}
+
 bool canRenderImageType(const QString &type);
 QPixmap *KWQLoadPixmap(const char *name);
 
@@ -56,10 +61,10 @@ public:
     QPixmap(void *MIMEType);
     QPixmap(const QSize&);
     QPixmap(const QByteArray&);
-    QPixmap(const QByteArray&, void *MIMEType);
+    QPixmap(const QByteArray&, NSString *MIMEType);
     QPixmap(int, int);
-    QPixmap(const QPixmap &);
     QPixmap(WebCoreImageRendererPtr);
+    QPixmap(const QPixmap &);
     ~QPixmap();
     
     bool isNull() const;
@@ -78,10 +83,21 @@ public:
 
     QPixmap &operator=(const QPixmap &);
 
-    bool receivedData(const QByteArray &bytes, bool isComplete);
+    bool receivedData(const QByteArray &bytes, bool isComplete, khtml::CachedImageCallback *decoderCallback);
     void stopAnimations();
 
     WebCoreImageRendererPtr image() { return imageRenderer; };
+
+    void increaseUseCount() const;
+    void decreaseUseCount() const;
+    
+    void flushRasterCache();
+    
+    CGImageRef imageRef();
+    
+    static bool shouldUseThreadedDecoding();
+
+    void resetAnimation();
     
 private:
 

@@ -1,3 +1,145 @@
+New in 2.1.18
+-------------
+* saslauthd/LDAP no longer tagged "experimental"
+* Add group membership check to saslauthd/LDAP
+* Fix Solaris 9 "NI_WITHSCOPEID" issue
+* Fix missing "getaddrinfo.c" and other distribution problems
+* Significant Windows enhancements
+* A large number of other minor bugfixes and cleanups
+
+New in 2.1.17
+-------------
+* Allow selection of GSSAPI implementation explicitly (--with-gss_impl)
+* Other GSSAPI detection improvements
+* Now correctly do authorizaton callback in sasl_checkpass()
+* Disable KERBEROS_V4 by default
+* Continued Win32/Win64 Improvements
+* Minor Other bugfixes
+
+New in 2.1.16-BETA
+------------------
+* Significantly improved Win32 support
+* Writable auxprop support
+* Expanded SQL support (including postgres)
+* Significantly improved documentation
+* Improved realm/username handling with saslauthd
+* Support for modern automake and autoconf
+
+New in 2.1.15
+-------------
+* Fix a number of build issues
+* Add a doc/components.html that hopefully describes how things
+  interact better.
+
+New in 2.1.14
+-------------
+* OS X 10.2 support
+* Support for the Sun SEAM GSSAPI implementation
+* Support for MySQL 4
+* A number of build fixes
+* Other minor bugfixes
+
+New in 2.1.13
+-------------
+* Add a configure option to allow specification of what /dev/random to use.
+* Addition of a saslauthd credential cache feature (-c option).
+* Unification of the saslauthd ipc method code.
+* Fix a number of autoconf issues.
+* A significant number of fixes throughout the library from Sun Microsystems.
+* Other minor bugfixes.
+
+New in 2.1.12
+-------------
+* Distribute in Solaris tar (not GNU tar format)
+* Fix a number of build/configure related issues.
+
+New in 2.1.11
+-------------
+* Add the fastbind auth method to the saslauthd LDAP module.
+* Fix a potential memory leak in the doors version of saslauthd.
+* NTLM now only requires one of LM or NT, not both.
+* Fix a variety of Berkeley DB, LDAP, OpenSSL, and other build issues.
+* Win32 support compiles, but no documentation as of yet.
+
+New in 2.1.10
+-------------
+* Further DIGEST-MD5 DES interoperability fixes.  Now works against Active
+  Directory.
+* Fix some potential buffer overflows.
+* Misc. cleanups in the saslauthd LDAP module
+* Fix security properties of NTLM and EXTERNAL
+
+New in 2.1.9
+------------
+* Include missing lib/staticopen.h file.
+
+New in 2.1.8
+------------
+* Support for the NTLM mechanism (Ken Murchison <ken@oceana.com>)
+* Support libtool --enable-shared and --enable-static
+  (Howard Chu <hyc@highlandsun.com>)
+* OS/390 Support (Howard Chu <hyc@highlandsun.com>)
+* Berkeley DB 4.1 Support (Mika Iisakkila <mika.iisakkila@pingrid.fi>)
+* Documentation fixes
+* The usual round of assorted other minor bugfixes.
+
+New in 2.1.7
+------------
+* Add SASL_AUTHUSER as a parameter to sasl_getprop
+* Allow applications to require proxy-capable mechanisms (SASL_NEED_PROXY)
+* Performance improvements in our treatment of /dev/random
+* Removal of buggy DIGEST-MD5 reauth support.
+* Documentation fixes
+* Assorted other minor bugfixes.
+
+New in 2.1.6
+------------
+* Security fix for the CRAM-MD5 plugin to check the full length of the
+  digest string.
+* Return of the Experimental LDAP saslauthd module.
+* Addition of Experimental MySQL auxprop plugin.
+* Can now select multiple auxprop plugins (and a priority ordering)
+* Mechanism selection now includes number of security flags
+* Mac OS X 10.1 Fixes
+* Misc other minor bugfixes.
+
+New in 2.1.5
+------------
+* Remove LDAP support due to copyright concerns.
+* Minor bugfixes.
+
+New in 2.1.4
+------------
+* Enhancements and cleanup to the experimental LDAP saslauthd module
+  (Igor Brezac <igor@ipass.net>)
+* Addition of a new sasl_version() API
+* Misc. Bugfixes
+
+New in 2.1.3-BETA
+-----------------
+* Significant amount of plugin cleanup / standardization.  A good deal of code
+  is now shared between them. (mostly due to Ken Murchison <ken@oceana.com>)
+* DIGEST-MD5 now supports reauthentication.  Also has a fix for DES
+  interoperability.
+* saslauthd now supports the Solaris "doors" IPC method
+  (--with-ipctype=doors)
+* Significant GSSAPI fixes (mostly due to Howard Chu <hyc@highlandsun.com>)
+* Auxprop interface now correctly deals with the * prefix indicating 
+  authid vs. authzid.  (May break some incompatible auxprop plugins).
+* We now allow multiple pwcheck_method(s).  Also you can restrict auxprop
+  plugins to the use of a single plugin.
+* Added an experimental saslauthd LDAP module (Igor Brezac <igor@ipass.net>)
+* Removed check for db3/db.h
+* Misc. documentation updates.  (Marshall Rose, and others)
+* Other misc. bugfixes.
+
+New in 2.1.2
+------------
+* Mostly a minor-bugfix release
+* Improved documentation / cleanup of old references to obsolete
+  pwcheck_methods
+* Better error reporting for auxprop password verifiers
+
 New in 2.1.1
 ------------
 * Many minor bugfixes throughout.

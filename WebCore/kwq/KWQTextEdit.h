@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,9 @@ class QTextEdit : public QScrollView
     } TextFormat;
 
     QTextEdit(QWidget *parent);
+    ~QTextEdit();
+
+    virtual void setPalette(const QPalette &);
 
     void setAlignment(AlignmentFlags);
 
@@ -61,12 +64,12 @@ class QTextEdit : public QScrollView
     QString text() const;
     QString textWithHardLineBreaks() const;
 
-    void setTextFormat(TextFormat);
+    void setTextFormat(TextFormat) { }
 
     void setWordWrap(WrapStyle);
     WrapStyle wordWrap() const;
 
-    void setTabStopWidth(int);
+    void setScrollBarModes(ScrollBarMode hMode, ScrollBarMode vMode);
 
     void setWritingDirection(QPainter::TextDirection);
     
@@ -78,6 +81,7 @@ class QTextEdit : public QScrollView
 
     void clicked();
 
+    virtual FocusPolicy focusPolicy() const;
     virtual bool checksDescendantsForFocus() const;
 
   private:

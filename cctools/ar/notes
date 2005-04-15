@@ -1,3 +1,16 @@
+Changes for the 5.12 release (the cctools-552 release):
+- Changed ar(1) to update or add a table of contents when in UNIX standard
+  conformance mode (the default). To do this and not hose archives with fat
+  object turning them into fat files that ar(1) will not operate on a new
+  ranlib(1) option -q is used.  This only updates the table of contents when
+  the output would not be a fat file.
+  - Changed archive.[ch] to have a new global variable
+    archive_opened_for_writing which is set to 1 in open_archive() if the
+    file is open(2)'ed with the mode O_RDWR.
+  - Changed main() in ar.c to run ranlib(1) when in UNIX standard conformance
+    mode and archive_opened_for_writing is set using the new -q ranlib(1)
+    option.
+
 Changes for the 5.12 release (the cctools-464 release):
 - Made changes to build cleanly with gcc3.3
   - Removed -Wno-precomp from the Makefile

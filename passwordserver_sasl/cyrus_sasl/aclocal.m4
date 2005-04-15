@@ -1,93 +1,255 @@
-dnl aclocal.m4 generated automatically by aclocal 1.4
+# generated automatically by aclocal 1.7.2 -*- Autoconf -*-
 
-dnl Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
-dnl This file is free software; the Free Software Foundation
-dnl gives unlimited permission to copy and/or distribute it,
-dnl with or without modifications, as long as this notice is preserved.
+# Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+# Free Software Foundation, Inc.
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
-dnl This program is distributed in the hope that it will be useful,
-dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
-dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-dnl PARTICULAR PURPOSE.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
 
-# Like AC_CONFIG_HEADER, but automatically create stamp file.
+# Do all the work for Automake.                            -*- Autoconf -*-
 
-AC_DEFUN(AM_CONFIG_HEADER,
-[AC_PREREQ([2.12])
-AC_CONFIG_HEADER([$1])
-dnl When config.status generates a header, we must update the stamp-h file.
-dnl This file resides in the same directory as the config header
-dnl that is generated.  We must strip everything past the first ":",
-dnl and everything past the last "/".
-AC_OUTPUT_COMMANDS(changequote(<<,>>)dnl
-ifelse(patsubst(<<$1>>, <<[^ ]>>, <<>>), <<>>,
-<<test -z "<<$>>CONFIG_HEADERS" || echo timestamp > patsubst(<<$1>>, <<^\([^:]*/\)?.*>>, <<\1>>)stamp-h<<>>dnl>>,
-<<am_indx=1
-for am_file in <<$1>>; do
-  case " <<$>>CONFIG_HEADERS " in
-  *" <<$>>am_file "*<<)>>
-    echo timestamp > `echo <<$>>am_file | sed -e 's%:.*%%' -e 's%[^/]*$%%'`stamp-h$am_indx
-    ;;
-  esac
-  am_indx=`expr "<<$>>am_indx" + 1`
-done<<>>dnl>>)
-changequote([,]))])
+# This macro actually does too much some checks are only needed if
+# your package does certain things.  But this isn't really a big deal.
 
-# Do all the work for Automake.  This macro actually does too much --
-# some checks are only needed if your package does certain things.
-# But this isn't really a big deal.
+# Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002
+# Free Software Foundation, Inc.
 
-# serial 1
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
 
-dnl Usage:
-dnl AM_INIT_AUTOMAKE(package,version, [no-define])
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 
-AC_DEFUN(AM_INIT_AUTOMAKE,
-[AC_REQUIRE([AC_PROG_INSTALL])
-PACKAGE=[$1]
-AC_SUBST(PACKAGE)
-VERSION=[$2]
-AC_SUBST(VERSION)
-dnl test to see if srcdir already configured
-if test "`cd $srcdir && pwd`" != "`pwd`" && test -f $srcdir/config.status; then
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 8
+
+# There are a few dirty hacks below to avoid letting `AC_PROG_CC' be
+# written in clear, in which case automake, when reading aclocal.m4,
+# will think it sees a *use*, and therefore will trigger all it's
+# C support machinery.  Also note that it means that autoscan, seeing
+# CC etc. in the Makefile, will ask for an AC_PROG_CC use...
+
+
+AC_PREREQ([2.54])
+
+# Autoconf 2.50 wants to disallow AM_ names.  We explicitly allow
+# the ones we care about.
+m4_pattern_allow([^AM_[A-Z]+FLAGS$])dnl
+
+# AM_INIT_AUTOMAKE(PACKAGE, VERSION, [NO-DEFINE])
+# AM_INIT_AUTOMAKE([OPTIONS])
+# -----------------------------------------------
+# The call with PACKAGE and VERSION arguments is the old style
+# call (pre autoconf-2.50), which is being phased out.  PACKAGE
+# and VERSION should now be passed to AC_INIT and removed from
+# the call to AM_INIT_AUTOMAKE.
+# We support both call styles for the transition.  After
+# the next Automake release, Autoconf can make the AC_INIT
+# arguments mandatory, and then we can depend on a new Autoconf
+# release and drop the old call support.
+AC_DEFUN([AM_INIT_AUTOMAKE],
+[AC_REQUIRE([AM_SET_CURRENT_AUTOMAKE_VERSION])dnl
+ AC_REQUIRE([AC_PROG_INSTALL])dnl
+# test to see if srcdir already configured
+if test "`cd $srcdir && pwd`" != "`pwd`" &&
+   test -f $srcdir/config.status; then
   AC_MSG_ERROR([source directory already configured; run "make distclean" there first])
 fi
-ifelse([$3],,
-AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE", [Name of package])
-AC_DEFINE_UNQUOTED(VERSION, "$VERSION", [Version number of package]))
-AC_REQUIRE([AM_SANITY_CHECK])
-AC_REQUIRE([AC_ARG_PROGRAM])
-dnl FIXME This is truly gross.
-missing_dir=`cd $ac_aux_dir && pwd`
-AM_MISSING_PROG(ACLOCAL, aclocal, $missing_dir)
-AM_MISSING_PROG(AUTOCONF, autoconf, $missing_dir)
-AM_MISSING_PROG(AUTOMAKE, automake, $missing_dir)
-AM_MISSING_PROG(AUTOHEADER, autoheader, $missing_dir)
-AM_MISSING_PROG(MAKEINFO, makeinfo, $missing_dir)
-AC_REQUIRE([AC_PROG_MAKE_SET])])
+
+# test whether we have cygpath
+if test -z "$CYGPATH_W"; then
+  if (cygpath --version) >/dev/null 2>/dev/null; then
+    CYGPATH_W='cygpath -w'
+  else
+    CYGPATH_W=echo
+  fi
+fi
+AC_SUBST([CYGPATH_W])
+
+# Define the identity of the package.
+dnl Distinguish between old-style and new-style calls.
+m4_ifval([$2],
+[m4_ifval([$3], [_AM_SET_OPTION([no-define])])dnl
+ AC_SUBST([PACKAGE], [$1])dnl
+ AC_SUBST([VERSION], [$2])],
+[_AM_SET_OPTIONS([$1])dnl
+ AC_SUBST([PACKAGE], [AC_PACKAGE_TARNAME])dnl
+ AC_SUBST([VERSION], [AC_PACKAGE_VERSION])])dnl
+
+_AM_IF_OPTION([no-define],,
+[AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE", [Name of package])
+ AC_DEFINE_UNQUOTED(VERSION, "$VERSION", [Version number of package])])dnl
+
+# Some tools Automake needs.
+AC_REQUIRE([AM_SANITY_CHECK])dnl
+AC_REQUIRE([AC_ARG_PROGRAM])dnl
+AM_MISSING_PROG(ACLOCAL, aclocal-${am__api_version})
+AM_MISSING_PROG(AUTOCONF, autoconf)
+AM_MISSING_PROG(AUTOMAKE, automake-${am__api_version})
+AM_MISSING_PROG(AUTOHEADER, autoheader)
+AM_MISSING_PROG(MAKEINFO, makeinfo)
+AM_MISSING_PROG(AMTAR, tar)
+AM_PROG_INSTALL_SH
+AM_PROG_INSTALL_STRIP
+# We need awk for the "check" target.  The system "awk" is bad on
+# some platforms.
+AC_REQUIRE([AC_PROG_AWK])dnl
+AC_REQUIRE([AC_PROG_MAKE_SET])dnl
+
+_AM_IF_OPTION([no-dependencies],,
+[AC_PROVIDE_IFELSE([AC_PROG_CC],
+                  [_AM_DEPENDENCIES(CC)],
+                  [define([AC_PROG_CC],
+                          defn([AC_PROG_CC])[_AM_DEPENDENCIES(CC)])])dnl
+AC_PROVIDE_IFELSE([AC_PROG_CXX],
+                  [_AM_DEPENDENCIES(CXX)],
+                  [define([AC_PROG_CXX],
+                          defn([AC_PROG_CXX])[_AM_DEPENDENCIES(CXX)])])dnl
+])
+])
+
+
+# When config.status generates a header, we must update the stamp-h file.
+# This file resides in the same directory as the config header
+# that is generated.  The stamp files are numbered to have different names.
+
+# Autoconf calls _AC_AM_CONFIG_HEADER_HOOK (when defined) in the
+# loop where config.status creates the headers, so we can generate
+# our stamp files there.
+AC_DEFUN([_AC_AM_CONFIG_HEADER_HOOK],
+[_am_stamp_count=`expr ${_am_stamp_count-0} + 1`
+echo "timestamp for $1" >`AS_DIRNAME([$1])`/stamp-h[]$_am_stamp_count])
+
+# Copyright 2002  Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+
+# AM_AUTOMAKE_VERSION(VERSION)
+# ----------------------------
+# Automake X.Y traces this macro to ensure aclocal.m4 has been
+# generated from the m4 files accompanying Automake X.Y.
+AC_DEFUN([AM_AUTOMAKE_VERSION],[am__api_version="1.7"])
+
+# AM_SET_CURRENT_AUTOMAKE_VERSION
+# -------------------------------
+# Call AM_AUTOMAKE_VERSION so it can be traced.
+# This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
+AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
+	 [AM_AUTOMAKE_VERSION([1.7.2])])
+
+# Helper functions for option handling.                    -*- Autoconf -*-
+
+# Copyright 2001, 2002  Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 2
+
+# _AM_MANGLE_OPTION(NAME)
+# -----------------------
+AC_DEFUN([_AM_MANGLE_OPTION],
+[[_AM_OPTION_]m4_bpatsubst($1, [[^a-zA-Z0-9_]], [_])])
+
+# _AM_SET_OPTION(NAME)
+# ------------------------------
+# Set option NAME.  Presently that only means defining a flag for this option.
+AC_DEFUN([_AM_SET_OPTION],
+[m4_define(_AM_MANGLE_OPTION([$1]), 1)])
+
+# _AM_SET_OPTIONS(OPTIONS)
+# ----------------------------------
+# OPTIONS is a space-separated list of Automake options.
+AC_DEFUN([_AM_SET_OPTIONS],
+[AC_FOREACH([_AM_Option], [$1], [_AM_SET_OPTION(_AM_Option)])])
+
+# _AM_IF_OPTION(OPTION, IF-SET, [IF-NOT-SET])
+# -------------------------------------------
+# Execute IF-SET if OPTION is set, IF-NOT-SET otherwise.
+AC_DEFUN([_AM_IF_OPTION],
+[m4_ifset(_AM_MANGLE_OPTION([$1]), [$2], [$3])])
 
 #
 # Check to make sure that the build environment is sane.
 #
 
-AC_DEFUN(AM_SANITY_CHECK,
+# Copyright 1996, 1997, 2000, 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 3
+
+# AM_SANITY_CHECK
+# ---------------
+AC_DEFUN([AM_SANITY_CHECK],
 [AC_MSG_CHECKING([whether build environment is sane])
 # Just in case
 sleep 1
-echo timestamp > conftestfile
+echo timestamp > conftest.file
 # Do `set' in a subshell so we don't clobber the current shell's
 # arguments.  Must try -L first in case configure is actually a
 # symlink; some systems play weird games with the mod time of symlinks
 # (eg FreeBSD returns the mod time of the symlink's containing
 # directory).
 if (
-   set X `ls -Lt $srcdir/configure conftestfile 2> /dev/null`
-   if test "[$]*" = "X"; then
+   set X `ls -Lt $srcdir/configure conftest.file 2> /dev/null`
+   if test "$[*]" = "X"; then
       # -L didn't work.
-      set X `ls -t $srcdir/configure conftestfile`
+      set X `ls -t $srcdir/configure conftest.file`
    fi
-   if test "[$]*" != "X $srcdir/configure conftestfile" \
-      && test "[$]*" != "X conftestfile $srcdir/configure"; then
+   rm -f conftest.file
+   if test "$[*]" != "X $srcdir/configure conftest.file" \
+      && test "$[*]" != "X conftest.file $srcdir/configure"; then
 
       # If neither matched, then we have a broken ls.  This can happen
       # if, for instance, CONFIG_SHELL is bash and it inherits a
@@ -97,7 +259,7 @@ if (
 alias in your environment])
    fi
 
-   test "[$]2" = conftestfile
+   test "$[2]" = conftest.file
    )
 then
    # Ok.
@@ -106,42 +268,539 @@ else
    AC_MSG_ERROR([newly created file is older than distributed files!
 Check your system clock])
 fi
-rm -f conftest*
 AC_MSG_RESULT(yes)])
 
-dnl AM_MISSING_PROG(NAME, PROGRAM, DIRECTORY)
-dnl The program must properly implement --version.
-AC_DEFUN(AM_MISSING_PROG,
-[AC_MSG_CHECKING(for working $2)
-# Run test in a subshell; some versions of sh will print an error if
-# an executable is not found, even if stderr is redirected.
-# Redirect stdin to placate older versions of autoconf.  Sigh.
-if ($2 --version) < /dev/null > /dev/null 2>&1; then
-   $1=$2
-   AC_MSG_RESULT(found)
-else
-   $1="$3/missing $2"
-   AC_MSG_RESULT(missing)
-fi
+#  -*- Autoconf -*-
+
+
+# Copyright 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 3
+
+# AM_MISSING_PROG(NAME, PROGRAM)
+# ------------------------------
+AC_DEFUN([AM_MISSING_PROG],
+[AC_REQUIRE([AM_MISSING_HAS_RUN])
+$1=${$1-"${am_missing_run}$2"}
 AC_SUBST($1)])
+
+
+# AM_MISSING_HAS_RUN
+# ------------------
+# Define MISSING if not defined so far and test if it supports --run.
+# If it does, set am_missing_run to use it, otherwise, to nothing.
+AC_DEFUN([AM_MISSING_HAS_RUN],
+[AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
+test x"${MISSING+set}" = xset || MISSING="\${SHELL} $am_aux_dir/missing"
+# Use eval to expand $SHELL
+if eval "$MISSING --run true"; then
+  am_missing_run="$MISSING --run "
+else
+  am_missing_run=
+  AC_MSG_WARN([`missing' script is too old or missing])
+fi
+])
+
+# AM_AUX_DIR_EXPAND
+
+# Copyright 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# For projects using AC_CONFIG_AUX_DIR([foo]), Autoconf sets
+# $ac_aux_dir to `$srcdir/foo'.  In other projects, it is set to
+# `$srcdir', `$srcdir/..', or `$srcdir/../..'.
+#
+# Of course, Automake must honor this variable whenever it calls a
+# tool from the auxiliary directory.  The problem is that $srcdir (and
+# therefore $ac_aux_dir as well) can be either absolute or relative,
+# depending on how configure is run.  This is pretty annoying, since
+# it makes $ac_aux_dir quite unusable in subdirectories: in the top
+# source directory, any form will work fine, but in subdirectories a
+# relative path needs to be adjusted first.
+#
+# $ac_aux_dir/missing
+#    fails when called from a subdirectory if $ac_aux_dir is relative
+# $top_srcdir/$ac_aux_dir/missing
+#    fails if $ac_aux_dir is absolute,
+#    fails when called from a subdirectory in a VPATH build with
+#          a relative $ac_aux_dir
+#
+# The reason of the latter failure is that $top_srcdir and $ac_aux_dir
+# are both prefixed by $srcdir.  In an in-source build this is usually
+# harmless because $srcdir is `.', but things will broke when you
+# start a VPATH build or use an absolute $srcdir.
+#
+# So we could use something similar to $top_srcdir/$ac_aux_dir/missing,
+# iff we strip the leading $srcdir from $ac_aux_dir.  That would be:
+#   am_aux_dir='\$(top_srcdir)/'`expr "$ac_aux_dir" : "$srcdir//*\(.*\)"`
+# and then we would define $MISSING as
+#   MISSING="\${SHELL} $am_aux_dir/missing"
+# This will work as long as MISSING is not called from configure, because
+# unfortunately $(top_srcdir) has no meaning in configure.
+# However there are other variables, like CC, which are often used in
+# configure, and could therefore not use this "fixed" $ac_aux_dir.
+#
+# Another solution, used here, is to always expand $ac_aux_dir to an
+# absolute PATH.  The drawback is that using absolute paths prevent a
+# configured tree to be moved without reconfiguration.
+
+# Rely on autoconf to set up CDPATH properly.
+AC_PREREQ([2.50])
+
+AC_DEFUN([AM_AUX_DIR_EXPAND], [
+# expand $ac_aux_dir to an absolute path
+am_aux_dir=`cd $ac_aux_dir && pwd`
+])
+
+# AM_PROG_INSTALL_SH
+# ------------------
+# Define $install_sh.
+
+# Copyright 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+AC_DEFUN([AM_PROG_INSTALL_SH],
+[AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
+install_sh=${install_sh-"$am_aux_dir/install-sh"}
+AC_SUBST(install_sh)])
+
+# AM_PROG_INSTALL_STRIP
+
+# Copyright 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# One issue with vendor `install' (even GNU) is that you can't
+# specify the program used to strip binaries.  This is especially
+# annoying in cross-compiling environments, where the build's strip
+# is unlikely to handle the host's binaries.
+# Fortunately install-sh will honor a STRIPPROG variable, so we
+# always use install-sh in `make install-strip', and initialize
+# STRIPPROG with the value of the STRIP variable (set by the user).
+AC_DEFUN([AM_PROG_INSTALL_STRIP],
+[AC_REQUIRE([AM_PROG_INSTALL_SH])dnl
+# Installed binaries are usually stripped using `strip' when the user
+# run `make install-strip'.  However `strip' might not be the right
+# tool to use in cross-compilation environments, therefore Automake
+# will honor the `STRIP' environment variable to overrule this program.
+dnl Don't test for $cross_compiling = yes, because it might be `maybe'.
+if test "$cross_compiling" != no; then
+  AC_CHECK_TOOL([STRIP], [strip], :)
+fi
+INSTALL_STRIP_PROGRAM="\${SHELL} \$(install_sh) -c -s"
+AC_SUBST([INSTALL_STRIP_PROGRAM])])
+
+# serial 4						-*- Autoconf -*-
+
+# Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+
+# There are a few dirty hacks below to avoid letting `AC_PROG_CC' be
+# written in clear, in which case automake, when reading aclocal.m4,
+# will think it sees a *use*, and therefore will trigger all it's
+# C support machinery.  Also note that it means that autoscan, seeing
+# CC etc. in the Makefile, will ask for an AC_PROG_CC use...
+
+
+
+# _AM_DEPENDENCIES(NAME)
+# ----------------------
+# See how the compiler implements dependency checking.
+# NAME is "CC", "CXX", "GCJ", or "OBJC".
+# We try a few techniques and use that to set a single cache variable.
+#
+# We don't AC_REQUIRE the corresponding AC_PROG_CC since the latter was
+# modified to invoke _AM_DEPENDENCIES(CC); we would have a circular
+# dependency, and given that the user is not expected to run this macro,
+# just rely on AC_PROG_CC.
+AC_DEFUN([_AM_DEPENDENCIES],
+[AC_REQUIRE([AM_SET_DEPDIR])dnl
+AC_REQUIRE([AM_OUTPUT_DEPENDENCY_COMMANDS])dnl
+AC_REQUIRE([AM_MAKE_INCLUDE])dnl
+AC_REQUIRE([AM_DEP_TRACK])dnl
+
+ifelse([$1], CC,   [depcc="$CC"   am_compiler_list=],
+       [$1], CXX,  [depcc="$CXX"  am_compiler_list=],
+       [$1], OBJC, [depcc="$OBJC" am_compiler_list='gcc3 gcc'],
+       [$1], GCJ,  [depcc="$GCJ"  am_compiler_list='gcc3 gcc'],
+                   [depcc="$$1"   am_compiler_list=])
+
+AC_CACHE_CHECK([dependency style of $depcc],
+               [am_cv_$1_dependencies_compiler_type],
+[if test -z "$AMDEP_TRUE" && test -f "$am_depcomp"; then
+  # We make a subdir and do the tests there.  Otherwise we can end up
+  # making bogus files that we don't know about and never remove.  For
+  # instance it was reported that on HP-UX the gcc test will end up
+  # making a dummy file named `D' -- because `-MD' means `put the output
+  # in D'.
+  mkdir conftest.dir
+  # Copy depcomp to subdir because otherwise we won't find it if we're
+  # using a relative directory.
+  cp "$am_depcomp" conftest.dir
+  cd conftest.dir
+
+  am_cv_$1_dependencies_compiler_type=none
+  if test "$am_compiler_list" = ""; then
+     am_compiler_list=`sed -n ['s/^#*\([a-zA-Z0-9]*\))$/\1/p'] < ./depcomp`
+  fi
+  for depmode in $am_compiler_list; do
+    # We need to recreate these files for each test, as the compiler may
+    # overwrite some of them when testing with obscure command lines.
+    # This happens at least with the AIX C compiler.
+    echo '#include "conftest.h"' > conftest.c
+    echo 'int i;' > conftest.h
+    echo "${am__include} ${am__quote}conftest.Po${am__quote}" > confmf
+
+    case $depmode in
+    nosideeffect)
+      # after this tag, mechanisms are not by side-effect, so they'll
+      # only be used when explicitly requested
+      if test "x$enable_dependency_tracking" = xyes; then
+	continue
+      else
+	break
+      fi
+      ;;
+    none) break ;;
+    esac
+    # We check with `-c' and `-o' for the sake of the "dashmstdout"
+    # mode.  It turns out that the SunPro C++ compiler does not properly
+    # handle `-M -o', and we need to detect this.
+    if depmode=$depmode \
+       source=conftest.c object=conftest.o \
+       depfile=conftest.Po tmpdepfile=conftest.TPo \
+       $SHELL ./depcomp $depcc -c -o conftest.o conftest.c >/dev/null 2>&1 &&
+       grep conftest.h conftest.Po > /dev/null 2>&1 &&
+       ${MAKE-make} -s -f confmf > /dev/null 2>&1; then
+      am_cv_$1_dependencies_compiler_type=$depmode
+      break
+    fi
+  done
+
+  cd ..
+  rm -rf conftest.dir
+else
+  am_cv_$1_dependencies_compiler_type=none
+fi
+])
+AC_SUBST([$1DEPMODE], [depmode=$am_cv_$1_dependencies_compiler_type])
+AM_CONDITIONAL([am__fastdep$1], [
+  test "x$enable_dependency_tracking" != xno \
+  && test "$am_cv_$1_dependencies_compiler_type" = gcc3])
+])
+
+
+# AM_SET_DEPDIR
+# -------------
+# Choose a directory name for dependency files.
+# This macro is AC_REQUIREd in _AM_DEPENDENCIES
+AC_DEFUN([AM_SET_DEPDIR],
+[rm -f .deps 2>/dev/null
+mkdir .deps 2>/dev/null
+if test -d .deps; then
+  DEPDIR=.deps
+else
+  # MS-DOS does not allow filenames that begin with a dot.
+  DEPDIR=_deps
+fi
+rmdir .deps 2>/dev/null
+AC_SUBST([DEPDIR])
+])
+
+
+# AM_DEP_TRACK
+# ------------
+AC_DEFUN([AM_DEP_TRACK],
+[AC_ARG_ENABLE(dependency-tracking,
+[  --disable-dependency-tracking Speeds up one-time builds
+  --enable-dependency-tracking  Do not reject slow dependency extractors])
+if test "x$enable_dependency_tracking" != xno; then
+  am_depcomp="$ac_aux_dir/depcomp"
+  AMDEPBACKSLASH='\'
+fi
+AM_CONDITIONAL([AMDEP], [test "x$enable_dependency_tracking" != xno])
+AC_SUBST([AMDEPBACKSLASH])
+])
+
+# Generate code to set up dependency tracking.   -*- Autoconf -*-
+
+# Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+#serial 2
+
+# _AM_OUTPUT_DEPENDENCY_COMMANDS
+# ------------------------------
+AC_DEFUN([_AM_OUTPUT_DEPENDENCY_COMMANDS],
+[for mf in $CONFIG_FILES; do
+  # Strip MF so we end up with the name of the file.
+  mf=`echo "$mf" | sed -e 's/:.*$//'`
+  # Check whether this is an Automake generated Makefile or not.
+  # We used to match only the files named `Makefile.in', but
+  # some people rename them; so instead we look at the file content.
+  # Grep'ing the first line is not enough: some people post-process
+  # each Makefile.in and add a new line on top of each file to say so.
+  # So let's grep whole file.
+  if grep '^#.*generated by automake' $mf > /dev/null 2>&1; then
+    dirpart=`AS_DIRNAME("$mf")`
+  else
+    continue
+  fi
+  grep '^DEP_FILES *= *[[^ @%:@]]' < "$mf" > /dev/null || continue
+  # Extract the definition of DEP_FILES from the Makefile without
+  # running `make'.
+  DEPDIR=`sed -n -e '/^DEPDIR = / s///p' < "$mf"`
+  test -z "$DEPDIR" && continue
+  # When using ansi2knr, U may be empty or an underscore; expand it
+  U=`sed -n -e '/^U = / s///p' < "$mf"`
+  test -d "$dirpart/$DEPDIR" || mkdir "$dirpart/$DEPDIR"
+  # We invoke sed twice because it is the simplest approach to
+  # changing $(DEPDIR) to its actual value in the expansion.
+  for file in `sed -n -e '
+    /^DEP_FILES = .*\\\\$/ {
+      s/^DEP_FILES = //
+      :loop
+	s/\\\\$//
+	p
+	n
+	/\\\\$/ b loop
+      p
+    }
+    /^DEP_FILES = / s/^DEP_FILES = //p' < "$mf" | \
+       sed -e 's/\$(DEPDIR)/'"$DEPDIR"'/g' -e 's/\$U/'"$U"'/g'`; do
+    # Make sure the directory exists.
+    test -f "$dirpart/$file" && continue
+    fdir=`AS_DIRNAME(["$file"])`
+    AS_MKDIR_P([$dirpart/$fdir])
+    # echo "creating $dirpart/$file"
+    echo '# dummy' > "$dirpart/$file"
+  done
+done
+])# _AM_OUTPUT_DEPENDENCY_COMMANDS
+
+
+# AM_OUTPUT_DEPENDENCY_COMMANDS
+# -----------------------------
+# This macro should only be invoked once -- use via AC_REQUIRE.
+#
+# This code is only required when automatic dependency tracking
+# is enabled.  FIXME.  This creates each `.P' file that we will
+# need in order to bootstrap the dependency handling code.
+AC_DEFUN([AM_OUTPUT_DEPENDENCY_COMMANDS],
+[AC_CONFIG_COMMANDS([depfiles],
+     [test x"$AMDEP_TRUE" != x"" || _AM_OUTPUT_DEPENDENCY_COMMANDS],
+     [AMDEP_TRUE="$AMDEP_TRUE" ac_aux_dir="$ac_aux_dir"])
+])
+
+# Check to see how 'make' treats includes.	-*- Autoconf -*-
+
+# Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 2
+
+# AM_MAKE_INCLUDE()
+# -----------------
+# Check to see how make treats includes.
+AC_DEFUN([AM_MAKE_INCLUDE],
+[am_make=${MAKE-make}
+cat > confinc << 'END'
+doit:
+	@echo done
+END
+# If we don't find an include directive, just comment out the code.
+AC_MSG_CHECKING([for style of include used by $am_make])
+am__include="#"
+am__quote=
+_am_result=none
+# First try GNU make style include.
+echo "include confinc" > confmf
+# We grep out `Entering directory' and `Leaving directory'
+# messages which can occur if `w' ends up in MAKEFLAGS.
+# In particular we don't look at `^make:' because GNU make might
+# be invoked under some other name (usually "gmake"), in which
+# case it prints its new name instead of `make'.
+if test "`$am_make -s -f confmf 2> /dev/null | grep -v 'ing directory'`" = "done"; then
+   am__include=include
+   am__quote=
+   _am_result=GNU
+fi
+# Now try BSD make style include.
+if test "$am__include" = "#"; then
+   echo '.include "confinc"' > confmf
+   if test "`$am_make -s -f confmf 2> /dev/null`" = "done"; then
+      am__include=.include
+      am__quote="\""
+      _am_result=BSD
+   fi
+fi
+AC_SUBST(am__include)
+AC_SUBST(am__quote)
+AC_MSG_RESULT($_am_result)
+rm -f confinc confmf
+])
+
+# AM_CONDITIONAL                                              -*- Autoconf -*-
+
+# Copyright 1997, 2000, 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 5
+
+AC_PREREQ(2.52)
+
+# AM_CONDITIONAL(NAME, SHELL-CONDITION)
+# -------------------------------------
+# Define a conditional.
+AC_DEFUN([AM_CONDITIONAL],
+[ifelse([$1], [TRUE],  [AC_FATAL([$0: invalid condition: $1])],
+        [$1], [FALSE], [AC_FATAL([$0: invalid condition: $1])])dnl
+AC_SUBST([$1_TRUE])
+AC_SUBST([$1_FALSE])
+if $2; then
+  $1_TRUE=
+  $1_FALSE='#'
+else
+  $1_TRUE='#'
+  $1_FALSE=
+fi
+AC_CONFIG_COMMANDS_PRE(
+[if test -z "${$1_TRUE}" && test -z "${$1_FALSE}"; then
+  AC_MSG_ERROR([conditional "$1" was never defined.
+Usually this means the macro was only invoked conditionally.])
+fi])])
 
 dnl init_automake.m4--cmulocal automake setup macro
 dnl Rob Earhart
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
 
-AC_DEFUN(CMU_INIT_AUTOMAKE, [
+AC_DEFUN([CMU_INIT_AUTOMAKE], [
 	AC_REQUIRE([AM_INIT_AUTOMAKE])
 	ACLOCAL="$ACLOCAL -I \$(top_srcdir)/cmulocal"
 	])
 
 dnl
-dnl $Id: aclocal.m4,v 1.1 2002/02/27 23:54:19 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
 dnl
 
 dnl
 dnl Test for __attribute__
 dnl
 
-AC_DEFUN(CMU_C___ATTRIBUTE__, [
+AC_DEFUN([CMU_C___ATTRIBUTE__], [
 AC_MSG_CHECKING(for __attribute__)
 AC_CACHE_VAL(ac_cv___attribute__, [
 AC_TRY_COMPILE([
@@ -167,6 +826,7 @@ AC_MSG_RESULT($ac_cv___attribute__)
 
 dnl
 dnl Additional macros for configure.in packaged up for easier theft.
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
 dnl tjs@andrew.cmu.edu 6-may-1998
 dnl
 
@@ -175,7 +835,7 @@ dnl already there and not redundantly add it if it is.
 
 dnl add -L(arg), and possibly (runpath switch)(arg), to LDFLAGS
 dnl (so the runpath for shared libraries is set).
-AC_DEFUN(CMU_ADD_LIBPATH, [
+AC_DEFUN([CMU_ADD_LIBPATH], [
   # this is CMU ADD LIBPATH
   if test "$andrew_runpath_switch" = "none" ; then
 	LDFLAGS="-L$1 ${LDFLAGS}"
@@ -186,7 +846,7 @@ AC_DEFUN(CMU_ADD_LIBPATH, [
 
 dnl add -L(1st arg), and possibly (runpath switch)(1st arg), to (2nd arg)
 dnl (so the runpath for shared libraries is set).
-AC_DEFUN(CMU_ADD_LIBPATH_TO, [
+AC_DEFUN([CMU_ADD_LIBPATH_TO], [
   # this is CMU ADD LIBPATH TO
   if test "$andrew_runpath_switch" = "none" ; then
 	$2="-L$1 ${$2}"
@@ -196,7 +856,7 @@ AC_DEFUN(CMU_ADD_LIBPATH_TO, [
 ])
 
 dnl runpath initialization
-AC_DEFUN(CMU_GUESS_RUNPATH_SWITCH, [
+AC_DEFUN([CMU_GUESS_RUNPATH_SWITCH], [
    # CMU GUESS RUNPATH SWITCH
   AC_CACHE_CHECK(for runpath switch, andrew_runpath_switch, [
     # first, try -R
@@ -619,120 +1279,46 @@ AC_DEFUN(AM_PROG_NM, [indir([AC_PROG_NM])])dnl
 dnl This is just to silence aclocal about the macro not being used
 ifelse([AC_DISABLE_FAST_INSTALL])dnl
 
-dnl libtoolhack.m4--hack to make libtool behave better
-dnl Rob Earhart
+dnl bsd_sockets.m4--which socket libraries do we need? 
+dnl Derrick Brashear
+dnl from Zephyr
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
 
-dnl Libtool tries to compile an empty file to see whether it can build
-dnl shared libraries, and treats *any* warning as a problem.
-dnl Solaris's and HP's cc complains about the empty file.  So we hack
-dnl the CFLAGS to make cc not complain.
+dnl Hacked on by Rob Earhart to not just toss stuff in LIBS
+dnl It now puts everything required for sockets into LIB_SOCKET
 
-AC_DEFUN(CMU_PROG_LIBTOOL, [
-AC_REQUIRE([AC_PROG_CC])
-if test "$ac_cv_prog_gcc" = no; then
-  case "$host_os" in
-    solaris2*)
-      save_cflags="${CFLAGS}"
-      CFLAGS="-erroff=E_EMPTY_TRANSLATION_UNIT ${CFLAGS}"
-      ;;
-    hpux*)
-      save_cflags="${CFLAGS}"
-      CFLAGS="-w"
-      ;;
-  esac
-fi
-
-AM_PROG_LIBTOOL
-
-if test "$ac_cv_prog_gcc" = no; then
-  case "$host_os" in
-    solaris2*|hpux*)
-      CFLAGS="${save_cflags}"
-  esac
-fi
-])
-
-# Define a conditional.
-
-AC_DEFUN(AM_CONDITIONAL,
-[AC_SUBST($1_TRUE)
-AC_SUBST($1_FALSE)
-if $2; then
-  $1_TRUE=
-  $1_FALSE='#'
-else
-  $1_TRUE='#'
-  $1_FALSE=
-fi])
+AC_DEFUN([CMU_SOCKETS], [
+	save_LIBS="$LIBS"
+	LIB_SOCKET=""
+	AC_CHECK_FUNC(connect, :,
+		AC_CHECK_LIB(nsl, gethostbyname,
+			     LIB_SOCKET="-lnsl $LIB_SOCKET")
+		AC_CHECK_LIB(socket, connect,
+			     LIB_SOCKET="-lsocket $LIB_SOCKET")
+	)
+	LIBS="$LIB_SOCKET $save_LIBS"
+	AC_CHECK_FUNC(res_search, :,
+                AC_CHECK_LIB(resolv, res_search,
+                              LIB_SOCKET="-lresolv $LIB_SOCKET") 
+        )
+	LIBS="$LIB_SOCKET $save_LIBS"
+	AC_CHECK_FUNCS(dn_expand dns_lookup)
+	LIBS="$save_LIBS"
+	AC_SUBST(LIB_SOCKET)
+	])
 
 dnl Functions to check what database to use for libsasldb
 
 dnl Berkeley DB specific checks first..
 
-dnl this is unbelievably painful due to confusion over what db-3 should be
-dnl named and where the db-3 header file is located.  arg.
-AC_DEFUN(BERKELEY_DB_CHK_LIB,
-[
-	BDB_SAVE_LIBS=$LIBS
-
-	if test -d $with_bdb_lib; then
-	    LIBS="$LIBS -L$with_bdb_lib"
-	    BDB_LIBADD="-L$with_bdb_lib -R $with_bdb_lib"
-	else
-	    BDB_LIBADD=""
-	fi
-
-        for dbname in db-4.0 db4.0 db-4 db-3.3 db3.3 db-3.2 db3.2 db-3.1 db3.1 db-3 db3 db
-          do
-            AC_CHECK_LIB($dbname, db_create, SASL_DB_LIB="$BDB_LIBADD -l$dbname";
-              dblib="berkeley"; break, dblib="no")
-          done
-        if test "$dblib" = "no"; then
-          AC_CHECK_LIB(db, db_open, SASL_DB_LIB="$BDB_LIBADD -ldb";
-            dblib="berkeley"; dbname=db,
-            dblib="no")
-        fi
-
-	LIBS=$BDB_SAVE_LIBS
-])
-
-AC_DEFUN(BERKELEY_DB_CHK,
-[
-	if test -d $with_bdb_inc; then
-	    CPPFLAGS="$CPPFLAGS -I$with_bdb_inc"
-	    BDB_INCADD="-I$with_bdb_inc"
-	else
-	    BDB_INCADD=""
-	fi
-
-	dnl FreeBSD puts it in a wierd place
-	AC_CHECK_HEADER(db3/db.h,
-                       BERKELEY_DB_CHK_LIB()
-                       if test "$dblib" = "berkeley"; then
-			 SASL_DB_INC=$BDB_INCADD
-                         AC_DEFINE(HAVE_DB3_DB_H)
-                       fi,
-               AC_CHECK_HEADER(db.h,
-                       	       BERKELEY_DB_CHK_LIB()
-			       SASL_DB_INC=$BDB_INCADD,
-                               dblib="no"))
-])
-
 dnl Figure out what database type we're using
-AC_DEFUN(SASL_DB_CHECK, [
+AC_DEFUN([SASL_DB_CHECK], [
 cmu_save_LIBS="$LIBS"
 AC_ARG_WITH(dblib, [  --with-dblib=DBLIB      set the DB library to use [berkeley] ],
   dblib=$withval,
   dblib=auto_detect)
 
-AC_ARG_WITH(bdb-libdir,
-	[  --with-bdb-libdir=DIR   Berkeley DB lib files are in DIR],
-	with_bdb_lib=$withval,
-	with_bdb_lib=none)
-AC_ARG_WITH(bdb-incdir,
-	[  --with-bdb-incdir=DIR   Berkeley DB include files are in DIR],
-	with_bdb_inc=$withval,
-	with_bdb_inc=none)
+CYRUS_BERKELEY_DB_OPTS()
 
 SASL_DB_LIB=""
 
@@ -740,17 +1326,20 @@ case "$dblib" in
 dnl this is unbelievably painful due to confusion over what db-3 should be
 dnl named.  arg.
   berkeley)
-	BERKELEY_DB_CHK()
+	CYRUS_BERKELEY_DB_CHK()
+	CPPFLAGS="${CPPFLAGS} ${BDB_INCADD}"
+	SASL_DB_INC=$BDB_INCADD
+	SASL_DB_LIB="${BDB_LIBADD}"
 	;;
   gdbm)
-	AC_ARG_WITH(with-gdbm,[  --with-gdbm=PATH        use gdbm from PATH],
+	AC_ARG_WITH(gdbm,[  --with-gdbm=PATH        use gdbm from PATH],
                     with_gdbm="${withval}")
 
         case "$with_gdbm" in
            ""|yes)
-               AC_CHECK_HEADER(gdbm.h,
+               AC_CHECK_HEADER(gdbm.h, [
 			AC_CHECK_LIB(gdbm, gdbm_open, SASL_DB_LIB="-lgdbm",
-                                           dblib="no"),
+                                           dblib="no")],
 			dblib="no")
                ;;
            *)
@@ -766,20 +1355,20 @@ dnl named.  arg.
   ndbm)
 	dnl We want to attempt to use -lndbm if we can, just in case
 	dnl there's some version of it installed and overriding libc
-	AC_CHECK_HEADER(ndbm.h,
-			AC_CHECK_LIB(ndbm, dbm_open, SASL_DB_LIB="-lndbm",
-				AC_CHECK_FUNC(dbm_open,,dblib="no")),
+	AC_CHECK_HEADER(ndbm.h, [
+			AC_CHECK_LIB(ndbm, dbm_open, SASL_DB_LIB="-lndbm", [
+				AC_CHECK_FUNC(dbm_open,,dblib="no")])],
 				dblib="no")
 	;;
   auto_detect)
         dnl How about berkeley db?
-	BERKELEY_DB_CHK()
+	CYRUS_BERKELEY_DB_CHK()
 	if test "$dblib" = no; then
 	  dnl How about ndbm?
-	  AC_CHECK_HEADER(ndbm.h, 
+	  AC_CHECK_HEADER(ndbm.h, [
 		AC_CHECK_LIB(ndbm, dbm_open,
 			     dblib="ndbm"; SASL_DB_LIB="-lndbm",
-		   	     dblib="weird"),
+		   	     dblib="weird")],
 		   dblib="no")
 	  if test "$dblib" = "weird"; then
 	    dnl Is ndbm in the standard library?
@@ -788,11 +1377,16 @@ dnl named.  arg.
 
 	  if test "$dblib" = no; then
             dnl Can we use gdbm?
-   	    AC_CHECK_HEADER(gdbm.h,
+   	    AC_CHECK_HEADER(gdbm.h, [
 		AC_CHECK_LIB(gdbm, gdbm_open, dblib="gdbm";
-					     SASL_DB_LIB="-lgdbm", dblib="no"),
+					     SASL_DB_LIB="-lgdbm", dblib="no")],
   			     dblib="no")
 	  fi
+	else
+	  dnl we took Berkeley
+	  CPPFLAGS="${CPPFLAGS} ${BDB_INCADD}"
+	  SASL_DB_INC=$BDB_INCADD
+          SASL_DB_LIB="${BDB_LIBADD}"
 	fi
 	;;
   none)
@@ -818,24 +1412,20 @@ SASL_DB_MANS="saslpasswd2.8 sasldblistusers2.8"
 case "$dblib" in
   gdbm) 
     SASL_MECHS="$SASL_MECHS libsasldb.la"
-    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/sasldb.o"
-    AC_DEFINE(STATIC_SASLDB)
-    AC_DEFINE(SASL_GDBM)
+    AC_DEFINE(SASL_GDBM,[],[Use GDBM for SASLdb])
     ;;
   ndbm)
     SASL_MECHS="$SASL_MECHS libsasldb.la"
-    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/sasldb.o"
-    AC_DEFINE(STATIC_SASLDB)
-    AC_DEFINE(SASL_NDBM)
+    AC_DEFINE(SASL_NDBM,[],[Use NDBM for SASLdb])
     ;;
   berkeley)
     SASL_MECHS="$SASL_MECHS libsasldb.la"
-    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/sasldb.o"
-    AC_DEFINE(STATIC_SASLDB)
-    AC_DEFINE(SASL_BERKELEYDB)
+    AC_DEFINE(SASL_BERKELEYDB,[],[Use BerkeleyDB for SASLdb])
     ;;
   *)
     AC_MSG_WARN([Disabling SASL authentication database support])
+    dnl note that we do not add libsasldb.la to SASL_MECHS, since it
+    dnl will just fail to load anyway.
     SASL_DB_BACKEND="db_none.lo"
     SASL_DB_BACKEND_STATIC="../sasldb/db_none.o"
     SASL_DB_UTILS=""
@@ -843,6 +1433,15 @@ case "$dblib" in
     SASL_DB_LIB=""
     ;;
 esac
+
+if test "$enable_static" = yes; then
+    if test "$dblib" != "none"; then
+      SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/sasldb.o $SASL_DB_BACKEND_STATIC"
+      AC_DEFINE(STATIC_SASLDB,[],[Link SASLdb Staticly])
+    else
+      SASL_STATIC_OBJS="$SASL_STATIC_OBJS $SASL_DB_BACKEND_STATIC"
+    fi
+fi
 AC_SUBST(SASL_DB_UTILS)
 AC_SUBST(SASL_DB_MANS)
 AC_SUBST(SASL_DB_BACKEND)
@@ -852,44 +1451,1093 @@ AC_SUBST(SASL_DB_LIB)
 ])
 
 dnl Figure out what database path we're using
-AC_DEFUN(SASL_DB_PATH_CHECK, [
+AC_DEFUN([SASL_DB_PATH_CHECK], [
 AC_ARG_WITH(dbpath, [  --with-dbpath=PATH      set the DB path to use [/etc/sasldb2] ],
   dbpath=$withval,
   dbpath=/etc/sasldb2)
 AC_MSG_CHECKING(DB path to use)
 AC_MSG_RESULT($dbpath)
-AC_DEFINE_UNQUOTED(SASL_DB_PATH, "$dbpath")])
+AC_DEFINE_UNQUOTED(SASL_DB_PATH, "$dbpath", [Path to default SASLdb database])])
 
-dnl bsd_sockets.m4--which socket libraries do we need? 
-dnl Derrick Brashear
-dnl from Zephyr
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
 
-dnl Hacked on by Rob Earhart to not just toss stuff in LIBS
-dnl It now puts everything required for sockets into LIB_SOCKET
+AC_DEFUN([CMU_DB_INC_WHERE1], [
+saved_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$saved_CPPFLAGS -I$1"
+AC_TRY_COMPILE([#include <db.h>],
+[DB *db;
+db_create(&db, NULL, 0);
+db->open(db, "foo.db", NULL, DB_UNKNOWN, DB_RDONLY, 0644);],
+ac_cv_found_db_inc=yes,
+ac_cv_found_db_inc=no)
+CPPFLAGS=$saved_CPPFLAGS
+])
 
-AC_DEFUN(CMU_SOCKETS, [
-	save_LIBS="$LIBS"
-	LIB_SOCKET=""
-	AC_CHECK_FUNC(connect, :,
-		AC_CHECK_LIB(nsl, gethostbyname,
-			     LIB_SOCKET="-lnsl $LIB_SOCKET")
-		AC_CHECK_LIB(socket, connect,
-			     LIB_SOCKET="-lsocket $LIB_SOCKET")
-	)
-	LIBS="$LIB_SOCKET $save_LIBS"
-	AC_CHECK_FUNC(res_search, :,
-                AC_CHECK_LIB(resolv, res_search,
-                              LIB_SOCKET="-lresolv $LIB_SOCKET") 
-        )
-	LIBS="$LIB_SOCKET $save_LIBS"
-	AC_CHECK_FUNCS(dn_expand dns_lookup)
-	LIBS="$save_LIBS"
-	AC_SUBST(LIB_SOCKET)
+AC_DEFUN([CMU_DB_INC_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for db headers in $i)
+      CMU_DB_INC_WHERE1($i)
+      CMU_TEST_INCPATH($i, db)
+      if test "$ac_cv_found_db_inc" = "yes"; then
+        ac_cv_db_where_inc=$i
+        AC_MSG_RESULT(found)
+        break
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+#
+# Test for lib files
+#
+
+AC_DEFUN([CMU_DB3_LIB_WHERE1], [
+AC_REQUIRE([CMU_AFS])
+AC_REQUIRE([CMU_KRB4])
+saved_LIBS=$LIBS
+  LIBS="$saved_LIBS -L$1 -ldb-3"
+AC_TRY_LINK([#include <db.h>],
+[db_env_create(NULL, 0);],
+[ac_cv_found_db_3_lib=yes],
+ac_cv_found_db_3_lib=no)
+LIBS=$saved_LIBS
+])
+AC_DEFUN([CMU_DB4_LIB_WHERE1], [
+AC_REQUIRE([CMU_AFS])
+AC_REQUIRE([CMU_KRB4])
+saved_LIBS=$LIBS
+LIBS="$saved_LIBS -L$1 -ldb-4"
+AC_TRY_LINK([#include <db.h>],
+[db_env_create(NULL, 0);],
+[ac_cv_found_db_4_lib=yes],
+ac_cv_found_db_4_lib=no)
+LIBS=$saved_LIBS
+])
+
+AC_DEFUN([CMU_DB_LIB_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for db libraries in $i)
+if test "$enable_db4" = "yes"; then
+      CMU_DB4_LIB_WHERE1($i)
+      CMU_TEST_LIBPATH($i, [db-4])
+      ac_cv_found_db_lib=$ac_cv_found_db_4_lib
+else
+      CMU_DB3_LIB_WHERE1($i)
+      CMU_TEST_LIBPATH($i, [db-3])
+      ac_cv_found_db_lib=$ac_cv_found_db_3_lib
+fi
+      if test "$ac_cv_found_db_lib" = "yes" ; then
+        ac_cv_db_where_lib=$i
+        AC_MSG_RESULT(found)
+        break
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+AC_DEFUN([CMU_USE_DB], [
+AC_ARG_WITH(db,
+	[  --with-db=PREFIX      Compile with db support],
+	[if test "X$with_db" = "X"; then
+		with_db=yes
+	fi])
+AC_ARG_WITH(db-lib,
+	[  --with-db-lib=dir     use db libraries in dir],
+	[if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([No argument for --with-db-lib])
+	fi])
+AC_ARG_WITH(db-include,
+	[  --with-db-include=dir use db headers in dir],
+	[if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([No argument for --with-db-include])
+	fi])
+AC_ARG_ENABLE(db4,
+	[  --enable-db4          use db 4.x libraries])
+	
+	if test "X$with_db" != "X"; then
+	  if test "$with_db" != "yes"; then
+	    ac_cv_db_where_lib=$with_db/lib
+	    ac_cv_db_where_inc=$with_db/include
+	  fi
+	fi
+
+	if test "X$with_db_lib" != "X"; then
+	  ac_cv_db_where_lib=$with_db_lib
+	fi
+	if test "X$ac_cv_db_where_lib" = "X"; then
+	  CMU_DB_LIB_WHERE(/usr/athena/lib /usr/lib /usr/local/lib)
+	fi
+
+	if test "X$with_db_include" != "X"; then
+	  ac_cv_db_where_inc=$with_db_include
+	fi
+	if test "X$ac_cv_db_where_inc" = "X"; then
+	  CMU_DB_INC_WHERE(/usr/athena/include /usr/local/include)
+	fi
+
+	AC_MSG_CHECKING(whether to include db)
+	if test "X$ac_cv_db_where_lib" = "X" -o "X$ac_cv_db_where_inc" = "X"; then
+	  ac_cv_found_db=no
+	  AC_MSG_RESULT(no)
+	else
+	  ac_cv_found_db=yes
+	  AC_MSG_RESULT(yes)
+	  DB_INC_DIR=$ac_cv_db_where_inc
+	  DB_LIB_DIR=$ac_cv_db_where_lib
+	  DB_INC_FLAGS="-I${DB_INC_DIR}"
+          if test "$enable_db4" = "yes"; then
+	     DB_LIB_FLAGS="-L${DB_LIB_DIR} -ldb-4"
+          else
+	     DB_LIB_FLAGS="-L${DB_LIB_DIR} -ldb-3"
+          fi
+          dnl Do not force configure.in to put these in CFLAGS and LIBS unconditionally
+          dnl Allow makefile substitutions....
+          AC_SUBST(DB_INC_FLAGS)
+          AC_SUBST(DB_LIB_FLAGS)
+	  if test "X$RPATH" = "X"; then
+		RPATH=""
+	  fi
+	  case "${host}" in
+	    *-*-linux*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,-rpath,${DB_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${DB_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-hpux*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,+b${DB_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${DB_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-irix*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,-rpath,${DB_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${DB_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-solaris2*)
+	      if test "$ac_cv_prog_gcc" = yes; then
+		if test "X$RPATH" = "X"; then
+		  RPATH="-Wl,-R${DB_LIB_DIR}"
+		else 
+		  RPATH="${RPATH}:${DB_LIB_DIR}"
+		fi
+	      else
+	        RPATH="${RPATH} -R${DB_LIB_DIR}"
+	      fi
+	      ;;
+	  esac
+	  AC_SUBST(RPATH)
+	fi
 	])
+
+
+
+dnl ---- CUT HERE ---
+
+dnl These are the Cyrus Berkeley DB macros.  In an ideal world these would be
+dnl identical to the above.
+
+dnl They are here so that they can be shared between Cyrus IMAPd
+dnl and Cyrus SASL with relative ease.
+
+dnl The big difference between this and the ones above is that we don't assume
+dnl that we know the name of the library, and we try a lot of permutations
+dnl instead.  We also assume that DB4 is acceptable.
+
+dnl When we're done, there will be a BDB_LIBADD and a BDB_INCADD which should
+dnl be used when necessary.  We should probably be smarter about our RPATH
+dnl handling.
+
+dnl Call these with BERKELEY_DB_CHK.
+
+dnl We will also set $dblib to "berkeley" if we are successful, "no" otherwise.
+
+dnl this is unbelievably painful due to confusion over what db-3 should be
+dnl named and where the db-3 header file is located.  arg.
+AC_DEFUN([CYRUS_BERKELEY_DB_CHK_LIB],
+[
+	BDB_SAVE_LIBS=$LIBS
+
+	if test -d $with_bdb_lib; then
+	    CMU_ADD_LIBPATH_TO($with_bdb_lib, LIBS)
+	    CMU_ADD_LIBPATH_TO($with_bdb_lib, BDB_LIBADD)
+	else
+	    BDB_LIBADD=""
+	fi
+
+        for dbname in db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
+          do
+            AC_CHECK_LIB($dbname, db_create, BDB_LIBADD="$BDB_LIBADD -l$dbname";
+              dblib="berkeley"; break, dblib="no")
+          done
+        if test "$dblib" = "no"; then
+          AC_CHECK_LIB(db, db_open, BDB_LIBADD="$BDB_LIBADD -ldb";
+            dblib="berkeley"; dbname=db,
+            dblib="no")
+        fi
+
+	LIBS=$BDB_SAVE_LIBS
+])
+
+AC_DEFUN([CYRUS_BERKELEY_DB_OPTS],
+[
+AC_ARG_WITH(bdb-libdir,
+	[  --with-bdb-libdir=DIR   Berkeley DB lib files are in DIR],
+	with_bdb_lib=$withval,
+	[ test "${with_bdb_lib+set}" = set || with_bdb_lib=none])
+AC_ARG_WITH(bdb-incdir,
+	[  --with-bdb-incdir=DIR   Berkeley DB include files are in DIR],
+	with_bdb_inc=$withval,
+	[ test "${with_bdb_inc+set}" = set || with_bdb_inc=none ])
+])
+
+AC_DEFUN([CYRUS_BERKELEY_DB_CHK],
+[
+	AC_REQUIRE([CYRUS_BERKELEY_DB_OPTS])
+
+	cmu_save_CPPFLAGS=$CPPFLAGS
+
+	if test -d $with_bdb_inc; then
+	    CPPFLAGS="$CPPFLAGS -I$with_bdb_inc"
+	    BDB_INCADD="-I$with_bdb_inc"
+	else
+	    BDB_INCADD=""
+	fi
+
+	dnl Note that FreeBSD puts it in a wierd place
+        dnl (but they should use with-bdb-incdir)
+        AC_CHECK_HEADER(db.h,
+                        CYRUS_BERKELEY_DB_CHK_LIB(),
+                        dblib="no")
+
+	CPPFLAGS=$cmu_save_CPPFLAGS
+])
+
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
+
+AC_DEFUN([CMU_TEST_LIBPATH], [
+changequote(<<, >>)
+define(<<CMU_AC_CV_FOUND>>, translit(ac_cv_found_$2_lib, <<- *>>, <<__p>>))
+changequote([, ])
+if test "$CMU_AC_CV_FOUND" = "yes"; then
+  if test \! -r "$1/lib$2.a" -a \! -r "$1/lib$2.so" -a \! -r "$1/lib$2.sl"; then
+    CMU_AC_CV_FOUND=no
+  fi
+fi
+])
+
+AC_DEFUN([CMU_TEST_INCPATH], [
+changequote(<<, >>)
+define(<<CMU_AC_CV_FOUND>>, translit(ac_cv_found_$2_inc, [ *], [_p]))
+changequote([, ])
+if test "$CMU_AC_CV_FOUND" = "yes"; then
+  if test \! -r "$1/$2.h"; then
+    CMU_AC_CV_FOUND=no
+  fi
+fi
+])
+
+dnl CMU_CHECK_HEADER_NOCACHE(HEADER-FILE, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]])
+AC_DEFUN([CMU_CHECK_HEADER_NOCACHE],
+[dnl Do the transliteration at runtime so arg 1 can be a shell variable.
+ac_safe=`echo "$1" | sed 'y%./+-%__p_%'`
+AC_MSG_CHECKING([for $1])
+AC_TRY_CPP([#include <$1>], eval "ac_cv_header_$ac_safe=yes",
+  eval "ac_cv_header_$ac_safe=no")
+if eval "test \"`echo '$ac_cv_header_'$ac_safe`\" = yes"; then
+  AC_MSG_RESULT(yes)
+  ifelse([$2], , :, [$2])
+else
+  AC_MSG_RESULT(no)
+ifelse([$3], , , [$3
+])dnl
+fi
+])
+
+dnl afs.m4--AFS libraries, includes, and dependencies
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
+dnl Chaskiel Grundman
+dnl based on kerberos_v4.m4
+dnl Derrick Brashear
+dnl from KTH krb and Arla
+
+AC_DEFUN([CMU_AFS_INC_WHERE1], [
+cmu_save_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$cmu_save_CPPFLAGS -I$1"
+AC_TRY_COMPILE([#include <afs/param.h>],
+[#ifndef SYS_NAME
+choke me
+#endif
+int foo;],
+ac_cv_found_afs_inc=yes,
+ac_cv_found_afs_inc=no)
+CPPFLAGS=$cmu_save_CPPFLAGS
+])
+
+AC_DEFUN([CMU_AFS_LIB_WHERE1], [
+save_LIBS="$LIBS"
+save_LDFLAGS="$LDFLAGS"
+
+LIBS="-lauth $1/afs/util.a $LIB_SOCKET $LIBS"
+LDFLAGS="-L$1 -L$1/afs $LDFLAGS"
+dnl suppress caching
+AC_TRY_LINK([],[afsconf_Open();], ac_cv_found_afs_lib=yes, ac_cv_found_afs_lib=no)
+LIBS="$save_LIBS"
+LDFLAGS="$save_LDFLAGS"
+])
+
+AC_DEFUN([CMU_AFS_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for AFS in $i)
+      CMU_AFS_INC_WHERE1("$i/include")
+      ac_cv_found_lwp_inc=$ac_cv_found_afs_inc
+      CMU_TEST_INCPATH($i/include, lwp) 
+      ac_cv_found_afs_inc=$ac_cv_found_lwp_inc
+      if test "$ac_cv_found_afs_inc" = "yes"; then
+        CMU_AFS_LIB_WHERE1("$i/lib")
+        if test "$ac_cv_found_afs_lib" = "yes"; then
+          ac_cv_afs_where=$i
+          AC_MSG_RESULT(found)
+          break
+        else
+          AC_MSG_RESULT(not found)
+        fi
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+AC_DEFUN([CMU_AFS], [
+AC_REQUIRE([CMU_SOCKETS])
+AC_REQUIRE([CMU_LIBSSL])
+AC_ARG_WITH(AFS,
+	[  --with-afs=PREFIX      Compile with AFS support],
+	[if test "X$with_AFS" = "X"; then
+		with_AFS=yes
+	fi])
+
+	if test "X$with_AFS" != "X"; then
+	  ac_cv_afs_where=$with_AFS
+	fi
+	if test "X$ac_cv_afs_where" = "X"; then
+	  CMU_AFS_WHERE(/usr/afsws /usr/local /usr/athena /Library/OpenAFS/Tools)
+	fi
+
+	AC_MSG_CHECKING(whether to include AFS)
+	if test "X$ac_cv_afs_where" = "Xno" -o "X$ac_cv_afs_where" = "X"; then
+	  ac_cv_found_afs=no
+	  AC_MSG_RESULT(no)
+	else
+	  ac_cv_found_afs=yes
+	  AC_MSG_RESULT(yes)
+	  AFS_INC_DIR="$ac_cv_afs_where/include"
+	  AFS_LIB_DIR="$ac_cv_afs_where/lib"
+	  AFS_TOP_DIR="$ac_cv_afs_where"
+	  AFS_INC_FLAGS="-I${AFS_INC_DIR}"
+          AFS_LIB_FLAGS="-L${AFS_LIB_DIR} -L${AFS_LIB_DIR}/afs"
+          cmu_save_LIBS="$LIBS"
+          cmu_save_CPPFLAGS="$CPPFLAGS"
+          CPPFLAGS="$CPPFLAGS ${AFS_INC_FLAGS}"
+	  cmu_save_LDFLAGS="$LDFLAGS"
+ 	  LDFLAGS="$cmu_save_LDFLAGS ${AFS_LIB_FLAGS}"
+                        
+          AC_CHECK_HEADERS(afs/stds.h)
+
+          AC_MSG_CHECKING([if libdes is needed])
+          AC_TRY_LINK([],[des_quad_cksum();],AFS_DES_LIB="",AFS_DES_LIB="maybe")
+          if test "X$AFS_DES_LIB" != "X"; then
+              LIBS="$cmu_save_LIBS -ldes"
+              AC_TRY_LINK([], [des_quad_cksum();],AFS_DES_LIB="yes")
+              if test "X$AFS_DES_LIB" = "Xyes"; then
+                  AC_MSG_RESULT([yes])
+    	          AFS_LIBDES="-ldes"
+    	          AFS_LIBDESA="${AFS_LIB_DIR}/libdes.a"
+    	      else
+   	          LIBS="$cmu_save_LIBS $LIBSSL_LIB_FLAGS"
+ 	          AC_TRY_LINK([],
+	          [des_quad_cksum();],AFS_DES_LIB="libcrypto")
+	          if test "X$AFS_DES_LIB" = "Xlibcrypto"; then
+	              AC_MSG_RESULT([libcrypto])
+		      AFS_LIBDES="$LIBSSL_LIB_FLAGS"
+	              AFS_LIBDESA="$LIBSSL_LIB_FLAGS"
+	          else
+         	      AC_MSG_RESULT([unknown])
+	              AC_MSG_ERROR([Could not use -ldes])
+	          fi 
+	      fi 
+	  else
+             AC_MSG_RESULT([no])
+          fi
+
+
+	  AFS_CLIENT_LIBS_STATIC="${AFS_LIB_DIR}/afs/libvolser.a ${AFS_LIB_DIR}/afs/libvldb.a ${AFS_LIB_DIR}/afs/libkauth.a ${AFS_LIB_DIR}/afs/libprot.a ${AFS_LIB_DIR}/libubik.a ${AFS_LIB_DIR}/afs/libauth.a ${AFS_LIB_DIR}/librxkad.a ${AFS_LIB_DIR}/librx.a ${AFS_LIB_DIR}/afs/libsys.a ${AFS_LIB_DIR}/librx.a ${AFS_LIB_DIR}/liblwp.a ${AFS_LIBDESA} ${AFS_LIB_DIR}/afs/libcmd.a ${AFS_LIB_DIR}/afs/libcom_err.a ${AFS_LIB_DIR}/afs/util.a"
+          AFS_KTC_LIBS_STATIC="${AFS_LIB_DIR}/afs/libauth.a ${AFS_LIB_DIR}/afs/libsys.a ${AFS_LIB_DIR}/librx.a ${AFS_LIB_DIR}/liblwp.a ${AFS_LIBDESA} ${AFS_LIB_DIR}/afs/libcom_err.a ${AFS_LIB_DIR}/afs/util.a"
+	  AFS_CLIENT_LIBS="-lvolser -lvldb -lkauth -lprot -lubik -lauth -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a"
+	  AFS_RX_LIBS="-lauth -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a"
+          AFS_KTC_LIBS="-lauth ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcom_err ${AFS_LIB_DIR}/afs/util.a"
+          LIBS="$cmu_save_LIBS"
+          AC_CHECK_FUNC(flock)
+          LIBS="$cmu_save_LIBS ${AFS_CLIENT_LIBS} ${LIB_SOCKET}"
+          if test "X$ac_cv_func_flock" != "Xyes"; then
+             AC_MSG_CHECKING([if AFS needs flock])
+             AC_TRY_LINK([#include <afs/param.h>
+#ifdef HAVE_AFS_STDS_H
+#include <afs/stds.h>
+#endif
+#include <ubik.h>
+#include <afs/cellconfig.h>
+#include <afs/auth.h>
+#include <afs/volser.h>
+struct ubik_client * cstruct;
+int sigvec() {return 0;}
+extern int UV_SetSecurity();],
+             [vsu_ClientInit(1,"","",0,
+                             &cstruct,UV_SetSecurity)],
+             AFS_FLOCK=no,AFS_FLOCK=yes)
+             if test $AFS_FLOCK = "no"; then
+                AC_MSG_RESULT([no])
+             else
+               AC_MSG_RESULT([yes])
+               LDFLAGS="$LDFLAGS -L/usr/ucblib"
+               AC_CHECK_LIB(ucb, flock,:, [AC_CHECK_LIB(BSD, flock)])
+             fi
+          fi
+          LIBS="$cmu_save_LIBS"
+          AC_CHECK_FUNC(sigvec)
+          LIBS="$cmu_save_LIBS ${AFS_CLIENT_LIBS} ${LIB_SOCKET}"
+          if test "X$ac_cv_func_sigvec" != "Xyes"; then
+             AC_MSG_CHECKING([if AFS needs sigvec])
+             AC_TRY_LINK([#include <afs/param.h>
+#ifdef HAVE_AFS_STDS_H
+#include <afs/stds.h>
+#endif
+#include <ubik.h>
+#include <afs/cellconfig.h>
+#include <afs/auth.h>
+#include <afs/volser.h>
+struct ubik_client * cstruct;
+int flock() {return 0;}
+extern int UV_SetSecurity();],
+             [vsu_ClientInit(1,"","",0,
+                             &cstruct,UV_SetSecurity)],
+             AFS_SIGVEC=no,AFS_SIGVEC=yes)
+             if test $AFS_SIGVEC = "no"; then
+                AC_MSG_RESULT([no])
+             else
+               AC_MSG_RESULT([yes])
+               LDFLAGS="$LDFLAGS -L/usr/ucblib"
+               AC_CHECK_LIB(ucb, sigvec,:,[AC_CHECK_LIB(BSD, sigvec)])
+             fi
+          fi
+          if test "$ac_cv_lib_ucb_flock" = "yes" -o "$ac_cv_lib_ucb_sigvec" = "yes"; then
+             AFS_LIB_FLAGS="${AFS_LIB_FLAGS} -L/usr/ucblib -R/usr/ucblib"
+          fi
+          if test "$ac_cv_lib_ucb_flock" = "yes" -o "$ac_cv_lib_ucb_sigvec" = "yes"; then
+             AFS_BSD_LIB="-lucb"
+          elif test "$ac_cv_lib_BSD_flock" = "yes" -o "$ac_cv_lib_BSD_sigvec" = "yes"; then
+             AFS_BSD_LIB="-lBSD"
+          fi
+          if test "X$AFS_BSD_LIB" != "X" ; then
+                AFS_CLIENT_LIBS_STATIC="$AFS_CLIENT_LIBS_STATIC $AFS_BSD_LIB"
+                AFS_KTC_LIBS_STATIC="$AFS_KTC_LIBS_STATIC $AFS_BSD_LIB"
+                AFS_CLIENT_LIBS="$AFS_CLIENT_LIBS $AFS_BSD_LIB"
+                AFS_RX_LIBS="$AFS_CLIENT_LIBS $AFS_BSD_LIB"
+                AFS_KTC_LIBS="$AFS_KTC_LIBS $AFS_BSD_LIB"
+          fi
+          LIBS="$cmu_save_LIBS $AFS_CLIENT_LIBS ${LIB_SOCKET}"
+          AC_CHECK_FUNC(des_pcbc_init)
+          if test "X$ac_cv_func_des_pcbc_init" != "Xyes"; then
+           AC_CHECK_LIB(descompat, des_pcbc_init, AFS_DESCOMPAT_LIB="-ldescompat")
+           if test "X$AFS_DESCOMPAT_LIB" != "X" ; then
+                AFS_CLIENT_LIBS_STATIC="$AFS_CLIENT_LIBS_STATIC $AFS_DESCOMPAT_LIB"
+                AFS_KTC_LIBS_STATIC="$AFS_KTC_LIBS_STATIC $AFS_DESCOMPAT_LIB"
+                AFS_CLIENT_LIBS="$AFS_CLIENT_LIBS $AFS_DESCOMPAT_LIB"
+                AFS_KTC_LIBS="$AFS_KTC_LIBS $AFS_DESCOMPAT_LIB"
+           else
+
+           AC_MSG_CHECKING([if rxkad needs des_pcbc_init])
+           AC_TRY_LINK(,[tkt_DecodeTicket();],RXKAD_PROBLEM=no,RXKAD_PROBLEM=maybe)
+            if test "$RXKAD_PROBLEM" = "maybe"; then
+              AC_TRY_LINK([int des_pcbc_init() { return 0;}],
+              [tkt_DecodeTicket();],RXKAD_PROBLEM=yes,RXKAD_PROBLEM=error)
+              if test "$RXKAD_PROBLEM" = "yes"; then
+                    AC_MSG_RESULT([yes])
+                    AC_MSG_ERROR([cannot use rxkad])
+              else
+                    AC_MSG_RESULT([unknown])        
+                    AC_MSG_ERROR([Unknown error testing rxkad])
+              fi
+            else
+              AC_MSG_RESULT([no])
+            fi
+           fi
+          fi
+
+          AC_MSG_CHECKING([if libaudit is needed])
+	  AFS_LIBAUDIT=""
+          LIBS="$cmu_save_LIBS $AFS_CLIENT_LIBS ${LIB_SOCKET}"
+          AC_TRY_LINK([#include <afs/param.h>
+#ifdef HAVE_AFS_STDS_H
+#include <afs/stds.h>
+#endif
+#include <afs/cellconfig.h>
+#include <afs/auth.h>],
+          [afsconf_SuperUser();],AFS_AUDIT_LIB="",AFS_AUDIT_LIB="maybe")
+          if test "X$AFS_AUDIT_LIB" != "X"; then
+          LIBS="$cmu_save_LIBS -lvolser -lvldb -lkauth -lprot -lubik -lauth -laudit -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a $AFS_BSD_LIB $AFS_DESCOMPAT_LIB $LIB_SOCKET"
+             AC_TRY_LINK([#include <afs/param.h>
+#ifdef HAVE_AFS_STDS_H
+#include <afs/stds.h>
+#endif
+#include <afs/cellconfig.h>
+#include <afs/auth.h>],
+             [afsconf_SuperUser();],AFS_AUDIT_LIB="yes")
+             if test "X$AFS_AUDIT_LIB" = "Xyes"; then
+                 AC_MSG_RESULT([yes])
+	         AFS_LIBAUDIT="-laudit"
+	         AFS_CLIENT_LIBS_STATIC="${AFS_LIB_DIR}/afs/libvolser.a ${AFS_LIB_DIR}/afs/libvldb.a ${AFS_LIB_DIR}/afs/libkauth.a ${AFS_LIB_DIR}/afs/libprot.a ${AFS_LIB_DIR}/libubik.a ${AFS_LIB_DIR}/afs/libauth.a ${AFS_LIB_DIR}/afs/libaudit.a ${AFS_LIB_DIR}/librxkad.a ${AFS_LIB_DIR}/librx.a ${AFS_LIB_DIR}/afs/libsys.a ${AFS_LIB_DIR}/librx.a ${AFS_LIB_DIR}/liblwp.a ${AFS_LIBDESA} ${AFS_LIB_DIR}/afs/libcmd.a ${AFS_LIB_DIR}/afs/libcom_err.a ${AFS_LIB_DIR}/afs/util.a"
+                 AFS_CLIENT_LIBS="-lvolser -lvldb -lkauth -lprot -lubik -lauth -laudit -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a $AFS_BSD_LIB $AFS_DESCOMPAT_LIB"
+                 AFS_RX_LIBS="-lauth -laudit -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a $AFS_BSD_LIB $AFS_DESCOMPAT_LIB"
+             else
+                 AC_MSG_RESULT([unknown])
+                 AC_MSG_ERROR([Could not use -lauth while testing for -laudit])
+             fi 
+          else
+             AC_MSG_RESULT([no])
+          fi
+
+	  AC_CHECK_FUNCS(VL_ProbeServer)
+          AC_MSG_CHECKING([if new-style afs_ integer types are defined])
+          AC_CACHE_VAL(ac_cv_afs_int32,
+dnl The next few lines contain a quoted argument to egrep
+dnl It is critical that there be no leading or trailing whitespace
+dnl or newlines
+[AC_EGREP_CPP(dnl
+changequote(<<,>>)dnl
+<<(^|[^a-zA-Z_0-9])afs_int32[^a-zA-Z_0-9]>>dnl
+changequote([,]), [#include <afs/param.h>
+#ifdef HAVE_AFS_STDS_H
+#include <afs/stds.h>
+#endif],
+ac_cv_afs_int32=yes, ac_cv_afs_int32=no)])
+          AC_MSG_RESULT($ac_cv_afs_int32)
+          if test $ac_cv_afs_int32 = yes ; then
+            AC_DEFINE(HAVE_AFS_INT32,, [AFS provides new "unambiguous" type names])
+          else
+            AC_DEFINE(afs_int16, int16, [it's a type definition])
+            AC_DEFINE(afs_int32, int32, [it's a type definition])
+            AC_DEFINE(afs_uint16, u_int16, [it's a type definition])
+            AC_DEFINE(afs_uint32, u_int32, [it's a type definition])
+          fi
+
+          CPPFLAGS="${cmu_save_CPPFLAGS}"
+          LDFLAGS="${cmu_save_LDFLAGS}"
+          LIBS="${cmu_save_LIBS}"
+	  AC_DEFINE(AFS_ENV,, [Use AFS. (find what needs this and nuke it)])
+          AC_DEFINE(AFS,, [Use AFS. (find what needs this and nuke it)])
+          AC_SUBST(AFS_CLIENT_LIBS_STATIC)
+          AC_SUBST(AFS_KTC_LIBS_STATIC)
+          AC_SUBST(AFS_CLIENT_LIBS)
+          AC_SUBST(AFS_RX_LIBS)
+          AC_SUBST(AFS_KTC_LIBS)
+          AC_SUBST(AFS_INC_FLAGS)
+          AC_SUBST(AFS_LIB_FLAGS)
+	  AC_SUBST(AFS_TOP_DIR)
+	  AC_SUBST(AFS_LIBAUDIT)
+	  AC_SUBST(AFS_LIBDES)
+          AC_SUBST(AFS_LIBDESA)
+       	fi
+	])
+
+AC_DEFUN([CMU_NEEDS_AFS],
+[AC_REQUIRE([CMU_AFS])
+if test "$ac_cv_found_afs" != "yes"; then
+        AC_ERROR([Cannot continue without AFS])
+fi])
+
+dnl libssl.m4--Ssl libraries and includes
+dnl Derrick Brashear
+dnl from KTH kafs and Arla
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
+
+AC_DEFUN([CMU_LIBSSL_INC_WHERE1], [
+saved_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$saved_CPPFLAGS -I$1"
+CMU_CHECK_HEADER_NOCACHE(openssl/ssl.h,
+ac_cv_found_libssl_inc=yes,
+ac_cv_found_libssl_inc=no)
+CPPFLAGS=$saved_CPPFLAGS
+])
+
+AC_DEFUN([CMU_LIBSSL_INC_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for libssl headers in $i)
+      CMU_LIBSSL_INC_WHERE1($i)
+      CMU_TEST_INCPATH($i, ssl)
+      if test "$ac_cv_found_libssl_inc" = "yes"; then
+        ac_cv_libssl_where_inc=$i
+        AC_MSG_RESULT(found)
+        break
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+AC_DEFUN([CMU_LIBSSL_LIB_WHERE1], [
+saved_LIBS=$LIBS
+LIBS="$saved_LIBS -L$1 -lssl -lcrypto $LIB_SOCKET"
+AC_TRY_LINK(,
+[SSL_write();],
+[ac_cv_found_ssl_lib=yes],
+ac_cv_found_ssl_lib=no)
+LIBS=$saved_LIBS
+])
+
+AC_DEFUN([CMU_LIBSSL_LIB_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for libssl libraries in $i)
+      CMU_LIBSSL_LIB_WHERE1($i)
+      dnl deal with false positives from implicit link paths
+      CMU_TEST_LIBPATH($i, ssl)
+      if test "$ac_cv_found_ssl_lib" = "yes" ; then
+        ac_cv_libssl_where_lib=$i
+        AC_MSG_RESULT(found)
+        break
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+AC_DEFUN([CMU_LIBSSL], [
+AC_REQUIRE([CMU_SOCKETS])
+AC_ARG_WITH(libssl,
+	[  --with-libssl=PREFIX      Compile with Libssl support],
+	[if test "X$with_libssl" = "X"; then
+		with_libssl=yes
+	fi])
+AC_ARG_WITH(libssl-lib,
+	[  --with-libssl-lib=dir     use libssl libraries in dir],
+	[if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([No argument for --with-libssl-lib])
+	fi])
+AC_ARG_WITH(libssl-include,
+	[  --with-libssl-include=dir use libssl headers in dir],
+	[if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([No argument for --with-libssl-include])
+	fi])
+
+	if test "X$with_libssl" != "X"; then
+	  if test "$with_libssl" != "yes" -a "$with_libssl" != no; then
+	    ac_cv_libssl_where_lib=$with_libssl/lib
+	    ac_cv_libssl_where_inc=$with_libssl/include
+	  fi
+	fi
+
+	if test "$with_libssl" != "no"; then 
+	  if test "X$with_libssl_lib" != "X"; then
+	    ac_cv_libssl_where_lib=$with_libssl_lib
+	  fi
+	  if test "X$ac_cv_libssl_where_lib" = "X"; then
+	    CMU_LIBSSL_LIB_WHERE(/usr/local/lib/openssl /usr/lib/openssl /usr/local/lib /usr/lib)
+	  fi
+
+	  if test "X$with_libssl_include" != "X"; then
+	    ac_cv_libssl_where_inc=$with_libssl_include
+	  fi
+	  if test "X$ac_cv_libssl_where_inc" = "X"; then
+	    CMU_LIBSSL_INC_WHERE(/usr/local/include /usr/include)
+	  fi
+	fi
+
+	AC_MSG_CHECKING(whether to include libssl)
+	if test "X$ac_cv_libssl_where_lib" = "X" -a "X$ac_cv_libssl_where_inc" = "X"; then
+	  ac_cv_found_libssl=no
+	  AC_MSG_RESULT(no)
+	else
+	  ac_cv_found_libssl=yes
+	  AC_MSG_RESULT(yes)
+	  LIBSSL_INC_DIR=$ac_cv_libssl_where_inc
+	  LIBSSL_LIB_DIR=$ac_cv_libssl_where_lib
+	  LIBSSL_INC_FLAGS="-I${LIBSSL_INC_DIR}"
+	  LIBSSL_LIB_FLAGS="-L${LIBSSL_LIB_DIR} -lssl -lcrypto"
+	  if test "X$RPATH" = "X"; then
+		RPATH=""
+	  fi
+	  case "${host}" in
+	    *-*-linux*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,-rpath,${LIBSSL_LIB_DIR}"
+	      else 
+ 		RPATH="${RPATH}:${LIBSSL_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-hpux*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,+b${LIBSSL_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${LIBSSL_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-irix*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,-rpath,${LIBSSL_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${LIBSSL_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-solaris2*)
+	      if test "$ac_cv_prog_gcc" = yes; then
+		if test "X$RPATH" = "X"; then
+		  RPATH="-Wl,-R${LIBSSL_LIB_DIR}"
+		else 
+		  RPATH="${RPATH}:${LIBSSL_LIB_DIR}"
+		fi
+	      else
+	        RPATH="${RPATH} -R${LIBSSL_LIB_DIR}"
+	      fi
+	      ;;
+	  esac
+	  AC_SUBST(RPATH)
+	fi
+	AC_SUBST(LIBSSL_INC_DIR)
+	AC_SUBST(LIBSSL_LIB_DIR)
+	AC_SUBST(LIBSSL_INC_FLAGS)
+	AC_SUBST(LIBSSL_LIB_FLAGS)
+	])
+
+
+dnl kerberos_v4.m4--Kerberos 4 libraries and includes
+dnl Derrick Brashear
+dnl from KTH krb and Arla
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
+
+AC_DEFUN([CMU_KRB_SENDAUTH_PROTO], [
+AC_MSG_CHECKING(for krb_sendauth prototype)
+AC_TRY_COMPILE(
+[#include <krb.h>
+int krb_sendauth (long options, int fd, KTEXT ktext, char *service,
+                  char *inst, char *realm, u_long checksum,
+                  MSG_DAT *msg_data, CREDENTIALS *cred,
+                  Key_schedule schedule, struct sockaddr_in *laddr,
+                  struct sockaddr_in *faddr, char *version);],
+[int foo = krb_sendauth(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); ],
+ac_cv_krb_sendauth_proto=no,
+ac_cv_krb_sendauth_proto=yes)
+AC_MSG_RESULT($ac_cv_krb_sendauth_proto)
+if test "$ac_cv_krb_sendauth_proto" = yes; then
+        AC_DEFINE(HAVE_KRB_SENDAUTH_PROTO)dnl
+fi
+AC_MSG_RESULT($ac_cv_krb_sendauth_proto)
+])
+
+AC_DEFUN([CMU_KRB_SET_KEY_PROTO], [
+AC_MSG_CHECKING(for krb_set_key prototype)
+AC_CACHE_VAL(ac_cv_krb_set_key_proto, [
+cmu_save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="${CPPFLAGS} ${KRB_INC_FLAGS}"
+AC_TRY_COMPILE(
+[#include <krb.h>
+int krb_set_key(char *key, int cvt);],
+[int foo = krb_set_key(0, 0);],
+ac_cv_krb_set_key_proto=no,
+ac_cv_krb_set_key_proto=yes)
+])
+CPPFLAGS="${cmu_save_CPPFLAGS}"
+if test "$ac_cv_krb_set_key_proto" = yes; then
+	AC_DEFINE(HAVE_KRB_SET_KEY_PROTO)dnl
+fi
+AC_MSG_RESULT($ac_cv_krb_set_key_proto)
+])
+
+AC_DEFUN([CMU_KRB4_32_DEFN], [
+AC_MSG_CHECKING(for KRB4_32 definition)
+AC_CACHE_VAL(ac_cv_krb4_32_defn, [
+cmu_save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="${CPPFLAGS} ${KRB_INC_FLAGS}"
+AC_TRY_COMPILE(
+[#include <krb.h>
+],
+[KRB4_32 foo = 1;],
+ac_cv_krb4_32_defn=yes,
+ac_cv_krb4_32_defn=no)
+])
+CPPFLAGS="${cmu_save_CPPFLAGS}"
+if test "$ac_cv_krb4_32_defn" = yes; then
+	AC_DEFINE(HAVE_KRB4_32_DEFINE)dnl
+fi
+AC_MSG_RESULT($ac_cv_krb4_32_defn)
+])
+
+AC_DEFUN([CMU_KRB_RD_REQ_PROTO], [
+AC_MSG_CHECKING(for krb_rd_req prototype)
+AC_CACHE_VAL(ac_cv_krb_rd_req_proto, [
+cmu_save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="${CPPFLAGS} ${KRB_INC_FLAGS}"
+AC_TRY_COMPILE(
+[#include <krb.h>
+int krb_rd_req(KTEXT authent, char *service, char *instance,
+unsigned KRB_INT32 from_addr, AUTH_DAT *ad, char *fn);],
+[int foo = krb_rd_req(0,0,0,0,0,0);],
+ac_cv_krb_rd_req_proto=no,
+ac_cv_krb_rd_req_proto=yes)
+])
+CPPFLAGS="${cmu_save_CPPFLAGS}"
+if test "$ac_cv_krb_rd_req_proto" = yes; then
+	AC_DEFINE(HAVE_KRB_RD_REQ_PROTO)dnl
+fi
+AC_MSG_RESULT($ac_cv_krb_rd_req_proto)
+])
+
+AC_DEFUN([CMU_KRB_INC_WHERE1], [
+saved_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$saved_CPPFLAGS -I$1"
+AC_TRY_COMPILE([#include <krb.h>],
+[struct ktext foo;],
+ac_cv_found_krb_inc=yes,
+ac_cv_found_krb_inc=no)
+if test "$ac_cv_found_krb_inc" = "no"; then
+  CPPFLAGS="$saved_CPPFLAGS -I$1 -I$1/kerberosIV"
+  AC_TRY_COMPILE([#include <krb.h>],
+  [struct ktext foo;],
+  [ac_cv_found_krb_inc=yes],
+  ac_cv_found_krb_inc=no)
+fi
+CPPFLAGS=$saved_CPPFLAGS
+])
+
+AC_DEFUN([CMU_KRB_INC_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for kerberos headers in $i)
+      CMU_KRB_INC_WHERE1($i)
+      CMU_TEST_INCPATH($i, krb)
+      if test "$ac_cv_found_krb_inc" = "yes"; then
+        ac_cv_krb_where_inc=$i
+        AC_MSG_RESULT(found)
+        break
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+#
+# Test for kerberos lib files
+#
+
+AC_DEFUN([CMU_KRB_LIB_WHERE1], [
+saved_LIBS=$LIBS
+LIBS="$saved_LIBS -L$1 -lkrb ${KRB_LIBDES}"
+AC_TRY_LINK(,
+[dest_tkt();],
+[ac_cv_found_krb_lib=yes],
+ac_cv_found_krb_lib=no)
+LIBS=$saved_LIBS
+])
+
+AC_DEFUN([CMU_KRB_LIB_WHERE], [
+   for i in $1; do
+      AC_MSG_CHECKING(for kerberos libraries in $i)
+      CMU_KRB_LIB_WHERE1($i)
+      dnl deal with false positives from implicit link paths
+      CMU_TEST_LIBPATH($i, krb)
+      if test "$ac_cv_found_krb_lib" = "yes" ; then
+        ac_cv_krb_where_lib=$i
+        AC_MSG_RESULT(found)
+        break
+      else
+        AC_MSG_RESULT(not found)
+      fi
+    done
+])
+
+AC_DEFUN([CMU_KRB4], [
+AC_REQUIRE([CMU_SOCKETS])
+AC_REQUIRE([CMU_LIBSSL])
+AC_ARG_WITH(krb4,
+	[  --with-krb4=PREFIX      Compile with Kerberos 4 support],
+	[if test "X$with_krb4" = "X"; then
+		with_krb4=yes
+	fi])
+AC_ARG_WITH(krb4-lib,
+	[  --with-krb4-lib=dir     use kerberos 4 libraries in dir],
+	[if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([No argument for --with-krb4-lib])
+	fi])
+AC_ARG_WITH(krb4-include,
+	[  --with-krb4-include=dir use kerberos 4 headers in dir],
+	[if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([No argument for --with-krb4-include])
+	fi])
+
+	if test "X$with_krb4" != "X"; then
+	  if test "$with_krb4" != "yes" -a "$with_krb4" != "no"; then
+	    ac_cv_krb_where_lib=$with_krb4/lib
+	    ac_cv_krb_where_inc=$with_krb4/include
+	  fi
+	fi
+       
+	if test "$with_krb4" != "no"; then
+	  if test "X$with_krb4_lib" != "X"; then
+	    ac_cv_krb_where_lib=$with_krb4_lib
+	  fi
+	  if test "X$with_krb4_include" != "X"; then
+	    ac_cv_krb_where_inc=$with_krb4_include
+	  fi
+	  if test "X$ac_cv_krb_where_inc" = "X"; then
+	    CMU_KRB_INC_WHERE(/usr/athena/include /usr/include/kerberosIV /usr/local/include /usr/include/kerberos)
+	  fi
+
+          AC_MSG_CHECKING([if libdes is needed])
+          AC_TRY_LINK([],[des_quad_cksum();],KRB_DES_LIB="",KRB_DES_LIB="maybe")
+          if test "X$KRB_DES_LIB" != "X"; then
+              LIBS="$cmu_save_LIBS -ldes"
+              AC_TRY_LINK([], [des_quad_cksum();],KRB_DES_LIB="yes")
+              if test "X$KRB_DES_LIB" = "Xyes"; then
+                  AC_MSG_RESULT([yes])
+                  KRB_LIBDES="-ldes"
+                  KRB_LIBDESA='$(KRB_LIB_DIR)/libdes.a'
+              else
+                  LIBS="$cmu_save_LIBS $LIBSSL_LIB_FLAGS"
+                  AC_TRY_LINK([],
+                  [des_quad_cksum();],KRB_DES_LIB="libcrypto")
+                  if test "X$KRB_DES_LIB" = "Xlibcrypto"; then
+                      AC_MSG_RESULT([libcrypto])
+                      KRB_LIBDES="$LIBSSL_LIB_FLAGS"
+                      KRB_LIBDESA="$LIBSSL_LIB_FLAGS"
+                  else
+                      AC_MSG_RESULT([unknown])
+                      AC_MSG_ERROR([Could not use -ldes])
+                  fi 
+              fi 
+          else
+             AC_MSG_RESULT([no])
+          fi
+          if test "X$ac_cv_krb_where_lib" = "X"; then
+            CMU_KRB_LIB_WHERE(/usr/athena/lib /usr/local/lib /usr/lib)
+          fi
+	fi
+	  LIBS="${cmu_save_LIBS}"
+
+
+	AC_MSG_CHECKING([whether to include kerberos 4])
+	if test "X$ac_cv_krb_where_lib" = "X" -o "X$ac_cv_krb_where_inc" = "X"; then
+	  ac_cv_found_krb=no
+	  AC_MSG_RESULT(no)
+	else
+	  ac_cv_found_krb=yes
+	  AC_MSG_RESULT(yes)
+	  KRB_INC_DIR=$ac_cv_krb_where_inc
+	  KRB_LIB_DIR=$ac_cv_krb_where_lib
+	  KRB_INC_FLAGS="-I${KRB_INC_DIR}"
+	  KRB_LIB_FLAGS="-L${KRB_LIB_DIR} -lkrb ${KRB_LIBDES}"
+	  LIBS="${cmu_save_LIBS} ${KRB_LIB_FLAGS}"
+	  AC_CHECK_LIB(resolv, dns_lookup, KRB_LIB_FLAGS="${KRB_LIB_FLAGS} -lresolv",,"${KRB_LIB_FLAGS}")
+	  AC_CHECK_LIB(crypt, crypt, KRB_LIB_FLAGS="${KRB_LIB_FLAGS} -lcrypt",,"${KRB_LIB_FLAGS}")
+	  LIBS="${LIBS} ${KRB_LIB_FLAGS}"
+	  AC_CHECK_FUNCS(krb_get_int krb_life_to_time)
+          AC_SUBST(KRB_INC_FLAGS)
+          AC_SUBST(KRB_LIB_FLAGS)
+	  LIBS="${cmu_save_LIBS}"
+	  AC_DEFINE(KERBEROS,,[Use kerberos 4. find out what needs this symbol])
+	  if test "X$RPATH" = "X"; then
+		RPATH=""
+	  fi
+	  case "${host}" in
+	    *-*-linux*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,-rpath,${KRB_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${KRB_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-hpux*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,+b${KRB_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${KRB_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-irix*)
+	      if test "X$RPATH" = "X"; then
+	        RPATH="-Wl,-rpath,${KRB_LIB_DIR}"
+	      else 
+		RPATH="${RPATH}:${KRB_LIB_DIR}"
+	      fi
+	      ;;
+	    *-*-solaris2*)
+	      if test "$ac_cv_prog_gcc" = yes; then
+		if test "X$RPATH" = "X"; then
+		  RPATH="-Wl,-R${KRB_LIB_DIR}"
+		else 
+		  RPATH="${RPATH}:${KRB_LIB_DIR}"
+		fi
+	      else
+	        RPATH="${RPATH} -R${KRB_LIB_DIR}"
+	      fi
+	      ;;
+	  esac
+	  AC_SUBST(RPATH)
+	fi
+	])
+
+
+dnl
+dnl macros for configure.in to detect openssl
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
+dnl
+
+AC_DEFUN([CMU_HAVE_OPENSSL], [
+AC_ARG_WITH(openssl,[  --with-openssl=PATH     use OpenSSL from PATH],
+	with_openssl=$withval, with_openssl="yes")
+
+	save_CPPFLAGS=$CPPFLAGS
+	save_LDFLAGS=$LDFLAGS
+
+	if test -d $with_openssl; then
+	  CPPFLAGS="${CPPFLAGS} -I${with_openssl}/include"
+	  CMU_ADD_LIBPATH(${with_openssl}/lib)
+	fi
+
+case "$with_openssl" in
+	no)
+	  with_openssl="no";;
+	*) 
+	  dnl if openssl has been compiled with the rsaref2 libraries,
+	  dnl we need to include the rsaref libraries in the crypto check
+                LIB_RSAREF=""
+	        AC_CHECK_LIB(rsaref, RSAPublicEncrypt,
+		       LIB_RSAREF="-lRSAglue -lrsaref"; cmu_have_rsaref=yes,
+		       cmu_have_rsaref=no)
+
+		AC_CHECK_HEADER(openssl/evp.h, [
+			AC_CHECK_LIB(crypto, EVP_DigestInit,
+					with_openssl="yes",
+					with_openssl="no", $LIB_RSAREF)],
+			with_openssl=no)
+		;;
+esac
+
+	if test "$with_openssl" != "no"; then
+		AC_DEFINE(HAVE_OPENSSL,[],[Do we have OpenSSL?])
+	else
+		CPPFLAGS=$save_CPPFLAGS
+		LDFLAGS=$save_LDFLAGS
+	fi
+])
 
 dnl checking for kerberos 4 libraries (and DES)
 
-AC_DEFUN(SASL_DES_CHK, [
+AC_DEFUN([SASL_DES_CHK], [
 AC_ARG_WITH(des, [  --with-des=DIR          with DES (look in DIR) [yes] ],
 	with_des=$withval,
 	with_des=yes)
@@ -901,21 +2549,38 @@ if test "$with_des" != no; then
     LDFLAGS="$LDFLAGS -L${with_des}/lib"
   fi
 
-  dnl check for openssl installing -lcrypto, then make vanilla check
-  AC_CHECK_LIB(crypto, des_pcbc_encrypt,
-      AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES)
-                                     LIB_DES="-lcrypto";
-                                     with_des=yes],
-                     with_des=no),
-      with_des=no, $LIB_RSAREF)
+  if test "$with_openssl" != no; then
+    dnl check for openssl installing -lcrypto, then make vanilla check
+    AC_CHECK_LIB(crypto, des_cbc_encrypt, [
+        AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES,[],[Use OpenSSL DES Implementation])
+                                       LIB_DES="-lcrypto";
+                                       with_des=yes],
+                       with_des=no)],
+        with_des=no, $LIB_RSAREF)
+
+    dnl same test again, different symbol name
+    if test "$with_des" = no; then
+      AC_CHECK_LIB(crypto, DES_cbc_encrypt, [
+        AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES,[],[Use OpenSSL DES Implementation])
+                                       LIB_DES="-lcrypto";
+                                       with_des=yes],
+                       with_des=no)],
+        with_des=no, $LIB_RSAREF)
+    fi
+  fi
 
   if test "$with_des" = no; then
-    AC_CHECK_LIB(des, des_pcbc_encrypt, [LIB_DES="-ldes";
+    AC_CHECK_LIB(des, des_cbc_encrypt, [LIB_DES="-ldes";
                                         with_des=yes], with_des=no)
   fi
 
   if test "$with_des" = no; then
-     AC_CHECK_LIB(des524, des_pcbc_encrypt, [LIB_DES="-ldes524";
+     AC_CHECK_LIB(des425, des_cbc_encrypt, [LIB_DES="-ldes425";
+                                       with_des=yes], with_des=no)
+  fi
+
+  if test "$with_des" = no; then
+     AC_CHECK_LIB(des524, des_cbc_encrypt, [LIB_DES="-ldes524";
                                        with_des=yes], with_des=no)
   fi
 
@@ -929,28 +2594,28 @@ if test "$with_des" != no; then
                  LIB_RSAREF="-lRSAglue -lrsaref"; cmu_have_rsaref=yes,
                  cmu_have_rsaref=no)
 
-    AC_CHECK_LIB(crypto, des_pcbc_encrypt, 
-	AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES)
+    AC_CHECK_LIB(crypto, des_cbc_encrypt, [
+	AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES,[],[Use OpenSSL DES Implementation])
 					LIB_DES="-lcrypto";
 					with_des=yes],
-			with_des=no), 
+			with_des=no)], 
         with_des=no, $LIB_RSAREF)
   fi
 fi
 
 if test "$with_des" != no; then
-  AC_DEFINE(WITH_DES)
+  AC_DEFINE(WITH_DES,[],[Use DES])
 fi
 
 AC_SUBST(LIB_DES)
 ])
 
-AC_DEFUN(SASL_KERBEROS_V4_CHK, [
+AC_DEFUN([SASL_KERBEROS_V4_CHK], [
   AC_REQUIRE([SASL_DES_CHK])
 
-  AC_ARG_ENABLE(krb4, [  --enable-krb4           enable KERBEROS_V4 authentication [yes] ],
+  AC_ARG_ENABLE(krb4, [  --enable-krb4           enable KERBEROS_V4 authentication [[no]] ],
     krb4=$enableval,
-    krb4=yes)
+    krb4=no)
 
   if test "$krb4" != no; then
     dnl In order to compile kerberos4, we need libkrb and libdes.
@@ -978,23 +2643,22 @@ AC_DEFUN(SASL_KERBEROS_V4_CHK, [
     fi
 
     if test "$with_des" != no; then
-      AC_CHECK_HEADER(krb.h,
-        AC_CHECK_LIB(com_err, com_err,
+      AC_CHECK_HEADER(krb.h, [
+        AC_CHECK_LIB(com_err, com_err, [
 	  AC_CHECK_LIB(krb, krb_mk_priv,
-                     [COM_ERR="-lcom_err"; SASL_KRB_LIB="-lkrb"],
-                     krb4=no, $LIB_DES -lcom_err), 
+                     [COM_ERR="-lcom_err"; SASL_KRB_LIB="-lkrb"; krb4lib="yes"],
+                     krb4lib=no, $LIB_DES -lcom_err)], [
     	  AC_CHECK_LIB(krb, krb_mk_priv,
-                     [COM_ERR=""; SASL_KRB_LIB="-lkrb"],
-                     krb4=no, $LIB_DES)))
+                     [COM_ERR=""; SASL_KRB_LIB="-lkrb"; krb4lib="yes"],
+                     krb4lib=no, $LIB_DES)])], krb4="no")
 
-      if test "$krb4" = no; then
-        AC_CHECK_HEADER(krb.h,
-	  AC_CHECK_LIB(krb4, krb_mk_priv,
+      if test "$krb4" != "no" -a "$krb4lib" = "no"; then
+	AC_CHECK_LIB(krb4, krb_mk_priv,
                      [COM_ERR=""; SASL_KRB_LIB="-lkrb4"; krb4=yes],
-                     krb4=no, $LIB_DES))
-        if test "$krb4" = no; then
+                     krb4=no, $LIB_DES)
+      fi
+      if test "$krb4" = no; then
           AC_WARN(No Kerberos V4 found)
-        fi
       fi
     else
       AC_WARN(No DES library found for Kerberos V4 support)
@@ -1014,8 +2678,8 @@ AC_DEFUN(SASL_KERBEROS_V4_CHK, [
     AC_MSG_RESULT(enabled)
     SASL_MECHS="$SASL_MECHS libkerberos4.la"
     SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/kerberos4.o"
-    AC_DEFINE(STATIC_KERBEROS4)
-    AC_DEFINE(HAVE_KRB)
+    AC_DEFINE(STATIC_KERBEROS4,[],[User KERBEROS_V4 Staticly])
+    AC_DEFINE(HAVE_KRB,[],[Do we have Kerberos 4 Support?])
     SASL_KRB_LIB="$SASL_KRB_LIB $LIB_DES $COM_ERR"
   else
     AC_MSG_RESULT(disabled)
@@ -1026,45 +2690,77 @@ AC_DEFUN(SASL_KERBEROS_V4_CHK, [
 
 dnl sasl2.m4--sasl2 libraries and includes
 dnl Rob Siemborski
+dnl $Id: aclocal.m4,v 1.4 2005/01/10 19:01:33 snsimon Exp $
 
-AC_DEFUN(SASL_GSSAPI_CHK,[
- AC_ARG_ENABLE(gssapi, [  --with-gssapi=<DIR>	  enable GSSAPI authentication [yes] ],
+AC_DEFUN([SASL_GSSAPI_CHK],[
+ AC_ARG_ENABLE(gssapi, [  --enable-gssapi=<DIR>   enable GSSAPI authentication [yes] ],
     gssapi=$enableval,
     gssapi=yes)
+ AC_ARG_WITH(gss_impl, [  --with-gss_impl={heimdal|mit|cybersafe|seam|auto}                                                       choose specific GSSAPI implementation [[auto]] ],
+    gss_impl=$withval,
+    gss_impl=auto)
+ AC_REQUIRE([SASL2_CRYPT_CHK])
+ AC_REQUIRE([CMU_SOCKETS])
 
  if test "$gssapi" != no; then
+    platform=
+    case "${host}" in
+      *-*-linux*)
+        platform=__linux
+        ;;
+      *-*-hpux*)
+        platform=__hpux
+        ;;
+      *-*-irix*)
+        platform=__irix
+        ;;
+      *-*-solaris2*)
+# When should we use __sunos?
+        platform=__solaris
+        ;;
+      *-*-aix*)
+        platform=__aix
+        ;;
+      *)
+        AC_WARN([The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script])
+        ;;
+    esac
+
+    cmu_saved_CPPFLAGS=$CPPFLAGS
+
     if test -d ${gssapi}; then
        CPPFLAGS="$CPPFLAGS -I$gssapi/include"
+# We want to keep -I in our CPPFLAGS, but only if we succeed
+       cmu_saved_CPPFLAGS=$CPPFLAGS
        LDFLAGS="$LDFLAGS -L$gssapi/lib"
+
+       if test "$gss_impl" = "auto" -o "$gss_impl" = "cybersafe"; then
+         CPPFLAGS="$CPPFLAGS -D$platform"
+         if test -d "${gssapi}/appsec-sdk/include"; then
+           CPPFLAGS="$CPPFLAGS -I${gssapi}/appsec-sdk/include"
+         fi
+       fi
     fi
-    AC_CHECK_HEADER(gssapi.h, AC_DEFINE(HAVE_GSSAPI_H),
-      AC_CHECK_HEADER(gssapi/gssapi.h,, AC_WARN(Disabling GSSAPI); gssapi=no))
+    AC_CHECK_HEADER(gssapi.h, AC_DEFINE(HAVE_GSSAPI_H,,[Define if you have the gssapi.h header file]), [
+      AC_CHECK_HEADER(gssapi/gssapi.h,, AC_WARN(Disabling GSSAPI - no include files found); gssapi=no)])
+
+    CPPFLAGS=$cmu_saved_CPPFLAGS
+
  fi
 
  if test "$gssapi" != no; then
   dnl We need to find out which gssapi implementation we are
-  dnl using. Supported alternatives are: MIT Kerberos 5 and
-  dnl Heimdal Kerberos 5 (http://www.pdc.kth.se/heimdal)
+  dnl using. Supported alternatives are: MIT Kerberos 5,
+  dnl Heimdal Kerberos 5 (http://www.pdc.kth.se/heimdal),
+  dnl CyberSafe Kerberos 5 (http://www.cybersafe.com/)
+  dnl and Sun SEAM (http://wwws.sun.com/software/security/kerberos/)
   dnl
   dnl The choice is reflected in GSSAPIBASE_LIBS
-  dnl we might need libdb
-  AC_CHECK_LIB(db, db_open)
 
-  gss_impl="mit";
   AC_CHECK_LIB(resolv,res_search)
-  if test -d ${gssapi}; then 
-     CPPFLAGS="$CPPFLAGS -I$gssapi/include"
-     LDFLAGS="$LDFLAGS -L$gssapi/lib"
-  fi
-
-  # the base64_decode check fails because libroken has dependencies
-  # FIXME: this is probabally non-optimal as well
-  AC_CHECK_LIB(krb5,krb5_vlog,gss_impl="heimdal",,)
-  #  AC_CHECK_LIB(roken,base64_decode,gss_impl="heimdal",, $LIB_CRYPT)
-
   if test -d ${gssapi}; then
-     gssapi_dir=$gssapi
-     GSSAPIBASE_LIBS="-L$gssapi_dir/lib"
+     gssapi_dir="${gssapi}/lib"
+     GSSAPIBASE_LIBS="-L$gssapi_dir"
      GSSAPIBASE_STATIC_LIBS="-L$gssapi_dir"
   else
      dnl FIXME: This is only used for building cyrus, and then only as
@@ -1072,31 +2768,144 @@ AC_DEFUN(SASL_GSSAPI_CHK,[
      gssapi_dir="/usr/local/lib"
   fi
 
+  # Check a full link against the Heimdal libraries.
+  # If this fails, check a full link against the MIT libraries.
+  # If this fails, check a full link against the CyberSafe libraries.
+  # If this fails, check a full link against the Solaris 8 and up libgss.
+
+  if test "$gss_impl" = "auto" -o "$gss_impl" = "heimdal"; then
+    gss_failed=0
+    AC_CHECK_LIB(gssapi,gss_unwrap,gss_impl="heimdal",gss_failed=1,$GSSAPIBASE_LIBS -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err ${LIB_SOCKET})
+    if test "$gss_impl" != "auto" -a "$gss_failed" = "1"; then
+      gss_impl="failed"
+    fi
+  fi
+
+  if test "$gss_impl" = "auto" -o "$gss_impl" = "mit"; then
+    gss_failed=0
+    AC_CHECK_LIB(gssapi_krb5,gss_unwrap,gss_impl="mit",gss_failed=1,$GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err ${LIB_SOCKET})
+    if test "$gss_impl" != "auto" -a "$gss_failed" = "1"; then
+      gss_impl="failed"
+    fi
+  fi
+
+  # For Cybersafe one has to set a platform define in order to make compilation work
+  if test "$gss_impl" = "auto" -o "$gss_impl" = "cybersafe"; then
+
+    cmu_saved_CPPFLAGS=$CPPFLAGS
+    cmu_saved_GSSAPIBASE_LIBS=$GSSAPIBASE_LIBS
+# FIX ME - Note that the libraries are in .../lib/64 for 64bit kernels
+    if test -d "${gssapi}/appsec-rt/lib"; then
+      GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -L${gssapi}/appsec-rt/lib"
+    fi
+    CPPFLAGS="$CPPFLAGS -D$platform"
+    if test -d "${gssapi}/appsec-sdk/include"; then
+      CPPFLAGS="$CPPFLAGS -I${gssapi}/appsec-sdk/include"
+    fi
+
+    gss_failed=0
+
+# Check for CyberSafe with two libraries first, than fall back to a single 
+# library (older CyberSafe)
+
+    unset ac_cv_lib_gss_csf_gss_acq_user
+    AC_CHECK_LIB(gss,csf_gss_acq_user,gss_impl="cybersafe03",[
+      unset ac_cv_lib_gss_csf_gss_acq_user;AC_CHECK_LIB(gss,csf_gss_acq_user,gss_impl="cybersafe",gss_failed=1,$GSSAPIBASE_LIBS -lgss)],$GSSAPIBASE_LIBS -lgss -lcstbk5)
+
+    if test "$gss_failed" = "1"; then
+# Restore variables
+      GSSAPIBASE_LIBS=$cmu_saved_GSSAPIBASE_LIBS
+      CPPFLAGS=$cmu_saved_CPPFLAGS
+
+      if test "$gss_impl" != "auto"; then
+        gss_impl="failed"
+      fi
+    fi
+  fi
+
+  if test "$gss_impl" = "auto" -o "$gss_impl" = "seam"; then
+    gss_failed=0
+    AC_CHECK_LIB(gss,gss_unwrap,gss_impl="seam",gss_failed=1,-lgss)
+    if test "$gss_impl" != "auto" -a "$gss_failed" = "1"; then
+      gss_impl="failed"
+    fi
+  fi
+
   if test "$gss_impl" = "mit"; then
-     GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err"
-     GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_LIBS $gssapi_dir/libgssapi_krb5.a $gssapi_dir/libkrb5.a $gssapi_dir/libk5crypto.a $gssapi_dir/libcom_err.a"
+    GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err"
+    GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_LIBS $gssapi_dir/libgssapi_krb5.a $gssapi_dir/libkrb5.a $gssapi_dir/libk5crypto.a $gssapi_dir/libcom_err.a"
   elif test "$gss_impl" = "heimdal"; then
-     GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi -lkrb5 -ldes -lasn1 -lroken ${LIB_CRYPT} -lcom_err"
-     GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_STATIC_LIBS $gssapi_dir/libgssapi.a $gssapi_dir/libkrb5.a $gssapi_dir/libdes.a $gssapi_dir/libasn1.a $gssapi_dir/libroken.a $gssapi_dir/libcom_err.a ${LIB_CRYPT}"
+    GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err"
+    GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_STATIC_LIBS $gssapi_dir/libgssapi.a $gssapi_dir/libkrb5.a $gssapi_dir/libasn1.a $gssapi_dir/libroken.a $gssapi_dir/libcom_err.a ${LIB_CRYPT}"
+  elif test "$gss_impl" = "cybersafe03"; then
+# Version of CyberSafe with two libraries
+    CPPFLAGS="$CPPFLAGS -D$platform -I${gssapi}/appsec-sdk/include"
+    GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgss -lcstbk5"
+    # there is no static libgss for CyberSafe
+    GSSAPIBASE_STATIC_LIBS=none
+  elif test "$gss_impl" = "cybersafe"; then
+    CPPFLAGS="$CPPFLAGS -D$platform -I${gssapi}/appsec-sdk/include"
+    GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgss"
+    # there is no static libgss for CyberSafe
+    GSSAPIBASE_STATIC_LIBS=none
+  elif test "$gss_impl" = "seam"; then
+    GSSAPIBASE_LIBS=-lgss
+    # there is no static libgss on Solaris 8 and up
+    GSSAPIBASE_STATIC_LIBS=none
+  elif test "$gss_impl" = "failed"; then
+    gssapi="no"
+    GSSAPIBASE_LIBS=
+    GSSAPIBASE_STATIC_LIBS=
+    AC_WARN(Disabling GSSAPI - specified library not found)
   else
-     gssapi="no"
-     AC_WARN(Disabling GSSAPI)
+    gssapi="no"
+    GSSAPIBASE_LIBS=
+    GSSAPIBASE_STATIC_LIBS=
+    AC_WARN(Disabling GSSAPI - no library)
   fi
  fi
 
- if test "$ac_cv_header_gssapi_h" = "yes"; then
-  AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi.h,
-    AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE))
- elif test "$ac_cv_header_gssapi_gssapi_h"; then
-  AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h,
-    AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE))
+#
+# Cybersafe defines both GSS_C_NT_HOSTBASED_SERVICE and GSS_C_NT_USER_NAME in gssapi\rfckrb5.h
+#
+ if test "$gssapi" != "no"; then
+  if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
+   AC_EGREP_CPP(hostbased_service_gss_nt_yes,
+    [#include <gssapi/gssapi.h>
+     #ifdef GSS_C_NT_HOSTBASED_SERVICE
+      hostbased_service_gss_nt_yes
+     #endif
+    ], AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,[Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE]), AC_WARN(Cybersafe define not found))
+
+  elif test "$ac_cv_header_gssapi_h" = "yes"; then
+   AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi.h,
+     AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,[Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE]))
+  elif test "$ac_cv_header_gssapi_gssapi_h"; then
+
+   AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h,
+     AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,[Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE]))
+  fi
+
+  if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
+   AC_EGREP_CPP(user_name_yes_gss_nt,
+    [#include <gssapi/gssapi.h>
+     #ifdef GSS_C_NT_USER_NAME
+      user_name_yes_gss_nt
+     #endif
+    ], AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,[Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME]), AC_WARN(Cybersafe define not found))
+  elif test "$ac_cv_header_gssapi_h" = "yes"; then
+   AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi.h,
+    AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,[Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME]))
+  elif test "$ac_cv_header_gssapi_gssapi_h"; then
+   AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi/gssapi.h,
+    AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,[Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME]))
+  fi
  fi
 
  GSSAPI_LIBS=""
  AC_MSG_CHECKING(GSSAPI)
  if test "$gssapi" != no; then
   AC_MSG_RESULT(with implementation ${gss_impl})
-  AC_CHECK_LIB(ndbm,dbm_open,GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lndbm")
   AC_CHECK_LIB(resolv,res_search,GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lresolv")
   SASL_MECHS="$SASL_MECHS libgssapiv2.la"
   SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/gssapi.o"
@@ -1112,22 +2921,28 @@ AC_SUBST(GSSAPI_LIBS)
 AC_SUBST(GSSAPIBASE_LIBS)
 ])
 
+AC_DEFUN([SASL_SET_GSSAPI_LIBS], [
+    SASL_GSSAPI_LIBS_SET="yes"
+])
+
 dnl What we want to do here is setup LIB_SASL with what one would
 dnl generally want to have (e.g. if static is requested, make it that,
 dnl otherwise make it dynamic.
 
-dnl We also want to creat LIB_DYN_SASL and DYNSASLFLAGS.
+dnl We also want to create LIB_DYN_SASL and DYNSASLFLAGS.
 
 dnl Also sets using_static_sasl to "no" "static" or "staticonly"
 
-AC_DEFUN(CMU_SASL2, [
+AC_DEFUN([CMU_SASL2], [
+	AC_REQUIRE([SASL_GSSAPI_CHK])
+
 AC_ARG_WITH(sasl,
             [  --with-sasl=DIR         Compile with libsasl2 in <DIR>],
 	    with_sasl="$withval",
             with_sasl="yes")
 
 AC_ARG_WITH(staticsasl,
-	    [  --with-staticsasl=DIR  Compile with staticly linked libsasl2 in <DIR>],
+	    [  --with-staticsasl=DIR   Compile with staticly linked libsasl2 in <DIR>],
 	    with_staticsasl="$withval";
 	    if test $with_staticsasl != "no"; then
 		using_static_sasl="static"
@@ -1143,6 +2958,11 @@ AC_ARG_WITH(staticsasl,
 
 	if test ${with_staticsasl} != "no"; then
 	  if test -d ${with_staticsasl}; then
+	    if test -d ${with_staticsasl}/lib64 ; then
+	      ac_cv_sasl_where_lib=${with_staticsasl}/lib64
+	    else
+	      ac_cv_sasl_where_lib=${with_staticsasl}/lib
+	    fi
 	    ac_cv_sasl_where_lib=${with_staticsasl}/lib
 	    ac_cv_sasl_where_inc=${with_staticsasl}/include
 
@@ -1154,23 +2974,29 @@ AC_ARG_WITH(staticsasl,
 	    with_staticsasl="/usr"
 	  fi
 
-	  AC_CHECK_HEADER(sasl/sasl.h,
-	    AC_CHECK_HEADER(sasl/saslutil.h,
-	     if test -r ${with_staticsasl}/lib/libsasl2.a; then
-		ac_cv_found_sasl=yes
-		AC_MSG_CHECKING(for static libsasl)
-		LIB_SASL="$LIB_SASL ${with_staticsasl}/lib/libsasl2.a"
-	     else
-	        AC_MSG_CHECKING(for static libsasl)
-		AC_ERROR([Could not find ${with_staticsasl}/lib/libsasl2.a])
-	     fi
-	    ))
+	  AC_CHECK_HEADER(sasl/sasl.h, [
+	    AC_CHECK_HEADER(sasl/saslutil.h, [
+	     for i42 in lib64 lib; do
+	        if test -r ${with_staticsasl}/$i42/libsasl2.a; then
+		  ac_cv_found_sasl=yes
+		  AC_MSG_CHECKING(for static libsasl)
+		  LIB_SASL="$LIB_SASL ${with_staticsasl}/$i42/libsasl2.a"
+		fi
+	     done
+             if test ! "$ac_cv_found_sasl" = "yes"; then
+	          AC_MSG_CHECKING(for static libsasl)
+		  AC_ERROR([Could not find ${with_staticsasl}/lib*/libsasl2.a])
+             fi
+	    ])])
 
 	  AC_MSG_RESULT(found)
 
-	  SASL_GSSAPI_CHK
-
-	  LIB_SASL="$LIB_SASL $GSSAPIBASE_STATIC_LIBS"
+          if test "x$SASL_GSSAPI_LIBS_SET" = "x"; then
+	    LIB_SASL="$LIB_SASL $GSSAPIBASE_STATIC_LIBS"
+	  else
+	    SASL_GSSAPI_LIBS_SET=""
+	    cmu_saved_LIBS="$GSSAPIBASE_STATIC_LIBS $cmu_saved_LIBS" 
+	  fi
 	fi
 
 	if test -d ${with_sasl}; then
@@ -1187,12 +3013,12 @@ AC_ARG_WITH(staticsasl,
 	fi
 
 	dnl be sure to check for a SASLv2 specific function
-	AC_CHECK_HEADER(sasl/sasl.h,
-	    AC_CHECK_HEADER(sasl/saslutil.h,
+	AC_CHECK_HEADER(sasl/sasl.h, [
+	    AC_CHECK_HEADER(sasl/saslutil.h, [
 	      AC_CHECK_LIB(sasl2, prop_get, 
                            ac_cv_found_sasl=yes,
-		           ac_cv_found_sasl=no),
-	                   ac_cv_found_sasl=no), ac_cv_found_sasl=no)
+		           ac_cv_found_sasl=no)],
+	                   ac_cv_found_sasl=no)], ac_cv_found_sasl=no)
 
 	if test "$ac_cv_found_sasl" = "yes"; then
 	    if test "$ac_cv_sasl_where_lib" != ""; then
@@ -1209,6 +3035,11 @@ AC_ARG_WITH(staticsasl,
 	    using_static_sasl="staticonly"
 	fi
 
+        if test "x$SASL_GSSAPI_LIBS_SET" != "x"; then
+	    SASL_GSSAPI_LIBS_SET=""
+	    cmu_saved_LIBS="$GSSAPIBASE_LIBS $cmu_saved_LIBS" 
+	fi
+
 	LIBS="$cmu_saved_LIBS"
 	LDFLAGS="$cmu_saved_LDFLAGS"
 	CPPFLAGS="$cmu_saved_CPPFLAGS"
@@ -1219,25 +3050,65 @@ AC_ARG_WITH(staticsasl,
 	AC_SUBST(SASLFLAGS)
 	])
 
-AC_DEFUN(CMU_SASL2_REQUIRED,
+AC_DEFUN([CMU_SASL2_REQUIRED],
 [AC_REQUIRE([CMU_SASL2])
 if test "$ac_cv_found_sasl" != "yes"; then
         AC_ERROR([Cannot continue without libsasl2.
 Get it from ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/.])
 fi])
 
-dnl Check for PLAIN (and therefore crypt)
+AC_DEFUN([CMU_SASL2_REQUIRE_VER], [
+	AC_REQUIRE([CMU_SASL2_REQUIRED])
 
-AC_DEFUN(SASL_CRYPT_CHK,[
- AC_CHECK_FUNC(crypt, cmu_have_crypt=yes,
+	cmu_saved_CPPFLAGS=$CPPFLAGS
+	CPPFLAGS="$CPPFLAGS $SASLFLAGS"
+
+	AC_TRY_CPP([
+#include <sasl/sasl.h>
+
+#ifndef SASL_VERSION_MAJOR
+#error SASL_VERSION_MAJOR not defined
+#endif
+#ifndef SASL_VERSION_MINOR
+#error SASL_VERSION_MINOR not defined
+#endif
+#ifndef SASL_VERSION_STEP
+#error SASL_VERSION_STEP not defined
+#endif
+
+#if SASL_VERSION_MAJOR < $1 || SASL_VERSION_MINOR < $2 || SASL_VERSION_STEP < $3
+#error SASL version is less than $1.$2.$3
+#endif
+	],,AC_ERROR([Incorrect SASL headers found.  This package requires SASL $1.$2.$3 or newer.]))
+
+	CPPFLAGS=$cmu_saved_CPPFLAGS
+])
+
+AC_DEFUN([CMU_SASL2_CHECKAPOP_REQUIRED], [
+	AC_REQUIRE([CMU_SASL2_REQUIRED])
+
+	cmu_saved_LDFLAGS=$LDFLAGS
+
+	LDFLAGS="$LDFLAGS $LIB_SASL"
+
+	AC_CHECK_LIB(sasl2, sasl_checkapop, AC_DEFINE(HAVE_APOP,[],[Does SASL support APOP?]),
+		AC_MSG_ERROR([libsasl2 without working sasl_checkapop.  Cannot continue.]))
+
+	LDFLAGS=$cmu_saved_LDFLAGS
+])
+
+AC_DEFUN([SASL2_CRYPT_CHK],[
+ AC_CHECK_FUNC(crypt, cmu_have_crypt=yes, [
   AC_CHECK_LIB(crypt, crypt,
 	       LIB_CRYPT="-lcrypt"; cmu_have_crypt=yes,
-	       cmu_have_crypt=no))
+	       cmu_have_crypt=no)])
  AC_SUBST(LIB_CRYPT)
 ])
 
-AC_DEFUN(SASL_PLAIN_CHK,[
-AC_REQUIRE([SASL_CRYPT_CHK])
+dnl Check for PLAIN (and therefore crypt)
+
+AC_DEFUN([SASL_PLAIN_CHK],[
+AC_REQUIRE([SASL2_CRYPT_CHK])
 
 dnl PLAIN
  AC_ARG_ENABLE(plain, [  --enable-plain          enable PLAIN authentication [yes] ],
@@ -1257,8 +3128,10 @@ dnl PLAIN
  if test "$plain" != no; then
   AC_MSG_RESULT(enabled)
   SASL_MECHS="$SASL_MECHS libplain.la"
-  SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/plain.o"
-  AC_DEFINE(STATIC_PLAIN)
+  if test "$enable_static" = yes; then
+    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/plain.o"
+    AC_DEFINE(STATIC_PLAIN,[],[Link PLAIN Staticly])
+  fi
  else
   AC_MSG_RESULT(disabled)
  fi
@@ -1267,18 +3140,12 @@ dnl PLAIN
 dnl See whether we can use IPv6 related functions
 dnl contributed by Hajimu UMEMOTO
 
-AC_DEFUN(IPv6_CHECK_FUNC, [
-changequote(, )dnl
-ac_tr_lib=HAVE_`echo $1 | sed -e 's/[^a-zA-Z0-9_]/_/g' \
-  -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`
-changequote([, ])dnl
+AC_DEFUN([IPv6_CHECK_FUNC], [
 AC_CHECK_FUNC($1, [dnl
-  AC_DEFINE_UNQUOTED($ac_tr_lib)
   ac_cv_lib_socket_$1=no
   ac_cv_lib_inet6_$1=no
 ], [dnl
   AC_CHECK_LIB(socket, $1, [dnl
-    AC_DEFINE_UNQUOTED($ac_tr_lib)
     LIBS="$LIBS -lsocket"
     ac_cv_lib_inet6_$1=no
   ], [dnl
@@ -1299,7 +3166,6 @@ AC_CHECK_FUNC($1, [dnl
 	LDFLAGS="$LDFLAGS -L$ipv6_cv_dir/lib"
       fi
       AC_CHECK_LIB(inet6, $1, [dnl
-	AC_DEFINE_UNQUOTED($ac_tr_lib)
 	if test $ipv6_libinet6 = no; then
 	  ipv6_libinet6=yes
 	  LIBS="$LIBS -linet6"
@@ -1309,19 +3175,34 @@ AC_CHECK_FUNC($1, [dnl
       fi
     fi])dnl
 ])dnl
+ipv6_cv_$1=no
 if test $ac_cv_func_$1 = yes -o $ac_cv_lib_socket_$1 = yes \
      -o $ac_cv_lib_inet6_$1 = yes
 then
   ipv6_cv_$1=yes
+fi
+if test $ipv6_cv_$1 = no; then
+  if test $1 = getaddrinfo; then
+    for ipv6_cv_pfx in o n; do
+      AC_EGREP_HEADER(${ipv6_cv_pfx}$1, netdb.h,
+		      [AC_CHECK_FUNC(${ipv6_cv_pfx}$1)])
+      if eval test X\$ac_cv_func_${ipv6_cv_pfx}$1 = Xyes; then
+        AC_DEFINE(HAVE_GETADDRINFO,[],[Do we have a getaddrinfo?])
+        ipv6_cv_$1=yes
+        break
+      fi
+    done
+  fi
+fi
+if test $ipv6_cv_$1 = yes; then
   ifelse([$2], , :, [$2])
 else
-  ipv6_cv_$1=no
   ifelse([$3], , :, [$3])
 fi])
 
 
 dnl See whether we have ss_family in sockaddr_storage
-AC_DEFUN(IPv6_CHECK_SS_FAMILY, [
+AC_DEFUN([IPv6_CHECK_SS_FAMILY], [
 AC_MSG_CHECKING([whether you have ss_family in struct sockaddr_storage])
 AC_CACHE_VAL(ipv6_cv_ss_family, [dnl
 AC_TRY_COMPILE([#include <sys/types.h>
@@ -1329,7 +3210,7 @@ AC_TRY_COMPILE([#include <sys/types.h>
 	[struct sockaddr_storage ss; int i = ss.ss_family;],
 	[ipv6_cv_ss_family=yes], [ipv6_cv_ss_family=no])])dnl
 if test $ipv6_cv_ss_family = yes; then
-  ifelse([$1], , AC_DEFINE(HAVE_SS_FAMILY), [$1])
+  ifelse([$1], , AC_DEFINE(HAVE_SS_FAMILY,[],[Is there an ss_family in sockaddr_storage?]), [$1])
 else
   ifelse([$2], , :, [$2])
 fi
@@ -1337,7 +3218,7 @@ AC_MSG_RESULT($ipv6_cv_ss_family)])
 
 
 dnl whether you have sa_len in struct sockaddr
-AC_DEFUN(IPv6_CHECK_SA_LEN, [
+AC_DEFUN([IPv6_CHECK_SA_LEN], [
 AC_MSG_CHECKING([whether you have sa_len in struct sockaddr])
 AC_CACHE_VAL(ipv6_cv_sa_len, [dnl
 AC_TRY_COMPILE([#include <sys/types.h>
@@ -1345,7 +3226,7 @@ AC_TRY_COMPILE([#include <sys/types.h>
 	       [struct sockaddr sa; int i = sa.sa_len;],
 	       [ipv6_cv_sa_len=yes], [ipv6_cv_sa_len=no])])dnl
 if test $ipv6_cv_sa_len = yes; then
-  ifelse([$1], , AC_DEFINE(HAVE_SOCKADDR_SA_LEN), [$1])
+  ifelse([$1], , AC_DEFINE(HAVE_SOCKADDR_SA_LEN,[],[Does sockaddr have an sa_len?]), [$1])
 else
   ifelse([$2], , :, [$2])
 fi
@@ -1353,7 +3234,7 @@ AC_MSG_RESULT($ipv6_cv_sa_len)])
 
 
 dnl See whether sys/socket.h has socklen_t
-AC_DEFUN(IPv6_CHECK_SOCKLEN_T, [
+AC_DEFUN([IPv6_CHECK_SOCKLEN_T], [
 AC_MSG_CHECKING(for socklen_t)
 AC_CACHE_VAL(ipv6_cv_socklen_t, [dnl
 AC_TRY_LINK([#include <sys/types.h>
@@ -1361,8 +3242,10 @@ AC_TRY_LINK([#include <sys/types.h>
 	    [socklen_t len = 0;],
 	    [ipv6_cv_socklen_t=yes], [ipv6_cv_socklen_t=no])])dnl
 if test $ipv6_cv_socklen_t = yes; then
-  ifelse([$1], , AC_DEFINE(HAVE_SOCKLEN_T), [$1])
+  ifelse([$1], , AC_DEFINE(HAVE_SOCKLEN_T,[],[Do we have a socklen_t?]), [$1])
 else
   ifelse([$2], , :, [$2])
 fi
 AC_MSG_RESULT($ipv6_cv_socklen_t)])
+
+

@@ -126,9 +126,9 @@ int pre)
 #else
 	setbuffer(f_in,in_buf,BUFFER_SIZE);
 #endif
-	c=getc(f_in);
+	c=getc_unlocked(f_in);
 	if(c=='#') {	/* Begins with comment, may not want to preprocess */
-		c=getc(f_in);
+		c=getc_unlocked(f_in);
 		if(c=='N') {
 			fgets(buf,80,f_in);
 			if(!strcmp(buf,"O_APP\n"))
@@ -168,7 +168,7 @@ char *where)	/* Where to place 1st character of new buffer. */
 
 	scrub_file=f_in;
 	for(p=where,n=BUFFER_SIZE;n;--n) {
-		ch=do_scrub_next_char(scrub_from_file,scrub_to_file);
+		ch=do_scrub_next_char(scrub_file);
 		if(ch==EOF)
 			break;
 		*p++=ch;

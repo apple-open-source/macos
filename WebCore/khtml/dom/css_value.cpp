@@ -62,20 +62,31 @@ CSSStyleDeclaration::~CSSStyleDeclaration()
 DOMString CSSStyleDeclaration::cssText() const
 {
     if(!impl) return DOMString();
-    return static_cast<CSSStyleDeclarationImpl *>(impl)->cssText();
+    return impl->cssText();
+}
+
+static void throwException(int exceptioncode)
+{
+    if (exceptioncode >= CSSException::_EXCEPTION_OFFSET)
+	throw CSSException(exceptioncode - CSSException::_EXCEPTION_OFFSET);
+    if (exceptioncode)
+	throw DOMException(exceptioncode);
 }
 
 void CSSStyleDeclaration::setCssText( const DOMString &value )
 {
     if(!impl) return;
-    impl->setCssText(value);
+    int exceptionCode = 0;
+    impl->setCssText(value, exceptionCode);
+    throwException(exceptionCode);
 }
 
 DOMString CSSStyleDeclaration::getPropertyValue( const DOMString &propertyName )
 {
     if(!impl) return DOMString();
-    CSSValue v(getPropertyCSSValue(propertyName));
-    return v.cssText();
+    int id = getPropertyID(propertyName.string().ascii(), propertyName.length());
+    if (!id) return DOMString();
+    return impl->getPropertyValue(id);
 }
 
 CSSValue CSSStyleDeclaration::getPropertyCSSValue( const DOMString &propertyName )
@@ -83,14 +94,17 @@ CSSValue CSSStyleDeclaration::getPropertyCSSValue( const DOMString &propertyName
     if(!impl) return 0;
     int id = getPropertyID(propertyName.string().ascii(), propertyName.length());
     if (!id) return 0;
-    return static_cast<CSSStyleDeclarationImpl *>(impl)->getPropertyCSSValue(id);
+    return impl->getPropertyCSSValue(id);
 }
 
 DOMString CSSStyleDeclaration::removeProperty( const DOMString &property )
 {
     int id = getPropertyID(property.string().ascii(), property.length());
     if(!impl || !id) return DOMString();
-    return static_cast<CSSStyleDeclarationImpl *>(impl)->removeProperty( id );
+    int exceptionCode = 0;
+    DOMString result = impl->removeProperty( id, exceptionCode );
+    throwException(exceptionCode);
+    return result;
 }
 
 DOMString CSSStyleDeclaration::getPropertyPriority( const DOMString &propertyName )
@@ -112,25 +126,27 @@ void CSSStyleDeclaration::setProperty( const DOMString &propName, const DOMStrin
     if (str.find("important", 0, false) != -1)
         important = true;
 
-    static_cast<CSSStyleDeclarationImpl *>(impl)->setProperty( id, value, important );
+    int exceptionCode;
+    impl->setProperty( id, value, important, exceptionCode );
+    throwException(exceptionCode);
 }
 
 unsigned long CSSStyleDeclaration::length() const
 {
     if(!impl) return 0;
-    return static_cast<CSSStyleDeclarationImpl *>(impl)->length();
+    return impl->length();
 }
 
 DOMString CSSStyleDeclaration::item( unsigned long index )
 {
     if(!impl) return DOMString();
-    return static_cast<CSSStyleDeclarationImpl *>(impl)->item( index );
+    return impl->item( index );
 }
 
 CSSRule CSSStyleDeclaration::parentRule() const
 {
     if(!impl) return 0;
-    return static_cast<CSSStyleDeclarationImpl *>(impl)->parentRule();
+    return impl->parentRule();
 }
 
 CSSStyleDeclarationImpl *CSSStyleDeclaration::handle() const
@@ -183,10 +199,9 @@ DOMString CSSValue::cssText() const
     return ((CSSValueImpl *)impl)->cssText();
 }
 
-void CSSValue::setCssText( const DOMString &/*value*/ )
+void CSSValue::setCssText(const DOMString &)
 {
-    if(!impl) return;
-    ((CSSValueImpl *)impl)->cssText();
+    // ### not implemented
 }
 
 unsigned short CSSValue::cssValueType() const
@@ -338,10 +353,7 @@ void CSSPrimitiveValue::setFloatValue( unsigned short unitType, float floatValue
     if(!impl) return;
     int exceptioncode = 0;
     ((CSSPrimitiveValueImpl *)impl)->setFloatValue( unitType, floatValue, exceptioncode );
-    if ( exceptioncode >= CSSException::_EXCEPTION_OFFSET )
-	throw CSSException( exceptioncode - CSSException::_EXCEPTION_OFFSET );
-    if ( exceptioncode )
-	throw DOMException( exceptioncode );
+    throwException(exceptioncode);
 }
 
 float CSSPrimitiveValue::getFloatValue( unsigned short unitType )
@@ -358,10 +370,7 @@ void CSSPrimitiveValue::setStringValue( unsigned short stringType, const DOMStri
     int exceptioncode = 0;
     if(impl)
         ((CSSPrimitiveValueImpl *)impl)->setStringValue( stringType, stringValue, exceptioncode );
-    if ( exceptioncode >= CSSException::_EXCEPTION_OFFSET )
-	throw CSSException( exceptioncode - CSSException::_EXCEPTION_OFFSET );
-    if ( exceptioncode )
-	throw DOMException( exceptioncode );
+    throwException(exceptioncode);
 
 }
 

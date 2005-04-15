@@ -26,20 +26,14 @@
 
 #include "includes.h"
 
-extern BOOL case_sensitive;
-extern BOOL case_preserve;
-extern BOOL short_case_preserve;
-extern BOOL use_mangled_map;
-
-static BOOL scan_directory(const char *path, char *name,size_t maxlength,
-			   connection_struct *conn,BOOL docache);
+static BOOL scan_directory(connection_struct *conn, const char *path, char *name,size_t maxlength);
 
 /****************************************************************************
  Check if two filenames are equal.
  This needs to be careful about whether we are case sensitive.
 ****************************************************************************/
 
-static BOOL fname_equal(const char *name1, const char *name2)
+static BOOL fname_equal(const char *name1, const char *name2, BOOL case_sensitive)
 {
 	/* Normal filename handling */
 	if (case_sensitive)
@@ -137,6 +131,10 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 	if (!*name) {
 		name[0] = '.';
 		name[1] = '\0';
+		if (SMB_VFS_STAT(conn,name,&st) == 0) {
+			*pst = st;
+		}
+		DEBUG(5,("conversion finished \"\" -> %s\n",name));
 		return(True);
 	}
 
@@ -152,13 +150,17 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 			pstrcpy(saved_last_component, name);
 	}
 
-	if (!case_sensitive && (!case_preserve || (mangle_is_8_3(name, False) && !short_case_preserve)))
-		strnorm(name);
+#if 1
+	if (!conn->case_preserve || (mangle_is_8_3(name, False) && !conn->short_case_preserve))
+#else
+	if (!conn->case_sensitive && (!conn->case_preserve || (mangle_is_8_3(name, False) && !conn->short_case_preserve)))
+#endif
+		strnorm(name, lp_defaultcase(SNUM(conn)));
 
 	start = name;
 	pstrcpy(orig_path, name);
 
-	if(!case_sensitive && stat_cache_lookup(conn, name, dirpath, &start, &st)) {
+	if(!conn->case_sensitive && stat_cache_lookup(conn, name, dirpath, &start, &st)) {
 		*pst = st;
 		return True;
 	}
@@ -168,7 +170,7 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 	 */
 
 	if (SMB_VFS_STAT(conn,name,&st) == 0) {
-		stat_cache_add(orig_path, name);
+		stat_cache_add(orig_path, name, conn->case_sensitive);
 		DEBUG(5,("conversion finished %s -> %s\n",orig_path, name));
 		*pst = st;
 		return(True);
@@ -181,7 +183,7 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 	 * sensitive then searching won't help.
 	 */
 
-	if (case_sensitive && !mangle_is_mangled(name) && !use_mangled_map)
+	if (conn->case_sensitive && !mangle_is_mangled(name) && !*lp_mangled_map(SNUM(conn)))
 		return(False);
 
 	name_has_wildcard = ms_has_wild(start);
@@ -234,6 +236,15 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 				 */
 				DEBUG(5,("Not a dir %s\n",start));
 				*end = '/';
+				/* 
+				 * We need to return the fact that the intermediate
+				 * name resolution failed. This is used to return an
+				 * error of ERRbadpath rather than ERRbadfile. Some
+				 * Windows applications depend on the difference between
+				 * these two errors.
+				 */
+				errno = ENOTDIR;
+				*bad_path = True;
 				return(False);
 			}
 
@@ -262,15 +273,15 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 			if (end)
 				pstrcpy(rest,end+1);
 
+			/* Reset errno so we can detect directory open errors. */
+			errno = 0;
+
 			/*
 			 * Try to find this part of the path in the directory.
 			 */
 
 			if (ms_has_wild(start) || 
-			    !scan_directory(dirpath, start, 
-					    sizeof(pstring) - 1 - (start - name), 
-					    conn, 
-					    end?True:False)) {
+			    !scan_directory(conn, dirpath, start, sizeof(pstring) - 1 - (start - name))) {
 				if (end) {
 					/*
 					 * An intermediate part of the name can't be found.
@@ -289,6 +300,11 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 					return(False);
 				}
 	      
+				if (errno == ENOTDIR) {
+					*bad_path = True;
+					return(False);
+				}
+
 				/* 
 				 * Just the last part of the name doesn't exist.
 				 * We may need to strupper() or strlower() it in case
@@ -297,8 +313,8 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 				 * don't normalise it.
 				 */
 
-				if (!case_preserve && (!strhasupper(start) || !strhaslower(start)))		
-					strnorm(start);
+				if (!conn->case_preserve && (!strhasupper(start) || !strhaslower(start)))		
+					strnorm(start, lp_defaultcase(SNUM(conn)));
 
 				/*
 				 * check on the mangled stack to see if we can recover the 
@@ -353,7 +369,7 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 		 */
 		
 		if(!component_was_mangled && !name_has_wildcard)
-			stat_cache_add(orig_path, dirpath);
+			stat_cache_add(orig_path, dirpath, conn->case_sensitive);
 	
 		/* 
 		 * Restore the / that we wiped out earlier.
@@ -368,7 +384,7 @@ BOOL unix_convert(pstring name,connection_struct *conn,char *saved_last_componen
 	 */
 
 	if(!component_was_mangled && !name_has_wildcard)
-		stat_cache_add(orig_path, name);
+		stat_cache_add(orig_path, name, conn->case_sensitive);
 
 	/* 
 	 * The name has been resolved.
@@ -389,37 +405,22 @@ BOOL check_name(pstring name,connection_struct *conn)
 {
 	BOOL ret = True;
 
-	errno = 0;
-
 	if (IS_VETO_PATH(conn, name))  {
 		/* Is it not dot or dot dot. */
 		if (!((name[0] == '.') && (!name[1] || (name[1] == '.' && !name[2])))) {
 			DEBUG(5,("file path name %s vetoed\n",name));
+			errno = ENOENT;
 			return False;
 		}
 	}
 
-	if (!lp_widelinks(SNUM(conn))) {
-		ret = reduce_name(conn,name,conn->connectpath);
+	if (!lp_widelinks(SNUM(conn)) || !lp_symlinks(SNUM(conn))) {
+		ret = reduce_name(conn,name);
 	}
 
-	/* Check if we are allowing users to follow symlinks */
-	/* Patch from David Clerc <David.Clerc@cui.unige.ch>
-		University of Geneva */
-
-#ifdef S_ISLNK
-	if (!lp_symlinks(SNUM(conn))) {
-		SMB_STRUCT_STAT statbuf;
-		if ( (SMB_VFS_LSTAT(conn,name,&statbuf) != -1) &&
-				(S_ISLNK(statbuf.st_mode)) ) {
-			DEBUG(3,("check_name: denied: file path name %s is a symlink\n",name));
-			ret = False; 
-		}
-	}
-#endif
-
-	if (!ret)
+	if (!ret) {
 		DEBUG(5,("check_name on %s failed\n",name));
+	}
 
 	return(ret);
 }
@@ -429,8 +430,7 @@ BOOL check_name(pstring name,connection_struct *conn)
  If the name looks like a mangled name then try via the mangling functions
 ****************************************************************************/
 
-static BOOL scan_directory(const char *path, char *name, size_t maxlength, 
-			   connection_struct *conn,BOOL docache)
+static BOOL scan_directory(connection_struct *conn, const char *path, char *name, size_t maxlength)
 {
 	void *cur_dir;
 	const char *dname;
@@ -441,11 +441,6 @@ static BOOL scan_directory(const char *path, char *name, size_t maxlength,
 	/* handle null paths */
 	if (*path == 0)
 		path = ".";
-
-	if (docache && (dname = DirCacheCheck(path,name,SNUM(conn)))) {
-		safe_strcpy(name, dname, maxlength);	
-		return(True);
-	}      
 
 	/*
 	 * The incoming name can be mangled, and if we de-mangle it
@@ -482,10 +477,8 @@ static BOOL scan_directory(const char *path, char *name, size_t maxlength,
 		 * against unmangled name.
 		 */
 
-		if ((mangled && mangled_equal(name,dname,SNUM(conn))) || fname_equal(name, dname)) {
+		if ((mangled && mangled_equal(name,dname,SNUM(conn))) || fname_equal(name, dname, conn->case_sensitive)) {
 			/* we've found the file, change it's name and return */
-			if (docache)
-				DirCacheAdd(path,name,dname,SNUM(conn));
 			safe_strcpy(name, dname, maxlength);
 			CloseDir(cur_dir);
 			return(True);
@@ -493,5 +486,6 @@ static BOOL scan_directory(const char *path, char *name, size_t maxlength,
 	}
 
 	CloseDir(cur_dir);
+	errno = ENOENT;
 	return(False);
 }

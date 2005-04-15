@@ -115,7 +115,7 @@ void
 md_begin(
 void)
 {
-	register char *retval = NULL;
+	const char *retval = NULL;
 	int lose = 0;
 	register unsigned int i = 0;
 
@@ -316,13 +316,15 @@ reg = pa_parse_number(&s);
 /** PJH: The following 2 calls to as_bad() might eventually **/
 /**      want to end up as as_warn().  **/
 				if (   the_insn.exp.X_add_number > 15 ) {
-					as_bad("5 bit immediate: %ld > 15. Set to 15",
+					as_bad("5 bit immediate: " TA_DFMT
+					       " > 15. Set to 15",
 						the_insn.exp.X_add_number);
 					the_insn.exp.X_add_number = 15;
 				}
 				else if ( the_insn.exp.X_add_number < -16 ) {
-						as_bad("5 bit immediate: %ld < -16. Set to -16",
-							the_insn.exp.X_add_number);
+						as_bad("5 bit immediate: "
+						   TA_DFMT " < -16. Set to -16",
+						    the_insn.exp.X_add_number);
 						the_insn.exp.X_add_number = -16;
 					}
 
@@ -1459,7 +1461,7 @@ int *sizeP)
 void
 md_number_to_chars(
 char *buf,
-long val,
+signed_target_addr_t val,
 int n)
 {
 
@@ -1483,7 +1485,7 @@ int n)
 void
 md_number_to_imm(
 unsigned char *buf,
-long val,
+signed_target_addr_t val,
 int n,
 fixS *fixP,
 int nsect)

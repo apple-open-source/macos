@@ -157,6 +157,10 @@ namespace IOFireWireLib {
 				// v7
 				
 				|| CFEqual( interfaceID, kIOFireWireDeviceInterfaceID_v7 )
+				
+				// v8
+				
+				|| CFEqual( interfaceID, kIOFireWireDeviceInterfaceID_v8 )
 			)
 		{
 			*ppv = & GetInterface() ;
@@ -1188,22 +1192,23 @@ namespace IOFireWireLib {
 	}
 	
 	IOFireWireLibLocalIsochPortRef
-	Device::CreateLocalIsochPort(
-		Boolean					inTalking,
-		DCLCommand*		inDCLProgram,
-		UInt32					inStartEvent,
-		UInt32					inStartState,
-		UInt32					inStartMask,
-		IOVirtualRange			inDCLProgramRanges[],			// optional optimization parameters
-		UInt32					inDCLProgramRangeCount,
-		IOVirtualRange			inBufferRanges[],
-		UInt32					inBufferRangeCount,
+	Device::CreateLocalIsochPortWithOptions(
+		Boolean					talking,
+		DCLCommand*				dclProgram,
+		UInt32					startEvent,
+		UInt32					startState,
+		UInt32					startMask,
+		IOVirtualRange			dclProgramRanges[],			// optional optimization parameters
+		UInt32					dclProgramRangeCount,
+		IOVirtualRange			bufferRanges[],
+		UInt32					bufferRangeCount,
+		IOFWIsochPortOptions	options,
 		REFIID 					iid)
 	{
 		IOFireWireLibLocalIsochPortRef	result = 0 ;
 		
-		IUnknownVTbl** iUnknown = LocalIsochPortCOM::Alloc(*this, inTalking, inDCLProgram, inStartEvent, inStartState, 
-															inStartMask, inDCLProgramRanges, inDCLProgramRangeCount, inBufferRanges, inBufferRangeCount) ;
+		IUnknownVTbl** iUnknown = LocalIsochPortCOM::Alloc(*this, talking, dclProgram, startEvent, startState, 
+															startMask, dclProgramRanges, dclProgramRangeCount, bufferRanges, bufferRangeCount, options ) ;
 		if (iUnknown)
 		{
 			(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & result) ;
@@ -1301,7 +1306,7 @@ namespace IOFireWireLib {
 	const IOFireWireDeviceInterface DeviceCOM::sInterface = 
 	{
 		INTERFACEIMP_INTERFACE,
-		6, 0, // version/revision
+		8, 0, // version/revision
 		
 		& DeviceCOM::SInterfaceIsInited,
 		& DeviceCOM::SGetDevice,
@@ -1413,6 +1418,13 @@ namespace IOFireWireLib {
 		//
 		
 		, & DeviceCOM::S_GetSessionRef
+		
+		//
+		// v8
+		//
+		
+		, & DeviceCOM :: S_CreateLocalIsochPortWithOptions
+
 	} ;
 	
 	DeviceCOM::DeviceCOM( CFDictionaryRef propertyTable, io_service_t service )
@@ -1823,9 +1835,9 @@ namespace IOFireWireLib {
 		UInt32					inBufferRangeCount,
 		REFIID 					iid)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateLocalIsochPort(inTalking, inDCLProgram, inStartEvent, inStartState, inStartMask,
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateLocalIsochPortWithOptions( inTalking, inDCLProgram, inStartEvent, inStartState, inStartMask,
 												inDCLProgramRanges, inDCLProgramRangeCount, inBufferRanges, 
-												inBufferRangeCount, iid) ;
+												inBufferRangeCount, kFWIsochPortDefaultOptions, iid) ;
 	}
 	
 	IOFireWireLibIsochChannelRef
@@ -2006,6 +2018,26 @@ namespace IOFireWireLib {
 	DeviceCOM::S_GetSessionRef( IOFireWireLibDeviceRef self )
 	{
 		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->GetSessionRef() ;
+	}
+	
+	IOFireWireLibLocalIsochPortRef
+	DeviceCOM::S_CreateLocalIsochPortWithOptions(
+		IOFireWireLibDeviceRef 	self, 
+		Boolean					talking,
+		DCLCommand*				dclProgram,
+		UInt32					startEvent,
+		UInt32					startState,
+		UInt32					startMask,
+		IOVirtualRange			dclProgramRanges[],			// optional optimization parameters
+		UInt32					dclProgramRangeCount,
+		IOVirtualRange			bufferRanges[],
+		UInt32					bufferRangeCount,
+		IOFWIsochPortOptions	options,
+		REFIID 					iid)
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateLocalIsochPortWithOptions( talking, dclProgram, startEvent, startState, startMask,
+												dclProgramRanges, dclProgramRangeCount, bufferRanges, 
+												bufferRangeCount, options, iid) ;
 	}
 	
 } // namespace

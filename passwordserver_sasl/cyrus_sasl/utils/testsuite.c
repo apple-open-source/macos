@@ -1,10 +1,10 @@
 /* testsuite.c -- Stress the library a little
  * Rob Siemborski
  * Tim Martin
- * $Id: testsuite.c,v 1.2 2002/05/23 18:57:35 snsimon Exp $
+ * $Id: testsuite.c,v 1.5 2005/01/10 19:09:03 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,13 +74,20 @@
 #endif
 #include <time.h>
 #include <string.h>
+#include <ctype.h>
+#ifndef WIN32
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <sys/file.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/file.h>
+#endif
+
+#ifdef WIN32
+__declspec(dllimport) char *optarg;
+__declspec(dllimport) int optind;
+__declspec(dllimport) int getsubopt(char **optionp, char * const *tokens, char **valuep);
+#endif
 
 char myhostname[1024+1];
 #define MAX_STEPS 7 /* maximum steps any mechanism takes */
@@ -225,6 +232,7 @@ typedef struct tosend_s {
 typedef struct mem_info 
 {
     void *addr;
+    size_t size;
     struct mem_info *next;
 } mem_info_t;
 
@@ -249,6 +257,7 @@ void *test_malloc(size_t size)
 	if(!new_data) return out;
 
 	new_data->addr = out;
+	new_data->size = size;
 	new_data->next = head;
 	head = new_data;
     }
@@ -267,14 +276,12 @@ void *test_realloc(void *ptr, size_t size)
 	fprintf(stderr, "  %X = realloc(%X,%d)\n",
 		(unsigned)out, (unsigned)ptr, size);
 
-    /* don't need to update the mem info structure */
-    if(out == ptr) return out;
-
     prev = &head; cur = head;
     
     while(cur) {
 	if(cur->addr == ptr) {
 	    cur->addr = out;
+	    cur->size = size;
 	    return out;
 	}
 	
@@ -290,6 +297,7 @@ void *test_realloc(void *ptr, size_t size)
 	if(!cur) return out;
 
 	cur->addr = out;
+	cur->size = size;
 	cur->next = head;
 	head = cur;
     }
@@ -313,6 +321,7 @@ void *test_calloc(size_t nmemb, size_t size)
 	if(!new_data) return out;
 
 	new_data->addr = out;
+	new_data->size = size;
 	new_data->next = head;
 	head = new_data;
     }
@@ -356,6 +365,8 @@ int mem_stat()
 {
 #ifndef WITH_DMALLOC
     mem_info_t *cur;
+    size_t n;
+    unsigned char *data;
 
     if(!head) {
 	fprintf(stderr, "  All memory accounted for!\n");
@@ -364,7 +375,17 @@ int mem_stat()
     
     fprintf(stderr, "  Currently Still Allocated:\n");
     for(cur = head; cur; cur = cur->next) {
-	fprintf(stderr, "    %X\n", (unsigned)cur->addr);
+	fprintf(stderr, "    %X (%5d)\t", (unsigned)cur->addr, cur->size);
+	for(data = (unsigned char *) cur->addr,
+		n = 0; n < (cur->size > 12 ? 12 : cur->size); n++) {
+	    if (isprint((int) data[n]))
+		fprintf(stderr, "'%c' ", (char) data[n]);
+	    else
+		fprintf(stderr, "%02X  ", data[n] & 0xff);
+	}
+	if (n < cur->size)
+	    fprintf(stderr, "...");
+	fprintf(stderr, "\n");
     }
     return SASL_FAIL;
 #else
@@ -439,6 +460,11 @@ int good_getopt(void *context __attribute__((unused)),
 	*result = "auxprop";
 	if (len)
 	    *len = strlen("auxprop");
+	return SASL_OK;
+    } else if (!strcmp(option, "auxprop_plugin")) {
+	*result = "sasldb";
+	if (len)
+	    *len = strlen("sasldb");
 	return SASL_OK;
     } else if (!strcmp(option, "sasldb_path")) {
 	*result = "./sasldb";
@@ -569,25 +595,27 @@ void test_init(void)
 
     /* sasl_done() before anything */
     sasl_done();
+    if(mem_stat() != SASL_OK) fatal("memory error after sasl_done test");
 
     /* Try passing appname a really long string (just see if it crashes it)*/
 
     result = sasl_server_init(NULL,really_long_string);
     sasl_done();
+    if(mem_stat() != SASL_OK) fatal("memory error after long appname test");
 
     /* try passing NULL name */
     result = sasl_server_init(emptysasl_cb, NULL);
-
     if (result == SASL_OK) fatal("Allowed null name to sasl_server_init");
 
     /* this calls sasl_done when it wasn't inited */
     sasl_done();
+    if(mem_stat() != SASL_OK) fatal("memory error after null appname test");
 
     /* try giving it a different path for where the plugins are */
     result = sasl_server_init(withokpathsasl_cb, "Tester");
-
     if (result!=SASL_OK) fatal("Didn't deal with ok callback path very well");
     sasl_done();
+    if(mem_stat() != SASL_OK) fatal("memory error after callback path test");
 
     /* and the client */
     result = sasl_client_init(withokpathsasl_cb);
@@ -595,12 +623,14 @@ void test_init(void)
     if (result!=SASL_OK)
 	fatal("Client didn't deal with ok callback path very well");
     sasl_done();
+    if(mem_stat() != SASL_OK) fatal("memory error after client test");
 
     /* try giving it an invalid path for where the plugins are */
     result = sasl_server_init(withbadpathsasl_cb, NULL);
 
     if (result==SASL_OK) fatal("Allowed invalid path");
     sasl_done();
+    if(mem_stat() != SASL_OK) fatal("memory error after bad path test");
 
     /* and the client - xxx is this necessary?*/
 #if 0
@@ -970,6 +1000,13 @@ void test_props(void)
         NULL
     };
 
+    const char *more_requests[] = {
+	"a",
+	"b",
+	"c",
+	"defghijklmnop"
+    };
+
     const char *short_requests[] = {
 	"userPassword",
 	"userName",
@@ -991,11 +1028,24 @@ void test_props(void)
     if(result != SASL_OK)
 	fatal("prop request failed");
 
+    /* set some values */
+    prop_set(ctx, "uidNumber", really_long_string, 0);
     prop_set(ctx, "userPassword", "pw1", 0);
     prop_set(ctx, "userPassword", "pw2", 0);
     prop_set(ctx, "userName", "rjs3", 0);
     prop_set(ctx, NULL, "tmartin", 0);
-    
+
+    /* and request some more (this resets values) */
+    prop_request(ctx, more_requests);
+
+    /* and set some more... */
+    prop_set(ctx, "c", really_long_string, 0);
+    prop_set(ctx, "b", really_long_string, 0);
+    prop_set(ctx, "userPassword", "pw1b", 0);
+    prop_set(ctx, "userPassword", "pw2b", 0);
+    prop_set(ctx, "userName", "rjs3b", 0);
+    prop_set(ctx, NULL, "tmartinagain", 0);
+
     if(prop_set(ctx, "gah", "ack", 0) == SASL_OK) {
 	printf("setting bad property name succeeded\n");
 	exit(1);
@@ -1011,6 +1061,15 @@ void test_props(void)
 	fatal("prop_getnames item 1 wrong name");
     if(foobar[2].name)
 	fatal("prop_getnames returned an item 2");
+
+    if(strcmp(foobar[0].values[0], "pw1b"))
+	fatal("prop_getnames item 1a wrong value");
+    if(strcmp(foobar[0].values[1], "pw2b"))
+	fatal("prop_getnames item 1b wrong value");
+    if(strcmp(foobar[1].values[0], "rjs3b"))
+	fatal("prop_getnames item 2a wrong value");
+    if(strcmp(foobar[1].values[1], "tmartinagain"))
+	fatal("prop_getnames item 2b wrong value");
 
     result = prop_dup(ctx, &dupctx);
     if(result != SASL_OK)
@@ -1097,10 +1156,10 @@ const sasl_security_properties_t security_props = {
 void set_properties(sasl_conn_t *conn, const sasl_security_properties_t *props)
 {
     if(!props) {
-	if (sasl_setprop(conn, SASL_SEC_PROPS, &security_props)!=SASL_OK)
-	    fatal("sasl_setprop() failed");
+	if (sasl_setprop(conn, SASL_SEC_PROPS, &security_props) != SASL_OK)
+	    fatal("sasl_setprop() failed - default properties");
     } else {
-       	if (sasl_setprop(conn, SASL_SEC_PROPS, props)!=SASL_OK)
+       	if (sasl_setprop(conn, SASL_SEC_PROPS, props) != SASL_OK)
 	    fatal("sasl_setprop() failed");
     }
 
@@ -2214,6 +2273,7 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
     if(result == SASL_NOMECH && test_props[i]->min_ssf > 0) {
 	printf("  Testing SSF: SKIPPED (requested minimum > 0: %d)\n",
 	       test_props[i]->min_ssf);
+	cleanup_auth(&sconn, &cconn);
 	continue;
     } else if(result != SASL_OK) {
 	fatal("doauth failed in testseclayer");
@@ -2223,7 +2283,11 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	fatal("sasl_getprop in testseclayer");
     }
 
-    printf("  Testing SSF: %d (requested %d/%d with maxbufsize: %d)\n",
+    if(*this_ssf != 0 && !test_props[i]->maxbufsize) {
+	fatal("got nonzero SSF with zero maxbufsize");
+    }
+
+    printf("  SUCCESS Testing SSF: %d (requested %d/%d with maxbufsize: %d)\n",
 	   (unsigned)(*this_ssf),
 	   test_props[i]->min_ssf, test_props[i]->max_ssf,
 	   test_props[i]->maxbufsize);
@@ -2796,6 +2860,8 @@ void notes(void)
     printf("-For KERBEROS_V4 must be able to read srvtab file (usually /etc/srvtab)\n");
     printf("-For GSSAPI must be able to read srvtab (/etc/krb5.keytab)\n");
     printf("-For both KERBEROS_V4 and GSSAPI you must have non-expired tickets\n");
+    printf("-For OTP (w/OPIE) must be able to read/write opiekeys (/etc/opiekeys)\n");
+    printf("-For OTP you must have a non-expired secret\n");
     printf("-Must be able to read sasldb, which needs to be setup with a.\n");
     printf(" username and a password (see top of testsuite.c)\n");
     printf("\n\n");
@@ -2822,7 +2888,18 @@ int main(int argc, char **argv)
     int do_all = 0;
     int skip_do_correct = 0;
     unsigned int seed = time(NULL);
-    while ((c = getopt(argc, argv, "Ms:g:r:h:an")) != EOF)
+#ifdef WIN32
+  /* initialize winsock */
+    int result;
+    WSADATA wsaData;
+
+    result = WSAStartup( MAKEWORD(2, 0), &wsaData );
+    if ( result != 0) {
+	fatal("Windows sockets initialization failure");
+    }
+#endif
+
+    while ((c = getopt(argc, argv, "Ms:g:r:han")) != EOF)
 	switch (c) {
 	case 'M':
 	    DETAILED_MEMORY_DEBUGGING = 1;
@@ -2859,10 +2936,12 @@ int main(int argc, char **argv)
 
     init(seed);
 
+#if 0 /* Disabled because it is borked */
     printf("Creating id's in mechanisms (not in sasldb)...\n");
     create_ids();
     if(mem_stat() != SASL_OK) fatal("memory error");
     printf("Creating id's in mechanisms (not in sasldb)... ok\n");
+#endif
 
     printf("Checking plaintext passwords... ");
     test_checkpass();

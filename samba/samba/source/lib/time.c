@@ -190,8 +190,7 @@ static int TimeZoneFaster(time_t t)
     time_t low,high;
 
     zone = TimeZone(t);
-    tdt = (struct dst_table *)Realloc(dst_table,
-					      sizeof(dst_table[0])*(i+1));
+    tdt = SMB_REALLOC_ARRAY(dst_table, struct dst_table, i+1);
     if (!tdt) {
       DEBUG(0,("TimeZoneFaster: out of memory!\n"));
       SAFE_FREE(dst_table);
@@ -753,4 +752,10 @@ BOOL nt_time_is_zero(NTTIME *nt)
 	if(nt->high==0) 
 		return True;
 	return False;
+}
+
+SMB_BIG_INT usec_time_diff(struct timeval *larget, struct timeval *smallt)
+{
+	SMB_BIG_INT sec_diff = larget->tv_sec - smallt->tv_sec;
+	return (sec_diff * 1000000) + (SMB_BIG_INT)(larget->tv_usec - smallt->tv_usec);
 }

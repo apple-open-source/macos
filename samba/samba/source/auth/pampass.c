@@ -41,7 +41,11 @@
  *   which determines what actions/limitations/allowances become affected.
  *********************************************************************/
 
+#if defined(HAVE_SECURITY_PAM_APPL_H)
 #include <security/pam_appl.h>
+#elif defined(HAVE_PAM_PAM_APPL_H)
+#include <pam/pam_appl.h>
+#endif
 
 /*
  * Structure used to communicate between the conversation function
@@ -466,7 +470,7 @@ static BOOL smb_pam_start(pam_handle_t **pamh, const char *user, const char *rho
 
 	if (rhost == NULL) {
 		our_rhost = client_name();
-		if (strequal(rhost,"UNKNOWN"))
+		if (strequal(our_rhost,"UNKNOWN"))
 			our_rhost = client_addr();
 	} else {
 		our_rhost = rhost;

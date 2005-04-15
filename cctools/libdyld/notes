@@ -1,6 +1,18 @@
 TODO:
 - Test dlopen() with Apache, perl, and tcl.
 
+Changes for the 5.17 release (the cctools-552 release):
+- Changed ofi.c to used #include instead of #import so it gets <stdarg.h>
+  correctly included.  Radar bug #3640701.
+
+Changes for the 5.17 release (the cctools-534 release):
+- Changed the Makefile to not install the archives when OLD_DYLD_STUFF is set.
+  Radar bug #3780216.
+
+Changes for the 5.17 release (the cctools-532 release):
+- To allow ofi.c to build with gcc3.5 the static declarations needed for the
+  inline strcmp were moved above the header file includes.  Radar bug #3765219.
+
 Changes for the 5.13 release (the cctools-482 release):
 - Added the SPI NSFindSectionAndOffsetInObjectFileImage() to ofi.c .  Radar
   bug #3318440.

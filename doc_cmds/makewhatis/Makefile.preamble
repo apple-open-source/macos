@@ -1,3 +1,1 @@
-SHELLTOOL = makewhatis.pl
-
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

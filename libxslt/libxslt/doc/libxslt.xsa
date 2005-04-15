@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!DOCTYPE xsa PUBLIC "-//LM Garshol//DTD XML Software Autoupdate 1.0//EN//XML" "http://www.garshol.priv.no/download/xsa/xsa.dtd">
+<xsa>
+  <vendor>
+    <name>Daniel Veillard</name>
+    <email>daniel@veillard.com</email>
+    <url>http://veillard.com/</url>
+  </vendor>
+  <product id="libxslt">
+    <name>libxslt</name>
+    <version>1.1.8</version>
+    <last-release> July 5 2004</last-release>
+    <info-url>http://xmlsoft.org/XSLT/</info-url>
+    <changes>   - build fixes: Windows runtime options (Oliver Stoeneberg), Windows
+    binary package layout (Igor Zlatkovic), libgcrypt version test and link
+    (William)
+   - documentation: fix libxslt namespace name in doc (William)
+   - bug fixes: undefined namespace message (William Brack), search engine
+    (William), multiple namespace fixups (William), namespace fix for key
+    evaluation (William), Python memory debug bindings,
+   - improvements: crypto extensions for exslt (Joel Reed, William)
+
+</changes>
+  </product>
+</xsa>

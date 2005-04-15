@@ -543,7 +543,7 @@ void HTMLInputElement::select(  )
 void HTMLInputElement::click(  )
 {
     if(impl)
-	((HTMLInputElementImpl *)impl)->click(  );
+	((HTMLInputElementImpl *)impl)->click( false );
 }
 
 // --------------------------------------------------------------------------
@@ -860,7 +860,8 @@ void HTMLSelectElement::setTabIndex( long _tabIndex )
 
 void HTMLSelectElement::add( const HTMLElement &element, const HTMLElement &before )
 {
-    if(impl) static_cast<HTMLSelectElementImpl*>(impl)->add( element, before );
+    if(impl) static_cast<HTMLSelectElementImpl*>(impl)->add( 
+        static_cast<HTMLElementImpl *>(element.handle()), static_cast<HTMLElementImpl *>(before.handle()) );
 }
 
 void HTMLSelectElement::remove( long index )

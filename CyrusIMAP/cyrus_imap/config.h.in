@@ -1,0 +1,486 @@
+/* config.h.in.  Generated from configure.in by autoheader.  */
+
+
+/* $Id: configure.in,v 1.290 2005/01/18 23:46:00 shadow Exp $ */
+/* 
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any other legal
+ *    details, please contact  
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+#ifndef _CYRUS_IMAPD_CONFIG_H_
+#define _CYRUS_IMAPD_CONFIG_H_
+
+
+/* Should the AFS PTS plugin use krb5? */
+#undef AFSPTS_USE_KRB5
+
+/* Where will we be installed? */
+#undef CYRUS_PATH
+
+/* What user will we run as? */
+#undef CYRUS_USER
+
+/* Alternative to /dev/urandom? */
+#undef EGD_SOCKET
+
+/* Enable the LISTEXT extension? */
+#undef ENABLE_LISTEXT
+
+/* Do we have a decent regex library? */
+#undef ENABLE_REGEX
+
+/* Enable Netscape Menu Option Hack? */
+#undef ENABLE_X_NETSCAPE_HACK
+
+/* Extra version information for imap/version.h */
+#undef EXTRA_IDENT
+
+/* Do we have strerror()? */
+#undef HAS_STRERROR
+
+/* Does SASL support APOP? */
+#undef HAVE_APOP
+
+/* Build in Berkeley DB support? */
+#undef HAVE_BDB
+
+/* Define to 1 if you have the `daemon' function. */
+#undef HAVE_DAEMON
+
+/* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
+   */
+#undef HAVE_DIRENT_H
+
+/* Define to 1 if you have the `dns_lookup' function. */
+#undef HAVE_DNS_LOOKUP
+
+/* Define to 1 if you have the `dn_expand' function. */
+#undef HAVE_DN_EXPAND
+
+/* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
+#undef HAVE_DOPRNT
+
+/* We need et/com_err.h */
+#undef HAVE_ET_COM_ERR_H
+
+/* Do we have fdatasync()? */
+#undef HAVE_FDATASYNC
+
+/* Define to 1 if you have the `ftruncate' function. */
+#undef HAVE_FTRUNCATE
+
+/* Do we have a getaddrinfo? */
+#undef HAVE_GETADDRINFO
+
+/* Define to 1 if you have the `getdtablesize' function. */
+#undef HAVE_GETDTABLESIZE
+
+/* Do we have a getnameinfo? */
+#undef HAVE_GETNAMEINFO
+
+/* Define to 1 if you have the `getrlimit' function. */
+#undef HAVE_GETRLIMIT
+
+/* Define if you have the gssapi.h header file */
+#undef HAVE_GSSAPI_H
+
+/* Define to 1 if you have the `gsskrb5_register_acceptor_identity' function.
+   */
+#undef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
+
+/* Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE */
+#undef HAVE_GSS_C_NT_HOSTBASED_SERVICE
+
+/* Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME */
+#undef HAVE_GSS_C_NT_USER_NAME
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Support for Kerberos? */
+#undef HAVE_KRB
+
+/* Define to 1 if you have the `dl' library (-ldl). */
+#undef HAVE_LIBDL
+
+/* Define to 1 if you have the `fl' library (-lfl). */
+#undef HAVE_LIBFL
+
+/* Define to 1 if you have the `resolv' library (-lresolv). */
+#undef HAVE_LIBRESOLV
+
+/* Do we have TCP wrappers? */
+#undef HAVE_LIBWRAP
+
+/* Define to 1 if you support file names longer than 14 characters. */
+#undef HAVE_LONG_FILE_NAMES
+
+/* Define to 1 if you have the `memmove' function. */
+#undef HAVE_MEMMOVE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
+#undef HAVE_NDIR_H
+
+/* Do we have Net-SNMP support? */
+#undef HAVE_NETSNMP
+
+/* Do we have an rlim_t? */
+#undef HAVE_RLIM_T
+
+/* Do we have rxposix.h? */
+#undef HAVE_RX
+
+/* Define to 1 if you have the `setrlimit' function. */
+#undef HAVE_SETRLIMIT
+
+/* Define to 1 if you have the `setsid' function. */
+#undef HAVE_SETSID
+
+/* Define to 1 if you have the `shutdown' function. */
+#undef HAVE_SHUTDOWN
+
+/* Does sockaddr have an sa_len? */
+#undef HAVE_SOCKADDR_SA_LEN
+
+/* Do we have a socklen_t? */
+#undef HAVE_SOCKLEN_T
+
+/* Build with SSL support? */
+#undef HAVE_SSL
+
+/* Is there an ss_family in sockaddr_storage? */
+#undef HAVE_SS_FAMILY
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#undef HAVE_STDARG_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strcasecmp' function. */
+#undef HAVE_STRCASECMP
+
+/* Define to 1 if you have the `strerror' function. */
+#undef HAVE_STRERROR
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strlcat' function. */
+#undef HAVE_STRLCAT
+
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
+/* Do we have a sockaddr_storage? */
+#undef HAVE_STRUCT_SOCKADDR_STORAGE
+
+/* Define to 1 if `tm_zone' is member of `struct tm'. */
+#undef HAVE_STRUCT_TM_TM_ZONE
+
+/* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
+   */
+#undef HAVE_SYS_DIR_H
+
+/* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
+   */
+#undef HAVE_SYS_NDIR_H
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/resource.h> header file. */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define to 1 if you have the <sys/select.h> header file. */
+#undef HAVE_SYS_SELECT_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if your `struct tm' has `tm_zone'. Deprecated, use
+   `HAVE_STRUCT_TM_TM_ZONE' instead. */
+#undef HAVE_TM_ZONE
+
+/* Define to 1 if you don't have `tm_zone' but do have the external array
+   `tzname'. */
+#undef HAVE_TZNAME
+
+/* Do we have UCD-SNMP support? */
+#undef HAVE_UCDSNMP
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `vprintf' function. */
+#undef HAVE_VPRINTF
+
+/* Build with Zephyr support? */
+#undef HAVE_ZEPHYR
+
+/* define if your compiler has __attribute__ */
+#undef HAVE___ATTRIBUTE__
+
+/* Name of the pidfile for master */
+#undef MASTER_PIDFILE
+
+/* Do we have a sys_errlist? */
+#undef NEED_SYS_ERRLIST
+
+/* Use "imap" as sieve service name? */
+#undef OLD_SIEVE_SERVICE_NAME
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Directiory to use for service binaries */
+#undef SERVICE_PATH
+
+/* Do we already have setproctitle? */
+#undef SPT_TYPE
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Config File Location */
+#undef SYSCONFDIR
+
+/* Syslog facility to use. */
+#undef SYSLOG_FACILITY
+
+/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
+#undef TIME_WITH_SYS_TIME
+
+/* Define to 1 if your <sys/time.h> declares `struct tm'. */
+#undef TM_IN_SYS_TIME
+
+/* Build in Sieve support? */
+#undef USE_SIEVE
+
+/* Build in PTS support? */
+#undef WITH_PTS
+
+/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
+   `char[]'. */
+#undef YYTEXT_POINTER
+
+/* Define to 1 if on AIX 3.
+   System headers sometimes define this.
+   We just want to avoid a redefinition error message.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
+
+/* Define as `__inline' if that's what the C compiler calls it, or to nothing
+   if it is not supported. */
+#undef inline
+
+
+/* time.h */
+#if TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+
+/* com_err.h, as needed */
+#ifndef IN_COM_ERR
+#ifdef HAVE_ET_COM_ERR_H
+#include <et/com_err.h>
+#else
+#include <com_err.h>
+#endif /* HAVE_ET_COM_ERR_H */
+#endif /* IN_COM_ERR */
+
+/* This allows us to work even when we don't have an fdatasync */
+#ifndef HAVE_FDATASYNC
+#define fdatasync(fd) fsync(fd)
+#endif
+
+/* A similar setup for not having O_DSYNC */
+#include <fcntl.h>
+
+#ifndef O_DSYNC
+#  ifdef O_SYNC
+#    define O_DSYNC     O_SYNC          /* POSIX */
+#  else
+#    define O_DSYNC     O_FSYNC         /* BSD */
+#  endif
+#endif
+
+#ifndef HAVE___ATTRIBUTE__
+/* Can't use attributes... */
+#define __attribute__(foo)
+#endif
+
+#ifndef HAVE_SOCKLEN_T
+typedef unsigned int socklen_t;
+#endif
+
+#ifndef HAVE_RLIM_T
+typedef int rlim_t;
+#endif
+
+/* some potentially memory saving tradeoffs, 
+   preconfigured in memory-saving mode */
+
+/* save the cmdlines for the ID command */
+#undef ID_SAVE_CMDLINE
+
+/* IPv6 things */
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#ifndef HAVE_STRUCT_SOCKADDR_STORAGE
+#define	_SS_MAXSIZE	128	/* Implementation specific max size */
+#define	_SS_PADSIZE	(_SS_MAXSIZE - sizeof (struct sockaddr))
+
+struct sockaddr_storage {
+	struct	sockaddr ss_sa;
+	char		__ss_pad2[_SS_PADSIZE];
+};
+# define ss_family ss_sa.sa_family
+# define HAVE_SS_FAMILY
+#endif /* !HAVE_STRUCT_SOCKADDR_STORAGE */
+
+#ifndef HAVE_SS_FAMILY
+#define ss_family	__ss_family
+#endif
+
+#ifndef AF_INET6
+/* Define it to something that should never appear */
+#define	AF_INET6	AF_MAX
+#endif
+
+#if !defined(HAVE_GETADDRINFO) || !defined(HAVE_GETNAMEINFO)
+#include "gai.h"
+#endif
+
+/* End IPv6 things */
+
+#ifdef OLD_SIEVE_SERVICE_NAME
+#define SIEVE_SERVICE_NAME "imap"
+#else
+#define SIEVE_SERVICE_NAME "sieve"
+#endif
+
+/* filenames */
+#define FNAME_DBDIR "/db"
+#define FNAME_USERDIR "/user/"
+#define FNAME_DOMAINDIR "/domain/"
+#define FNAME_LOGDIR "/log/"
+#define FNAME_PTSDB "/ptclient/ptscache.db"
+#define CONFIG_FILENAME (SYSCONFDIR "/imapd.conf")
+#define DEFAULT_MASTER_CONFIG_FILENAME (SYSCONFDIR "/cyrus.conf")
+
+#ifndef HAVE_SHUTDOWN
+#define shutdown(fd, mode) 0
+#endif
+
+/* compile time options; think carefully before modifying */
+enum {
+    /* should we send an UNAVAILABLE message to master when
+     * a service is exiting (master is already going to be 
+     * informed of the exit by the SIGCHLD signal anyway) ? */
+    MESSAGE_MASTER_ON_EXIT = 0,
+
+    /* should a hierarchical rename stop on error? */
+    RENAME_STOP_ON_ERROR = 1,
+
+    /* should we call fsync() to maybe help with softupdates? (it should) */
+    APPEND_ULTRA_PARANOID = 1,
+
+    /* should we log extra information at the DEBUG level for DB stuff? 
+     * 0 -> nothing; 1 -> some; higher -> even more */
+    CONFIG_DB_VERBOSE = 1,
+
+    /* log timing information to LOG_DEBUG */
+    CONFIG_TIMING_VERBOSE = 0,
+
+    /* should we be pedantic about namespace or sleezy? */
+    SLEEZY_NAMESPACE = 1,
+
+    /* should we do a fast TLS session shutdown? */
+    TLS_FAST_SHUTDOWN = 1,
+
+    /* should we use the SQUAT engine to accelerate SEARCH? */
+    SQUAT_ENGINE = 1,
+
+    /* should we have long LMTP error messages? */
+    LMTP_LONG_ERROR_MSGS = 1
+};
+
+#endif /* _CYRUS_IMAPD_CONFIG_H_ */
+

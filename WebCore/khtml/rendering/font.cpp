@@ -40,10 +40,11 @@
 using namespace khtml;
 
 #if APPLE_CHANGES
-void Font::drawHighlightForText( QPainter *p, int x, int y, QChar *str, int slen, int pos, int len,
-                     int toAdd, QPainter::TextDirection d, bool visuallyOrdered, int from, int to, QColor bg ) const
+void Font::drawHighlightForText( QPainter *p, int x, int y, int h, 
+                     QChar *str, int slen, int pos, int len,
+                     int toAdd, QPainter::TextDirection d, bool visuallyOrdered, int from, int to, QColor bg) const
 {
-    p->drawHighlightForText(x, y, str + pos, std::min(slen - pos, len), from, to, toAdd, bg, d, visuallyOrdered,
+    p->drawHighlightForText(x, y, h, str + pos, std::min(slen - pos, len), from, to, toAdd, bg, d, visuallyOrdered,
                 letterSpacing, wordSpacing, fontDef.smallCaps);
 }
 #endif
@@ -125,9 +126,9 @@ void Font::floatCharacterWidths( QChar *str, int slen, int pos, int len, int toA
     fm.floatCharacterWidths(str, slen, pos, len, toAdd, buffer, letterSpacing, wordSpacing, fontDef.smallCaps);
 }
 
-int Font::checkSelectionPoint (QChar *s, int slen, int pos, int len, int toAdd, int x, bool reversed) const
+int Font::checkSelectionPoint (QChar *s, int slen, int pos, int len, int toAdd, int x, bool reversed, bool includePartialGlyphs) const
 {
-    return fm.checkSelectionPoint (s, slen, pos, len, toAdd, letterSpacing, wordSpacing, fontDef.smallCaps, x, reversed);
+    return fm.checkSelectionPoint (s, slen, pos, len, toAdd, letterSpacing, wordSpacing, fontDef.smallCaps, x, reversed, includePartialGlyphs);
 }
 
 #endif

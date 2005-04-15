@@ -158,6 +158,9 @@ struct _xmlOutputBuffer {
 XMLPUBFUN void XMLCALL	
 	xmlCleanupInputCallbacks		(void);
 
+XMLPUBFUN int XMLCALL
+	xmlPopInputCallbacks			(void);
+
 XMLPUBFUN void XMLCALL	
 	xmlRegisterDefaultInputCallbacks	(void);
 XMLPUBFUN xmlParserInputBufferPtr XMLCALL
@@ -203,6 +206,11 @@ XMLPUBFUN int XMLCALL
 						 xmlInputOpenCallback openFunc,
 						 xmlInputReadCallback readFunc,
 						 xmlInputCloseCallback closeFunc);
+
+xmlParserInputBufferPtr
+	__xmlParserInputBufferCreateFilename(const char *URI,
+										xmlCharEncoding enc);
+
 #ifdef LIBXML_OUTPUT_ENABLED
 /*
  * Interfaces for output
@@ -240,6 +248,10 @@ XMLPUBFUN int XMLCALL
 XMLPUBFUN int XMLCALL	
 	xmlOutputBufferWriteString	(xmlOutputBufferPtr out,
 					 const char *str);
+XMLPUBFUN int XMLCALL	
+	xmlOutputBufferWriteEscape	(xmlOutputBufferPtr out,
+					 const xmlChar *str,
+					 xmlCharEncodingOutputFunc escaping);
 
 XMLPUBFUN int XMLCALL	
 	xmlOutputBufferFlush		(xmlOutputBufferPtr out);
@@ -251,6 +263,11 @@ XMLPUBFUN int XMLCALL
 					 xmlOutputOpenCallback openFunc,
 					 xmlOutputWriteCallback writeFunc,
 					 xmlOutputCloseCallback closeFunc);
+
+xmlOutputBufferPtr
+	__xmlOutputBufferCreateFilename(const char *URI,
+                              xmlCharEncodingHandlerPtr encoder,
+                              int compression);
 #endif /* LIBXML_OUTPUT_ENABLED */
 
 /*  This function only exists if HTTP support built into the library  */

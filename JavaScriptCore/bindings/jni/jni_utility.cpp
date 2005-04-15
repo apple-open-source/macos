@@ -134,6 +134,64 @@ static jvalue callJNIMethod (JNIType type, jobject obj, const char *name, const 
     return result;
 }
 
+static jvalue callJNIStaticMethod (JNIType type, jclass cls, const char *name, const char *sig, va_list args)
+{
+    JavaVM *jvm = getJavaVM();
+    JNIEnv *env = getJNIEnv();
+    jvalue result;
+
+    bzero (&result, sizeof(jvalue));
+    if ( cls != NULL && jvm != NULL && env != NULL) {
+        jmethodID mid = env->GetStaticMethodID(cls, name, sig);
+        if ( mid != NULL )
+        {
+            switch (type) {
+            case void_type:
+                env->functions->CallStaticVoidMethodV(env, cls, mid, args);
+                break;
+            case object_type:
+                result.l = env->functions->CallStaticObjectMethodV(env, cls, mid, args);
+                break;
+            case boolean_type:
+                result.z = env->functions->CallStaticBooleanMethodV(env, cls, mid, args);
+                break;
+            case byte_type:
+                result.b = env->functions->CallStaticByteMethodV(env, cls, mid, args);
+                break;
+            case char_type:
+                result.c = env->functions->CallStaticCharMethodV(env, cls, mid, args);
+                break;
+            case short_type:
+                result.s = env->functions->CallStaticShortMethodV(env, cls, mid, args);
+                break;
+            case int_type:
+                result.i = env->functions->CallStaticIntMethodV(env, cls, mid, args);
+                break;
+            case long_type:
+                result.j = env->functions->CallStaticLongMethodV(env, cls, mid, args);
+                break;
+            case float_type:
+                result.f = env->functions->CallStaticFloatMethodV(env, cls, mid, args);
+                break;
+            case double_type:
+                result.d = env->functions->CallStaticDoubleMethodV(env, cls, mid, args);
+                break;
+            default:
+                fprintf(stderr, "%s: invalid function type (%d)\n", __PRETTY_FUNCTION__, (int)type);
+            }
+        }
+        else
+        {
+            fprintf(stderr, "%s: Could not find method: %s for %p\n", __PRETTY_FUNCTION__, name, cls);
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+            fprintf (stderr, "\n");
+        }
+    }
+
+    return result;
+}
+
 static jvalue callJNIMethodIDA (JNIType type, jobject obj, jmethodID mid, jvalue *args)
 {
     JNIEnv *env = getJNIEnv();
@@ -221,6 +279,13 @@ jmethodID KJS::Bindings::getMethodID (jobject obj, const char *name, const char 
     jclass cls = env->GetObjectClass(obj);
     if ( cls != NULL ) {
             mid = env->GetMethodID(cls, name, sig);
+	    if (!mid) {
+                env->ExceptionClear();
+		mid = env->GetStaticMethodID(cls, name, sig);
+		if (!mid) {
+		    env->ExceptionClear();
+		}
+	    }
         }
         env->DeleteLocalRef(cls);
     }
@@ -233,6 +298,14 @@ jmethodID KJS::Bindings::getMethodID (jobject obj, const char *name, const char 
     va_start (args, sig);\
     \
     jvalue result = callJNIMethod(function_type, obj, name, sig, args);\
+    \
+    va_end (args);
+
+#define CALL_JNI_STATIC_METHOD(function_type,cls,name,sig) \
+    va_list args;\
+    va_start (args, sig);\
+    \
+    jvalue result = callJNIStaticMethod(function_type, cls, name, sig, args);\
     \
     va_end (args);
 
@@ -250,6 +323,12 @@ jobject KJS::Bindings::callJNIObjectMethod (jobject obj, const char *name, const
 jboolean KJS::Bindings::callJNIBooleanMethod( jobject obj, const char *name, const char *sig, ... )
 {
     CALL_JNI_METHOD (boolean_type, obj, name, sig);
+    return result.z;
+}
+
+jboolean KJS::Bindings::callJNIStaticBooleanMethod (jclass cls, const char *name, const char *sig, ... )
+{
+    CALL_JNI_STATIC_METHOD (boolean_type, cls, name, sig);
     return result.z;
 }
 
@@ -614,7 +693,7 @@ jvalue KJS::Bindings::getJNIField( jobject obj, JNIType type, const char *name, 
                 fprintf(stderr, "%s: Could not find field: %s\n", __PRETTY_FUNCTION__, name);
                 env->ExceptionDescribe();
                 env->ExceptionClear();
-				fprintf (stderr, "\n");
+                fprintf (stderr, "\n");
             }
 
             env->DeleteLocalRef(cls);
@@ -630,9 +709,7 @@ jvalue KJS::Bindings::getJNIField( jobject obj, JNIType type, const char *name, 
 jvalue KJS::Bindings::convertValueToJValue (KJS::ExecState *exec, KJS::Value value, JNIType _JNIType, const char *javaClassName)
 {
     jvalue result;
-    double d = 0;
    
-    d = value.toNumber(exec);
     switch (_JNIType){
         case object_type: {
             result.l = (jobject)0;
@@ -640,66 +717,79 @@ jvalue KJS::Bindings::convertValueToJValue (KJS::ExecState *exec, KJS::Value val
             // First see if we have a Java instance.
             if (value.type() == KJS::ObjectType){
                 KJS::ObjectImp *objectImp = static_cast<KJS::ObjectImp*>(value.imp());
-                if (strcmp(objectImp->classInfo()->className, "RuntimeObject") == 0) {
-                    KJS::RuntimeObjectImp *imp = static_cast<KJS::RuntimeObjectImp *>(value.imp());
-                    JavaInstance *instance = static_cast<JavaInstance*>(imp->getInternalInstance());
-                    result.l = instance->javaInstance();
-                }
-                else if (strcmp(objectImp->classInfo()->className, "RuntimeArray") == 0) {
-                    KJS::RuntimeArrayImp *imp = static_cast<KJS::RuntimeArrayImp *>(value.imp());
-                    JavaArray *array = static_cast<JavaArray*>(imp->getConcreteArray());
-                    result.l = array->javaArray();
-                }
+		if (objectImp->classInfo() == &KJS::RuntimeObjectImp::info) {
+		    KJS::RuntimeObjectImp *imp = static_cast<KJS::RuntimeObjectImp *>(value.imp());
+		    JavaInstance *instance = static_cast<JavaInstance*>(imp->getInternalInstance());
+		    result.l = instance->javaInstance();
+		}
+		else if (objectImp->classInfo() == &KJS::RuntimeArrayImp::info) {
+		    KJS::RuntimeArrayImp *imp = static_cast<KJS::RuntimeArrayImp *>(value.imp());
+		    JavaArray *array = static_cast<JavaArray*>(imp->getConcreteArray());
+		    result.l = array->javaArray();
+		}
             }
             
             // Now convert value to a string if the target type is a java.lang.string, and we're not
             // converting from a Null.
-            if (result.l == 0 && strcmp(javaClassName, "java.lang.String") == 0 && value.type() != KJS::NullType) {
-                KJS::UString stringValue = value.toString(exec);
-                JNIEnv *env = getJNIEnv();
-                jobject javaString = env->functions->NewString (env, (const jchar *)stringValue.data(), stringValue.size());
-                result.l = javaString;
+            if (result.l == 0 && strcmp(javaClassName, "java.lang.String") == 0) {
+#if CONVERT_NULL_TO_EMPTY_STRING
+		if (value.type() == KJS::NullType) {
+		    JNIEnv *env = getJNIEnv();
+		    jchar buf[2];
+		    jobject javaString = env->functions->NewString (env, buf, 0);
+		    result.l = javaString;
+		}
+		else 
+#else
+		if (value.type() != KJS::NullType)
+#endif
+		{
+		    KJS::UString stringValue = value.toString(exec);
+		    JNIEnv *env = getJNIEnv();
+		    jobject javaString = env->functions->NewString (env, (const jchar *)stringValue.data(), stringValue.size());
+		    result.l = javaString;
+		}
             }
         }
         break;
         
         case boolean_type: {
-            result.z = (jboolean)d;
+            result.z = (jboolean)value.toNumber(exec);
         }
         break;
             
         case byte_type: {
-            result.b = (jbyte)d;
+            result.b = (jbyte)value.toNumber(exec);
         }
         break;
         
         case char_type: {
-            result.c = (jchar)d;
+            result.c = (jchar)value.toNumber(exec);
         }
         break;
 
         case short_type: {
-            result.s = (jshort)d;
+            result.s = (jshort)value.toNumber(exec);
         }
         break;
 
         case int_type: {
-            result.i = (jint)d;
+            result.i = (jint)value.toNumber(exec);
         }
         break;
 
         case long_type: {
-            result.j = (jlong)d;
+            result.j = (jlong)value.toNumber(exec);
         }
         break;
 
         case float_type: {
-            result.f = (jfloat)d;
+            result.f = (jfloat)value.toNumber(exec);
         }
         break;
 
         case double_type: {
-            result.d = (jdouble)d;
+            result.d = (jdouble)value.toNumber(exec);
         }
         break;
             

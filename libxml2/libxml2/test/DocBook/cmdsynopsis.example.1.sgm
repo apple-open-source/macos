@@ -1,5 +1,0 @@
-<!DOCTYPE cmdsynopsis PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<cmdsynopsis>
-  <command>cd</command>
-  <arg choice=req><replaceable>directory</replaceable></arg>
-</cmdsynopsis>

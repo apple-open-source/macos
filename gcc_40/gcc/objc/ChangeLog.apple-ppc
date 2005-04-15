@@ -1,0 +1,238 @@
+2005-03-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3995882
+	* objc-act.c (objc_begin_try_stmt): When doing _setjmp()/
+	_longjmp() EH, call objc_mark_locals_volatile().
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4006978
+	* objc-act.c (objc_is_public): Remove unneeded code.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* objc-act.c (OBJC_VERSION): Bump to '6' for the NeXT.
+	(objc_is_gcable_type, objc_substitute_decl, 
+	objc_build_ivar_assignment, objc_build_global_assignment,
+	objc_build_strong_cast_assignment, objc_is_gcable_p,
+	objc_is_ivar_reference_p, objc_is_global_reference_p,
+	objc_generate_write_barrier): New functions.
+	(TAG_ASSIGNIVAR, TAG_ASSIGNGLOBAL, TAG_ASSIGNSTRONGCAST,
+	TAG_MSGSEND_FAST, TAG_ASSIGNIVAR_FAST, OFFS_MSGSEND_FAST,
+	OFFS_ASSIGNIVAR_FAST): New macros.
+	(synth_module_prologue): Synthesize 'objc_msgSend_Fast'
+	function prototype.
+	(build_next_objc_exception_stuff): Synthesize
+	'objc_assign_ivar', 'objc_assign_ivar_Fast',
+	'objc_assign_global' and 'objc_assign_strongCast'
+	function prototypes.
+	(build_objc_method_call): Call 'objc_msgSend_Fast'
+	instead of 'objc_msgSend' if '-fobjc-direct-dispatch'
+	has been specified.
+	(finish_objc): Generate image info if '-fobjc-gc'
+	has been specified.
+	(generate_objc_image_info): Set a bit indicating if
+	'-fobjc-gc' has been specified.
+	* objc-act.h (OCTI_UMSG_FAST_DECL, OCTI_ASSIGN_IVAR_DECL,
+	OCTI_ASSIGN_IVAR_FAST_DECL, OCTI_ASSIGN_GLOBAL_DECL,
+	OCTI_ASSIGN_STRONGCAST_DECL): New enum slots.
+	(umsg_fast_decl, objc_assign_ivar_decl, 
+	objc_assign_ivar_fast_decl, objc_assign_global_decl,
+	objc_assign_strong_cast_decl): New slot accessors.
+
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3962013 (Part 2)
+	* objc-act.c (objc_types_share_size_and_alignment): New
+	function.
+	(check_duplicates): Update comment.
+	(comp_proto_with_proto): If types do not match, call
+	objc_types_share_size_and_alignment() as a fallback in
+	non-strict mode.
+
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3978619
+	* objc-act.c (should_call_super_dealloc): New variable.
+	(objc_finish_message_expr): If calling [super dealloc],
+	clear the should_call_super_dealloc variable.
+	(start_method_def): If defining a 'dealloc' method in a
+	non-root class, set the should_call_super_dealloc variable.
+	(objc_finish_method_definition): Print a warning if
+	the should_call_super_dealloc is set.
+
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3982256
+	* objc-act.c: Update copyright notice; include langhooks-def.h.
+	(objc_types_compatible_p): New lang hook function.
+	* objc-act.h: Update copyright notice.
+	(objc_types_compatible_p): New prototype.
+	* objc-lang.c: Update copyright notice.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Point at objc_types_compatible_p().
+
+2005-02-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3987972
+	* objc-act.c (objc_start_function): Reset
+	'current_function_returns_value' and 'current_function_returns_null'
+	global flags.
+
+2005-01-30  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3962013
+	* objc-act.c (comp_proto_with_proto): Add a STRICT parameter
+	to allow for relaxed type comparisons.
+	(check_duplicates): If '-Wno-strict-selector-match' is specified,
+	do not warn about multiple method signatures if they differ only
+	in their ObjC types.
+	(add_method_to_hash_list, objc_add_method, really_start_method):
+	Adjust calls to comp_proto_with_proto().
+
+2005-01-27  Matt Austern  <austern@apple.com>
+
+	Radar 3971445
+	* objc-act.c (objc_finish_file): In Objective-C++ mode, set at_eof
+	before calling instantiate_pending_templates. 
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_get_class_reference): Move stray 
+	APPLE LOCAL marker.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3955336
+	* objc-act.c (objc_get_class_reference): In Objective-C++,
+	make sure a type is declared in the global namespace before
+	looking it up as an ObjC class.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3953044 (PR objc/19321)
+	* objc-act.c (get_arg_type_list): Decay function arguments into
+	pointers.
+	(objc_push_parm): Likewise; bring PARM_DECL construction closer
+	in line with what the C front-end does.
+	(objc_get_parm_info): Call pushdecl() and finish_decl() on
+	each PARM_DECL, like the C front-end does.
+	(start_method_def): Remove redundant ARRAY_TYPE decay.
+	(objc_start_function): Bring closer in line with what the
+	C front-end does for functions.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3951689
+	* objc-act.c (next_sjlj_build_enter_and_setjmp): For
+	Objective-C++, convert _setjmp() argument to type the
+	function expects.
+	(objc_finish_try_stmt, objc_build_synchronized): Return
+	the resulting statement	node.
+
+2005-01-14  Mike Stump  <mrs@apple.com>
+
+	Radar 3948135
+	* lang-specs.h ("@objective-c"): Use cc1obj when -E is used so
+	that -fzero-link is accepted.
+
+2005-01-12  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3882153
+	* objc-act.c (objc_finish_file): Do not synthesize metadata
+	when generating a PCH file.
+
+2005-01-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3918079
+	* objc-act.c (OBJC_LOOKUP_CLASS, OBJC_LOOKUP_NO_SUPER): New
+	flags.
+	(lookup_method_static): Generalize third argument to indicate
+	whether to search superclasses for a method.
+	(really_start_method): When looking for matching method in
+	the @interface, do not look in superclasses.
+
+2005-01-06  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3925982
+	* objc-act.c (objc_method_parm_type): Return the type found
+	rather than its main variant.
+	(encode_aggregate_within): Streamline util_obstack accesses;
+	allow for records and/or pointers thereto to be const-qualified.
+
+2005-01-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3926282 (PR objc/18971)
+	* objc-act.c (get_arg_type_list, start_method_def): Decay
+	array arguments into pointers.
+	(gen_type_name_0): Learn to pretty-print array types.
+
+2004-11-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3761423
+	* objc-act.c (build_private_template): Return 'void';
+	move fix for Radar 3261135 from continue_class().
+	(objc_is_public): Robustify for use with ObjC++; examine
+	"raw" ivars of the ObjC class instead of side-effected 
+	fields of the underlying struct.
+	(continue_class): Return "raw" ivar list instead of
+	struct field list; move Radar 3261135 to
+	build_private_template(), and call it.
+
+2004-11-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 2810013 (fix from mainline)
+	* objc-act.c (objc_lookup_ivar): The new OTHER parameter
+	contains the result of the ID lookup by the C or C++
+	front-end; in class methods, use OTHER if it exists;
+	in instance methods, use OTHER only if it is locally
+	declared.
+
+2004-10-27  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3854155
+	* objc-act.c (generate_shared_structures): Add a CLS_FLAGS
+	parameter whose value gets ORed into the INFO field of
+	the class descriptor.
+	(CLS_HAS_CXX_STRUCTORS): New metadata bit.
+	(objc_generate_cxx_cdtors): Set flag in current imp_entry
+	if either '-.cxx_construct' or '-.cxx_destruct' were
+	synthesized...
+	(continue_class): ...after initially clearing it herre.
+	(finish_objc): Adjust call to generate_shared_structures(),
+	passing in CLS_HAS_CXX_STRUCTORS for classes with non-POD
+	ivars.
+	* objc-act.h (struct imp_entry): New has_cxx_cdtors field.
+
+2004-10-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3833116 (fix from mainline)
+	* objc-act.c (finish_class): Do not synthesize bogus
+	'extern objc_object *_Foo;' declarations for @interface Foo.
+
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	Radar 3845826 (PR objc/17923)
+	* objc-act.c (objc_build_string_object): Create a CONST_DECL
+	for the NeXT runtime case.
+
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* objc-act.c (objc_generate_cxx_ctor_or_dtor,
+	objc_generate_cxx_cdtors): New functions.
+	(TAG_CXX_CONSTRUCT, TAG_CXX_DESTRUCT): New macros.
+	(objc_finish_implementation): Call objc_generate_cxx_cdtors()
+	if -fobjc-call-cxx-cdtors has been specified.
+	(add_instance_variable): Emit different diagnostics for
+	-fobjc-call-cxx-cdtors than for -fno-objc-call-cxx-cdtors.
+
+2004-10-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3677258
+	* objc-act.c (add_class): Add a 'name' parameter, and point it
+	back at 'class' via IDENTIFIER_INTERFACE_VALUE accessor.
+	(lookup_interface): Look in IDENTIFIER_INTERFACE_VALUE accessor
+	instead of searching for class in a list.
+	(start_class): Adjust calls to add_class().
+	* objc-act.h (IDENTIFIER_INTERFACE_VALUE): Reformat.

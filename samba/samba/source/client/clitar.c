@@ -37,7 +37,7 @@
 
 #include "includes.h"
 #include "clitar.h"
-#include "../client/client_proto.h"
+#include "client/client_proto.h"
 
 static int clipfind(char **aret, int ret, char *tok);
 
@@ -146,7 +146,7 @@ static char *string_create_s(int size)
 {
 	char *tmp;
 
-	tmp = (char *)malloc(size+1);
+	tmp = (char *)SMB_MALLOC(size+1);
 
 	if (tmp == NULL) {
 		DEBUG(0, ("Out of memory in string_create_s\n"));
@@ -177,7 +177,7 @@ static void writetarheader(int f, const char *aname, SMB_BIG_UINT size, time_t m
 	if (l+2 >= NAMSIZ) {
 		/* write a GNU tar style long header */
 		char *b;
-		b = (char *)malloc(l+TBLOCK+100);
+		b = (char *)SMB_MALLOC(l+TBLOCK+100);
 		if (!b) {
 			DEBUG(0,("out of memory\n"));
 			exit(1);
@@ -385,7 +385,7 @@ static void initarbuf(void)
 {
 	/* initialize tar buffer */
 	tbufsiz=blocksize*TBLOCK;
-	tarbuf=malloc(tbufsiz);      /* FIXME: We might not get the buffer */
+	tarbuf=SMB_MALLOC(tbufsiz);      /* FIXME: We might not get the buffer */
 
 	/* reset tar buffer pointer and tar file counter and total dumped */
 	tp=0; ntarf=0; ttarf=0;
@@ -1059,7 +1059,7 @@ static char *get_longfilename(file_info2 finfo)
 	/* finfo.size here is the length of the filename as written by the "/./@LongLink" name
 	 * header call. */
 	int namesize = finfo.size + strlen(cur_dir) + 2;
-	char *longname = malloc(namesize);
+	char *longname = SMB_MALLOC(namesize);
 	int offset = 0, left = finfo.size;
 	BOOL first = True;
 
@@ -1345,8 +1345,9 @@ Principal command for creating / extracting
 int cmd_tar(void)
 {
 	fstring buf;
-	char **argl;
-	int argcl;
+	char **argl = NULL;
+	int argcl = 0;
+	int ret;
 
 	if (!next_token_nr(NULL,buf,NULL,sizeof(buf))) {
 		DEBUG(0,("tar <c|x>[IXbgan] <filename>\n"));
@@ -1357,9 +1358,9 @@ int cmd_tar(void)
 	if (!tar_parseargs(argcl, argl, buf, 0))
 		return 1;
 
-	process_tar();
+	ret = process_tar();
 	SAFE_FREE(argl);
-	return 0;
+	return ret;
 }
 
 /****************************************************************************
@@ -1368,6 +1369,7 @@ Command line (option) version
 
 int process_tar(void)
 {
+	int rc = 0;
 	initarbuf();
 	switch(tar_type) {
 		case 'x':
@@ -1445,7 +1447,7 @@ int process_tar(void)
 		clipn = 0;
 		must_free_cliplist = False;
 	}
-	return(0);
+	return rc;
 }
 
 /****************************************************************************
@@ -1504,7 +1506,7 @@ static int read_inclusion_file(char *filename)
 	while ((! error) && (x_fgets(buf, sizeof(buf)-1, inclusion))) {
 		if (inclusion_buffer == NULL) {
 			inclusion_buffer_size = 1024;
-			if ((inclusion_buffer = malloc(inclusion_buffer_size)) == NULL) {
+			if ((inclusion_buffer = SMB_MALLOC(inclusion_buffer_size)) == NULL) {
 				DEBUG(0,("failure allocating buffer to read inclusion file\n"));
 				error = 1;
 				break;
@@ -1518,7 +1520,7 @@ static int read_inclusion_file(char *filename)
 		if ((strlen(buf) + 1 + inclusion_buffer_sofar) >= inclusion_buffer_size) {
 			char *ib;
 			inclusion_buffer_size *= 2;
-			ib = Realloc(inclusion_buffer,inclusion_buffer_size);
+			ib = SMB_REALLOC(inclusion_buffer,inclusion_buffer_size);
 			if (! ib) {
 				DEBUG(0,("failure enlarging inclusion buffer to %d bytes\n",
 						inclusion_buffer_size));
@@ -1537,7 +1539,7 @@ static int read_inclusion_file(char *filename)
 
 	if (! error) {
 		/* Allocate an array of clipn + 1 char*'s for cliplist */
-		cliplist = malloc((clipn + 1) * sizeof(char *));
+		cliplist = SMB_MALLOC_ARRAY(char *, clipn + 1);
 		if (cliplist == NULL) {
 			DEBUG(0,("failure allocating memory for cliplist\n"));
 			error = 1;
@@ -1548,7 +1550,7 @@ static int read_inclusion_file(char *filename)
 				/* set current item to NULL so array will be null-terminated even if
 						* malloc fails below. */
 				cliplist[i] = NULL;
-				if ((tmpstr = (char *)malloc(strlen(p)+1)) == NULL) {
+				if ((tmpstr = (char *)SMB_MALLOC(strlen(p)+1)) == NULL) {
 					DEBUG(0, ("Could not allocate space for a cliplist item, # %i\n", i));
 					error = 1;
 				} else {
@@ -1718,7 +1720,7 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 		clipn=argc-Optind-1;
 		clipcount = clipn;
 
-		if ((tmplist=malloc(clipn*sizeof(char *))) == NULL) {
+		if ((tmplist=SMB_MALLOC_ARRAY(char *,clipn)) == NULL) {
 			DEBUG(0, ("Could not allocate space to process cliplist, count = %i\n", clipn));
 			return 0;
 		}
@@ -1727,7 +1729,7 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 
 			DEBUG(5, ("Processing an item, %s\n", cliplist[clipcount]));
 
-			if ((tmpstr = (char *)malloc(strlen(cliplist[clipcount])+1)) == NULL) {
+			if ((tmpstr = (char *)SMB_MALLOC(strlen(cliplist[clipcount])+1)) == NULL) {
 				DEBUG(0, ("Could not allocate space for a cliplist item, # %i\n", clipcount));
 				return 0;
 			}
@@ -1749,7 +1751,7 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 #ifdef HAVE_REGEX_H
 		int errcode;
 
-		if ((preg = (regex_t *)malloc(65536)) == NULL) {
+		if ((preg = (regex_t *)SMB_MALLOC(65536)) == NULL) {
 
 			DEBUG(0, ("Could not allocate buffer for regular expression search\n"));
 			return;

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -172,3 +173,4 @@ const struct symbol_list *sym)
 {
 	return(strcmp(name, sym->name));
 }
+#endif /* !defined(RLD) */

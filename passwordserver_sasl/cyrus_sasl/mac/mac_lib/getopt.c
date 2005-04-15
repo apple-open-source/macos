@@ -1,7 +1,7 @@
 #include <config.h>
 
 /*
- * $Id: getopt.c,v 1.1 2002/02/28 00:13:35 snsimon Exp $
+ * $Id: getopt.c,v 1.4 2005/01/10 19:09:04 snsimon Exp $
  * Copyright (c) 1987, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *

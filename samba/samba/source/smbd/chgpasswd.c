@@ -328,7 +328,7 @@ static int talktochild(int master, const char *seq)
 	return (count > 0);
 }
 
-static BOOL chat_with_program(char *passwordprogram, struct passwd *pass,
+static BOOL chat_with_program(char *passwordprogram, const struct passwd *pass,
 			      char *chatsequence, BOOL as_root)
 {
 	char *slavedev;
@@ -456,7 +456,7 @@ BOOL chgpasswd(const char *name, const struct passwd *pass,
 
 	DEBUG(3, ("chgpasswd: Password change (as_root=%s) for user: %s\n", BOOLSTR(as_root), name));
 
-#if DEBUG_PASSWORD
+#ifdef DEBUG_PASSWORD
 	DEBUG(100, ("chgpasswd: Passwords: old=%s new=%s\n", oldpass, newpass));
 #endif
 
@@ -718,6 +718,14 @@ NTSTATUS pass_oem_change(char *user,
 		DEBUG(3, ("pass_oem_change: [%d]opendirectory_lmchap2changepasswd passwordFormat(%d)\n", dir_status, passwordFormat));
 		if (eDSNoErr == dir_status)
 			nt_status = NT_STATUS_OK;
+		else if	(eDSAuthPasswordTooShort == dir_status ||
+				eDSAuthPasswordTooLong == dir_status ||
+				eDSAuthPasswordNeedsLetter == dir_status ||
+				eDSAuthPasswordNeedsDigit == dir_status ||
+				eDSAuthPasswordChangeTooSoon == dir_status ||
+				eDSAuthPasswordQualityCheckFailed == dir_status) {
+			nt_status = NT_STATUS_PASSWORD_RESTRICTION;
+		}
 	} else {
 #endif
 	nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
@@ -953,6 +961,71 @@ static NTSTATUS check_oem_password(const char *user,
 }
 
 /***********************************************************
+ This routine takes the given password and checks it against
+ the password history. Returns True if this password has been
+ found in the history list.
+************************************************************/
+
+static BOOL check_passwd_history(SAM_ACCOUNT *sampass, const char *plaintext)
+{
+	uchar new_nt_p16[NT_HASH_LEN];
+	uchar zero_md5_nt_pw[SALTED_MD5_HASH_LEN];
+	const uint8 *nt_pw;
+	const uint8 *pwhistory;
+	BOOL found = False;
+	int i, pwHisLen, curr_pwHisLen;
+
+	account_policy_get(AP_PASSWORD_HISTORY, &pwHisLen);
+	if (pwHisLen == 0) {
+		return False;
+	}
+
+	pwhistory = pdb_get_pw_history(sampass, &curr_pwHisLen);
+	if (!pwhistory || curr_pwHisLen == 0) {
+		return False;
+	}
+
+	/* Only examine the minimum of the current history len and
+	   the stored history len. Avoids race conditions. */
+	pwHisLen = MIN(pwHisLen,curr_pwHisLen);
+
+	nt_pw = pdb_get_nt_passwd(sampass);
+
+	E_md4hash(plaintext, new_nt_p16);
+
+	if (!memcmp(nt_pw, new_nt_p16, NT_HASH_LEN)) {
+		DEBUG(10,("check_passwd_history: proposed new password for user %s is the same as the current password !\n",
+			pdb_get_username(sampass) ));
+		return True;
+	}
+
+	dump_data(100, new_nt_p16, NT_HASH_LEN);
+	dump_data(100, pwhistory, PW_HISTORY_ENTRY_LEN*pwHisLen);
+
+	memset(zero_md5_nt_pw, '\0', SALTED_MD5_HASH_LEN);
+	for (i=0; i<pwHisLen; i++) {
+		uchar new_nt_pw_salted_md5_hash[SALTED_MD5_HASH_LEN];
+		const uchar *current_salt = &pwhistory[i*PW_HISTORY_ENTRY_LEN];
+		const uchar *old_nt_pw_salted_md5_hash = &pwhistory[(i*PW_HISTORY_ENTRY_LEN)+
+							PW_HISTORY_SALT_LEN];
+		if (!memcmp(zero_md5_nt_pw, old_nt_pw_salted_md5_hash, SALTED_MD5_HASH_LEN)) {
+			/* Ignore zero valued entries. */
+			continue;
+		}
+		/* Create salted versions of new to compare. */
+		E_md5hash(current_salt, new_nt_p16, new_nt_pw_salted_md5_hash);
+
+		if (!memcmp(new_nt_pw_salted_md5_hash, old_nt_pw_salted_md5_hash, SALTED_MD5_HASH_LEN)) {
+			DEBUG(1,("check_passwd_history: proposed new password for user %s found in history list !\n",
+				pdb_get_username(sampass) ));
+			found = True;
+			break;
+		}
+	}
+	return found;
+}
+
+/***********************************************************
  Code to change the oem password. Changes both the lanman
  and NT hashes.  Old_passwd is almost always NULL.
  NOTE this function is designed to be called as root. Check the old password
@@ -961,20 +1034,22 @@ static NTSTATUS check_oem_password(const char *user,
 
 NTSTATUS change_oem_password(SAM_ACCOUNT *hnd, char *old_passwd, char *new_passwd, BOOL as_root)
 {
-	struct passwd *pass;
-
 	BOOL ret;
 	uint32 min_len;
+	struct passwd *pass = NULL;
+	const char *username = pdb_get_username(hnd);
+	time_t can_change_time = pdb_get_pass_can_change_time(hnd);
 
-	if (time(NULL) < pdb_get_pass_can_change_time(hnd)) {
+	if ((can_change_time != 0) && (time(NULL) < can_change_time)) {
 		DEBUG(1, ("user %s cannot change password now, must wait until %s\n", 
-			  pdb_get_username(hnd), http_timestring(pdb_get_pass_can_change_time(hnd))));
-		return NT_STATUS_PASSWORD_RESTRICTION;
+			  username, http_timestring(can_change_time)));
+		return NT_STATUS_ACCOUNT_RESTRICTION;
 	}
 
-	if (account_policy_get(AP_MIN_PASSWORD_LEN, &min_len) && (strlen(new_passwd) < min_len)) {
+	/* FIXME: AP_MIN_PASSWORD_LEN and lp_min_passwd_length() need to be merged - gd */
+	if (account_policy_get(AP_MIN_PASSWORD_LEN, &min_len) && (str_charnum(new_passwd) < min_len)) {
 		DEBUG(1, ("user %s cannot change password - password too short\n", 
-			  pdb_get_username(hnd)));
+			  username));
 		DEBUGADD(1, (" account policy min password len = %d\n", min_len));
 		return NT_STATUS_PASSWORD_RESTRICTION;
 /* 		return NT_STATUS_PWD_TOO_SHORT; */
@@ -982,17 +1057,35 @@ NTSTATUS change_oem_password(SAM_ACCOUNT *hnd, char *old_passwd, char *new_passw
 
 	/* Take the passed information and test it for minimum criteria */
 	/* Minimum password length */
-	if (strlen(new_passwd) < lp_min_passwd_length()) {
+	if (str_charnum(new_passwd) < lp_min_passwd_length()) {
 		/* too short, must be at least MINPASSWDLENGTH */
 		DEBUG(1, ("Password Change: user %s, New password is shorter than minimum password length = %d\n",
-		       pdb_get_username(hnd), lp_min_passwd_length()));
+		       username, lp_min_passwd_length()));
 		return NT_STATUS_PASSWORD_RESTRICTION;
 /* 		return NT_STATUS_PWD_TOO_SHORT; */
 	}
 
-	pass = Get_Pwnam(pdb_get_username(hnd));
+	if (check_passwd_history(hnd,new_passwd)) {
+		return NT_STATUS_PASSWORD_RESTRICTION;
+	}
+
+	pass = Get_Pwnam(username);
 	if (!pass) {
-		DEBUG(1, ("check_oem_password: Username does not exist in system !?!\n"));
+		DEBUG(1, ("check_oem_password: Username %s does not exist in system !?!\n", username));
+		return NT_STATUS_ACCESS_DENIED;
+	}
+
+	/* Use external script to check password complexity */
+	if (lp_check_password_script() && *(lp_check_password_script())) {
+		int check_ret;
+
+		check_ret = smbrunsecret(lp_check_password_script(), new_passwd);
+		DEBUG(5, ("change_oem_password: check password script (%s) returned [%d]\n", lp_check_password_script(), check_ret));
+
+		if (check_ret != 0) {
+			DEBUG(1, ("change_oem_password: check password script said new password is not good enough!\n"));
+			return NT_STATUS_PASSWORD_RESTRICTION;
+		}
 	}
 
 	/*
@@ -1008,7 +1101,7 @@ NTSTATUS change_oem_password(SAM_ACCOUNT *hnd, char *old_passwd, char *new_passw
 	 */
 	
 	if(lp_unix_password_sync() &&
-		!chgpasswd(pdb_get_username(hnd), pass, old_passwd, new_passwd, as_root)) {
+		!chgpasswd(username, pass, old_passwd, new_passwd, as_root)) {
 		return NT_STATUS_ACCESS_DENIED;
 	}
 

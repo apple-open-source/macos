@@ -53,7 +53,7 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: auth_rimap.c,v 1.2 2002/05/23 18:58:39 snsimon Exp $"
+#ident "$Id: auth_rimap.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -76,10 +76,12 @@
 #include <netdb.h>
 
 #include "auth_rimap.h"
+#include "utils.h"
 #include "globals.h"
 /* END PUBLIC DEPENDENCIES */
 
 /* PRIVATE DEPENDENCIES */
+static const char *r_host = NULL;       /* remote hostname (mech_option) */
 static struct addrinfo *ai = NULL;	/* remote authentication host    */
 /* END PRIVATE DEPENDENCIES */
 
@@ -124,11 +126,15 @@ sig_null (
 	syslog(LOG_WARNING, "auth_rimap: unexpected signal %d", sig);
 	break;
     }
-#if RETSIGTYPE == void
+#ifdef __APPLE__
     return;
-#else
+#else /* __APPLE__ */
+ #if RETSIGTYPE == void
+    return;
+ #else /* RETSIGTYPE */
     return 0;
-#endif
+ #endif /* RETSIGTYPE */
+#endif /* __APPLE__ */
 }
 
 /* END FUNCTION: sig_null */
@@ -218,9 +224,11 @@ auth_rimap_init (
     char *c;				/* scratch pointer               */
     /* END VARIABLES */
 
-    if (r_host == NULL) {
+    if (mech_option == NULL) {
 	syslog(LOG_ERR, "rimap_init: no hostname specified");
 	return -1;
+    } else {
+	r_host = mech_option;
     }
 
     /* Determine the port number to connect to.
@@ -304,6 +312,7 @@ auth_rimap (
     char rbuf[RESP_LEN];		/* response read buffer         */
     char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
     int saved_errno;
+    int niflags;
     /* END VARIABLES */
 
     /* sanity checks */
@@ -320,16 +329,24 @@ auth_rimap (
 	close(s);
 	s = -1;
 	saved_errno = errno;
-	getnameinfo(r->ai_addr, r->ai_addrlen,
-		    hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-		    NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+	niflags = (NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef NI_WITHSCOPEID
+	if (r->ai_family == AF_INET6)
+	    niflags |= NI_WITHSCOPEID;
+#endif
+	if (getnameinfo(r->ai_addr, r->ai_addrlen, hbuf, sizeof(hbuf),
+			pbuf, sizeof(pbuf), niflags) != 0) {
+	    strlcpy(hbuf, "unknown", sizeof(hbuf));
+	    strlcpy(pbuf, "unknown", sizeof(pbuf));
+	}
 	errno = saved_errno;
 	syslog(LOG_WARNING, "auth_rimap: connect %s[%s]/%s: %m",
 	       ai->ai_canonname ? ai->ai_canonname : r_host, hbuf, pbuf);
     }
     if (s < 0) {
-	getnameinfo(ai->ai_addr, ai->ai_addrlen, NULL, 0, pbuf, sizeof(pbuf),
-		    NI_NUMERICSERV);
+	if (getnameinfo(ai->ai_addr, ai->ai_addrlen, NULL, 0,
+			pbuf, sizeof(pbuf), NI_NUMERICSERV) != 0)
+	    strlcpy(pbuf, "unknown", sizeof(pbuf));
 	syslog(LOG_WARNING, "auth_rimap: couldn't connect to %s/%s",
 	       ai->ai_canonname ? ai->ai_canonname : r_host, pbuf);
 	return strdup("NO [ALERT] Couldn't contact remote authentication server");
@@ -410,7 +427,7 @@ auth_rimap (
     iov[4].iov_base = "\r\n";
     iov[4].iov_len  = sizeof("\r\n") - 1;
 
-    if (debug) {
+    if (flags & VERBOSE) {
 	syslog(LOG_DEBUG, "auth_rimap: sending %s%s %s",
 	       LOGIN_CMD, qlogin, qpass);
     }
@@ -451,13 +468,13 @@ auth_rimap (
     }
 
      if (!strncmp(rbuf, TAG " OK", sizeof(TAG " OK")-1)) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "auth_rimap: [%s] %s", login, rbuf);
 	}
 	return strdup("OK remote authentication successful");
     }
     if (!strncmp(rbuf, TAG " NO", sizeof(TAG " NO")-1)) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "auth_rimap: [%s] %s", login, rbuf);
 	}
 	return strdup("NO remote server rejected your credentials");
