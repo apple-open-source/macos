@@ -33,7 +33,7 @@
 
 #include "krb_locl.h"
 
-RCSID("$Id: mk_auth.c,v 1.1 2002/02/28 00:30:46 snsimon Exp $");
+RCSID("$Id: mk_auth.c,v 1.4 2005/01/10 19:10:46 snsimon Exp $");
 
 /*
  * Generate an authenticator for service.instance@realm.

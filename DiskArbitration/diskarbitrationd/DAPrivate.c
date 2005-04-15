@@ -362,6 +362,11 @@ Boolean _DAUnitIsUnreadable( DADiskRef disk )
 
             name = DADiskGetDescription( item, kDADiskDescriptionMediaBSDNameKey );
 
+            if ( DADiskGetBusy( item ) )
+            {
+                return FALSE;
+            }
+
             if ( DADiskGetClaim( item ) )
             {
                 return FALSE;

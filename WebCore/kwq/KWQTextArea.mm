@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,12 @@
 #import "KWQKHTMLPart.h"
 #import "KWQNSViewExtras.h"
 #import "KWQTextEdit.h"
+#import "render_replaced.h"
 #import "WebCoreBridge.h"
+
+using DOM::EventImpl;
+using DOM::NodeImpl;
+using khtml::RenderWidget;
 
 /*
     This widget is used to implement the <TEXTAREA> element.
@@ -64,6 +69,7 @@
     QTextEdit *widget;
     BOOL disabled;
     BOOL editableIfEnabled;
+    BOOL inCut;
 }
 
 - (void)setWidget:(QTextEdit *)widget;
@@ -82,51 +88,46 @@
 
 const float LargeNumberForText = 1.0e7;
 
+- (void)_configureTextViewForWordWrapMode
+{
+    [textView setHorizontallyResizable:!wrap];
+    [textView setMaxSize:NSMakeSize(LargeNumberForText, LargeNumberForText)];
+
+    [[textView textContainer] setWidthTracksTextView:wrap];
+    [[textView textContainer] setContainerSize:NSMakeSize(LargeNumberForText, LargeNumberForText)];
+}
+
 - (void)_createTextView
 {
-    NSSize size = [self frame].size;
-    NSRect textFrame;
-    textFrame.origin.x = textFrame.origin.y = 0;
-    if (size.width > 0 && size.height > 0) {
-        textFrame.size = [[self class] contentSizeForFrameSize:size
-            hasHorizontalScroller:[self hasHorizontalScroller]
-            hasVerticalScroller:[self hasVerticalScroller]
-            borderType:[self borderType]];
-    } else {
-        textFrame.size.width = LargeNumberForText;
-        textFrame.size.height = LargeNumberForText;
-    }
+    textView = [[KWQTextAreaTextView alloc] init];
 
-    textView = [[KWQTextAreaTextView alloc] initWithFrame:textFrame];
     [textView setRichText:NO];
-    [[textView textContainer] setWidthTracksTextView:YES];
-
-    // Set up attributes for default case, WRAP=SOFT|VIRTUAL or WRAP=HARD|PHYSICAL.
-    // If WRAP=OFF we reset many of these attributes.
-
-    NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
-    [style setLineBreakMode:NSLineBreakByWordWrapping];
-    [style setAlignment:NSLeftTextAlignment];
-    [textView _KWQ_setTypingParagraphStyle:style];
-    [style release];
-    
-    [textView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-
+    [textView setAllowsUndo:YES];
     [textView setDelegate:self];
-    
+
     [self setDocumentView:textView];
+
+    [self _configureTextViewForWordWrapMode];
+}
+
+- (void)_updateTextViewWidth
+{
+    if (wrap) {
+        [textView setFrameSize:NSMakeSize([self contentSize].width, [textView frame].size.height)];
+    }
 }
 
 - initWithFrame:(NSRect)frame
 {
     [super initWithFrame:frame];
-    
-    [self setHasVerticalScroller:YES];
-    [self setHasHorizontalScroller:NO];
+
+    wrap = YES;
+
     [self setBorderType:NSBezelBorder];
-    
+
     [self _createTextView];
-    
+    [self _updateTextViewWidth];
+
     // In WebHTMLView, we set a clip. This is not typical to do in an
     // NSView, and while correct for any one invocation of drawRect:,
     // it causes some bad problems if that clip is cached between calls.
@@ -138,7 +139,7 @@ const float LargeNumberForText = 1.0e7;
     // <rdar://problem/3310943>: REGRESSION (Panther): textareas in forms sometimes draw blank (bugreporter)
     [[self contentView] releaseGState];
     [[self documentView] releaseGState];
-    
+
     return self;
 }
 
@@ -152,6 +153,12 @@ const float LargeNumberForText = 1.0e7;
     return self;
 }
 
+- (void)detachQTextEdit
+{
+    widget = 0;
+    [textView setWidget:0];
+}
+
 - (void)dealloc
 {
     [textView release];
@@ -162,52 +169,16 @@ const float LargeNumberForText = 1.0e7;
 
 - (void)textDidChange:(NSNotification *)aNotification
 {
-    if (!KWQKHTMLPart::handleKeyboardOptionTabInView(self)) {
+    if (widget)
         widget->textChanged();
-    }
 }
 
 - (void)setWordWrap:(BOOL)f
 {
-    if (f == wrap) {
-        return;
+    if (f != wrap) {
+        wrap = f;
+        [self _configureTextViewForWordWrapMode];
     }
-    
-    // This widget may have issues toggling back and forth between WRAP=YES and WRAP=NO.
-    NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc] init];
-    
-    if (f) {
-        [self setHasHorizontalScroller:NO];
-
-        [[textView textContainer] setWidthTracksTextView:NO];
-
-        // FIXME: Same as else below. Is this right?
-        [textView setMaxSize:NSMakeSize(LargeNumberForText, LargeNumberForText)];
-        [textView setHorizontallyResizable:NO];
-
-        [style setLineBreakMode:NSLineBreakByWordWrapping];
-    } else {
-        [self setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
-        [[self contentView] setAutoresizesSubviews:YES];
-        [self setHasHorizontalScroller:YES];
-
-        [[textView textContainer] setContainerSize:NSMakeSize(LargeNumberForText, LargeNumberForText)];
-        [[textView textContainer] setWidthTracksTextView:NO];
-        [[textView textContainer] setHeightTracksTextView:NO];
-
-        [textView setMinSize:[textView frame].size];
-        [textView setMaxSize:NSMakeSize(LargeNumberForText, LargeNumberForText)];
-        [textView setHorizontallyResizable:YES];
-
-        [style setLineBreakMode:NSLineBreakByClipping];
-    }
-    
-    [style setAlignment:NSLeftTextAlignment];
-    
-    [textView _KWQ_setTypingParagraphStyle:style];
-    [style release];
-    
-    wrap = f;
 }
 
 - (BOOL)wordWrap
@@ -298,21 +269,15 @@ const float LargeNumberForText = 1.0e7;
     return [textView isEnabled];
 }
 
-- (void)setFrame:(NSRect)frameRect
-{    
-    [super setFrame:frameRect];
-
-    if ([self wordWrap]) {
-        NSSize contentSize = [[self class] contentSizeForFrameSize:frameRect.size
-            hasHorizontalScroller:[self hasHorizontalScroller]
-            hasVerticalScroller:[self hasVerticalScroller]
-            borderType:[self borderType]];
-        NSRect textFrame = [textView frame];
-        textFrame.size.width = contentSize.width;
-        contentSize.height = LargeNumberForText;
-        [textView setFrame:textFrame];
-        [[textView textContainer] setContainerSize:contentSize];
-    }
+- (void)tile
+{
+    [super tile];
+#if !BUILDING_ON_PANTHER
+    [self _updateTextViewWidth];
+#else
+    // Pre-Tiger, if we change the width here we re-enter in a way that makes NSText unhappy.
+    [self performSelector:@selector(_updateTextViewWidth) withObject:nil afterDelay:0];
+#endif
 }
 
 - (void)getCursorPositionAsIndex:(int *)index inParagraph:(int *)paragraph
@@ -411,22 +376,40 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
     [textView setFont:font];
 }
 
+- (void)setTextColor:(NSColor *)color
+{
+    [textView setTextColor:color];
+}
+
+- (void)setBackgroundColor:(NSColor *)color
+{
+    [textView setBackgroundColor:color];
+}
+
+- (void)setDrawsBackground:(BOOL)drawsBackground
+{
+    [super setDrawsBackground:drawsBackground];
+    [[self contentView] setDrawsBackground:drawsBackground];
+    [textView setDrawsBackground:drawsBackground];
+}
+
 - (BOOL)becomeFirstResponder
 {
-    [KWQKHTMLPart::bridgeForWidget(widget) makeFirstResponder:textView];
+    if (widget)
+        [KWQKHTMLPart::bridgeForWidget(widget) makeFirstResponder:textView];
     return YES;
 }
 
 - (NSView *)nextKeyView
 {
-    return inNextValidKeyView
+    return inNextValidKeyView && widget
         ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext)
         : [super nextKeyView];
 }
 
 - (NSView *)previousKeyView
 {
-   return inNextValidKeyView
+   return inNextValidKeyView && widget
         ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious)
         : [super previousKeyView];
 }
@@ -456,6 +439,7 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 - (void)drawRect:(NSRect)rect
 {
     [super drawRect:rect];
+
     if (![textView isEnabled]) {
         // draw a disabled bezel border
         [[NSColor controlColor] set];
@@ -469,7 +453,7 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
         [[NSColor textBackgroundColor] set];
         NSRectFill(rect);
     }
-    else if ([KWQKHTMLPart::bridgeForWidget(widget) firstResponder] == textView) {
+    else if (widget && [KWQKHTMLPart::bridgeForWidget(widget) firstResponder] == textView) {
         NSSetFocusRingStyle(NSFocusRingOnly);
         NSRectFill([self bounds]);
     }
@@ -560,6 +544,14 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
         borderType:[self borderType]];
 }
 
+- (void)viewWillMoveToWindow:(NSWindow *)window
+{
+    if ([self window] != window) {
+        [[textView undoManager] removeAllActionsWithTarget:[textView textStorage]];
+    }
+    [super viewWillMoveToWindow:window];
+}
+
 @end
 
 @implementation KWQTextAreaTextView
@@ -610,7 +602,7 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 - (void)insertTab:(id)sender
 {
     NSView *view = [[self delegate] nextValidKeyView];
-    if (view && view != self && view != [self delegate]) {
+    if (view && view != self && view != [self delegate] && widget) {
         [KWQKHTMLPart::bridgeForWidget(widget) makeFirstResponder:view];
     }
 }
@@ -618,7 +610,7 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 - (void)insertBacktab:(id)sender
 {
     NSView *view = [[self delegate] previousValidKeyView];
-    if (view && view != self && view != [self delegate]) {
+    if (view && view != self && view != [self delegate] && widget) {
         [KWQKHTMLPart::bridgeForWidget(widget) makeFirstResponder:view];
     }
 }
@@ -637,11 +629,14 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
             [self selectAll:nil];
         }
         if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
-            [self _KWQ_scrollFrameToVisible];
-        }        
+            [[self enclosingScrollView] _KWQ_scrollFrameToVisible];
+        }
 	[self _KWQ_setKeyboardFocusRingNeedsDisplay];
-	QFocusEvent event(QEvent::FocusIn);
-	const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+
+        if (widget) {
+            QFocusEvent event(QEvent::FocusIn);
+            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+        }
     }
 
     return become;
@@ -653,8 +648,11 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 
     if (resign) {
 	[self _KWQ_setKeyboardFocusRingNeedsDisplay];
-	QFocusEvent event(QEvent::FocusOut);
-	const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+
+        if (widget) {
+            QFocusEvent event(QEvent::FocusOut);
+            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+        }
     }
 
     return resign;
@@ -662,12 +660,14 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 
 - (BOOL)shouldDrawInsertionPoint
 {
-    return self == [KWQKHTMLPart::bridgeForWidget(widget) firstResponder] && [super shouldDrawInsertionPoint];
+    return widget && self == [KWQKHTMLPart::bridgeForWidget(widget) firstResponder] && [super shouldDrawInsertionPoint];
 }
 
 - (NSDictionary *)selectedTextAttributes
 {
-    return self == [KWQKHTMLPart::bridgeForWidget(widget) firstResponder] ? [super selectedTextAttributes] : nil;
+    if (widget && self != [KWQKHTMLPart::bridgeForWidget(widget) firstResponder])
+        return nil;
+    return [super selectedTextAttributes];
 }
 
 - (void)scrollPageUp:(id)sender
@@ -700,25 +700,45 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
     if (disabled)
         return;
     [super mouseDown:event];
-    widget->sendConsumedMouseUp();
-    widget->clicked();
+    if (widget) {
+        widget->sendConsumedMouseUp();
+    }
+    if (widget) {
+        widget->clicked();
+    }
 }
 
 - (void)keyDown:(NSEvent *)event
 {
-    if (disabled)
+    if (disabled || !widget) {
         return;
-    WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
-    if ([[NSInputManager currentInputManager] hasMarkedText] || 
-	![bridge interceptKeyEvent:event toView:self]) {
-	[super keyDown:event];
     }
+    
+    // Don't mess with text marked by an input method
+    if ([[NSInputManager currentInputManager] hasMarkedText]) {
+        [super keyDown:event];
+        return;
+    }
+
+    WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
+    if ([bridge interceptKeyEvent:event toView:self]) {
+        return;
+    }
+    
+    // Don't let option-tab insert a character since we use it for
+    // tabbing between links
+    if (KWQKHTMLPart::handleKeyboardOptionTabInView(self)) {
+        return;
+    }
+    
+    [super keyDown:event];
 }
 
 - (void)keyUp:(NSEvent *)event
 {
-    if (disabled)
+    if (disabled || !widget)
         return;
+
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     if (![[NSInputManager currentInputManager] hasMarkedText]) {
 	[bridge interceptKeyEvent:event toView:self];
@@ -764,6 +784,63 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
     // Make the text look disabled by changing its color.
     NSColor *color = disabled ? [NSColor disabledControlTextColor] : [NSColor controlTextColor];
     [[self textStorage] setForegroundColor:color];
+}
+
+// Could get fancy and send this to QTextEdit, then RenderTextArea, but there's really no harm
+// in doing this directly right here. Could refactor some day if you disagree.
+
+// FIXME: This does not yet implement the feature of canceling the operation, or the necessary
+// support to implement the clipboard operations entirely in JavaScript.
+- (void)dispatchHTMLEvent:(EventImpl::EventId)eventID
+{
+    if (widget) {
+        const RenderWidget *rw = static_cast<const RenderWidget *>(widget->eventFilterObject());
+        if (rw) {
+            NodeImpl *node = rw->element();
+            if (node) {
+                node->dispatchHTMLEvent(eventID, false, false);
+            }
+        }
+    }
+}
+
+- (void)cut:(id)sender
+{
+    inCut = YES;
+    [self dispatchHTMLEvent:EventImpl::BEFORECUT_EVENT];
+    [super cut:sender];
+    [self dispatchHTMLEvent:EventImpl::CUT_EVENT];
+    inCut = NO;
+}
+
+- (void)copy:(id)sender
+{
+    if (!inCut)
+        [self dispatchHTMLEvent:EventImpl::BEFORECOPY_EVENT];
+    [super copy:sender];
+    if (!inCut)
+        [self dispatchHTMLEvent:EventImpl::COPY_EVENT];
+}
+
+- (void)paste:(id)sender
+{
+    [self dispatchHTMLEvent:EventImpl::BEFOREPASTE_EVENT];
+    [super paste:sender];
+    [self dispatchHTMLEvent:EventImpl::PASTE_EVENT];
+}
+
+- (void)pasteAsPlainText:(id)sender
+{
+    [self dispatchHTMLEvent:EventImpl::BEFOREPASTE_EVENT];
+    [super pasteAsPlainText:sender];
+    [self dispatchHTMLEvent:EventImpl::PASTE_EVENT];
+}
+
+- (void)pasteAsRichText:(id)sender
+{
+    [self dispatchHTMLEvent:EventImpl::BEFOREPASTE_EVENT];
+    [super pasteAsRichText:sender];
+    [self dispatchHTMLEvent:EventImpl::PASTE_EVENT];
 }
 
 @end

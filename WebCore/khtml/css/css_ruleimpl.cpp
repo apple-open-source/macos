@@ -195,7 +195,7 @@ void CSSImportRuleImpl::init()
       // loaded (even if our subresources haven't), so if we have stylesheet after
       // checking the cache, then we've clearly loaded. -dwh
       if (!m_styleSheet)
-      m_loading = true;
+          m_loading = true;
     }
 }
 
@@ -320,12 +320,9 @@ CSSStyleRuleImpl::~CSSStyleRuleImpl()
 
 DOM::DOMString CSSStyleRuleImpl::selectorText() const
 {
-    if ( m_selector && m_selector->first() ) {
-        // ### m_selector will be a single selector hopefully. so ->first() will disappear
-        CSSSelector* cs = m_selector->first();
-        //cs->print(); // debug
-        return cs->selectorText();
-    }
+    // FIXME: Handle all the selectors in the chain for comma-separated selectors.
+    if (m_selector)
+        return m_selector->selectorText();
     return DOMString();
 }
 
@@ -340,21 +337,12 @@ bool CSSStyleRuleImpl::parseString( const DOMString &/*string*/, bool )
     return false;
 }
 
-void CSSStyleRuleImpl::setDeclaration( CSSStyleDeclarationImpl *style)
+void CSSStyleRuleImpl::setDeclaration( CSSMutableStyleDeclarationImpl *style)
 {
     if ( m_style != style ) {
         if(m_style) m_style->deref();
         m_style = style;
         if(m_style) m_style->ref();
-    }
-}
-
-void CSSStyleRuleImpl::setNonCSSHints()
-{
-    CSSSelector *s = m_selector->first();
-    while ( s ) {
-	s->nonCSSHint = true;
-	s = m_selector->next();
     }
 }
 
@@ -384,4 +372,3 @@ unsigned long CSSRuleListImpl::insertRule( CSSRuleImpl *rule,
     // ### Should throw INDEX_SIZE_ERR exception instead! (TODO)
     return 0;
 }
-

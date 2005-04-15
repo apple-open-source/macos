@@ -67,7 +67,7 @@ static void generate_random_sid(DOM_SID *sid)
 	sid->num_auths = 0;
 	sid->sub_auths[sid->num_auths++] = 21;
 
-	generate_random_buffer(raw_sid_data, 12, True);
+	generate_random_buffer(raw_sid_data, 12);
 	for (i = 0; i < 3; i++)
 		sid->sub_auths[sid->num_auths++] = IVAL(raw_sid_data, i*4);
 }
@@ -83,7 +83,7 @@ static DOM_SID *pdb_generate_sam_sid(void)
 	BOOL is_dc = False;
 	DOM_SID *sam_sid;
 	
-	if(!(sam_sid=(DOM_SID *)malloc(sizeof(DOM_SID))))
+	if(!(sam_sid=SMB_MALLOC_P(DOM_SID)))
 		return NULL;
 			
 	generate_wellknown_sids();

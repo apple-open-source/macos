@@ -52,6 +52,7 @@ cpu_type_t cputype)
 	    return(I860_RELOC_PAIR);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_POWERPC64:
 	case CPU_TYPE_VEO:
 	    return(PPC_RELOC_PAIR);
 	    break;
@@ -81,7 +82,8 @@ unsigned long r_type)
 	switch(cputype){
 	case CPU_TYPE_MC680x0:
 	case CPU_TYPE_I386:
-	    if(r_type == GENERIC_RELOC_SECTDIFF)
+	    if(r_type == GENERIC_RELOC_SECTDIFF ||
+	       r_type == GENERIC_RELOC_LOCAL_SECTDIFF)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_MC88000:
@@ -97,12 +99,14 @@ unsigned long r_type)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_POWERPC64:
 	case CPU_TYPE_VEO:
 	    if(r_type == PPC_RELOC_HI16 ||
 	       r_type == PPC_RELOC_LO16 ||
 	       r_type == PPC_RELOC_HA16 ||
 	       r_type == PPC_RELOC_LO14 ||
 	       r_type == PPC_RELOC_SECTDIFF ||
+	       r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 	       r_type == PPC_RELOC_HI16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -148,7 +152,8 @@ unsigned long r_type)
 	switch(cputype){
 	case CPU_TYPE_MC680x0:
 	case CPU_TYPE_I386:
-	    if(r_type == GENERIC_RELOC_SECTDIFF)
+	    if(r_type == GENERIC_RELOC_SECTDIFF ||
+	       r_type == GENERIC_RELOC_LOCAL_SECTDIFF)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_MC88000:
@@ -162,6 +167,7 @@ unsigned long r_type)
 	case CPU_TYPE_POWERPC:
 	case CPU_TYPE_VEO:
 	    if(r_type == PPC_RELOC_SECTDIFF ||
+	       r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 	       r_type == PPC_RELOC_HI16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO14_SECTDIFF ||

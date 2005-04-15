@@ -1,5 +1,5 @@
 dnl
-dnl $Id: c-attribute.m4,v 1.1 2002/02/27 23:56:19 snsimon Exp $
+dnl $Id: c-attribute.m4,v 1.3 2005/01/10 19:17:35 snsimon Exp $
 dnl
 
 dnl

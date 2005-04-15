@@ -38,6 +38,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "fvmlibs.h"
@@ -253,14 +254,14 @@ print_load_fvmlibs_list(void)
 		print("    LC_LOADFVMLIB\n");
 	    else
 		print("    LC_IDFVMLIB\n");
-	    print("\tcmdsize %lu\n", mfl->fl->cmdsize);
+	    print("\tcmdsize %u\n", mfl->fl->cmdsize);
 	    if(mfl->fl->fvmlib.name.offset < mfl->fl->cmdsize)
-		print("\tname %s (offset %lu)\n",
+		print("\tname %s (offset %u)\n",
 		       (char *)(mfl->fl) + mfl->fl->fvmlib.name.offset,
 		       mfl->fl->fvmlib.name.offset);
 	    else
-		print("\tname ?(bad offset %lu)\n",mfl->fl->fvmlib.name.offset);
-	    print("\tminor version %lu\n", mfl->fl->fvmlib.minor_version);
+		print("\tname ?(bad offset %u)\n",mfl->fl->fvmlib.name.offset);
+	    print("\tminor version %u\n", mfl->fl->fvmlib.minor_version);
 	    print("\theader addr 0x%08x\n",
 		  (unsigned int)(mfl->fl->fvmlib.header_addr));
 	    print("    fvmlib_name %s\n", mfl->fvmlib_name);
@@ -289,15 +290,15 @@ print_fvmlib_segments(void)
 	    msg = *p;
 	    print("    filename %s\n", msg->filename);
 	    print("\t      cmd LC_SEGMENT\n");
-	    print("\t  cmdsize %lu\n", msg->sg.cmdsize);
+	    print("\t  cmdsize %u\n", msg->sg.cmdsize);
 	    print("\t  segname %.16s\n", msg->sg.segname);
 	    print("\t   vmaddr 0x%08x\n", (unsigned int)(msg->sg.vmaddr));
 	    print("\t   vmsize 0x%08x\n", (unsigned int)(msg->sg.vmsize));
-	    print("\t  fileoff %lu\n", msg->sg.fileoff);
-	    print("\t filesize %lu\n", msg->sg.filesize);
+	    print("\t  fileoff %u\n", msg->sg.fileoff);
+	    print("\t filesize %u\n", msg->sg.filesize);
 	    print("\t  maxprot 0x%08x\n", (unsigned int)(msg->sg.maxprot));
 	    print("\t initprot 0x%08x\n", (unsigned int)(msg->sg.initprot));
-	    print("\t   nsects %lu\n", msg->sg.nsects);
+	    print("\t   nsects %u\n", msg->sg.nsects);
 	    print("\t    flags");
 	    if(msg->sg.flags == 0)
 		print(" (none)\n");

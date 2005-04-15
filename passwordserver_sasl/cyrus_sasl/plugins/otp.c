@@ -1,9 +1,9 @@
 /* OTP SASL plugin
  * Ken Murchison
- * $Id: otp.c,v 1.3 2003/07/27 14:37:57 snsimon Exp $
+ * $Id: otp.c,v 1.6 2005/01/10 19:01:38 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,24 +51,16 @@
 #include <errno.h>
 #include <string.h> 
 #include <ctype.h>
-#include <time.h>
 #include <assert.h>
 
 #include <openssl/evp.h>
+#include <openssl/md5.h> /* XXX hack for OpenBSD/OpenSSL cruftiness */
 
 #include <sasl.h>
-//#if OPENSSL_VERSION_NUMBER < 0x00907000L
 #define MD5_H  /* suppress internal MD5 */
-//#endif
 #include <saslplug.h>
 
 #include "plugin_common.h"
-#include "sasldb.h"
-
-#ifdef WIN32
-/* This must be after sasl.h */
-# include "saslOTP.h"
-#endif /* WIN32 */
 
 #ifdef macintosh 
 #include <sasl_otp_plugin_decl.h> 
@@ -76,7 +68,7 @@
 
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: otp.c,v 1.3 2003/07/27 14:37:57 snsimon Exp $";
+//static const char plugin_id[] = "$Id: otp.c,v 1.6 2005/01/10 19:01:38 snsimon Exp $";
 
 #define OTP_SEQUENCE_MAX	9999
 #define OTP_SEQUENCE_DEFAULT	499
@@ -539,7 +531,8 @@ static sasl_server_plug_t otp_server_plugins[] =
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_FORWARD_SECRECY,
-	SASL_FEAT_WANT_CLIENT_FIRST,
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,
 	NULL,
 	&otp_server_mech_new,
 	&opie_server_mech_step,
@@ -558,81 +551,6 @@ static sasl_server_plug_t otp_server_plugins[] =
 
 #define OTP_MDA_DEFAULT		"md5"
 #define OTP_LOCK_TIMEOUT	5 * 60		/* 5 minutes */
-
-static int make_secret(const sasl_utils_t *utils,
-		       const char *alg, unsigned seq, char *seed, char *otp,
-		       time_t timeout, sasl_secret_t **secret)
-{
-    unsigned sec_len;
-    unsigned char *data;
-    
-    /*
-     * secret is stored as:
-     *
-     * <alg> \0 <seq> \0 <seed> \0 <otp> <timeout>
-     *
-     * <timeout> is used as a "lock" when an auth is in progress
-     * we just set it to zero here (no lock)
-     */
-    sec_len = strlen(alg)+1+4+1+strlen(seed)+1+OTP_HASH_SIZE+sizeof(time_t);
-    *secret = utils->malloc(sizeof(sasl_secret_t)+sec_len);
-    if (!*secret) {
-	return SASL_NOMEM;
-    }
-    
-    (*secret)->len = sec_len;
-    data = (*secret)->data;
-    memcpy(data, alg, strlen(alg)+1);
-    data += strlen(alg)+1;
-    sprintf(data, "%04u", seq);
-    data += 5;
-    memcpy(data, seed, strlen(seed)+1);
-    data += strlen(seed)+1;
-    memcpy(data, otp, OTP_HASH_SIZE);
-    data += OTP_HASH_SIZE;
-    memcpy(data, &timeout, sizeof(time_t));
-    
-    return SASL_OK;
-}
-
-static int parse_secret(const sasl_utils_t *utils,
-			char *secret, size_t seclen,
-			char *alg, unsigned *seq, char *seed,
-			unsigned char *otp,
-			time_t *timeout)
-{
-    unsigned char *c;
-    
-    /*
-     * secret is stored as:
-     *
-     * <alg> \0 <seq> \0 <seed> \0 <otp> <timeout>
-     *
-     */
-    
-    if (seclen < (3+1+1+1+OTP_SEED_MIN+1+OTP_HASH_SIZE+sizeof(time_t))) {
-	SETERROR(utils, "OTP secret too short");
-	return SASL_FAIL;
-    }
-    
-    c = secret;
-    
-    strcpy(alg, (char*) c);
-    c += strlen(alg)+1;
-    
-    *seq = strtoul(c, NULL, 10);
-    c += 5;
-    
-    strcpy(seed, (char*) c);
-    c += strlen(seed)+1;
-    
-    memcpy(otp, c, OTP_HASH_SIZE);
-    c += OTP_HASH_SIZE;
-    
-    memcpy(timeout, c, sizeof(time_t));
-    
-    return SASL_OK;
-}
 
 /* Convert the ASCII hex into binary data */
 int hex2bin(char *hex, unsigned char *bin, int binlen)
@@ -659,6 +577,104 @@ int hex2bin(char *hex, unsigned char *bin, int binlen)
     }
     
     return (i < binlen) ? SASL_BADAUTH : SASL_OK;
+}
+
+static int make_secret(const sasl_utils_t *utils,
+		       const char *alg, unsigned seq, char *seed, char *otp,
+		       time_t timeout, sasl_secret_t **secret)
+{
+    unsigned sec_len;
+    unsigned char *data;
+    char buf[2*OTP_HASH_SIZE+1];
+    
+    /*
+     * secret is stored as:
+     *
+     * <alg> \t <seq> \t <seed> \t <otp> \t <timeout> \0
+     *
+     * <timeout> is used as a "lock" when an auth is in progress
+     * we just set it to zero here (no lock)
+     */
+    sec_len = strlen(alg)+1+4+1+strlen(seed)+1+2*OTP_HASH_SIZE+1+20+1;
+    *secret = utils->malloc(sizeof(sasl_secret_t)+sec_len);
+    if (!*secret) {
+	return SASL_NOMEM;
+    }
+    
+    (*secret)->len = sec_len;
+    data = (*secret)->data;
+
+    bin2hex(otp, OTP_HASH_SIZE, buf);
+    buf[2*OTP_HASH_SIZE] = '\0';
+    
+    sprintf(data, "%s\t%04d\t%s\t%s\t%020ld",
+	    alg, seq, seed, buf, timeout);
+    
+    return SASL_OK;
+}
+
+static int parse_secret(const sasl_utils_t *utils,
+			char *secret, size_t seclen,
+			char *alg, unsigned *seq, char *seed,
+			unsigned char *otp,
+			time_t *timeout)
+{
+    if (strlen(secret) < seclen) {
+	unsigned char *c;
+	
+	/*
+	 * old-style (binary) secret is stored as:
+	 *
+	 * <alg> \0 <seq> \0 <seed> \0 <otp> <timeout>
+	 *
+	 */
+	
+	if (seclen < (3+1+1+1+OTP_SEED_MIN+1+OTP_HASH_SIZE+sizeof(time_t))) {
+	    SETERROR(utils, "OTP secret too short");
+	    return SASL_FAIL;
+	}
+	
+	c = secret;
+	
+	strcpy(alg, (char*) c);
+	c += strlen(alg)+1;
+	
+	*seq = strtoul(c, NULL, 10);
+	c += 5;
+	
+	strcpy(seed, (char*) c);
+	c += strlen(seed)+1;
+	
+	memcpy(otp, c, OTP_HASH_SIZE);
+	c += OTP_HASH_SIZE;
+	
+	memcpy(timeout, c, sizeof(time_t));
+	
+	return SASL_OK;
+    }
+
+    else {
+	char buf[2*OTP_HASH_SIZE+1];
+	
+	/*
+	 * new-style (ASCII) secret is stored as:
+	 *
+	 * <alg> \t <seq> \t <seed> \t <otp> \t <timeout> \0
+	 *
+	 */
+	
+	if (seclen < (3+1+1+1+OTP_SEED_MIN+1+2*OTP_HASH_SIZE+1+20)) {
+	    SETERROR(utils, "OTP secret too short");
+	    return SASL_FAIL;
+	}
+	
+	sscanf(secret, "%s\t%04d\t%s\t%s\t%020ld",
+	       alg, seq, seed, buf, timeout);
+	
+	hex2bin(buf, otp, OTP_HASH_SIZE);
+	
+	return SASL_OK;
+    }
 }
 
 /* Compare two string pointers */
@@ -908,12 +924,15 @@ static int otp_server_mech_step1(server_context_t *text,
     size_t authid_len;
     unsigned lup = 0;
     int result, n;
-    const char *secret_request[] = { "*cmusaslsecretOTP",
+    const char *lookup_request[] = { "*cmusaslsecretOTP",
 				     NULL };
+    const char *store_request[] = { "cmusaslsecretOTP",
+				    NULL };
     struct propval auxprop_values[2];
     char mda[10];
     time_t timeout;
     sasl_secret_t *sec = NULL;
+    struct propctx *propctx = NULL;
     
     /* should have received authzid NUL authid */
     
@@ -965,7 +984,7 @@ static int otp_server_mech_step1(server_context_t *text,
     do {
 	/* Get user secret */
 	result = params->utils->prop_request(params->propctx,
-					     secret_request);
+					     lookup_request);
 	if (result != SASL_OK) return result;
 	
 	/* this will trigger the getting of the aux properties */
@@ -979,14 +998,14 @@ static int otp_server_mech_step1(server_context_t *text,
 	if (result != SASL_OK) return result;
 	
 	result = params->utils->prop_getnames(params->propctx,
-					      secret_request,
+					      lookup_request,
 					      auxprop_values);
 	if (result < 0 ||
 	    (!auxprop_values[0].name || !auxprop_values[0].values)) {
 	    /* We didn't find this username */
 	    params->utils->seterror(params->utils->conn,0,
 				    "no OTP secret in database");
-	    return SASL_NOUSER;
+	    result = params->transition ? SASL_TRANS : SASL_NOUSER;
 	}
 	
 	if (auxprop_values[0].name && auxprop_values[0].values) {
@@ -1002,8 +1021,6 @@ static int otp_server_mech_step1(server_context_t *text,
 				    "don't have a OTP secret");
 	    return SASL_FAIL;
 	}
-	
-	params->utils->prop_clear(params->propctx, 1);
 	
 	text->timestamp = time(0);
     }
@@ -1052,10 +1069,20 @@ static int otp_server_mech_step1(server_context_t *text,
     }
     
     /* do the store */
-    result = (*_sasldb_putdata)(params->utils, params->utils->conn,
-				text->authid, text->realm, "cmusaslsecretOTP",
-				sec->data, sec->len);
-    
+    propctx = params->utils->prop_new(0);
+    if (!propctx)
+	result = SASL_FAIL;
+    if (result == SASL_OK)
+	result = params->utils->prop_request(propctx, store_request);
+    if (result == SASL_OK)
+	result = params->utils->prop_set(propctx, "cmusaslsecretOTP",
+					 sec->data, sec->len);
+    if (result == SASL_OK)
+	result = params->utils->auxprop_store(params->utils->conn,
+					      propctx, text->authid);
+    if (propctx)
+	params->utils->prop_dispose(&propctx);
+
     if (sec) params->utils->free(sec);
     
     if (result != SASL_OK) {
@@ -1093,6 +1120,9 @@ otp_server_mech_step2(server_context_t *text,
     char response[OTP_RESPONSE_MAX+1];
     int result;
     sasl_secret_t *sec = NULL;
+    struct propctx *propctx = NULL;
+    const char *store_request[] = { "cmusaslsecretOTP",
+				     NULL };
     
     if (clientinlen > OTP_RESPONSE_MAX) {
 	SETERROR(params->utils, "OTP response too long");
@@ -1121,11 +1151,20 @@ otp_server_mech_step2(server_context_t *text,
     }
     
     /* do the store */
-    result = (*_sasldb_putdata)(params->utils, params->utils->conn,
-				text->authid, text->realm, "cmusaslsecretOTP",
-				(sec ? sec->data : NULL),
-				(sec ? sec->len : 0));
-    
+    propctx = params->utils->prop_new(0);
+    if (!propctx)
+	result = SASL_FAIL;
+    if (result == SASL_OK)
+	result = params->utils->prop_request(propctx, store_request);
+    if (result == SASL_OK)
+	result = params->utils->prop_set(propctx, "cmusaslsecretOTP",
+					 sec->data, sec->len);
+    if (result == SASL_OK)
+	result = params->utils->auxprop_store(params->utils->conn,
+					      propctx, text->authid);
+    if (propctx)
+	params->utils->prop_dispose(&propctx);
+
     if (result) {
 	params->utils->seterror(params->utils->conn, 0, 
 				"Error putting OTP secret");
@@ -1185,6 +1224,9 @@ static void otp_server_mech_dispose(void *conn_context,
 {
     server_context_t *text = (server_context_t *) conn_context;
     sasl_secret_t *sec;
+    struct propctx *propctx = NULL;
+    const char *store_request[] = { "cmusaslsecretOTP",
+				     NULL };
     int r;
     
     if (!text) return;
@@ -1201,10 +1243,20 @@ static void otp_server_mech_dispose(void *conn_context,
 	}
 	
 	/* do the store */
-	r = (*_sasldb_putdata)(utils, utils->conn,
-			       text->authid, text->realm, "cmusaslsecretOTP",
-			       (sec ? sec->data : NULL), (sec ? sec->len : 0));
-	
+	propctx = utils->prop_new(0);
+	if (!propctx)
+	    r = SASL_FAIL;
+	if (!r)
+	    r = utils->prop_request(propctx, store_request);
+	if (!r)
+	    r = utils->prop_set(propctx, "cmusaslsecretOTP",
+				(sec ? sec->data : NULL),
+				(sec ? sec->len : 0));
+	if (!r)
+	    r = utils->auxprop_store(utils->conn, propctx, text->authid);
+	if (propctx)
+	    utils->prop_dispose(&propctx);
+
 	if (r) {
 	    SETERROR(utils, "Error putting OTP secret");
 	}
@@ -1233,12 +1285,14 @@ static int otp_setpass(void *glob_context __attribute__((unused)),
     char *user = NULL;
     char *realm = NULL;
     sasl_secret_t *sec;
+    struct propctx *propctx = NULL;
+    const char *store_request[] = { "cmusaslsecretOTP",
+				     NULL };
     
-    /* Do we have database support? */
-    /* Note that we can use a NULL sasl_conn_t because our
-     * sasl_utils_t is "blessed" with the global callbacks */
-    if (_sasl_check_db(sparams->utils, NULL) != SASL_OK) {
-	SETERROR(sparams->utils, "OTP: No database support");
+    /* Do we have a backend that can store properties? */
+    if (!sparams->utils->auxprop_store ||
+	sparams->utils->auxprop_store(NULL, NULL, NULL) != SASL_OK) {
+	SETERROR(sparams->utils, "OTP: auxprop backend can't store properties");
 	return SASL_NOMECH;
     }
     
@@ -1300,9 +1354,19 @@ static int otp_setpass(void *glob_context __attribute__((unused)),
     }
     
     /* do the store */
-    r = (*_sasldb_putdata)(sparams->utils, sparams->utils->conn,
-			   user, realm, "cmusaslsecretOTP",
-			   (sec ? sec->data : NULL), (sec ? sec->len : 0));
+    propctx = sparams->utils->prop_new(0);
+    if (!propctx)
+	r = SASL_FAIL;
+    if (!r)
+	r = sparams->utils->prop_request(propctx, store_request);
+    if (!r)
+	r = sparams->utils->prop_set(propctx, "cmusaslsecretOTP",
+				     (sec ? sec->data : NULL),
+				     (sec ? sec->len : 0));
+    if (!r)
+	r = sparams->utils->auxprop_store(sparams->utils->conn, propctx, user);
+    if (propctx)
+	sparams->utils->prop_dispose(&propctx);
     
     if (r) {
 	sparams->utils->seterror(sparams->utils->conn, 0, 
@@ -1325,11 +1389,10 @@ static int otp_mech_avail(void *glob_context __attribute__((unused)),
 	  	          sasl_server_params_t *sparams,
 		          void **conn_context __attribute__((unused))) 
 {
-    /* Do we have database support? */
-    /* Note that we can use a NULL sasl_conn_t because our
-     * sasl_utils_t is "blessed" with the global callbacks */
-    if(_sasl_check_db(sparams->utils, NULL) != SASL_OK) {
-	SETERROR(sparams->utils, "OTP: No database support");
+    /* Do we have a backend that can store properties? */
+    if (!sparams->utils->auxprop_store ||
+	sparams->utils->auxprop_store(NULL, NULL, NULL) != SASL_OK) {
+	SETERROR(sparams->utils, "OTP: auxprop backend can't store properties");
 	return SASL_NOMECH;
     }
     
@@ -1344,7 +1407,8 @@ static sasl_server_plug_t otp_server_plugins[] =
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_FORWARD_SECRECY,	/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* glob_context */
 	&otp_server_mech_new,		/* mech_new */
 	&otp_server_mech_step,		/* mech_step */
@@ -1425,7 +1489,7 @@ static int otp_client_mech_step1(client_context_t *text,
 				 unsigned *clientoutlen,
 				 sasl_out_params_t *oparams)
 {
-    const char *user, *authid;
+    const char *user = NULL, *authid = NULL;
     int user_result = SASL_OK;
     int auth_result = SASL_OK;
     int pass_result = SASL_OK;
@@ -1451,10 +1515,8 @@ static int otp_client_mech_step1(client_context_t *text,
     if (oparams->user == NULL) {
 	user_result = _plug_get_userid(params->utils, &user, prompt_need);
 	
-	/* Fallback to authid */
-	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT)) {
-	    user = authid;
-	}
+	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT))
+	    return user_result;
     }
     
     /* try to get the secret pass-phrase if we don't have a chalprompt */
@@ -1496,11 +1558,18 @@ static int otp_client_mech_step1(client_context_t *text,
 	return SASL_INTERACT;
     }
     
-    result = params->canon_user(params->utils->conn, user, 0,
-				SASL_CU_AUTHZID, oparams);
-    if (result != SASL_OK) return result;
-    result = params->canon_user(params->utils->conn, authid, 0,
-				SASL_CU_AUTHID, oparams);
+    if (!user || !*user) {
+	result = params->canon_user(params->utils->conn, authid, 0,
+				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
+    }
+    else {
+	result = params->canon_user(params->utils->conn, user, 0,
+				    SASL_CU_AUTHZID, oparams);
+	if (result != SASL_OK) return result;
+
+	result = params->canon_user(params->utils->conn, authid, 0,
+				    SASL_CU_AUTHID, oparams);
+    }
     if (result != SASL_OK) return result;
     
     /* send authorized id NUL authentication id */
@@ -1729,7 +1798,8 @@ static sasl_client_plug_t otp_client_plugins[] =
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_FORWARD_SECRECY,	/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* required_prompts */
 	NULL,				/* glob_context */
 	&otp_client_mech_new,		/* mech_new */

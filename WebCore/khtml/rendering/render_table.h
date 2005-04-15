@@ -22,14 +22,12 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
- *
  */
 #ifndef RENDER_TABLE_H
 #define RENDER_TABLE_H
 
 #include <qcolor.h>
 
-#include "render_box.h"
 #include "render_block.h"
 #include "render_style.h"
 #include "misc/khtmllayout.h"
@@ -102,13 +100,10 @@ public:
     virtual int overflowHeight(bool includeInterior=true) const { return height(); }
     virtual int overflowWidth(bool includeInterior=true) const { return width(); }
     virtual void addChild(RenderObject *child, RenderObject *beforeChild = 0);
-    virtual void paint( QPainter *, int x, int y, int w, int h,
-                        int tx, int ty, PaintAction paintAction);
-    virtual void paintBoxDecorations(QPainter *p,int _x, int _y,
-                                     int _w, int _h, int _tx, int _ty);
+    virtual void paint(PaintInfo& i, int tx, int ty);
+    virtual void paintBoxDecorations(PaintInfo& i, int _tx, int _ty);
     virtual void layout();
     virtual void calcMinMaxWidth();
-    virtual void close();
 
     virtual RenderBlock* firstLineBlock() const;
     virtual void updateFirstLetter();
@@ -116,9 +111,6 @@ public:
     virtual void setCellWidths( );
 
     virtual void calcWidth();
-
-    virtual int borderTopExtra();
-    virtual int borderBottomExtra();
 
 #ifndef NDEBUG
     virtual void dump(QTextStream *stream, QString ind = "") const;
@@ -132,7 +124,7 @@ public:
 	    width = WidthUndefined;
 	}
 	ushort span;
-	ushort width; // the calculated position of the column
+	uint width; // the calculated position of the column
     };
 
     QMemArray<int> columnPos;
@@ -176,6 +168,8 @@ public:
  
     CollapsedBorderValue* currentBorderStyle() { return m_currentBorder; }
     
+    bool hasSections() const { return head || foot || firstBody; }
+
 protected:
 
     void recalcSections();
@@ -205,7 +199,7 @@ protected:
 
 // -------------------------------------------------------------------------
 
-class RenderTableSection : public RenderBox
+class RenderTableSection : public RenderContainer
 {
 public:
     RenderTableSection(DOM::NodeImpl* node);
@@ -249,10 +243,9 @@ public:
 	return (*(grid[row].row))[col];
     }
 
-    virtual void paint( QPainter *, int x, int y, int w, int h,
-                        int tx, int ty, PaintAction paintAction);
+    virtual void paint(PaintInfo& i, int tx, int ty);
 
-    int numRows() const { return grid.size(); }
+    int numRows() const { return gridRows; }
     int getBaseline(int row) {return grid[row].baseLine;}
 
     void setNeedCellRecalc() {
@@ -265,11 +258,12 @@ public:
     // this gets a cell grid data structure. changing the number of
     // columns is done by the table
     QMemArray<RowStruct> grid;
+    int gridRows;
     QMemArray<int> rowPos;
 
-    ushort cCol : 15;
-    short cRow : 16;
-    bool needCellRecalc : 1;
+    int cCol;
+    int cRow;
+    bool needCellRecalc;
 
     void recalcCells();
 protected:
@@ -321,15 +315,18 @@ public:
     virtual const char *renderName() const { return "RenderTableCell"; }
     virtual bool isTableCell() const { return true; }
 
+    // overrides RenderObject
+    virtual bool requiresLayer();
+
     // ### FIX these two...
     long cellIndex() const { return 0; }
     void setCellIndex( long ) { }
 
-    unsigned short colSpan() const { return cSpan; }
-    void setColSpan( unsigned short c ) { cSpan = c; }
+    int colSpan() const { return cSpan; }
+    void setColSpan(int c) { cSpan = c; }
 
-    unsigned short rowSpan() const { return rSpan; }
-    void setRowSpan( unsigned short r ) { rSpan = r; }
+    int rowSpan() const { return rSpan; }
+    void setRowSpan(int r) { rSpan = r; }
 
     int col() const { return _col; }
     void setCol(int col) { _col = col; }
@@ -360,16 +357,10 @@ public:
     void setCellTopExtra(int p) { _topExtra = p; }
     void setCellBottomExtra(int p) { _bottomExtra = p; }
 
-    int getCellPercentageHeight() const;
-    void setCellPercentageHeight(int h);
-    
-    virtual void paint( QPainter* p, int x, int y,
-                        int w, int h, int tx, int ty, PaintAction paintAction);
+    virtual void paint(PaintInfo& i, int tx, int ty);
 
     void paintCollapsedBorder(QPainter* p, int x, int y, int w, int h);
     
-    virtual void close();
-
     // lie position to outside observers
     virtual int yPos() const { return m_y + _topExtra; }
 
@@ -378,8 +369,8 @@ public:
 
     virtual short baselinePosition( bool = false ) const;
 
-    virtual int borderTopExtra() { return _topExtra; }
-    virtual int borderBottomExtra() { return _bottomExtra; }
+    virtual int borderTopExtra() const { return _topExtra; }
+    virtual int borderBottomExtra() const { return _bottomExtra; }
 
     RenderTable *table() const { return static_cast<RenderTable *>(parent()->parent()->parent()); }
     RenderTableSection *section() const { return static_cast<RenderTableSection *>(parent()->parent()); }
@@ -388,19 +379,15 @@ public:
     virtual void dump(QTextStream *stream, QString ind = "") const;
 #endif
 
-    virtual void paintObject(QPainter *, int x, int y, int w, int h,
-                             int tx, int ty, PaintAction paintAction);
-    
     virtual QRect getAbsoluteRepaintRect();
     
 protected:
-    virtual void paintBoxDecorations(QPainter *p,int _x, int _y,
-                                     int _w, int _h, int _tx, int _ty);
+    virtual void paintBoxDecorations(PaintInfo& i, int _tx, int _ty);
     
-    short _row;
-    short _col;
-    ushort rSpan;
-    ushort cSpan;
+    int _row;
+    int _col;
+    int rSpan;
+    int cSpan;
     int _topExtra : 31;
     bool nWrap : 1;
     int _bottomExtra : 31;
@@ -419,8 +406,8 @@ public:
 
     virtual const char *renderName() const { return "RenderTableCol"; }
 
-    long span() const { return _span; }
-    void setSpan( long s ) { _span = s; }
+    int span() const { return _span; }
+    void setSpan(int s) { _span = s; }
 
     virtual void addChild(RenderObject *child, RenderObject *beforeChild = 0);
 
@@ -437,7 +424,7 @@ public:
 #endif
 
 protected:
-    short _span;
+    int _span;
 };
 
 };

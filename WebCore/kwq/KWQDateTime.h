@@ -41,7 +41,7 @@ public:
 
     int msec() const;
     void start() { timeInSeconds = CFAbsoluteTimeGetCurrent(); }
-    int elapsed();
+    int elapsed() const;
     int restart();
     
 private:
@@ -87,5 +87,11 @@ private:
     friend std::ostream &operator<<( std::ostream &, const QDateTime & );
 #endif
 };
+
+class KWQUIEventTime {
+public:
+    bool uiEventPending() const;
+};
+
 
 #endif

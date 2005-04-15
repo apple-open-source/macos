@@ -1,15 +1,8 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 
-ifeq "$(BUILD_TYPE)" "normal"
-LIBS += -lcc_noc++
-else
-LIBS = 
+ifeq ($(BUILD_TYPE),normal)
+OPTIMIZE_BUILD_LIBS := $(LIBSYSTEM_LIBS) $(GCCLIBS)
 endif
-
-LIBS := $(foreach LIB,							\
-		  $(filter $(BSD_LIBS), $(subst -l,,$(LIBS))),		\
-		  $(NEXT_ROOT)/usr/local/lib/system/lib$(LIB).a)	\
-	$(filter-out $(addprefix -l, $(BSD_LIBS)), $(LIBS))
 
 # pb_makefiles erroneously omits $(BUILD_TYPE_SUFFIX) from the install name
 DYLIB_INSTALL_NAME = $(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$(BUILD_TYPE_SUFFIX)$(LIBRARY_EXT)
@@ -70,3 +63,36 @@ $(OFILE_DIR)/%.i386.o %.i386.o: %.st
 	    $(ALL_CFLAGS) -c -o $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o $<
 	ld -arch $(CURRENT_ARCH) -r -seg1addr 0xBFFF8000 \
 	    $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o -o $(OFILE_DIR)/$(notdir $@)
+
+#----------------------------------------------------------------------------
+
+ifeq ($(RC_ARCHS),ppc)
+ifeq ($(BUILD_TYPE),normal)
+LIBSUFFIX = .a
+REMOVESUFFIX = .So
+else
+ifeq ($(BUILD_TYPE),debug)
+LIBSUFFIX = _debug.a
+REMOVESUFFIX = .do
+else
+LIBSUFFIX = _profile.a
+REMOVESUFFIX = .po
+endif
+endif
+CNAME = libc$(LIBSUFFIX)
+MNAME = libm$(LIBSUFFIX)
+REMOVELIBC = _ldtoa err hexfloat syslog vfprintf vfwprintf
+REMOVELIBCOBJS = $(addsuffix $(REMOVESUFFIX),$(REMOVELIBC))
+REMOVELIBM = fpmacros
+REMOVELIBMOBJS = $(addsuffix .o,$(REMOVELIBM))
+LIBGCC = $(LIBSYS)/libgcc-ppc.a
+
+$(OFILE_DIR)/libgcc.unexport:
+	nm -g -arch $(RC_ARCHS) $(LIBGCC) | grep ' [A-TV-Z] ' | sed 's/^.* [A-Z] //' > $(OFILE_DIR)/libgcc.unexport
+	lipo -thin ppc -output $(OFILE_DIR)/$(CNAME) $(LIBSYS)/$(CNAME)
+	ar -d $(OFILE_DIR)/$(CNAME) $(REMOVELIBCOBJS)
+	ranlib $(OFILE_DIR)/$(CNAME)
+	lipo -thin ppc -output $(OFILE_DIR)/$(MNAME) $(LIBSYS)/$(MNAME)
+	ar -d $(OFILE_DIR)/$(MNAME) $(REMOVELIBMOBJS)
+	ranlib $(OFILE_DIR)/$(MNAME)
+endif

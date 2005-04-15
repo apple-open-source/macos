@@ -1,9 +1,9 @@
 /* sample-client.c -- sample SASL client
  * Rob Earhart
- * $Id: sample-client.c,v 1.1 2002/02/28 00:18:29 snsimon Exp $
+ * $Id: sample-client.c,v 1.2 2004/07/07 22:53:08 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,7 +47,7 @@
 #include <string.h>
 #include <stdlib.h>
 #ifdef WIN32
-# include <winsock.h>
+# include <winsock2.h>
 __declspec(dllimport) char *optarg;
 __declspec(dllimport) int optind;
 __declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, char **valuep);
@@ -435,7 +435,17 @@ main(int argc, char *argv[])
     *authid = NULL;
   sasl_ssf_t *ssf;
     
-  progname = strrchr(argv[0], '/');
+#ifdef WIN32
+  /* initialize winsock */
+    WSADATA wsaData;
+
+    result = WSAStartup( MAKEWORD(2, 0), &wsaData );
+    if ( result != 0) {
+	saslfail(SASL_FAIL, "Initializing WinSockets", NULL);
+    }
+#endif
+
+  progname = strrchr(argv[0], HIER_DELIMITER);
   if (progname)
     progname++;
   else
@@ -838,5 +848,8 @@ main(int argc, char *argv[])
   free_conn();
   sasl_done();
 
+#ifdef WIN32
+  WSACleanup();
+#endif
   return (EXIT_SUCCESS);
 }

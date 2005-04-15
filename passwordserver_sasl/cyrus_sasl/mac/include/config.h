@@ -1,5 +1,5 @@
-/* $Id: config.h,v 1.1 2002/02/28 00:29:40 snsimon Exp $
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+/* $Id: config.h,v 1.4 2005/01/10 19:17:29 snsimon Exp $
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -268,10 +268,6 @@ struct iovec {
 #define        getnameinfo     sasl_getnameinfo
 #define        gai_strerror    sasl_gai_strerror
 #include "gai.h"
-#endif
-
-#ifndef        NI_WITHSCOPEID
-#define        NI_WITHSCOPEID  0
 #endif
 
 #endif /* CONFIG_H */

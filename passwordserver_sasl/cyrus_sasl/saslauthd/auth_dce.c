@@ -32,7 +32,7 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: auth_dce.c,v 1.2 2002/05/23 18:58:37 snsimon Exp $"
+#ident "$Id: auth_dce.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */

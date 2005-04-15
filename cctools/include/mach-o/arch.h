@@ -29,6 +29,7 @@
  *
  */
 
+#include <stdint.h>
 #include <mach/machine.h>
 #include <architecture/byte_order.h>
 
@@ -83,7 +84,7 @@ extern const NXArchInfo *NXGetArchInfoFromCpuType(cpu_type_t cputype,
 extern struct fat_arch *NXFindBestFatArch(cpu_type_t cputype,
 					  cpu_subtype_t cpusubtype,
 					  struct fat_arch *fat_archs,
-					  unsigned long nfat_archs);
+					  uint32_t nfat_archs);
 
 /* NXCombineCpuSubtypes() returns the resulting cpusubtype when combining two
  * different cpusubtypes for the specified cputype.  If the two cpusubtypes

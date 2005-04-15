@@ -150,7 +150,7 @@ This option causes smbpasswd to be silent (i\&.e\&. not issue prompts) and to re
 
 .TP
 \-w password
-This parameter is only available if Samba has been configured to use the experimental\fB\-\-with\-ldapsam\fR option\&. The \fI\-w\fR switch is used to specify the password to be used with theldap admin dn\&. Note that the password is stored in the \fIsecrets\&.tdb\fR and is keyed off of the admin's DN\&. This means that if the value of \fIldap admin dn\fR ever changes, the password will need to be manually updated as well\&.
+This parameter is only available if Samba has been compiled with LDAP support\&. The \fI\-w\fR switch is used to specify the password to be used with theldap admin dn\&. Note that the password is stored in the \fIsecrets\&.tdb\fR and is keyed off of the admin's DN\&. This means that if the value of \fIldap admin dn\fR ever changes, the password will need to be manually updated as well\&.
 
 .TP
 \-i

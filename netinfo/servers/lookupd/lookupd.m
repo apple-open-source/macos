@@ -101,8 +101,10 @@ sys_port_type server_port = SYS_PORT_NULL;
 BOOL debug_enabled = NO;
 BOOL statistics_enabled = NO;
 BOOL coredump_enabled = NO;
-BOOL parallel_gai = YES;
 BOOL lookup_local_interfaces = YES;
+
+uint32_t gai_pref = GAI_S46;
+uint32_t gai_wait = 2;
 
 /* Controller.m uses this global */
 BOOL shutting_down = NO;

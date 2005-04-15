@@ -185,7 +185,7 @@ AppleUSBEHCI::GetRootHubConfDescriptor(OSData *desc)
         0x81,                   //UInt8  endpointAddress; In, 1
         kUSBInterrupt,          //UInt8 attributes;
         HostToUSBWord(8),      	//UInt16 maxPacketSize;
-        12,                    //UInt8 interval;
+        12,                     //UInt8 interval;
     };
 
     if (!desc)
@@ -645,7 +645,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     // Set the reset on
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
     IOSync();
-    
+
     // Note:  Section 7.1.7.5 of the USB Spec requires a 50ms reset for RootHub ports, not 10, as we had done prior to Feb 2004.  However, in
 	// testing the 10.3.6 update, (SUPanNavy), the following 2 bugs were traced to this pulse being 50ms:
 	// <rdar://problem/3829981> 7R13: Suntac Slipper X does not work correctly on Navy

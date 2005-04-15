@@ -101,9 +101,10 @@ void Lexer::globalClear()
 }
 #endif
 
-void Lexer::setCode(const UChar *c, unsigned int len)
+void Lexer::setCode(const UString &sourceURL, int startingLineNumber, const UChar *c, unsigned int len)
 {
-  yylineno = 1;
+  yylineno = 1 + startingLineNumber;
+  m_sourceURL = sourceURL;
   restrKeyword = false;
   delimited = false;
   eatNextIdentifier = false;
@@ -114,6 +115,7 @@ void Lexer::setCode(const UChar *c, unsigned int len)
   length = len;
   skipLF = false;
   skipCR = false;
+  error = false;
 #ifndef KJS_PURE_ECMA
   bol = true;
 #endif
@@ -447,15 +449,18 @@ int Lexer::lex()
   if (state == Number) {
     dval = strtod(buffer8, 0L);
   } else if (state == Hex) { // scan hex numbers
-    // TODO: support long unsigned int
-    unsigned int i;
-    sscanf(buffer8, "%x", &i);
-    dval = i;
+    const char *p = buffer8 + 2;
+    while (char c = *p++) {
+      dval *= 16;
+      dval += convertHex(c);
+    }
     state = Number;
   } else if (state == Octal) {   // scan octal number
-    unsigned int ui;
-    sscanf(buffer8, "%o", &ui);
-    dval = ui;
+    const char *p = buffer8 + 1;
+    while (char c = *p++) {
+      dval *= 8;
+      dval += c - '0';
+    }
     state = Number;
   }
 
@@ -531,9 +536,11 @@ int Lexer::lex()
     break;
   case Bad:
     fprintf(stderr, "yylex: ERROR.\n");
+    error = true;
     return -1;
   default:
     assert(!"unhandled numeration value in switch");
+    error = true;
     return -1;
   }
   lastToken = token;
@@ -570,7 +577,7 @@ bool Lexer::isDecimalDigit(unsigned short c)
   return (c >= '0' && c <= '9');
 }
 
-bool Lexer::isHexDigit(unsigned short c) const
+bool Lexer::isHexDigit(unsigned short c)
 {
   return (c >= '0' && c <= '9' ||
           c >= 'a' && c <= 'f' ||

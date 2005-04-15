@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <string.h>
 #import <mach-o/m88k/swap.h>
 #import <architecture/nrw/reg_help.h>
@@ -426,3 +427,4 @@ enum NXByteOrder target_byte_sex)
 	spu->intermediate_result.x[3] =
 	    NXSwapLong(spu->intermediate_result.x[3]);
 }
+#endif /* !defined(RLD) */

@@ -359,6 +359,9 @@ xmlRMutexUnlock(xmlRMutexPtr tok ATTRIBUTE_UNUSED)
  ************************************************************************/
 
 #ifdef LIBXML_THREAD_ENABLED
+#ifdef xmlLastError
+#undef xmlLastError
+#endif
 /**
  * xmlFreeGlobalState:
  * @state:  a thread global state
@@ -369,6 +372,10 @@ xmlRMutexUnlock(xmlRMutexPtr tok ATTRIBUTE_UNUSED)
 static void
 xmlFreeGlobalState(void *state)
 {
+    xmlGlobalState *gs = (xmlGlobalState *) state;
+
+    /* free any memory allocated in the thread's xmlLastError */
+    xmlResetError(&(gs->xmlLastError));
     free(state);
 }
 

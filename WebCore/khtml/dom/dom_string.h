@@ -2,6 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * (C) 1999 Lars Knoll (knoll@kde.org)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +24,11 @@
 #define _DOM_DOMString_h_
 
 #include <qstring.h>
+#include <xml/dom_stringimpl.h>
+
+namespace khtml {
+    class Length;
+}
 
 namespace DOM {
 
@@ -41,6 +47,7 @@ class DOMString
 {
     friend class CharacterDataImpl;
     friend bool operator==( const DOMString &a, const char *b );
+    friend bool operator==( const DOMString &a, const DOMString &b );
 public:
     /**
      * default constructor. Gives an empty DOMString
@@ -51,7 +58,8 @@ public:
     DOMString(const QString &);
     DOMString(const char *str);
     DOMString(DOMStringImpl *i);
-    ~DOMString();
+    ~DOMString() { if(impl) impl->deref(); }
+
 
     // assign and copy
     DOMString(const DOMString &str);
@@ -61,10 +69,6 @@ public:
      * append str to this string
      */
     DOMString &operator += (const DOMString &str);
-    /**
-     * add two DOMString's
-     */
-    DOMString operator + (const DOMString &str);
 
     void insert(DOMString str, uint pos);
 
@@ -79,6 +83,9 @@ public:
     uint length() const;
     void truncate( unsigned int len );
     void remove(unsigned int pos, int len=1);
+
+    DOMString substring(unsigned int pos, unsigned int len) const;
+
     /**
      * Splits the string into two. The original string gets truncated to pos, and the rest is returned.
      */
@@ -97,6 +104,7 @@ public:
     QString string() const;
 
     int toInt() const;
+    khtml::Length* toLengthArray(int& len) const;
     bool percentage(int &_percentage) const;
 
     DOMString copy() const;
@@ -110,16 +118,30 @@ public:
      */
     DOMStringImpl *implementation() const { return impl; }
 
+#ifdef __OBJC__
+    DOMString(NSString *);
+    operator NSString *() const;
+#endif
+
+#ifndef NDEBUG
+    // For debugging only, leaks memory.
+    const char *ascii() const;
+#endif
+
 protected:
     DOMStringImpl *impl;
 };
 
-bool operator==( const DOMString &a, const DOMString &b );
+DOMString operator + (const DOMString &a, const DOMString &b);
 bool operator==( const DOMString &a, const QString &b );
 bool operator==( const DOMString &a, const char *b );
-inline bool operator!=( const DOMString &a, const DOMString &b ) { return !(a==b); };
-inline bool operator!=( const DOMString &a, const QString &b ) { return !(a==b); };
-inline bool operator!=( const DOMString &a, const char *b )  { return !(a==b); };
+inline bool operator==( const QString &b, const DOMString &a ) { return a == b; }
+inline bool operator==( const char *b, const DOMString &a ) { return a == b; }
+inline bool operator!=( const DOMString &a, const DOMString &b ) { return !(a==b); }
+inline bool operator!=( const DOMString &a, const QString &b ) { return !(a==b); }
+inline bool operator!=( const DOMString &a, const char *b )  { return !(a==b); }
+inline bool operator!=( const QString &b, const DOMString &a ) { return !(a==b); }
+inline bool operator!=( const char *b, const DOMString &a )  { return !(a==b); }
 inline bool strcmp( const DOMString &a, const DOMString &b ) { return a != b; }
 
 // returns false when equal, true otherwise (ignoring case)

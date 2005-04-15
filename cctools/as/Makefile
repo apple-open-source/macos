@@ -1,6 +1,6 @@
 RC_OS = macos
 export USE_APPLE_PB_SUPPORT = all
-OFLAG = -O
+OFLAG = -Os
 ifeq "macos" "$(RC_OS)"
   X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
@@ -11,7 +11,7 @@ ifeq "macos" "$(RC_OS)"
 endif
 
 ifneq "mwccppc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall $(X_CFLAGS)
+  GCC_FLAGS = -Wall $(X_CFLAGS) -mdynamic-no-pic
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
@@ -34,7 +34,8 @@ CFLAGS = $(OFLAG) -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) \
 	$(GCC_FLAGS) -DNeXT_MOD \
 	-I$(NEXT_ROOT)$(PRIVATEHEADERS)
 
-LIBSTUFF = -L$(SYMROOT)/../../libstuff -lstuff
+LIBSTUFF_DIR = -L$(SYMROOT)/../../libstuff
+LIBSTUFF = -lstuff
 
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
@@ -52,6 +53,7 @@ SYM_DIRS = $(SYMROOT)/driver_dir \
 	   $(SYMROOT)/a88_dir \
 	   $(SYMROOT)/a386_dir \
 	   $(SYMROOT)/appc_dir \
+	   $(SYMROOT)/appc64_dir \
 	   $(SYMROOT)/a860_dir \
 	   $(SYMROOT)/ahppa_dir \
 	   $(SYMROOT)/asparc_dir
@@ -61,6 +63,7 @@ OFILE_DIRS = $(OBJROOT)/driver_dir \
 	     $(OBJROOT)/a88_dir \
 	     $(OBJROOT)/a386_dir \
 	     $(OBJROOT)/appc_dir \
+	     $(OBJROOT)/appc64_dir \
 	     $(OBJROOT)/a860_dir \
 	     $(OBJROOT)/ahppa_dir \
 	     $(OBJROOT)/asparc_dir
@@ -112,7 +115,7 @@ CHECK_FILES = m68k-check.c m88k-check.c i860-check.c i386-check.c ppc-check.c \
 INSTALL_FILES = Makefile notes $(CFILES) $(CFILES_m68k) $(CFILES_m88k) \
 		$(CFILES_i860) $(CFILES_i386) $(CFILES_ppc) $(CFILES_hppa) \
 		$(CFILES_sparc) $(HFILES) $(CHECK_FILES) driver.c \
-		make.defs make_defs.h
+		make.defs make_defs.h COPYING
 
 OBJS = $(CFILES:.c=.o) apple_version.o
 OBJS_m68k = $(CFILES_m68k:.c=.o)
@@ -124,7 +127,7 @@ OBJS_hppa = $(CFILES_hppa:.c=.o)
 OBJS_sparc = $(CFILES_sparc:.c=.o)
 
 all:	$(OFILE_DIRS) $(SYM_DIRS) driver_build a68_build a88_build a386_build \
-	a860_build appc_build ahppa_build asparc_build
+	a860_build appc_build appc64_build ahppa_build asparc_build
 
 all_test:	a68_test a88_test a860_test a386_test appc_test ahppa_test
 
@@ -244,6 +247,24 @@ appc_build:	$(OBJROOT)/appc_dir
 		RC_CFLAGS="$(RC_CFLAGS)" DEP_DIR=appc_dir;		\
 	fi
 
+appc64_build:	$(OBJROOT)/appc64_dir
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd appc64_dir; $(MAKE) -f ../Makefile as VPATH=.. OFILE_DIR=. \
+		SRCROOT=.. TARGET_OBJS="$(OBJS_ppc)" DEP_DIR=appc64_dir	\
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+		RC_CFLAGS="$(RC_CFLAGS)" OFLAG=$(OFLAG)			\
+		COPTS="-DPPC -DARCH64" LIBSTUFF="-lstuff64";		\
+	else								\
+	    cd $(OBJROOT)/appc64_dir; $(MAKE) -f $(SRCROOT)/Makefile as	\
+		VPATH=$(SRCROOT) OFILE_DIR=$(OBJROOT)/appc64_dir	\
+		SYMROOT=$(SYMROOT)/appc64_dir SRCROOT=$(SRCROOT)	\
+		TARGET_OBJS="$(OBJS_ppc)" COPTS="-DPPC -DARCH64"	\
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+		RC_CFLAGS="$(RC_CFLAGS)" DEP_DIR=appc64_dir		\
+		LIBSTUFF="-lstuff64";					\
+	fi
+
 appc_test: appc_dir
 	cd appc_dir; $(MAKE) -f ../Makefile ppc-check VPATH=.. OFILE_DIR=. \
 		SRCROOT=.. COPTS="-DPPC"
@@ -293,12 +314,13 @@ asparc_test: asparc_dir
 
 driver:	driver.o apple_version.o
 	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/driver \
-		$(OFILE_DIR)/driver.o $(OFILE_DIR)/apple_version.o $(LIBSTUFF)
+		$(OFILE_DIR)/driver.o $(OFILE_DIR)/apple_version.o \
+		$(LIBSTUFF_DIR) $(LIBSTUFF)
 
 as:	$(OBJS) $(TARGET_OBJS) makeUser.o
 	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/as.private.o $(OBJS) $(TARGET_OBJS) \
-		makeUser.o $(LIBSTUFF)
+		makeUser.o $(LIBSTUFF_DIR) $(LIBSTUFF)
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/as $(SYMROOT)/as.private.o
 
 makeUser.c messages.c: make.h
@@ -379,6 +401,9 @@ xcommon_install:
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/ppc
 	install -c -s -m 555 $(SYMROOT)/appc_dir/as \
 		$(DSTROOT)$(LIBDIR)/ppc/as
+	$(MKDIRS) $(DSTROOT)$(LIBDIR)/ppc64
+	install -c -s -m 555 $(SYMROOT)/appc64_dir/as \
+		$(DSTROOT)$(LIBDIR)/ppc64/as
 	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)/m68k
 	install -c -s -m 555 $(SYMROOT)/a68_dir/as \
 		$(DSTROOT)$(LOCLIBDIR)/m68k/as

@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.50.6.1.4.3  2005/03/08 03:48:48  collin
+	*** empty log message ***
+	
 	Revision 1.50.6.1.4.2  2004/09/13 21:40:38  niels
 	*** empty log message ***
 	
@@ -637,6 +640,13 @@ enum
 	kFWIsochChannelDefaultFlags = 0,
 	kFWIsochChannelDoNotResumeOnWake = BIT(1)
 } ;
+
+typedef enum
+{
+	kFWIsochPortDefaultOptions = 0,
+	kFWIsochPortUseSeparateKernelThread		= BIT(1),
+	kFWIsochEnableRobustness			= BIT(2)
+} IOFWIsochPortOptions ;
 
 // =================================================================
 // DCL opcode defs.

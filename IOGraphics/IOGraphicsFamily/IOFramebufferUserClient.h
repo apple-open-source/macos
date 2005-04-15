@@ -74,9 +74,7 @@ class IOFramebufferSharedUserClient : public IOUserClient
 
 private:
 
-    IOFramebuffer *	owner;
-
-    IOExternalMethod externals[ 0 ];
+    IOFramebuffer *	 owner;
 
 public:
     virtual void free();
@@ -93,7 +91,7 @@ public:
     virtual IOReturn getNotificationSemaphore( UInt32 notification_type,
                                     semaphore_t * semaphore );
     
-    virtual IOExternalMethod * getExternalMethodForIndex( UInt32 index );
+    virtual IOExternalMethod * getTargetAndMethodForIndex( IOService ** targetP, UInt32 index );
 
     // others
     static IOFramebufferSharedUserClient * withTask( task_t owningTask );

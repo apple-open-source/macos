@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-The symbolic constants for error numbers are defined in
-<filename class=headerfile>errno.h</filename> in
-<filename class=directory>/usr/include/sys</filename>.
-</para>

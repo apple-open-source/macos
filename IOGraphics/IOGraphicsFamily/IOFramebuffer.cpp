@@ -50,6 +50,8 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#define ACCEL_OFF_ON_DIM	false
+
 #define DOANIO	      0
 #define VRAM_SAVE     1
 #define VRAM_COMPRESS 1
@@ -1475,14 +1477,17 @@ void IOFramebuffer::handleVBL( IOFramebuffer * inst, void * ref )
 {
     StdFBShmem_t *	shmem = GetShmem(inst);
     AbsoluteTime	now;
+    AbsoluteTime	delta;
 
     if (!shmem)
         return ;
 
+    shmem->vblCount++;
     clock_get_uptime( &now );
-    shmem->vblDelta = now;
-    SUB_ABSOLUTETIME( &shmem->vblDelta, &shmem->vblTime );
-    shmem->vblTime = now;
+    delta = now;
+    SUB_ABSOLUTETIME( &delta, &shmem->vblTime );
+    shmem->vblDelta = delta;
+    shmem->vblTime  = now;
 
     KERNEL_DEBUG(0xc000030 | DBG_FUNC_NONE,
                  shmem->vblDelta.hi, shmem->vblDelta.lo, 0, 0, 0);
@@ -2139,7 +2144,7 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                 killprint = 1;
             }
 
-            if (pagingState)
+            if (ACCEL_OFF_ON_DIM && pagingState)
             {
                 pagingState = false;
                 deliverFramebufferNotification( kIOFBNotifyWillSleep, info );
@@ -3422,6 +3427,24 @@ IOReturn IOFramebuffer::doSetup( bool full )
             IOFree( tempTable, 256 * sizeof( *tempTable));
         }
         clutValid = true;
+    }
+
+    IOTimingInformation timingInfo;
+    timingInfo.flags = kIODetailedTimingValid;
+    if (haveFB 
+     && (kIOReturnSuccess == getTimingInfoForDisplayMode(mode, &timingInfo))
+     && (kIODetailedTimingValid & timingInfo.flags))
+    {
+	setProperty(kIOFBCurrentPixelClockKey, timingInfo.detailedInfo.v2.pixelClock, 64);
+	setProperty(kIOFBCurrentPixelCountKey, ((UInt64)(timingInfo.detailedInfo.v2.horizontalActive
+							+ timingInfo.detailedInfo.v2.horizontalBlanking))
+					    * ((UInt64)(timingInfo.detailedInfo.v2.verticalActive
+					               + timingInfo.detailedInfo.v2.verticalBlanking)), 64);
+    }
+    else
+    {
+	removeProperty(kIOFBCurrentPixelClockKey);
+	removeProperty(kIOFBCurrentPixelCountKey);
     }
 
     fbRange = getApertureRange( kIOFBSystemAperture );

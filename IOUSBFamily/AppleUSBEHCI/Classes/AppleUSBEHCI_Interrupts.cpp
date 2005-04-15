@@ -44,9 +44,17 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         _hostErrorInterrupt = 0;
         
 		// Host System Error - this is a serious error on the PCI bus
-		_errors.hostSystemError++;
-		USBLog(1, "%s[%p]::PollInterrupts - Host System Error Occurred - not restarted", getName(), this);
-		if ( !_onCardBus)
+		// Only print it every power of 2 times
+		//
+		if ( ++_errors.hostSystemError == (UInt32) (1L << _errors.displayed) )
+		{
+			USBLog(1, "%s[%p]::PollInterrupts - Host System Error Occurred - not restarted", getName(), this);
+			_errors.displayed++;
+		}
+		
+		// Cardbus cards can generate spurious interrupts while ejecting, so don't try to recover on cardbus cards
+		//
+		if ( !_onCardBus )
 		{
 			if ( _rootHubDevice )
 			{
@@ -78,9 +86,9 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 					_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
 				}
 			}
-		} 
+        }
     }
-
+	
     if (_errorInterrupt & kEHCIErrorIntBit)
     {
         _errorInterrupt = 0;
@@ -88,42 +96,42 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         USBLog(7, "%s[%p]::PollInterrupts - completion (_errorInterrupt) interrupt", getName(), this);
         scavengeCompletedTransactions(safeAction);
     }
-
+	
     if (_completeInterrupt & kEHCICompleteIntBit)
     {
         _completeInterrupt = 0;
         USBLog(7, "%s[%p]::PollInterrupts - completion (_completeInterrupt) interrupt", getName(), this);
         scavengeCompletedTransactions(safeAction);
     }
-
+	
     /*
-	* RootHubStatusChange Interrupt
-	*/
+	 * RootHubStatusChange Interrupt
+	 */
     if (_portChangeInterrupt & kEHCIPortChangeIntBit)
     {
         _portChangeInterrupt = 0;
         
-	// Clear status change.
-	_remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
-
-	USBLog(3, "%s[%p]::PollInterrupts - port change detect interrupt", getName(), this);
+		// Clear status change.
+		_remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
+		
+		USBLog(3, "%s[%p]::PollInterrupts - port change detect interrupt", getName(), this);
         if ( _idleSuspend )
-	{
-	    USBLog(1, "%s[%p]::PollInterrupts - port change detect interrupt while in idlesuspend - restarting bus", getName(), this);
+		{
+			USBLog(1, "%s[%p]::PollInterrupts - port change detect interrupt while in idlesuspend - restarting bus", getName(), this);
             setPowerState(kEHCISetPowerLevelRunning, self);
-	}
+		}
 	    
-	UIMRootHubStatusChange();
+		UIMRootHubStatusChange();
     }
     /*
-	* OwnershipChange Interrupt
-	*/
+	 * OwnershipChange Interrupt
+	 */
     if (_asyncAdvanceInterrupt & kEHCIAAEIntBit)
     {
         _asyncAdvanceInterrupt = 0;
-	_errors.ownershipChange++;
-	_pEHCIRegisters->USBSTS = USBToHostLong(kEHCIAAEIntBit);
-	USBLog(3, "%s[%p]::PollInterrupts - async advance interrupt", getName(), this);
+		_errors.ownershipChange++;
+		_pEHCIRegisters->USBSTS = USBToHostLong(kEHCIAAEIntBit);
+		USBLog(3, "%s[%p]::PollInterrupts - async advance interrupt", getName(), this);
     }
 }
 
@@ -134,16 +142,16 @@ AppleUSBEHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
 {
     register 	AppleUSBEHCI		*controller = (AppleUSBEHCI *) owner;
     static 	Boolean 		emitted;
-
+	
     if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ehciAvailable)
         return;
-        
+	
     if(!emitted)
     {
         emitted = true;
         // USBLog("EHCIUIM -- InterruptHandler Unimplimented not finishPending\n");
     }
-
+	
     controller->PollInterrupts();
 }
 
@@ -161,18 +169,18 @@ AppleUSBEHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
 {
     register AppleUSBEHCI *controller = (AppleUSBEHCI *)owner;
     bool result = true;
-
+	
     // If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
     // then don't process this interrupt.
     //
     if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ehciAvailable)
         return false;
-
+	
     if (controller->_ehciBusState == kEHCIBusStateSuspended)
     {
-	// Unexpected interrupt while bus is suspended.  What's up with that? 
-	//
-	return true;
+		// Unexpected interrupt while bus is suspended.  What's up with that? 
+		//
+		return true;
     }
 	
     // Process this interrupt
@@ -201,125 +209,157 @@ AppleUSBEHCI::FilterInterrupt(int index)
     {
         // One of our 6 interrupts fired.  Process the ones which need to be processed at primary int time
         //
-
+		
         // Frame Number Rollover
         //
         if (activeInterrupts & kEHCIFrListRolloverIntBit)
         {
-	    UInt32		frindex;
-	    
-	    // NOTE: This code depends upon the fact that we do not change the Frame List Size
-	    // in the USBCMD register. If the frame list size changes, then this code needs to change
-	    frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
-	    if (frindex < kEHCIFRIndexRolloverBit)
-		_frameNumber += kEHCIFrameNumberIncrement;
-		
-	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIFrListRolloverIntBit);			// clear the interrupt
+			UInt32		frindex;
+			
+			// NOTE: This code depends upon the fact that we do not change the Frame List Size
+			// in the USBCMD register. If the frame list size changes, then this code needs to change
+			frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
+			if (frindex < kEHCIFRIndexRolloverBit)
+				_frameNumber += kEHCIFrameNumberIncrement;
+			
+			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIFrListRolloverIntBit);			// clear the interrupt
             IOSync();
         }
-	// at the moment, let the secondary interrupt handler get these by signaling
+		// at the moment, let the secondary interrupt handler get these by signaling
         if (activeInterrupts & kEHCIAAEIntBit)
-	{
-	    _asyncAdvanceInterrupt = kEHCIAAEIntBit;
-	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIAAEIntBit);				// clear the interrupt
-	    needSignal = true;
-	}
+		{
+			_asyncAdvanceInterrupt = kEHCIAAEIntBit;
+			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIAAEIntBit);				// clear the interrupt
+			needSignal = true;
+		}
         if (activeInterrupts & kEHCIHostErrorIntBit)
-	{
-	    _hostErrorInterrupt = kEHCIHostErrorIntBit;
-	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIHostErrorIntBit);				// clear the interrupt
-	    needSignal = true;
-	}
+		{
+			_hostErrorInterrupt = kEHCIHostErrorIntBit;
+			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIHostErrorIntBit);				// clear the interrupt
+			needSignal = true;
+		}
         if (activeInterrupts & kEHCIPortChangeIntBit)
-	{
-	    _portChangeInterrupt = kEHCIPortChangeIntBit;
-	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);				// clear the interrupt
-	    needSignal = true;
-	}
+		{
+			_portChangeInterrupt = kEHCIPortChangeIntBit;
+			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);				// clear the interrupt
+			needSignal = true;
+		}
         if (activeInterrupts & kEHCIErrorIntBit)
-	{
-	    _errorInterrupt = kEHCIErrorIntBit;
-	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIErrorIntBit);				// clear the interrupt
-	    needSignal = true;
-	}
+		{
+			_errorInterrupt = kEHCIErrorIntBit;
+			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIErrorIntBit);				// clear the interrupt
+			needSignal = true;
+		}
         if (activeInterrupts & kEHCICompleteIntBit)
-	{
+		{
             // Now that we have the beginning of the queue, walk it looking for low latency isoch TD's
             // Use this time as the time stamp time for all the TD's that we processed.  
             //
             clock_get_uptime(&timeStamp);
-	    _completeInterrupt = kEHCICompleteIntBit;
-	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCICompleteIntBit);			// clear the interrupt
+			_completeInterrupt = kEHCICompleteIntBit;
+			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCICompleteIntBit);			// clear the interrupt
             IOSync();
-	    needSignal = true;
-	    
-	    // we need to check the periodic list to see if there are any Isoch TDs which need to come off
-	    // and potentially have their frame lists updated (for Low Latency) we will place them in reverse
-	    // order on a "done queue" which will be looked at by the isoch scavanger
-	    // only do this if the periodic schedule is enabled
-	    if ((_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)) && (_outSlot < kEHCIPeriodicListEntries))
-	    {
-		AppleEHCIIsochListElement *		cachedHead;
-		UInt32					cachedProducer;
-		UInt32					frIndex;
-		UInt16					curSlot;
-		
-		frIndex = USBToHostLong(_pEHCIRegisters->FRIndex);
-		curSlot = (frIndex >> 3) & (kEHCIPeriodicListEntries-1);
-		
-		cachedHead = (AppleEHCIIsochListElement*)_savedDoneQueueHead;
-		cachedProducer = _producerCount;
-		
-		while (_outSlot != curSlot)
-		{
-		    AppleEHCIListElement 		*thing;
-		    AppleEHCIListElement		*nextThing;
-		    AppleEHCIIsochListElement		*isochEl;
-		    
-		    thing = _logicalPeriodicList[_outSlot];
-		    while(thing != NULL)
-		    {
-			nextThing = thing->_logicalNext;
-			isochEl = OSDynamicCast(AppleEHCIIsochListElement, thing);
-			if(isochEl)
+			needSignal = true;
+			
+			// we need to check the periodic list to see if there are any Isoch TDs which need to come off
+			// and potentially have their frame lists updated (for Low Latency) we will place them in reverse
+			// order on a "done queue" which will be looked at by the isoch scavanger
+			// only do this if the periodic schedule is enabled
+			if ((_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)) && (_outSlot < kEHCIPeriodicListEntries))
 			{
-			    _logicalPeriodicList[_outSlot] = nextThing;
-			    _periodicList[_outSlot] = thing->GetPhysicalLink();
-			    if (isochEl->lowLatency)
-				isochEl->UpdateFrameList(timeStamp);
-			    // place this guy on the backward done queue
-			    // the reason that we do not use the _logicalNext link is that the done queue is not a null terminated list
-			    // and the element linked "last" in the list might not be a true link - trust me
-			    isochEl->doneQueueLink = cachedHead;
-			    cachedHead = isochEl;
-			    cachedProducer++;
-			}
-			else 
-			{
-			    // only care about Isoch in this list
-			    break;
-			}
-			thing = nextThing;
-		    }
-		    _outSlot = (_outSlot+1) & (kEHCIPeriodicListEntries-1);
-		}
-		IOSimpleLockLock( _wdhLock );
-		
-		_savedDoneQueueHead = cachedHead;	// updates the shadow head
-		_producerCount = cachedProducer;	// Validates _producerCount;
-		
-		IOSimpleLockUnlock( _wdhLock );
-	    }
-	}
-    }
+				AppleEHCIIsochListElement *		cachedHead;
+				UInt32					cachedProducer;
+				UInt32					frIndex;
+				UInt16					curSlot, testSlot, nextSlot;
+				UInt16					curMicroFrame;
+				
+				frIndex = USBToHostLong(_pEHCIRegisters->FRIndex);
+				curSlot = (frIndex >> 3) & (kEHCIPeriodicListEntries-1);
+				curMicroFrame = frIndex & 7;
+				
+				cachedHead = (AppleEHCIIsochListElement*)_savedDoneQueueHead;
+				cachedProducer = _producerCount;
+				testSlot = _outSlot;
+				
+				while (testSlot != curSlot)
+				{
+					AppleEHCIListElement					*thing, *prevThing, *nextThing;
+					AppleEHCIIsochListElement				*isochEl;
+					AppleEHCISplitIsochTransferDescriptor	*splitTD;
+					bool									needToRescavenge = false;
+					
+					nextSlot = (testSlot+1) & (kEHCIPeriodicListEntries-1);
+					thing = _logicalPeriodicList[testSlot];
+					prevThing = NULL;
+					while(thing != NULL)
+					{
+						nextThing = thing->_logicalNext;
+						isochEl = OSDynamicCast(AppleEHCIIsochListElement, thing);
 
+						if (!isochEl)
+							break;						// only care about Isoch in this list - if we get here we are at the interrupt TDs
+
+						splitTD = OSDynamicCast(AppleEHCISplitIsochTransferDescriptor, isochEl);
+						
+						// check to see if all of these conditions are met, if so, we can't retire this TD yes
+						// 1 - this is a splitTD
+						// 2 - the TD wraps around (useBackPtr == true)
+						// 3 - the slot after this one is the curslot
+						// 4 - we have not gotten to microframe 2 of the curSlot
+						if (splitTD && (splitTD->_pEndpoint->useBackPtr) && (nextSlot == curSlot) && (curMicroFrame < 2))
+						{
+							prevThing = thing;
+							thing = nextThing;
+							needToRescavenge = true;
+							continue;
+						}
+						
+						// need to unlink this TD
+						if (!prevThing)
+						{
+							_logicalPeriodicList[testSlot] = nextThing;
+							_periodicList[_outSlot] = thing->GetPhysicalLink();
+						}
+						else
+						{
+							prevThing->_logicalNext = nextThing;
+							prevThing->SetPhysicalLink(thing->GetPhysicalLink());
+						}
+						
+						if (isochEl->_lowLatency)
+							isochEl->UpdateFrameList(timeStamp);
+						// place this guy on the backward done queue
+						// the reason that we do not use the _logicalNext link is that the done queue is not a null terminated list
+						// and the element linked "last" in the list might not be a true link - trust me
+						isochEl->_doneQueueLink = cachedHead;
+						cachedHead = isochEl;
+						cachedProducer++;
+						
+						if (prevThing)
+							prevThing = thing;
+						thing = nextThing;
+					}
+					testSlot = nextSlot;
+					if (!needToRescavenge)
+						_outSlot = testSlot;
+				}
+				IOSimpleLockLock( _wdhLock );
+				
+				_savedDoneQueueHead = cachedHead;	// updates the shadow head
+				_producerCount = cachedProducer;	// Validates _producerCount;
+				
+				IOSimpleLockUnlock( _wdhLock );
+			}
+		}
+    }
+	
     // We will return false from this filter routine, but will indicate that there the action routine should be called by calling _filterInterruptSource->signalInterrupt(). 
     // This is needed because IOKit will disable interrupts for a level interrupt after the filter interrupt is run, until the action interrupt is called.  We want to be
     // able to have our filter interrupt routine called before the action routine runs, if needed.  That is what will enable low latency isoch transfers to work, as when the
     // system is under heavy load, the action routine can be delayed for tens of ms.
     //
     if (needSignal)
-	_filterInterruptSource->signalInterrupt();
+		_filterInterruptSource->signalInterrupt();
     
     return false;
     

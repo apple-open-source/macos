@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: table_layout.cpp,v 1.17 2003/10/17 22:32:14 hyatt Exp $
+ * $Id: table_layout.cpp,v 1.22 2005/02/18 19:37:48 hyatt Exp $
  */
 #include "table_layout.h"
 #include "render_table.h"
@@ -52,7 +52,7 @@ using namespace khtml;
     1. A column element with a value other than 'auto' for the 'width'
     property sets the width for that column.
 
-    2.Otherwise, a cell in the first row with a value other than
+    2. Otherwise, a cell in the first row with a value other than
     'auto' for the 'width' property sets the width for that column. If
     the cell spans more than one column, the width is divided over the
     columns.
@@ -89,7 +89,7 @@ FixedTableLayout::~FixedTableLayout()
 {
 }
 
-int FixedTableLayout::calcWidthArray( int tableWidth )
+int FixedTableLayout::calcWidthArray(int tableWidth)
 {
     int usedWidth = 0;
 
@@ -117,10 +117,9 @@ int FixedTableLayout::calcWidthArray( int tableWidth )
 		if ( w.isVariable() )
 		    w = grpWidth;
 		int effWidth = 0;
-		if ( w.type == Fixed && w.value > 0 ) {
+		if ( w.type == Fixed && w.value > 0 )
                     effWidth = w.value;
-		    effWidth = QMIN( effWidth, 32760 );
-		}
+		
 #ifdef DEBUG_LAYOUT
 		qDebug("    col element: effCol=%d, span=%d: %d w=%d type=%d",
 		       cCol, span, effWidth,  w.value, w.type);
@@ -184,10 +183,9 @@ int FixedTableLayout::calcWidthArray( int tableWidth )
 		Length w = cell->style()->width();
 		int span = cell->colSpan();
 		int effWidth = 0;
-		if ( (w.type == Fixed || w.type == Percent) && w.value > 0 ) {
+		if ( (w.type == Fixed || w.type == Percent) && w.value > 0 )
                     effWidth = w.value;
-		    effWidth = QMIN( effWidth, 32760 );
-		}
+                
 #ifdef DEBUG_LAYOUT
 		qDebug("    table cell: effCol=%d, span=%d: %d",  cCol, span, effWidth);
 #endif
@@ -227,38 +225,22 @@ int FixedTableLayout::calcWidthArray( int tableWidth )
 
 void FixedTableLayout::calcMinMaxWidth()
 {
+    // FIXME: This entire calculation is incorrect for both minwidth and maxwidth.
+    
     // we might want to wait until we have all of the first row before
     // layouting for the first time.
 
     // only need to calculate the minimum width as the sum of the
     // cols/cells with a fixed width.
     //
-    // The maximum width is kMax( minWidth, tableWidth ) if table
-    // width is fixed. If table width is percent, we set maxWidth to
-    // unlimited.
-
+    // The maximum width is kMax( minWidth, tableWidth ).
     int bs = table->bordersPaddingAndSpacing();
     
     int tableWidth = table->style()->width().type == Fixed ? table->style()->width().value - bs : 0;
     int mw = calcWidthArray( tableWidth ) + bs;
 
-    table->m_minWidth = kMin(kMax( mw, tableWidth ), 0x7fff);
+    table->m_minWidth = kMax( mw, tableWidth );
     table->m_maxWidth = table->m_minWidth;
-    
-    if ( !tableWidth ) {
-	bool haveNonFixed = false;
-	for ( unsigned int i = 0; i < width.size(); i++ ) {
-	    if ( !(width[i].type == Fixed) ) {
-		haveNonFixed = true;
-		break;
-	    }
-	}
-	if ( haveNonFixed )
-	    table->m_maxWidth = 0x7fff;
-    }
-#ifdef DEBUG_LAYOUT
-    qDebug("FixedTableLayout::calcMinMaxWidth: minWidth=%d, maxWidth=%d", table->m_minWidth, table->m_maxWidth );
-#endif
 }
 
 void FixedTableLayout::layout()
@@ -615,8 +597,8 @@ void AutoTableLayout::calcMinMaxWidth()
 	maxWidth = minWidth;
     }
 
-    table->m_maxWidth = kMin(maxWidth, 0x7fff);
-    table->m_minWidth = kMin(minWidth, 0x7fff);
+    table->m_maxWidth = maxWidth;
+    table->m_minWidth = minWidth;
 #ifdef DEBUG_LAYOUT
     qDebug("    minWidth=%d, maxWidth=%d", table->m_minWidth, table->m_maxWidth );
 #endif
@@ -896,7 +878,7 @@ void AutoTableLayout::layout()
     int totalPercent = 0;
     int allocVariable = 0;
 
-    // fill up every cell with it's minWidth
+    // fill up every cell with its minWidth
     for ( int i = 0; i < nEffCols; i++ ) {
 	int w = layoutStruct[i].effMinWidth;
 	layoutStruct[i].calcWidth = w;
@@ -921,6 +903,8 @@ void AutoTableLayout::layout()
             numVariable++;
             totalVariable += layoutStruct[i].effMaxWidth;
             allocVariable += w;
+        default:
+            break;
         }
     }
 
@@ -1001,8 +985,26 @@ void AutoTableLayout::layout()
     qDebug("variable satisfied: available is %d",  available );
 #endif
 
+    // spread over fixed columns
+    if (available > 0 && numFixed) {
+        // still have some width to spread, distribute to fixed columns
+        for ( int i = 0; i < nEffCols; i++ ) {
+            Length &width = layoutStruct[i].effWidth;
+            if ( width.isFixed() ) {
+                int w = available * layoutStruct[i].effMaxWidth / totalFixed;
+                available -= w;
+                totalFixed -= layoutStruct[i].effMaxWidth;
+                layoutStruct[i].calcWidth += w;
+            }
+        }
+    }
+    
+#ifdef DEBUG_LAYOUT
+    qDebug("after fixed distribution: available=%d",  available );
+#endif
+    
     // spread over percent colums
-    if ( available > 0 && hasPercent && totalPercent < 100) {
+    if (available > 0 && hasPercent && totalPercent < 100) {
         // still have some width to spread, distribute weighted to percent columns
         for ( int i = 0; i < nEffCols; i++ ) {
             Length &width = layoutStruct[i].effWidth;
@@ -1018,24 +1020,6 @@ void AutoTableLayout::layout()
 
 #ifdef DEBUG_LAYOUT
     qDebug("after percent distribution: available=%d",  available );
-#endif
-    
-    // spread over fixed colums
-    if ( available > 0 && numFixed) {
-        // still have some width to spread, distribute to fixed columns
-        for ( int i = 0; i < nEffCols; i++ ) {
-            Length &width = layoutStruct[i].effWidth;
-            if ( width.isFixed() ) {
-                int w = available * layoutStruct[i].effMaxWidth / totalFixed;
-                available -= w;
-                totalFixed -= layoutStruct[i].effMaxWidth;
-                layoutStruct[i].calcWidth += w;
-            }
-        }
-    }
-
-#ifdef DEBUG_LAYOUT
-    qDebug("after fixed distribution: available=%d",  available );
 #endif
 
     // spread over the rest

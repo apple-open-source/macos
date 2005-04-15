@@ -1,8 +1,0 @@
-<!DOCTYPE lot PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<lot><title>List of Figures</title>
-<lotentry pagenum=5>The Letters &ldquo;g&rdquo; and &ldquo;h&rdquo; 
-   inside their boxes</lotentry>
-<lotentry pagenum=15>Example figure produced by both TeX and
-   troff</lotentry>
-<!-- ... -->
-</lot>

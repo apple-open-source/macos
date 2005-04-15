@@ -217,18 +217,18 @@ static struct passwd *Get_Pwnam_internals(const char *user, char *user2)
 	if (!user || !(*user))
 		return(NULL);
 
-	/* Try in all lower case first as this is the most 
-	   common case on UNIX systems */
-	strlower_m(user2);
-	DEBUG(5,("Trying _Get_Pwnam(), username as lowercase is %s\n",user2));
-	ret = getpwnam_alloc(user2);
+	/* Try as given, if username wasn't originally lowercase */
+	DEBUG(5,("Trying _Get_Pwnam(), username as given is %s\n", user));
+	ret = getpwnam_alloc(user);
 	if(ret)
 		goto done;
 
-	/* Try as given, if username wasn't originally lowercase */
+	/* Try in all lower case first as this is the most 
+	   common case on UNIX systems */
+	strlower_m(user2);
 	if(strcmp(user, user2) != 0) {
-		DEBUG(5,("Trying _Get_Pwnam(), username as given is %s\n", user));
-		ret = getpwnam_alloc(user);
+	DEBUG(5,("Trying _Get_Pwnam(), username as lowercase is %s\n",user2));
+	ret = getpwnam_alloc(user2);
 		if(ret)
 			goto done;
 	}
@@ -306,7 +306,7 @@ static BOOL user_in_netgroup_list(const char *user, const char *ngname)
 {
 #ifdef HAVE_NETGROUP
 	static char *mydomain = NULL;
-	fstring lowercase_user, lowercase_ngname;
+	fstring lowercase_user;
 
 	if (mydomain == NULL)
 		yp_get_default_domain(&mydomain);
@@ -318,25 +318,28 @@ static BOOL user_in_netgroup_list(const char *user, const char *ngname)
 
 	DEBUG(5,("looking for user %s of domain %s in netgroup %s\n",
 		user, mydomain, ngname));
-	DEBUG(5,("innetgr is %s\n", innetgr(ngname, NULL, user, mydomain)
-		? "TRUE" : "FALSE"));
 
-	if (innetgr(ngname, NULL, user, mydomain))
+	if (innetgr(ngname, NULL, user, mydomain)) {
+		DEBUG(5,("user_in_netgroup_list: Found\n"));
 		return (True);
+	} else {
 
-	/*
-	 * Ok, innetgr is case sensitive. Try once more with lowercase
-	 * just in case. Attempt to fix #703. JRA.
-	 */
+		/*
+		 * Ok, innetgr is case sensitive. Try once more with lowercase
+		 * just in case. Attempt to fix #703. JRA.
+		 */
 
-	fstrcpy(lowercase_user, user);
-	strlower_m(lowercase_user);
-	fstrcpy(lowercase_ngname, ngname);
-	strlower_m(lowercase_ngname);
+		fstrcpy(lowercase_user, user);
+		strlower_m(lowercase_user);
 	
-	if (innetgr(lowercase_ngname, NULL, lowercase_user, mydomain))
-		return (True);
+		DEBUG(5,("looking for user %s of domain %s in netgroup %s\n",
+			lowercase_user, mydomain, ngname));
 
+		if (innetgr(ngname, NULL, lowercase_user, mydomain)) {
+			DEBUG(5,("user_in_netgroup_list: Found\n"));
+			return (True);
+		}
+	}
 #endif /* HAVE_NETGROUP */
 	return False;
 }

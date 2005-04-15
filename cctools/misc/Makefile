@@ -6,7 +6,7 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
 
@@ -72,6 +72,8 @@ lib_ofiles: $(OFILE_DIR) $(SYMROOT) libredo_prebinding.a
 
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) cctools_misc > $(OFILE_DIR)/$@
+	echo "const char apple_version[]= " \"`vers_string $(VERS_STRING_FLAGS) -f cctools`\" ";" >> \
+	$(OFILE_DIR)/$@
 
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:

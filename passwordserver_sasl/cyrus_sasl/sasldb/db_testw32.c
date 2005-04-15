@@ -1,9 +1,9 @@
 /* db_testw32.c--SASL win32 test/dummy interface
  * G. Diskin    NOTE THIS IS FOR TEST PURPOSES ONLY FOR WIN32
- * $Id: db_testw32.c,v 1.2 2002/05/22 17:57:42 snsimon Exp $
+ * $Id: db_testw32.c,v 1.3 2004/07/07 22:53:42 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

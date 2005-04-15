@@ -60,9 +60,9 @@ unsigned long size)
 		ar_name_size = 0;
 	    p += sizeof(struct ar_hdr);
 	    memcpy(&magic, p + ar_name_size, sizeof(unsigned long));
-	    if(magic == MH_MAGIC)
+	    if(magic == MH_MAGIC_VALUE)
 		return(get_host_byte_sex());
-	    else if(magic == SWAP_LONG(MH_MAGIC))
+	    else if(magic == SWAP_LONG(MH_MAGIC_VALUE))
 		return(get_host_byte_sex() == BIG_ENDIAN_BYTE_SEX ?
 		       LITTLE_ENDIAN_BYTE_SEX : BIG_ENDIAN_BYTE_SEX);
 	    p += round(strtoul(ar_hdr->ar_size, NULL, 10), sizeof(short));

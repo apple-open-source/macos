@@ -38,6 +38,8 @@ using namespace KJS;
 
 // ECMA 15.9.4
 
+const ClassInfo RegExpPrototypeImp::info = {"RegExpPrototype", 0, 0, 0};
+
 RegExpPrototypeImp::RegExpPrototypeImp(ExecState *exec,
                                        ObjectPrototypeImp *objProto,
                                        FunctionPrototypeImp *funcProto)
@@ -73,6 +75,11 @@ bool RegExpProtoFuncImp::implementsCall() const
 Value RegExpProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
 {
   if (!thisObj.inherits(&RegExpImp::info)) {
+    if (thisObj.inherits(&RegExpPrototypeImp::info)) {
+      switch (id) {
+        case ToString: return String("//");
+      }
+    }
     Object err = Error::create(exec,TypeError);
     exec->setException(err);
     return err;
@@ -98,9 +105,9 @@ Value RegExpProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
       if (id == Test)
         return Boolean(false);
       else
-        Null();
+        return Null();
     }
-    RegExpObjectImp* regExpObj = static_cast<RegExpObjectImp*>(exec->interpreter()->builtinRegExp().imp());
+    RegExpObjectImp* regExpObj = static_cast<RegExpObjectImp*>(exec->lexicalInterpreter()->builtinRegExp().imp());
     int **ovector = regExpObj->registerRegexp( re, s.value() );
 
     str = re->match(s.value(), i, 0L, ovector);
@@ -128,7 +135,15 @@ Value RegExpProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     str = "/";
     str += s.value();
     str += "/";
-    // TODO append the flags
+    if (thisObj.get(exec,"global").toBoolean(exec)) {
+      str += "g";
+    }
+    if (thisObj.get(exec,"ignoreCase").toBoolean(exec)) {
+      str += "i";
+    }
+    if (thisObj.get(exec,"multiline").toBoolean(exec)) {
+      str += "m";
+    }
     return String(str);
   }
 
@@ -187,10 +202,15 @@ Object RegExpObjectImp::arrayOfMatches(ExecState *exec, const UString &result) c
   if ( lastOvector )
     for ( uint i = 1 ; i < lastNrSubPatterns + 1 ; ++i )
     {
-      UString substring = lastString.substr( lastOvector[2*i], lastOvector[2*i+1] - lastOvector[2*i] );
-      list.append(String(substring));
+      int start = lastOvector[2*i];
+      if (start == -1)
+        list.append(UndefinedImp::staticUndefined);
+      else {
+        UString substring = lastString.substr( start, lastOvector[2*i+1] - start );
+        list.append(String(substring));
+      }
     }
-  Object arr = exec->interpreter()->builtinArray().construct(exec, list);
+  Object arr = exec->lexicalInterpreter()->builtinArray().construct(exec, list);
   arr.put(exec, "index", Number(lastOvector[0]));
   arr.put(exec, "input", String(lastString));
   return arr;
@@ -224,10 +244,20 @@ bool RegExpObjectImp::implementsConstruct() const
 // ECMA 15.10.4
 Object RegExpObjectImp::construct(ExecState *exec, const List &args)
 {
-  UString p = args.isEmpty() ? UString("") : args[0].toString(exec);
-  UString flags = args[1].toString(exec);
+  Object o = Object::dynamicCast(args[0]);
+  if (!o.isNull() && o.inherits(&RegExpImp::info)) {
+    if (args[1].type() != UndefinedType) {
+      Object err = Error::create(exec,TypeError);
+      exec->setException(err);
+      return err;
+    }
+    return o;
+  }
+  
+  UString p = args[0].type() == UndefinedType ? UString("") : args[0].toString(exec);
+  UString flags = args[1].type() == UndefinedType ? UString("") : args[1].toString(exec);
 
-  RegExpPrototypeImp *proto = static_cast<RegExpPrototypeImp*>(exec->interpreter()->builtinRegExpPrototype().imp());
+  RegExpPrototypeImp *proto = static_cast<RegExpPrototypeImp*>(exec->lexicalInterpreter()->builtinRegExpPrototype().imp());
   RegExpImp *dat = new RegExpImp(proto);
   Object obj(dat); // protect from GC
 
@@ -236,11 +266,11 @@ Object RegExpObjectImp::construct(ExecState *exec, const List &args)
   bool multiline = (flags.find("m") >= 0);
   // TODO: throw a syntax error on invalid flags
 
-  dat->putDirect("global", global ? BooleanImp::staticTrue : BooleanImp::staticFalse);
-  dat->putDirect("ignoreCase", ignoreCase ? BooleanImp::staticTrue : BooleanImp::staticFalse);
-  dat->putDirect("multiline", multiline ? BooleanImp::staticTrue : BooleanImp::staticFalse);
+  dat->putDirect("global", global ? BooleanImp::staticTrue : BooleanImp::staticFalse, DontDelete | ReadOnly | DontEnum);
+  dat->putDirect("ignoreCase", ignoreCase ? BooleanImp::staticTrue : BooleanImp::staticFalse, DontDelete | ReadOnly | DontEnum);
+  dat->putDirect("multiline", multiline ? BooleanImp::staticTrue : BooleanImp::staticFalse, DontDelete | ReadOnly | DontEnum);
 
-  dat->putDirect("source", new StringImp(p));
+  dat->putDirect("source", new StringImp(p), DontDelete | ReadOnly | DontEnum);
   dat->putDirect("lastIndex", NumberImp::zero(), DontDelete | DontEnum);
 
   int reflags = RegExp::None;

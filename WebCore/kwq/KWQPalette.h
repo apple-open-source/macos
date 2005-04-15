@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,81 +26,54 @@
 #ifndef QPALETTE_H_
 #define QPALETTE_H_
 
-#include "KWQColor.h"
 #include "KWQBrush.h"
-
-class QColorGroupPrivate;
-class QPalettePrivate;
 
 class QColorGroup {
 public:
     enum ColorRole { 
-        Foreground, 
-        Shadow, 
-        Light, 
-        Midlight, 
-        Mid, 
-        Dark, 
-        Base, 
-        ButtonText, 
-        Button, 
-        Background, 
-        Text,
-        Highlight,
-        HighlightedText,
-        NColorRoles
+        Background,
+        Foreground,
+        NColorRoles,
+        Base = Background
     };
 
-    QColorGroup();
+    QColorGroup() : m_background(Qt::white) { }
+    QColorGroup(const QColor &b, const QColor &f) : m_background(b), m_foreground(f) { }
 
-    const QBrush &brush(ColorRole) const;
+    const QBrush &brush(ColorRole role) const { return role == Background ? m_background : m_foreground; }
 
-    const QColor &color(ColorRole) const;
-    void setColor(ColorRole, const QColor &);
+    const QColor &color(ColorRole role) const { return brush(role).color(); }
+    void setColor(ColorRole role, const QColor &color)
+        { (role == Background ? m_background : m_foreground).setColor(color); }
 
-    const QColor &foreground() const;
-    const QColor &shadow() const;
-    const QColor &light() const;
-    const QColor &midlight() const;
-    const QColor &dark() const;
-    const QColor &base() const;
-    const QColor &buttonText() const;
-    const QColor &button() const;
-    const QColor &text() const;
-    const QColor &background() const;
-    const QColor &highlight() const;
-    const QColor &highlightedText() const;
+    const QColor &background() const { return m_background.color(); }
+    const QColor &foreground() const { return m_foreground.color(); }
 
-    bool operator==(const QColorGroup &) const;
+    const QColor &base() const { return background(); }
+
+    bool operator==(const QColorGroup &other) const
+        { return m_background == other.m_background && m_foreground == other.m_foreground; }
 
 private:
-    QBrush brushes[NColorRoles];
+    QBrush m_background;
+    QBrush m_foreground;
 };
 
 
 class QPalette {
 public:
-    enum ColorGroup { 
-        Active, 
-        Inactive, 
-        Disabled,
-        NColorGroups
-    };
-
-    const QColor &color(ColorGroup, QColorGroup::ColorRole) const;
-    void setColor(ColorGroup, QColorGroup::ColorRole, const QColor &);
+    QPalette() { }
+    QPalette(const QColor &b, const QColor &f) : m_active(b, f) { }
 
     const QColorGroup &active() const { return m_active; }
-    const QColorGroup &inactive() const { return m_inactive; }
-    const QColorGroup &disabled() const { return m_disabled; }
-    const QColorGroup &normal() const { return m_active; }
 
-    bool operator==(const QPalette &) const;
+    const QColor &background() const { return m_active.background(); }
+    const QColor &foreground() const { return m_active.foreground(); }
+
+    bool operator==(const QPalette &other) const { return m_active == other.m_active; }
 
 private:
-    QColorGroup m_active;  
-    QColorGroup m_inactive;  
-    QColorGroup m_disabled;  
+    QColorGroup m_active;
 };
 
 #endif

@@ -26,8 +26,11 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: mechanisms.h,v 1.2 2002/05/23 18:58:41 snsimon Exp $"
+#ident "$Id: mechanisms.h,v 1.5 2005/01/10 19:01:36 snsimon Exp $"
 #endif
+
+#ifndef _MECHANISMS_H
+#define _MECHANISMS_H
 
 #include "saslauthd.h"
 
@@ -49,7 +52,7 @@ extern authmech_t *authmech;		/* auth mech daemon is using */
  * Figure out which optional drivers we support.
  */
 #ifndef AUTH_KRB5
-# if defined(HAVE_GSSAPI_H)
+# if defined(HAVE_KRB5_H) && defined(HAVE_GSSAPI)
 #  define AUTH_KRB5
 # endif
 #endif
@@ -89,3 +92,6 @@ extern authmech_t *authmech;		/* auth mech daemon is using */
 #  define AUTH_LDAP
 # endif
 #endif
+
+
+#endif  /* _MECHANISMS_H */

@@ -1,0 +1,394 @@
+2005-03-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3995882
+	* decl.c (objc_mark_locals_volatile): Mark local variables and
+	parameters 'volatile' in ways expected by the C++ front-end.
+
+2005-03-02  Robert Bowdidge <bowdidge@apple.com
+	Radar 4025293
+	* cp/typeck.c (convert_member_func_to_ptr) Ban casts from pointer-to-
+        member-function to pointer-to-function whenever the -fapple-kext flag
+	was passed to the compiler.  Behavior changed between 3.3 and 4.0 in
+	incompatible ways, and the IOKit team wants all kexts to use a macro
+	that provides the correct (3.3) behavior.
+
+2005-02-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3809189
+	* typeck2.c (digest_init): Factor out Pascal-ness of string
+	initializer; allow NUL terminator to not fit into the array
+	being initialized.
+
+2005-02-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4011192
+	* parser.c (cp_parser_objc_try_catch_finally_statement): When
+	parsing '@finally' blocks, make sure the compound statement
+	winds up in a special STATEMENT_LIST instead of current scope.
+	(cp_parser_objc_synchronized_statement): Likewise for
+	'@synchronized' blocks.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* tree.c (lvalue_or_else): Do not emit warning if
+	'-Wno-non-lvalue-assign' has been specified.
+	* typeck.c (build_modify_expr): Call
+	objc_generate_write_barrier() if '-fobjc-gc' has been specified.
+
+2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3971074
+
+	* parser.c (cp_parser_cw_asm_statement): Pass lineno to cw_asm_stmt.
+
+2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 3970655
+
+        * cp/parser.c (cw_build_identifier_string): New function.
+        (cp_parser_cw_identifier): Build the tree for a '.'identifier.
+        (cp_parser_cw_asm_postfix_expression): Some disambiguation case.
+
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3993052
+	* parser.c (cp_parser_objc_interstitial_code): New routine.
+	(cp_parser_objc_method_prototype_list): Call
+	cp_parser_objc_interstitial_code() instead of doing
+	non-ObjC++ parsing locally.
+	(cp_parser_objc_method_definition_list): Likewise.
+
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3982256
+	* cp-objcp-common.h (cxx_get_alias_set, 
+	cxx_warn_unused_global_decl, cp_expr_size, cp_tree_size,
+	cp_var_mod_type_p, cxx_initialize_diagnostics,
+	cxx_types_compatible_p): Move prototypes ...
+	* cp-tree.h: ... here.
+
+2005-02-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3987120
+	* parser.c (cp_parser_objc_encode_expression): Call
+	'complete_type (cp_parser_type_id ())' instead of
+	'cp_parser_objc_typename ()' to retrieve argument type.
+
+2005-02-02  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3978104
+	* parser.c (cp_parser_objc_method_prototype_list): Allow stray
+	semicolons in between method signatures.
+
+2005-01-31  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3978168
+	* tree.c (lvalue_or_else): Allow certain non-lvalues
+	as arguments to '&', and print appropriate warning.
+
+2005-01-27  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3971244
+	* typeck.c (composite_pointer_type): Check for 
+	ObjC subtype relations.
+
+2005-01-26  Matt Austern  <austern@apple.com>
+
+	Radar 3972840
+	* call.c (build_over_call): Set type of function node correctly.
+	Type returned by build_vfn_ref_using_vtable is *not* what we
+	want.
+	* class.c (build_vfn_ref_using_vtable): Duplicate logic in 
+	build_vfn_ref for setting attributes of vtable array ref node.
+	
+2005-01-26  Devang Patel  <dpatel@apple.com>
+
+	Radar 3971329
+	* parser.c (cp_parser_objc_method_definition_list): Parse extern
+	linkage specification.
+
+2005-01-24  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3968938
+	* parser.c (cp_parser_simple_type_specifier): After
+	constructing a protocol-qualified ObjC type, record
+	it in the DECL_SPECS structure.
+
+2005-01-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3961973
+	* cp-tree.h (lvalue_or_else): Change type of first parameter
+	from 'tree' to 'tree *'.
+	* tree.c (lvalue_or_else): Change first parameter from
+	'tree' to 'tree *'; handle conditional lvalues in addition
+	to lvalue casts; when rewriting expressions, create a new
+	tree instead of clobbering an existing one.
+	* typeck.c (build_unary_op, build_modify_expr): Adjust
+	calls to lvalue_or_else().
+
+2005-01-19  Matt Austern  <austern@apple.com>
+
+        Radar 3960754
+	* typeck.c (comptypes): Handle return code from objc_comptypes
+	correctly.
+
+2005-01-18  Mike Stump  <mrs@apple.com>
+
+	Radar 3956093
+	* class.c (has_apple_kext_compatibility_attr_p): Avoid problems
+	when there are no base classes.
+
+2005-01-18  Ziemowit Laski  <zlaski@apple.com>
+
+	* parser.c (cp_parser_cw_identifier): Reapply change
+	just reverted.
+
+2005-01-18  Ziemowit Laski  <zlaski@apple.com>
+
+	* parser.c (cp_parser_cw_identifier): Revert change
+	from 2005-01-14.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3955336
+	* parser.c (cp_parser_objc_message_receiver): Try parsing
+	receiver as an expression first; failing that, as a
+	nested type.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3951689
+	* parser.c (cp_parser_objc_try_catch_finally_statement,
+	cp_parser_objc_synchronized_statement, cp_parser_objc_throw_statement
+	cp_parser_objc_statement): New functions.
+	(cp_parser_statement): Call cp_parser_objc_statement() to
+	parse Objective-C statements.
+
+2005-01-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++spec.c: Remove APPLE LOCAL changes involving
+	macosx_version_min_required.
+
+2005-01-14  Ziemowit Laski  <zlaski@apple.com>
+
+	* parser.c (cp_parser_cw_identifier): Add a default:
+	to squash compiler warnings.
+
+2005-01-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3913725
+	* tree.c (lvalue_or_else): If expression is not an lvalue,
+	check if it is a cast of an lvalue; if so, and if the cast
+	involves POD types with identical size and aligment,
+	rewrite '(type)expr' into '*(type *)&expr' and allow the
+	result as an lvalue.
+
+2005-01-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 3943502
+	* parser.c (cp_parser_objc_defs_expression): New.
+	(cp_parser_member_declaration): Handle @defs.
+
+2005-01-06  Robert Bowdidge <bowdidge@apple.com>
+
+	Radar 3943783
+	* class.c: change has_apple_kext_compatibility_attr_p to use
+        BINFO_BASE_BINFO for walking class hierarchy.
+
+2005-01-06  Devang Patel  <dpatel@apple.com>
+
+	Radar 3941766
+	* parser.c (cp_parser_objc_class_ivars): Add '}' check.
+
+2005-01-05  Mark Mitchell  <mark@codesourcery.com>
+            Matt Austern  <austern@apple.com>
+
+        Radar 3934803
+	PR c++/18369
+	* init.c (build_new_1): Handle parenthesized type-ids that name an
+	array type.  Tidy.
+
+2004-12-20  Matt Austern  <austern@apple.com>
+
+        Radar 3845716
+	PR c++/19044
+	* decl.c (make_rtl_for_nonlocal_decl): Use set_builtin_user_assembler_name
+
+2004-12-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3640156, 3877958
+	* decl.c (builtin_function_1): Do not require subsequent declarations
+	for AltiVec PIM builtins.
+
+2004-12-07  Mike Stump  <mrs@apple.com>
+
+	Radar 3603833, 3896176, 3518821.
+	* parser.c (cp_parser_binary_expression): Add support for lines
+	that start with named operators such as and.
+	(cp_parser_cw_identifier): Move reused code from here to
+	cw_get_identifier.
+	
+2004-11-17  Mike Stump  <mrs@apple.com>
+
+	Radar 3860322
+	g++.dg/asm-block-3.C
+	* parser.c (cp_parser_cw_identifier): Handle C++ keywords like
+	and, or, xor in CW asm blocks.
+
+2004-11-14  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3877761
+	* parser.c (cp_parser_objc_class_ivars): Allow an optional
+	trailing semicolon, per existing usage.
+
+2004-11-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3761423
+	* typeck.c (finish_class_member_access_expr): Insert call to
+	objc_is_public() to check ObjC ivar access.
+
+2004-11-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3869280
+	* tree.c (lvalue_p_1): Determine lvalue-ness of CONST_DECLs the same
+	way as for VAR_DECLs.
+
+2004-11-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3863563 (fix from mainline)
+	* cp-lang.c (cxx_types_compatible_p): Remove prototype and definition.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Move to cp-objcp-common.h.
+	* cp-objcp-common.c (cxx_types_compatible_p): Moved definition here
+	from cp-lang.c.
+	* cp-objcp-common.h (cxx_types_compatible_p): Moved prototype here
+	from cp-lang.c.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Moved here from cp-lang.c.
+
+2004-11-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 2810013
+	* parser.c (cp_parser_primary_expression): Perform instace variable
+	lookup in conjunction with C++ identifier expression lookup.
+	(cp_parser_postfix_expression): Moved instance variable lookup
+	to cp_parser_primary_expression().
+	
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* parser.c (cp_parser_postfix_expression): Do not forget to parse
+	the rhs of a postfix expression when the lhs is an instance variable.
+
+2004-10-18  Robert Bowdidge <bowdidge@apple.com>
+
+        Radar 3843618
+        * gcc/cp/parser.c: Bring the change for PR/17829 over from mainline
+        so that Finder_FE will build again.
+
+2004-10-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3677258
+	* cp-tree.h (struct lang_identifier): Add 'interface_value' field.
+
+2004-09-14  Andrew Pinski  <apinski@apple.com>
+
+	Rest of Radar 3753405
+	* cp-tree.h (enum cp_decl_sepcs): Add ds_cw_asm.
+	* decl.c (grokdeclarator): Rename cw_asm_specbit to cw_asm_p to mirror
+	the other specbits.
+	Access specbits for cw_asm.
+	Add "asm" to decl_specs_names.
+	Remove MERGE FIXME comment.
+	* parser.c (cp_parser_decl_specifier_seq, <case RID_ASM>): Mirror the
+	other decl spec bits.
+	
+2004-08-22 Andrew Pinski  <apinski@apple.com>
+
+	Revert:
+	2004-08-22  Andrew Pinski  <apinski@apple.com>
+	PR c++/14029
+	* typeck.c (build_unary_op): Use &a.b if the foldded lowered
+	expression is not constant.
+
+2004-08-22  Andrew Pinski  <apinski@apple.com>
+
+	PR c++/14029
+	* typeck.c (build_unary_op): Use &a.b if the foldded lowered
+	expression is not constant.
+
+2004-08-10  Devang Patel  <dpatel@apple.com>
+
+	Remove Symbol Separation.
+	Radar 3555440. Reviewed by Mike Stump.
+        * decl2.c (finish_file): Do not write context.
+
+2004-08-08  Andrew Pinski  <apinski@apple.com>
+
+	* cp/lex.c (cxx_init): Remove APPLE LOCAL for setting -gused
+	by default as it is handled in CC1_SPECs now.
+
+2004-08-03  Stan Shebs  <shebs@apple.com>
+
+	Support for CodeWarrior-style assembly language blocks and
+	functions.  Radar 3368707.
+	* cp-tree.h (cw_asm_cp_build_component_ref): Declare.
+	* decl.c (grokdeclarator): Recognize asm keyword, set flag
+        on function decl if seen.
+	* parser.c (cp_lexer_get_preprocessor_token): Allow @-tokens
+	if doing asm.
+	(cp_parser_primary_expression): Recognize @-tokens in asm,
+	replace with @-identifier (which will become a label) later.
+	(cp_parser_unary_expression): Call asm-specific postfix
+	expression handler.
+	(cp_parser_compound_statement): Handle asm compound statements
+	specially.
+	(cp_parser_statement_seq_opt): Handle statement sequences in
+	asm blocks specially.
+	(cp_parser_simple_declaration): Leave instead of erroring out
+	if apparent asm opcode is seen.
+	(cp_parser_decl_specifier_seq,
+	cp_parser_storage_class_specifier_opt): Accept RID_ASM as a specifier.
+	(cp_parser_asm_definition): Detect asm blocks and handle.
+	(cp_parser_cw_asm_compound_statement,
+	cp_parser_cw_asm_declaration_seq_opt, cp_parser_cw_asm_line_seq_opt,
+	cp_parser_cw_asm_line, cp_parser_cw_asm_statement_seq_opt,
+	cp_parser_cw_asm_statement, cp_parser_cw_asm_operands,
+	cp_parser_cw_asm_operand, cp_parser_cw_asm_postfix_expression,
+	cw_asm_typename_or_reserved): New functions.
+	semantics.c (finish_id_expression): Handle register names
+	and labels in asm blocks specially.
+	* typeck.c (cw_asm_cp_build_component_ref): New function.
+
+2004-08-01  Devang Patel  <dpatel@apple.com>
+
+         Re-implement -fwritable-strings support. 
+         Radar : 3699482 
+
+        * decl.c (cxx_init_decl_processing): Check flag_writable_strings.
+
+2004-08-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (grokdeclarator): Don't call warn_about_long_double.
+
+2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
+
+	* decl2.c (maybe_emit_vtables, get_guard):
+	Remove all APPLE LOCAL coalescing codes.
+	(import_export_decl): Remove all APPLE LOCAL coalescing codes,
+	except for one call to comdat_linkage.
+
+2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
+
+        * decl2.c (maybe_emit_vtables, import_export_decl, get_guard):
+        Resore various APPLE LOCAL coalescing codes.
+
+2004-06-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	* decl2.c (maybe_emit_vtables, import_export_decl, get_guard):
+	Remove various APPLE LOCAL coalescing codes. 
+
+2004-04-02  Ziemowit Laski  <zlaski@apple.com>
+        
+        Remove APPLE LOCAL AltiVec code whenever possible; merge in
+        AltiVec/VECTOR_TYPE-handling code from mainline.
+

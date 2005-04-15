@@ -27,6 +27,7 @@ void xmlUpgradeOldNs(xmlDocPtr doc);
  *									*
  ************************************************************************/
 
+#ifdef LIBXML_HTML_ENABLED
 xmlChar *htmlDecodeEntities(htmlParserCtxtPtr ctxt, int len, xmlChar end,
                             xmlChar end2, xmlChar end3);
 
@@ -60,6 +61,7 @@ htmlDecodeEntities(htmlParserCtxtPtr ctxt ATTRIBUTE_UNUSED,
     }
     return (NULL);
 }
+#endif
 
 /**
  * xmlInitializePredefinedEntities:
@@ -83,7 +85,7 @@ xmlCleanupPredefinedEntities(void)
 {
 }
 
-static const char *xmlFeaturesList[] = {
+static const char * const xmlFeaturesList[] = {
     "validate",
     "load subset",
     "keep blanks",

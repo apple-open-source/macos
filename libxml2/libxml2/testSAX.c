@@ -11,6 +11,9 @@
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
+#ifdef HAVE_SYS_TIMEB_H
+#include <sys/timeb.h>
+#endif
 #ifdef HAVE_TIME_H
 #include <time.h>
 #endif
@@ -437,6 +440,14 @@ static void
 entityDeclDebug(void *ctx ATTRIBUTE_UNUSED, const xmlChar *name, int type,
           const xmlChar *publicId, const xmlChar *systemId, xmlChar *content)
 {
+const xmlChar *nullstr = BAD_CAST "(null)";
+    /* not all libraries handle printing null pointers nicely */
+    if (publicId == NULL)
+        publicId = nullstr;
+    if (systemId == NULL)
+        systemId = nullstr;
+    if (content == NULL)
+        content = (xmlChar *)nullstr;
     callbacks++;
     if (quiet)
 	return;
@@ -524,6 +535,14 @@ unparsedEntityDeclDebug(void *ctx ATTRIBUTE_UNUSED, const xmlChar *name,
 		   const xmlChar *publicId, const xmlChar *systemId,
 		   const xmlChar *notationName)
 {
+const xmlChar *nullstr = BAD_CAST "(null)";
+
+    if (publicId == NULL)
+        publicId = nullstr;
+    if (systemId == NULL)
+        systemId = nullstr;
+    if (notationName == NULL)
+        notationName = nullstr;
     callbacks++;
     if (quiet)
 	return;
@@ -899,7 +918,7 @@ startElementNsDebug(void *ctx ATTRIBUTE_UNUSED,
     }
     fprintf(stdout, ", %d, %d", nb_attributes, nb_defaulted);
     if (attributes != NULL) {
-        for (i = 0;i < nb_attributes;i += 5) {
+        for (i = 0;i < nb_attributes * 5;i += 5) {
 	    if (attributes[i + 1] != NULL)
 		fprintf(stdout, ", %s:%s='", attributes[i + 1], attributes[i]);
 	    else
@@ -992,7 +1011,11 @@ parseAndPrintFile(char *filename) {
 	    /*
 	     * Empty callbacks for checking
 	     */
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
+	    f = fopen(filename, "rb");
+#else
 	    f = fopen(filename, "r");
+#endif
 	    if (f != NULL) {
 		int ret;
 		char chars[10];
@@ -1017,7 +1040,11 @@ parseAndPrintFile(char *filename) {
 	/*
 	 * Debug callback
 	 */
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
+	f = fopen(filename, "rb");
+#else
 	f = fopen(filename, "r");
+#endif
 	if (f != NULL) {
 	    int ret;
 	    char chars[10];
@@ -1099,6 +1126,8 @@ int main(int argc, char **argv) {
     int i;
     int files = 0;
 
+    LIBXML_TEST_VERSION	/* be safe, plus calls xmlInitParser */
+    
     for (i = 1; i < argc ; i++) {
 	if ((!strcmp(argv[i], "-debug")) || (!strcmp(argv[i], "--debug")))
 	    debug++;

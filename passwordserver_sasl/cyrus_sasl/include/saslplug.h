@@ -17,6 +17,10 @@
 #include "prop.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* callback to lookup a sasl_callback_t for a connection
  * input:
  *  conn        -- the connection to lookup a callback for
@@ -115,8 +119,9 @@ typedef struct sasl_utils {
 
     /* format a message and then pass it to the SASL_CB_LOG callback
      *
-     * use syslog()-style formatting (printf with %m as most recent errno
-     * error).  The implementation may use a fixed size buffer not smaller
+     * use syslog()-style formatting (printf with %m as a human readable text
+     * (strerror()) for the error specified as the parameter).
+     * The implementation may use a fixed size buffer not smaller
      * than 512 octets if it securely truncates the message.
      *
      * level is a SASL_LOG_* level (see sasl.h)
@@ -145,11 +150,12 @@ typedef struct sasl_utils {
     int (*prop_setvals)(struct propctx *ctx, const char *name,
 			const char **values);
     void (*prop_erase)(struct propctx *ctx, const char *name);
+    int (*auxprop_store)(sasl_conn_t *conn,
+			 struct propctx *ctx, const char *user);
 
     /* for additions which don't require a version upgrade; set to 0 */
     int (*spare_fptr1)();
     int (*spare_fptr2)();
-    int (*spare_fptr3)();
 } sasl_utils_t;
 
 /*
@@ -304,6 +310,9 @@ typedef struct sasl_client_params {
  */
 #define SASL_FEAT_SERVER_FIRST 0x0010
 
+/* This plugin allows proxying */
+#define SASL_FEAT_ALLOWS_PROXY 0x0020
+
 /* client plug-in features */
 #define SASL_FEAT_NEEDSERVERFQDN 0x0001
 
@@ -457,8 +466,10 @@ typedef struct sasl_server_params {
     sasl_security_properties_t props;
     sasl_ssf_t external_ssf;	/* external SSF active */
 
-    /* server plug-in calls this when it first has access to the plaintext
-     *  passphrase.  This is used to transition users via setpass calls.
+    /* Pointer to the function which takes the plaintext passphrase and
+     *  transitions a user to non-plaintext mechanisms via setpass calls.
+     *  (NULL = auto transition not enabled/supported)
+     *
      *  If passlen is 0, it defaults to strlen(pass).
      *  returns 0 if no entry added, 1 if entry added
      */
@@ -466,7 +477,7 @@ typedef struct sasl_server_params {
 
     /* Canonicalize a user name from on-wire to internal format
      *  added cjn 1999-09-21
-     *  Must be called once user name aquired if canon_user is non-NULL.
+     *  Must be called once user name acquired if canon_user is non-NULL.
      *  conn        connection context
      *  user        user name from wire protocol (need not be NUL terminated)
      *  ulen        length of user name from wire protocol (0 = strlen(user))
@@ -679,9 +690,13 @@ typedef struct sasl_server_plug {
      *  given connection context, thus for a given protocol it may
      *  never be called.  Note that if mech_avail returns SASL_NOMECH,
      *  then that mechanism is considered disabled for the remainder
-     *  of the session.
+     *  of the session.  If mech_avail returns SASL_NOTDONE, then a
+     *  future call to mech_avail may still return either SASL_OK
+     *  or SASL_NOMECH.
      *
      *  returns SASL_OK on success,
+     *          SASL_NOTDONE if mech is not available now, but may be later
+     *                       (e.g. EXTERNAL w/o auth_id)
      *          SASL_NOMECH if mech disabled
      */
     int (*mech_avail)(void *glob_context,
@@ -823,8 +838,18 @@ typedef struct sasl_auxprop_plug {
     /* name of the auxprop plugin */
     char *name;
 
-    /* for additions which don't require a version upgrade; set to 0 */
-    void (*spare_fptr1)();
+    /* store the fields/values of an auxiliary property context (OPTIONAL)
+     *
+     * if ctx is NULL, just check if storing properties is enabled
+     *
+     * returns
+     *  SASL_OK         on success
+     *  SASL_FAIL       on failure
+     */
+    int (*auxprop_store)(void *glob_context,
+			 sasl_server_params_t *sparams,
+			 struct propctx *ctx,
+			 const char *user, unsigned ulen);
 } sasl_auxprop_plug_t;
 
 /* auxprop lookup flags */
@@ -852,5 +877,9 @@ typedef int sasl_auxprop_init_t(const sasl_utils_t *utils,
  */
 LIBSASL_API int sasl_auxprop_add_plugin(const char *plugname,
 					sasl_auxprop_init_t *auxpropfunc);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SASLPLUG_H */

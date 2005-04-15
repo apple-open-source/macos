@@ -3,6 +3,7 @@
  *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,14 +24,13 @@
 #ifndef HTML_OBJECTIMPL_H
 #define HTML_OBJECTIMPL_H
 
-#include "html_elementimpl.h"
+#include "html_imageimpl.h"
 #include "xml/dom_stringimpl.h"
 #include "java/kjavaappletcontext.h"
 
 #include <qstringlist.h>
 
 #if APPLE_CHANGES
-#include <JavaVM/jni.h>
 #include <JavaScriptCore/runtime.h>
 #endif
 
@@ -51,14 +51,18 @@ public:
 
     virtual Id id() const;
 
-    virtual void parseAttribute(AttributeImpl *token);
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *token);
+    
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
+    virtual void closeRenderer();
 
     bool getMember(const QString &, JType &, QString &);
     bool callMember(const QString &, const QStringList &, JType &, QString &);
     
 #if APPLE_CHANGES
+    virtual bool allParamsAvailable();
     void setupApplet() const;
     KJS::Bindings::Instance *getAppletInstance() const;
 #endif
@@ -67,7 +71,10 @@ protected:
     khtml::VAlign valign;
 
 private:
+#if APPLE_CHANGES
     mutable KJS::Bindings::Instance *appletInstance;
+    bool m_allParamsAvailable;
+#endif
 };
 
 // -------------------------------------------------------------------------
@@ -81,16 +88,27 @@ public:
 
     virtual Id id() const;
 
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 
     virtual void attach();
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
+    
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
+
+#if APPLE_CHANGES
+    KJS::Bindings::Instance *getEmbedInstance() const;
+#endif
 
     QString url;
     QString pluginPage;
     QString serviceType;
-    bool hidden;
+
+#if APPLE_CHANGES
+private:
+    mutable KJS::Bindings::Instance *embedInstance;
+#endif
 };
 
 // -------------------------------------------------------------------------
@@ -106,21 +124,35 @@ public:
 
     HTMLFormElementImpl *form() const;
 
-    virtual void parseAttribute(AttributeImpl *token);
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *token);
 
     virtual void attach();
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     virtual void detach();
-
-    virtual void recalcStyle( StyleChange ch );
+    
+    virtual void recalcStyle(StyleChange ch);
+    virtual void childrenChanged();
 
     DocumentImpl* contentDocument() const;
+    
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
+
+#if APPLE_CHANGES
+    KJS::Bindings::Instance *getObjectInstance() const;
+#endif
 
     QString serviceType;
     QString url;
     QString classId;
     bool needWidgetUpdate;
+    HTMLImageLoader* m_imageLoader;
+
+#if APPLE_CHANGES
+private:
+    mutable KJS::Bindings::Instance *objectInstance;
+#endif
 };
 
 // -------------------------------------------------------------------------
@@ -135,14 +167,16 @@ public:
 
     virtual Id id() const;
 
-    virtual void parseAttribute(AttributeImpl *token);
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *token);
 
-    QString name() const { if(!m_name) return QString::null; return QString(m_name->s, m_name->l); }
-    QString value() const { if(!m_value) return QString::null; return QString(m_value->s, m_value->l); }
+    QString name() const { return m_name.string(); }
+    QString value() const { return m_value.string(); }
+    
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
 
  protected:
-    DOMStringImpl *m_name;
-    DOMStringImpl *m_value;
+    AtomicString m_name;
+    AtomicString m_value;
 };
 
 };

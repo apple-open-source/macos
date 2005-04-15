@@ -24,7 +24,9 @@
 #include <string.h>
 #include <mach-o/loader.h>
 #include <mach-o/stab.h>
+#ifdef __OPENSTEP__
 #include <mach-o/rld.h>
+#endif /* defined(__OPENSTEP__) */
 #include "stuff/ofile.h"
 #include "stuff/allocate.h"
 #include "stuff/errors.h"

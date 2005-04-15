@@ -87,7 +87,7 @@ initGenericErrorDefaultFunc(xmlGenericErrorFunc * handler)
     if (handler == NULL)
         xmlGenericError = xmlGenericErrorDefaultFunc;
     else
-        (*handler) = xmlGenericErrorDefaultFunc;
+        xmlGenericError = (*handler);
 }
 
 /**
@@ -102,6 +102,7 @@ initGenericErrorDefaultFunc(xmlGenericErrorFunc * handler)
  * be passed as first argument to @handler
  * One can simply force messages to be emitted to another FILE * than
  * stderr by setting @ctx to this file handle and @handler to NULL.
+ * For multi-threaded applications, this must be set separately for each thread.
  */
 void
 xmlSetGenericErrorFunc(void *ctx, xmlGenericErrorFunc handler) {
@@ -122,6 +123,7 @@ xmlSetGenericErrorFunc(void *ctx, xmlGenericErrorFunc handler) {
  * This simply means that @handler will be called for subsequent
  * error messages while not parsing nor validating. And @ctx will
  * be passed as first argument to @handler
+ * For multi-threaded applications, this must be set separately for each thread.
  */
 void
 xmlSetStructuredErrorFunc(void *ctx, xmlStructuredErrorFunc handler) {
@@ -410,7 +412,7 @@ xmlReportError(xmlErrorPtr err, xmlParserCtxtPtr ctxt, const char *str,
 
 /**
  * __xmlRaiseError:
- * @channel: the structured callback channel
+ * @schannel: the structured callback channel
  * @channel: the old callback channel
  * @data: the callback data
  * @ctx: the parser context or NULL
@@ -428,7 +430,7 @@ xmlReportError(xmlErrorPtr err, xmlParserCtxtPtr ctxt, const char *str,
  * @msg:  the message to display/transmit
  * @...:  extra parameters for the message display
  *
- * Update teh appropriate global or contextual error structure,
+ * Update the appropriate global or contextual error structure,
  * then forward the error message down the parser or generic
  * error callback handler
  */
@@ -445,20 +447,29 @@ __xmlRaiseError(xmlStructuredErrorFunc schannel,
     char *str = NULL;
     xmlParserInputPtr input = NULL;
     xmlErrorPtr to = &xmlLastError;
-    xmlChar *base = NULL;
+    xmlNodePtr baseptr = NULL;
 
     if ((xmlGetWarningsDefaultValue == 0) && (level == XML_ERR_WARNING))
         return;
     if ((domain == XML_FROM_PARSER) || (domain == XML_FROM_HTML) ||
         (domain == XML_FROM_DTD) || (domain == XML_FROM_NAMESPACE) ||
-	(domain == XML_FROM_IO)) {
+	(domain == XML_FROM_IO) || (domain == XML_FROM_VALID)) {
 	ctxt = (xmlParserCtxtPtr) ctx;
 	if ((schannel == NULL) && (ctxt != NULL) && (ctxt->sax != NULL) &&
 	    (ctxt->sax->initialized == XML_SAX2_MAGIC))
 	    schannel = ctxt->sax->serror;
     }
-    if (schannel == NULL)
+    /*
+     * Check if structured error handler set
+     */
+    if (schannel == NULL) {
 	schannel = xmlStructuredError;
+	/*
+	 * if user has defined handler, change data ptr to user's choice
+	 */
+	if (schannel != NULL)
+	    data = xmlGenericErrorContext;
+    }
     if ((domain == XML_FROM_VALID) &&
         ((channel == xmlParserValidityError) ||
 	 (channel == xmlParserValidityWarning))) {
@@ -498,21 +509,21 @@ __xmlRaiseError(xmlStructuredErrorFunc schannel,
 	int i;
 
 	if ((node->doc != NULL) && (node->doc->URL != NULL))
-	    base = xmlStrdup(node->doc->URL);
+	    baseptr = node;
 	for (i = 0;
 	     ((i < 10) && (node != NULL) && (node->type != XML_ELEMENT_NODE));
 	     i++)
 	     node = node->parent;
-        if ((base == NULL) && (node != NULL) &&
+        if ((baseptr == NULL) && (node != NULL) &&
 	    (node->doc != NULL) && (node->doc->URL != NULL))
-	    base = xmlStrdup(node->doc->URL);
+	    baseptr = node;
 
 	if ((node != NULL) && (node->type == XML_ELEMENT_NODE))
 	    line = node->line;
     }
 
     /*
-     * Save the informations about the error
+     * Save the information about the error
      */
     xmlResetError(to);
     to->domain = domain;
@@ -521,9 +532,33 @@ __xmlRaiseError(xmlStructuredErrorFunc schannel,
     to->level = level;
     if (file != NULL)
         to->file = (char *) xmlStrdup((const xmlChar *) file);
-    else if (base != NULL) {
-        to->file = (char *) base;
-	file = (char *) base;
+    else if (baseptr != NULL) {
+#ifdef LIBXML_XINCLUDE_ENABLED
+	/*
+	 * We check if the error is within an XInclude section and,
+	 * if so, attempt to print out the href of the XInclude instead
+	 * of the usual "base" (doc->URL) for the node (bug 152623).
+	 */
+        xmlNodePtr prev = baseptr;
+	int inclcount = 0;
+	while (prev != NULL) {
+	    if (prev->prev == NULL)
+	        prev = prev->parent;
+	    else {
+	        prev = prev->prev;
+		if (prev->type == XML_XINCLUDE_START) {
+		    if (--inclcount < 0)
+		        break;
+		} else if (prev->type == XML_XINCLUDE_END)
+		    inclcount++;
+	    }
+	}
+	if (prev != NULL) {
+	    to->file = (char *) xmlGetProp(prev, BAD_CAST "href");
+	} else
+#endif
+	    to->file = (char *) xmlStrdup(baseptr->doc->URL);
+	file = to->file;
     }
     to->line = line;
     if (str1 != NULL)
@@ -541,9 +576,9 @@ __xmlRaiseError(xmlStructuredErrorFunc schannel,
         xmlCopyError(to,&xmlLastError);
 
     /*
-     * Find the callback channel.
+     * Find the callback channel if channel param is NULL
      */
-    if ((ctxt != NULL) && (channel == NULL)) {
+    if ((ctxt != NULL) && (channel == NULL) && (xmlStructuredError == NULL) && (ctxt->sax != NULL)) {
         if (level == XML_ERR_WARNING)
 	    channel = ctxt->sax->warning;
         else
@@ -891,8 +926,17 @@ xmlCtxtResetLastError(void *ctx)
  */
 int
 xmlCopyError(xmlErrorPtr from, xmlErrorPtr to) {
+    char *message, *file, *str1, *str2, *str3;
+
     if ((from == NULL) || (to == NULL))
         return(-1);
+
+    message = (char *) xmlStrdup((xmlChar *) from->message);
+    file = (char *) xmlStrdup ((xmlChar *) from->file);
+    str1 = (char *) xmlStrdup ((xmlChar *) from->str1);
+    str2 = (char *) xmlStrdup ((xmlChar *) from->str2);
+    str3 = (char *) xmlStrdup ((xmlChar *) from->str3);
+
     if (to->message != NULL)
         xmlFree(to->message);
     if (to->file != NULL)
@@ -912,26 +956,12 @@ xmlCopyError(xmlErrorPtr from, xmlErrorPtr to) {
     to->int2 = from->int2;
     to->node = from->node;
     to->ctxt = from->ctxt;
-    if (from->message != NULL)
-        to->message = (char *) xmlStrdup((xmlChar *) from->message);
-    else
-        to->message = NULL;
-    if (from->file != NULL)
-        to->file = (char *) xmlStrdup((xmlChar *) from->file);
-    else
-        to->file = NULL;
-    if (from->str1 != NULL)
-        to->str1 = (char *) xmlStrdup((xmlChar *) from->str1);
-    else
-        to->str1 = NULL;
-    if (from->str2 != NULL)
-        to->str2 = (char *) xmlStrdup((xmlChar *) from->str2);
-    else
-        to->str2 = NULL;
-    if (from->str3 != NULL)
-        to->str3 = (char *) xmlStrdup((xmlChar *) from->str3);
-    else
-        to->str3 = NULL;
-    return(0);
+    to->message = message;
+    to->file = file;
+    to->str1 = str1;
+    to->str2 = str2;
+    to->str3 = str3;
+
+    return 0;
 }
 

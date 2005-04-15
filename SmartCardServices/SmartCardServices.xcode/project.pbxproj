@@ -213,7 +213,7 @@
 				F511212B0272F895017BB957,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.1;
+				CURRENT_PROJECT_VERSION = 15.2;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -395,7 +395,7 @@
 				F5294A840090C73501CD285A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.1;
+				CURRENT_PROJECT_VERSION = 15.2;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "/System/Library/Frameworks/CoreFoundation.framework/Headers /System/Library/Frameworks/IOKit.framework/Headers/usb /System/Library/Frameworks/IOKit.framework/Headers";
 				INSTALL_PATH = /usr/sbin;
@@ -497,7 +497,7 @@
 				F5294AD80090CAE601CD285A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.1;
+				CURRENT_PROJECT_VERSION = 15.2;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -563,9 +563,9 @@
 				F52A93D902541D8C01B94B21,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 15.1;
+				CURRENT_PROJECT_VERSION = 15.2;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 15.1;
+				DYLIB_CURRENT_VERSION = 15.2;
 				FRAMEWORK_SEARCH_PATHS = "";
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
@@ -605,11 +605,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>15.2</string>
 </dict>
 </plist>
 ";
@@ -1592,11 +1592,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>15.2</string>
 </dict>
 </plist>
 ";
@@ -1722,11 +1722,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>15.2</string>
 	<key>spAtrValue</key>
 	<string>3B751300009C02020102</string>
 	<key>spDefaultApplication</key>
@@ -1832,11 +1832,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>15.2</string>
 	<key>spAtrValue</key>
 	<string>3B6500009C02020702</string>
 	<key>spDefaultApplication</key>
@@ -1941,11 +1941,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>15.2</string>
 	<key>spAtrValue</key>
 	<string>3B959440FF6301010201</string>
 	<key>spDefaultApplication</key>

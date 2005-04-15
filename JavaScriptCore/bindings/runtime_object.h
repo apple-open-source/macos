@@ -25,10 +25,9 @@
 #ifndef _RUNTIME_OBJECT_H_
 #define _RUNTIME_OBJECT_H_
 
-#include <JavaVM/jni.h>
-
 #include <JavaScriptCore/runtime.h>
 #include <JavaScriptCore/object.h>
+#include <JavaScriptCore/protect.h>
 
 namespace KJS {
 
@@ -61,10 +60,12 @@ public:
     void setInternalInstance (Bindings::Instance *i) { instance = i; }
     Bindings::Instance *getInternalInstance() const { return instance; }
 
-private:
-    void _initializeClassInfoFromInstance();
+    virtual bool implementsCall() const;
+    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
     
     static const ClassInfo info;
+
+private:
     Bindings::Instance *instance;
     bool ownsInstance;
 };

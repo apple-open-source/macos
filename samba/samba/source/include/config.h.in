@@ -12,6 +12,12 @@
 /* Broken RedHat 7.2 system header files */
 #undef BROKEN_REDHAT_7_SYSTEM_HEADERS
 
+/* Does strndup work correctly */
+#undef BROKEN_STRNDUP
+
+/* Does strnlen work correctly */
+#undef BROKEN_STRNLEN
+
 /* Does this system use unicode compose characters */
 #undef BROKEN_UNICODE_COMPOSE_CHARACTERS
 
@@ -129,9 +135,6 @@
 /* Whether readdir() is broken */
 #undef HAVE_BROKEN_READDIR
 
-/* Define to 1 if you have the `bzero' function. */
-#undef HAVE_BZERO
-
 /* Whether there is a C99 compliant vsnprintf */
 #undef HAVE_C99_VSNPRINTF
 
@@ -177,9 +180,6 @@
 
 /* Whether we have CUPS */
 #undef HAVE_CUPS
-
-/* Whether Darwin ACLs are available */
-#undef HAVE_DARWIN_ACLS
 
 /* Define to 1 if you have the `des_set_key' function. */
 #undef HAVE_DES_SET_KEY
@@ -229,9 +229,6 @@
 
 /* Define to 1 if you have the `dup2' function. */
 #undef HAVE_DUP2
-
-/* Whether the ENCTYPE_ARCFOUR_HMAC key type is available */
-#undef HAVE_ENCTYPE_ARCFOUR_HMAC
 
 /* Whether the ENCTYPE_ARCFOUR_HMAC_MD5 key type is available */
 #undef HAVE_ENCTYPE_ARCFOUR_HMAC_MD5
@@ -464,14 +461,29 @@
 /* Define to 1 if you have the `krb5_auth_con_setuseruserkey' function. */
 #undef HAVE_KRB5_AUTH_CON_SETUSERUSERKEY
 
+/* Define to 1 if you have the `krb5_c_enctype_compare' function. */
+#undef HAVE_KRB5_C_ENCTYPE_COMPARE
+
+/* Whether the type krb5_encrypt_block exists */
+#undef HAVE_KRB5_ENCRYPT_BLOCK
+
 /* Define to 1 if you have the `krb5_encrypt_data' function. */
 #undef HAVE_KRB5_ENCRYPT_DATA
+
+/* Define to 1 if you have the `krb5_enctypes_compatible_keys' function. */
+#undef HAVE_KRB5_ENCTYPES_COMPATIBLE_KEYS
 
 /* Define to 1 if you have the `krb5_free_data_contents' function. */
 #undef HAVE_KRB5_FREE_DATA_CONTENTS
 
+/* Define to 1 if you have the `krb5_free_keytab_entry_contents' function. */
+#undef HAVE_KRB5_FREE_KEYTAB_ENTRY_CONTENTS
+
 /* Define to 1 if you have the `krb5_free_ktypes' function. */
 #undef HAVE_KRB5_FREE_KTYPES
+
+/* Define to 1 if you have the `krb5_free_unparsed_name' function. */
+#undef HAVE_KRB5_FREE_UNPARSED_NAME
 
 /* Define to 1 if you have the `krb5_get_default_in_tkt_etypes' function. */
 #undef HAVE_KRB5_GET_DEFAULT_IN_TKT_ETYPES
@@ -485,6 +497,9 @@
 /* Define to 1 if you have the <krb5.h> header file. */
 #undef HAVE_KRB5_H
 
+/* Whether the krb5_creds struct has a keyblock property */
+#undef HAVE_KRB5_KEYBLOCK_IN_CREDS
+
 /* Whether the krb5_keyblock struct has a keyvalue property */
 #undef HAVE_KRB5_KEYBLOCK_KEYVALUE
 
@@ -493,6 +508,15 @@
 
 /* Whether krb5_keytab_entry has keyblock member */
 #undef HAVE_KRB5_KEYTAB_ENTRY_KEYBLOCK
+
+/* Define to 1 if you have the `krb5_krbhst_get_addrinfo' function. */
+#undef HAVE_KRB5_KRBHST_GET_ADDRINFO
+
+/* Define to 1 if you have the `krb5_kt_compare' function. */
+#undef HAVE_KRB5_KT_COMPARE
+
+/* Define to 1 if you have the `krb5_kt_free_entry' function. */
+#undef HAVE_KRB5_KT_FREE_ENTRY
 
 /* Define to 1 if you have the `krb5_locate_kdc' function. */
 #undef HAVE_KRB5_LOCATE_KDC
@@ -508,6 +532,9 @@
 
 /* Whether krb5_princ_component is available */
 #undef HAVE_KRB5_PRINC_COMPONENT
+
+/* Whether the krb5_creds struct has a session property */
+#undef HAVE_KRB5_SESSION_IN_CREDS
 
 /* Define to 1 if you have the `krb5_set_default_in_tkt_etypes' function. */
 #undef HAVE_KRB5_SET_DEFAULT_IN_TKT_ETYPES
@@ -529,6 +556,9 @@
 
 /* Define to 1 if you have the `krb5_use_enctype' function. */
 #undef HAVE_KRB5_USE_ENCTYPE
+
+/* Whether the KV5M_KEYTAB option is available */
+#undef HAVE_KV5M_KEYTAB
 
 /* Define to 1 if you have the <langinfo.h> header file. */
 #undef HAVE_LANGINFO_H
@@ -668,6 +698,9 @@
 /* Define to 1 if you have the `lstat64' function. */
 #undef HAVE_LSTAT64
 
+/* Whether the macro for makedev is available */
+#undef HAVE_MAKEDEV
+
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
 
@@ -739,6 +772,9 @@
 
 /* Define to 1 if you have the `open64' function. */
 #undef HAVE_OPEN64
+
+/* Define to 1 if you have the <pam/pam_appl.h> header file. */
+#undef HAVE_PAM_PAM_APPL_H
 
 /* Define to 1 if you have the <pam/pam_modules.h> header file. */
 #undef HAVE_PAM_PAM_MODULES_H
@@ -865,6 +901,9 @@
 
 /* Define to 1 if you have the <security/pam_modules.h> header file. */
 #undef HAVE_SECURITY_PAM_MODULES_H
+
+/* Define to 1 if you have the <security/_pam_macros.h> header file. */
+#undef HAVE_SECURITY__PAM_MACROS_H
 
 /* Define to 1 if you have the `select' function. */
 #undef HAVE_SELECT
@@ -1049,6 +1088,12 @@
 /* Whether the flock64 struct is available */
 #undef HAVE_STRUCT_FLOCK64
 
+/* Define to 1 if `method_attrlist' is member of `struct secmethod_table'. */
+#undef HAVE_STRUCT_SECMETHOD_TABLE_METHOD_ATTRLIST
+
+/* Define to 1 if `method_version' is member of `struct secmethod_table'. */
+#undef HAVE_STRUCT_SECMETHOD_TABLE_METHOD_VERSION
+
 /* Define to 1 if `st_rdev' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_RDEV
 
@@ -1174,6 +1219,9 @@
 
 /* Define to 1 if you have the <sys/syslog.h> header file. */
 #undef HAVE_SYS_SYSLOG_H
+
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#undef HAVE_SYS_SYSMACROS_H
 
 /* Define to 1 if you have the <sys/termio.h> header file. */
 #undef HAVE_SYS_TERMIO_H
@@ -1324,6 +1372,9 @@
 
 /* Define if you have working AF_LOCAL sockets */
 #undef HAVE_WORKING_AF_LOCAL
+
+/* Whether the WRFILE:-keytab is supported */
+#undef HAVE_WRFILE_KEYTAB
 
 /* Whether xfs quota support is available */
 #undef HAVE_XFS_QUOTAS
@@ -1562,6 +1613,9 @@
 /* Whether the host os is irix6 */
 #undef IRIX6
 
+/* Whether krb5_princ_realm returns krb5_realm or krb5_data */
+#undef KRB5_PRINC_REALM_RETURNS_REALM
+
 /* Number of arguments to ldap_set_rebind_proc */
 #undef LDAP_SET_REBIND_PROC_ARGS
 
@@ -1615,6 +1669,9 @@
 
 /* Whether the host os is qnx */
 #undef QNX
+
+/* Whether the realpath function allows NULL */
+#undef REALPATH_TAKES_NULL
 
 /* Whether the host os is reliantunix */
 #undef RELIANTUNIX
@@ -1854,6 +1911,9 @@
 /* Whether to build idmap_ldap as shared module */
 #undef idmap_ldap_init
 
+/* Whether to build idmap_rid as shared module */
+#undef idmap_rid_init
+
 /* Whether to build idmap_tdb as shared module */
 #undef idmap_tdb_init
 
@@ -1957,6 +2017,9 @@
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef uid_t
 
+/* Whether to build vfs_afsacl as shared module */
+#undef vfs_afsacl_init
+
 /* Whether to build vfs_audit as shared module */
 #undef vfs_audit_init
 
@@ -1974,6 +2037,9 @@
 
 /* Whether to build vfs_fake_perms as shared module */
 #undef vfs_fake_perms_init
+
+/* Whether to build vfs_full_audit as shared module */
+#undef vfs_full_audit_init
 
 /* Whether to build vfs_netatalk as shared module */
 #undef vfs_netatalk_init

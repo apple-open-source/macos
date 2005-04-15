@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -16,8 +16,8 @@
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-                                        * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-                                        * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -26,23 +26,22 @@
 #import "KWQScrollBar.h"
 
 #import "KWQExceptions.h"
+#import "KWQView.h"
 
-@interface KWQScrollBar : NSScroller
+@interface KWQScrollBar : NSScroller <KWQWidgetHolder>
 {
     QScrollBar* scrollBar;
 }
 
-- (id)initWithQScrollBar:(QScrollBar*)s;
+- (id)initWithQScrollBar:(QScrollBar *)s;
+- (void)detachQScrollBar;
 
 @end
 
 @implementation KWQScrollBar
 
-
-- (id)initWithQScrollBar:(QScrollBar*)s
+- (id)initWithQScrollBar:(QScrollBar *)s
 {
-    scrollBar = s;
-
     // Cocoa scrollbars just set their orientation by examining their own
     // dimensions, so we have to do this unsavory hack.
     NSRect orientation;
@@ -55,62 +54,93 @@
         orientation.size.width = 100;
         orientation.size.height = [NSScroller scrollerWidth];
     }
-    id result = [self initWithFrame: orientation];
-    [result setEnabled: YES];
+    self = [self initWithFrame:orientation];
+
+    scrollBar = s;
+
+    [self setEnabled:YES];
     [self setTarget:self];
     [self setAction:@selector(scroll:)];
 
-    return result;
+    return self;
 }
 
--(IBAction)scroll:(NSScroller*)sender
+- (void)detachQScrollBar
 {
-    scrollBar->scrollbarHit([sender hitPart]);
+    [self setTarget:nil];
+    scrollBar = 0;
 }
+
+- (IBAction)scroll:(NSScroller*)sender
+{
+    if (scrollBar) {
+        scrollBar->scrollbarHit([sender hitPart]);
+    }
+}
+
+- (QWidget *)widget
+{
+    return scrollBar;
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    QWidget::beforeMouseDown(self);
+    [super mouseDown:event];
+    QWidget::afterMouseDown(self);
+}
+
 @end
 
-QScrollBar::QScrollBar(Qt::Orientation orientation, QWidget* parent)
-:m_valueChanged(this, SIGNAL(valueChanged(int)))
+QScrollBar::QScrollBar(Orientation orientation, QWidget* parent)
+    : m_orientation(orientation)
+    , m_visibleSize(0)
+    , m_totalSize(0)
+    , m_currentPos(0)
+    , m_lineStep(0)
+    , m_pageStep(0)
+    , m_valueChanged(this, SIGNAL(valueChanged(int)))
 {
-    m_orientation = orientation;
-    m_visibleSize = 0;
-    m_totalSize = 0;
-    m_currentPos = 0;
-    m_lineStep = 0;
-    m_pageStep = 0;
-    m_scroller = 0;
-
     KWQ_BLOCK_EXCEPTIONS;
-    m_scroller = [[KWQScrollBar alloc] initWithQScrollBar:this];
-    setView(m_scroller);
-    [m_scroller release];
-    [parent->getView() addSubview: m_scroller];
-    KWQ_UNBLOCK_EXCEPTIONS;
 
-    setFocusPolicy(NoFocus);
+    KWQScrollBar *bar = [[KWQScrollBar alloc] initWithQScrollBar:this];
+    setView(bar);
+    [bar release];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 QScrollBar::~QScrollBar()
 {
-    KWQ_BLOCK_EXCEPTIONS;
-    [m_scroller removeFromSuperview];
-    KWQ_UNBLOCK_EXCEPTIONS;
+    KWQScrollBar *bar = (KWQScrollBar *)getView();
+    [bar detachQScrollBar];
+
+    // QWidget should probably do this for all widgets.
+    // But we don't need it for form elements, and for frames it doesn't work
+    // well because of the way the NSViews are created in WebKit. So for now,
+    // we'll just do it explictly for QScrollBar.
+    [bar removeFromSuperview];
 }
 
-void QScrollBar::setValue(int v)
+bool QScrollBar::setValue(int v)
 {
     int maxPos = m_totalSize - m_visibleSize;
     if (v < 0) v = 0;
     if (v > maxPos)
         v = maxPos;
     if (m_currentPos == v)
-        return; // Our value stayed the same.
+        return false; // Our value stayed the same.
     m_currentPos = v;
+
     KWQ_BLOCK_EXCEPTIONS;
-    [m_scroller setFloatValue: (float)m_currentPos/maxPos
-               knobProportion: [m_scroller knobProportion]];
+    KWQScrollBar *bar = (KWQScrollBar *)getView();
+    [bar setFloatValue:(float)m_currentPos/maxPos
+        knobProportion:[bar knobProportion]];
     KWQ_UNBLOCK_EXCEPTIONS;
-    valueChanged(); // Emit the signal that indicates our value has changed.
+
+    valueChanged();
+    
+    return true;
 }
 
 void QScrollBar::setSteps(int lineStep, int pageStep)
@@ -126,18 +156,20 @@ void QScrollBar::setKnobProportion(int visibleArea, int totalArea)
     float val = (float)m_visibleSize/m_totalSize;
 
     KWQ_BLOCK_EXCEPTIONS;
-    if (!(val == [m_scroller knobProportion] || val < 0.0))
-	[m_scroller setFloatValue: [m_scroller floatValue] knobProportion: val];
+    KWQScrollBar *bar = (KWQScrollBar *)getView();
+    if (!(val == [bar knobProportion] || val < 0.0))
+	[bar setFloatValue: [bar floatValue] knobProportion: val];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-void QScrollBar::scrollbarHit(NSScrollerPart hitPart)
+bool QScrollBar::scrollbarHit(NSScrollerPart hitPart)
 {
     int maxPos = m_totalSize - m_visibleSize;
     if (maxPos <= 0)
-        return; // Impossible to scroll anywhere.
+        return false; // Impossible to scroll anywhere.
     
-    volatile int newPos = m_currentPos;
+    KWQScrollBar *bar = (KWQScrollBar *)getView();
+    int newPos = m_currentPos;
     switch (hitPart) {
         case NSScrollerDecrementLine:
             newPos -= m_lineStep;
@@ -155,17 +187,46 @@ void QScrollBar::scrollbarHit(NSScrollerPart hitPart)
             // If the thumb is hit, then the scrollbar changed its value for us.
         case NSScrollerKnob:
         case NSScrollerKnobSlot:
-	    KWQ_BLOCK_EXCEPTIONS;
-            newPos = (int)([m_scroller floatValue]*maxPos);
-	    KWQ_UNBLOCK_EXCEPTIONS;
+            newPos = (int)([bar floatValue] * maxPos);
             break;
-        default: ;
+
+        case NSScrollerNoPart:
+            break;
     }
 
-    setValue(newPos);
+    return setValue(newPos);
 }
 
 void QScrollBar::valueChanged()
 {
     m_valueChanged.call(m_currentPos);
 }
+
+bool QScrollBar::scroll(KWQScrollDirection direction, KWQScrollGranularity granularity, float multiplier)
+{
+    float delta = 0.0;
+    if ((direction == KWQScrollUp && m_orientation == Vertical) || (direction == KWQScrollLeft && m_orientation == Horizontal)) {
+        if (granularity == KWQScrollLine) {
+            delta = -(m_lineStep * 4);
+        } else if (granularity == KWQScrollPage) {
+            delta = -m_pageStep;
+        } else if (granularity == KWQScrollDocument) {
+            delta = -m_currentPos;
+        } else if (granularity == KWQScrollWheel) {
+            delta = -m_lineStep;
+        }
+    } else if ((direction == KWQScrollDown && m_orientation == Vertical) || (direction == KWQScrollRight && m_orientation == Horizontal)) {
+        if (granularity == KWQScrollLine) {
+            delta = (m_lineStep * 4);
+        } else if (granularity == KWQScrollPage) {
+            delta = m_pageStep;
+        } else if (granularity == KWQScrollDocument) {
+            delta = m_totalSize - m_visibleSize - m_currentPos;
+        } else if (granularity == KWQScrollWheel) {
+            delta = m_lineStep;
+        }
+    }
+    int newPos = (int)(m_currentPos + (delta * multiplier));
+    return setValue(newPos);
+}
+

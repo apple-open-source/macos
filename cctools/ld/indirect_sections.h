@@ -92,11 +92,22 @@ __private_extern__ void indirect_section_merge(
     struct indirect_section_data *data, 
     struct merged_section *ms,
     struct section *s, 
-    struct section_map *section_map);
+    struct section_map *section_map,
+    enum bool redo_live);
 
 __private_extern__ void indirect_section_order(
     struct indirect_section_data *data, 
     struct merged_section *ms);
+
+__private_extern__ void indirect_section_reset_live(
+    struct indirect_section_data *data, 
+    struct merged_section *ms);
+
+__private_extern__ void indirect_live_ref(
+    struct fine_reloc *fine_reloc,
+    struct section_map *map,
+    struct object_file *obj,
+    struct live_ref *ref);
 
 __private_extern__ void indirect_section_free(
     struct indirect_section_data *data);

@@ -643,6 +643,11 @@ bool PowerMac7_2_CPUFanCtrlLoop::updateMetaState( void )
 	}
 }
 
+void PowerMac7_2_CPUFanCtrlLoop::adjustControls( void )
+{
+	 // [4001211] Override to prevent calculateNewTarget() from being called from when the environment changes.
+}
+
 bool PowerMac7_2_CPUFanCtrlLoop::acquireSample( void )
 {
 	samplePoint * latest;
@@ -1212,11 +1217,14 @@ void PowerMac7_2_CPUFanCtrlLoop::deadlinePassed( void )
 
 	} // endif 9s
 
-	// If we changed the environment, the platform plugin will invoke updateMetaState()
-	// and adjustControls().  If not, then we just need to call adjustControls()
-	if (!didSetEnv)
+	 // [4001211] Always calculate the PID function when the interval deadline expires.
+	if (ctrlloopState != kIOPCtrlLoopNotReady)
 	{
-		adjustControls();
+		// Apply the PID algorithm.
+		ControlValue newTarget = calculateNewTarget();
+
+		// set the target
+		sendNewTarget( newTarget );
 	}
 
 	// set the deadline

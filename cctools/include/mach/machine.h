@@ -105,6 +105,7 @@ typedef struct machine_info	machine_info_data_t;	/* bogus */
 
 typedef int	cpu_type_t;
 typedef int	cpu_subtype_t;
+typedef integer_t	cpu_threadtype_t;
 
 #define CPU_STATE_MAX		3
 
@@ -154,6 +155,8 @@ extern vm_offset_t		interrupt_stack[];
 #define CPU_TYPE_RS6000		((cpu_type_t) 17)
 #define CPU_TYPE_MC98000	((cpu_type_t) 18)
 #define CPU_TYPE_POWERPC	((cpu_type_t) 18)
+#define CPU_ARCH_ABI64		 0x1000000
+#define CPU_TYPE_POWERPC64	((cpu_type_t)(CPU_TYPE_POWERPC | CPU_ARCH_ABI64))
 #define CPU_TYPE_VEO		((cpu_type_t) 255)
 		
 

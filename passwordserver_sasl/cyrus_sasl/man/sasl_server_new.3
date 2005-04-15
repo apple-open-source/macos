@@ -53,7 +53,7 @@ sasl_server_new \- Create a new server authentication object
 .BI "			 const char " *iplocalport ", "
 .BI "			 const char " *ipremoteport ", "
 .BI "			 const sasl_callback_t " *callbacks ", "
-.BI "			 unsigned " secflags ", "
+.BI "			 unsigned " flags ", "
 .BI "			 sasl_conn_t ** " pconn ");"
 
 .fi
@@ -84,35 +84,22 @@ or "e:f:g:h:i:j:a.b.c.d;port" (IPv6)
 is the IP and port of the remote side of the connection, or NULL (see
 iplocalport)
 .PP
-.I secflags
-are security flags (see below)
+.I flags
+are connection flags (see below)
 .PP
 .I pconn
 is a pointer to the conection context allocated by the library. This
 structure will be used for all future SASL calls for this connection.
 .PP
 
-.B Security Flags
-.PP
-Security flags that may be passed to
-.B sasl_server_new()
-include
+.B Connection Flags
 .TP 0.8i
-.B NOPLAINTEXT
-Don't permit mechanisms susceptible to simple passive attack (e.g., PLAIN, LOGIN)
+.B SASL_SUCCESS_DATA
+The protocol supports a server-last send
 .TP 0.8i
-.B NOACTIVE
-Protection from active (non-dictionary) attacks during authentication exchange.
-Authenticates server.
-.TP 0.8i
-.B NODICTIONARY
-Don't permit mechanisms susceptible to passive dictionary attack
-.TP 0.8i
-.B FORWARD_SECURITY
-Require forward secrecy between sessions. (breaking one won't help break next)
-.TP 0.8i
-.B PASS_CREDENTIALS
-Require mechanisms which pass client credentials, and allow mechanisms which can pass credentials to do so.
+.B SASL_NEED_PROXY
+Force the use of a mechanism that supports an authorization id that is
+not the authentication id.
 
 .SH "RETURN VALUE"
 

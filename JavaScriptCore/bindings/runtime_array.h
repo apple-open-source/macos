@@ -16,8 +16,8 @@
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-                                        * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-                                        * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
@@ -25,14 +25,16 @@
 #ifndef _RUNTIME_ARRAY_H_
 #define _RUNTIME_ARRAY_H_
 
+#include <array_instance.h>
 #include <object.h>
+#include <runtime.h>
 
 
 namespace KJS {
     
-class RuntimeArrayImp : public ObjectImp {
+class RuntimeArrayImp : public ArrayInstanceImp {
 public:
-    RuntimeArrayImp(Bindings::Array *i);
+    RuntimeArrayImp(ExecState *exec, Bindings::Array *i);
     ~RuntimeArrayImp();
     
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
@@ -51,8 +53,9 @@ public:
     
     Bindings::Array *getConcreteArray() const { return _array; }
 
-private:
     static const ClassInfo info;
+
+private:
     Bindings::Array *_array;
 };
     

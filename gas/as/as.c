@@ -57,6 +57,9 @@ int force_cpusubtype_ALL = 0;
 cpu_subtype_t archflag_cpusubtype = -1;
 char *specific_archflag = NULL;
 
+/* TRUE if the .subsections_via_symbols directive was seen */
+int subsections_via_symbols = 0;
+
 /*
  * .include "file" looks in source file dir, then stack.
  * -I directories are added to the end, then the defaults are added.
@@ -88,13 +91,15 @@ static void perform_an_assembly_pass(
     int argc,
     char **argv);
 
+/* used by error calls (exported) */
+char *progname = NULL;
+
 int
 main(
 int argc,
 char **argv,
 char **envp)
 {
-    char *progname;	/* argv[0] */
     int	work_argc;	/* variable copy of argc */
     char **work_argv;	/* variable copy of argv */
     char *arg;		/* an arg to program */
@@ -140,6 +145,16 @@ char **envp)
 	    /* Filename. We need it later. */
 	    if(*arg != '-')
 		continue;
+
+	    if(strcmp(arg, "--gstabs") == 0){
+		/* generate stabs for debugging assembly code */
+		flagseen[(int)'g'] = TRUE;
+		*work_argv = NULL; /* NULL means 'not a file-name' */
+		continue;
+	    }
+	    if(strcmp(arg, "--gdwarf2") == 0){
+		as_fatal("%s: I don't understand %s flag!", progname, arg);
+	    }
 
 	    /* Keep scanning args looking for flags. */
 	    if (arg[1] == '-' && arg[2] == 0) {
@@ -356,7 +371,7 @@ char **envp)
 				as_fatal("I expected 'm88k' after "
 				       "-arch for this assembler.");
 #endif
-#ifdef PPC
+#if defined(PPC) && !defined(ARCH64)
 			    if(strcmp(*work_argv, "ppc601") == 0){
 				if(archflag_cpusubtype != -1 &&
 				   archflag_cpusubtype !=
@@ -469,6 +484,25 @@ char **envp)
 			    else if(strcmp(*work_argv, "ppc") != 0 &&
 			    	    strcmp(*work_argv, "m98k") != 0)
 				as_fatal("I expected 'ppc' after "
+				       "-arch for this assembler.");
+#endif /* defined(PPC) && !defined(ARCH64) */
+#if defined(PPC) && defined(ARCH64)
+			    if(strcmp(*work_argv,
+					   "ppc970-64") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_POWERPC_970)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_POWERPC_970;
+			    }
+			    else
+#endif
+#if defined(PPC) && defined(ARCH64)
+			    if(strcmp(*work_argv, "ppc64") != 0)
+			      as_fatal("I expected 'ppc64' after "
 				       "-arch for this assembler.");
 #endif
 #ifdef I860

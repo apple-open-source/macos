@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,6 +86,7 @@ struct cmd_flags {
     enum bool c;	/* include commmon symbols in the table of contents */
     enum bool t;	/* just "touch" the archives to get the date right */
     enum bool f;	/* warn if the output archive is fat,used by ar(1) -s */
+    enum bool q;	/* only write archive if NOT fat, used by ar(1) */
     char *output;	/* the output file specified by -o */
     enum bool final_output_specified; /* if -final_output is specified */
     enum bool dynamic;	/* create a dynamic shared library, static by default */
@@ -172,11 +173,13 @@ struct member {
     char *object_addr;		    /* the address of the object file */
     unsigned long object_size;	    /* the size of the object file */
     enum byte_sex object_byte_sex;  /* the byte sex of the object file */
-    struct mach_header *mh;	    /* the mach_header of the object file */
+    struct mach_header *mh;	    /* the mach_header of 32-bit object files */
+    struct mach_header_64 *mh64;    /* the mach_header of 64-bit object files */
     struct load_command		    /* the start of the load commands */
 	*load_commands;
     struct symtab_command *st;	    /* the symbol table command */
-    struct section **sections;	    /* array of section structs */
+    struct section **sections;	    /* array of section structs for 32-bit */
+    struct section_64 **sections64; /* array of section structs for 32-bit */
 
     /* the name of the member in the output */
     char         *member_name;	    /* the member name */
@@ -224,11 +227,20 @@ static int ranlib_offset_qsort(
     const struct ranlib *ran1,
     const struct ranlib *ran2);
 static enum bool toc_symbol(
-    struct nlist *symbol,
-    struct section **sections);
+    nlist_t *symbol,
+    section_t **sections);
+static enum bool toc_symbol_64(
+    struct nlist_64 *symbol64,
+    struct section_64 **sections64);
+static enum bool toc(
+    uint32_t n_strx,
+    uint8_t n_type,
+    uint64_t n_value,
+    enum bool attr_no_toc);
 static enum bool check_sort_ranlibs(
     struct arch *arch,
-    char *output);
+    char *output,
+    enum bool library_warnings);
 static void warn_duplicate_member_names(
     void);
 static int member_name_qsort(
@@ -242,6 +254,9 @@ static void warn_member(
     struct member *member,
     const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 
+/* apple_version is in vers.c which is created by the Makefile */
+extern char apple_version[];
+
 int
 main(
 int argc,
@@ -254,9 +269,10 @@ char **envp)
     unsigned long j, temp, nfiles, maxfiles;
     int oumask, numask;
     kern_return_t r;
-    enum bool lflags_seen, bad_flag_seen;
+    enum bool lflags_seen, bad_flag_seen, Vflag;
 
 	lflags_seen = FALSE;
+	Vflag = FALSE;
 	progname = argv[0];
 
 	host_byte_sex = get_host_byte_sex();
@@ -583,6 +599,26 @@ char **envp)
 		    cmd_flags.seg_addr_table_filename = argv[i+1];
 		    i++;
 		}
+		else if(strcmp(argv[i], "-syslibroot") == 0){
+		    if(cmd_flags.ranlib == TRUE){
+			error("unknown option: %s", argv[i]);
+			usage();
+		    }
+		    if(i + 1 == argc){
+			error("missing argument to: %s option", argv[i]);
+			usage();
+		    }
+		    if(next_root != NULL){
+			error("more than one: %s option specified", argv[i]);
+			usage();
+		    }
+		    next_root = argv[i+1];
+		    cmd_flags.ldflags = reallocate(cmd_flags.ldflags,
+				sizeof(char *) * (cmd_flags.nldflags + 2));
+		    cmd_flags.ldflags[cmd_flags.nldflags++] = argv[i];
+		    cmd_flags.ldflags[cmd_flags.nldflags++] = argv[i+1];
+		    i++;
+		}
 		else if(strcmp(argv[i], "-sectcreate") == 0 ||
 		        strcmp(argv[i], "-segcreate") == 0 ||
 		        strcmp(argv[i], "-sectorder") == 0 ||
@@ -625,7 +661,8 @@ char **envp)
 		        strcmp(argv[i], "-weak_reference_mismatches") == 0 ||
 		        strcmp(argv[i], "-u") == 0 ||
 		        strcmp(argv[i], "-exported_symbols_list") == 0 ||
-		        strcmp(argv[i], "-unexported_symbols_list") == 0){
+		        strcmp(argv[i], "-unexported_symbols_list") == 0 ||
+		        strcmp(argv[i], "-executable_path") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -658,11 +695,14 @@ char **envp)
 			strcmp(argv[i], "-nomultidefs") == 0 ||
 			strcmp(argv[i], "-headerpad_max_install_names") == 0 ||
 			strcmp(argv[i], "-prebind_all_twolevel_modules") == 0 ||
+			strcmp(argv[i], "-prebind_allow_overlap") == 0 ||
 			strcmp(argv[i], "-ObjC") == 0 ||
 			strcmp(argv[i], "-M") == 0 ||
 			strcmp(argv[i], "-single_module") == 0 ||
 			strcmp(argv[i], "-multi_module") == 0 ||
-			strcmp(argv[i], "-m") == 0){
+			strcmp(argv[i], "-m") == 0 ||
+			strcmp(argv[i], "-dead_strip") == 0 ||
+			strcmp(argv[i], "-no_dead_strip_inits_and_terms") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
 			usage();
@@ -865,6 +905,11 @@ char **envp)
 			    }
 			    cmd_flags.verbose= TRUE;
 			    break;
+			case 'V':
+			    printf("Apple Computer, Inc. version %s\n",
+				   apple_version);
+			    Vflag = TRUE;
+			    break;
 			case 't':
 			    if(cmd_flags.ranlib == TRUE){
 				warning("touch option (`%c' in: %s) ignored "
@@ -881,6 +926,16 @@ char **envp)
 			case 'f':
 			    if(cmd_flags.ranlib == TRUE){
 				cmd_flags.f = TRUE;
+				break;
+			    }
+			    else {
+				error("unknown option character `%c' in: %s",
+				      argv[i][j], argv[i]);
+				usage();
+			    }
+			case 'q':
+			    if(cmd_flags.ranlib == TRUE){
+				cmd_flags.q = TRUE;
 				break;
 			    }
 			    else {
@@ -906,11 +961,18 @@ char **envp)
 	    cmd_flags.rc_trace_archives = TRUE;
 
 	/*
-	 * If the environment variable NEXT_ROOT is set prepend it to the
-	 * standard paths for library searches.  This was added to ease
-	 * cross build environments.
+	 * If either -syslibroot or the environment variable NEXT_ROOT is set
+	 * prepend it to the standard paths for library searches.  This was
+	 * added to ease cross build environments.
 	 */
-	next_root = getenv("NEXT_ROOT");
+	if(next_root != NULL){
+	    if(getenv("NEXT_ROOT") != NULL)
+		warning("NEXT_ROOT environment variable ignored because "
+			"-syslibroot specified");
+	}
+	else{
+	    next_root = getenv("NEXT_ROOT");
+	}
 	if(next_root != NULL){
 	    for(i = 0; standard_dirs[i] != NULL; i++){
 		p = allocate(strlen(next_root) +
@@ -944,6 +1006,8 @@ char **envp)
 	    usage();
 	}
 	if(cmd_flags.ranlib == FALSE && cmd_flags.output == NULL){
+	    if(Vflag == TRUE)
+		exit(EXIT_SUCCESS);
 	    error("no output file specified (specify with -o output)");
 	    usage();
 	}
@@ -987,11 +1051,21 @@ char **envp)
 		    warning("-dynamic not specified, -noall_load invalid");
 	    }
 	    if(cmd_flags.nldflags != 0){
-		fprintf(stderr, "%s: -dynamic not specified the following "
-			"flags are invalid: ", progname);
-		for(j = 0; j < cmd_flags.nldflags; j++)
+		bad_flag_seen = FALSE;
+		for(j = 0; j < cmd_flags.nldflags; j++){
+		    if(strcmp(cmd_flags.ldflags[j], "-syslibroot") == 0){
+			j++;
+			continue;
+		    }
+		    if(bad_flag_seen == FALSE){
+			fprintf(stderr, "%s: -dynamic not specified the "
+				"following flags are invalid: ", progname);
+			bad_flag_seen = TRUE;
+		    }
 		    fprintf(stderr, "%s ", cmd_flags.ldflags[j]);
-		fprintf(stderr, "\n");
+		}
+		if(bad_flag_seen == TRUE)
+		    fprintf(stderr, "\n");
 	    }
 	    if(cmd_flags.nLdirs != 0){
 		/* Note: both -L and -F flags are in cmd_flags.Ldirs to keep the
@@ -1064,7 +1138,7 @@ usage(
 void)
 {
 	if(cmd_flags.ranlib)
-	    fprintf(stderr, "Usage: %s [-sactfLT] [-] archive [...]\n",
+	    fprintf(stderr, "Usage: %s [-sactfqLT] [-] archive [...]\n",
 		    progname);
 	else{
 	    fprintf(stderr, "Usage: %s -static [-] file [...] "
@@ -1136,8 +1210,15 @@ void)
 			if(cmd_flags.rc_trace_archives == TRUE &&
 			   cmd_flags.dynamic == FALSE &&
 			   rc_trace_archive_printed == FALSE){
-			    printf("[Logging for Build & Integration] Used "
-				   "static archive: %s\n", ofiles[i].file_name);
+			    char resolvedname[MAXPATHLEN];
+                	    if(realpath(ofiles[i].file_name, resolvedname) !=
+			       NULL)
+				printf("[Logging for Build & Integration] Used "
+				       "static archive: %s\n", resolvedname);
+			    else
+				printf("[Logging for Build & Integration] Used "
+				       "static archive: %s\n",
+				       ofiles[i].file_name);
 			    rc_trace_archive_printed = TRUE;
 			}
 			/* loop through archive */
@@ -1149,6 +1230,7 @@ void)
 			    while(flag == TRUE){
 				/* No fat members in a fat file */
 				if(ofiles[i].mh != NULL ||
+				   ofiles[i].mh64 != NULL ||
 				   cmd_flags.ranlib == TRUE)
 				    add_member(ofiles + i);
 				else{
@@ -1193,8 +1275,13 @@ void)
 		if(cmd_flags.rc_trace_archives == TRUE &&
 		   cmd_flags.dynamic == FALSE &&
 		   rc_trace_archive_printed == FALSE){
-		    printf("[Logging for Build & Integration] Used static "
-			   "archive: %s\n", ofiles[i].file_name);
+		    char resolvedname[MAXPATHLEN];
+		    if(realpath(ofiles[i].file_name, resolvedname) != NULL)
+			printf("[Logging for Build & Integration] Used static "
+			       "archive: %s\n", resolvedname);
+		    else
+			printf("[Logging for Build & Integration] Used static "
+			       "archive: %s\n", ofiles[i].file_name);
 		    rc_trace_archive_printed = TRUE;
 		}
 		/* loop through archive */
@@ -1209,6 +1296,7 @@ void)
 			    (void)ofile_first_arch(ofiles + i);
 			    do{
 				if(ofiles[i].mh != NULL ||
+				   ofiles[i].mh64 != NULL ||
 				   cmd_flags.ranlib == TRUE){
 				    add_member(ofiles + i);
 				}
@@ -1229,6 +1317,7 @@ void)
 			    }while(ofile_next_arch(ofiles + i) == TRUE);
 			}
 			else if(ofiles[i].mh != NULL ||
+			        ofiles[i].mh64 != NULL ||
 				cmd_flags.ranlib == TRUE){
 			    add_member(ofiles + i);
 			}
@@ -1271,7 +1360,8 @@ void)
 		if(narchs > 1){
 		    for(j = 0; j < narchs; j++){
 			for(k = 0; k < archs[j].nmembers; k++){
-			    if(archs[j].members[k].mh == NULL){
+			    if(archs[j].members[k].mh == NULL &&
+			       archs[j].members[k].mh64 == NULL){
 				error("library member: %s(%.*s) is not an "
 				      "object file (not allowed in a library "
 				      "with multiple architectures)",
@@ -1461,8 +1551,6 @@ struct ofile *ofile)
     char *p, c, ar_name_buf[sizeof(ofile->member_ar_hdr->ar_name) + 1];
     char ar_size_buf[sizeof(ofile->member_ar_hdr->ar_size) + 1];
     const struct arch_flag *family_arch_flag;
-    long k;
-    enum bool has_space_in_name;
 
 	/*
 	 * If this did not come from an archive get the stat info which is
@@ -1478,26 +1566,26 @@ struct ofile *ofile)
 	/*
 	 * Determine the size this member will have in the library which
 	 * includes the padding as a result of rounding the size of the
-	 * member.  To get all members on a 4 byte boundary (so that mapping
+	 * member.  To get all members on an 8 byte boundary (so that mapping
 	 * in object files can be used directly) the size of the member is
 	 * CHANGED to reflect this padding.  In the UNIX definition of archives
 	 * the size of the member is never changed but the offset to the next
 	 * member is defined to be the offset of the previous member plus
-	 * the size of the previous member rounded to 2.  So to get 4 byte
+	 * the size of the previous member rounded to 2.  So to get 8 byte
 	 * boundaries without breaking the UNIX definition of archives the
 	 * size is changed here.  As with the UNIX ar(1) program the padded
 	 * bytes are set to the character '\n'.
 	 */
-	if(ofile->mh != NULL)
-	    size = round(ofile->object_size, sizeof(long));
-	else{
-	    size = round(ofile->member_size, sizeof(long));
-	}
+	if(ofile->mh != NULL || ofile->mh64 != NULL)
+	    size = round(ofile->object_size, 8);
+	else
+	    size = round(ofile->member_size, 8);
 
 	/* select or create an arch type to put this in */
 	i = 0;
-	if(ofile->mh != NULL){
-	    if(ofile->mh->cputype == 0){
+	if(ofile->mh != NULL ||
+	   ofile->mh64 != NULL){
+	    if(ofile->mh_cputype == 0){
 		if(ofile->member_ar_hdr != NULL){
 		    error("file: %s(%.*s) cputype is zero (a reserved value)",
 			  ofile->file_name, (int)ofile->member_name_size,
@@ -1511,12 +1599,12 @@ struct ofile *ofile)
 	    /*
 	     * If we are building a dynamic library then don't add dynamic
 	     * shared libraries to the archs.  This is so that a dependent
-	     * dynamic shared library this happens to be fat will not cause the
+	     * dynamic shared library that happens to be fat will not cause the
 	     * library to be created fat unless there are object going into
 	     * the library that are fat.
 	     */
-	    if(ofile->mh->filetype == MH_DYLIB ||
-	       ofile->mh->filetype == MH_DYLIB_STUB){
+	    if(ofile->mh_filetype == MH_DYLIB ||
+	       ofile->mh_filetype == MH_DYLIB_STUB){
 		/*
 		 * If we are building a static library we should not put a
 		 * dynamic library Mach-O file into the static library.  This
@@ -1541,11 +1629,11 @@ struct ofile *ofile)
 	     * the architecture specified.
 	     */
 	    if(cmd_flags.arch_only_flag.name != NULL &&
-	       cmd_flags.arch_only_flag.cputype != ofile->mh->cputype)
+	       cmd_flags.arch_only_flag.cputype != ofile->mh_cputype)
 		return;
 
 	    for( ; i < narchs; i++){
-		if(archs[i].arch_flag.cputype == ofile->mh->cputype)
+		if(archs[i].arch_flag.cputype == ofile->mh_cputype)
 		    break;
 	    }
 	}
@@ -1555,9 +1643,10 @@ struct ofile *ofile)
 	else if(i == narchs){
 	    archs = reallocate(archs, sizeof(struct arch) * (narchs+1));
 	    memset(archs + narchs, '\0', sizeof(struct arch));
-	    if(ofile->mh != NULL){
+	    if(ofile->mh != NULL ||
+	       ofile->mh64 != NULL){
 		family_arch_flag =
-			get_arch_family_from_cputype(ofile->mh->cputype);
+			get_arch_family_from_cputype(ofile->mh_cputype);
 		if(family_arch_flag != NULL)
 		    archs[narchs].arch_flag = *family_arch_flag;
 	    }
@@ -1571,8 +1660,9 @@ struct ofile *ofile)
 	 * If the cputype of this arch is not yet known then see if this new
 	 * member can determine it.
 	 */
-	if(arch->arch_flag.cputype == 0 && ofile->mh != NULL){
-	    family_arch_flag = get_arch_family_from_cputype(ofile->mh->cputype);
+	if(arch->arch_flag.cputype == 0 &&
+	   (ofile->mh != NULL || ofile->mh64 != NULL)){
+	    family_arch_flag = get_arch_family_from_cputype(ofile->mh_cputype);
 	    if(family_arch_flag != NULL){
 		arch->arch_flag = *family_arch_flag;
 	    }
@@ -1581,9 +1671,9 @@ struct ofile *ofile)
                     savestr("cputype 1234567890 cpusubtype 1234567890");
                 if(arch->arch_flag.name != NULL)
                     sprintf(arch->arch_flag.name, "cputype %u cpusubtype %u",  
-                            ofile->mh->cputype, ofile->mh->cpusubtype);
-                    arch->arch_flag.cputype = ofile->mh->cputype;
-                    arch->arch_flag.cpusubtype = ofile->mh->cpusubtype;
+                            ofile->mh_cputype, ofile->mh_cpusubtype);
+                    arch->arch_flag.cputype = ofile->mh_cputype;
+                    arch->arch_flag.cpusubtype = ofile->mh_cpusubtype;
 	    }
 	}
 
@@ -1612,21 +1702,22 @@ struct ofile *ofile)
 	    member->input_base_name_size = strlen(p);
 	    member->member_name = member->input_base_name;
 	    /*
-	     * If we can use long names then if the name does not fit in the
-	     * archive header or contains a space character then use the
-	     * extened format #1.  The size of the name is rounded up so the
-	     * object file after the name will be on a sizeof(unsigned long)
-	     * boundary.  The name will be padded with '\0's when it is
+	     * If we can use long names then force using them to allow 64-bit
+	     * objects to be aligned on an 8 byte boundary.  This is needed
+	     * since the struct ar_hdr is not a multiple of 8.  This is normally
+	     * done if the name does not fit in the archive header or contains
+	     * a space character then we use the extened format #1.  The size
+	     * of the name is rounded up so the object file after the name will
+	     * be on an 8 byte boundary (including rounding the size of the 
+	     * struct ar_hdr).  The name will be padded with '\0's when it is
 	     * written out.
 	     */
-	    if(cmd_flags.use_long_names == TRUE &&
-	       (member->input_base_name_size >
-					    sizeof(member->ar_hdr.ar_name) ||	
-	        strchr(member->input_base_name, ' ') != NULL)){
+	    if(cmd_flags.use_long_names == TRUE){
 		member->output_long_name = TRUE;
 		member->member_name_size = member->input_base_name_size;
-		ar_name_size = 
-		    round(member->input_base_name_size, sizeof(unsigned long));
+		ar_name_size = round(member->input_base_name_size, 8) +
+			       (round(sizeof(struct ar_hdr), 8) -
+				sizeof(struct ar_hdr));
 		sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
 			(int)(sizeof(member->ar_hdr.ar_name) -
 			      (sizeof(AR_EFMT1) - 1)), ar_name_size);
@@ -1673,11 +1764,10 @@ struct ofile *ofile)
 	     * We are creating an archive member in the output file from an
 	     * archive member in an input file.  There can be some changes to
 	     * the contents.  First the size might be changed and the contents
-	     * padded with '\n's to round it to a multiple of sizeof(unsigned
-	     * long).  Second we may take a member using extended format #1
+	     * padded with '\n's to round it to a multiple of 8
+	     * Second we may take a member using extended format #1
 	     * for it's name and truncate it then place the name in the archive
-	     * header.  Or we may round the name size to a multiple of
-	     * sizeof(unsigned long).
+	     * header.  Or we may round the name size to a multiple of 8.
 	     */
 	    member->input_ar_hdr = ofile->member_ar_hdr;
 	    member->input_base_name = ofile->member_name;
@@ -1689,15 +1779,25 @@ struct ofile *ofile)
 	    if(cmd_flags.use_long_names == TRUE){
 		/*
 		 * We can use long names.  So if the input ofile is using the
-		 * extended format #1 we need make sure the size of the name is
-		 * rounded to sizeof(unsigned long) and write that size into the
-		 * ar_name with the AR_EFMT1 string.
+		 * extended format #1 we need make sure the size of the name and
+		 * the size of struct ar_hdr are rounded to 8 bytes. And write
+		 * that size into the ar_name with the AR_EFMT1 string.  To
+		 * avoid growing the size of names first trim the long name size
+		 * before rounding up.
 		 */
 		if(ofile->member_name != ofile->member_ar_hdr->ar_name){
 		    member->output_long_name = TRUE;
 		    member->member_name_size = ofile->member_name_size;
-		    ar_name_size = round(ofile->member_name_size,
-					 sizeof(unsigned long));
+		    for(ar_name_size = member->member_name_size;
+			ar_name_size > 1 ;
+			ar_name_size--){
+			if(ofile->member_name[ar_name_size - 1] != '\0')
+			   break;
+		    }
+		    member->member_name_size = ar_name_size;
+		    ar_name_size = round(ar_name_size, 8) +
+				   (round(sizeof(struct ar_hdr), 8) -
+				    sizeof(struct ar_hdr));
 		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
 			    (int)(sizeof(member->ar_hdr.ar_name) -
 				  (sizeof(AR_EFMT1) - 1)), ar_name_size);
@@ -1706,34 +1806,20 @@ struct ofile *ofile)
 		}
 		else{
 		    /*
-		     * Check for names with spaces in ar_name, if it has spaces
-		     * in the name convert it to extended format #1.
+		     * Since we can use long names force this to use extended
+		     * format #1. And round the name size to 8 plus the size of
+		     * struct ar_hdr rounded to 8 bytes.
 		     */
-		    for(k = sizeof(member->ar_hdr.ar_name) - 1 ; k > 0 ; k--)
-			if(ofile->member_name[k] != ' ')
-			    break;
-		    has_space_in_name = FALSE;
-		    for( ; k > 0 ; k--){
-			if(ofile->member_name[k] == ' '){
-			    has_space_in_name = TRUE;
-			    break;
-			}
-		    }
 		    member->member_name_size = size_ar_name(&member->ar_hdr);
-		    if(has_space_in_name == TRUE){
-			ar_name_size = round(member->member_name_size,
-					     sizeof(unsigned long));
-			member->output_long_name = TRUE;
-			sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
-				(int)(sizeof(member->ar_hdr.ar_name) -
-				      (sizeof(AR_EFMT1) - 1)), ar_name_size);
-			memcpy(member->ar_hdr.ar_name, ar_name_buf,
-			      sizeof(member->ar_hdr.ar_name));
-		    }
-		    else{
-			ar_name_size = 0;
-			member->output_long_name = FALSE;
-		    }
+		    ar_name_size = round(ofile->member_name_size, 8) +
+				   (round(sizeof(struct ar_hdr), 8) -
+				    sizeof(struct ar_hdr));
+		    member->output_long_name = TRUE;
+		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
+			    (int)(sizeof(member->ar_hdr.ar_name) -
+				  (sizeof(AR_EFMT1) - 1)), ar_name_size);
+		    memcpy(member->ar_hdr.ar_name, ar_name_buf,
+			  sizeof(member->ar_hdr.ar_name));
 		}
 	    }
 	    else{
@@ -1770,11 +1856,13 @@ struct ofile *ofile)
 	member->offset = arch->size;
 	arch->size += sizeof(struct ar_hdr) + size + ar_name_size;
 
-	if(ofile->mh != NULL){
+	if(ofile->mh != NULL ||
+	   ofile->mh64 != NULL){
 	    member->object_addr = ofile->object_addr;
 	    member->object_size = ofile->object_size;
 	    member->object_byte_sex = ofile->object_byte_sex;
 	    member->mh = ofile->mh;
+	    member->mh64 = ofile->mh64;
 	    member->load_commands = ofile->load_commands;
 	}
 	else{
@@ -1837,11 +1925,13 @@ char *output)
 #endif
     struct stat stat_buf;
     struct ar_hdr toc_ar_hdr;
+    enum bool some_tocs;
 
 	if(narchs == 0){
 	    if(cmd_flags.ranlib == TRUE){
-		warning("empty library: %s (no table of contents added)",
-			output);
+		if(cmd_flags.q == FALSE)
+		    warning("empty library: %s (no table of contents added)",
+			    output);
 		return;
 	    }
 	    else{
@@ -1870,17 +1960,40 @@ char *output)
 	if(narchs > 1){
 	    library_size = sizeof(struct fat_header) +
 			   sizeof(struct fat_arch) * narchs;
+	    /*
+	     * The ar(1) program uses the -q flag to ranlib(1) to add a table
+	     * of contents only of the output is not a fat file.  This is done
+	     * by default for UNIX standards conformance when the files are
+	     * thin .o files.
+	     */
+	    if(cmd_flags.q == TRUE)
+		exit(EXIT_SUCCESS);
+	    /*
+	     * The ar(1) program uses the -f to ranlib(1) when it see the 's'
+	     * option.  And if we are creating a fat file issue a warning that
+	     * ar(1) will not be able to use it.
+	     */
 	    if(cmd_flags.f == TRUE)
 		warning("archive library: %s will be fat and ar(1) will not "
 			"be able to operate on it", output);
 	}
 	else
 	    library_size = 0;
+	some_tocs = FALSE;
 	for(i = 0; i < narchs; i++){
 	    make_table_of_contents(archs + i, output);
+	    if(archs[i].toc_nranlibs != 0)
+		some_tocs = TRUE;
 	    archs[i].size += SARMAG + archs[i].toc_size;
 	    library_size += archs[i].size;
 	}
+	/*
+	 * The ar(1) program uses the -q flag to ranlib(1) to add a table of
+	 * contents only of the output contains some object files.  This is
+	 * done for UNIX standards conformance.
+	 */
+	if(cmd_flags.q == TRUE && some_tocs == FALSE)
+	    exit(EXIT_SUCCESS);
 
 	/*
 	 * This buffer is vm_allocate'ed to make sure all holes are filled with
@@ -1949,7 +2062,7 @@ char *output)
 	     * Warn for what really is a bad library that has an empty table of
 	     * contents but this is allowed in the original ranlib.
 	     */
-	    if(arch->toc_nranlibs == 0){
+	    if(arch->toc_nranlibs == 0 && cmd_flags.q == FALSE){
 		if(narchs > 1)
 		    warning("warning for library: %s for architecture: %s the "
 			    "table of contents is empty (no object file members"
@@ -1990,7 +2103,9 @@ char *output)
 
 	    if(arch->toc_long_name == TRUE){
 		memcpy(p, arch->toc_name, arch->toc_name_size);
-		p += arch->toc_name_size;
+		p += arch->toc_name_size +
+		     (round(sizeof(struct ar_hdr), 8) -
+		      sizeof(struct ar_hdr));
 	    }
 
 	    l = arch->toc_nranlibs * sizeof(struct ranlib);
@@ -2031,8 +2146,9 @@ char *output)
 		if(arch->members[j].output_long_name == TRUE){
 		    strncpy(p, arch->members[j].member_name,
 			    arch->members[j].member_name_size);
-		    p += round(arch->members[j].member_name_size,
-			       sizeof(unsigned long));
+		    p += round(arch->members[j].member_name_size, 8) +
+			       (round(sizeof(struct ar_hdr), 8) -
+				sizeof(struct ar_hdr));
 		}
 
 		/*
@@ -2046,10 +2162,16 @@ char *output)
 		       arch->members[j].load_commands) == FALSE)
 			fatal("internal error: swap_object_headers() failed");
 		}
+		else if(arch->members[j].mh64 != NULL &&
+		   arch->members[j].object_byte_sex != host_byte_sex){
+		    if(swap_object_headers(arch->members[j].mh64,
+		       arch->members[j].load_commands) == FALSE)
+			fatal("internal error: swap_object_headers() failed");
+		}
 		memcpy(p, arch->members[j].object_addr, 
 		       arch->members[j].object_size);
 		p += arch->members[j].object_size;
-		pad = round(arch->members[j].object_size, sizeof(long)) -
+		pad = round(arch->members[j].object_size, 8) -
 		      arch->members[j].object_size;
 		/* as with the UNIX ar(1) program pad with '\n' characters */
 		for(k = 0; k < pad; k++)
@@ -2234,7 +2356,10 @@ char *output)
 	 */
 	for(i = 0; i < narchs || (i == 0 && narchs == 0); i++){
 	    reset_execute_list();
-	    add_execute_list("ld");
+	    if((archs[i].arch_flag.cputype & CPU_ARCH_ABI64) == CPU_ARCH_ABI64)
+		add_execute_list("ld64");
+	    else
+		add_execute_list("ld");
 	    if(narchs != 0 && cmd_flags.arch_only_flag.name == NULL)
 		add_execute_list("-arch_multiple");
 	    if(archs != NULL){
@@ -2399,26 +2524,35 @@ make_table_of_contents(
 struct arch *arch,
 char *output)
 {
-    unsigned long i, j, k, r, s, nsects;
+    unsigned long i, j, k, r, s, nsects, ncmds, n_strx;
     struct member *member;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct nlist *symbols;
+    struct nlist_64 *symbols64;
     char *strings;
-    enum bool sorted;
+    enum bool sorted, is_toc_symbol;
     char *ar_name;
     struct section *section;
+    struct section_64 *section64;
 
+	symbols = NULL;
+	symbols64 = NULL;
 	/*
 	 * First pass over the members to count how many ranlib structs are
 	 * needed and the size of the strings in the toc that are needed.
 	 */
 	for(i = 0; i < arch->nmembers; i++){
 	    member = arch->members + i;
-	    if(member->mh != NULL){
+	    if(member->mh != NULL || member->mh64 != NULL){
 		nsects = 0;
 		lc = member->load_commands;
-		for(j = 0; j < member->mh->ncmds; j++){
+		if(member->mh != NULL)
+		    ncmds = member->mh->ncmds;
+		else
+		    ncmds = member->mh64->ncmds;
+		for(j = 0; j < ncmds; j++){
 		    if(lc->cmd == LC_SYMTAB){
 			if(member->st == NULL)
 			    member->st = (struct symtab_command *)lc;
@@ -2427,41 +2561,75 @@ char *output)
 			sg = (struct segment_command *)lc;
 			nsects += sg->nsects;
 		    }
+		    else if(lc->cmd == LC_SEGMENT_64){
+			sg64 = (struct segment_command_64 *)lc;
+			nsects += sg64->nsects;
+		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
-		member->sections = allocate(nsects * sizeof(struct section *));
+		if(member->mh != NULL)
+		    member->sections = allocate(nsects *
+						sizeof(struct section *));
+		else
+		    member->sections64 = allocate(nsects *
+						  sizeof(struct section_64 *));
 		nsects = 0;
 		lc = member->load_commands;
-		for(j = 0; j < member->mh->ncmds; j++){
+		for(j = 0; j < ncmds; j++){
 		    if(lc->cmd == LC_SEGMENT){
-			sg = (struct segment_command *)lc;
+			sg = (segment_command_t *)lc;
 			section = (struct section *)
-				((char *)sg + sizeof(struct segment_command));
+				  ((char *)sg + sizeof(struct segment_command));
 			for(k = 0; k < sg->nsects; k++){
 			    member->sections[nsects++] = section++;
+			}
+		    }
+		    else if(lc->cmd == LC_SEGMENT_64){
+			sg64 = (struct segment_command_64 *)lc;
+			section64 = (struct section_64 *)
+			    ((char *)sg64 + sizeof(struct segment_command_64));
+			for(k = 0; k < sg64->nsects; k++){
+			    member->sections64[nsects++] = section64++;
 			}
 		    }
 		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		}
 		if(member->st != NULL && member->st->nsyms != 0){
-		    symbols = (struct nlist *)(member->object_addr +
-					       member->st->symoff);
-		    if(member->object_byte_sex != get_host_byte_sex())
-			swap_nlist(symbols, member->st->nsyms,
-				   get_host_byte_sex());
+		    if(member->mh != NULL){
+			symbols = (struct nlist *)(member->object_addr +
+					           member->st->symoff);
+			if(member->object_byte_sex != get_host_byte_sex())
+			    swap_nlist(symbols, member->st->nsyms,
+				       get_host_byte_sex());
+		    }
+		    else{
+			symbols64 = (struct nlist_64 *)(member->object_addr +
+					                member->st->symoff);
+			if(member->object_byte_sex != get_host_byte_sex())
+			    swap_nlist_64(symbols64, member->st->nsyms,
+				          get_host_byte_sex());
+		    }
 		    strings = member->object_addr + member->st->stroff;
 		    for(j = 0; j < member->st->nsyms; j++){
-			if((unsigned long)symbols[j].n_un.n_strx >
-			   member->st->strsize){
+			if(member->mh != NULL)
+			    n_strx = symbols[j].n_un.n_strx;
+			else
+			    n_strx = symbols64[j].n_un.n_strx;
+			if(n_strx > member->st->strsize){
 			    warn_member(arch, member, "malformed object (symbol"
 					" %lu n_strx field extends past the "
 					"end of the string table)", j);
 			    continue;
 			}
-			if(toc_symbol(symbols + j, member->sections) == TRUE){
+			if(member->mh != NULL)
+			    is_toc_symbol = toc_symbol(symbols + j,
+						       member->sections);
+			else
+			    is_toc_symbol = toc_symbol_64(symbols64 + j,
+						          member->sections64);
+			if(is_toc_symbol == TRUE){
 			    arch->toc_nranlibs++;
-			    arch->toc_strsize += strlen(strings +
-						    symbols[j].n_un.n_strx) + 1;
+			    arch->toc_strsize += strlen(strings + n_strx) + 1;
 			}
 		    }
 		}
@@ -2481,7 +2649,7 @@ char *output)
 	 * table of contents.
 	 */
 	arch->toc_ranlibs = allocate(sizeof(struct ranlib) *arch->toc_nranlibs);
-	arch->toc_strsize = round(arch->toc_strsize, sizeof(long));
+	arch->toc_strsize = round(arch->toc_strsize, 8);
 	arch->toc_strings = allocate(arch->toc_strsize);
 
 	/*
@@ -2497,27 +2665,46 @@ char *output)
 	s = 0;
 	for(i = 0; i < arch->nmembers; i++){
 	    member = arch->members + i;
-	    if(member->mh != NULL){
+	    if(member->mh != NULL || member->mh64 != NULL){
 		if(member->st != NULL && member->st->nsyms != 0){
-		    symbols = (struct nlist *)(member->object_addr +
-					       member->st->symoff);
+		    if(member->mh != NULL)
+			symbols = (struct nlist *)(member->object_addr +
+					           member->st->symoff);
+		    else
+			symbols64 = (struct nlist_64 *)(member->object_addr +
+					                member->st->symoff);
 		    strings = member->object_addr + member->st->stroff;
 		    for(j = 0; j < member->st->nsyms; j++){
-			if(symbols[j].n_un.n_strx > (long)member->st->strsize)
+			if(member->mh != NULL)
+			    n_strx = symbols[j].n_un.n_strx;
+			else
+			    n_strx = symbols64[j].n_un.n_strx;
+			if(n_strx > member->st->strsize)
 			    continue;
-			if(toc_symbol(symbols + j, member->sections) == TRUE){
+			if(member->mh != NULL)
+			    is_toc_symbol = toc_symbol(symbols + j,
+						       member->sections);
+			else
+			    is_toc_symbol = toc_symbol_64(symbols64 + j,
+						          member->sections64);
+			if(is_toc_symbol == TRUE){
 			    strcpy(arch->toc_strings + s, 
-				   strings + symbols[j].n_un.n_strx);
+				   strings + n_strx);
 			    arch->toc_ranlibs[r].ran_un.ran_name =
 							arch->toc_strings + s;
 			    arch->toc_ranlibs[r].ran_off = i + 1;
 			    r++;
-			    s += strlen(strings + symbols[j].n_un.n_strx) + 1;
+			    s += strlen(strings + n_strx) + 1;
 			}
 		    }
-		    if(member->object_byte_sex != get_host_byte_sex())
-			swap_nlist(symbols, member->st->nsyms,
-				   get_host_byte_sex());
+		    if(member->object_byte_sex != get_host_byte_sex()){
+			if(member->mh != NULL)
+			    swap_nlist(symbols, member->st->nsyms,
+				       member->object_byte_sex);
+			else
+			    swap_nlist_64(symbols64, member->st->nsyms,
+				          member->object_byte_sex);
+		    }
 		}
 	    }
 	}
@@ -2529,7 +2716,7 @@ char *output)
 	if(cmd_flags.s == TRUE){
 	    qsort(arch->toc_ranlibs, arch->toc_nranlibs, sizeof(struct ranlib),
 		  (int (*)(const void *, const void *))ranlib_name_qsort);
-	    sorted = check_sort_ranlibs(arch, output);
+	    sorted = check_sort_ranlibs(arch, output, FALSE);
 	    if(sorted == FALSE){
 		qsort(arch->toc_ranlibs, arch->toc_nranlibs,
 		      sizeof(struct ranlib),
@@ -2543,14 +2730,18 @@ char *output)
 		/*
 		 * Since the SYMDEF_SORTED is "__.SYMDEF SORTED" which contains
 		 * a space, it should use extended format #1 if we can use long
-		 * names.  This code assumes SYMDEF_SORTED contains a space and
-		 * the size (16) is a multiple of sizeof(unsigned long).
+		 * names. 
 		 */
 		arch->toc_name = SYMDEF_SORTED;
 		arch->toc_name_size = sizeof(SYMDEF_SORTED) - 1;
 		if(cmd_flags.use_long_names == TRUE){
 		    arch->toc_long_name = TRUE;
-		    ar_name = AR_EFMT1 "16";
+		    /*
+		     * This assumes that "__.SYMDEF SORTED" is 16 bytes and
+		     * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+		     * is 4 bytes.
+		     */
+		    ar_name = AR_EFMT1 "20";
 		}
 		else{
 		    arch->toc_long_name = FALSE;
@@ -2584,7 +2775,9 @@ char *output)
 			 arch->toc_strsize;
 	/* add the size of the name is a long name is used */
 	if(arch->toc_long_name == TRUE)
-	    arch->toc_size += arch->toc_name_size;
+	    arch->toc_size += arch->toc_name_size +
+			      (round(sizeof(struct ar_hdr), 8) -
+			       sizeof(struct ar_hdr));
 	for(i = 0; i < arch->nmembers; i++)
 	    arch->members[i].offset += SARMAG + arch->toc_size;
 	for(i = 0; i < arch->toc_nranlibs; i++){
@@ -2654,22 +2847,49 @@ toc_symbol(
 struct nlist *symbol,
 struct section **sections)
 {
+	return(toc(symbol->n_un.n_strx,
+		   symbol->n_type,
+		   symbol->n_value,
+		   (symbol->n_type & N_TYPE) == N_SECT &&
+		       sections[symbol->n_sect - 1]->flags & S_ATTR_NO_TOC));
+}
+
+static
+enum bool
+toc_symbol_64(
+struct nlist_64 *symbol64,
+struct section_64 **sections64)
+{
+	return(toc(symbol64->n_un.n_strx,
+		   symbol64->n_type,
+		   symbol64->n_value,
+		   (symbol64->n_type & N_TYPE) == N_SECT &&
+		       sections64[symbol64->n_sect-1]->flags & S_ATTR_NO_TOC));
+}
+
+static
+enum bool
+toc(
+uint32_t n_strx,
+uint8_t n_type,
+uint64_t n_value,
+enum bool attr_no_toc)
+{
 	/* if the name is NULL then it won't be in the table of contents */
-	if(symbol->n_un.n_strx == 0)
+	if(n_strx == 0)
 	    return(FALSE);
 	/* if symbol is not external then it won't be in the toc */
-	if((symbol->n_type & N_EXT) == 0)
+	if((n_type & N_EXT) == 0)
 	    return(FALSE);
 	/* if symbol is undefined then it won't be in the toc */
-	if((symbol->n_type & N_TYPE) == N_UNDF && symbol->n_value == 0)
+	if((n_type & N_TYPE) == N_UNDF && n_value == 0)
 	    return(FALSE);
 	/* if symbol is common and the -c flag is not specified then ... */
-	if((symbol->n_type & N_TYPE) == N_UNDF && symbol->n_value != 0 &&
+	if((n_type & N_TYPE) == N_UNDF && n_value != 0 &&
 	   cmd_flags.c == FALSE)
 	    return(FALSE);
 	/* if the symbols is in a section marked NO_TOC then ... */
-	if((symbol->n_type & N_TYPE) == N_SECT &&
-	   (sections[symbol->n_sect - 1]->flags & S_ATTR_NO_TOC) != 0)
+	if(attr_no_toc != 0)
 	    return(FALSE);
 
 	return(TRUE);
@@ -2686,7 +2906,8 @@ static
 enum bool
 check_sort_ranlibs(
 struct arch *arch,
-char *output)
+char *output,
+enum bool library_warnings)
 {
     unsigned long i;
     enum bool multiple_defs;
@@ -2704,6 +2925,8 @@ char *output)
 	    if(strcmp(arch->toc_ranlibs[i].ran_un.ran_name,
 		      arch->toc_ranlibs[i+1].ran_un.ran_name) == 0){
 		if(multiple_defs == FALSE){
+		    if(library_warnings == FALSE)
+			return(FALSE);
 		    fprintf(stderr, "%s: same symbol defined in more than one "
 			    "member ", progname);
 		    if(narchs > 1)

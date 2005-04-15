@@ -24,6 +24,7 @@
 #define __private_extern__ __declspec(private_extern)
 #endif
 
+#include "stuff/target_arch.h"
 #import "stuff/ofile.h"
 
 /*
@@ -110,7 +111,12 @@ struct object {
     char *object_addr;		    /* the address of the object file */
     unsigned long object_size;	    /* the size of the object file on input */
     enum byte_sex object_byte_sex;  /* the byte sex of the object file */
-    struct mach_header *mh;	    /* the mach_header of the object file */
+    struct mach_header *mh;	    /* the mach_header of 32-bit object file */
+    struct mach_header_64 *mh64;    /* the mach_header of 64-bit object file */
+    /* these copied from the mach header above */
+    cpu_type_t mh_cputype;	    /* cpu specifier */
+    cpu_subtype_t mh_cpusubtype;    /* machine specifier */
+    uint32_t mh_filetype;	    /* type of file */
     struct load_command		    /* the start of the load commands */
 	*load_commands;
     struct symtab_command *st;	    /* the symbol table command */
@@ -119,8 +125,11 @@ struct object {
 	*hints_cmd;
     struct prebind_cksum_command *cs;/* the prebind check sum command */
     struct segment_command
-	*seg_linkedit;	    	    /* the link edit segment command */
-    struct section **sections;	    /* array of section structs */
+	*seg_linkedit;	    	    /* the 32-bit link edit segment command */
+    struct segment_command_64
+	*seg_linkedit64;    	    /* the 64-bit link edit segment command */
+    struct section **sections;	    /* array of 32-bit section structs */
+    struct section_64 **sections64; /* array of 64-bit section structs */
 
     /*
      * This is only used for redo_prebinding and is calculated by breakout()
@@ -134,6 +143,7 @@ struct object {
     unsigned long output_sym_info_size;
 
     struct nlist *output_symbols;
+    struct nlist_64 *output_symbols64;
     unsigned long output_nsymbols;
     char	 *output_strings;
     unsigned long output_strings_size;
@@ -150,10 +160,12 @@ struct object {
     struct relocation_info *output_loc_relocs;
     struct relocation_info *output_ext_relocs;
     unsigned long *output_indirect_symtab;
+    unsigned long *output_indirect_symtab64;
 
     struct dylib_table_of_contents *output_tocs;
     unsigned long output_ntoc;
     struct dylib_module *output_mods;
+    struct dylib_module_64 *output_mods64;
     unsigned long output_nmodtab;
     struct dylib_reference *output_refs;
     unsigned long output_nextrefsyms;
@@ -195,7 +207,8 @@ __private_extern__ void writeout_to_mem(
     unsigned long *length,
     enum bool sort_toc,
     enum bool commons_in_toc,
-    enum bool library_warnings);
+    enum bool library_warning,
+    enum bool *seen_archive);
 
 __private_extern__ void checkout(
     struct arch *archs,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2004, Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, Apple Computer, Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,20 +27,46 @@
  */
 /* byte_sex.c */
 #include <string.h>
+#include "stuff/target_arch.h"
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
-#import <mach/m68k/thread_status.h>
-#import <mach/ppc/thread_status.h>
-#import <mach/m88k/thread_status.h>
-#import <mach/i860/thread_status.h>
-#import <mach/i386/thread_status.h>
-#import <mach/hppa/thread_status.h>
-#import <mach/sparc/thread_status.h>
+#include <mach/m68k/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#include <mach/ppc/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#include <mach/m88k/thread_status.h>
+#include <mach/i860/thread_status.h>
+#include <mach/i386/thread_status.h>
+#include <mach/hppa/thread_status.h>
+#include <mach/sparc/thread_status.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include <mach-o/ranlib.h>
 #include "stuff/bool.h"
 #include "stuff/bytesex.h"
+
+__private_extern__
+long long
+SWAP_LONG_LONG(
+long long ll)
+{
+	union {
+	    char c[8];
+	    long long ll;
+	} in, out;
+	in.ll = ll;
+	out.c[0] = in.c[7];
+	out.c[1] = in.c[6];
+	out.c[2] = in.c[5];
+	out.c[3] = in.c[4];
+	out.c[4] = in.c[3];
+	out.c[5] = in.c[2];
+	out.c[6] = in.c[1];
+	out.c[7] = in.c[0];
+	return(out.ll);
+}
 
 __private_extern__
 double
@@ -153,6 +179,26 @@ enum byte_sex target_byte_sex)
 
 __private_extern__
 void
+swap_mach_header_64(
+struct mach_header_64 *mh,
+enum byte_sex target_byte_sex)
+{
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+	mh->magic = SWAP_LONG(mh->magic);
+	mh->cputype = SWAP_LONG(mh->cputype);
+	mh->cpusubtype = SWAP_LONG(mh->cpusubtype);
+	mh->filetype = SWAP_LONG(mh->filetype);
+	mh->ncmds = SWAP_LONG(mh->ncmds);
+	mh->sizeofcmds = SWAP_LONG(mh->sizeofcmds);
+	mh->flags = SWAP_LONG(mh->flags);
+	mh->reserved = SWAP_LONG(mh->reserved);
+}
+
+__private_extern__
+void
 swap_load_command(
 struct load_command *lc,
 enum byte_sex target_byte_sex)
@@ -190,6 +236,29 @@ enum byte_sex target_byte_sex)
 
 __private_extern__
 void
+swap_segment_command_64(
+struct segment_command_64 *sg,
+enum byte_sex target_byte_sex)
+{
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+	/* segname[16] */
+	sg->cmd = SWAP_LONG(sg->cmd);
+	sg->cmdsize = SWAP_LONG(sg->cmdsize);
+	sg->vmaddr = SWAP_LONG_LONG(sg->vmaddr);
+	sg->vmsize = SWAP_LONG_LONG(sg->vmsize);
+	sg->fileoff = SWAP_LONG_LONG(sg->fileoff);
+	sg->filesize = SWAP_LONG_LONG(sg->filesize);
+	sg->maxprot = SWAP_LONG(sg->maxprot);
+	sg->initprot = SWAP_LONG(sg->initprot);
+	sg->nsects = SWAP_LONG(sg->nsects);
+	sg->flags = SWAP_LONG(sg->flags);
+}
+
+__private_extern__
+void
 swap_section(
 struct section *s,
 unsigned long nsects,
@@ -206,6 +275,34 @@ enum byte_sex target_byte_sex)
 	    /* segname[16] */
 	    s[i].addr = SWAP_LONG(s[i].addr);
 	    s[i].size = SWAP_LONG(s[i].size);
+	    s[i].offset = SWAP_LONG(s[i].offset);
+	    s[i].align = SWAP_LONG(s[i].align);
+	    s[i].reloff = SWAP_LONG(s[i].reloff);
+	    s[i].nreloc = SWAP_LONG(s[i].nreloc);
+	    s[i].flags = SWAP_LONG(s[i].flags);
+	    s[i].reserved1 = SWAP_LONG(s[i].reserved1);
+	    s[i].reserved2 = SWAP_LONG(s[i].reserved2);
+	}
+}
+
+__private_extern__
+void
+swap_section_64(
+struct section_64 *s,
+unsigned long nsects,
+enum byte_sex target_byte_sex)
+{
+    unsigned long i;
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+
+	for(i = 0; i < nsects; i++){
+	    /* sectname[16] */
+	    /* segname[16] */
+	    s[i].addr = SWAP_LONG_LONG(s[i].addr);
+	    s[i].size = SWAP_LONG_LONG(s[i].size);
 	    s[i].offset = SWAP_LONG(s[i].offset);
 	    s[i].align = SWAP_LONG(s[i].align);
 	    s[i].reloff = SWAP_LONG(s[i].reloff);
@@ -545,7 +642,54 @@ enum byte_sex target_byte_sex)
 	cpu->lr  = SWAP_LONG(cpu->lr);
 	cpu->ctr = SWAP_LONG(cpu->ctr);
 	cpu->mq =  SWAP_LONG(cpu->mq);
-	cpu->pad = SWAP_LONG(cpu->pad);
+	cpu->vrsave = SWAP_LONG(cpu->vrsave);
+}
+
+__private_extern__
+void
+swap_ppc_thread_state64_t(
+ppc_thread_state64_t *cpu,
+enum byte_sex target_byte_sex)
+{
+	cpu->srr0 = SWAP_LONG_LONG(cpu->srr0);
+	cpu->srr1 = SWAP_LONG_LONG(cpu->srr1);
+	cpu->r0 = SWAP_LONG_LONG(cpu->r0);
+	cpu->r1 = SWAP_LONG_LONG(cpu->r1);
+	cpu->r2 = SWAP_LONG_LONG(cpu->r2);
+	cpu->r3 = SWAP_LONG_LONG(cpu->r3);
+	cpu->r4 = SWAP_LONG_LONG(cpu->r4);
+	cpu->r5 = SWAP_LONG_LONG(cpu->r5);
+	cpu->r6 = SWAP_LONG_LONG(cpu->r6);
+	cpu->r7 = SWAP_LONG_LONG(cpu->r7);
+	cpu->r8 = SWAP_LONG_LONG(cpu->r8);
+	cpu->r9 = SWAP_LONG_LONG(cpu->r9);
+	cpu->r10 = SWAP_LONG_LONG(cpu->r10);
+	cpu->r11 = SWAP_LONG_LONG(cpu->r11);
+	cpu->r12 = SWAP_LONG_LONG(cpu->r12);
+	cpu->r13 = SWAP_LONG_LONG(cpu->r13);
+	cpu->r14 = SWAP_LONG_LONG(cpu->r14);
+	cpu->r15 = SWAP_LONG_LONG(cpu->r15);
+	cpu->r16 = SWAP_LONG_LONG(cpu->r16);
+	cpu->r17 = SWAP_LONG_LONG(cpu->r17);
+	cpu->r18 = SWAP_LONG_LONG(cpu->r18);
+	cpu->r19 = SWAP_LONG_LONG(cpu->r19);
+	cpu->r20 = SWAP_LONG_LONG(cpu->r20);
+	cpu->r21 = SWAP_LONG_LONG(cpu->r21);
+	cpu->r22 = SWAP_LONG_LONG(cpu->r22);
+	cpu->r23 = SWAP_LONG_LONG(cpu->r23);
+	cpu->r24 = SWAP_LONG_LONG(cpu->r24);
+	cpu->r25 = SWAP_LONG_LONG(cpu->r25);
+	cpu->r26 = SWAP_LONG_LONG(cpu->r26);
+	cpu->r27 = SWAP_LONG_LONG(cpu->r27);
+	cpu->r28 = SWAP_LONG_LONG(cpu->r28);
+	cpu->r29 = SWAP_LONG_LONG(cpu->r29);
+	cpu->r30 = SWAP_LONG_LONG(cpu->r30);
+	cpu->r31 = SWAP_LONG_LONG(cpu->r31);
+	cpu->cr  = SWAP_LONG(cpu->cr);
+	cpu->xer = SWAP_LONG_LONG(cpu->xer);
+	cpu->lr  = SWAP_LONG_LONG(cpu->lr);
+	cpu->ctr = SWAP_LONG_LONG(cpu->ctr);
+	cpu->vrsave =  SWAP_LONG(cpu->vrsave);
 }
 
 __private_extern__
@@ -1693,6 +1837,28 @@ enum byte_sex target_byte_sex)
 
 __private_extern__
 void
+swap_routines_command_64(
+struct routines_command_64 *r_cmd,
+enum byte_sex target_byte_sex)
+{
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+	r_cmd->cmd = SWAP_LONG(r_cmd->cmd);
+	r_cmd->cmdsize = SWAP_LONG(r_cmd->cmdsize);
+	r_cmd->init_address = SWAP_LONG_LONG(r_cmd->init_address);
+	r_cmd->init_module = SWAP_LONG_LONG(r_cmd->init_module);
+	r_cmd->reserved1 = SWAP_LONG_LONG(r_cmd->reserved1);
+	r_cmd->reserved2 = SWAP_LONG_LONG(r_cmd->reserved2);
+	r_cmd->reserved3 = SWAP_LONG_LONG(r_cmd->reserved3);
+	r_cmd->reserved4 = SWAP_LONG_LONG(r_cmd->reserved4);
+	r_cmd->reserved5 = SWAP_LONG_LONG(r_cmd->reserved5);
+	r_cmd->reserved6 = SWAP_LONG_LONG(r_cmd->reserved6);
+}
+
+__private_extern__
+void
 swap_twolevel_hints_command(
 struct twolevel_hints_command *hints_cmd,
 enum byte_sex target_byte_sex)
@@ -1780,6 +1946,28 @@ enum byte_sex target_byte_sex)
 	    /* n_sect */
 	    symbols[i].n_desc = SWAP_SHORT(symbols[i].n_desc);
 	    symbols[i].n_value = SWAP_LONG(symbols[i].n_value);
+	}
+}
+
+__private_extern__
+void
+swap_nlist_64(
+struct nlist_64 *symbols,
+unsigned long nsymbols,
+enum byte_sex target_byte_sex)
+{
+    unsigned long i;
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+
+	for(i = 0; i < nsymbols; i++){
+	    symbols[i].n_un.n_strx = SWAP_LONG(symbols[i].n_un.n_strx);
+	    /* n_type */
+	    /* n_sect */
+	    symbols[i].n_desc = SWAP_SHORT(symbols[i].n_desc);
+	    symbols[i].n_value = SWAP_LONG_LONG(symbols[i].n_value);
 	}
 }
 
@@ -1961,6 +2149,38 @@ enum byte_sex target_byte_sex)
 				  SWAP_LONG(mods[i].objc_module_info_addr);
 	    mods[i].objc_module_info_size =
 				  SWAP_LONG(mods[i].objc_module_info_size);
+	}
+}
+
+__private_extern__
+void
+swap_dylib_module_64(
+struct dylib_module_64 *mods,
+unsigned long nmods,
+enum byte_sex target_byte_sex)
+{
+    unsigned long i;
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+
+	for(i = 0; i < nmods; i++){
+	    mods[i].module_name = SWAP_LONG(mods[i].module_name);
+	    mods[i].iextdefsym  = SWAP_LONG(mods[i].iextdefsym);
+	    mods[i].nextdefsym  = SWAP_LONG(mods[i].nextdefsym);
+	    mods[i].irefsym     = SWAP_LONG(mods[i].irefsym);
+	    mods[i].nrefsym     = SWAP_LONG(mods[i].nrefsym);
+	    mods[i].ilocalsym   = SWAP_LONG(mods[i].ilocalsym);
+	    mods[i].nlocalsym   = SWAP_LONG(mods[i].nlocalsym);
+	    mods[i].iextrel     = SWAP_LONG(mods[i].iextrel);
+	    mods[i].nextrel     = SWAP_LONG(mods[i].nextrel);
+	    mods[i].iinit_iterm = SWAP_LONG(mods[i].iinit_iterm);
+	    mods[i].ninit_nterm = SWAP_LONG(mods[i].ninit_nterm);
+	    mods[i].objc_module_info_addr =
+				  SWAP_LONG_LONG(mods[i].objc_module_info_addr);
+	    mods[i].objc_module_info_size =
+				  SWAP_LONG_LONG(mods[i].objc_module_info_size);
 	}
 }
 

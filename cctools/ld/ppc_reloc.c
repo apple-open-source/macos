@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass1.h"
@@ -58,13 +59,23 @@
 /*
  * ppc_reloc() relocates the contents of the specified section for the 
  * relocation entries using the section map from the current object (cur_obj).
+ *
+ * Or if refs is not NULL it is being called by to get the addresses or
+ * merged_symbols from the item being referenced by the relocation entry(s) at
+ * reloc_index. This is used by mark_fine_relocs_references_live() when
+ * -dead_strip is specified to determined what is being referenced and is only
+ * called when all sections have fine_relocs (that is why refs is only filled
+ * in when nfine_relocs != 0). When refs is not NULL, only refs is filled in
+ * and returned and the contents are not relocated.
  */
 __private_extern__
 void
 ppc_reloc(
 char *contents,
 struct relocation_info *relocs,
-struct section_map *section_map)
+struct section_map *section_map,
+struct live_refs *refs,
+unsigned long reloc_index)
 {
     unsigned long i, j, symbolnum, value, input_pc, output_pc;
     unsigned long instruction, immediate;
@@ -99,7 +110,11 @@ struct section_map *section_map)
 	pair_local_map = NULL;
 #endif /* defined(DEBUG) || defined(RLD) */
 
-	for(i = 0; i < section_map->s->nreloc; i++){
+	if(refs != NULL)
+	    memset(refs, '\0', sizeof(struct live_refs));
+	else
+	    reloc_index = 0;
+	for(i = reloc_index; i < section_map->s->nreloc; i++){
 	    br14_disp_sign = 0;
 	    force_extern_reloc = FALSE;
 	    /*
@@ -217,16 +232,16 @@ struct section_map *section_map)
 			pair_reloc  = NULL;
 			pair_r_type = (enum reloc_type_ppc)spair_reloc->r_type;
 			if(r_type == PPC_RELOC_JBSR)
-			    other_half  = spair_reloc->r_value;
+			    other_half = spair_reloc->r_value;
 			else
-			    other_half  = spair_reloc->r_address & 0xffff;
+			    other_half = spair_reloc->r_address & 0xffff;
 		    }
 		    else{
 			pair_r_type = (enum reloc_type_ppc)pair_reloc->r_type;
 			if(r_type == PPC_RELOC_JBSR)
-			    other_half  = pair_reloc->r_address;
+			    other_half = pair_reloc->r_address;
 			else
-			    other_half  = pair_reloc->r_address & 0xffff;
+			    other_half = pair_reloc->r_address & 0xffff;
 		    }
 		}
 		if((pair_reloc == NULL && spair_reloc == NULL) ||
@@ -239,6 +254,7 @@ struct section_map *section_map)
 		}
 	    }
 	    else if(r_type == PPC_RELOC_SECTDIFF ||
+		    r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 		    r_type == PPC_RELOC_HI16_SECTDIFF ||
 		    r_type == PPC_RELOC_LO16_SECTDIFF ||
 		    r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -258,7 +274,7 @@ struct section_map *section_map)
 			pair_reloc = NULL;
 			pair_r_type = (enum reloc_type_ppc)spair_reloc->r_type;
 			pair_r_value = spair_reloc->r_value;
-			other_half  = spair_reloc->r_address;
+			other_half = spair_reloc->r_address;
 		    }
 		    else{
 			error_with_cur_obj("relocation entry (%lu) in section "
@@ -355,7 +371,8 @@ struct section_map *section_map)
 			merged_symbol = *hash_pointer;
 		    }
 		    else{
-			if(nlists[symbolnum].n_type != (N_EXT | N_UNDF)){
+			if((nlists[symbolnum].n_type & N_EXT) != N_EXT ||
+			   (nlists[symbolnum].n_type & N_TYPE) != N_UNDF){
 			    error_with_cur_obj("r_symbolnum (%lu) field of "
 				"external relocation entry %lu in section "
 				"(%.16s,%.16s) refers to a non-undefined "
@@ -368,9 +385,10 @@ struct section_map *section_map)
 			    "in above file not in undefined map", symbolnum);
 		    }
 		}
-		if((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
-		   (get_output_section(merged_symbol->nlist.n_sect)->
-		    flags & SECTION_TYPE) == S_COALESCED){
+		if(refs == NULL && 
+		   ((merged_symbol->nlist.n_type & N_TYPE) == N_SECT &&
+		    (get_output_section(merged_symbol->nlist.n_sect)->
+		     flags & SECTION_TYPE) == S_COALESCED)){
 		    if(((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
 			keep_private_externs == FALSE) ||
 		       dynamic == FALSE ||
@@ -387,6 +405,18 @@ struct section_map *section_map)
 		if((merged_symbol->nlist.n_type & N_TYPE) == N_INDR)
 		    merged_symbol = (struct merged_symbol *)
 				    merged_symbol->nlist.n_value;
+
+		/*
+		 * If we are being called only to get the references for this
+		 * relocation entry fill it in and return.
+		 */
+		if(refs != NULL){
+		    refs->ref1.ref_type = LIVE_REF_SYMBOL;
+		    refs->ref1.merged_symbol = merged_symbol;
+		    refs->ref2.ref_type = LIVE_REF_NONE;
+		    return;
+		}
+
 		/*
 		 * If the symbol is undefined (or common) or a global coalesced 
 		 * symbol where we need to force an external relocation entry
@@ -498,7 +528,18 @@ struct section_map *section_map)
 		 * the item to be relocated is the zero above and any pc
 		 * relative change in value added below.
 		 */
-		if(r_symbolnum != R_ABS){
+		if(r_symbolnum == R_ABS){
+		    /*
+		     * If we are being called only to get the references for
+		     * this relocation entry fill in it has none and return.
+		     */
+		    if(refs != NULL){
+			refs->ref1.ref_type = LIVE_REF_NONE;
+			refs->ref2.ref_type = LIVE_REF_NONE;
+			return;
+		    }
+		}
+		else{
 		    if(r_symbolnum > cur_obj->nsection_maps){
 			error_with_cur_obj("r_symbolnum (%lu) field of local "
 			    "relocation entry %lu in section (%.16s,%.16s) "
@@ -510,6 +551,7 @@ struct section_map *section_map)
 		    local_map->output_section->referenced = TRUE;
 		    pair_local_map = NULL;
 		    if(r_type == PPC_RELOC_SECTDIFF ||
+		       r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 		       r_type == PPC_RELOC_HI16_SECTDIFF ||
 		       r_type == PPC_RELOC_LO16_SECTDIFF ||
 		       r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -522,6 +564,7 @@ struct section_map *section_map)
 		       (pair_local_map == NULL ||
 			pair_local_map->nfine_relocs == 0) ){
 			if(r_type == PPC_RELOC_SECTDIFF ||
+			   r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 			   r_type == PPC_RELOC_HI16_SECTDIFF ||
 			   r_type == PPC_RELOC_LO16_SECTDIFF ||
 			   r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -568,7 +611,8 @@ struct section_map *section_map)
 			 * relocated.
 			 */
 			if(r_type == PPC_RELOC_VANILLA ||
-			   r_type == PPC_RELOC_SECTDIFF){
+			   r_type == PPC_RELOC_SECTDIFF ||
+			   r_type == PPC_RELOC_LOCAL_SECTDIFF){
 			    switch(r_length){
 			    case 0: /* byte */
 				value = get_byte((char *)(contents +
@@ -635,6 +679,7 @@ struct section_map *section_map)
 			    }
 			}
 			if(r_type == PPC_RELOC_SECTDIFF ||
+			   r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 			   r_type == PPC_RELOC_HI16_SECTDIFF ||
 			   r_type == PPC_RELOC_LO16_SECTDIFF ||
 			   r_type == PPC_RELOC_LO14_SECTDIFF ||
@@ -653,6 +698,22 @@ struct section_map *section_map)
 			    offset = value - r_value + pair_r_value;
 
 			    /*
+			     * If we are being called only to get the references
+			     * for this relocation entry fill it in and return.
+			     */
+			    if(refs != NULL){
+				fine_reloc_output_ref(
+				    local_map,
+				    r_value - local_map->s->addr,
+				    &(refs->ref1) );
+				fine_reloc_output_ref(
+				    local_map,
+				    pair_r_value - local_map->s->addr,
+				    &(refs->ref2) );
+				return;
+			    }
+
+			    /*
 			     * Now build up the value of the relocated
 			     * expression one part at a time.  First set the
 			     * new value to the relocated r_value.
@@ -664,7 +725,8 @@ struct section_map *section_map)
 				 */
 				legal_reference(section_map, r_address,
 				    local_map, r_value - local_map->s->addr +
-				    offset, i, TRUE);
+				    offset, i,
+				    r_type != PPC_RELOC_LOCAL_SECTDIFF);
 				value = fine_reloc_output_address(local_map,
 					    r_value - local_map->s->addr,
 					    local_map->output_section->s.addr);
@@ -725,6 +787,20 @@ struct section_map *section_map)
 			    legal_reference(section_map, r_address, local_map,
 				    r_value - local_map->s->addr + offset, i,
 				    FALSE);
+
+			    /*
+			     * If we are being called only to get the references
+			     * for this relocation entry fill it in and return.
+			     */
+			    if(refs != NULL){
+				fine_reloc_output_ref(
+				    local_map,
+				    r_value - local_map->s->addr,
+				    &(refs->ref1) );
+				refs->ref2.ref_type = LIVE_REF_NONE;
+				return;
+			    }
+
 			    value = fine_reloc_output_address(local_map,
 					r_value - local_map->s->addr,
 					local_map->output_section->s.addr);
@@ -732,6 +808,7 @@ struct section_map *section_map)
 			    value += offset;
 			}
 			if(r_type == PPC_RELOC_VANILLA ||
+			   r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 			   r_type == PPC_RELOC_SECTDIFF){
 			    switch(r_length){
 			    case 0: /* byte */
@@ -865,11 +942,6 @@ struct section_map *section_map)
 					     + fine_reloc_output_offset(
 						    section_map, r_address);
 				if(save_reloc == 0 &&
-				   ((filetype != MH_DYLIB ||
-			             multi_module_dylib == FALSE) ||
-				    (r_extern == 1 &&
-				    (merged_symbol->nlist.n_type & N_PEXT) ==
-								N_PEXT)) &&
 				   (output_for_dyld == FALSE || r_extern == 0 ||
 				    (merged_symbol->nlist.n_type & N_TYPE) !=
 								N_UNDF) &&
@@ -915,6 +987,7 @@ struct section_map *section_map)
 							 r_address));
 	    }
 	    if(r_type == PPC_RELOC_VANILLA ||
+	       r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 	       r_type == PPC_RELOC_SECTDIFF){
 		switch(r_length){
 		case 0: /* byte */
@@ -1065,9 +1138,6 @@ struct section_map *section_map)
 				    fine_reloc_output_offset(section_map,
 							     r_address));
 		    if(save_reloc == 0 &&
-		       ((filetype != MH_DYLIB || multi_module_dylib == FALSE) ||
-			(r_extern == 1 &&
-			(merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)) &&
 		       (output_for_dyld == FALSE || r_extern == 0 ||
 			(merged_symbol->nlist.n_type & N_TYPE) != N_UNDF) &&
 		       (U_ABS(value) <= 0x01ffffff)){
@@ -1148,11 +1218,11 @@ update_reloc:
 			     * to is defined so convert this external relocation
 			     * entry into a local or scattered relocation entry.
 			     * If the item to be relocated has an offset added
-			     * to the symbol's value make it a scattered
-			     * relocation entry else make it a local relocation
-			     * entry.
+			     * to the symbol's value and the output is not for
+			     * dyld make it a scattered relocation entry else
+			     * make it a local relocation entry.
 			     */
-			    if(offset == 0){
+			    if(offset == 0 || output_for_dyld){
 				reloc->r_symbolnum =merged_symbol->nlist.n_sect;
 			    }
 			    else{
@@ -1212,17 +1282,47 @@ update_reloc:
 		}
 		else{
 		    /*
-		     * For scattered relocation entries the r_value field is
-		     * relocated.
+		     * This is a scattered relocation entry.  If the output is
+		     * for dyld convert it to a local relocation entry so as
+		     * to not overflow the 24-bit r_address field in a scattered
+		     * relocation entry.  The overflow would happen in
+		     * reloc_output_for_dyld() in sections.c when it adjusts
+		     * the r_address fields of the relocation entries.
 		     */
-		    if(local_map->nfine_relocs == 0)
-			sreloc->r_value += - local_map->s->addr
+		    if(output_for_dyld){
+			reloc = (struct relocation_info *)sreloc;
+			r_scattered = 0;
+			reloc->r_address = r_address;
+			reloc->r_pcrel = r_pcrel;
+			reloc->r_extern = 0;
+			reloc->r_length = r_length;
+			reloc->r_type = r_type;
+			if(local_map->nfine_relocs == 0){
+			    reloc->r_symbolnum =
+				      local_map->output_section->output_sectnum;
+			}
+			else{
+			    reloc->r_symbolnum =
+				fine_reloc_output_sectnum(local_map,
+						r_value - local_map->s->addr);
+			}
+		    }
+		    else{
+			/*
+			 * For scattered relocation entries the r_value field is
+			 * relocated.
+			 */
+			if(local_map->nfine_relocs == 0)
+			    sreloc->r_value +=
+					   - local_map->s->addr
 					   + local_map->output_section->s.addr +
 					   local_map->offset;
-		    else
-			sreloc->r_value = fine_reloc_output_address(local_map,
-				     		r_value - local_map->s->addr,
+			else
+			    sreloc->r_value =
+					fine_reloc_output_address(local_map,
+						r_value - local_map->s->addr,
 					   local_map->output_section->s.addr);
+		    }
 		}
 		/*
 		 * If this section that the reloation is being done for has fine
@@ -1280,6 +1380,7 @@ update_reloc:
 		    }
 		    else if(spair_reloc != NULL){
 			if(r_type == PPC_RELOC_SECTDIFF ||
+			   r_type == PPC_RELOC_LOCAL_SECTDIFF ||
 			   r_type == PPC_RELOC_HI16_SECTDIFF ||
 			   r_type == PPC_RELOC_LO16_SECTDIFF ||
 			   r_type == PPC_RELOC_LO14_SECTDIFF ||

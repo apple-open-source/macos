@@ -84,7 +84,6 @@ void AppleUSBEHCI::initForPM (IOPCIDevice *provider)
     //  Deal with CardBus USB cards.  Their provider will be a "IOCardBusDevice", as opposed to a "IOPCIDevice"
     //
     _onCardBus = (0 != provider->metaCast("IOCardBusDevice"));
-    
     //  Now, look at PCI cards.  Note that the onboard controller's provider is an IOPCIDevice so we cannot use that
     //  to distinguish between USB PCI cards and the on board controller.  Instead, we use the existence of the
     //  "AAPL,clock-id" property in the provider.  If it does not exist, then we are a EHCI controller on a USB PCI card.
@@ -197,6 +196,10 @@ IOReturn
 AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
     IOReturn			sleepRes;
+#ifndef kIOHibernateStateKey
+#define kIOHibernateStateKey	"IOHibernateState"
+#endif
+    static uint32_t *		pHibernateState;
     
     USBLog(4,"%s[%p]::setPowerState (%ld) bus %d", getName(), this, powerStateOrdinal, _busNumber );
     IOSleep(5);
@@ -222,6 +225,13 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     
     if ( powerStateOrdinal == kEHCISetPowerLevelSuspend ) 
     {
+	if ( !pHibernateState )
+	{
+	    OSData * data = OSDynamicCast(OSData, (IOService::getPMRootDomain())->getProperty(kIOHibernateStateKey));
+	    if (data)
+		pHibernateState = (uint32_t *) data->getBytesNoCopy();
+	}
+
         if ( _unloadUIMAcrossSleep )
         {
             USBLog(3,"%s[%p] Unloading UIM for bus %d before going to sleep",getName(),this, _busNumber );
@@ -280,9 +290,29 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     
     if ( powerStateOrdinal == kEHCISetPowerLevelRunning ) 
     {
+	// If we woke from hibernate, unload the UIM
+	
+	if ( _uimInitialized && pHibernateState && *pHibernateState )
+	{
+	    USBLog(3,"%s[%p] Unloading UIM for bus %d after hibernate",getName(),this, _busNumber );
+	    
+	    if ( _rootHubDevice )
+	    {
+		USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
+		_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+		_rootHubDevice->detachAll(gIOUSBPlane);
+		_rootHubDevice->release();
+		_rootHubDevice = NULL;
+		USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
+	    }
+	    SuspendUSBBus();
+	    UIMFinalizeForPowerDown();
+	    _ehciAvailable = false;					// tell the interrupt filter routine that we are off
+	}
+	
         // If we were just idle suspended, we did not unload the UIM, so we need to check that here
         //
-        if ( _unloadUIMAcrossSleep && !_idleSuspend )
+        if ( !_uimInitialized )
         {
             // If we are inactive OR if we are a PC Card and we have been ejected, then we don't need to do anything here
             //
@@ -294,12 +324,13 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             else
             {
                 IOReturn	err = kIOReturnSuccess;
-
+		
                 USBLog(5, "%s[%p]: Re-loading UIM if necessary (%d)", getName(), this, _uimInitialized );
-
-                if ( !_uimInitialized )
-                    UIMInitializeForPowerUp();
-
+		
+                // Initialize our hardware
+                //
+                UIMInitializeForPowerUp();
+		
 		_ehciBusState = kEHCIBusStateRunning;
                 _ehciAvailable = true;										// tell the interrupt filter routine that we are on
                 if ( _rootHubDevice == NULL )
@@ -324,7 +355,7 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         else 
         {
             USBLog(2, "%s[%p] setPowerState powering on USB", getName(), this);
-	
+	    
 	    // at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 	    // then it is likely that we are responsible for the system issuing the wakeup
 	    if (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIPortChangeIntBit)
@@ -333,7 +364,7 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 	    }
 	    
             _remote_wakeup_occurred = true;	//doesn't matter how we woke up
-
+	    
             if (_hasPCIPwrMgmt)
             {
                 _ehciAvailable = true;										// tell the interrupt filter routine that we are on

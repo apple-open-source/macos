@@ -325,7 +325,7 @@ static BOOL add_ace(SEC_ACL **the_acl, SEC_ACE *ace)
 		return True;
 	}
 
-	aces = calloc(1+(*the_acl)->num_aces,sizeof(SEC_ACE));
+	aces = SMB_CALLOC_ARRAY(SEC_ACE, 1+(*the_acl)->num_aces);
 	memcpy(aces, (*the_acl)->ace, (*the_acl)->num_aces * sizeof(SEC_ACE));
 	memcpy(aces+(*the_acl)->num_aces, ace, sizeof(SEC_ACE));
 	new = make_sec_acl(ctx,(*the_acl)->revision,1+(*the_acl)->num_aces, aces);
@@ -353,7 +353,7 @@ static SEC_DESC *sec_desc_parse(char *str)
 		}
 
 		if (strncmp(tok,"OWNER:", 6) == 0) {
-			owner_sid = (DOM_SID *)calloc(1, sizeof(DOM_SID));
+			owner_sid = SMB_CALLOC_ARRAY(DOM_SID, 1);
 			if (!owner_sid ||
 			    !StringToSid(owner_sid, tok+6)) {
 				printf("Failed to parse owner sid\n");
@@ -363,7 +363,7 @@ static SEC_DESC *sec_desc_parse(char *str)
 		}
 
 		if (strncmp(tok,"GROUP:", 6) == 0) {
-			grp_sid = (DOM_SID *)calloc(1, sizeof(DOM_SID));
+			grp_sid = SMB_CALLOC_ARRAY(DOM_SID, 1);
 			if (!grp_sid ||
 			    !StringToSid(grp_sid, tok+6)) {
 				printf("Failed to parse group sid\n");
@@ -624,11 +624,6 @@ static int cacl_set(struct cli_state *cli, char *filename,
 						old->dacl->ace[k] = old->dacl->ace[k+1];
 					}
 					old->dacl->num_aces--;
-					if (old->dacl->num_aces == 0) {
-						SAFE_FREE(old->dacl->ace);
-						SAFE_FREE(old->dacl);
-						old->off_dacl = 0;
-					}
 					found = True;
 					break;
 				}
@@ -766,11 +761,13 @@ static struct cli_state *connect_one(const char *share)
 
 	ctx=talloc_init("main");
 
-	setlinebuf(stdout);
-
+	/* set default debug level to 0 regardless of what smb.conf sets */
+	setup_logging( "smbcacls", True );
+	DEBUGLEVEL_CLASS[DBGC_ALL] = 1;
 	dbf = x_stderr;
+	x_setbuf( x_stderr, NULL );
 
-	setup_logging(argv[0],True);
+	setlinebuf(stdout);
 
 	lp_load(dyn_CONFIGFILE,True,False,False);
 	load_interfaces();

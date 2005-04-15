@@ -1,32 +1,1316 @@
 <HTML>
-<!--This file created 5/11/04 4:55 PM by Claris Home Page version 3.0-->
+<!--This file created 2/21/05 5:10 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=68 BOTTOM=835 LEFT=113 RIGHT=743>
+   <X-CLARIS-WINDOW TOP=108 BOTTOM=997 LEFT=171 RIGHT=918>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">Mac OS X 10.3.4 Release Copyright 2004 by Apple
-Computer, Inc. All Rights Reserved.</FONT></P>
+<P><FONT SIZE="-1">Mac OS X Xcode 2.0 Developer Release Copyright
+2005 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private Mac OS X 10.3.4 Release Notes:<BR>
-Compiler Tools (cctools-495.8)</H2>
+<H2>Private Mac OS X Xcode 2.0 Developer Release:<BR>
+Compiler Tools (cctools-572)</H2>
 
-<P>This file contains release notes for the 5.13.2 release of the
-Compiler Tools for the Mac OS X 10.3.4 Release. This file contains
-information about the following topics:</P>
+<P>This file contains release notes for the 5.17 release of the
+Compiler Tools for the Mac OS X Xcode 2.0 Developer Release. This
+file contains information about the following topics:</P>
 
 <UL>
    <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
    
-   <LI>The Mac OS X Mach-O static link editor</LI>
-   
-   <LI>The Mac OS X Mach-O dynamic link editor</LI>
+   <LI>The Mac OS X 32-bit Mach-O static link editor</LI>
    
    <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so
    on)&nbsp;</LI>
+</UL>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<H3><FONT SIZE="+1">The support for 64-bit tools for
+Tiger.</FONT></H3>
+
+<P>The current version of cctools has tools needed to do the
+development of binaries for 64-bit systems. The only tools that are
+not seamless and handle both 32-bit and 64-bit objects are otool(1)
+and ld(1). The cctools project provides an otool64(1) for 64-bit
+objects. More fixes and changes to the tools are expected in releases
+to follow.</P>
+
+<H2>Notes Specific to Release 5.17 (Mac OS X Xcode 2.0 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-571 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that will now allow MallocScribble to be on and
+   ld(1) not to crash. (Radar bug #3980535).</LI>
+   
+   <LI>Fixed a bug that caused nm(1) to crash for ppc64 binaries when
+   run on Darwin Intel. (Radar bug #3987993).</LI>
+   
+   <LI>Fixed a typo in the lipo(1) man page that incorrectly
+   referenced VAX and Mips architectures. (Radar bug #4007112).</LI>
+   
+   <LI>Fixed a bug in the assemblers that incorrectly removed
+   /dev/null when the it was used as the output file. (Radar bug
+   #4007180).</LI>
+   
+   <LI>Fixed a bug that caused libkld.dylib to be built with no
+   exported symbols when built with gcc-4.0. (Radar bug
+   #4008570).</LI>
+   
+   <LI>Fixed a bug that caused strip(1) to crash for ppc64 binaries
+   when run on Darwin Intel. (Radar bug #4010859).</LI>
+   
+   <LI>Fixed a bug in the assembler that cause it to crash with 8-bit
+   characters input that had the high bit set. (Radar bug
+   #3943609).</LI>
+   
+   <LI>Changed the output of nm(1) with the -P option to print the
+   size field as zero. (Radar bug #3652346).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-570 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project so it will build in the SUPanWheat
+   release train. (Radar bug #3979451).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-569 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the assembler that caused it to incorrectly
+   generate an error for a symbol being already defined if the .desc
+   directive was used to set the REFERENCED_DYNAMICALLY bit before
+   the label was seen. (Radar bug #3975121).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-568 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static linker that caused it to generate an
+   internal error for the count of relocation entries. (Radar bug
+   #3934341).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-567 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The interposing section type was added. (Radar bug
+   #3965794).</LI>
+   
+   <LI>A bug in the 32-bit Mach-O static link editor was fixed which
+   was incorrectly generating a error of the form: "illegal reference
+   for -dynamic code (reference to a coalesced section ..." when it
+   should not have been. (Radar bug #3961903).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-566 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The unneeded 64-bit Mach-O assembler driver, /usr/bin/as64,
+   has been removed. (Radar bug #3953127).</LI>
+   
+   <LI>A man page for otool64(1) has been added that simply sources
+   the otool(1) man page. (Radar bug #3954720).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-565 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The tool strings(1) has been updated to work with 64-bit
+   Mach-O files. (Radar bug #3943477).</LI>
+   
+   <LI>Fixed another bug in nmedit(1) that cause it to make fat
+   dylibs with 64-bit Mach-O files to render the 64-bit Mach-O dylib
+   unusable. (Radar bug #3949527).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-564 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in nmedit(1) with the -p option that cause it to
+   crash with 64-bit Mach-O files. (Radar bug #3945219).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-563 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project source to no longer install the
+   header file &lt;mach-o/dyld_debug.h&gt;. (Radar bug
+   #3937664).</LI>
+   
+   <LI>Fixed a bug in nmedit(1) that cause it to make fat dylibs with
+   64-bit Mach-O files to render the 64-bit Mach-O dylib unlinkable.
+   (Radar bug #3940965).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-562 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed bugs in the 32-bit static link editor with respect to
+   private extern common symbols. (Radar bug #3928792),</LI>
+   
+   <LI>Changed the redo_prebinding(1)(3) code on how it sets the
+   values of the two pointers in the (__DATA,__dyld) section. (Radar
+   bug #3828403).</LI>
+   
+   <LI>Made enhancements to 32-bit static link editor to support dyld
+   coalescing symbols across dylibs.(Radat bug #3933777).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-561 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project source to be compatible with the
+   upcoming UNIX03-333 branch of xnu. (Radar bug #3930480).</LI>
+   
+   <LI>Changed install_name_tool (1) to to work with both 64-bit and
+   32-bit Mach-O files. (Radar bug #3930775).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-560 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in nmedit(1) that would produce malformed output
+   files with bad symbol tables from dynamic shared librarie files
+   without a module table. (Radar bug #3926028).</LI>
+   
+   <LI>Changed ld(1) to disable prebinding when the environment
+   variable MACOSX_DEPLOYMENT_TARGET &gt;= 10.4 for anything that is
+   not a split shared library. (Radar bug #3924730).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-559 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the constant FAT_CIGAM in &lt;mach-o/fat.h&gt; to be a
+   real constant and not use NXSwapInt(). (Radar bug #3914142).</LI>
+   
+   <LI>Changed strip(1) to follow symlinks and not replace them with
+   the stripped file they are pointing to. (Radar bug #3889109)</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-558 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with building libkld that cause the kernel to
+   fail to link. (Radar bug #3906133).</LI>
+   
+   <LI>Fixed a problem with a strip(1) fix that caused it to print
+   extra newlines. (Radar bug #3907726).</LI>
+   
+   <LI>Fixed a problem with the assembler not allowing altivec
+   instructions with ppc64 assembly files. (Radar bug #3906004).</LI>
+   
+   <LI>Fixed a problem with strip(1) and the -c option that did not
+   correctly set the filetype for stub libraries. (Radar bug
+   #3909472).</LI>
+   
+   <LI>Changed nm(1) to deal with dynamic shared libraries without
+   module tables. (Radar bug #3883039).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-557 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The tool seg_addr_table(1) has been changed to not emit split
+   addresses for libraries built nonsplit. (Radar bug #3903547).</LI>
+   
+   <LI>A fix to otool(1), for the option to print the hints table,
+   -H, when it was used without the verbose option, -v, was made to
+   remove an incorrect warning about Inconsistent mh_sizeofcmds".
+   (Radar bug #3902811).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-556 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The tool size(1) has been updated to work with 64-bit Mach-O
+   files. (Radar bug #3900014).</LI>
+   
+   <LI>The sources of the cctools project have been change to remove
+   the old support for the WWDC 2004 interim 64-bit format. (Radar
+   bug #3600419).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-555 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added the -syslibroot &lt;argument&gt; option to ld(1) as
+   another way to specifiy NEXT_ROOT. (Radar bug #3886145).</LI>
+   
+   <LI>Changed ranlib(1) with the -q option not to print a warning
+   about empty archives. (Radar bug #3893339).</LI>
+   
+   <LI>Changed ranlib(1) with the -q option not to add a table of
+   contents when the archive contains no objects. (Radar bug
+   #3893392).</LI>
+   
+   <LI>Change the way ld(1) lays out dyld to make the first address
+   of the first section remain semi-constant. (Radar bug
+   #3893651).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-554 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with libkld having an undefined symbol
+   _pass2_nsect_merged_symbol_section_type introduced by the change
+   in Radar bug #3884596 for ld(1)'s checking of illegal references
+   to coalesced sections that did not correctly flag an illegal
+   reference. (Radar bug #3894721).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-553 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in strings(1) -a option that was failing to print
+   the last character of a string a the end of a section. (Radar bug
+   #3766901).</LI>
+   
+   <LI>Changed ranlib(1) when used witht the -q option to not print
+   warnings about empty libraries. (Radar bug #3878332).</LI>
+   
+   <LI>Changed strip(1) to better handle filenames of PATH_MAX .
+   (Radar bug #3878381).</LI>
+   
+   <LI>Changed nm(1) to take the a -- argument that treats all
+   remaining arguments as file names, make the default format for the
+   -P option hex, and print the pathname on each line for the -A
+   option. (Radar bug #3878451).</LI>
+   
+   <LI>Fixed a bug in ld(1) checking of illegal references to
+   coalesced sections that did not correctly flag an illegal
+   reference. (Radar bug #3884596).</LI>
+   
+   <LI>Fixed a bug in otool(1) that did not print symbol names when
+   disassembling. (Radar bug #3889188).</LI>
+   
+   <LI>Fixed a bug in the ppc64 assembler that would produce an
+   object file with bad fileoff/filesize values in the LC_SEGMENT_64
+   load command. (Radar bug #3891223).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-552 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The static linker, ld(1), now support the environment variable
+   LD_UNPREBOUND_LIBRARIES which is the name of a file containing
+   dynamic library install names not to prebind. Also supports the
+   environment variable LD_SPLITSEGS_NEW_LIBRARIES to build libraries
+   not in the seg_addr_table as split. (Radar bug #3875865).</LI>
+   
+   <LI>Fixed a bug in the nmedit(1) tools that incorrectly produced
+   errors about symbols having bad n_sect values. (Radar bug
+   #3880780).</LI>
+   
+   <LI>Made changes to the seg_addr_table(1) tools for the Mac OS X
+   10.4 prebinding. (Radar bug #3871826).</LI>
+   
+   <LI>Changed the redo_prebinding code to ignore 64-bit Mach-O
+   files. (Radar bug #3877703).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-551 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The tool strip(1) how has the "--" option which treats all
+   arguments after it as files. (Radar bug #3571788).</LI>
+   
+   <LI>The cctools project now builds with a stdio.h that does not
+   include stdarg.h. (Radar bug #3640701).</LI>
+   
+   <LI>The strings(1) command now has the UNIX standard conformance
+   -n and -t options (see the man page for more details). (Radar bug
+   #3644256).</LI>
+   
+   <LI>The nm(1) command now has the UNIX standard conformance -A and
+   -P options (see the man page for more details). (Radar bug
+   #3652346).</LI>
+   
+   <LI>The ld(1) command now does not ignore the umask(2) value when
+   creating output files. (Radar bug #3761943).</LI>
+   
+   <LI>The ld(1) command no longer overwrites non-writeable files.
+   (Radar bug #3762029).</LI>
+   
+   <LI>The ar(1) command will now produce archives libraries that
+   ld(1) will process without running ranlib(1) if the archive
+   members are not fat .o files. (Radar bug #3762136).</LI>
+   
+   <LI>The ld(1) command now writes its diagnostics to stderr.(Radar
+   bug #3762151).</LI>
+   
+   <LI>The strip(1) command no longer overwrites non-writeable files
+   (Radar bug #3852702).</LI>
+   
+   <LI>The nm(1) command's usage line now matches the SYNOPSIS of the
+   nm(1) man page. (Radar bug #3856321).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-550 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Sped up the 32-bit Mach-O static link editor, ld(1), symbol
+   searching. (Radar bug #3836837).</LI>
+   
+   <LI>Changed otool64(1) to symbolically print the PowerPC 64-bit
+   thread state. (Radar bug #3866755)</LI>
+   
+   <LI>Fixed a bug in the undo prebinding code that would not
+   correctly set the MH_ALLMODSBOUND flag in the mach header when it
+   should have. (Radar bug #3864573).</LI>
+   
+   <LI>Changed the 32-bit Mach-O static link editor, ld(1), to remove
+   symbol stubs and lazy pointers when linking the dynamic linker,
+   (Radar bug #3863439).</LI>
+   
+   <LI>Changed ranlib(1) to not produce a waning about 64-bit Mach-O
+   files not on 8 byte offsets. (Radar bug #3818951).</LI>
+   
+   <LI>Changed the PowerPC assembler to not treat the instruction
+   stfiwx as optional so it will assemble without the
+   -force_cpusubtype_ALL option. (Radar bug #3841472).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-549 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed libsyminfo to work with both 64-bit and 32-bit Mach-O
+   files. (Radar bug #3854972).</LI>
+   
+   <LI>Changed the seg_addr_table(1) tools to ignore 64-bit Mach-O
+   files. (Radar bug #3861276).</LI>
+   
+   <LI>Changed nm(1) to to work with both 64-bit and 32-bit Mach-O
+   files and removed the nm64(1) tool. (Radar bug #3859090).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-548 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in ghe the get_prebind_cksums(3) API that would
+   cause it to crash on corrupt input. (Radar bug #3839049)</LI>
+   
+   <LI>Made a changed to ld(1) when the -dead_strip option is used
+   that improves debugging with -O3 compiled files. (Radar bug
+   #3839049).</LI>
+   
+   <LI>Changed ld(1) to disable prebinding when the environment
+   variable LD_PREBIND_SPLITSEGS_ONLY for anything that is not a
+   split shared library. (Radar bug #3855581).</LI>
+   
+   <LI>Fixed the ppc64 assembler so it will accept the <B>.machine
+   ppc970-64</B> directive. (Radar bug #3856997).</LI>
+   
+   <LI>Changed libsyminfo to not crash if presented with a 64-bit
+   Mach-O file. (Radar bug #3854972).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-547 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in tool tool strip(1) that caused it to not
+   correctly update the indirect symbol table entries in 64-bit
+   Mach-O files (Radar bug #3848104).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-546 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Ported the libredo_prebinding code to not creash when it sees
+   a 64-bit Mach-O files (Radar bug #3851599).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-546 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Ported the libmacho code for libSystem to work with both
+   64-bit and 32-bit Mach-O files. (Radar bug #3780704).</LI>
+   
+   <LI>Fixed a bug in otool64(1) that did not correctly print the
+   cpusubtype for -arch ppc970-64 objects. (Radar bug #3825281).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-544 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in tool tool strip(1) that caused it to corrupt
+   64-bit Mach-O files and archives containing 64-bit Mach-O files
+   (Radar bug #3836060).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-543 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the libdyld code that would cause it to not
+   load any fat bundles. (Radar bug #3837563).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-542 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in ld(1) that would cause it to crash on i386
+   machines. (Radar bug #3830818).</LI>
+   
+   <LI>Fixed a regression in the tool nmedit(1) from the changes put
+   in for 3812858 that manifiested it self the same as 3806356.
+   (Radar bug #3833852).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-541 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in tool tool strip(1) that caused it to corrupt
+   the __LINKEDIT section in 64-bit Mach-O files. (Radar bug
+   #3831401).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-540 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in tha tool strip(1) that cause it to produce an
+   internal eroor for 64-bit Mach-O files. (Radar bug #3829545).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-539 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the tool strip(1) that cause it to produce an
+   incorrect malformed object file eroor for 64-bit Mach-O files.
+   (Radar bug #3829149).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-538 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The tool strip(1) was changed to understand both 32-bit and
+   64-bit Mach-O files. (Radar bug #3812858).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-537 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>As part of the transition, ld(1) now executes /usr/bin/ld64 if
+   a "-arch ppc64" is seen anywhere on the command line. (Radar bug
+   #3823359).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-536 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fix a bug in libtool(1)/ranlib(1) that caused it to grow the
+   size of member names. (Radar bug #3817546).</LI>
+   
+   <LI>Changed the redo_prebinding(3) API to return
+   REDO_PREBINDING_SUCCESS any time a new file is created. (Radar bug
+   #3818477).</LI>
+   
+   <LI>Changed ld(1) to ignore 64-bit Mach-O files when
+   -no_arch_warnings is specified. (Radar bug #3815344).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-535 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fix a bug in the PowerPC assembler that produced an incorrect
+   expression out of range error. (Radar bug #3813143).</LI>
+   
+   <LI>Fix a bug in the i386 assembler that produced an incorrect "no
+   opcode suffix given; can't determine immediate size" error and use
+   larger instructions that it should. (Radar bug #3813924).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-534 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fix problems with strip(1) not being able to process static
+   libraries produced by libtool(1) that had archive members on 8
+   byte boundaries. (Radar bug #3811489).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-533 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixing libtool(1) and ranlib(1) to correctly place 64-bit
+   Mach-O files on 8 byte boundaries. (Radar bug #3808740).</LI>
+   
+   <LI>The cctools-534 sources no longer installs its libdyld
+   archives for libSystem builds. (Radar bug #3780216).</LI>
+   
+   <LI>The lipo(1) -info and -detailed_info options now work for
+   64-bit Mach-O files. (Radar buf #3793539).</LI>
+   
+   <LI>The value of CPU_TYPE_POWERPC64 has been changed to include a
+   CPU_IS64BIT (0x1000000) and is that or'ed with the old value of
+   CPU_TYPE_POWERPC. (Radar bug #3806447).</LI>
+   
+   <LI>libtool(1) now runs ld64(1) when for 64-bit architectures.
+   (Radar bug #3807911).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-532 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed libtool(1) and ranlib(1) to understand both 32-bit and
+   64-bit Mach-O files and removed the creation of libtool64(1) and
+   ranlib64(1). (Radar bug #3793394).</LI>
+   
+   <LI>The cctools-533 souces were changed to no longer use the
+   obsolete NX*Zone routines. (Radar bug #3461591).</LI>
+   
+   <LI>Changed ld(1) to allow more padding of load commands so that
+   output files linked with -prebind can be successfully re-prebound.
+   (Radar bug #3784597).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-531 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed lipo(1) understands both 32-bit and 64-bit Mach-O
+   files . (Radar bug #3600431).</LI>
+   
+   <LI>Fixed the cctools sources so that it would build with the
+   gcc-3.5 compiler. (Radar bug #3751608).</LI>
+   
+   <LI>Removed the -mc68000 and -mc68010 options should from as man
+   page. (Radar bug #3704760).</LI>
+   
+   <LI>Changed the constants MH_CIGAM and MH_CIGAM_64 in
+   &lt;mach-o/loader.h&gt; to be real constants not use NXSwapInt().
+   (Radar bug #3762888).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-530 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added libtool64(1) and an ranlib64(1) which are the
+   development tools targeting 64-bit systems . (Radar bug
+   #3600431).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-529 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The redo_prebinding code now sets the first two pointers in
+   the __dyld section. (Radar bug #3751608).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-528.5 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed nmedit(1) to allow it to handle changing global
+   coalesced symbols into static symbols when they have a pcrel
+   relocation entry to them. (Radar bug #3806356).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-528.5 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added as64(1), otool64(1) and an nm64(1) which are the
+   development tools targeting 64-bit systems . (Radar bug
+   #3600431).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-528.4 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with the seg_addr_table(1) tool that did not
+   correctly set the read-write address of split libraries that
+   overlapped. (Radar bug #3767036).</LI>
+   
+   <LI>Changed the cctools-528.5 sources to assume a Mac OS 10.3
+   build when RC_RELEASE is set to MuonSeed.</LI>
+   
+   <LI>Fixed a problem with the assembler's .machine directive that
+   did not correctly allow altivec instructions to be assembled.
+   (Radar bug #3492132).</LI>
+   
+   <LI>Changed the undo_prebinding code to so it correctly adjusts
+   relocation entries of nonprebound dylibs. (Radar bug #
+   3652989).</LI>
+   
+   <LI>Fixed a bug in ld(1) that caused it to crash when tracing
+   undefined symbols with the -Y option, which was introduced in
+   cctools-528.3 with the change to Radar 3737622. (Radar bug
+   #3797052).</LI>
+   
+   <LI>Fixed a problem with ld(1)'s -dead_strip option producing
+   binaries that gdb(1) was having trouble debugging. (Radar bug
+   #3739451).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-528.3 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the filesize and fileoff fields of the struct
+   segment_command_64 structure to be 64-bits. (Radar bug
+   #3781406).</LI>
+   
+   <LI>Fixed a build problem building libkld for the kernel. (Radar
+   bug #3782212).</LI>
+   
+   <LI>Changed the assember to not use the new section difference
+   relocations to local symbols when -static is specified, which
+   allows kernel extensions to be compatible for linking on older
+   systems. (Radar bug #3753904).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-528.2 for
+the 5.17 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The static link editor no longer searches indirectly
+   referenced shared libraries when -twolevel_namespace is in effect.
+   (Radar bug #3737622).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-528 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Allowed duplicate symbols in kexts. (Radar bug #3633627).</LI>
+   
+   <LI>Fixed handling of forward labels in the 64-bit assembler.
+   (Radar bug #3757398).</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.16 (Mac OS X Xcode 1.5 Developer
+Release)</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<H3><FONT SIZE="+1">The static linker has an option to do dead code
+stripping</FONT></H3>
+
+<P>See the Public release notes for the details.</P>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-527 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added support for section difference relocations to local
+   symbols inside procedures referenced by a globally visible
+   coalesced symbol, on i386. (Radar bug #3744821).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-526 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added the structures for 64-bit Mach-O files to the Mach-O
+   headers. (Radar bug #3742429).</LI>
+   
+   <LI>The assembler was made faster. (Radar bug #3739375).</LI>
+   
+   <LI>The checksymb(1) tool once again has a what(1) string. (Radar
+   bug #3746707).</LI>
+   
+   <LI>Added support for section difference relocations to local
+   symbols inside procedures referenced by a globally visible
+   coalesced symbol, on powerpc. (Radar bug #3744821).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-525 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a missed worded linker error message where the
+   -flat_namespace flag is mentioned as -flatname_space. (Radar bug
+   #3743186).</LI>
+   
+   <LI>Changed the Mach-O headers need to be 64-bit clean. (Radar bug
+   #3742429).</LI>
+   
+   <LI>Changed the cctools sources to compile without warnings and
+   the 64-bit clean Mach-O headers. (Radar bug #3744082).</LI>
+   
+   <LI>Fixed the mispelling of 'meaningless' in linker error message.
+   (Radar bug #3739217).</LI>
+   
+   <LI>Added the -V flag to libtool(1) to print its version
+   information. (Radar bug #3738616).</LI>
+   
+   <LI>Added support for the i386 3DNow! instructions to the
+   assembler and otool(1)'s disassembler. (Radar bug #3737535).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-524 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the static link editor, ld(1), to link output files
+   for use by the dynamic linker faster. (Radar bug #3728427).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-523 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the static link editor, ld(1), to not create scattered
+   relocation entried in output files for use with the dynamic
+   linker. And also to disable prebinding when the output is too
+   large that it would run into the limitation of the 24-bit
+   r_address field of scattered relocation entries. (Radar bug
+   #3451378).</LI>
+   
+   <LI>Fixed the otool(1) command's <B>-fv</B> output so that it does
+   not print <I>(illegal duplicate architecture)</I> and take a long
+   time producing the output on a two-way fat file. (Radar bug
+   #3709358).</LI>
+   
+   <LI>Fixed the strip(1) command that caused it to crash when run
+   with no options on a the dynamic linker.(Radar bug #3697374).</LI>
+   
+   <LI>Fixed a bug in selecting an i386 architecture from fat file
+   that only contained a i686 architecture which would cause ld(1) to
+   think the file was a bad Mach-O file. (Radar bug #3694812).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-522 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the Power PC assembler that would cause it to
+   incorrectly assemble lwa instructions. Radar bug #3687246.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-521 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the interum ppc64 assembler that would cause it
+   to incorrectly generate an error about a missing expression. Radar
+   bug #3682374.</LI>
+   
+   <LI>Changed how otool(1) gets built so it will build in the
+   current B&amp;I Tiger BuildRoot with libc changes from 3535291.
+   Radar bug #3685865.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-520 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed where the public release notes get installed. They are
+   now installed in the directory /Developer/ADC Reference
+   Library/releasenotes/DeveloperTools. Radar bug #3678389.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-519 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added the cmovnz instruction as an equivalent to cmovne for
+   the i386 assrmbler. Radar bug #3345900.</LI>
+   
+   <LI>Fixed otool(1)'s disassembly of the i386 assrmbler movdq2q
+   instruction. (Radar bug #3488840).</LI>
+   
+   <LI>Fixed otool(1)'s disassembling the move word to accumulator
+   i386 nstructions. (Radar bug #3515794).</LI>
+   
+   <LI>Fixed typos in the ld(1) man page. (Radar bug #3545222).</LI>
+   
+   <LI>Fixed a bug in ld(1)'s relocation of jbsr pseudo instructions
+   in multi-module dynamic libraries which was are not correctly
+   setting to branch to the true target when the branch reaches.
+   (Radar bug #3545578).</LI>
+   
+   <LI>Added the -v flag to ld(1) to print its version information.
+   (Radar bug #3557760).</LI>
+   
+   <LI>Fixed libtool(1)'s printing of logging file names when -static
+   is used when the environment variable RC_TRACE_ARCHIVES is set so
+   that it prints out the path returned by realpath(3). (Radar bug
+   #3585834).</LI>
+   
+   <LI>Fixed libsyminfo so it will not crash if it encounters a
+   binary that contains an unknown architecture. (Radar bug
+   #3590209)</LI>
+   
+   <LI>Fixed the kld(3) man page to correctly reference kextload(8)
+   not the obsoleted kmodload(8). (Radar bug #3633604).</LI>
+   
+   <LI>Fixed the strip(1) command when run with no options on a
+   dynamic library so that it does not produce a malformed
+   file.(Radar bug #3641669).</LI>
+   
+   <LI>Fixed a bug in otool(1) that caused it to crash when run on
+   Java class files. (Radar bug #3670740).</LI>
+   
+   <LI>Fixed a bug in ld(1) when the -dead_strip option that was
+   always stripping static symbols in symbol stub and symbol pointer
+   sections. (Radar bug #3669400)</LI>
+   
+   <LI>Changed libtool(1) to take and pass along ld(1)'s
+   -executable_path flag. (Radar bug #3489733).</LI>
+   
+   <LI>Added the.machine directive to the assembler. (Radar bug
+   #3492132)</LI>
+   
+   <LI>Fixed a bug in ld(1) when -x and -bundle were used when
+   linking objects with private extern coalesced symbols. This would
+   result in bad bundle output files that would crash when used.
+   (Radar bug #3464004).</LI>
+   
+   <LI>Fixed a bug in ld(1) when -s was used on an executable output
+   file that could produce bad indirect symbol table entries. (Radar
+   bug #3534709).</LI>
+   
+   <LI>Changed the PowerPC assembler to allow the streaming dcbt
+   instructions without the -force_cpusubtype_ALL flag. (Radar bug
+   #3468847).</LI>
+   
+   <LI>Changed ld(1) when the -sectorder option is used so that the
+   symbols not listed in the order file will be linked in the order
+   they appeared in the input .o files. (Radar bug #3382272).</LI>
+   
+   <LI>Fixed a bug in the assembler that could cause it to generate
+   bad relocation entries if the .o file had a relocatable item after
+   more than 16megs of code or data in the same section. (Radar bug
+   #3604972).</LI>
+   
+   <LI>Changed ld(1)'s -sectorder file format to treat lines that
+   start with a # as a comment. (Radar bug #3360823)</LI>
+   
+   <LI>Changed the i386 assembler to allow the prefetcht0,
+   prefetcht1, prefetcht2 and prefetchnta instructions without the
+   -force_cpusubtype_ALL flag. (Radar bug #3500323).</LI>
+   
+   <LI>Fixed a typo in install_name_tool(1) man page. (Radar bug
+   #3501918).</LI>
+   
+   <LI>Changed the PowerPC assembler to allow the frsqrte and fres
+   instructions without the -force_cpusubtype_ALL flag. (Radar bug
+   #3519365).</LI>
+   
+   <LI>Fixed a memory leak in libsyminfo. (Radar bug #3554267).</LI>
+   
+   <LI>Removed a warning in the static linker, ld(1), when the
+   -dead_strip option is used that generated a warning saying that
+   -gused was used to compile a .o file and -gfull should be used
+   even though -gfull was used. (Radar bug #3663248).</LI>
+   
+   <LI>Fixed a bug in the assembler when a .private_extern directive
+   for a symbol was seen before an assignment of the symbol to an
+   absolute value that resulted in the symbol not being marked as a
+   private extern symbol. (Radar bug #3660818).</LI>
+   
+   <LI>Changed the tools that produce archive table of contents,
+   libtool(1) and ranlib(1), as well as the static linker, ld(1), to
+   no longer warn about creating or using an archive with multiple
+   members defining the same symbol. (Radar bug #3653845).</LI>
+   
+   <LI>Fixed a bug with ld(1) -s produced executables having invalid
+   indirect symbol table entries for stripped symbols.(Radar bug
+   #3534709).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-518 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with the cctools project not installing all of
+   its man pages.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-517 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with the cctools project not installing all of
+   its man pages when RC_RELEASE is not set.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-516 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with the cctools project not installing all of
+   its headers when RC_RELEASE is not set.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-515 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the cctools project to for the change in Radar bug
+   #3639836 to install the dynamic linker and other pieces for the
+   MuonPrime RC_RELEASE. (Radar bug #3657739).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-514 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added the installGASsrc and fromGASsrc Makefile targets to
+   install and build just the PowerPC assembler from the GAS sources.
+   (Radar bug #3657295).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-513 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a build problem with cctools' "mach/machine.h" header
+   file not containing the typedef for cpu_threadtype_t.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-512 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project to no longer install the dynamic
+   linker, /usr/lib/dyld, and the header files &lt;mach-o/dyld.h&gt;,
+   &lt;mach-o/dyld_gdb.h&gt; and &lt;mach-o/dyld_priv.h&gt; as well
+   as the man pages dyld(1), dyld(3), NSModule(3),
+   NSObjectFileImage(3) and NSObjectFileImage_priv(3). (Radar bug
+   #3639836).</LI>
+   
+   <LI>Integrated the changes from cctools-495.8 in Mac OS X 10.3.4
+   (Radar bug #3650224).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-511 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed bug in the static linker that cause it to crash when the
+   -dead_strip option was used with -preload output files. (Radar bug
+   #3649317).</LI>
+   
+   <LI>Fixed a bug that cuased strip(1) an other tools that created
+   archive libraries to not correctly set the time stamp on the
+   archive resulting in ld(1) thinking the archive's table of
+   contents was out of date. (Radar bug #3645280).</LI>
+   
+   <LI>Fixed bug in the static linker that caused it to generate an
+   internal error when referencing an undefined symbol from a
+   coalesced section that is defined in another .o file as a global
+   coalesced symbol. (Radar bug #3644011).</LI>
+   
+   <LI>Removed a debugging print statement in ld(1) (Radar bug
+   #3643349).</LI>
+   
+   <LI>Fixed bug in the static linker when the -dead_strip option was
+   used that caused it to generate an internal error (Radar bug
+   #3643111).</LI>
+   
+   <LI>Fixed bug in the static linker when the -dead_strip option and
+   the -s option was used that caused it to generate an internal
+   error (Radar bug #3639490).</LI>
+   
+   <LI>Change the compiler tools project to install the
+   redo_prebinding(3) man page as a local man page. (Radar bug
+   #3638779).</LI>
+   
+   <LI>Fixed the compiler tools release notes for -arch ppc64 to say
+   -dynamic binaries are not supported. (Radar bug #3638698).</LI>
+   
+   <LI>Integrated the changes from cctools-495.7 in Mac OS X 10.3.4
+   (Radar bug #3629498).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-510 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed bug in the static linker when the -dead_strip option
+   that caused some things not to be aligned correctly. This would
+   happen for things that used assembler temporary labels such as
+   compiler generated altivec constants (Radar bug #3625632).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-509 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Integrated the changes from cctools-495.6 in Mac OS X 10.3.4
+   (Radar bug #3630920).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-508 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Integrated the changes from cctools-499.4 for the interium
+   -arch ppc64 architecture.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-507 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Integrated the changes from cctools-495.&#91;345&#93; in Mac
+   OS X 10.3.4.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-506 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed another bug in the static linker when the -dead_strip
+   option is used with object files containing multiple gobal symbols
+   at the same address. This too caused ld(1) produce files that
+   would crash due to incorrectly dead stripping (Radar bug
+   #3625582).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-505 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static linker when the -dead_strip option
+   is used with object files containing multiple gobal symbols at the
+   same address. This caused ld(1) produce files that would crash due
+   to incorrectly dead stripping (Radar bug #3625582).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-504 for
+the 5.16 Mac OS X Xcode 1.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static linker when the -dead_strip option
+   is used with object files containing indirect symbol table entries
+   that are INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL_ABS that caused
+   ld(1) to crash or produce files that would crash due to
+   incorrectly dead stripping live blocks (Radar bug #3625527)</LI>
+   
+   <LI>Fixed a bug in the static linker when the -dead_strip option
+   is used with C++ that caused it to incorrectly point an error
+   message about an illegal reference into a stub section (Radar bug
+   #3625527).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-503 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added the environment variable LD_DEAD_STRIP_DYLIB which
+   causes -dead_strip to specified for all ld(1) commands that have
+   the -dylib option specified.</LI>
+   
+   <LI>Fixed a problem with the cctools source that would not build
+   the kld libraries (Radar bug #3625471).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-502 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed problems linking with the kld libraries getting
+   undefined symbols caused by the changes to the code base for dead
+   code stripping. (Radar bug #2284500).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-501 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static link editor with the use of
+   -dead_strip and -prebind that caused an internal error. (Radar bug
+   #2284500).</LI>
+   
+   <LI>Fixed a bug in the static link editor with the use of
+   -dead_strip that in some cases would incorrectly produce a warning
+   message about "symbol appears more than once in the same file".
+   (Radar bug #2284500).</LI>
+   
+   <LI>Fixed a bug where common symbols were not correctly dead
+   stripped if a -sectorder file was not used. (Radar bug
+   #2284500).</LI>
+   
+   <LI>Added support for -dead_strip for i386 and m68k
+   architectures.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-500 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added support for the new <B>subsections_via_symbols</B>
+   assembler directive to mark objects ok to divide their section
+   contents via symbols. Objects without this mark have their
+   sections kept whole if anything in the section is live. (Radar bug
+   #2284500).</LI>
+   
+   <LI>Fixed a bug in the assembler that would cause an incorrect
+   symbol re-definition error if a .no_dead_strip directive was used
+   before a .comm directive for the same symbol. (Radar bug
+   #2284500).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-499.4 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added dead code stripping to the static linker, ld(1), with
+   the new flag <B>-dead_strip</B> (see the Public release notes for
+   the details ). Also the new flag
+   <B>-no_dead_strip_inits_and_terms</B> causes all constructors and
+   destructors to never be dead code stripped. (Radar bug
+   #2284500).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-499.3 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Removed the partial support for -arch ppc64-970.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-499.2 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static linker, ld(1), that caused it to
+   generate an error message about malformed objects when linking
+   ppc64 objects with -r. (Radar bug #3594978).</LI>
+   
+   <LI>Fixed a bug in the assembler with handling of integer
+   expressions when hosted on i386. (Radar bug #3591543).</LI>
+   
+   <LI>Added a definition of _NSGetProgname() in dyld to resolve a
+   dyld link failure due to changes in Libc-327. (Radar bug
+   #3593079).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-499.1 for
+the 5.16 Mac OS X Xcode 1.5 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added a dummy definition of __cxa_finalize() in dyld to
+   resolve a dyld link failure due to changes in Libc-326. (Radar bug
+   #3586910).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-499 for
+the 5.15 Mac OS X Xcode 1.2 release)</FONT></H5>
+
+<UL>
+   <LI>Added support for the interium -arch ppc64 architecture (LP64
+   code gen in a Mach-O 32-bit file). (Radar bugs #3562133 and
+   #3562232).</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.15 (Mac OS X Xcode 1.2 Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-498 for
+the 5.14 Mac OS X December 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the static linker, ld(1), that caused it to
+   generate an internal error message about the count of local
+   relocation entries does not matching when jbsr pseudo instructions
+   were used when creating a dynamic library. (Radar bug
+   #3518096).</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.14 (Mac OS X December 2003 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-497 for
+the 5.14 Mac OS X December 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Added the PowerPC pseudo-instruction <B>jmp</B> as the
+   non-linking form of <B>jbsr</B>. (Radar bug #3458928).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-496 for
+the 5.14 Mac OS X December 2003 Developer release) </FONT></H5>
+
+<UL>
+   <LI>Changed the assembler to accept the --gstabs option to be the
+   same as the -g option and treat the --gdwarf2 option as an unknown
+   option. (Radar bug #3411071).</LI>
+   
+   <LI>Change the libtool(1) command to pass the
+   -prebind_allow_overlap on to ld(1). (Radar bug #3452484).</LI>
+   
+   <LI>Fixed a bug in the static linker, ld(1), that caused it to
+   generate an error message about relocation entries in read-only
+   sections when jbsr pseudo instructions were used when creating a
+   dynamic library. (Radar bug #3452964).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495 for
+the 5.13 Mac OS X 10.3 release) </FONT></H5>
+
+<UL>
+   <LI>Added the value 10.4 to be one of the known values allowed for
+   environment variable MACOSX_DEPLOYMENT_TARGET (Radar bug
+   #3445632).</LI>
+   
+   <LI>Changed the cctools project to include the FSF COPYING file at
+   the top level of the assembler. (Radar bug #3443583).</LI>
+   
+   <LI>Changed seg_addr_table(3) so it does not reserves more space
+   than necessary for flat dylibs. (Radar bug #3440884).</LI>
+   
+   <LI>Changed NSModule(3) man page so NSLinkModule states you need
+   to pass the image path as the module name if you want to use
+   gdb(1) on it (Radar bug #3408768).</LI>
+   
+   <LI>Changed the header file &lt;mach-o/dyld.h&gt; so the API's
+   introduced in 10.3 are marked with the AvailabilityMacros (Radar
+   bug #3401910).</LI>
+   
+   <LI>Changed ld(1) to call realpath(3) on the filenames printed
+   with RC_TRACE_ARCHIVES. (Radar bug #3443289).</LI>
 </UL>
 
 <H2>Notes Specific to Release 5.13.2 (Mac OS X 10.3.4 Release)</H2>
@@ -63,7 +1347,7 @@ the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
 the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
 
 <UL>
-   <LI>Fixed a bug that was caused by the changes to dyld in
+   <LI>Fixes a bug that was caused by the changes to dyld in
    cctools-495.3 for Radar bug #3622330 that would cause a crash in
    apps that were built ld(1) -s and the un fixed bug 3534709. The
    work around for this bug had a logic error (Radar bug

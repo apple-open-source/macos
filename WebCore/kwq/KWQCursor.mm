@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #import "KWQCursor.h"
 #import "KWQLogging.h"
+#import "KWQFoundationExtras.h"
 
 // The NSCursor cocoa calls here can't fail, so no need to block Cocoa exceptions
 
@@ -34,36 +35,31 @@ QCursor::QCursor()
 }
 
 QCursor::QCursor(NSCursor *cur)
-    : cursor([cur retain])
+    : cursor(KWQRetain(cur))
 {
 }
 
 QCursor::QCursor(const QPixmap &pixmap)
     : cursor(nil)
 {
+    // Needed for custom cursors.
     ERROR("not yet implemented");
 }
 
 QCursor::QCursor(const QCursor &other)
-    : cursor([other.cursor retain])
+    : cursor(KWQRetain(other.cursor))
 {
 }
 
 QCursor::~QCursor()
 {
-    [cursor release];
+    KWQRelease(cursor);
 }
       
-QPoint QCursor::pos()
-{
-    LOG(NotYetImplemented, "not yet implemented");
-    return QPoint();
-}
-
 QCursor &QCursor::operator=(const QCursor &other)
 {
-    [other.cursor retain];
-    [cursor release];
+    KWQRetain(other.cursor);
+    KWQRelease(cursor);
     cursor = other.cursor;
     return *this;
 }

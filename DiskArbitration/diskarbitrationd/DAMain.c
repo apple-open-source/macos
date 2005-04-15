@@ -54,7 +54,6 @@ static const char * __kDAMainDaemonCookie = "___daemon()";
 
 static SCDynamicStoreRef     __gDAConfigurationPort = NULL;
 static Boolean               __gDAMainRendezvous    = FALSE;
-static IONotificationPortRef __gDAMediaPort         = NULL;
 static CFMachPortRef         __gDANotifyPort        = NULL;
 static Boolean               __gDAOptionDebug       = FALSE;
 ///w:start
@@ -73,6 +72,7 @@ CFMutableArrayRef      gDAFileSystemProbeList          = NULL;
 Boolean                gDAIdle                         = TRUE;
 io_iterator_t          gDAMediaAppearedNotification    = NULL;
 io_iterator_t          gDAMediaDisappearedNotification = NULL;
+IONotificationPortRef  gDAMediaPort                    = NULL;
 CFMutableArrayRef      gDAMountMapList1                = NULL;
 CFMutableArrayRef      gDAMountMapList2                = NULL;
 CFMutableDictionaryRef gDAPreferenceList               = NULL;
@@ -416,15 +416,15 @@ static void __DAMain( void )
      * Create the I/O Kit notification run loop source.
      */
 
-    __gDAMediaPort = IONotificationPortCreate( kIOMasterPortDefault );
+    gDAMediaPort = IONotificationPortCreate( kIOMasterPortDefault );
 
-    if ( __gDAMediaPort == NULL )
+    if ( gDAMediaPort == NULL )
     {
         DALogError( "could not create I/O Kit notification port." );
         exit( EX_SOFTWARE );
     }
 
-    source = IONotificationPortGetRunLoopSource( __gDAMediaPort ),
+    source = IONotificationPortGetRunLoopSource( gDAMediaPort ),
 
     CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
 
@@ -504,7 +504,7 @@ static void __DAMain( void )
      * Create the "media disappeared" notification.
      */
 
-    IOServiceAddMatchingNotification( __gDAMediaPort,
+    IOServiceAddMatchingNotification( gDAMediaPort,
                                       kIOTerminatedNotification,
                                       IOServiceMatching( kIOMediaClass ),
                                       _DAMediaDisappearedCallback,
@@ -521,7 +521,7 @@ static void __DAMain( void )
      * Create the "media appeared" notification.
      */
 
-    IOServiceAddMatchingNotification( __gDAMediaPort,
+    IOServiceAddMatchingNotification( gDAMediaPort,
                                       kIOMatchedNotification,
                                       IOServiceMatching( kIOMediaClass ),
                                       _DAMediaAppearedCallback,

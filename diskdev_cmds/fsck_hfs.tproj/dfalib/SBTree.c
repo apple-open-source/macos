@@ -113,6 +113,7 @@ ErrorExit:
 OSErr GetBTreeRecord(SFCB *fcb, SInt16 selectionIndex, void* key, void* data, UInt16 *dataSize, UInt32 *newHint)
 {
 	FSBufferDescriptor	btRecord;
+	FSBufferDescriptor	*btRecordPtr = NULL;
 	BTreeIterator		*iterator;
 	BTreeControlBlock	*btcb;
 	OSStatus			result;
@@ -124,14 +125,17 @@ OSErr GetBTreeRecord(SFCB *fcb, SInt16 selectionIndex, void* key, void* data, UI
 	btcb = (BTreeControlBlock*) fcb->fcbBtree;
 	iterator = &btcb->lastIterator;
 
-	btRecord.bufferAddress = data;
-	btRecord.itemCount = 1;
-	if ( btcb->maxKeyLength == kHFSExtentKeyMaximumLength )
-		btRecord.itemSize = sizeof(HFSExtentRecord);
-	else if ( btcb->maxKeyLength == kHFSPlusExtentKeyMaximumLength )
-		btRecord.itemSize = sizeof(HFSPlusExtentRecord);
-	else
-		btRecord.itemSize = sizeof(CatalogRecord);
+	if (data != NULL) {
+		btRecordPtr = &btRecord;
+		btRecord.bufferAddress = data;
+		btRecord.itemCount = 1;
+		if ( btcb->maxKeyLength == kHFSExtentKeyMaximumLength )
+			btRecord.itemSize = sizeof(HFSExtentRecord);
+		else if ( btcb->maxKeyLength == kHFSPlusExtentKeyMaximumLength )
+			btRecord.itemSize = sizeof(HFSPlusExtentRecord);
+		else
+			btRecord.itemSize = sizeof(CatalogRecord);
+	} 
 	
 	// now we have to map index into next/prev operations...
 	
@@ -161,7 +165,7 @@ OSErr GetBTreeRecord(SFCB *fcb, SInt16 selectionIndex, void* key, void* data, UI
 
 		for (i = 1; i < selectionIndex; ++i)
 		{
-			result = BTIterateRecord( fcb, kBTreeNextRecord, iterator, &btRecord, dataSize );
+			result = BTIterateRecord( fcb, kBTreeNextRecord, iterator, btRecordPtr, dataSize );
 			ExitOnError(result);
 		}
 		operation = kBTreeNextRecord;
@@ -172,13 +176,13 @@ OSErr GetBTreeRecord(SFCB *fcb, SInt16 selectionIndex, void* key, void* data, UI
 
 		for (i = -1; i > selectionIndex; --i)
 		{
-			result = BTIterateRecord( fcb, kBTreePrevRecord, iterator, &btRecord, dataSize );
+			result = BTIterateRecord( fcb, kBTreePrevRecord, iterator, btRecordPtr, dataSize );
 			ExitOnError(result);
 		}
 		operation = kBTreePrevRecord;
 	}
 
-	result = BTIterateRecord( fcb, operation, iterator, &btRecord, dataSize );
+	result = BTIterateRecord( fcb, operation, iterator, btRecordPtr, dataSize );
 
 	if (result == noErr)
 	{

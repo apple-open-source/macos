@@ -2,7 +2,7 @@
  * This file is part of the HTML widget for KDE.
  *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -179,7 +179,7 @@ void RenderCanvas::layout()
 #endif
 
     layer()->setHeight(kMax(doch, m_height));
-    layer()->setWidth(kMax((short)docw, m_width));
+    layer()->setWidth(kMax(docw, m_width));
     
     setNeedsLayout(false);
 }
@@ -196,32 +196,27 @@ bool RenderCanvas::absolutePosition(int &xPos, int &yPos, bool f)
     return true;
 }
 
-void RenderCanvas::paint(QPainter *p, int _x, int _y, int _w, int _h, int _tx, int _ty,
-                       PaintAction paintAction)
-{
-    paintObject(p, _x, _y, _w, _h, _tx, _ty, paintAction);
-}
-
-void RenderCanvas::paintObject(QPainter *p, int _x, int _y,
-                             int _w, int _h, int _tx, int _ty, PaintAction paintAction)
+void RenderCanvas::paint(PaintInfo& i, int _tx, int _ty)
 {
 #ifdef DEBUG_LAYOUT
     kdDebug( 6040 ) << renderName() << "(RenderCanvas) " << this << " ::paintObject() w/h = (" << width() << "/" << height() << ")" << endl;
 #endif
+    
+    // Cache the print rect because the dirty rect could get changed during painting.
+    if (m_printingMode) {
+        setPrintRect(i.r);
+    }
+    
     // 1. paint background, borders etc
-    if (paintAction == PaintActionElementBackground) {
-        paintBoxDecorations(p, _x, _y, _w, _h, _tx, _ty);
+    if (i.phase == PaintActionBlockBackground) {
+        paintBoxDecorations(i, _tx, _ty);
         return;
     }
     
     // 2. paint contents
-    RenderObject *child = firstChild();
-    while(child != 0) {
-        if(!child->layer() && !child->isFloating()) {
-            child->paint(p, _x, _y, _w, _h, _tx, _ty, paintAction);
-        }
-        child = child->nextSibling();
-    }
+    for (RenderObject *child = firstChild(); child; child = child->nextSibling())
+        if (!child->layer() && !child->isFloating())
+            child->paint(i, _tx, _ty);
 
     if (m_view)
     {
@@ -230,17 +225,15 @@ void RenderCanvas::paintObject(QPainter *p, int _x, int _y,
     }
     
     // 3. paint floats.
-    if (paintAction == PaintActionFloat)
-        paintFloats(p, _x, _y, _w, _h, _tx, _ty);
+    if (i.phase == PaintActionFloat)
+        paintFloats(i, _tx, _ty);
         
 #ifdef BOX_DEBUG
-    outlineBox(p, _tx, _ty);
+    outlineBox(i.p, _tx, _ty);
 #endif
-
 }
 
-void RenderCanvas::paintBoxDecorations(QPainter *p,int _x, int _y,
-                                       int _w, int _h, int _tx, int _ty)
+void RenderCanvas::paintBoxDecorations(PaintInfo& i, int _tx, int _ty)
 {
     // Check to see if we are enclosed by a transparent layer.  If so, we cannot blit
     // when scrolling, and we need to use slow repaints.
@@ -257,10 +250,11 @@ void RenderCanvas::paintBoxDecorations(QPainter *p,int _x, int _y,
     // This code typically only executes if the root element's visibility has been set to hidden.
     // Only fill with a base color (e.g., white) if we're the root document, since iframes/frames with
     // no background in the child document should show the parent's background.
-    if (elt)
+    if (elt || view()->isTransparent())
         view()->useSlowRepaints(); // The parent must show behind the child.
     else
-        p->fillRect(_x,_y,_w,_h, view()->palette().active().color(QColorGroup::Base));
+        i.p->fillRect(i.r.x(), i.r.y(), i.r.width(), i.r.height(), 
+                    view()->palette().active().color(QColorGroup::Base));
 }
 
 void RenderCanvas::repaintViewRectangle(const QRect& ur, bool immediate)
@@ -280,11 +274,12 @@ void RenderCanvas::repaintViewRectangle(const QRect& ur, bool immediate)
             // rectangle.
             r.setX(r.x() - m_view->contentsX());
             r.setY(r.y() - m_view->contentsY());
-            
+
             RenderObject* obj = elt->renderer();
-            int frameOffset = (m_view->frameStyle() != QFrame::NoFrame) ? 2 : 0;
-            r.setX(r.x() + obj->borderLeft()+obj->paddingLeft() + frameOffset);
-            r.setY(r.y() + obj->borderTop()+obj->paddingTop() + frameOffset);
+            int yFrameOffset = (m_view->frameStyle() != QFrame::NoFrame) ? 2 : 0;
+            int xFrameOffset = (m_view->frameStyle() != QFrame::NoFrame) ? 1 : 0;
+            r.setX(r.x() + obj->borderLeft()+obj->paddingLeft() + xFrameOffset);
+            r.setY(r.y() + obj->borderTop()+obj->paddingTop() + yFrameOffset);
             obj->repaintRectangle(r, immediate);
         }
     }
@@ -309,22 +304,6 @@ void RenderCanvas::computeAbsoluteRepaintRect(QRect& r, bool f)
     }
 }
 
-
-static QRect enclosingPositionedRect (RenderObject *n)
-{
-    RenderObject *enclosingParent =  n->containingBlock();
-    QRect rect(0,0,0,0);
-    if (enclosingParent) {
-        int ox, oy;
-        enclosingParent->absolutePosition(ox, oy);
-        rect.setX(ox);
-        rect.setY(oy);
-        rect.setWidth (enclosingParent->width());
-        rect.setHeight (enclosingParent->height());
-    }
-    return rect;
-}
-
 void RenderCanvas::absoluteRects(QValueList<QRect>& rects, int _tx, int _ty)
 {
     rects.append(QRect(_tx, _ty, m_layer->width(), m_layer->height()));
@@ -332,268 +311,232 @@ void RenderCanvas::absoluteRects(QValueList<QRect>& rects, int _tx, int _ty)
 
 QRect RenderCanvas::selectionRect() const
 {
-    RenderObject *r = m_selectionStart;
-    if (!r)
-        return QRect();
-    
-    QRect selectionRect = enclosingPositionedRect(r);
-
-    while (r && r != m_selectionEnd)
-    {
-        RenderObject* n;
-        if ( !(n = r->firstChild()) ){
-            if ( !(n = r->nextSibling()) )
-            {
-                n = r->parent();
-                while (n && !n->nextSibling())
-                    n = n->parent();
-                if (n)
-                    n = n->nextSibling();
+    QPtrDict<SelectionInfo> selectedObjects;
+    selectedObjects.setAutoDelete(true);
+    RenderObject* os = m_selectionStart;
+    while (os) {
+        RenderObject* no = 0;
+        if (os != m_selectionEnd) {
+            if (!(no = os->firstChild())) {
+                if (!(no = os->nextSibling())) {
+                    no = os->parent();
+                    while (no && no != m_selectionEnd && !no->nextSibling())
+                        no = no->parent();
+                    if (no && no != m_selectionEnd)
+                        no = no->nextSibling();
+                }
             }
         }
-        r = n;
-        if (r) {
-            selectionRect = selectionRect.unite(enclosingPositionedRect(r));
+        
+        if ((os->canBeSelectionLeaf() || os == m_selectionStart || os == m_selectionEnd) && os->selectionState() != SelectionNone) {
+            // Blocks are responsible for painting line gaps and margin gaps.  They must be examined as well.
+            selectedObjects.insert(os, new SelectionInfo(os));
+            RenderBlock* cb = os->containingBlock();
+            while (cb && !cb->isCanvas()) {
+                SelectionInfo* blockInfo = selectedObjects.find(cb);
+                if (blockInfo) break;
+                selectedObjects.insert(cb, new SelectionInfo(cb));
+                cb = cb->containingBlock();
+            }
         }
+        
+        os = no;
     }
 
-    return selectionRect;
+    // Now create a single bounding box rect that encloses the whole selection.
+    QRect selRect;
+    QPtrDictIterator<SelectionInfo> objects(selectedObjects);
+    for (objects.toFirst(); objects.current(); ++objects)
+        selRect = selRect.unite(objects.current()->rect());
+    return selRect;
 }
 
 void RenderCanvas::setSelection(RenderObject *s, int sp, RenderObject *e, int ep)
 {
-    // Check we got valid renderobjects. www.msnbc.com and clicking around, to find the case where this happened.
-    if ( !s || !e )
-    {
-        kdWarning(6040) << "RenderCanvas::setSelection() called with start=" << s << " end=" << e << endl;
+    // Make sure both our start and end objects are defined. 
+    // Check www.msnbc.com and try clicking around to find the case where this happened.
+    if ((s && !e) || (e && !s))
         return;
-    }
-    //kdDebug( 6040 ) << "RenderCanvas::setSelection(" << s << "," << sp << "," << e << "," << ep << ")" << endl;
 
-#if APPLE_CHANGES
-    // Cut out early if the selection hasn't changed.
+    // Just return if the selection hasn't changed.
     if (m_selectionStart == s && m_selectionStartPos == sp &&
-        m_selectionEnd == e && m_selectionEndPos == ep){
+        m_selectionEnd == e && m_selectionEndPos == ep)
         return;
-    }
 
-    // Record the old selected objects.  Will be used later
-    // to delta again the selected objects.
-    
-    RenderObject *oldStart = m_selectionStart;
+    // Record the old selected objects.  These will be used later
+    // when we compare against the new selected objects.
     int oldStartPos = m_selectionStartPos;
-    RenderObject *oldEnd = m_selectionEnd;
     int oldEndPos = m_selectionEndPos;
-    QPtrList<RenderObject> oldSelectedInside;
-    QPtrList<RenderObject> newSelectedInside;
-    RenderObject *os = oldStart;
 
-    while (os && os != oldEnd)
-    {
-        RenderObject* no;
-        if ( !(no = os->firstChild()) ){
-            if ( !(no = os->nextSibling()) )
-            {
-                no = os->parent();
-                while (no && !no->nextSibling())
-                    no = no->parent();
-                if (no)
-                    no = no->nextSibling();
+    // Objects each have a single selection rect to examine.
+    QPtrDict<SelectionInfo> oldSelectedObjects;
+    QPtrDict<SelectionInfo> newSelectedObjects;
+    oldSelectedObjects.setAutoDelete(true);
+    newSelectedObjects.setAutoDelete(true);
+
+    // Blocks contain selected objects and fill gaps between them, either on the left, right, or in between lines and blocks.
+    // In order to get the repaint rect right, we have to examine left, middle, and right rects individually, since otherwise
+    // the union of those rects might remain the same even when changes have occurred.
+    QPtrDict<BlockSelectionInfo> oldSelectedBlocks;
+    QPtrDict<BlockSelectionInfo> newSelectedBlocks;
+    oldSelectedBlocks.setAutoDelete(true);
+    newSelectedBlocks.setAutoDelete(true);
+
+    RenderObject* os = m_selectionStart;
+    while (os) {
+        RenderObject* no = 0;
+        if (os != m_selectionEnd) {
+            if (!(no = os->firstChild())) {
+                if (!(no = os->nextSibling())) {
+                    no = os->parent();
+                    while (no && no != m_selectionEnd && !no->nextSibling())
+                        no = no->parent();
+                    if (no && no != m_selectionEnd)
+                        no = no->nextSibling();
+                }
             }
         }
-        if (os->selectionState() == SelectionInside && !oldSelectedInside.containsRef(os))
-            oldSelectedInside.append(os);
-            
+
+        if ((os->canBeSelectionLeaf() || os == m_selectionStart || os == m_selectionEnd) && os->selectionState() != SelectionNone) {
+            // Blocks are responsible for painting line gaps and margin gaps.  They must be examined as well.
+            oldSelectedObjects.insert(os, new SelectionInfo(os));
+            RenderBlock* cb = os->containingBlock();
+            while (cb && !cb->isCanvas()) {
+                BlockSelectionInfo* blockInfo = oldSelectedBlocks.find(cb);
+                if (blockInfo) break;
+                oldSelectedBlocks.insert(cb, new BlockSelectionInfo(cb));
+                cb = cb->containingBlock();
+            }
+        }
+
         os = no;
     }
-    clearSelection(false);
-#else
-    clearSelection();
-#endif
 
-    while (s->firstChild())
-        s = s->firstChild();
-    while (e->lastChild())
-        e = e->lastChild();
+    // Now clear the selection.
+    QPtrDictIterator<SelectionInfo> oldLeaves(oldSelectedObjects);
+    for (oldLeaves.toFirst(); oldLeaves.current(); ++oldLeaves) {
+        RenderObject* obj = static_cast<RenderObject*>(oldLeaves.currentKey());
+        obj->setSelectionState(SelectionNone);
+    }
 
-    // set selection start
-    if (m_selectionStart)
-        m_selectionStart->setIsSelectionBorder(false);
+    // set selection start and end
     m_selectionStart = s;
-    if (m_selectionStart)
-        m_selectionStart->setIsSelectionBorder(true);
     m_selectionStartPos = sp;
-
-    // set selection end
-    if (m_selectionEnd)
-        m_selectionEnd->setIsSelectionBorder(false);
     m_selectionEnd = e;
-    if (m_selectionEnd)
-        m_selectionEnd->setIsSelectionBorder(true);
     m_selectionEndPos = ep;
 
-    // update selection status of all objects between m_selectionStart and m_selectionEnd
+    // Update the selection status of all objects between m_selectionStart and m_selectionEnd
+    if (s && s == e)
+        s->setSelectionState(SelectionBoth);
+    else {
+        if (s)
+            s->setSelectionState(SelectionStart);
+        if (e)
+            e->setSelectionState(SelectionEnd);
+    }
+
     RenderObject* o = s;
-    
-    while (o && o!=e)
-    {
-        o->setSelectionState(SelectionInside);
-//      kdDebug( 6040 ) << "setting selected " << o << ", " << o->isText() << endl;
-        RenderObject* no;
-        if ( !(no = o->firstChild()) )
-            if ( !(no = o->nextSibling()) )
-            {
-                no = o->parent();
-                while (no && !no->nextSibling())
-                    no = no->parent();
-                if (no)
-                    no = no->nextSibling();
+    while (o) {
+        RenderObject* no = 0;
+        if (o != s && o != e && o->canBeSelectionLeaf())
+            o->setSelectionState(SelectionInside);
+        
+        if (o != e) {
+            if (!(no = o->firstChild())) {
+                if ( !(no = o->nextSibling())) {
+                    no = o->parent();
+                    while (no && no != e && !no->nextSibling())
+                        no = no->parent();
+                    if (no && no != e)
+                        no = no->nextSibling();
+                }
             }
-#if APPLE_CHANGES
-        if (o->selectionState() == SelectionInside && !newSelectedInside.containsRef(o))
-            newSelectedInside.append(o);
-#endif
-            
+        }
+        
         o=no;
     }
-    s->setSelectionState(SelectionStart);
-    e->setSelectionState(SelectionEnd);
-    if(s == e) s->setSelectionState(SelectionBoth);
 
-#if APPLE_CHANGES
+    // Now that the selection state has been updated for the new objects, walk them again and
+    // put them in the new objects list.
+    o = s;
+    while (o) {
+        RenderObject* no = 0;
+        if (o != e) {
+            if (!(no = o->firstChild())) {
+                if ( !(no = o->nextSibling())) {
+                    no = o->parent();
+                    while (no && no != e && !no->nextSibling())
+                        no = no->parent();
+                    if (no && no != e)
+                        no = no->nextSibling();
+                }
+            }
+        }
+        
+        if ((o->canBeSelectionLeaf() || o == s || o == e) && o->selectionState() != SelectionNone) {
+            newSelectedObjects.insert(o, new SelectionInfo(o));
+            RenderBlock* cb = o->containingBlock();
+            while (cb && !cb->isCanvas()) {
+                BlockSelectionInfo* blockInfo = newSelectedBlocks.find(cb);
+                if (blockInfo) break;
+                newSelectedBlocks.insert(cb, new BlockSelectionInfo(cb));
+                cb = cb->containingBlock();
+            }
+        }
+
+        o=no;
+    }
+
     if (!m_view)
         return;
 
-    newSelectedInside.remove (s);
-    newSelectedInside.remove (e);
-    
-    QRect updateRect;
-
-    // Don't use repaint() because it will cause all rects to
-    // be united (see khtmlview::scheduleRepaint()).  Instead
-    // just draw damage rects for objects that have a change
-    // in selection state.
-    
-    // Are any of the old fully selected objects not in the new selection?
-    // If so we have to draw them.
-    // Could be faster by building list of non-intersecting rectangles rather
-    // than unioning rectangles.
-    QPtrListIterator<RenderObject> oldIterator(oldSelectedInside);
-    bool firstRect = true;
-    for (; oldIterator.current(); ++oldIterator){
-        if (!newSelectedInside.containsRef(oldIterator.current())){
-            if (firstRect){
-                updateRect = enclosingPositionedRect(oldIterator.current());
-                firstRect = false;
+    // Have any of the old selected objects changed compared to the new selection?
+    for (oldLeaves.toFirst(); oldLeaves.current(); ++oldLeaves) {
+        SelectionInfo* newInfo = newSelectedObjects.find(oldLeaves.currentKey());
+        SelectionInfo* oldInfo = oldLeaves.current();
+        if (!newInfo || oldInfo->rect() != newInfo->rect() || oldInfo->state() != newInfo->state() ||
+            (m_selectionStart == oldLeaves.currentKey() && oldStartPos != m_selectionStartPos) ||
+            (m_selectionEnd == oldLeaves.currentKey() && oldEndPos != m_selectionEndPos)) {
+            m_view->updateContents(oldInfo->rect());
+            if (newInfo) {
+                m_view->updateContents(newInfo->rect());
+                newSelectedObjects.remove(oldLeaves.currentKey());
             }
-            else
-                updateRect = updateRect.unite(enclosingPositionedRect(oldIterator.current()));
         }
     }
-    if (!firstRect){
-        m_view->updateContents( updateRect );
+    
+    // Any new objects that remain were not found in the old objects dict, and so they need to be updated.
+    QPtrDictIterator<SelectionInfo> newLeaves(newSelectedObjects);
+    for (newLeaves.toFirst(); newLeaves.current(); ++newLeaves) {
+        SelectionInfo* newInfo = newLeaves.current();
+        m_view->updateContents(newInfo->rect());
     }
 
-    // Are any of the new fully selected objects not in the previous selection?
-    // If so we have to draw them.
-    // Could be faster by building list of non-intersecting rectangles rather
-    // than unioning rectangles.
-    QPtrListIterator<RenderObject> newIterator(newSelectedInside);
-    firstRect = true;
-    for (; newIterator.current(); ++newIterator){
-        if (!oldSelectedInside.containsRef(newIterator.current())){
-            if (firstRect){
-                updateRect = enclosingPositionedRect(newIterator.current());
-                firstRect = false;
+    // Have any of the old blocks changed?
+    QPtrDictIterator<BlockSelectionInfo> oldBlocks(oldSelectedBlocks);
+    for (oldBlocks.toFirst(); oldBlocks.current(); ++oldBlocks) {
+        BlockSelectionInfo* newInfo = newSelectedBlocks.find(oldBlocks.currentKey());
+        BlockSelectionInfo* oldInfo = oldBlocks.current();
+        if (!newInfo || oldInfo->rects() != newInfo->rects() || oldInfo->state() != newInfo->state()) {
+            m_view->updateContents(oldInfo->rects());
+            if (newInfo) {
+                m_view->updateContents(newInfo->rects());
+                newSelectedBlocks.remove(oldBlocks.currentKey());
             }
-            else
-                updateRect = updateRect.unite(enclosingPositionedRect(newIterator.current()));
         }
     }
-    if (!firstRect) {
-        m_view->updateContents( updateRect );
-    }
     
-    // Is the new starting object different, or did the position in the starting
-    // element change?  If so we have to draw it.
-    if (oldStart != m_selectionStart || 
-        (oldStart == oldEnd && (oldStartPos != m_selectionStartPos || oldEndPos != m_selectionEndPos)) ||
-        (oldStart == m_selectionStart && oldStartPos != m_selectionStartPos)){
-        m_view->updateContents( enclosingPositionedRect(m_selectionStart) );
+    // Any new blocks that remain were not found in the old blocks dict, and so they need to be updated.
+    QPtrDictIterator<BlockSelectionInfo> newBlocks(newSelectedBlocks);
+    for (newBlocks.toFirst(); newBlocks.current(); ++newBlocks) {
+        BlockSelectionInfo* newInfo = newBlocks.current();
+        m_view->updateContents(newInfo->rects());
     }
-
-    // Draw the old selection start object if it's different than the new selection
-    // start object.
-    if (oldStart && oldStart != m_selectionStart){
-        m_view->updateContents( enclosingPositionedRect(oldStart) );
-    }
-    
-    // Does the selection span objects and is the new end object different, or did the position
-    // in the end element change?  If so we have to draw it.
-    if (oldStart != oldEnd && 
-        (oldEnd != m_selectionEnd ||
-        (oldEnd == m_selectionEnd && oldEndPos != m_selectionEndPos))){
-        m_view->updateContents( enclosingPositionedRect(m_selectionEnd) );
-    }
-    
-    // Draw the old selection end object if it's different than the new selection
-    // end object.
-    if (oldEnd && oldEnd != m_selectionEnd){
-        m_view->updateContents( enclosingPositionedRect(oldEnd) );
-    }
-#else
-    repaint();
-#endif
 }
 
-
-#if APPLE_CHANGES
-void RenderCanvas::clearSelection(bool doRepaint)
-#else
 void RenderCanvas::clearSelection()
-#endif
 {
-    // update selection status of all objects between m_selectionStart and m_selectionEnd
-    RenderObject* o = m_selectionStart;
-    while (o && o!=m_selectionEnd)
-    {
-        if (o->selectionState()!=SelectionNone)
-#if APPLE_CHANGES
-            if (doRepaint)
-#endif
-                o->repaint();
-        o->setSelectionState(SelectionNone);
-        RenderObject* no;
-        if ( !(no = o->firstChild()) )
-            if ( !(no = o->nextSibling()) )
-            {
-                no = o->parent();
-                while (no && !no->nextSibling())
-                    no = no->parent();
-                if (no)
-                    no = no->nextSibling();
-            }
-        o=no;
-    }
-    if (m_selectionEnd)
-    {
-        m_selectionEnd->setSelectionState(SelectionNone);
-#if APPLE_CHANGES
-        if (doRepaint)
-#endif
-            m_selectionEnd->repaint();
-    }
-
-    // set selection start & end to 0
-    if (m_selectionStart)
-        m_selectionStart->setIsSelectionBorder(false);
-    m_selectionStart = 0;
-    m_selectionStartPos = -1;
-
-    if (m_selectionEnd)
-        m_selectionEnd->setIsSelectionBorder(false);
-    m_selectionEnd = 0;
-    m_selectionEndPos = -1;
+    setSelection(0, -1, 0, -1);
 }
 
 void RenderCanvas::selectionStartEnd(int& spos, int& epos)

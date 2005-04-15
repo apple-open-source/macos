@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +41,7 @@ private:
     QString convert(const char *chs, int len, bool flush)
         { return convert(reinterpret_cast<const unsigned char *>(chs), len, flush); }
     QString convert(const unsigned char *chs, int len, bool flush);
+    QString convertLatin1(const unsigned char *chs, int len);
     QString convertUTF16(const unsigned char *chs, int len);
     QString convertUsingTEC(const unsigned char *chs, int len, bool flush);
     
@@ -146,7 +147,7 @@ QCString QTextCodec::fromUnicode(const QString &qcs) const
     // FIXME: Since there's no "force ASCII range" mode in CFString, we change the backslash into a yen sign.
     // Encoding will change the yen sign back into a backslash.
     QString copy = qcs;
-    copy.replace('\\', backslashAsCurrencySymbol());
+    copy.replace(QChar('\\'), backslashAsCurrencySymbol());
     CFStringRef cfs = copy.getCFString();
 
     CFRange range = CFRangeMake(0, CFStringGetLength(cfs));
@@ -236,6 +237,41 @@ KWQTextDecoder::~KWQTextDecoder()
     }
 }
 
+QString KWQTextDecoder::convertLatin1(const unsigned char *s, int length)
+{
+    ASSERT(_numBufferedBytes == 0);
+
+    int i;
+    for (i = 0; i != length; ++i) {
+        if (s[i] == 0) {
+            break;
+        }
+    }
+    if (i == length) {
+        return QString(reinterpret_cast<const char *>(s), length);
+    }
+
+    QString result("");
+    
+    result.reserve(length);
+    
+    result.append(reinterpret_cast<const char *>(s), i);
+    int start = ++i;
+    for (; i != length; ++i) {
+        if (s[i] == 0) {
+            if (start != i) {
+                result.append(reinterpret_cast<const char *>(&s[start]), i - start);
+            }
+            start = i + 1;
+        }
+    }
+    if (start != length) {
+        result.append(reinterpret_cast<const char *>(&s[start]), length - start);
+    }
+
+    return result;
+}
+
 QString KWQTextDecoder::convertUTF16(const unsigned char *s, int length)
 {
     ASSERT(_numBufferedBytes == 0 || _numBufferedBytes == 1);
@@ -243,8 +279,10 @@ QString KWQTextDecoder::convertUTF16(const unsigned char *s, int length)
     const unsigned char *p = s;
     unsigned len = length;
     
-    QString result;
+    QString result("");
     
+    result.reserve(length / 2);
+
     if (_numBufferedBytes != 0 && len != 0) {
         ASSERT(_numBufferedBytes == 1);
         UniChar c;
@@ -262,7 +300,7 @@ QString KWQTextDecoder::convertUTF16(const unsigned char *s, int length)
     }
     
     while (len > 1) {
-        UniChar buffer[4096];
+        UniChar buffer[16384];
         int runLength = MIN(len / 2, sizeof(buffer) / sizeof(buffer[0]));
         int bufferLength = 0;
         if (_littleEndian) {
@@ -283,7 +321,7 @@ QString KWQTextDecoder::convertUTF16(const unsigned char *s, int length)
             }
         }
         result.append(reinterpret_cast<QChar *>(buffer), bufferLength);
-        len -= bufferLength * 2;
+        len -= runLength * 2;
     }
     
     if (len) {
@@ -357,6 +395,7 @@ OSStatus KWQTextDecoder::convertOneChunkUsingTEC(const unsigned char *inputBuffe
         // Now, do a conversion on the buffer.
         status = TECConvertText(_converter, _bufferedBytes, _numBufferedBytes + bytesToPutInBuffer, &bytesRead,
             reinterpret_cast<unsigned char *>(outputBuffer), outputBufferLength, &bytesWritten);
+        ASSERT(bytesRead <= _numBufferedBytes + bytesToPutInBuffer);
 
         if (status == kTECPartialCharErr && bytesRead == 0) {
             // Handle the case where the partial character was not converted.
@@ -390,6 +429,7 @@ OSStatus KWQTextDecoder::convertOneChunkUsingTEC(const unsigned char *inputBuffe
     } else {
         status = TECConvertText(_converter, inputBuffer, inputBufferLength, &bytesRead,
             static_cast<unsigned char *>(outputBuffer), outputBufferLength, &bytesWritten);
+        ASSERT(static_cast<int>(bytesRead) <= inputBufferLength);
     }
 
     // Work around bug 3351093, where sometimes we get kTECBufferBelowMinimumSizeErr instead of kTECOutputBufferFullStatus.
@@ -409,12 +449,14 @@ QString KWQTextDecoder::convertUsingTEC(const unsigned char *chs, int len, bool 
         return QString();
     }
     
-    QString result;
+    QString result("");
+
+    result.reserve(len);
 
     const unsigned char *sourcePointer = chs;
     int sourceLength = len;
     bool bufferWasFull = false;
-    UniChar buffer[4096];
+    UniChar buffer[16384];
 
     while (sourceLength || bufferWasFull) {
         int bytesRead = 0;
@@ -430,7 +472,7 @@ QString KWQTextDecoder::convertUsingTEC(const unsigned char *chs, int len, bool 
                 break;
             case kTextMalformedInputErr:
             case kTextUndefinedElementErr:
-                // FIXME: Put in FFFD character into the output string?
+                // FIXME: Put FFFD character into the output string in this case?
                 TECClearConverterContextInfo(_converter);
                 if (sourceLength) {
                     sourcePointer += 1;
@@ -480,33 +522,43 @@ QString KWQTextDecoder::convertUsingTEC(const unsigned char *chs, int len, bool 
 
 QString KWQTextDecoder::convert(const unsigned char *chs, int len, bool flush)
 {
-    if (_encoding == kCFStringEncodingUnicode) {
-        return convertUTF16(chs, len);
-    }
+    //#define PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE 1000
 
-//#define PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE 1000
+    switch (_encoding) {
+    case kCFStringEncodingISOLatin1:
+    case kCFStringEncodingWindowsLatin1:
+        return convertLatin1(chs, len);
+
+    case kCFStringEncodingUnicode:
+        return convertUTF16(chs, len);
+
+    default:
 #if PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE
-    QString result;
-    int chunkSize;
-    for (int i = 0; i != len; i += chunkSize) {
-        chunkSize = len - i;
-        if (chunkSize > PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE) {
-            chunkSize = PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE;
+        QString result;
+        int chunkSize;
+        for (int i = 0; i != len; i += chunkSize) {
+            chunkSize = len - i;
+            if (chunkSize > PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE) {
+                chunkSize = PARTIAL_CHARACTER_HANDLING_TEST_CHUNK_SIZE;
+            }
+            result += convertUsingTEC(chs + i, chunkSize, flush && (i + chunkSize == len));
         }
-        result += convertUsingTEC(chs + i, chunkSize, flush && (i + chunkSize == len));
-    }
-    return result;
+        return result;
 #else
-    return convertUsingTEC(chs, len, flush);
+        return convertUsingTEC(chs, len, flush);
 #endif
+    }
 }
 
 QString KWQTextDecoder::toUnicode(const char *chs, int len, bool flush)
 {
     ASSERT_ARG(len, len >= 0);
     
-    if (_error || !chs || (len <= 0 && !flush)) {
+    if (_error || !chs) {
         return QString();
+    }
+    if (len <= 0 && !flush) {
+        return "";
     }
 
     // Handle normal case.
@@ -543,7 +595,7 @@ QString KWQTextDecoder::toUnicode(const char *chs, int len, bool flush)
         int skip = BOMLength - numBufferedBytes;
         _numBufferedBytes = 0;
         _atStart = false;
-        return len == skip ? QString() : convert(chs + skip, len - skip, flush);
+        return len == skip ? QString("") : convert(chs + skip, len - skip, flush);
     }
 
     // Handle case where we know there is no BOM coming.
@@ -562,5 +614,5 @@ QString KWQTextDecoder::toUnicode(const char *chs, int len, bool flush)
     // Continue to look for the BOM.
     memcpy(&_bufferedBytes[numBufferedBytes], chs, len);
     _numBufferedBytes += len;
-    return QString();
+    return "";
 }

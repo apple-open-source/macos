@@ -1,0 +1,120 @@
+--- parser.c.orig	2004-11-09 07:48:18.000000000 -0800
++++ parser.c	2005-01-25 14:36:02.000000000 -0800
+@@ -97,7 +97,7 @@
+  * List of XML prefixed PI allowed by W3C specs
+  */
+ 
+-static const char *xmlW3CPIs[] = {
++static const char * const xmlW3CPIs[] = {
+     "xml-stylesheet",
+     NULL
+ };
+@@ -9028,7 +9028,7 @@
+     xmlParseGetLasts(ctxt, &lastlt, &lastgt);
+ 
+     while (1) {
+-	if ((ctxt->errNo != XML_ERR_OK) && (ctxt->disableSAX == 1))
++	if ((ctxt->wellFormed != 1) && (ctxt->disableSAX == 1))
+ 	    return(0);
+ 
+         
+@@ -9253,6 +9253,8 @@
+ 			    (!ctxt->disableSAX))
+ 			    ctxt->sax->endElementNs(ctxt->userData, name,
+ 			                            prefix, URI);
++		if (ctxt->nsNr - nsNr > 0)
++			nsPop(ctxt, ctxt->nsNr - nsNr);
+ #ifdef LIBXML_SAX1_ENABLED
+ 		    } else {
+ 			if ((ctxt->sax != NULL) &&
+@@ -9672,8 +9674,12 @@
+ 				    break;
+ 				}
+ 		            }
+-			    if (!found)
+-			        break;
++			    if (!found) {
++#if 0
++			        fprintf(stderr, "unfinished comment\n");
++#endif
++			        break; /* for */
++		            }
+ 		            continue;
+ 			}
+ 		    }
+@@ -9686,6 +9692,10 @@
+ 			continue;
+ 		    }
+ 		    if (buf[base] == ']') {
++#if 0
++		        fprintf(stderr, "%c%c%c%c: ", buf[base],
++			        buf[base + 1], buf[base + 2], buf[base + 3]);
++#endif
+ 		        if ((unsigned int) base +1 >=
+ 		            ctxt->input->buf->buffer->use)
+ 			    break;
+@@ -9694,20 +9704,34 @@
+ 			    base++;
+ 			    continue;
+ 			}
+-		        for (i = 0;
++		        for (i = 1;
+ 		     (unsigned int) base + i < ctxt->input->buf->buffer->use;
+ 		             i++) {
+-			    if (buf[base + i] == '>')
++			    if (buf[base + i] == '>') {
++#if 0
++			        fprintf(stderr, "found\n");
++#endif
+ 			        goto found_end_int_subset;
++			    }
++			    if (!IS_BLANK_CH(buf[base + i])) {
++#if 0
++			        fprintf(stderr, "not found\n");
++#endif
++			        goto not_end_of_int_subset;
++			    }
+ 			}
++#if 0
++			fprintf(stderr, "end of stream\n");
++#endif
+ 		        break;
++                        
+ 		    }
++not_end_of_int_subset:
++                    continue; /* for */
+ 		}
+ 		/*
+ 		 * We didn't found the end of the Internal subset
+ 		 */
+-		if (quote == 0) 
+-		    ctxt->checkIndex = base;
+ #ifdef DEBUG_PUSH
+ 		if (next == 0)
+ 		    xmlGenericError(xmlGenericErrorContext,
+@@ -9828,7 +9852,7 @@
+               int terminate) {
+     if (ctxt == NULL)
+         return(XML_ERR_INTERNAL_ERROR);
+-    if ((ctxt->errNo != XML_ERR_OK) && (ctxt->disableSAX == 1))
++    if ((ctxt->wellFormed != 1) && (ctxt->disableSAX == 1))
+         return(ctxt->errNo);
+     if (ctxt->instate == XML_PARSER_START)
+         xmlDetectSAX2(ctxt);
+@@ -9870,7 +9894,7 @@
+ 	}
+     }
+     xmlParseTryOrFinish(ctxt, terminate);
+-    if ((ctxt->errNo != XML_ERR_OK) && (ctxt->disableSAX == 1))
++    if ((ctxt->wellFormed != 1) && (ctxt->disableSAX == 1))
+         return(ctxt->errNo);
+     if (terminate) {
+ 	/*
+@@ -9900,6 +9924,7 @@
+ 	}
+ 	ctxt->instate = XML_PARSER_EOF;
+     }
++    if (ctxt->wellFormed) return(0);
+     return((xmlParserErrors) ctxt->errNo);	      
+ }
+ 

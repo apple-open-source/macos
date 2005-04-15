@@ -290,23 +290,24 @@ enum
 	kEHCIsiTDTimeSMaskPhase		= EHCIBitRangePhase(0, 7),
 	
 	// stat flags
-	kEHCIsiTDStatIOC		= EHCIBitRange(31, 31),
-	kEHCIsiTDStatIOCPhase		= EHCIBitRangePhase(31, 31),
-	kEHCIsiTDStatPageSelect		= EHCIBitRange(30, 30),
+	kEHCIsiTDStatIOC				= EHCIBitRange(31, 31),
+	kEHCIsiTDStatIOCPhase			= EHCIBitRangePhase(31, 31),
+	kEHCIsiTDStatPageSelect			= EHCIBitRange(30, 30),
 	kEHCIsiTDStatPageSelectPhase	= EHCIBitRangePhase(30, 30),
 	// bits 26-29 are reserved
-	kEHCIsiTDStatLength		= EHCIBitRange(16, 25),
-	kEHCIsiTDStatLengthPhase	= EHCIBitRangePhase(16, 25),
-	kEHCIsiTDStatCSplitProg		= EHCIBitRange(8, 15),
+	kEHCIsiTDStatLength				= EHCIBitRange(16, 25),
+	kEHCIsiTDStatLengthPhase		= EHCIBitRangePhase(16, 25),
+	kEHCIsiTDStatCSplitProg			= EHCIBitRange(8, 15),
 	kEHCIsiTDStatCSplitProgPhase	= EHCIBitRangePhase(8, 15),
-	kEHCIsiTDStatStatus		= EHCIBitRange(0, 7),
-	kEHCIsiTDStatStatusActive	= EHCIBitRange(7, 7),
-	kEHCIsiTDStatStatusERR		= EHCIBitRange(6, 6),	// ERR from transaction translator
-	kEHCIsiTDStatStatusDBE		= EHCIBitRange(5, 5),	// data buffer err (over/underrun)
-	kEHCIsiTDStatStatusBabble	= EHCIBitRange(4, 4),	// babble detected
-	kEHCIsiTDStatStatusXActErr	= EHCIBitRange(3, 3),	// invalid response (IN only)
-	kEHCIsiTDStatStatusMMF		= EHCIBitRange(2, 2),	// missed micro-frame
-	kEHCIsiTDStatStatusPhase	= EHCIBitRangePhase(0, 7),
+	kEHCIsiTDStatStatus				= EHCIBitRange(0, 7),
+	kEHCIsiTDStatStatusActive		= EHCIBitRange(7, 7),
+	kEHCIsiTDStatStatusERR			= EHCIBitRange(6, 6),	// ERR from transaction translator
+	kEHCIsiTDStatStatusDBE			= EHCIBitRange(5, 5),	// data buffer err (over/underrun)
+	kEHCIsiTDStatStatusBabble		= EHCIBitRange(4, 4),	// babble detected
+	kEHCIsiTDStatStatusXActErr		= EHCIBitRange(3, 3),	// invalid response (IN only)
+	kEHCIsiTDStatStatusMMF			= EHCIBitRange(2, 2),	// missed micro-frame
+	kEHCUsiTDStatStatusSplitXState	= EHCIBitRange(1,1),	// do-start-split or do-complete-split
+	kEHCIsiTDStatStatusPhase		= EHCIBitRangePhase(0, 7),
 	
 	// buffer pointer 1 extra bits
 	kEHCIsiTDBuffPtr1TP		= EHCIBitRange(3, 4),
@@ -432,53 +433,53 @@ struct EHCIGeneralTransferDescriptorShared
 struct EHCIIsochTransferDescriptorShared
 {
 	volatile IOPhysicalAddress				nextiTD;			// 0x00 Pointer to next transfer descriptor (physical)
-	UInt32							Transaction0;		// 0x04 status, len, offset etc.
-	UInt32							Transaction1;		// 0x08 status, len, offset etc.
-	UInt32							Transaction2;		// 0x0c status, len, offset etc.
-	UInt32							Transaction3;		// 0x10 status, len, offset etc.
-	UInt32							Transaction4;		// 0x14 status, len, offset etc.
-	UInt32							Transaction5;		// 0x18 status, len, offset etc.
-	UInt32							Transaction6;		// 0x1c status, len, offset etc.
-	UInt32							Transaction7;		// 0x20 status, len, offset etc.
-	IOPhysicalAddress					bufferPage0;		// 0x24 Buffer Page 0 (physical)
-	IOPhysicalAddress					bufferPage1;		// 0x28 Buffer Page 1 (physical)
-	IOPhysicalAddress					bufferPage2;		// 0x2c Buffer Page 2 (physical)
-	IOPhysicalAddress					bufferPage3;		// 0x30 Buffer Page 3 (physical)
-	IOPhysicalAddress					bufferPage4;		// 0x34 Buffer Page 4 (physical)
-	IOPhysicalAddress					bufferPage5;		// 0x38 Buffer Page 5 (physical)
-	IOPhysicalAddress					bufferPage6;		// 0x3c Buffer Page 6 (physical)
+	UInt32									Transaction0;		// 0x04 status, len, offset etc.
+	UInt32									Transaction1;		// 0x08 status, len, offset etc.
+	UInt32									Transaction2;		// 0x0c status, len, offset etc.
+	UInt32									Transaction3;		// 0x10 status, len, offset etc.
+	UInt32									Transaction4;		// 0x14 status, len, offset etc.
+	UInt32									Transaction5;		// 0x18 status, len, offset etc.
+	UInt32									Transaction6;		// 0x1c status, len, offset etc.
+	UInt32									Transaction7;		// 0x20 status, len, offset etc.
+	IOPhysicalAddress						bufferPage0;		// 0x24 Buffer Page 0 (physical)
+	IOPhysicalAddress						bufferPage1;		// 0x28 Buffer Page 1 (physical)
+	IOPhysicalAddress						bufferPage2;		// 0x2c Buffer Page 2 (physical)
+	IOPhysicalAddress						bufferPage3;		// 0x30 Buffer Page 3 (physical)
+	IOPhysicalAddress						bufferPage4;		// 0x34 Buffer Page 4 (physical)
+	IOPhysicalAddress						bufferPage5;		// 0x38 Buffer Page 5 (physical)
+	IOPhysicalAddress						bufferPage6;		// 0x3c Buffer Page 6 (physical)
 #if !APPLE_USB_EHCI_64
-};											// 0x40 length of structure
+};																// 0x40 length of structure
 #else
-	IOPhysicalAddress					extBufferPage0;		// 0x40 extended Buffer Page 0 (physical)
-	IOPhysicalAddress					extBufferPage1;		// 0x44 extended Buffer Page 1 (physical)
-	IOPhysicalAddress					extBufferPage2;		// 0x48 extended Buffer Page 2 (physical)
-	IOPhysicalAddress					extBufferPage3;		// 0x4c extended Buffer Page 3 (physical)
-	IOPhysicalAddress					extBufferPage4;		// 0x50 extended Buffer Page 4 (physical)
-	IOPhysicalAddress					extBufferPage5;		// 0x54 extended Buffer Page 5 (physical)
-	IOPhysicalAddress					extBufferPage6;		// 0x58 extended Buffer Page 6 (physical)
-	UInt32							padding;		// 0x5C to align on 32 bit boundary
-};											// 0x60 length of structure
+	IOPhysicalAddress						extBufferPage0;		// 0x40 extended Buffer Page 0 (physical)
+	IOPhysicalAddress						extBufferPage1;		// 0x44 extended Buffer Page 1 (physical)
+	IOPhysicalAddress						extBufferPage2;		// 0x48 extended Buffer Page 2 (physical)
+	IOPhysicalAddress						extBufferPage3;		// 0x4c extended Buffer Page 3 (physical)
+	IOPhysicalAddress						extBufferPage4;		// 0x50 extended Buffer Page 4 (physical)
+	IOPhysicalAddress						extBufferPage5;		// 0x54 extended Buffer Page 5 (physical)
+	IOPhysicalAddress						extBufferPage6;		// 0x58 extended Buffer Page 6 (physical)
+	UInt32									padding;			// 0x5C to align on 32 bit boundary
+};																// 0x60 length of structure
 #endif
 
 
 struct EHCISplitIsochTransferDescriptorShared
 {
     volatile IOPhysicalAddress				nextSITD;		// 0x00 Physical Ptr to next descriptor (QH, sitd, itd, or fstn)
-    volatile UInt32					routeFlags;		// 0x04 How to route the packet
-    volatile UInt32					timeFlags;		// 0x08 which microframe to go on
-    volatile UInt32					statFlags;		// 0x0c status information
-    volatile UInt32					buffPtr0;		// 0x10 page 0 pointer and offset
-    volatile UInt32					buffPtr1;		// 0x14 page 1 pointer and other flags
+    volatile UInt32							routeFlags;		// 0x04 How to route the packet
+    volatile UInt32							timeFlags;		// 0x08 which microframe to go on
+    volatile UInt32							statFlags;		// 0x0c status information
+    volatile UInt32							buffPtr0;		// 0x10 page 0 pointer and offset
+    volatile UInt32							buffPtr1;		// 0x14 page 1 pointer and other flags
     volatile IOPhysicalAddress				backPtr;		// 0x18 back pointer
 #if !APPLE_USB_EHCI_64
-    UInt32						padding;		// 0x1c make sure we are 32 byte aligned
-};										// 0x20 length of structure
+    UInt32									padding;		// 0x1c make sure we are 32 byte aligned
+};															// 0x20 length of structure
 #else
-    volatile IOPhysicalAddress				extBuffPtr0;		// 0x1c extended page 0 pointer
-    volatile IOPhysicalAddress				extBuffPtr1;		// 0x20 extended page 1 pointer
-    UInt32						padding[7];		// 0x24 to make sure of 32 bit alignment
-};										// 0x40 length of data structure
+    volatile IOPhysicalAddress				extBuffPtr0;	// 0x1c extended page 0 pointer
+    volatile IOPhysicalAddress				extBuffPtr1;	// 0x20 extended page 1 pointer
+    UInt32									padding[7];		// 0x24 to make sure of 32 bit alignment
+};															// 0x40 length of data structure
 #endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *

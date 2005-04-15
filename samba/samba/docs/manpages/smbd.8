@@ -98,7 +98,7 @@ Prints information about how Samba was built\&.
 
 .TP
 \-p <port number(s)>
-\fIport number(s)\fR is a space or comma\-seperated list of TCP ports smbd should listen on\&. The default value is taken from the ports parameter in \fIsmb\&.conf\fR
+\fIport number(s)\fR is a space or comma\-separated list of TCP ports smbd should listen on\&. The default value is taken from the ports parameter in \fIsmb\&.conf\fR
 
 The default ports are 139 (used for SMB over NetBIOS over TCP) and port 445 (used for plain SMB over TCP)\&.
 
@@ -163,6 +163,94 @@ The number and nature of diagnostics available depends on the debug level used b
 
 .PP
 Most messages are reasonably self\-explanatory\&. Unfortunately, at the time this man page was created, there are too many diagnostics available in the source code to warrant describing each and every diagnostic\&. At this stage your best bet is still to grep the source code and inspect the conditions that gave rise to the diagnostics you are seeing\&.
+
+.SH "TDB FILES"
+
+.PP
+Samba stores it's data in several TDB (Trivial Database) files, usually located in \fI/var/lib/samba\fR\&.
+
+.PP
+(*) information persistent across restarts (but not necessarily important to backup)\&.
+
+.TP
+account_policy\&.tdb*
+NT account policy settings such as pw expiration, etc\&.\&.\&.
+
+.TP
+brlock\&.tdb
+byte range locks
+
+.TP
+browse\&.dat
+browse lists
+
+.TP
+connections\&.tdb
+share connections (used to enforce max connections, etc\&.\&.\&.)
+
+.TP
+gencache\&.tdb
+generic caching db
+
+.TP
+group_mapping\&.tdb*
+group mapping information
+
+.TP
+locking\&.tdb
+share modes & oplocks
+
+.TP
+login_cache\&.tdb*
+bad pw attempts
+
+.TP
+messages\&.tdb
+Samba messaging system
+
+.TP
+netsamlogon_cache\&.tdb*
+cache of user net_info_3 struct from net_samlogon() request (as a domain member)
+
+.TP
+ntdrivers\&.tdb*
+installed printer drivers
+
+.TP
+ntforms\&.tdb*
+installed printer forms
+
+.TP
+ntprinters\&.tdb*
+installed printer information
+
+.TP
+printing/
+directory containing tdb per print queue of cached lpq output
+
+.TP
+registry\&.tdb
+Windows registry skeleton (connect via regedit\&.exe)
+
+.TP
+sessionid\&.tdb
+session information (e\&.g\&. support for 'utmp = yes')
+
+.TP
+share_info\&.tdb*
+share acls
+
+.TP
+winbindd_cache\&.tdb
+winbindd's cache of user lists, etc\&.\&.\&.
+
+.TP
+winbindd_idmap\&.tdb*
+winbindd's local idmap db
+
+.TP
+wins\&.dat*
+wins database when 'wins support = yes'
 
 .SH "SIGNALS"
 

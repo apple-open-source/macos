@@ -26,8 +26,6 @@
 #include "xml/dom_nodeimpl.h"
 #include "misc/loader_client.h"
 
-#include <qxml.h>
-
 namespace khtml {
 class CachedCSSStyleSheet;
 };
@@ -153,11 +151,15 @@ public:
     virtual DOMString localHref() const;
     virtual bool childTypeAllowed( unsigned short type );
     StyleSheetImpl *sheet() const;
-    void checkStyleSheet();
-    virtual void setStyleSheet(const DOM::DOMString &url, const DOM::DOMString &sheet);
+    bool checkStyleSheet();
+    virtual void setStyleSheet(const DOMString &url, const DOMString &sheet);
     virtual void setStyleSheet(CSSStyleSheetImpl* sheet);
     bool isLoading() const;
     void sheetLoaded();
+
+#ifdef KHTML_XSLT
+    bool isXSL() const { return m_isXSL; }
+#endif
 
     virtual DOMString toString() const;
     
@@ -169,22 +171,12 @@ protected:
     DOMStringImpl *m_target;
     DOMStringImpl *m_data;
     DOMStringImpl *m_localHref;
-    khtml::CachedCSSStyleSheet *m_cachedSheet;
-    CSSStyleSheetImpl *m_sheet;
+    khtml::CachedObject *m_cachedSheet;
+    StyleSheetImpl *m_sheet;
     bool m_loading;
-};
-
-class XMLAttributeReader : public QXmlDefaultHandler
-{
-public:
-    XMLAttributeReader(QString _attrString);
-    virtual ~XMLAttributeReader();
-    QXmlAttributes readAttrs(bool &ok);
-    bool startElement(const QString& namespaceURI, const QString& localName, const QString& qName, const QXmlAttributes& atts);
-
-protected:
-    QXmlAttributes attrs;
-    QString m_attrString;
+#ifdef KHTML_XSLT
+    bool m_isXSL;
+#endif
 };
 
 }; //namespace

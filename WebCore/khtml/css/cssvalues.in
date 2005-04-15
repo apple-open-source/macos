@@ -120,6 +120,8 @@ teal
 white
 yellow
 transparent
+-khtml-link
+-khtml-activelink
 activeborder
 activecaption
 appworkspace
@@ -137,6 +139,7 @@ inactivecaption
 inactivecaptiontext
 infobackground
 infotext
+match
 menutext
 scrollbar
 threeddarkshadow
@@ -301,6 +304,7 @@ no-close-quote
 no-open-quote
 nowrap
 open-quote
+overlay
 overline
 portrait
 pre
@@ -367,4 +371,62 @@ slide
 # scroll
 alternate
 unfurl
+
+#
+# CSS_PROP__KHTML_USER_MODIFY
+#
+read-only
+read-write
+
+#
+# CSS_PROP__KHTML_USER_DRAG
+#
+element
+
+#
+# CSS_PROP_WIDTH/MIN_WIDTH/MAX_WIDTH
+#
+intrinsic
+min-intrinsic
+
+#
+# CSS_PROP_TEXT_OVERFLOW
+#
+clip
+ellipsis
+
+#
+# CSS_PROP__KHTML_MARGIN_COLLAPSE
+#
+# collapse
+# separate
+discard
+
+#
+# CSS_PROP_TEXT_*_COLOR
+#
+dot-dash
+dot-dot-dash
+wave
+
+#
+# CSS_PROP_TEXT_*_MODE
+#
+continuous
+skip-white-space
+
+#
+# CSS_PROP_WORD_BREAK
+#
+break-word
+
+#
+# CSS_PROP__KHTML_NBSP_MODE
+#
+space
+
+#
+# CSS_PROP__KHTML_LINE_BREAK
+#
+after-white-space
 

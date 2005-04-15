@@ -38,7 +38,7 @@
 
 #include "sasl_mac_krb_locl.h"
 
-RCSID("$Id: rd_priv.c,v 1.1 2002/02/28 00:30:46 snsimon Exp $");
+RCSID("$Id: rd_priv.c,v 1.4 2005/01/10 19:10:47 snsimon Exp $");
 
 /* application include files */
 #include "krb-archaeology.h"

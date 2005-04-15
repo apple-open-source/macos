@@ -559,7 +559,7 @@ xmlXPtrNewRangeNodeObject(xmlNodePtr start, xmlXPathObjectPtr end) {
 		return(NULL);
 	    break;
 	default:
-	    TODO
+	    /* TODO */
 	    return(NULL);
     }
 
@@ -642,7 +642,7 @@ void
 xmlXPtrLocationSetAdd(xmlLocationSetPtr cur, xmlXPathObjectPtr val) {
     int i;
 
-    if (val == NULL) return;
+    if ((cur == NULL) || (val == NULL)) return;
 
     /*
      * check against doublons
@@ -2227,6 +2227,7 @@ xmlXPtrRangeToFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     xmlNodeSetPtr oldset;
     int i;
 
+    if (ctxt == NULL) return;
     CHECK_ARITY(1);
     /*
      * Save the expression pointer since we will have to evaluate
@@ -2308,6 +2309,7 @@ next:
 	    (*level)++;
 	goto found;
     }
+skip:		/* This label should only be needed if something is wrong! */
     if (cur->next != NULL) {
 	cur = cur->next;
 	goto found;
@@ -2328,11 +2330,13 @@ found:
 	(cur->type != XML_TEXT_NODE) &&
 	(cur->type != XML_DOCUMENT_NODE) &&
 	(cur->type != XML_HTML_DOCUMENT_NODE) &&
-	(cur->type != XML_CDATA_SECTION_NODE))
-	goto next;
-    if (cur->type == XML_ENTITY_REF_NODE) {
-	TODO
-    }
+	(cur->type != XML_CDATA_SECTION_NODE)) {
+	    if (cur->type == XML_ENTITY_REF_NODE) {	/* Shouldn't happen */
+		TODO
+		goto skip;
+	    }
+	    goto next;
+	}
     return(cur);
 }
 
@@ -2900,6 +2904,8 @@ xmlXPtrEvalRangePredicate(xmlXPathParserContextPtr ctxt) {
     xmlLocationSetPtr newset = NULL;
     xmlLocationSetPtr oldset;
     int i;
+
+    if (ctxt == NULL) return;
 
     SKIP_BLANKS;
     if (CUR != '[') {

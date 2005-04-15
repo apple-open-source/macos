@@ -56,16 +56,11 @@ public:
     virtual void computeAbsoluteRepaintRect(QRect& r, bool f=false);
     virtual void repaintViewRectangle(const QRect& r, bool immediate = false);
     
-    virtual void paint(QPainter *, int x, int y, int w, int h, int tx, int ty,
-                       PaintAction paintAction);
-    void paintObject(QPainter *p, int _x, int _y,
-                     int _w, int _h, int _tx, int _ty, PaintAction paintAction);
-
-    virtual void paintBoxDecorations(QPainter *p,int _x, int _y,
-                                     int _w, int _h, int _tx, int _ty);
+    virtual void paint(PaintInfo& i, int tx, int ty);
+    virtual void paintBoxDecorations(PaintInfo& i, int _tx, int _ty);
     
-    virtual void setSelection(RenderObject *s, int sp, RenderObject *e, int ep);
-    virtual void clearSelection(bool doRepaint=true);
+    void setSelection(RenderObject *s, int sp, RenderObject *e, int ep);
+    void clearSelection();
     virtual RenderObject *selectionStart() const { return m_selectionStart; }
     virtual RenderObject *selectionEnd() const { return m_selectionEnd; }
 
@@ -99,12 +94,15 @@ public:
     
     void setMaximalOutlineSize(int o) { m_maximalOutlineSize = o; }
     int maximalOutlineSize() const { return m_maximalOutlineSize; }
-    
-protected:
+
+    virtual QRect viewRect() const;
 
     virtual void selectionStartEnd(int& spos, int& epos);
 
-    virtual QRect viewRect() const;
+    QRect printRect() const { return m_printRect; }
+    void setPrintRect(const QRect& r) { m_printRect = r; }
+
+protected:
 
     KHTMLView *m_view;
 
@@ -125,6 +123,7 @@ protected:
     int m_truncatedAt;
     
     int m_maximalOutlineSize; // Used to apply a fudge factor to dirty-rect checks on blocks/tables.
+    QRect m_printRect; // Used when printing.
 };
 
 };

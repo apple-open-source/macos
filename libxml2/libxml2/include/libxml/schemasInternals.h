@@ -24,12 +24,61 @@
 extern "C" {
 #endif
 
+typedef enum {
+    XML_SCHEMAS_UNKNOWN = 0,
+    XML_SCHEMAS_STRING,
+    XML_SCHEMAS_NORMSTRING,
+    XML_SCHEMAS_DECIMAL,
+    XML_SCHEMAS_TIME,
+    XML_SCHEMAS_GDAY,
+    XML_SCHEMAS_GMONTH,
+    XML_SCHEMAS_GMONTHDAY,
+    XML_SCHEMAS_GYEAR,
+    XML_SCHEMAS_GYEARMONTH,
+    XML_SCHEMAS_DATE,
+    XML_SCHEMAS_DATETIME,
+    XML_SCHEMAS_DURATION,
+    XML_SCHEMAS_FLOAT,
+    XML_SCHEMAS_DOUBLE,
+    XML_SCHEMAS_BOOLEAN,
+    XML_SCHEMAS_TOKEN,
+    XML_SCHEMAS_LANGUAGE,
+    XML_SCHEMAS_NMTOKEN,
+    XML_SCHEMAS_NMTOKENS,
+    XML_SCHEMAS_NAME,
+    XML_SCHEMAS_QNAME,
+    XML_SCHEMAS_NCNAME,
+    XML_SCHEMAS_ID,
+    XML_SCHEMAS_IDREF,
+    XML_SCHEMAS_IDREFS,
+    XML_SCHEMAS_ENTITY,
+    XML_SCHEMAS_ENTITIES,
+    XML_SCHEMAS_NOTATION,
+    XML_SCHEMAS_ANYURI,
+    XML_SCHEMAS_INTEGER,
+    XML_SCHEMAS_NPINTEGER,
+    XML_SCHEMAS_NINTEGER,
+    XML_SCHEMAS_NNINTEGER,
+    XML_SCHEMAS_PINTEGER,
+    XML_SCHEMAS_INT,
+    XML_SCHEMAS_UINT,
+    XML_SCHEMAS_LONG,
+    XML_SCHEMAS_ULONG,
+    XML_SCHEMAS_SHORT,
+    XML_SCHEMAS_USHORT,
+    XML_SCHEMAS_BYTE,
+    XML_SCHEMAS_UBYTE,
+    XML_SCHEMAS_HEXBINARY,
+    XML_SCHEMAS_BASE64BINARY,
+    XML_SCHEMAS_ANYTYPE,
+    XML_SCHEMAS_ANYSIMPLETYPE
+} xmlSchemaValType;
 
 /*
  * XML Schemas defines multiple type of types.
  */
 typedef enum {
-    XML_SCHEMA_TYPE_BASIC = 1,
+    XML_SCHEMA_TYPE_BASIC = 1, /* A built-in datatype */
     XML_SCHEMA_TYPE_ANY,
     XML_SCHEMA_TYPE_FACET,
     XML_SCHEMA_TYPE_SIMPLE,
@@ -49,6 +98,7 @@ typedef enum {
     XML_SCHEMA_TYPE_NOTATION,
     XML_SCHEMA_TYPE_LIST,
     XML_SCHEMA_TYPE_UNION,
+    XML_SCHEMA_TYPE_ANY_ATTRIBUTE,
     XML_SCHEMA_FACET_MININCLUSIVE = 1000,
     XML_SCHEMA_FACET_MINEXCLUSIVE,
     XML_SCHEMA_FACET_MAXINCLUSIVE,
@@ -69,7 +119,7 @@ typedef enum {
     XML_SCHEMA_CONTENT_ELEMENTS,
     XML_SCHEMA_CONTENT_MIXED,
     XML_SCHEMA_CONTENT_SIMPLE,
-    XML_SCHEMA_CONTENT_MIXED_OR_ELEMENTS,
+    XML_SCHEMA_CONTENT_MIXED_OR_ELEMENTS, /* obsolete, not used */
     XML_SCHEMA_CONTENT_BASIC,
     XML_SCHEMA_CONTENT_ANY
 } xmlSchemaContentType;
@@ -97,27 +147,87 @@ struct _xmlSchemaAnnot {
  * XML_SCHEMAS_ANYATTR_SKIP:
  *
  * Skip unknown attribute from validation
+ * Obsolete, not used anymore.
  */
-#define XML_SCHEMAS_ANYATTR_SKIP	1
+#define XML_SCHEMAS_ANYATTR_SKIP        1
 /**
  * XML_SCHEMAS_ANYATTR_LAX:
  *
  * Ignore validation non definition on attributes
+ * Obsolete, not used anymore.
  */
-#define XML_SCHEMAS_ANYATTR_LAX		2
+#define XML_SCHEMAS_ANYATTR_LAX                2
 /**
  * XML_SCHEMAS_ANYATTR_STRICT:
  *
  * Apply strict validation rules on attributes
+ * Obsolete, not used anymore.
  */
-#define XML_SCHEMAS_ANYATTR_STRICT	3
-
+#define XML_SCHEMAS_ANYATTR_STRICT        3
+/**
+ * XML_SCHEMAS_ANY_SKIP:
+ *
+ * Skip unknown attribute from validation
+ */
+#define XML_SCHEMAS_ANY_SKIP        1
+/**
+ * XML_SCHEMAS_ANY_LAX:
+ *
+ * Used by wildcards.
+ * Validate if type found, don't worry if not found
+ */
+#define XML_SCHEMAS_ANY_LAX                2
+/**
+ * XML_SCHEMAS_ANY_STRICT:
+ *
+ * Used by wildcards.
+ * Apply strict validation rules
+ */
+#define XML_SCHEMAS_ANY_STRICT        3
+/**
+ * XML_SCHEMAS_ATTR_USE_PROHIBITED:
+ *
+ * Used by wildcards.
+ * The attribute is prohibited.
+ */
+#define XML_SCHEMAS_ATTR_USE_PROHIBITED 0
+/**
+ * XML_SCHEMAS_ATTR_USE_REQUIRED:
+ *
+ * The attribute is required.
+ */
+#define XML_SCHEMAS_ATTR_USE_REQUIRED 1
+/**
+ * XML_SCHEMAS_ATTR_USE_OPTIONAL:
+ *
+ * The attribute is optional.
+ */
+#define XML_SCHEMAS_ATTR_USE_OPTIONAL 2
+/**
+ * XML_SCHEMAS_ATTR_GLOABAL:
+ *
+ * allow elements in no namespace
+ */
+#define XML_SCHEMAS_ATTR_GLOBAL        1 << 0
 /**
  * XML_SCHEMAS_ATTR_NSDEFAULT:
  *
  * allow elements in no namespace
  */
-#define XML_SCHEMAS_ATTR_NSDEFAULT	1 << 7
+#define XML_SCHEMAS_ATTR_NSDEFAULT        1 << 7
+/**
+ * XML_SCHEMAS_ATTR_INTERNAL_RESOLVED:
+ *
+ * this is set when the "type" and "ref" references
+ * have been resolved.
+ */
+#define XML_SCHEMAS_ATTR_INTERNAL_RESOLVED        1 << 8
+/**
+ * XML_SCHEMAS_ATTR_FIXED:
+ *
+ * the attribute has a fixed value
+ */
+#define XML_SCHEMAS_ATTR_FIXED        1 << 9
 
 /**
  * xmlSchemaAttribute:
@@ -127,24 +237,95 @@ struct _xmlSchemaAnnot {
 typedef struct _xmlSchemaAttribute xmlSchemaAttribute;
 typedef xmlSchemaAttribute *xmlSchemaAttributePtr;
 struct _xmlSchemaAttribute {
-    xmlSchemaTypeType type;	/* The kind of type */
+    xmlSchemaTypeType type;        /* The kind of type */
     struct _xmlSchemaAttribute *next;/* the next attribute if in a group ... */
-    const xmlChar *name;
+    const xmlChar *name; /* name of the declaration or empty if particle */
     const xmlChar *id;
-    const xmlChar *ref;
-    const xmlChar *refNs;
-    const xmlChar *typeName;
-    const xmlChar *typeNs;
+    const xmlChar *ref; /* the local name of the attribute decl. if a particle */
+    const xmlChar *refNs; /* the ns URI of the attribute decl. if a particle */
+    const xmlChar *typeName; /* the local name of the type definition */
+    const xmlChar *typeNs; /* the ns URI of the type definition */
     xmlSchemaAnnotPtr annot;
 
-    xmlSchemaTypePtr base;
+    xmlSchemaTypePtr base; /* obsolete, not used */
     int occurs;
     const xmlChar *defValue;
-    xmlSchemaTypePtr subtypes;
+    xmlSchemaTypePtr subtypes; /* the type definition */
     xmlNodePtr node;
     const xmlChar *targetNamespace;
     int flags;
+    const xmlChar *refPrefix;
+    xmlSchemaValPtr defVal;
+    xmlSchemaAttributePtr refDecl;
 };
+
+/**
+ * xmlSchemaAttributeLink:
+ * Used to build a list of attribute uses on complexType definitions.
+ */
+typedef struct _xmlSchemaAttributeLink xmlSchemaAttributeLink;
+typedef xmlSchemaAttributeLink *xmlSchemaAttributeLinkPtr;
+struct _xmlSchemaAttributeLink {
+    struct _xmlSchemaAttributeLink *next;/* the next attribute link ... */
+    struct _xmlSchemaAttribute *attr;/* the linked attribute */
+};
+
+/**
+ * XML_SCHEMAS_WILDCARD_COMPLETE:
+ *
+ * If the wildcard is complete.
+ */
+#define XML_SCHEMAS_WILDCARD_COMPLETE 1 << 0
+
+/**
+ * xmlSchemaCharValueLink:
+ * Used to build a list of namespaces on wildcards.
+ */
+typedef struct _xmlSchemaWildcardNs xmlSchemaWildcardNs;
+typedef xmlSchemaWildcardNs *xmlSchemaWildcardNsPtr;
+struct _xmlSchemaWildcardNs {
+    struct _xmlSchemaWildcardNs *next;/* the next constraint link ... */
+    const xmlChar *value;/* the value */
+};
+
+/**
+ * xmlSchemaWildcard.
+ * A wildcard.
+ */
+typedef struct _xmlSchemaWildcard xmlSchemaWildcard;
+typedef xmlSchemaWildcard *xmlSchemaWildcardPtr;
+struct _xmlSchemaWildcard {
+    xmlSchemaTypeType type;        /* The kind of type */
+    const xmlChar *id;
+    xmlSchemaAnnotPtr annot;
+    xmlNodePtr node;
+    int minOccurs;
+    int maxOccurs;
+    int processContents;
+    int any; /* Indicates if the ns constraint is of ##any */
+    xmlSchemaWildcardNsPtr nsSet; /* The list of allowed namespaces */
+    xmlSchemaWildcardNsPtr negNsSet; /* The negated namespace */
+    int flags;
+};
+
+/**
+ * XML_SCHEMAS_ATTRGROUP_WILDCARD_BUILDED:
+ *
+ * The attribute wildcard has been already builded.
+ */
+#define XML_SCHEMAS_ATTRGROUP_WILDCARD_BUILDED 1 << 0
+/**
+ * XML_SCHEMAS_ATTRGROUP_GLOBAL:
+ *
+ * The attribute wildcard has been already builded.
+ */
+#define XML_SCHEMAS_ATTRGROUP_GLOBAL 1 << 1
+/**
+ * XML_SCHEMAS_ATTRGROUP_MARKED:
+ *
+ * Marks the attr group as marked; used for circular checks.
+ */
+#define XML_SCHEMAS_ATTRGROUP_MARKED 1 << 2
 
 /**
  * An attribute group definition.
@@ -155,7 +336,7 @@ struct _xmlSchemaAttribute {
 typedef struct _xmlSchemaAttributeGroup xmlSchemaAttributeGroup;
 typedef xmlSchemaAttributeGroup *xmlSchemaAttributeGroupPtr;
 struct _xmlSchemaAttributeGroup {
-    xmlSchemaTypeType type;	/* The kind of type */
+    xmlSchemaTypeType type;        /* The kind of type */
     struct _xmlSchemaAttribute *next;/* the next attribute if in a group ... */
     const xmlChar *name;
     const xmlChar *id;
@@ -165,15 +346,157 @@ struct _xmlSchemaAttributeGroup {
 
     xmlSchemaAttributePtr attributes;
     xmlNodePtr node;
+    int flags;
+    xmlSchemaWildcardPtr attributeWildcard;
+    const xmlChar *refPrefix;
+    xmlSchemaAttributeGroupPtr refItem; /* The referenced attribute group */
 };
 
+/**
+ * xmlSchemaTypeLink:
+ * Used to build a list of types (e.g. member types of
+ * simpleType with variety "union").
+ */
+typedef struct _xmlSchemaTypeLink xmlSchemaTypeLink;
+typedef xmlSchemaTypeLink *xmlSchemaTypeLinkPtr;
+struct _xmlSchemaTypeLink {
+    struct _xmlSchemaTypeLink *next;/* the next type link ... */
+    xmlSchemaTypePtr type;/* the linked type*/
+};
+
+/**
+ * xmlSchemaFacetLink:
+ * Used to build a list of facets.
+ */
+typedef struct _xmlSchemaFacetLink xmlSchemaFacetLink;
+typedef xmlSchemaFacetLink *xmlSchemaFacetLinkPtr;
+struct _xmlSchemaFacetLink {
+    struct _xmlSchemaFacetLink *next;/* the next facet link ... */
+    xmlSchemaFacetPtr facet;/* the linked facet */
+};
 
 /**
  * XML_SCHEMAS_TYPE_MIXED:
  *
  * the element content type is mixed
  */
-#define XML_SCHEMAS_TYPE_MIXED		1 << 0
+#define XML_SCHEMAS_TYPE_MIXED                1 << 0
+/**
+ * XML_SCHEMAS_TYPE_DERIVATION_METHOD_EXTENSION:
+ *
+ * the simple or complex type has a derivation method of "extension".
+ */
+#define XML_SCHEMAS_TYPE_DERIVATION_METHOD_EXTENSION                1 << 1
+/**
+ * XML_SCHEMAS_TYPE_DERIVATION_METHOD_RESTRICTION:
+ *
+ * the simple or complex type has a derivation method of "restriction".
+ */
+#define XML_SCHEMAS_TYPE_DERIVATION_METHOD_RESTRICTION                1 << 2
+/**
+ * XML_SCHEMAS_TYPE_GLOBAL:
+ *
+ * the type is global
+ */
+#define XML_SCHEMAS_TYPE_GLOBAL                1 << 3
+/**
+ * XML_SCHEMAS_TYPE_OWNED_ATTR_WILDCARD:
+ *
+ * the complexType owns an attribute wildcard, i.e.
+ * it can be freed by the complexType
+ */
+#define XML_SCHEMAS_TYPE_OWNED_ATTR_WILDCARD    1 << 4
+/**
+ * XML_SCHEMAS_TYPE_VARIETY_ABSENT:
+ *
+ * the simpleType has a variety of "absent".
+ */
+#define XML_SCHEMAS_TYPE_VARIETY_ABSENT    1 << 5
+/**
+ * XML_SCHEMAS_TYPE_VARIETY_LIST:
+ *
+ * the simpleType has a variety of "list".
+ */
+#define XML_SCHEMAS_TYPE_VARIETY_LIST    1 << 6
+/**
+ * XML_SCHEMAS_TYPE_VARIETY_UNION:
+ *
+ * the simpleType has a variety of "union".
+ */
+#define XML_SCHEMAS_TYPE_VARIETY_UNION    1 << 7
+/**
+ * XML_SCHEMAS_TYPE_VARIETY_ATOMIC:
+ *
+ * the simpleType has a variety of "union".
+ */
+#define XML_SCHEMAS_TYPE_VARIETY_ATOMIC    1 << 8
+/**
+ * XML_SCHEMAS_TYPE_FINAL_EXTENSION:
+ *
+ * the complexType has a final of "extension".
+ */
+#define XML_SCHEMAS_TYPE_FINAL_EXTENSION    1 << 9
+/**
+ * XML_SCHEMAS_TYPE_FINAL_RESTRICTION:
+ *
+ * the simpleType/complexType has a final of "restriction".
+ */
+#define XML_SCHEMAS_TYPE_FINAL_RESTRICTION    1 << 10
+/**
+ * XML_SCHEMAS_TYPE_FINAL_LIST:
+ *
+ * the simpleType has a final of "list".
+ */
+#define XML_SCHEMAS_TYPE_FINAL_LIST    1 << 11
+/**
+ * XML_SCHEMAS_TYPE_FINAL_UNION:
+ *
+ * the simpleType has a final of "union".
+ */
+#define XML_SCHEMAS_TYPE_FINAL_UNION    1 << 12
+/**
+ * XML_SCHEMAS_TYPE_FINAL_UNION:
+ *
+ * the simpleType has a final of "union".
+ */
+#define XML_SCHEMAS_TYPE_FINAL_DEFAULT    1 << 13
+/**
+ * XML_SCHEMAS_TYPE_FINAL_UNION:
+ *
+ * the simpleType has a final of "union".
+ */
+#define XML_SCHEMAS_TYPE_BUILTIN_PRIMITIVE    1 << 14
+/**
+ * XML_SCHEMAS_TYPE_MARKED
+ *
+ * Marks the item as marked; used for circular checks.
+ */
+#define XML_SCHEMAS_TYPE_MARKED        1 << 16
+/**
+ * XML_SCHEMAS_TYPE_BLOCK_DEFAULT:
+ *
+ * the complexType did not specify 'block' so use the default of the
+ * <schema> item.
+ */
+#define XML_SCHEMAS_TYPE_BLOCK_DEFAULT    1 << 17
+/**
+ * XML_SCHEMAS_TYPE_BLOCK_EXTENSION:
+ *
+ * the complexType has a 'block' of "extension".
+ */
+#define XML_SCHEMAS_TYPE_BLOCK_EXTENSION    1 << 18
+/**
+ * XML_SCHEMAS_TYPE_FINAL_RESTRICTION:
+ *
+ * the complexType has a 'block' of "restriction".
+ */
+#define XML_SCHEMAS_TYPE_BLOCK_RESTRICTION    1 << 19
+/**
+ * XML_SCHEMAS_TYPE_ABSTRACT:
+ *
+ * the simple/complexType is abstract.
+ */
+#define XML_SCHEMAS_TYPE_ABSTRACT    1 << 20
 
 /**
  * _xmlSchemaType:
@@ -181,7 +504,7 @@ struct _xmlSchemaAttributeGroup {
  * Schemas type definition.
  */
 struct _xmlSchemaType {
-    xmlSchemaTypeType type;	/* The kind of type */
+    xmlSchemaTypeType type;        /* The kind of type */
     struct _xmlSchemaType *next;/* the next type if in a sequence ... */
     const xmlChar *name;
     const xmlChar *id;
@@ -201,6 +524,15 @@ struct _xmlSchemaType {
     xmlSchemaTypePtr baseType;
     xmlSchemaFacetPtr facets;
     struct _xmlSchemaType *redef;/* possible redefinitions for the type */
+    int recurse;
+    xmlSchemaAttributeLinkPtr attributeUses;
+    xmlSchemaWildcardPtr attributeWildcard;
+    int builtInType;
+    xmlSchemaTypeLinkPtr memberTypes;
+    xmlSchemaFacetLinkPtr facetSet;
+    const xmlChar *refPrefix;
+    xmlSchemaTypePtr contentTypeDef;
+    xmlRegexpPtr contModel;
 };
 
 /*
@@ -215,61 +547,119 @@ struct _xmlSchemaType {
  *
  * the element is nillable
  */
-#define XML_SCHEMAS_ELEM_NILLABLE	1 << 0
+#define XML_SCHEMAS_ELEM_NILLABLE        1 << 0
 /**
  * XML_SCHEMAS_ELEM_GLOBAL:
  *
  * the element is global
  */
-#define XML_SCHEMAS_ELEM_GLOBAL		1 << 1
+#define XML_SCHEMAS_ELEM_GLOBAL                1 << 1
 /**
  * XML_SCHEMAS_ELEM_DEFAULT:
  *
  * the element has a default value
  */
-#define XML_SCHEMAS_ELEM_DEFAULT	1 << 2
+#define XML_SCHEMAS_ELEM_DEFAULT        1 << 2
 /**
  * XML_SCHEMAS_ELEM_FIXED:
  *
  * the element has a fixed value
  */
-#define XML_SCHEMAS_ELEM_FIXED		1 << 3
+#define XML_SCHEMAS_ELEM_FIXED                1 << 3
 /**
  * XML_SCHEMAS_ELEM_ABSTRACT:
  *
  * the element is abstract
  */
-#define XML_SCHEMAS_ELEM_ABSTRACT	1 << 4
+#define XML_SCHEMAS_ELEM_ABSTRACT        1 << 4
 /**
  * XML_SCHEMAS_ELEM_TOPLEVEL:
  *
  * the element is top level
+ * obsolete: use XML_SCHEMAS_ELEM_GLOBAL instead
  */
-#define XML_SCHEMAS_ELEM_TOPLEVEL	1 << 5
+#define XML_SCHEMAS_ELEM_TOPLEVEL        1 << 5
 /**
  * XML_SCHEMAS_ELEM_REF:
  *
  * the element is a reference to a type
  */
-#define XML_SCHEMAS_ELEM_REF		1 << 6
+#define XML_SCHEMAS_ELEM_REF                1 << 6
 /**
  * XML_SCHEMAS_ELEM_NSDEFAULT:
  *
  * allow elements in no namespace
+ * Obsolete, not used anymore.
  */
-#define XML_SCHEMAS_ELEM_NSDEFAULT	1 << 7
+#define XML_SCHEMAS_ELEM_NSDEFAULT        1 << 7
+/**
+ * XML_SCHEMAS_ELEM_INTERNAL_RESOLVED
+ *
+ * this is set when "type", "ref", "substitutionGroup"
+ * references have been resolved.
+ */
+#define XML_SCHEMAS_ELEM_INTERNAL_RESOLVED        1 << 8
+ /**
+ * XML_SCHEMAS_ELEM_CIRCULAR
+ *
+ * a helper flag for the search of circular references.
+ */
+#define XML_SCHEMAS_ELEM_CIRCULAR        1 << 9
+/**
+ * XML_SCHEMAS_ELEM_BLOCK_ABSENT:
+ *
+ * the "block" attribute is absent
+ */
+#define XML_SCHEMAS_ELEM_BLOCK_ABSENT        1 << 10
+/**
+ * XML_SCHEMAS_ELEM_BLOCK_EXTENSION:
+ *
+ * disallowed substitutions are absent
+ */
+#define XML_SCHEMAS_ELEM_BLOCK_EXTENSION        1 << 11
+/**
+ * XML_SCHEMAS_ELEM_BLOCK_RESTRICTION:
+ *
+ * disallowed substitutions: "restriction"
+ */
+#define XML_SCHEMAS_ELEM_BLOCK_RESTRICTION        1 << 12
+/**
+ * XML_SCHEMAS_ELEM_BLOCK_SUBSTITUTION:
+ *
+ * disallowed substitutions: "substituion"
+ */
+#define XML_SCHEMAS_ELEM_BLOCK_SUBSTITUTION        1 << 13
+/**
+ * XML_SCHEMAS_ELEM_FINAL_ABSENT:
+ *
+ * substitution group exclusions are absent
+ */
+#define XML_SCHEMAS_ELEM_FINAL_ABSENT        1 << 14
+/**
+ * XML_SCHEMAS_ELEM_BLOCK_EXTENSION:
+ *
+ * substitution group exclusions: "extension"
+ */
+#define XML_SCHEMAS_ELEM_FINAL_EXTENSION        1 << 15
+/**
+ * XML_SCHEMAS_ELEM_BLOCK_RESTRICTION:
+ *
+ * substitution group exclusions: "restriction"
+ */
+#define XML_SCHEMAS_ELEM_FINAL_RESTRICTION        1 << 16
+
 
 typedef struct _xmlSchemaElement xmlSchemaElement;
 typedef xmlSchemaElement *xmlSchemaElementPtr;
 struct _xmlSchemaElement {
-    xmlSchemaTypeType type;	/* The kind of type */
+    xmlSchemaTypeType type;        /* The kind of type */
     struct _xmlSchemaType *next;/* the next type if in a sequence ... */
     const xmlChar *name;
     const xmlChar *id;
-    const xmlChar *ref;
-    const xmlChar *refNs;
+    const xmlChar *ref; /* the local name of the element declaration if a particle */
+    const xmlChar *refNs; /* the ns URI of the element declaration if a particle */
     xmlSchemaAnnotPtr annot;
-    xmlSchemaTypePtr subtypes;
+    xmlSchemaTypePtr subtypes; /* the type definition */
     xmlSchemaAttributePtr attributes;
     xmlNodePtr node;
     int minOccurs;
@@ -283,9 +673,11 @@ struct _xmlSchemaElement {
     const xmlChar *substGroupNs;
     const xmlChar *scope;
     const xmlChar *value;
-    struct _xmlSchemaElement *refDecl;
+    struct _xmlSchemaElement *refDecl; /* the element declaration if a particle */
     xmlRegexpPtr contModel;
     xmlSchemaContentType contentType;
+    const xmlChar *refPrefix;
+    xmlSchemaValPtr defVal;
 };
 
 /*
@@ -293,31 +685,30 @@ struct _xmlSchemaElement {
  *
  * unknown facet handling
  */
-#define XML_SCHEMAS_FACET_UNKNOWN	0
+#define XML_SCHEMAS_FACET_UNKNOWN        0
 /*
  * XML_SCHEMAS_FACET_PRESERVE:
  *
  * preserve the type of the facet
  */
-#define XML_SCHEMAS_FACET_PRESERVE	1
+#define XML_SCHEMAS_FACET_PRESERVE        1
 /*
  * XML_SCHEMAS_FACET_REPLACE:
  *
  * replace the type of the facet
  */
-#define XML_SCHEMAS_FACET_REPLACE	2
+#define XML_SCHEMAS_FACET_REPLACE        2
 /*
  * XML_SCHEMAS_FACET_COLLAPSE:
  *
  * collapse the types of the facet
  */
-#define XML_SCHEMAS_FACET_COLLAPSE	3
-
+#define XML_SCHEMAS_FACET_COLLAPSE        3
 /**
  * A facet definition.
  */
 struct _xmlSchemaFacet {
-    xmlSchemaTypeType type;	/* The kind of type */
+    xmlSchemaTypeType type;        /* The kind of type */
     struct _xmlSchemaFacet *next;/* the next type if in a sequence ... */
     const xmlChar *value;
     const xmlChar *id;
@@ -335,7 +726,7 @@ struct _xmlSchemaFacet {
 typedef struct _xmlSchemaNotation xmlSchemaNotation;
 typedef xmlSchemaNotation *xmlSchemaNotationPtr;
 struct _xmlSchemaNotation {
-    xmlSchemaTypeType type;	/* The kind of type */
+    xmlSchemaTypeType type;        /* The kind of type */
     const xmlChar *name;
     xmlSchemaAnnotPtr annot;
     const xmlChar *identifier;
@@ -344,15 +735,64 @@ struct _xmlSchemaNotation {
 /**
  * XML_SCHEMAS_QUALIF_ELEM:
  *
- * the shemas requires qualified elements
+ * the schema requires qualified elements
  */
-#define XML_SCHEMAS_QUALIF_ELEM		1 << 0
+#define XML_SCHEMAS_QUALIF_ELEM                1 << 0
 /**
  * XML_SCHEMAS_QUALIF_ATTR:
  *
- * the shemas requires qualified attributes
+ * the schema requires qualified attributes
  */
-#define XML_SCHEMAS_QUALIF_ATTR		1 << 1
+#define XML_SCHEMAS_QUALIF_ATTR            1 << 1
+/**
+ * XML_SCHEMAS_FINAL_DEFAULT_EXTENSION:
+ *
+ * the schema has "extension" in the set of finalDefault.
+ */
+#define XML_SCHEMAS_FINAL_DEFAULT_EXTENSION        1 << 2
+/**
+ * XML_SCHEMAS_FINAL_DEFAULT_RESTRICTION:
+ *
+ * the schema has "restriction" in the set of finalDefault.
+ */
+#define XML_SCHEMAS_FINAL_DEFAULT_RESTRICTION            1 << 3
+/**
+ * XML_SCHEMAS_FINAL_DEFAULT_LIST:
+ *
+ * the cshema has "list" in the set of finalDefault.
+ */
+#define XML_SCHEMAS_FINAL_DEFAULT_LIST            1 << 4
+/**
+ * XML_SCHEMAS_FINAL_DEFAULT_UNION:
+ *
+ * the schema has "union" in the set of finalDefault.
+ */
+#define XML_SCHEMAS_FINAL_DEFAULT_UNION            1 << 5
+/**
+ * XML_SCHEMAS_BLOCK_DEFAULT_EXTENSION:
+ *
+ * the schema has "extension" in the set of blockDefault.
+ */
+#define XML_SCHEMAS_BLOCK_DEFAULT_EXTENSION            1 << 6
+/**
+ * XML_SCHEMAS_BLOCK_DEFAULT_RESTRICTION:
+ *
+ * the schema has "restriction" in the set of blockDefault.
+ */
+#define XML_SCHEMAS_BLOCK_DEFAULT_RESTRICTION            1 << 7
+/**
+ * XML_SCHEMAS_BLOCK_DEFAULT_SUBSTITUTION:
+ *
+ * the schema has "substitution" in the set of blockDefault.
+ */
+#define XML_SCHEMAS_BLOCK_DEFAULT_SUBSTITUTION            1 << 8
+/**
+ * XML_SCHEMAS_INCLUDING_CONVERT_NS:
+ *
+ * the schema is currently including an other schema with
+ * no target namespace.
+ */
+#define XML_SCHEMAS_INCLUDING_CONVERT_NS            1 << 9
 /**
  * _xmlSchema:
  *
@@ -375,14 +815,16 @@ struct _xmlSchema {
 
     xmlHashTablePtr schemasImports;
 
-    void *_private;	/* unused by the library for users or bindings */
+    void *_private;        /* unused by the library for users or bindings */
     xmlHashTablePtr groupDecl;
     xmlDictPtr      dict;
     void *includes;     /* the includes, this is opaque for now */
-    int preserve;	/* whether to free the document */
+    int preserve;        /* whether to free the document */
+    int counter; /* used to give ononymous components unique names */
 };
 
-XMLPUBFUN void XMLCALL 	xmlSchemaFreeType	(xmlSchemaTypePtr type);
+XMLPUBFUN void XMLCALL         xmlSchemaFreeType        (xmlSchemaTypePtr type);
+XMLPUBFUN void XMLCALL         xmlSchemaFreeWildcard(xmlSchemaWildcardPtr wildcard);
 
 #ifdef __cplusplus
 }
@@ -390,5 +832,3 @@ XMLPUBFUN void XMLCALL 	xmlSchemaFreeType	(xmlSchemaTypePtr type);
 
 #endif /* LIBXML_SCHEMAS_ENABLED */
 #endif /* __XML_SCHEMA_INTERNALS_H__ */
-
-

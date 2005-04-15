@@ -568,7 +568,9 @@ expressionS *expressionP)
 	c = *input_line_pointer++;/* Input_line_pointer -> past char in c. */
 
 	if(isdigit(c)){
-	    valueT number;	/* offset or (absolute) value */
+#define NUMBER_FMT TA_DFMT
+	    valueT 
+	    number;	/* offset or (absolute) value */
 	    int digit;		/* value of next digit in current radix */
 				/* invented for humans only, hope */
 				/* optimising compiler flushes it! */
@@ -648,6 +650,9 @@ expressionS *expressionP)
 		radix = 10;
 		too_many_digits = 11;
 	    }
+#if defined(ARCH64)
+	    too_many_digits *= 2;
+#endif
 	    if(radix != 0){ /* Fixed-point integer constant. */
 			    /* May be bignum, or may fit in 32 bits. */
 		/*
@@ -758,8 +763,8 @@ expressionS *expressionP)
 				expressionP->X_seg        = SEG_SECT;
 			    }
 			    else{ /* Either not seen or not defined. */
-				as_warn("Backw. ref to unknown label \"%d:\", 0"
-					" assumed.", number);
+				as_warn("Backw. ref to unknown label \""
+					NUMBER_FMT "\", 0 assumed.", number);
 				expressionP->X_add_number = 0;
 				expressionP->X_seg        = SEG_ABSOLUTE;
 			    }

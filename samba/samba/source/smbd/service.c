@@ -21,12 +21,6 @@
 #include "includes.h"
 
 extern struct timeval smb_last_time;
-extern int case_default;
-extern BOOL case_preserve;
-extern BOOL short_case_preserve;
-extern BOOL case_mangle;
-extern BOOL case_sensitive;
-extern BOOL use_mangled_map;
 extern userdom_struct current_user_info;
 
 
@@ -34,10 +28,11 @@ extern userdom_struct current_user_info;
  Load parameters specific to a connection/service.
 ****************************************************************************/
 
-BOOL set_current_service(connection_struct *conn,BOOL do_chdir)
+BOOL set_current_service(connection_struct *conn, uint16 flags, BOOL do_chdir)
 {
 	extern char magic_char;
 	static connection_struct *last_conn;
+	static uint16 last_flags;
 	int snum;
 
 	if (!conn)  {
@@ -57,18 +52,26 @@ BOOL set_current_service(connection_struct *conn,BOOL do_chdir)
 		return(False);
 	}
 
-	if (conn == last_conn)
+	if ((conn == last_conn) && (last_flags == flags)) {
 		return(True);
+	}
 
 	last_conn = conn;
+	last_flags = flags;
+	
+	/* Obey the client case sensitivity requests - only for clients that support it. */
+	if (lp_casesensitive(snum) == Auto) {
+		/* We need this uglyness due to DOS/Win9x clients that lie about case insensitivity. */
+		enum remote_arch_types ra_type = get_remote_arch();
+		if ((ra_type != RA_SAMBA) && (ra_type != RA_CIFSFS)) {
+			/* Client can't support per-packet case sensitive pathnames. */
+			conn->case_sensitive = False;
+		} else {
+			conn->case_sensitive = !(flags & FLAG_CASELESS_PATHNAMES);
+		}
+	}
 
-	case_default = lp_defaultcase(snum);
-	case_preserve = lp_preservecase(snum);
-	short_case_preserve = lp_shortpreservecase(snum);
-	case_mangle = lp_casemangle(snum);
-	case_sensitive = lp_casesensitive(snum);
 	magic_char = lp_magicchar(snum);
-	use_mangled_map = (*lp_mangled_map(snum) ? True:False);
 	return(True);
 }
 
@@ -357,6 +360,18 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 	conn->printer = (strncmp(dev,"LPT",3) == 0);
 	conn->ipc = ((strncmp(dev,"IPC",3) == 0) || strequal(dev,"ADMIN$"));
 	conn->dirptr = NULL;
+
+	/* Case options for the share. */
+	if (lp_casesensitive(snum) == Auto) {
+		/* We will be setting this per packet. Set to be case insensitive for now. */
+		conn->case_sensitive = False;
+	} else {
+		conn->case_sensitive = (BOOL)lp_casesensitive(snum);
+	}
+
+	conn->case_preserve = lp_preservecase(snum);
+	conn->short_case_preserve = lp_shortpreservecase(snum);
+
 	conn->veto_list = NULL;
 	conn->hide_list = NULL;
 	conn->veto_oplock_list = NULL;
@@ -503,6 +518,20 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 		conn_free(conn);
 		*status = NT_STATUS_BAD_NETWORK_NAME;
 		return NULL;
+	}
+
+	/*
+	 * If widelinks are disallowed we need to canonicalise the
+	 * connect path here to ensure we don't have any symlinks in
+	 * the connectpath. We will be checking all paths on this
+	 * connection are below this directory. We must do this after
+	 * the VFS init as we depend on the realpath() pointer in the vfs table. JRA.
+	 */
+	if (!lp_widelinks(snum)) {
+		pstring s;
+		pstrcpy(s,conn->connectpath);
+		canonicalize_path(conn, s);
+		string_set(&conn->connectpath,s);
 	}
 
 /* ROOT Activities: */	
@@ -775,7 +804,8 @@ connection_struct *make_connection(const char *service_in, DATA_BLOB password,
 
 	/* Handle non-Dfs clients attempting connections to msdfs proxy */
 	if (lp_host_msdfs() && (*lp_msdfs_proxy(snum) != '\0'))  {
-		DEBUG(3, ("refusing connection to dfs proxy '%s'\n", service));
+		DEBUG(3, ("refusing connection to dfs proxy share '%s' (pointing to %s)\n", 
+			service, lp_msdfs_proxy(snum)));
 		*status = NT_STATUS_BAD_NETWORK_NAME;
 		return NULL;
 	}
@@ -792,7 +822,12 @@ close a cnum
 ****************************************************************************/
 void close_cnum(connection_struct *conn, uint16 vuid)
 {
-	DirCacheFlush(SNUM(conn));
+	if (IS_IPC(conn)) {
+		pipe_close_conn(conn);
+	} else {
+		file_close_conn(conn);
+		dptr_closecnum(conn);
+	}
 
 	change_to_root_user();
 
@@ -804,9 +839,6 @@ void close_cnum(connection_struct *conn, uint16 vuid)
 	SMB_VFS_DISCONNECT(conn);
 
 	yield_connection(conn, lp_servicename(SNUM(conn)));
-
-	file_close_conn(conn);
-	dptr_closecnum(conn);
 
 	/* make sure we leave the directory available for unmount */
 	vfs_ChDir(conn, "/");
@@ -831,4 +863,28 @@ void close_cnum(connection_struct *conn, uint16 vuid)
 	}
 
 	conn_free(conn);
+}
+
+/****************************************************************************
+ Remove stale printers
+****************************************************************************/
+
+void remove_stale_printers( void )
+{
+	int snum, iNumServices, printersServiceNum;
+	const char *pname;
+
+	iNumServices = lp_numservices();
+	printersServiceNum = lp_servicenumber( PRINTERS_NAME);
+	for( snum = 0; snum < iNumServices; snum++) {
+		/* Never remove PRINTERS_NAME */
+		if ( snum == printersServiceNum)
+			continue;
+		pname = lp_printername( snum);
+		/* Is snum a print service and still in the printing subsystem? */
+		if ( lp_print_ok( snum) && !pcap_printername_ok( pname, NULL)) {
+			DEBUG( 3, ( "Removing printer: %s\n", pname));
+			lp_killservice( snum);
+		}
+	}
 }

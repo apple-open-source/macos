@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "mod_sections.h"
@@ -63,21 +64,24 @@ __private_extern__ unsigned long nterm = 0;
  * mod_section_merge() is used to check the section looks ok for a module
  * initialization or termination function pointer section.  After this the rest
  * of the link editor treats it like a regular section in how it's relocated and
- * output.
+ * output.  When redo_live is TRUE it re-merges only the live pointers based on
+ * the live bit in the previouly allocated fine_relocs.
  */
 __private_extern__
 void
 mod_section_merge(
-void *data, 
+struct mod_term_data *data,
 struct merged_section *ms,
 struct section *s, 
-struct section_map *section_map)
+struct section_map *section_map,
+enum bool redo_live)
 {
-    unsigned long i;
+    unsigned long i, npointers, nlive_pointers;
     struct relocation_info *relocs, reloc;
     struct scattered_relocation_info *sreloc;
     unsigned long r_address, r_pcrel, r_length, r_type;
     char *type_name;
+    struct fine_reloc *fine_relocs;
 #ifdef __MWERKS__
     void *dummy;
         dummy = data;
@@ -112,7 +116,8 @@ struct section_map *section_map)
 	relocs = (struct relocation_info *)(cur_obj->obj_addr + s->reloff);
 	for(i = 0; i < s->nreloc; i++){
 	    reloc = relocs[i];
-	    if(cur_obj->swapped)
+	    if(cur_obj->swapped &&
+	       section_map->input_relocs_already_swapped == FALSE)
 		swap_relocation_info(&reloc, 1, host_byte_sex);
 	    /*
 	     * Break out the fields of the relocation entry we need here.
@@ -209,7 +214,7 @@ struct section_map *section_map)
 #endif /* !defined(RLD) */
 
 	/*
-	 * Check to see if the alignment will leave zero pointers.
+	 * Check to see if the alignment will not leave zero pointers.
 	 */
 	if(s->align > 2)
 	    warning_with_cur_obj("aligment greater than 2 (2^2, 4 bytes) for "
@@ -222,11 +227,74 @@ struct section_map *section_map)
 	 * merge_sections() for regular sections.
 	 */
 	section_map->flush_offset = ms->s.size;
-	ms->s.size = round(ms->s.size, 1 << s->align);
-	section_map->offset = ms->s.size;
-	ms->s.size   += s->size;
-	ms->s.nreloc += s->nreloc;
-	nreloc += s->nreloc;
+	if(redo_live == FALSE){
+	    ms->s.size = round(ms->s.size, 1 << s->align);
+	    section_map->offset = ms->s.size;
+	    ms->s.size   += s->size;
+	    ms->s.nreloc += s->nreloc;
+	    nreloc += s->nreloc;
+	}
+
+	/*
+	 * If we are doing dead stripping create a fine relocation structure
+	 * for each pointer.
+	 */
+	if(dead_strip == TRUE){
+	    if(redo_live == FALSE){
+		npointers = s->size / 4;
+		fine_relocs = allocate(npointers * sizeof(struct fine_reloc));
+		memset(fine_relocs, '\0',npointers * sizeof(struct fine_reloc));
+
+		/*
+		 * Create a fine relocation structure for each pointer in the 
+		 * section and record the offsets in the input file and map it
+		 * to the next offset in the output file.  The fine reloc will
+		 * later be marked live if needed.
+		 */
+		for(i = 0; i < npointers; i++){
+		    fine_relocs[i].input_offset = i * 4;
+		    fine_relocs[i].output_offset = data->output_offset;
+		    data->output_offset += 4;
+		}
+		section_map->fine_relocs = fine_relocs;
+		section_map->nfine_relocs = npointers;
+	    }
+	    else{
+		/*
+		 * Walk through the relocation structures and reset the
+		 * output_offset for each of the live pointers.  Then increment
+		 * the size of the section based on the number of live pointers.
+		 */
+		fine_relocs = section_map->fine_relocs;
+		npointers = section_map->nfine_relocs;
+		nlive_pointers = 0;
+		for(i = 0; i < npointers; i++){
+		    if(fine_relocs[i].live == TRUE){
+/*
+printf("mod init pointer live in %s (%.16s,%.16s) at offset 0x%x\n",
+cur_obj->file_name, ms->s.segname, ms->s.sectname, (unsigned int)r_address);
+*/
+			fine_relocs[i].output_offset = data->output_offset;
+			data->output_offset += 4;
+			nlive_pointers++;
+		    }
+		    else{
+/*
+printf("mod init pointer dead in %s (%.16s,%.16s) at offset 0x%x\n",
+cur_obj->file_name, ms->s.segname, ms->s.sectname, (unsigned int)r_address);
+*/
+			fine_relocs[i].output_offset = 0;
+		    }
+		}
+		if(nlive_pointers != 0){
+		    ms->s.size = round(ms->s.size, 1 << s->align);
+		    section_map->offset = ms->s.size;
+		    ms->s.size   += nlive_pointers * 4;
+		    ms->s.nreloc += s->nreloc;
+		    nreloc += s->nreloc;
+		}
+	    }
+	}
 }
 
 /*
@@ -238,16 +306,13 @@ struct section_map *section_map)
 __private_extern__
 void
 mod_section_order(
-void *data, 
+struct mod_term_data *data, 
 struct merged_section *ms)
 {
 #ifndef RLD
     kern_return_t r;
     char *type_name;
-#ifdef __MWERKS__
-    void *dummy;
-        dummy = data;
-#endif
+
 	if((ms->s.flags & SECTION_TYPE) == S_MOD_INIT_FUNC_POINTERS)
 	    type_name = "initialization";
 	else
@@ -266,12 +331,46 @@ struct merged_section *ms)
 		       "%s for section (%.16s,%.16s)", ms->order_filename,
 		       ms->s.segname, ms->s.sectname);
 	ms->order_addr = NULL;
-#else /* RLD */
-#ifdef __MWERKS__
-    void *dummy1;
-    struct merged_section *dummy2;
-        dummy1 = data;
-        dummy2 = ms;
-#endif
-#endif /* RLD */
+#endif /* !defined(RLD) */
+}
+
+/*
+ * mod_section_reset_live() is called when -dead_strip is specified after
+ * the initialization or termination function pointer sections the input
+ * objects are merged.  It clears out the output_offset so the live pointers
+ * can be re-merged (by later calling mod_section_merge() with redo_live ==
+ * TRUE.
+ */
+__private_extern__
+void
+mod_section_reset_live(
+struct mod_term_data *data, 
+struct merged_section *ms)
+{
+#ifndef RLD
+	/* reset the merge section size back to zero */
+	ms->s.size = 0;
+
+	/* reset the counts of the number of inits and terms back to zero */
+	ninit = 0;
+	nterm = 0;
+
+	/* reset the count of relocation entries for this merged section */
+	nreloc -= ms->s.nreloc;
+	ms->s.nreloc = 0;
+
+	/* clear the current value of output_offset */
+	data->output_offset = 0;
+#endif /* !defined(RLD) */
+}
+
+/*
+ * mod_section_free() resets the output_offset in the data block.
+ */
+__private_extern__
+void
+mod_section_free(
+struct mod_term_data *data)
+{
+	data->output_offset = 0;
 }

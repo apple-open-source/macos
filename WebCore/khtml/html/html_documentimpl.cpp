@@ -128,6 +128,11 @@ HTMLDocumentImpl::~HTMLDocumentImpl()
 {
 }
 
+ElementImpl* HTMLDocumentImpl::documentElement() const
+{
+    return static_cast<ElementImpl*>(_first);
+}
+
 DOMString HTMLDocumentImpl::referrer() const
 {
     if ( part() )
@@ -239,34 +244,6 @@ Tokenizer *HTMLDocumentImpl::createTokenizer()
 // not part of the DOM
 // --------------------------------------------------------------------------
 
-DOMString HTMLDocumentImpl::designMode() const
-{
-    TristateFlag editMode = KWQ(view()->part())->editMode();
-    // Note: case for return values intentionally matches WinIE
-    switch (editMode) {
-        default:
-        case FlagNone:
-            return "Inherit";
-        case FlagEnabled:
-            return "On";
-        case FlagDisabled:
-            return "Off";
-    }
-}
-
-void HTMLDocumentImpl::setDesignMode(const DOMString &s)
-{
-    if ( strcasecmp( s, "on" ) == 0 ) {
-        KWQ(view()->part())->setEditMode(FlagEnabled);
-    }
-    else if (strcasecmp(s, "off") == 0) {
-        KWQ(view()->part())->setEditMode(FlagDisabled);
-    }
-    else if (strcasecmp(s, "inherit") == 0 || s.isNull()) {
-        KWQ(view()->part())->setEditMode(FlagNone);
-    }
-}
-
 bool HTMLDocumentImpl::childAllowed( NodeImpl *newChild )
 {
     // ### support comments. etc as a child
@@ -285,26 +262,6 @@ void HTMLDocumentImpl::slotHistoryChanged()
 
     recalcStyle( Force );
     m_render->repaint();
-}
-
-HTMLMapElementImpl* HTMLDocumentImpl::getMap(const DOMString& _url)
-{
-    if (_url.isNull()) {
-        return 0;
-    }
-    
-    QString url = _url.string();
-    QString s;
-    int pos = url.find('#');
-    //kdDebug(0) << "map pos of #:" << pos << endl;
-    s = QString(_url.unicode() + pos + 1, _url.length() - pos - 1);
-
-    QMapConstIterator<QString,HTMLMapElementImpl*> it = mapMap.find(s);
-
-    if (it != mapMap.end())
-        return *it;
-    else
-        return 0;
 }
 
 void HTMLDocumentImpl::addNamedImageOrForm(const QString &name)
@@ -338,8 +295,6 @@ bool HTMLDocumentImpl::haveNamedImageOrForm(const QString &name)
 {
     return namedImageAndFormCounts.find(name) != NULL;
 }
-
-
 
 const int PARSEMODE_HAVE_DOCTYPE	=	(1<<0);
 const int PARSEMODE_HAVE_PUBLIC_ID	=	(1<<1);
@@ -506,7 +461,11 @@ void HTMLDocumentImpl::determineParseMode( const QString &str )
     QString systemID, publicID;
     int resultFlags = 0;
     if (parseDocTypeDeclaration(str, &resultFlags, publicID, systemID)) {
-        m_doctype->setName("HTML");
+        if (resultFlags & PARSEMODE_HAVE_DOCTYPE) {
+            m_doctype->setName("HTML");
+            m_doctype->setPublicId(publicID);
+            m_doctype->setSystemId(systemID);
+        }
         if (!(resultFlags & PARSEMODE_HAVE_DOCTYPE)) {
             // No doctype found at all.  Default to quirks mode and Html4.
             pMode = Compat;
@@ -561,6 +520,8 @@ void HTMLDocumentImpl::determineParseMode( const QString &str )
         hMode = Html3;
     }
   
+    m_styleSelector->strictParsing = !inCompatMode();
+
 //     kdDebug() << "DocumentImpl::determineParseMode: publicId =" << publicId << " systemId = " << systemId << endl;
 //     kdDebug() << "DocumentImpl::determineParseMode: htmlMode = " << hMode<< endl;
 //     if( pMode == Strict )

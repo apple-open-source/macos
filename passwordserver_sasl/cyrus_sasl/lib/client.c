@@ -1,10 +1,10 @@
 /* SASL server API implementation
  * Rob Siemborski
  * Tim Martin
- * $Id: client.c,v 1.2 2002/05/22 17:56:55 snsimon Exp $
+ * $Id: client.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,6 +49,9 @@
 #include <limits.h>
 #include <ctype.h>
 #include <string.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 /* SASL Headers */
 #include "sasl.h"
@@ -77,10 +80,20 @@ static int init_mechlist()
   return SASL_OK;
 }
 
-static void client_done(void) {
+static int client_done(void) {
   cmechanism_t *cm;
   cmechanism_t *cprevm;
 
+  if(!_sasl_client_active)
+      return SASL_NOTINIT;
+  else
+      _sasl_client_active--;
+  
+  if(_sasl_client_active) {
+      /* Don't de-init yet! Our refcount is nonzero. */
+      return SASL_CONTINUE;
+  }
+  
   cm=cmechlist->mech_list; /* m point to begging of the list */
   while (cm!=NULL)
   {
@@ -101,7 +114,7 @@ static void client_done(void) {
 
   cmechlist = NULL;
 
-  _sasl_client_active = 0;
+  return SASL_OK;
 }
 
 int sasl_client_add_plugin(const char *plugname,
@@ -186,13 +199,17 @@ int sasl_client_init(const sasl_callback_t *callbacks)
 {
   int ret;
   const add_plugin_list_t ep_list[] = {
-      { "sasl_client_plug_init", (void *)&sasl_client_add_plugin },
-      { "sasl_canonuser_init", (void *)&sasl_canonuser_add_plugin },
+      { "sasl_client_plug_init", (add_plugin_t *)sasl_client_add_plugin },
+      { "sasl_canonuser_init", (add_plugin_t *)sasl_canonuser_add_plugin },
       { NULL, NULL }
   };
 
-  _sasl_client_cleanup_hook = &client_done;
-  _sasl_client_idle_hook = &client_idle;
+  if(_sasl_client_active) {
+      /* We're already active, just increase our refcount */
+      /* xxx do something with the callback structure? */
+      _sasl_client_active++;
+      return SASL_OK;
+  }
 
   global_callbacks.callbacks = callbacks;
   global_callbacks.appname = NULL;
@@ -200,14 +217,19 @@ int sasl_client_init(const sasl_callback_t *callbacks)
   cmechlist=sasl_ALLOC(sizeof(cmech_list_t));
   if (cmechlist==NULL) return SASL_NOMEM;
 
+  /* We need to call client_done if we fail now */
+  _sasl_client_active = 1;
+
   /* load plugins */
   ret=init_mechlist();  
-  if (ret!=SASL_OK)
-    return ret;
+  if (ret!=SASL_OK) {
+      client_done();
+      return ret;
+  }
 
   sasl_client_add_plugin("EXTERNAL", &external_client_plug_init);
 
-  ret = _sasl_common_init();
+  ret = _sasl_common_init(&global_callbacks);
 
   if (ret == SASL_OK)
       ret = _sasl_load_plugins(ep_list,
@@ -215,10 +237,14 @@ int sasl_client_init(const sasl_callback_t *callbacks)
 			       _sasl_find_verifyfile_callback(callbacks));
   
   if (ret == SASL_OK) {
-      _sasl_client_active = 1;
-      ret = _sasl_build_mechlist();
-  }
+      _sasl_client_cleanup_hook = &client_done;
+      _sasl_client_idle_hook = &client_idle;
 
+      ret = _sasl_build_mechlist();
+  } else {
+      client_done();
+  }
+      
   return ret;
 }
 
@@ -233,8 +259,8 @@ static void client_dispose(sasl_conn_t *pconn)
 
   pconn->context = NULL;
 
-  if (c_conn->serverFQDN)
-      sasl_FREE(c_conn->serverFQDN);
+  if (c_conn->clientFQDN)
+      sasl_FREE(c_conn->clientFQDN);
 
   if (c_conn->cparams) {
       _sasl_free_utils(&(c_conn->cparams->utils));
@@ -275,13 +301,14 @@ int sasl_client_new(const char *service,
 		    sasl_conn_t **pconn)
 {
   int result;
+  char name[MAXHOSTNAMELEN];
   sasl_client_conn_t *conn;
   sasl_utils_t *utils;
 
   if(_sasl_client_active==0) return SASL_NOTINIT;
   
-  /* Remember, iplocalport and ipremoteport can be NULL and be valid! */
-  if (!pconn || !service || !serverFQDN)
+  /* Remember, serverFQDN, iplocalport and ipremoteport can be NULL and be valid! */
+  if (!pconn || !service)
     return SASL_BADPARAM;
 
   *pconn=sasl_ALLOC(sizeof(sasl_client_conn_t));
@@ -314,11 +341,20 @@ int sasl_client_new(const char *service,
       MEMERROR(*pconn);
   
   utils->conn= *pconn;
+
+  /* Setup the non-lazy parts of cparams, the rest is done in
+   * sasl_client_start */
   conn->cparams->utils = utils;
   conn->cparams->canon_user = &_sasl_canon_user;
   conn->cparams->flags = flags;
+  conn->cparams->prompt_supp = (*pconn)->callbacks;
   
-  result = _sasl_strdup(serverFQDN, &conn->serverFQDN, NULL);
+  /* get the clientFQDN (serverFQDN was set in _sasl_conn_init) */
+  memset(name, 0, sizeof(name));
+  gethostname(name, MAXHOSTNAMELEN);
+
+  result = _sasl_strdup(name, &conn->clientFQDN, NULL);
+
   if(result == SASL_OK) return SASL_OK;
 
   /* result isn't SASL_OK */
@@ -444,27 +480,42 @@ int sasl_client_start(sasl_conn_t *conn,
 
 	/* foreach in server list */
 	for (m = cmechlist->mech_list; m != NULL; m = m->next) {
-	    /* is this the mechanism the server is suggesting? */
+	    int myflags;
+	    
+	    /* Is this the mechanism the server is suggesting? */
 	    if (strcasecmp(m->plug->mech_name, name))
 		continue; /* no */
 
-	    /* do we have the prompts for it? */
+	    /* Do we have the prompts for it? */
 	    if (!have_prompts(conn, m->plug))
 		break;
 
-	    /* is it strong enough? */
+	    /* Is it strong enough? */
 	    if (minssf > m->plug->max_ssf)
 		break;
 
-	    /* does it meet our security properties? */
-	    if (((conn->props.security_flags ^ m->plug->security_flags)
-		 & conn->props.security_flags) != 0) {
+	    /* Does it meet our security properties? */
+	    myflags = conn->props.security_flags;
+	    
+	    /* if there's an external layer this is no longer plaintext */
+	    if ((conn->props.min_ssf <= conn->external.ssf) && 
+		(conn->external.ssf > 1)) {
+		myflags &= ~SASL_SEC_NOPLAINTEXT;
+	    }
+
+	    if (((myflags ^ m->plug->security_flags) & myflags) != 0) {
 		break;
 	    }
 
 	    /* Can we meet it's features? */
 	    if ((m->plug->features & SASL_FEAT_NEEDSERVERFQDN)
 		&& !conn->serverFQDN) {
+		break;
+	    }
+
+	    /* Can it meet our features? */
+	    if ((conn->flags & SASL_NEED_PROXY) &&
+		!(m->plug->features & SASL_FEAT_ALLOWS_PROXY)) {
 		break;
 	    }
 	    
@@ -482,6 +533,30 @@ int sasl_client_start(sasl_conn_t *conn,
 	    }
 #endif
 
+	    /* compare security flags, only take new mechanism if it has
+	     * all the security flags of the previous one.
+	     *
+	     * From the mechanisms we ship with, this yields the order:
+	     *
+	     * SRP
+	     * GSSAPI + KERBEROS_V4
+	     * DIGEST + OTP
+	     * CRAM + EXTERNAL
+	     * PLAIN + LOGIN + ANONYMOUS
+	     *
+	     * This might be improved on by comparing the numeric value of
+	     * the bitwise-or'd security flags, which splits DIGEST/OTP,
+	     * CRAM/EXTERNAL, and PLAIN/LOGIN from ANONYMOUS, but then we
+	     * are depending on the numeric values of the flags (which may
+	     * change, and their ordering could be considered dumb luck.
+	     */
+
+	    if (bestm &&
+		((m->plug->security_flags ^ bestm->plug->security_flags) &
+		 bestm->plug->security_flags)) {
+		break;
+	    }
+
 	    if (mech) {
 		*mech = m->plug->mech_name;
 	    }
@@ -497,9 +572,18 @@ int sasl_client_start(sasl_conn_t *conn,
 	goto done;
     }
 
-    /* make cparams */
-    c_conn->cparams->serverFQDN = c_conn->serverFQDN; 
+    /* make (the rest of) cparams */
     c_conn->cparams->service = conn->service;
+    c_conn->cparams->servicelen = (unsigned) strlen(conn->service);
+    
+    if (conn->serverFQDN) {
+	c_conn->cparams->serverFQDN = conn->serverFQDN; 
+	c_conn->cparams->slen = (unsigned) strlen(conn->serverFQDN);
+    }
+
+    c_conn->cparams->clientFQDN = c_conn->clientFQDN; 
+    c_conn->cparams->clen = (unsigned) strlen(c_conn->clientFQDN);
+
     c_conn->cparams->external_ssf = conn->external.ssf;
     c_conn->cparams->props = conn->props;
     c_conn->mech = bestm;
@@ -575,7 +659,7 @@ int sasl_client_step(sasl_conn_t *conn,
 					 serverin,
 					 serverinlen,
 					 prompt_need,
-					 clientout, (int *)clientoutlen,
+					 clientout, clientoutlen,
 					 &conn->oparams);
 
   if (result == SASL_OK) {
@@ -614,7 +698,7 @@ static unsigned mech_names_len()
   for (listptr = cmechlist->mech_list;
        listptr;
        listptr = listptr->next)
-    result += strlen(listptr->plug->mech_name);
+    result += (unsigned) strlen(listptr->plug->mech_name);
 
   return result;
 }
@@ -625,13 +709,13 @@ int _sasl_client_listmech(sasl_conn_t *conn,
 			  const char *sep,
 			  const char *suffix,
 			  const char **result,
-			  size_t *plen,
+			  unsigned *plen,
 			  int *pcount)
 {
     cmechanism_t *m=NULL;
     sasl_ssf_t minssf = 0;
     int ret;
-    unsigned int resultlen;
+    size_t resultlen;
     int flag;
     const char *mysep;
 
@@ -698,6 +782,12 @@ int _sasl_client_listmech(sasl_conn_t *conn,
 		continue;
 	    }
 
+	    /* Can it meet our features? */
+	    if ((conn->flags & SASL_NEED_PROXY) &&
+		!(m->plug->features & SASL_FEAT_ALLOWS_PROXY)) {
+		break;
+	    }
+
 	    /* Okay, we like it, add it to the list! */
 
 	    if (pcount != NULL)
@@ -718,7 +808,7 @@ int _sasl_client_listmech(sasl_conn_t *conn,
       strcat(conn->mechlist_buf,suffix);
 
   if (plen!=NULL)
-      *plen=strlen(conn->mechlist_buf);
+      *plen = (unsigned) strlen(conn->mechlist_buf);
 
   *result = conn->mechlist_buf;
 

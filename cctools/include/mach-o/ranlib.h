@@ -24,6 +24,7 @@
 #ifndef _MACH_O_RANLIB_H_
 #define _MACH_O_RANLIB_H_
 
+#include <stdint.h>
 #include <sys/types.h>		/* off_t */
 
 /*
@@ -56,9 +57,11 @@
  */
 struct	ranlib {
     union {
-	unsigned long	ran_strx;	/* string table index of */
+	uint32_t	ran_strx;	/* string table index of */
+#ifndef __LP64__
 	char		*ran_name;	/* symbol defined by */
+#endif
     } ran_un;
-    unsigned long	ran_off;	/* library member at this offset */
+    uint32_t		ran_off;	/* library member at this offset */
 };
 #endif /* _MACH_O_RANLIB_H_ */

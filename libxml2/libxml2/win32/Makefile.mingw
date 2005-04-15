@@ -79,7 +79,7 @@ ifeq ($(WITH_ICONV),1)
 LIBS += -liconv
 endif 
 ifeq ($(WITH_ZLIB),1)
-LIBS += -lzlib
+LIBS += -lzdll
 endif
 ifeq ($(WITH_THREADS),posix)
 LIBS += -lpthreadGC
@@ -133,6 +133,7 @@ XML_OBJS = $(XML_INTDIR)/c14n.o\
 	$(XML_INTDIR)/xmlmemory.o\
 	$(XML_INTDIR)/xmlreader.o\
 	$(XML_INTDIR)/xmlregexp.o\
+	$(XML_INTDIR)/xmlsave.o\
 	$(XML_INTDIR)/xmlschemas.o\
 	$(XML_INTDIR)/xmlschemastypes.o\
 	$(XML_INTDIR)/xmlunicode.o\
@@ -177,6 +178,7 @@ XML_OBJS_A = $(XML_INTDIR_A)/c14n.o\
 	$(XML_INTDIR_A)/xmlmemory.o\
 	$(XML_INTDIR_A)/xmlreader.o\
 	$(XML_INTDIR_A)/xmlregexp.o\
+	$(XML_INTDIR_A)/xmlsave.o\
 	$(XML_INTDIR_A)/xmlschemas.o\
 	$(XML_INTDIR_A)/xmlschemastypes.o\
 	$(XML_INTDIR_A)/xmlunicode.o\
@@ -245,12 +247,22 @@ install : all
 	cmd.exe /C copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)
 	cmd.exe /C copy $(BINDIR)\*.exe $(BINPREFIX)
 
+install-bindist : all
+	cmd.exe /C if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml
+	cmd.exe /C if not exist $(BINPREFIX) mkdir $(BINPREFIX)
+	cmd.exe /C if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)
+	cmd.exe /C copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml
+	cmd.exe /C copy $(BINDIR)\$(XML_SO) $(SOPREFIX)
+	cmd.exe /C copy $(BINDIR)\$(XML_A) $(LIBPREFIX)
+	cmd.exe /C copy $(BINDIR)\$(XML_IMP) $(LIBPREFIX)
+	cmd.exe /C copy $(BINDIR)\xml*.exe $(BINPREFIX)
+
 # This is a target for me, to make a binary distribution. Not for the public use,
 # keep your hands off :-)
 BDVERSION = $(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION).$(LIBXML_MICRO_VERSION)
 BDPREFIX = $(XML_BASENAME)-$(BDVERSION).win32
 bindist : all
-	$(MAKE) PREFIX=$(BDPREFIX) BINPREFIX=$(BDPREFIX)/util install
+	$(MAKE) PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)/bin install-bindist
 	cscript //NoLogo configure.js genreadme $(XML_BASENAME) $(BDVERSION) $(BDPREFIX)\readme.txt
 
 

@@ -103,7 +103,7 @@ void debug_ntlmssp_flags(uint32 neg_flags)
 static const uint8 *get_challenge(const struct ntlmssp_state *ntlmssp_state)
 {
 	static uchar chal[8];
-	generate_random_buffer(chal, sizeof(chal), False);
+	generate_random_buffer(chal, sizeof(chal));
 
 	return chal;
 }
@@ -766,7 +766,7 @@ NTSTATUS ntlmssp_server_start(NTLMSSP_STATE **ntlmssp_state)
 
 	mem_ctx = talloc_init("NTLMSSP context");
 	
-	*ntlmssp_state = talloc_zero(mem_ctx, sizeof(**ntlmssp_state));
+	*ntlmssp_state = TALLOC_ZERO_P(mem_ctx, NTLMSSP_STATE);
 	if (!*ntlmssp_state) {
 		DEBUG(0,("ntlmssp_server_start: talloc failed!\n"));
 		talloc_destroy(mem_ctx);
@@ -960,7 +960,7 @@ static NTSTATUS ntlmssp_client_challenge(struct ntlmssp_state *ntlmssp_state,
 		E_md4hash(ntlmssp_state->password, nt_hash);
 		
 		lm_response = data_blob_talloc(ntlmssp_state->mem_ctx, NULL, 24);
-		generate_random_buffer(lm_response.data, 8, False);
+		generate_random_buffer(lm_response.data, 8);
 		memset(lm_response.data+8, 0, 16);
 
 		memcpy(session_nonce, challenge_blob.data, 8);
@@ -1022,7 +1022,7 @@ static NTSTATUS ntlmssp_client_challenge(struct ntlmssp_state *ntlmssp_state,
 	if (ntlmssp_state->neg_flags & NTLMSSP_NEGOTIATE_KEY_EXCH) {
 		/* Make up a new session key */
 		uint8 client_session_key[16];
-		generate_random_buffer(client_session_key, sizeof(client_session_key), False);
+		generate_random_buffer(client_session_key, sizeof(client_session_key));
 
 		/* Encrypt the new session key with the old one */
 		encrypted_session_key = data_blob(client_session_key, sizeof(client_session_key));
@@ -1075,7 +1075,7 @@ NTSTATUS ntlmssp_client_start(NTLMSSP_STATE **ntlmssp_state)
 
 	mem_ctx = talloc_init("NTLMSSP Client context");
 	
-	*ntlmssp_state = talloc_zero(mem_ctx, sizeof(**ntlmssp_state));
+	*ntlmssp_state = TALLOC_ZERO_P(mem_ctx, NTLMSSP_STATE);
 	if (!*ntlmssp_state) {
 		DEBUG(0,("ntlmssp_client_start: talloc failed!\n"));
 		talloc_destroy(mem_ctx);

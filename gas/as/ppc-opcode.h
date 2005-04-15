@@ -104,6 +104,7 @@ static const struct ppc_opcode ppc_opcodes[] = {
  { 0x48000003, "bla",     {{2,24,BADDR}} },
 
  { 0x48000001, "jbsr",    {{0,0,JBSR}, {2,24,PCREL}} },
+ { 0x48000000, "jmp",     {{0,0,JBSR}, {2,24,PCREL}} },
 
  { 0x40000000, "bc",      {{21,5,NUM},  {16,5,NUM}, {2,14,PCREL}} },
  { 0x40000002, "bca",     {{21,5,NUM},  {16,5,NUM}, {2,14,BADDR}} },
@@ -617,12 +618,12 @@ static const struct ppc_opcode ppc_opcodes[] = {
  { 0xfc000051, "fneg.",   {{21,5,FREG}, {11,5,FREG}} },
  { 0xfc000110, "fnabs",   {{21,5,FREG}, {11,5,FREG}} },
  { 0xfc000111, "fnabs.",  {{21,5,FREG}, {11,5,FREG}} },
- { 0xec000030, "fres",    {{21,5,FREG}, {11,5,FREG}}, OPTIONAL|CPU970 },
- { 0xec000031, "fres.",   {{21,5,FREG}, {11,5,FREG}}, OPTIONAL|CPU970 },
+ { 0xec000030, "fres",    {{21,5,FREG}, {11,5,FREG}} },
+ { 0xec000031, "fres.",   {{21,5,FREG}, {11,5,FREG}} },
  { 0xfc000018, "frsp",    {{21,5,FREG}, {11,5,FREG}} },
  { 0xfc000019, "frsp.",   {{21,5,FREG}, {11,5,FREG}} },
- { 0xfc000034, "frsqrte", {{21,5,FREG}, {11,5,FREG}}, OPTIONAL|CPU970 },
- { 0xfc000035, "frsqrte.",{{21,5,FREG}, {11,5,FREG}}, OPTIONAL|CPU970 },
+ { 0xfc000034, "frsqrte", {{21,5,FREG}, {11,5,FREG}} },
+ { 0xfc000035, "frsqrte.",{{21,5,FREG}, {11,5,FREG}} },
  { 0xfc00002e, "fsel",
 	{{21,5,FREG}, {16,5,FREG}, {6,5,FREG}, {11,5,FREG}} },
  { 0xfc00002f, "fsel.",
@@ -874,8 +875,7 @@ static const struct ppc_opcode ppc_opcodes[] = {
 
  { 0x7c0005aa, "stswi",   {{21,5,GREG}, {16,5,G0REG},{11,5,NUM0}}  },
 
- { 0x7c0007ae, "stfiwx",  {{21,5,FREG}, {16,5,G0REG},{11,5,GREG}},
-	OPTIONAL|CPU970 },
+ { 0x7c0007ae, "stfiwx",  {{21,5,FREG}, {16,5,G0REG},{11,5,GREG}}, },
 
  { 0xd0000000, "stfs",    {{21,5,FREG}, {0,16,D},    {16,5,G0REG}} },
  { 0xd4000000, "stfsu",   {{21,5,FREG}, {0,16,D},    {16,5,GREG}} },
@@ -1000,8 +1000,7 @@ static const struct ppc_opcode ppc_opcodes[] = {
  { 0x7c0007ac, "icbi",    {{16,5,G0REG}, {11,5,GREG}} },
  { 0x4c00012c, "isync",   },
  { 0x7c00022c, "dcbt",    {{16,5,G0REG}, {11,5,GREG}} },
- { 0x7c00022c, "dcbt",    {{16,5,G0REG}, {11,5,GREG}, {21,4,NUM}},
-   IMPL64|OPTIONAL },
+ { 0x7c00022c, "dcbt",    {{16,5,G0REG}, {11,5,GREG}, {21,4,NUM}}, },
  { 0x7c0001ec, "dcbtst",  {{16,5,G0REG}, {11,5,GREG}} },
  { 0x7c00022c, "dcbt128", {{16,5,G0REG}, {11,5,GREG}, {21,4,NUM}},
    IMPL64|OPTIONAL },

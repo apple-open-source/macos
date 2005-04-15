@@ -1,0 +1,20 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>libxml2</string>
+	<key>OpenSourceVersion</key>
+	<string>2.6.16</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://xmlsoft.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnome.org/pub/gnome/sources/libxml2/2.6/libxml2-2.6.16.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>1ad0827b95e17e546265f2c4da001a6a</string>
+	<key>OpenSourceImportDate</key>
+	<string>2005-01-13</string>
+	<key>OpenSourceLicense</key>
+	<string>other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>libxml2.txt</string>
+</dict>
+</plist>

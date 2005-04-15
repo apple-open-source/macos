@@ -34,6 +34,8 @@ struct literal_pointer_data {
     struct literal_pointer_bucket **hashtable;	/* the hash table */
     struct literal_pointer_block		/* the literal pointers */
 	*literal_pointer_blocks;
+    struct literal_pointer_load_order_data/* the load order info needed to */
+	*literal_pointer_load_order_data; /*  re-merge when using -dead_strip */
 #ifdef DEBUG
     unsigned long nfiles;	/* number of files with this section */
     unsigned long nliterals;	/* total number of literal pointers in the */
@@ -78,13 +80,31 @@ struct literal_pointer_block {
     struct literal_pointer_block *next;	/* the next block */
 };
 
+/* the load order info needed to re-merge when using -dead_strip */
+struct literal_pointer_load_order_data {
+    char *order_line_buffer;
+    unsigned long nliteral_pointer_order_lines;
+    struct literal_pointer_order_line *literal_pointer_order_lines;
+};
+/* the load order info for a single literal pointer order line */
+struct literal_pointer_order_line {
+    unsigned character_index;
+    unsigned long line_number;
+    unsigned long output_offset;
+};
+
 __private_extern__ void literal_pointer_merge(
     struct literal_pointer_data *data, 
     struct merged_section *ms,
     struct section *s, 
-    struct section_map *section_map);
+    struct section_map *section_map,
+    enum bool redo_live);
 
 __private_extern__ void literal_pointer_order(
+    struct literal_pointer_data *data, 
+    struct merged_section *ms);
+
+__private_extern__ void literal_pointer_reset_live(
     struct literal_pointer_data *data, 
     struct merged_section *ms);
 

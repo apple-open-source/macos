@@ -1,0 +1,21 @@
+# Add trampoline and long double support to libgcc.
+# APPLE LOCAL fpsave.asm added here --dbj
+LIB2FUNCS_EXTRA = $(srcdir)/config/rs6000/darwin-tramp.asm \
+        $(srcdir)/config/rs6000/darwin-fpsave.asm \
+        $(srcdir)/config/rs6000/darwin-ldouble.c \
+	$(srcdir)/config/rs6000/darwin-fallback.c
+
+# APPLE LOCAL fpsave.asm removed here --dbj
+LIB2FUNCS_STATIC_EXTRA = \
+	$(srcdir)/config/rs6000/darwin-vecsave.asm  \
+	$(srcdir)/config/rs6000/darwin-world.asm
+
+# The .asm files above are designed to run on all processors,
+# even though they use AltiVec instructions.  -Wa is used because
+# -force_cpusubtype_ALL doesn't work with -dynamiclib.
+TARGET_LIBGCC2_CFLAGS = -Wa,-force_cpusubtype_ALL
+
+# APPLE LOCAL mainline
+darwin-fpsave.o:	$(srcdir)/config/rs6000/darwin-asm.h
+darwin-tramp.o:		$(srcdir)/config/rs6000/darwin-asm.h
+

@@ -35,7 +35,9 @@ __private_extern__ void generic_reloc(
     char *contents,
     struct relocation_info *relocs,
     struct section_map *map,
-    long pcrel_at_end_of_disp);
+    long pcrel_at_end_of_disp,
+    struct live_refs *refs,
+    unsigned long reloc_index);
 
 __private_extern__ int undef_bsearch(
     const unsigned long *index,

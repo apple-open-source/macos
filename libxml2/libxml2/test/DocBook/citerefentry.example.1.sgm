@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-For a further description of print formats, consult the
-<citerefentry><refentrytitle>printf</refentrytitle>
-<manvolnum>3S</manvolnum></citerefentry> manual page.
-</para>

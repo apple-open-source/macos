@@ -35,32 +35,23 @@ namespace DOM {
 
 class DOMStringImpl : public khtml::Shared<DOMStringImpl>
 {
+private:
+    struct WithOneRef { };
+    DOMStringImpl(WithOneRef) { s = 0; l = 0; _hash = 0; _inTable = false; ref(); }
+
 protected:
-    DOMStringImpl() { s = 0, l = 0; }
+    DOMStringImpl() { s = 0, l = 0; _hash = 0; _inTable = false; }
 public:
-    DOMStringImpl(const QChar *str, unsigned int len) {
-	bool havestr = str && len;
-	s = QT_ALLOC_QCHAR_VEC( havestr ? len : 1 );
-	if(str && len) {
-	    memcpy( s, str, len * sizeof(QChar) );
-	    l = len;
-	} else {
-	    // crash protection
-	    s[0] = 0x0;
-	    l = 0;
-	}
-    }
-
+    DOMStringImpl(const QChar *str, unsigned int len);
     DOMStringImpl(const char *str);
-    DOMStringImpl(const QChar &ch) {
-	s = QT_ALLOC_QCHAR_VEC( 1 );
-	s[0] = ch;
-	l = 1;
-    }
-    ~DOMStringImpl() {
-	if(s) QT_DELETE_QCHAR_VEC(s);
-    }
-
+    DOMStringImpl(const char *str, unsigned int len);
+    DOMStringImpl(const QChar &ch);
+    ~DOMStringImpl();
+    
+    unsigned hash() const { if (_hash == 0) _hash = computeHash(s, l); return _hash; }
+    static unsigned computeHash(const QChar *, int length);
+    static unsigned computeHash(const char *);
+    
     void append(DOMStringImpl *str);
     void insert(DOMStringImpl *str, unsigned int pos);
     void truncate(int len);
@@ -78,6 +69,7 @@ public:
     khtml::Length toLength() const;
     
     bool containsOnlyWhitespace() const;
+    bool containsOnlyWhitespace(unsigned int from, unsigned int len) const;
     
     // ignores trailing garbage, unlike QString
     int toInt(bool* ok=0) const;
@@ -91,8 +83,15 @@ public:
     // This modifies the string in place if there is only one ref, makes a new string otherwise.
     DOMStringImpl *replace(QChar, QChar);
 
+    static DOMStringImpl* empty();
+
+    // For debugging only, leaks memory.
+    const char *ascii() const;
+
     unsigned int l;
     QChar *s;
+    mutable unsigned _hash;
+    bool _inTable;
 };
 
 };

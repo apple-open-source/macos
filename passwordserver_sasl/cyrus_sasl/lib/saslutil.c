@@ -1,10 +1,10 @@
 /* saslutil.c
  * Rob Siemborski
  * Tim Martin
- * $Id: saslutil.c,v 1.2 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: saslutil.c,v 1.5 2005/01/10 19:13:36 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,16 +45,19 @@
 
 #include <config.h>
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-#ifdef HAVE_GETTIMEOFDAY
-#include <sys/time.h>
-#endif
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+#ifdef HAVE_TIME_H
+#include <time.h>
 #endif
 #include "saslint.h"
 #include <saslutil.h>
@@ -75,8 +78,9 @@
 char *encode_table;
 char *decode_table;
 
+#define RPOOL_SIZE 3
 struct sasl_rand_s {
-    unsigned short pool[3];
+    unsigned short pool[RPOOL_SIZE];
     /* since the init time might be really bad let's make this lazy */
     int initialized; 
 };
@@ -225,6 +229,7 @@ int sasl_mkchal(sasl_conn_t *conn,
 {
   sasl_rand_t *pool = NULL;
   unsigned long randnum;
+  int ret;
   time_t now;
   unsigned len;
 
@@ -232,12 +237,14 @@ int sasl_mkchal(sasl_conn_t *conn,
     + (2 * 20);			/* 2 numbers, 20 => max size of 64bit
 				 * ulong in base 10 */
   if (hostflag && conn->serverFQDN)
-    len += strlen(conn->serverFQDN) + 1 /* for the @ */;
+    len += (unsigned) strlen(conn->serverFQDN) + 1 /* for the @ */;
 
   if (maxlen < len)
     return 0;
 
-  sasl_randcreate(&pool);
+  ret = sasl_randcreate(&pool);
+  if(ret != SASL_OK) return 0; /* xxx sasl return code? */
+
   sasl_rand(pool, (char *)&randnum, sizeof(randnum));
   sasl_randfree(&pool);
 
@@ -248,7 +255,7 @@ int sasl_mkchal(sasl_conn_t *conn,
   else
     snprintf(buf,maxlen, "<%lu.%lu>", randnum, now);
 
-  return strlen(buf);
+  return (int) strlen(buf);
 }
 
   /* borrowed from larry. probably works :)
@@ -278,33 +285,50 @@ int sasl_utf8verify(const char *str, unsigned len)
  * without specialized hardware etc...
  * thus, this is for nonce use only
  */
-void getranddata(unsigned short ret[3])
+void getranddata(unsigned short ret[RPOOL_SIZE])
 {
     long curtime;
     
-    memset(ret, 0, sizeof(unsigned short)*3);
+    memset(ret, 0, RPOOL_SIZE*sizeof(unsigned short));
 
 #ifdef DEV_RANDOM    
     {
-        FILE *f;
+	int fd;
 
-	if ((f = fopen(DEV_RANDOM, "r")) != NULL) {
-	    fread(ret, 1, sizeof(ret), f);
-	    fclose(f);
-	    return;
-        }
+	fd = open(DEV_RANDOM, O_RDONLY);
+	if(fd != -1) {
+	    unsigned char *buf = (unsigned char *)ret;
+	    ssize_t bytesread = 0;
+	    size_t bytesleft = RPOOL_SIZE*sizeof(unsigned short);
+	    
+	    do {
+		bytesread = read(fd, buf, bytesleft);
+		if(bytesread == -1 && errno == EINTR) continue;
+		else if(bytesread <= 0) break;
+		bytesleft -= bytesread;
+		buf += bytesread;
+	    } while(bytesleft != 0);
+		
+	    close(fd);
+	}
     }
 #endif
 
 #ifdef HAVE_GETPID
-    ret[0] = (unsigned short) getpid();
+    ret[0] ^= (unsigned short) getpid();
 #endif
 
 #ifdef HAVE_GETTIMEOFDAY
     {
 	struct timeval tv;
 	
-	if (!gettimeofday(&tv, NULL)) {
+	/* xxx autoconf macro */
+#ifdef _SVID_GETTOD
+	if (!gettimeofday(&tv))
+#else
+	if (!gettimeofday(&tv, NULL))
+#endif
+	{
 	    /* longs are guaranteed to be at least 32 bits; we need
 	       16 bits in each short */
 	    ret[0] ^= (unsigned short) (tv.tv_sec & 0xFFFF);
@@ -352,7 +376,10 @@ void sasl_randseed (sasl_rand_t *rpool, const char *seed, unsigned len)
     if (rpool == NULL) return;
 
     rpool->initialized = 1;
-    if (len > 6) len = 6;
+
+    if (len > sizeof(unsigned short)*RPOOL_SIZE)
+      len = sizeof(unsigned short)*RPOOL_SIZE;
+
     for (lup = 0; lup < len; lup += 2)
 	rpool->pool[lup/2] = (seed[lup] << 8) + seed[lup + 1];
 }
@@ -367,7 +394,8 @@ static void randinit(sasl_rand_t *rpool)
 #if !(defined(WIN32)||defined(macintosh))
 #ifndef HAVE_JRAND48
     {
-	long *foo = (long *)rpool->pool;
+      /* xxx varies by platform */
+	unsigned int *foo = (unsigned int *)rpool->pool;
 	srandom(*foo);
     }
 #endif /* HAVE_JRAND48 */
@@ -412,7 +440,7 @@ void sasl_churn (sasl_rand_t *rpool, const char *data, unsigned len)
     randinit(rpool);
     
     for (lup=0; lup<len; lup++)
-	rpool->pool[lup % 3] ^= data[lup];
+	rpool->pool[lup % RPOOL_SIZE] ^= data[lup];
 }
 
 void sasl_erasebuffer(char *buf, unsigned len) {

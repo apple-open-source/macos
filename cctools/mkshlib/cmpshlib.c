@@ -109,7 +109,8 @@ struct ext {
 #define EXT_HASH_SIZE	251
 struct ext *ext_hash[EXT_HASH_SIZE];
 
-char *progname;		/* name of the program for error messages (argv[0]) */
+__private_extern__
+char *progname = NULL;	/* name of the program for error messages (argv[0]) */
 
 /* file name of the specification input file */
 char *spec_filename = NULL;
@@ -130,7 +131,7 @@ static struct ofile old_target_ofile = { 0 };
 static struct ofile new_target_ofile = { 0 };
 
 /* the byte sex of the machine this program is running on */
-static enum byte_sex host_byte_sex = UNKNOWN_BYTE_SEX;
+enum byte_sex host_byte_sex = UNKNOWN_BYTE_SEX;
 
 int
 main(
@@ -687,8 +688,8 @@ unsigned long *data_nsect)/* pointer to the data section number to return */
 	    if(((*symbols)[i].n_type & N_EXT) != N_EXT)
 		continue;
 	    if((*symbols)[i].n_un.n_strx < 0 ||
-	       (unsigned long)((*symbols)[i].n_un.n_strx) > *strsize)
-		fatal("Bad string table index (%ld) for symbol %ld in: %s", 
+	       (uint32_t)((*symbols)[i].n_un.n_strx) > *strsize)
+		fatal("Bad string table index (%d) for symbol %ld in: %s", 
 	    	      (*symbols)[i].n_un.n_strx, i, target);
 	    (*symbols)[i].n_un.n_name = *strings + (*symbols)[i].n_un.n_strx;
 	}

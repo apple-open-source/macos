@@ -32,12 +32,15 @@
 #include <qevent.h>
 
 class KHTMLPart;
+class QPoint;
+class QStringList;
 
 namespace DOM {
 
 class AbstractViewImpl;
 class DOMStringImpl;
 class NodeImpl;
+class ClipboardImpl;
 
 // ### support user-defined events
 
@@ -57,6 +60,23 @@ public:
         MOUSEOVER_EVENT,
         MOUSEMOVE_EVENT,
         MOUSEOUT_EVENT,
+        // IE copy/paste events
+        BEFORECUT_EVENT,
+        CUT_EVENT,
+        BEFORECOPY_EVENT,
+        COPY_EVENT,
+        BEFOREPASTE_EVENT,
+        PASTE_EVENT,
+        // IE drag and drop events
+        DRAGENTER_EVENT,
+        DRAGOVER_EVENT,
+        DRAGLEAVE_EVENT,
+        DROP_EVENT,
+        DRAGSTART_EVENT,
+        DRAG_EVENT,
+        DRAGEND_EVENT,
+	// IE selection events
+	SELECTSTART_EVENT,
         // Mutation events
         DOMSUBTREEMODIFIED_EVENT,
         DOMNODEINSERTED_EVENT,
@@ -79,6 +99,10 @@ public:
 	RESIZE_EVENT,
 	SCROLL_EVENT,
         CONTEXTMENU_EVENT,
+#if APPLE_CHANGES
+        SEARCH_EVENT,
+#endif
+        INPUT_EVENT,
         // Keyboard events
 	KEYDOWN_EVENT,
 	KEYUP_EVENT,
@@ -93,7 +117,8 @@ public:
 	KHTML_MOVE_EVENT,
 	KHTML_ORIGCLICK_MOUSEUP_EVENT,
 	// XMLHttpRequest events
-	KHTML_READYSTATECHANGE_EVENT
+	KHTML_READYSTATECHANGE_EVENT,
+        numEventIds
     };
 
     EventImpl();
@@ -120,11 +145,13 @@ public:
     virtual bool isMouseEvent() const;
     virtual bool isMutationEvent() const;
     virtual bool isKeyboardEvent() const;
+    virtual bool isDragEvent() const;   // a subset of mouse events
+    virtual bool isClipboardEvent() const;
 
     bool propagationStopped() const { return m_propagationStopped; }
     bool defaultPrevented() const { return m_defaultPrevented; }
 
-    static EventId typeToId(DOMString type);
+    static EventId typeToId(const DOMString &type);
     static DOMString idToType(EventId id);
 
     void setDefaultHandled() { m_defaultHandled = true; }
@@ -199,7 +226,8 @@ public:
 		   bool shiftKeyArg,
 		   bool metaKeyArg,
 		   unsigned short buttonArg,
-		   NodeImpl *relatedTargetArg);
+		   NodeImpl *relatedTargetArg,
+                   ClipboardImpl *clipboardArg=0);
     virtual ~MouseEventImpl();
     long screenX() const { return m_screenX; }
     long screenY() const { return m_screenY; }
@@ -213,6 +241,7 @@ public:
     bool metaKey() const { return m_metaKey; }
     unsigned short button() const { return m_button; }
     NodeImpl *relatedTarget() const { return m_relatedTarget; }
+    ClipboardImpl *clipboard() const { return m_clipboard; }
     void initMouseEvent(const DOMString &typeArg,
 			bool canBubbleArg,
 			bool cancelableArg,
@@ -229,6 +258,7 @@ public:
 			unsigned short buttonArg,
 			const Node &relatedTargetArg);
     virtual bool isMouseEvent() const;
+    virtual bool isDragEvent() const;
 protected:
     long m_screenX;
     long m_screenY;
@@ -242,6 +272,7 @@ protected:
     bool m_metaKey;
     unsigned short m_button;
     NodeImpl *m_relatedTarget;
+    ClipboardImpl *m_clipboard;
  private:
     void computeLayerPos();
 };
@@ -340,6 +371,17 @@ protected:
     unsigned short m_attrChange;
 };
 
+class ClipboardEventImpl : public EventImpl {
+public:
+    ClipboardEventImpl();
+    ClipboardEventImpl(EventId _id, bool canBubbleArg, bool cancelableArg, ClipboardImpl *clipboardArg);
+    ~ClipboardEventImpl();
+
+    ClipboardImpl *clipboard() const { return m_clipboard; }
+    virtual bool isClipboardEvent() const;
+protected:
+    ClipboardImpl *m_clipboard;
+};
 
 class RegisteredEventListener {
 public:
@@ -354,6 +396,34 @@ public:
 private:
     RegisteredEventListener( const RegisteredEventListener & );
     RegisteredEventListener & operator=( const RegisteredEventListener & );
+};
+
+// State available during IE's events for drag and drop and copy/paste
+class ClipboardImpl : public khtml::Shared<ClipboardImpl> {
+public:
+    ClipboardImpl();
+    virtual ~ClipboardImpl();
+    // Is this operation a drag-drop or a copy-paste?
+    virtual bool isForDragging() const = 0;
+
+    virtual DOMString dropEffect() const = 0;
+    virtual void setDropEffect(const DOMString &s) = 0;
+    virtual DOMString effectAllowed() const = 0;
+    virtual void setEffectAllowed(const DOMString &s) = 0;
+    
+    virtual void clearData(const DOMString &type) = 0;
+    virtual void clearAllData() = 0;
+    virtual DOMString getData(const DOMString &type, bool &success) const = 0;
+    virtual bool setData(const DOMString &type, const DOMString &data) = 0;
+    
+    // extensions beyond IE's API
+    virtual QStringList types() const = 0;
+    
+    virtual QPoint dragLocation() const = 0;
+    virtual QPixmap dragImage() const = 0;
+    virtual void setDragImage(const QPixmap &, const QPoint &) = 0;
+    virtual const Node dragImageElement() = 0;
+    virtual void setDragImageElement(const Node &, const QPoint &) = 0;
 };
 
 }; //namespace

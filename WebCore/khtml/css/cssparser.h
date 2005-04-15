@@ -2,8 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- *
- * $Id: cssparser.h,v 1.16 2003/07/15 22:32:42 hyatt Exp $
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,7 +23,9 @@
 #define _CSS_cssparser_h_
 
 #include <qstring.h>
+#include <qcolor.h>
 #include <dom/dom_string.h>
+#include "xml/dom_atomicstring.h"
 
 namespace DOM {
     class StyleListImpl;
@@ -32,10 +33,11 @@ namespace DOM {
     class CSSRuleImpl;
     class CSSStyleRuleImpl;
     class DocumentImpl;
+    class NodeImpl;
     class CSSValueImpl;
     class CSSValueListImpl;
     class CSSPrimitiveValueImpl;
-    class CSSStyleDeclarationImpl;
+    class CSSMutableStyleDeclarationImpl;
     class CSSProperty;
     class CSSRuleListImpl;
 
@@ -43,6 +45,8 @@ namespace DOM {
     struct ParseString {
 	unsigned short *string;
 	int length;
+        
+        void lower();
     };
 
     struct Value;
@@ -72,7 +76,10 @@ namespace DOM {
     static inline DOMString domString( const ParseString &ps ) {
 	return DOMString( (QChar *)ps.string, ps.length );
     }
-
+    static inline AtomicString atomicString( const ParseString &ps ) {
+	return AtomicString( ps.string, ps.length );
+    }
+    
     class ValueList {
     public:
 	ValueList();
@@ -92,7 +99,7 @@ namespace DOM {
 
         ~Function() { delete args; }
     };
-
+    
     class CSSParser
     {
     public:
@@ -101,10 +108,11 @@ namespace DOM {
 
 	void parseSheet( DOM::CSSStyleSheetImpl *sheet, const DOM::DOMString &string );
 	DOM::CSSRuleImpl *parseRule( DOM::CSSStyleSheetImpl *sheet, const DOM::DOMString &string );
-	bool parseValue( DOM::CSSStyleDeclarationImpl *decls, int id, const DOM::DOMString &string,
-			 bool _important, bool _nonCSSHint );
-	bool parseDeclaration( DOM::CSSStyleDeclarationImpl *decls, const DOM::DOMString &string,
-			       bool _nonCSSHint );
+	bool parseValue( DOM::CSSMutableStyleDeclarationImpl *decls, int id, const DOM::DOMString &string,
+			 bool _important );
+        static QRgb CSSParser::parseColor( const DOM::DOMString &string );
+	bool parseColor( DOM::CSSMutableStyleDeclarationImpl *declaration, const DOM::DOMString &string );
+	bool parseDeclaration( DOM::CSSMutableStyleDeclarationImpl *decls, const DOM::DOMString &string );
 
 	static CSSParser *current() { return currentParser; }
 
@@ -113,18 +121,32 @@ namespace DOM {
 
 	void addProperty( int propId, CSSValueImpl *value, bool important );
 	bool hasProperties() const { return numParsedProperties > 0; }
-	CSSStyleDeclarationImpl *createStyleDeclaration( CSSStyleRuleImpl *rule );
+	CSSMutableStyleDeclarationImpl *createStyleDeclaration( CSSStyleRuleImpl *rule );
 	void clearProperties();
 
 	bool parseValue( int propId, bool important );
 	bool parseShortHand( const int *properties, int numProperties, bool important );
 	bool parse4Values( const int *properties, bool important );
 	bool parseContent( int propId, bool important );
+
+        CSSValueImpl* parseBackgroundColor();
+        CSSValueImpl* parseBackgroundImage();
+        CSSValueImpl* parseBackgroundPositionXY(bool& xFound, bool& yFound);
+        void parseBackgroundPosition(CSSValueImpl*& value1, CSSValueImpl*& value2);
+        
+        bool parseBackgroundProperty(int propId, int& propId1, int& propId2, CSSValueImpl*& retValue1, CSSValueImpl*& retValue2);
+        bool parseBackgroundShorthand(bool important);
+
+        void addBackgroundValue(CSSValueImpl*& lval, CSSValueImpl* rval);
+        
+	bool parseDashboardRegions( int propId, bool important );
 	bool parseShape( int propId, bool important );
 	bool parseFont(bool important);
 	CSSValueListImpl *parseFontFamily();
         CSSPrimitiveValueImpl *parseColor();
 	CSSPrimitiveValueImpl *parseColorFromValue(Value* val);
+
+        static bool parseColor(const QString &name, QRgb& rgb);
 
         // CSS3 Parsing Routines (for properties specific to CSS3)
         bool parseShadow(int propId, bool important);
@@ -133,7 +155,6 @@ namespace DOM {
     public:
 	bool strict;
 	bool important;
-	bool nonCSSHint;
 	int id;
 	DOM::StyleListImpl *styleElement;
 	DOM::CSSRuleImpl *rule;
@@ -143,6 +164,8 @@ namespace DOM {
 	int maxParsedProperties;
 	bool inParseShortHand;
 
+        Q_UINT16 defaultNamespace;
+        
 	static CSSParser *currentParser;
 
 	// tokenizer methods and data
@@ -151,8 +174,10 @@ namespace DOM {
 	int token() { return yyTok; }
 	unsigned short *text( int *length);
 	int lex();
+        
     private:
-
+        void setupParser(const char *prefix, const DOMString &string, const char *suffix);
+        
 	unsigned short *data;
 	unsigned short *yytext;
 	unsigned short *yy_c_buf_p;

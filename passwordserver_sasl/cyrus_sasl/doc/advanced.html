@@ -22,11 +22,12 @@ the mechanisms even support being compiled staticly), but you will need to
 recompile every application that uses Cyrus SASL as well.<P>
 
 However, if you are sure you wish to use a static version of Cyrus SASL,
-compile it by giving <tt>configure</tt> the <tt>--with-staticsasl</tt> option.
+compile it by giving <tt>configure</tt> the <tt>--enable-static</tt> option.
 This will compile <b>both</b> a dynamic and a static version.  Then, whenever
 an application links to libsasl, it will also need to explicitly pull in
 any dynamic libraries that may be needed by Cyrus SASL.  Most notably, these
-might include the GSSAPI, Kerberos, and Database libraries.<P>
+might include the GSSAPI, Kerberos, and Database libraries.  To avoid compiling
+the dynamic version, pass <tt>--disable-shared</tt>.<P>
 
 <hr>
 Back to the <A href=index.html>index</a>

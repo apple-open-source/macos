@@ -1,0 +1,186 @@
+<HTML><HEAD>
+    <TITLE>Cyrus IMAP Server Release Information</TITLE>
+    <!-- $Id: readme.html,v 1.19 2003/10/22 18:50:04 rjs3 Exp $ -->
+  </HEAD><BODY>
+      <H1>                Cyrus IMAP Server Release Information</H1>
+      
+
+IMAP (Internet Message Access Protocol) is an Internet standards-track
+protocol for accessing messages (mail, bboards, news, etc).  The Cyrus
+IMAP server differs from other IMAP server implementations in that it
+is generally intended to be run on "sealed" servers, where normal
+users are not permitted to log in.  The mailbox database is stored in
+parts of the filesystem that are private to the Cyrus IMAP system.
+All user access to mail is through the IMAP, NNTP, POP3, or KPOP protocols.
+      
+<P> The private mailbox database design gives the server large
+advantages in efficiency, scalability, and administratability.
+Multiple concurrent read/write connections to the same mailbox are
+permitted.  The server supports access control lists on mailboxes and
+storage quotas on mailbox hierarchies.
+
+<h2>Features</h2>
+
+<P> The Cyrus server supports the IMAP4rev1 protocol described in RFC
+3501.  IMAP4rev1 has been approved as a proposed standard.
+
+<P> Character sets supported for searching are: us-ascii, iso-8859-1,
+iso-8859-2, iso-8859-3, iso-8859-4, iso-8859-5, iso-8859-6,
+iso-8859-7, iso-8859-8, iso-8859-9, koi8-r, iso-2022-jp,
+iso-2022-kr, gb2312, big5, iso-8859-15, windows-1252, windows-1256.  The
+character mapping tables most likely contain errors.
+      
+<P> The server supports any authentication mechanism available from
+the SASL library. Currently, support includes: KERBEROS_V4, GSSAPI,
+CRAM-MD5, DIGEST-MD5, OTP, PLAIN, and STARTTLS.
+
+<p> The server supports imaps/pop3s/nntps (IMAP/POP3/NNTP encrypted using SSL).
+
+<p> The server makes an attempt to do single instance store where 
+possible when an email message is addressed to multiple recipients.
+
+<p>We current support the following IMAP capabilities:
+<tt>
+IMAP4 IMAP4rev1 ACL QUOTA LITERAL+ NAMESPACE UIDPLUS ID
+NO_ATOMIC_RENAME UNSELECT CHILDREN MULTIAPPEND SORT
+THREAD=ORDEREDSUBJECT THREAD=REFERENCES ANNOTATEMORE IDLE STARTTLS</tt>.
+
+<p> The server supports SIEVE for server side email filtering.
+
+<h2>Upgrade Caveats</h2>
+
+This section reserved for WARNING WARNING WARNING comments.
+
+<h2>Installation Overview</h2>
+	
+<P> This system should be expected to have the same order-of-magnitude
+installation complexity as a netnews system.  Maintenance should have
+similar complexity, except administrators will have to deal with <A
+HREF="cyradm.1.html">creation and deletion of users</A> and will have
+the option of managing quotas and access control lists.
+
+<p>This package is distributed as a source only release. It is
+expected that you can compile and configure software. Installation
+instructions are in the <a
+href="install.html">install.html</a>. Please be sure to read
+this document.
+
+<p>A detailed overview of the server is available in <a
+href="overview.html">overview.html</a>.
+
+<P> This server has been successfully installed on a number of Unix
+systems.  We run the software under SPARC Solaris 2.7.  Please refer
+to <a href="os.html">os.html</a> for operating system specific issues. 
+
+
+<h2>Server Notes</h2>
+
+<P> The mailbox namespace is like that for netnews--hierarchical names
+separated by the "<tt>.</tt>" character.  Mailboxes without a parent
+may only be created by an administrator.  Mailboxes with a parent may
+be created as the ACL (Access Control List) on the parent mailbox
+permits.
+      
+<P> Users' personal mailboxes are under the "<tt>user</tt>" hierarchy.
+The names of the personal mailboxes for user "<tt>bovik</tt>" all
+start with the prefix "<tt>user.bovik.</tt>".  The mailbox
+"<tt>user.bovik</tt>" is special in that it is presented to user
+"<tt>bovik</tt>" as if it were named "<tt>INBOX</tt>".  Creating the
+mailbox "<tt>user.bovik</tt>" is equivalent to creating an account for
+user "<tt>bovik</tt>"--it permits "<tt>bovik</tt>" to receive mail,
+create personal mailboxes, and subscribe to mailboxes.  Deleting the
+mailbox "<tt>user.bovik</tt>" has the special-case side-effect of
+deleting all mailboxes starting with "<tt>user.bovik.</tt>" and of
+deleting the subscriptions for "<tt>bovik</tt>."
+
+<h2>Licensing Information</h2>
+
+The following copyright applies to the code:
+
+<pre>
+ * Copyright (c) 1994-2000 Carnegie Mellon University.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact  
+ *	Office of Technology Transfer
+ *	Carnegie Mellon University
+ *	5000 Forbes Avenue
+ *	Pittsburgh, PA  15213-3890
+ *	(412) 268-4387, fax: (412) 268-7395
+ *	tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+</pre>
+
+<p>If you find this software useful and valuable in your work, we
+would welcome any support you can offer toward continuing this work.
+We gratefully accept contributions, whether intellectual or monetary.
+Intellectual contributions in the form of code or constructive
+collaboration can be directed via the <a href="feedback.html">feedback
+page</a>.
+ 
+<p>If you wish to provide financial support to the Cyrus Project, 
+send a check payable to "Carnegie Mellon University" to
+<pre>
+      Project Cyrus
+      Computing Services
+      Carnegie Mellon University
+      5000 Forbes Ave
+      Pittsburgh, PA 15213
+      USA
+</pre>
+
+<h2>Summary</h2>
+
+<p>If you want to install the server, be sure to read the installation
+instructions in <a
+href="install.html">install.html</a>. 
+
+<p>More details about the server implementation is in the <a
+href="overview.html">server overview</a> document.
+	
+<p>Please refer to <a href="feedback.html">Sending Feedback</a> if you
+would like to submit a bug, feature request or (best of all) patch.
+
+<p>There is a mailing list. See the <a
+href="mailing-list.html">mailing list</a> document for details.
+
+<p>A list of known problems can be found in the <a
+href="bugs.html">bugs</a> file.
+
+<p><a href="http://www.ora.com">O'Reilly</a> has a book out named <a
+href="http://www.oreilly.com/catalog/mimap/">Managing IMAP</a>. While
+	  the book does not directly talk about the 2.0 code base, it
+	  provides very good information on the configuration and
+	  setup that can be applied to the newer code. 
+
+<P><HR>
+last modified: 2001/08/03 21:18:05
+<br>
+<A HREF="index.html">Return</A> to the Cyrus IMAP Server Home Page
+</BODY></HTML>

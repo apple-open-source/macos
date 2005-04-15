@@ -332,13 +332,24 @@ static BOOL rpc_auth_pipe(struct cli_state *cli, prs_struct *rdata,
 	if (cli->pipe_auth_flags & AUTH_PIPE_NETSEC) {
 		RPC_AUTH_NETSEC_CHK chk;
 
-		if (auth_len != RPC_AUTH_NETSEC_CHK_LEN) {
+		if ( (auth_len != RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN) 
+			&& (auth_len != RPC_AUTH_NETSEC_SIGN_ONLY_CHK_LEN)  ) 
+		{
 			DEBUG(0,("rpc_auth_pipe: wrong schannel auth len %d\n", auth_len));
 			return False;
 		}
 
-		if (!smb_io_rpc_auth_netsec_chk("schannel_auth_sign", 
-						&chk, &auth_verf, 0)) {
+		/* can't seal with no nonce */
+		if ( (cli->pipe_auth_flags & AUTH_PIPE_SEAL)
+			&& (auth_len != RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN)  )
+		{
+			DEBUG(0,("rpc_auth_pipe: sealing not supported with schannel auth len %d\n", auth_len));
+			return False;
+		}
+		
+
+		if (!smb_io_rpc_auth_netsec_chk("schannel_auth_sign", auth_len, &chk, &auth_verf, 0)) 
+		{
 			DEBUG(0, ("rpc_auth_pipe: schannel unmarshalling "
 				  "RPC_AUTH_NETSECK_CHK failed\n"));
 			return False;
@@ -918,7 +929,7 @@ BOOL rpc_api_pipe_req(struct cli_state *cli, uint8 op_num,
 			auth_len = RPC_AUTH_NTLMSSP_CHK_LEN;
 		}
 		if (cli->pipe_auth_flags & AUTH_PIPE_NETSEC) {	
-			auth_len = RPC_AUTH_NETSEC_CHK_LEN;
+			auth_len = RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN;
 		}
 		auth_hdr_len = RPC_HDR_AUTH_LEN;
 	}
@@ -1034,8 +1045,9 @@ BOOL rpc_api_pipe_req(struct cli_state *cli, uint8 op_num,
 				/* write auth footer onto the packet */
 				
 				parse_offset_marker = prs_offset(&sec_blob);
-				if (!smb_io_rpc_auth_netsec_chk("", &verf,
-								&sec_blob, 0)) {
+				if (!smb_io_rpc_auth_netsec_chk("", RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN, 
+					&verf, &sec_blob, 0)) 
+				{
 					prs_mem_free(&sec_blob);
 					return False;
 				}
@@ -1221,10 +1233,12 @@ static BOOL valid_pipe_name(const int pipe_idx, RPC_IFACE *abstract, RPC_IFACE *
 
 static BOOL check_bind_response(RPC_HDR_BA *hdr_ba, const int pipe_idx, RPC_IFACE *transfer)
 {
-# if 0	/* JERRY -- apparently ASU forgets to fill in the server pipe name sometimes */
-	if ( hdr_ba->addr.len <= 0)
-		return False;
+	if ( hdr_ba->addr.len == 0) {
+		DEBUG(4,("Ignoring length check -- ASU bug (server didn't fill in the pipe name correctly)"));
+	}
+
 		
+# if 0	/* JERRY -- apparently ASU forgets to fill in the server pipe name sometimes */
 	if ( !strequal(hdr_ba->addr.str, pipe_names[pipe_idx].client_pipe) &&
 	     !strequal(hdr_ba->addr.str, pipe_names[pipe_idx].server_pipe) )
 	{
@@ -1608,9 +1622,6 @@ NTSTATUS cli_nt_setup_netsec(struct cli_state *cli, int sec_chan, int auth_flags
 			  get_pipe_name_from_index(PI_NETLOGON)));
 		return NT_STATUS_UNSUCCESSFUL;
 	}
-
-	if (lp_client_schannel() != False)
-		neg_flags |= NETLOGON_NEG_SCHANNEL;
 
 	neg_flags |= NETLOGON_NEG_SCHANNEL;
 

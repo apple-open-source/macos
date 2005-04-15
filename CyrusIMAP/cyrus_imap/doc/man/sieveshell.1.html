@@ -1,0 +1,81 @@
+<HTML>
+<HEAD>
+<TITLE>sieveshell - remotely manipulate sieve scripts</TITLE>
+<LINK REV="made" HREF="mailto:advisor+@andrew.cmu.edu">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<LI><A HREF="#options">OPTIONS</A></LI>
+	<LI><A HREF="#references">REFERENCES</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>sieveshell - remotely manipulate sieve scripts</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<P>sieveshell [<STRONG>--user</STRONG>=<EM>user</EM>] [<STRONG>--authname</STRONG>=<EM>authname</EM>] 
+[<STRONG>--realm</STRONG>=<EM>realm</EM>] [<STRONG>--exec</STRONG>=<EM>script</EM>] <EM>server</EM>[<STRONG>:</STRONG><EM>port</EM>]</P>
+<P>sieveshell <STRONG>--help</STRONG></P>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P><STRONG>sieveshell</STRONG> allows users to manipulate their scripts on a remote
+server.  It works via MANAGESIEVE, a work in progress.</P>
+<P>The following commands are recognized:</P>
+<P><STRONG>list</STRONG> list scripts on server.</P>
+<P><STRONG>put</STRONG> &lt;filename&gt; upload script to server.</P>
+<P><STRONG>get</STRONG> &lt;name&gt; [&lt;filename&gt;] get script. if no filename display to stdout</P>
+<P><STRONG>delete</STRONG> &lt;name&gt; delete script.</P>
+<P><STRONG>activate</STRONG> &lt;name&gt; activate script.</P>
+<P><STRONG>deactivate</STRONG> deactivate all scripts.</P>
+<P>
+<HR>
+<H1><A NAME="options">OPTIONS</A></H1>
+<DL>
+<DT><STRONG><A NAME="item_%2Du_user%2C_%2D%2Duser%3Duser"><STRONG>-u</STRONG> <EM>user</EM>, <STRONG>--user</STRONG>=<EM>user</EM></A></STRONG><BR>
+<DD>
+The authorization name to request; by default, derived from the
+authentication credentials.
+<P></P>
+<DT><STRONG><A NAME="item_%2Da_authname%2C_%2D%2Dauthname%3Dauthname"><STRONG>-a</STRONG> <EM>authname</EM>, <STRONG>--authname</STRONG>=<EM>authname</EM></A></STRONG><BR>
+<DD>
+The user to use for authentication (defaults to current user).
+<P></P>
+<DT><STRONG><A NAME="item_%2Dr_realm%2C_%2D%2Drealm%3Drealm"><STRONG>-r</STRONG> <EM>realm</EM>, <STRONG>--realm</STRONG>=<EM>realm</EM></A></STRONG><BR>
+<DD>
+The realm to attempt authentication in.
+<P></P>
+<DT><STRONG><A NAME="item_%2De_script%2C_%2D%2Dexec%3Dscript"><STRONG>-e</STRONG> <EM>script</EM>, <STRONG>--exec</STRONG>=<EM>script</EM></A></STRONG><BR>
+<DD>
+Instead of working interactively, run commands from <EM>script</EM>, and
+exit when done.
+<P></P></DL>
+<P>
+<HR>
+<H1><A NAME="references">REFERENCES</A></H1>
+<P>[MANAGESIEVE] Martin, T.; ``A Protocol for Remotely Managing Sieve
+Scripts'', draft-ietf-managesieve-03.txt, Mirapoint, Inc.; May 2001,
+work in progress.</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Tim Martin &lt;<A HREF="mailto:tmartin@mirapoint.com">tmartin@mirapoint.com</A>&gt;, and the rest of the Cyrus
+team &lt;<A HREF="mailto:cyrus-bugs@andrew.cmu.edu">cyrus-bugs@andrew.cmu.edu</A>&gt;.</P>
+
+</BODY>
+
+</HTML>

@@ -24,7 +24,13 @@ smbclient \- ftp-like client to access SMB/CIFS resources on servers
 .ad l
 .hy 0
 .HP 10
-\fBsmbclient\fR {servicename} [password] [\-b\ <buffer\ size>] [\-d\ debuglevel] [\-D\ Directory] [\-U\ username] [\-W\ workgroup] [\-M\ <netbios\ name>] [\-m\ maxprotocol] [\-A\ authfile] [\-N] [\-l\ logdir] [\-L\ <netbios\ name>] [\-I\ destinationIP] [\-E] [\-c\ <command\ string>] [\-i\ scope] [\-O\ <socket\ options>] [\-p\ port] [\-R\ <name\ resolve\ order>] [\-s\ <smb\ config\ file>] [\-T<c|x>IXFqgbNan] [\-k]
+\fBsmbclient\fR [\-b\ <buffer\ size>] [\-d\ debuglevel] [\-L\ <netbios\ name>] [\-U\ username] [\-I\ destinationIP] [\-M\ <netbios\ name>] [\-m\ maxprotocol] [\-A\ authfile] [\-N] [\-i\ scope] [\-O\ <socket\ options>] [\-p\ port] [\-R\ <name\ resolve\ order>] [\-s\ <smb\ config\ file>] [\-k]
+.ad
+.hy
+.ad l
+.hy 0
+.HP 10
+\fBsmbclient\fR {servicename} [password] [\-b\ <buffer\ size>] [\-d\ debuglevel] [\-D\ Directory] [\-U\ username] [\-W\ workgroup] [\-M\ <netbios\ name>] [\-m\ maxprotocol] [\-A\ authfile] [\-N] [\-l\ logdir] [\-I\ destinationIP] [\-E] [\-c\ <command\ string>] [\-i\ scope] [\-O\ <socket\ options>] [\-p\ port] [\-R\ <name\ resolve\ order>] [\-s\ <smb\ config\ file>] [\-T<c|x>IXFqgbNan] [\-k]
 .ad
 .hy
 
@@ -324,6 +330,10 @@ altname file
 The client will request that the server return the "alternate" name (the 8\&.3 name) for a file or directory\&.
 
 .TP
+case_sensitive
+Toggles the setting of the flag in SMB packets that tells the server to treat filenames as case sensitive\&. Set to OFF by default (tells file server to treat filenames as case insensitive)\&. Only currently affects Samba 3\&.0\&.5 and above file servers with the case sensitive parameter set to auto in the smb\&.conf\&.
+
+.TP
 cancel jobid0 [jobid1] \&.\&.\&. [jobidN]
 The client will request that the server cancel the printjobs identified by the given numeric print job ids\&.
 
@@ -368,8 +378,8 @@ If \fIdirectory name\fR is specified, the current working directory on the local
 If no directory name is specified, the name of the current working directory on the local machine will be reported\&.
 
 .TP
-link source destination
-This command depends on the server supporting the CIFS UNIX extensions and will fail if the server does not\&. The client requests that the server create a hard link between the source and destination files\&. The source file must not exist\&.
+link target linkname
+This command depends on the server supporting the CIFS UNIX extensions and will fail if the server does not\&. The client requests that the server create a hard link between the linkname and target files\&. The linkname file must not exist\&.
 
 .TP
 lowercase
@@ -468,8 +478,12 @@ A version of the DOS attrib command to set file permissions\&. For example:
 would make myfile read only\&.
 
 .TP
-symlink source destination
-This command depends on the server supporting the CIFS UNIX extensions and will fail if the server does not\&. The client requests that the server create a symbolic hard link between the source and destination files\&. The source file must not exist\&. Note that the server will not create a link to any path that lies outside the currently connected share\&. This is enforced by the Samba server\&.
+stat file
+This command depends on the server supporting the CIFS UNIX extensions and will fail if the server does not\&. The client requests the UNIX basic info level and prints out the same info that the Linux stat command would about the file\&. This includes the size, blocks used on disk, file type, permissions, inode number, number of links and finally the three timestamps (access, modify and change)\&. If the file is a special file (symlink, character or block device, fifo or socket) then extra information may also be printed\&.
+
+.TP
+symlink target linkname
+This command depends on the server supporting the CIFS UNIX extensions and will fail if the server does not\&. The client requests that the server create a symbolic hard link between the target and linkname files\&. The linkname file must not exist\&. Note that the server will not create a link to any path that lies outside the currently connected share\&. This is enforced by the Samba server\&.
 
 .TP
 tar <c|x>[IXbgNa]

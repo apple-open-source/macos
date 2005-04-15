@@ -1,10 +1,10 @@
 <html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbtree</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbtree.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbtree &#8212; A text based smb network browser
-	</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbtree</tt>  [-b] [-D] [-S]</p></div></div><div class="refsect1" lang="en"><a name="id2430325"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p><span><b class="command">smbtree</b></span> is a smb browser program 
+	</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbtree</tt>  [-b] [-D] [-S]</p></div></div><div class="refsect1" lang="en"><a name="id2478438"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p><span><b class="command">smbtree</b></span> is a smb browser program 
 	in text mode. It is similar to the "Network Neighborhood" found 
 	on Windows computers. It prints a tree with all 
 	the known domains, the servers in those domains and 
 	the shares on the servers.
-	</p></div><div class="refsect1" lang="en"><a name="id2431195"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-b</span></dt><dd><p>Query network nodes by sending requests 
+	</p></div><div class="refsect1" lang="en"><a name="id2478468"></a><h2>OPTIONS</h2><div class="variablelist"><dl><dt><span class="term">-b</span></dt><dd><p>Query network nodes by sending requests 
 		as broadcasts instead of querying the local master browser.
 		</p></dd><dt><span class="term">-D</span></dt><dd><p>Only print a list of all 
 		the domains known on broadcast or by the 
@@ -31,7 +31,7 @@ amounts of log data, and should only be used when
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2479899"></a>log level parameter
+override the <a class="indexterm" name="id2430056"></a>log level parameter
 in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logdirectory</span></dt><dd><p>Base directory name for log/debug files. The extension
 <tt class="constant">".progname"</tt> will be appended (e.g. log.smbclient, 
 log.smbd, etc...). The log file is never removed by the client.
@@ -65,8 +65,8 @@ many systems the command line of a running process may be seen
 via the <span><b class="command">ps</b></span> command.  To be safe always allow
 <span><b class="command">rpcclient</b></span> to prompt for a password and type
 it in directly. </p></dd><dt><span class="term">-h|--help</span></dt><dd><p>Print a summary of command line options.
-</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2431576"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba 
-	suite.</p></div><div class="refsect1" lang="en"><a name="id2431587"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2430224"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba 
+	suite.</p></div><div class="refsect1" lang="en"><a name="id2430235"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p>The smbtree man page was written by Jelmer Vernooij. </p></div></div></body></html>

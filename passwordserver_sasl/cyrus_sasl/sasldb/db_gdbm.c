@@ -1,10 +1,10 @@
 /* db_gdbm.c--SASL gdbm interface
  * Rob Siemborski
  * Rob Earhart
- * $Id: db_gdbm.c,v 1.2 2002/05/22 17:57:42 snsimon Exp $
+ * $Id: db_gdbm.c,v 1.5 2005/01/10 19:01:34 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

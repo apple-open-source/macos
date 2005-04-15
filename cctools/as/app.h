@@ -6,17 +6,9 @@ extern char *scrub_last_string;
 
 extern void do_scrub_begin(
     void);
-extern int scrub_from_file(
-    void);
-extern void scrub_to_file(
-    int ch);
-extern int scrub_from_string(
-    void);
-extern void scrub_to_string(
-    int ch);
 extern int do_scrub_next_char(
-    int (*get)(void),
-    void (*unget)(int ch));
+    FILE *fp);
+extern int do_scrub_next_char_from_string();
 
 /*
  * typedefs and routines to save scrub context so .include can make recursive

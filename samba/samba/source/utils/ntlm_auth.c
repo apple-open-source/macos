@@ -23,7 +23,7 @@
 */
 
 #include "includes.h"
-#include "../utils/ntlm_auth.h"
+#include "utils/ntlm_auth.h"
 
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_WINBIND
@@ -90,7 +90,7 @@ static int request_lm_key;
 static int request_user_session_key;
 
 static const char *require_membership_of;
-static const char *require_membership_sid;
+static const char *require_membership_of_sid;
 
 static char winbind_separator(void)
 {
@@ -181,7 +181,7 @@ DATA_BLOB get_challenge(void)
 	
 	chal = data_blob(NULL, 8);
 
-	generate_random_buffer(chal.data, chal.length, False);
+	generate_random_buffer(chal.data, chal.length);
 	return chal;
 }
 
@@ -214,7 +214,7 @@ static BOOL get_require_membership_sid(void) {
 		return True;
 	}
 
-	if (require_membership_sid) {
+	if (require_membership_of_sid) {
 		return True;
 	}
 
@@ -238,9 +238,9 @@ static BOOL get_require_membership_sid(void) {
 		return False;
 	}
 
-	require_membership_sid = strdup(response.data.sid.sid);
+	require_membership_of_sid = SMB_STRDUP(response.data.sid.sid);
 
-	if (require_membership_sid)
+	if (require_membership_of_sid)
 		return True;
 
 	return False;
@@ -265,8 +265,8 @@ static BOOL check_plaintext_auth(const char *user, const char *pass,
 
 	fstrcpy(request.data.auth.user, user);
 	fstrcpy(request.data.auth.pass, pass);
-	if (require_membership_sid)
-		fstrcpy(request.data.auth.required_membership_sid, require_membership_sid);
+	if (require_membership_of_sid)
+		fstrcpy(request.data.auth.require_membership_of_sid, require_membership_of_sid);
 
 	result = winbindd_request(WINBINDD_PAM_AUTH, &request, &response);
 
@@ -323,27 +323,14 @@ NTSTATUS contact_winbind_auth_crap(const char *username,
 
 	request.flags = flags;
 
-	if (require_membership_sid)
-		fstrcpy(request.data.auth_crap.required_membership_sid, require_membership_sid);
+	if (require_membership_of_sid)
+		fstrcpy(request.data.auth_crap.require_membership_of_sid, require_membership_of_sid);
 
-	if (push_utf8_fstring(request.data.auth_crap.user, username) == -1) {
-		*error_string = smb_xstrdup(
-			"unable to create utf8 string for username");
-		return NT_STATUS_UNSUCCESSFUL;
-	}
+        fstrcpy(request.data.auth_crap.user, username);
+	fstrcpy(request.data.auth_crap.domain, domain);
 
-	if (push_utf8_fstring(request.data.auth_crap.domain, domain) == -1) {
-		*error_string = smb_xstrdup(
-			"unable to create utf8 string for domain");
-		return NT_STATUS_UNSUCCESSFUL;
-	}
-
-	if (push_utf8_fstring(request.data.auth_crap.workstation, 
-			      workstation) == -1) {
-		*error_string = smb_xstrdup(
-			"unable to create utf8 string for workstation");
-		return NT_STATUS_UNSUCCESSFUL;
-	}
+	fstrcpy(request.data.auth_crap.workstation, 
+		workstation);
 
 	memcpy(request.data.auth_crap.chal, challenge->data, MIN(challenge->length, 8));
 
@@ -369,6 +356,7 @@ NTSTATUS contact_winbind_auth_crap(const char *username,
 		nt_status = NT_STATUS_UNSUCCESSFUL;
 		if (error_string)
 			*error_string = smb_xstrdup("Reading winbind reply failed!");
+		free_response(&response);
 		return nt_status;
 	}
 	
@@ -376,6 +364,7 @@ NTSTATUS contact_winbind_auth_crap(const char *username,
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		if (error_string) 
 			*error_string = smb_xstrdup(response.data.auth.error_string);
+		free_response(&response);
 		return nt_status;
 	}
 
@@ -389,11 +378,14 @@ NTSTATUS contact_winbind_auth_crap(const char *username,
 	}
 
 	if (flags & WBFLAG_PAM_UNIX_NAME) {
-		if (pull_utf8_allocate(unix_name, (char *)response.extra_data) == -1) {
+		*unix_name = SMB_STRDUP((char *)response.extra_data);
+		if (!*unix_name) {
+			free_response(&response);
 			return NT_STATUS_NO_MEMORY;
 		}
 	}
 
+	free_response(&response);
 	return nt_status;
 }
 				   
@@ -474,7 +466,7 @@ static NTSTATUS ntlm_auth_start_ntlmssp_client(NTLMSSP_STATE **client_ntlmssp_st
 	NTSTATUS status;
 	if ( (opt_username == NULL) || (opt_domain == NULL) ) {
 		DEBUG(1, ("Need username and domain for NTLMSSP\n"));
-		return status;
+		return NT_STATUS_INVALID_PARAMETER;
 	}
 
 	status = ntlmssp_client_start(client_ntlmssp_state);
@@ -560,7 +552,7 @@ static void manage_squid_ntlmssp_request(enum stdio_helper_mode stdio_helper_mod
 	if ((strncmp(buf, "PW ", 3) == 0)) {
 		/* The calling application wants us to use a local password (rather than winbindd) */
 
-		opt_password = strndup((const char *)request.data, request.length);
+		opt_password = SMB_STRNDUP((const char *)request.data, request.length);
 
 		if (opt_password == NULL) {
 			DEBUG(1, ("Out of memory\n"));
@@ -642,7 +634,7 @@ static void manage_client_ntlmssp_request(enum stdio_helper_mode stdio_helper_mo
 	if (strncmp(buf, "PW ", 3) == 0) {
 		/* We asked for a password and obviously got it :-) */
 
-		opt_password = strndup((const char *)request.data, request.length);
+		opt_password = SMB_STRNDUP((const char *)request.data, request.length);
 
 		if (opt_password == NULL) {
 			DEBUG(1, ("Out of memory\n"));
@@ -761,7 +753,7 @@ static void offer_gss_spnego_mechs(void) {
 
 	/* Server negTokenInit (mech offerings) */
 	spnego.type = SPNEGO_NEG_TOKEN_INIT;
-	spnego.negTokenInit.mechTypes = smb_xmalloc(sizeof(char *) * 3);
+	spnego.negTokenInit.mechTypes = SMB_XMALLOC_ARRAY(char *, 3);
 #ifdef HAVE_KRB5
 	spnego.negTokenInit.mechTypes[0] = smb_xstrdup(OID_KERBEROS5_OLD);
 	spnego.negTokenInit.mechTypes[1] = smb_xstrdup(OID_NTLMSSP);
@@ -810,32 +802,34 @@ static void manage_gss_spnego_request(enum stdio_helper_mode stdio_helper_mode,
 	pstring     reply_argument;
 
 	if (strlen(buf) < 2) {
-
-		if (ntlmssp_state != NULL) {
-			DEBUG(1, ("Request for initial SPNEGO request where "
-				  "we already have a state\n"));
-			x_fprintf(x_stdout, "BH\n");
-			return;
-		}
-
-		DEBUG(1, ("NTLMSSP query [%s] invalid", buf));
+		DEBUG(1, ("SPENGO query [%s] invalid", buf));
 		x_fprintf(x_stdout, "BH\n");
 		return;
 	}
 
-	if ( (strlen(buf) == 2) && (strcmp(buf, "YR") == 0) ) {
+	if (strncmp(buf, "YR", 2) == 0) {
+		if (ntlmssp_state)
+			ntlmssp_end(&ntlmssp_state);
+	} else if (strncmp(buf, "KK", 2) == 0) {
+		
+	} else {
+		DEBUG(1, ("SPENGO query [%s] invalid", buf));
+		x_fprintf(x_stdout, "BH\n");
+		return;
+	}
 
-		/* Initial request, get the negTokenInit offering
+	if ( (strlen(buf) == 2)) {
+
+		/* no client data, get the negTokenInit offering
                    mechanisms */
 
 		offer_gss_spnego_mechs();
 		return;
 	}
 
-	/* All subsequent requests are "KK" (Knock, Knock ;)) and have
-	   a blob. This might be negTokenInit or negTokenTarg */
+	/* All subsequent requests have a blob. This might be negTokenInit or negTokenTarg */
 
-	if ( (strlen(buf) <= 3) || (strncmp(buf, "KK", 2) != 0) ) {
+	if (strlen(buf) <= 3) {
 		DEBUG(1, ("GSS-SPNEGO query [%s] invalid\n", buf));
 		x_fprintf(x_stdout, "BH\n");
 		return;
@@ -889,7 +883,7 @@ static void manage_gss_spnego_request(enum stdio_helper_mode stdio_helper_mode,
 				  request.negTokenInit.mechToken.length);
 
 			response.type = SPNEGO_NEG_TOKEN_TARG;
-			response.negTokenTarg.supportedMech = strdup(OID_NTLMSSP);
+			response.negTokenTarg.supportedMech = SMB_STRDUP(OID_NTLMSSP);
 			response.negTokenTarg.mechListMIC = data_blob(NULL, 0);
 
 			status = ntlmssp_update(ntlmssp_state,
@@ -912,7 +906,7 @@ static void manage_gss_spnego_request(enum stdio_helper_mode stdio_helper_mode,
 			}
 
 			response.type = SPNEGO_NEG_TOKEN_TARG;
-			response.negTokenTarg.supportedMech = strdup(OID_KERBEROS5_OLD);
+			response.negTokenTarg.supportedMech = SMB_STRDUP(OID_KERBEROS5_OLD);
 			response.negTokenTarg.mechListMIC = data_blob(NULL, 0);
 			response.negTokenTarg.responseToken = data_blob(NULL, 0);
 
@@ -926,7 +920,7 @@ static void manage_gss_spnego_request(enum stdio_helper_mode stdio_helper_mode,
 
 			if (NT_STATUS_IS_OK(status)) {
 
-				domain = strchr(principal, '@');
+				domain = strchr_m(principal, '@');
 
 				if (domain == NULL) {
 					DEBUG(1, ("Did not get a valid principal "
@@ -936,8 +930,8 @@ static void manage_gss_spnego_request(enum stdio_helper_mode stdio_helper_mode,
 				}
 
 				*domain++ = '\0';
-				domain = strdup(domain);
-				user = strdup(principal);
+				domain = SMB_STRDUP(domain);
+				user = SMB_STRDUP(principal);
 
 				data_blob_free(&ap_rep);
 				data_blob_free(&auth_data);
@@ -970,12 +964,12 @@ static void manage_gss_spnego_request(enum stdio_helper_mode stdio_helper_mode,
 					       &response.negTokenTarg.responseToken);
 
 		response.type = SPNEGO_NEG_TOKEN_TARG;
-		response.negTokenTarg.supportedMech = strdup(OID_NTLMSSP);
+		response.negTokenTarg.supportedMech = SMB_STRDUP(OID_NTLMSSP);
 		response.negTokenTarg.mechListMIC = data_blob(NULL, 0);
 
 		if (NT_STATUS_IS_OK(status)) {
-			user = strdup(ntlmssp_state->user);
-			domain = strdup(ntlmssp_state->domain);
+			user = SMB_STRDUP(ntlmssp_state->user);
+			domain = SMB_STRDUP(ntlmssp_state->domain);
 			ntlmssp_end(&ntlmssp_state);
 		}
 	}
@@ -1147,7 +1141,7 @@ static BOOL manage_client_krb5_init(SPNEGO_DATA spnego)
 {
 	char *principal;
 	DATA_BLOB tkt, to_server;
-	DATA_BLOB session_key_krb5;
+	DATA_BLOB session_key_krb5 = data_blob(NULL, 0);
 	SPNEGO_DATA reply;
 	char *reply_base64;
 	int retval;
@@ -1161,7 +1155,7 @@ static BOOL manage_client_krb5_init(SPNEGO_DATA spnego)
 		return False;
 	}
 
-	principal = malloc(spnego.negTokenInit.mechListMIC.length+1);
+	principal = SMB_MALLOC(spnego.negTokenInit.mechListMIC.length+1);
 
 	if (principal == NULL) {
 		DEBUG(1, ("Could not malloc principal\n"));
@@ -1190,16 +1184,16 @@ static BOOL manage_client_krb5_init(SPNEGO_DATA spnego)
 		pstr_sprintf(user, "%s@%s", opt_username, opt_domain);
 
 		if ((retval = kerberos_kinit_password(user, opt_password, 
-						      0, NULL))) {
+						      0, NULL, NULL))) {
 			DEBUG(10, ("Requesting TGT failed: %s\n", error_message(retval)));
-			x_fprintf(x_stdout, "NA\n");
-			return True;
+			return False;
 		}
 
 		retval = cli_krb5_get_ticket(principal, 0, &tkt, &session_key_krb5);
 
 		if (retval) {
 			DEBUG(10, ("Kinit suceeded, but getting a ticket failed: %s\n", error_message(retval)));
+			return False;
 		}
 	}
 
@@ -1272,7 +1266,7 @@ static void manage_gss_spnego_client_request(enum stdio_helper_mode stdio_helper
 
 		/* We asked for a password and obviously got it :-) */
 
-		opt_password = strndup((const char *)request.data, request.length);
+		opt_password = SMB_STRNDUP((const char *)request.data, request.length);
 		
 		if (opt_password == NULL) {
 			DEBUG(1, ("Out of memory\n"));
@@ -1551,7 +1545,7 @@ static void manage_ntlm_server_1_request(enum stdio_helper_mode stdio_helper_mod
 		if (nt_response.length < 24) {
 			x_fprintf(x_stdout, "Error: hex decode of %s failed! (only got %d bytes, needed at least 24)\n.\n", 
 				  parameter,
-				  (int)opt_nt_response.length);
+				  (int)nt_response.length);
 			nt_response = data_blob(NULL, 0);
 		}
 	} else if (strequal(request, "LANMAN-Response")) {
@@ -1588,9 +1582,13 @@ static void manage_squid_request(enum stdio_helper_mode helper_mode, stdio_helpe
 
 	/* this is not a typo - x_fgets doesn't work too well under squid */
 	if (fgets(buf, sizeof(buf)-1, stdin) == NULL) {
-		DEBUG(1, ("fgets() failed! dying..... errno=%d (%s)\n", ferror(stdin),
-			  strerror(ferror(stdin))));
-		exit(1);    /* BIIG buffer */
+		if (ferror(stdin)) {
+			DEBUG(1, ("fgets() failed! dying..... errno=%d (%s)\n", ferror(stdin),
+				  strerror(ferror(stdin))));
+			
+			exit(1);    /* BIIG buffer */
+		}
+		exit(0);
 	}
     
 	c=memchr(buf,'\n',sizeof(buf)-1);
@@ -1755,7 +1753,7 @@ enum {
 	/* Samba client initialisation */
 
 	if (!lp_load(dyn_CONFIGFILE, True, False, False)) {
-		d_fprintf(stderr, "wbinfo: error opening config file %s. Error was %s\n",
+		d_fprintf(stderr, "ntlm_auth: error opening config file %s. Error was %s\n",
 			dyn_CONFIGFILE, strerror(errno));
 		exit(1);
 	}
@@ -1807,7 +1805,7 @@ enum {
 
                 case OPT_REQUIRE_MEMBERSHIP:
 			if (StrnCaseCmp("S-", require_membership_of, 2) == 0) {
-				require_membership_sid = require_membership_of;
+				require_membership_of_sid = require_membership_of;
 			}
 			break;
 		}

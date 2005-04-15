@@ -821,9 +821,23 @@ got100reply:
 		}
 		else
 		{
-			/* it was HTTP .9 */
-			myreturn = EIO;
-			goto out;
+			/* The line could not be parsed, or it was HTTP 0.9. Retry once after reconnecting. */
+			if (!reconnected)
+			{
+				if (http_socket_reconnect(fs->fs_socketptr, fs->fs_use_connect, 1))
+				{
+					/* the server cannot be reached */
+					myreturn = ENXIO;
+					goto out;
+				}
+				reconnected = 1;
+				goto reconnect;
+			}
+			else
+			{
+				myreturn = EIO;
+				goto out;
+			}
 		}
 	}
 	continue_received = 0;
@@ -2586,7 +2600,8 @@ got100reply:
 		else
 		{
 			/* it was HTTP .9 */
-			myreturn = EIO;
+			/* The line could not be parsed, or it was HTTP 0.9. Retry once after reconnecting. */
+			myreturn = EAGAIN;
 			goto out;
 		}
 	}
@@ -5237,7 +5252,7 @@ out:
  * Where {WS} represents whitespace (spaces and/or tabs) and 999
  * is a machine-interprable result code.  We return the integer value
  * of that result code, or the impossible value `0' if we are unable to
- * parse the result.
+ * parse the result. If -1 was returned, the line could not be parsed at all.
  */
 static int http_first_line(char *linebuf, int *isHTTP1_0, int continue_received)
 {

@@ -26,6 +26,7 @@
 #import "KWQTimer.h"
 
 #import "KWQAssertions.h"
+#import "KWQFoundationExtras.h"
 
 // We know the Cocoa calls in this file are safe because they are all
 // to the simple ObjC class defined here, or simple NSTimer calls that
@@ -78,6 +79,12 @@
     [super dealloc];
 }
 
+- (void)finalize
+{
+    delete slot;
+    [super finalize];
+}
+
 - (void)timerFired:(id)userInfo
 {
     slot->call();
@@ -98,11 +105,11 @@ bool QTimer::isActive() const
 void QTimer::start(int msec, bool singleShot)
 {
     stop();
-    m_timer = [[NSTimer scheduledTimerWithTimeInterval:(msec / 1000.0)
+    m_timer = KWQRetain([NSTimer scheduledTimerWithTimeInterval:(msec / 1000.0)
                                                 target:[KWQTimerTarget targetWithQTimer:this]
                                               selector:@selector(timerFired:)
                                               userInfo:nil
-                                               repeats:!singleShot] retain];
+                                               repeats:!singleShot]);
 
     if (m_monitorFunction) {
         m_monitorFunction(m_monitorFunctionContext);
@@ -116,7 +123,7 @@ void QTimer::stop()
     }
     
     [m_timer invalidate];
-    [m_timer release];
+    KWQRelease(m_timer);
     m_timer = nil;
 
     if (m_monitorFunction) {
@@ -133,12 +140,14 @@ void QTimer::setMonitor(void (*monitorFunction)(void *context), void *context)
 
 void QTimer::fire()
 {
-    m_timeoutSignal.call();
+    // Ensure that m_timer is kept around for duration of callback.
+    // Final reference will eventually be released in stop(), which may be called 
+    // in this frame, hence the need to ensure the timer is kept around until
+    // the pool is released. 
+    [[m_timer retain] autorelease];
 
-    if (![m_timer isValid]) {
-        [m_timer release];
-        m_timer = nil;
-    }
+    // Note: This call may destroy the QTimer, so be sure not to touch any fields afterward.
+    m_timeoutSignal.call();
 }
 
 void QTimer::singleShot(int msec, QObject *receiver, const char *member)

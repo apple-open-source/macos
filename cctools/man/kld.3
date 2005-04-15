@@ -1,4 +1,4 @@
-.TH KLD 3 "May 28, 2003" "Apple Computer, Inc."
+.TH KLD 3 "March 27, 2004" "Apple Computer, Inc."
 .SH NAME
 kld_load, kld_load_from_memory, kld_lookup, kld_forget_symbol, kld_unload_all,
 kld_load_basefile, kld_load_basefile_from_memory,
@@ -60,7 +60,7 @@ __private_extern__ void kld_set_link_options(
 .fi
 .SH DESCRIPTION
 The kld package is designed for loading kernel drivers both by the kernel for
-loading boot drivers and kmodload for loading other drivers.
+loading boot drivers and kextload for loading other drivers.
 The library that contains the kld package is linked with the
 .BI \-l kld
 linker flag.  For the kernel when linked with the
@@ -68,7 +68,7 @@ linker flag.  For the kernel when linked with the
 flag the
 .BI \-l kld
 linker flag will link the library libkld.a.
-And for kmodload when linked with the
+And for kextload when linked with the
 .B \-dynamic
 flag the
 .BI \-l kld
@@ -87,7 +87,7 @@ compiler flag.  Using this library one must define the following variable:
 which is the the name of the base file used for error messages.
 
 .PP
-For kmodload the
+For kextload the
 .I kld_load_basefile,
 .I kld_load_basefile_from_memory,
 .I kld_load,

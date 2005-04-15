@@ -28,7 +28,7 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_shadow.c,v 1.2 2002/05/23 18:58:39 snsimon Exp $"
+#ident "$Id: auth_shadow.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -44,8 +44,15 @@
 # include <pwd.h>
 # include <syslog.h>
 # ifndef HAVE_GETSPNAM
-/* XXX Is this header only available on AIX? */
+
+# ifdef WITH_DES
+#  ifdef WITH_SSL_DES
+#   include <openssl/des.h>
+#  else
 #   include <des.h>
+#  endif /* WITH_SSL_DES */
+# endif /* WITH_DES */
+
 #endif /* ! HAVE_GETSPNAM */
 # ifdef HAVE_GETUSERPW
 #  include <userpw.h>
@@ -117,7 +124,7 @@ auth_shadow (
     pw = getpwnam(login);
     endpwent();
     if (pw == NULL) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: getpwnam(%s) returned NULL", login);
 	}
 	RETURN("NO");
@@ -129,14 +136,14 @@ auth_shadow (
     endspent();
 
     if (sp == NULL) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: getspnam(%s) returned NULL", login);
 	}
 	RETURN("NO");
     }
 
     if (!strcmp(sp->sp_pwdp, SHADOW_PW_EPERM)) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: sp->sp_pwdp == SHADOW_PW_EPERM");
 	}
 	RETURN("NO Insufficient permission to access NIS authentication database (saslauthd)");
@@ -150,7 +157,7 @@ auth_shadow (
      */
     cpw = strdup((const char *)crypt(password, sp->sp_pwdp));
     if (strcmp(sp->sp_pwdp, cpw)) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: pw mismatch: '%s' != '%s'",
 		   sp->sp_pwdp, cpw);
 	}
@@ -167,7 +174,7 @@ auth_shadow (
      */
 
     if ((sp->sp_expire != -1) && (today > sp->sp_expire)) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: account expired: %dl > %dl",
 		   today, sp->sp_expire);
 	}
@@ -179,7 +186,7 @@ auth_shadow (
     if (sp->sp_lstchg != -1) {
 
 	if ((sp->sp_max != -1) && ((sp->sp_lstchg + sp->sp_max) < today)) {
-	    if (debug) {
+	    if (flags & VERBOSE) {
 		syslog(LOG_DEBUG,
 		       "DEBUG: auth_shadow: password expired: %ld + %ld < %ld",
 		       sp->sp_lstchg, sp->sp_max, today);
@@ -187,7 +194,7 @@ auth_shadow (
 	    RETURN("NO Password expired");
 	}
     }
-    if (debug) {
+    if (flags & VERBOSE) {
 	syslog(LOG_DEBUG, "DEBUG: auth_shadow: OK: %s", login);
     }
     RETURN("OK");
@@ -212,7 +219,7 @@ auth_shadow (
     upw = getuserpw(login);
   
     if (upw == 0) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "auth_shadow: getuserpw(%s) == 0",
 		   login);
 	}
@@ -220,7 +227,7 @@ auth_shadow (
     }
   
     if (strcmp(upw->upw_passwd, crypt(password, upw->upw_passwd)) != 0) {
-	if (debug) {
+	if (flags & VERBOSE) {
 	    syslog(LOG_DEBUG, "auth_shadow: pw mismatch: %s != %s",
 		   password, upw->upw_passwd);
 	}

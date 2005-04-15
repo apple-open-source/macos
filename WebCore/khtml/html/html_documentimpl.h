@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,24 +27,14 @@
 
 #include "xml/dom_docimpl.h"
 #include "misc/loader_client.h"
-
-#include <qmap.h>
+#include "html/html_miscimpl.h"
 
 class KHTMLView;
 class QString;
 
 namespace DOM {
 
-    class HTMLCollection;
-    class NodeList;
-    class Element;
-    class HTMLElement;
     class HTMLElementImpl;
-    class DOMString;
-    class CSSStyleSheetImpl;
-    class HTMLMapElementImpl;
-    class HTMLImageElementImpl;
-    class HTMLFormElementImpl;
 
 class HTMLDocumentImpl : public DOM::DocumentImpl, public khtml::CachedObjectClient
 {
@@ -54,28 +44,20 @@ public:
     ~HTMLDocumentImpl();
 
     virtual bool isHTMLDocument() const { return true; }
+    virtual ElementImpl *documentElement() const;
 
     DOMString referrer() const;
     DOMString lastModified() const;
     DOMString cookie() const;
     void setCookie( const DOMString &);
-#if APPLE_CHANGES
-    DOMString policyBaseURL() const { return m_policyBaseURL; }
-    void setPolicyBaseURL(const DOMString &s) { m_policyBaseURL = s; }
-#endif
-
-    DOMString designMode() const;
-    void setDesignMode(const DOMString &);
 
     void setBody(HTMLElementImpl *_body, int& exceptioncode);
 
-    virtual Tokenizer *createTokenizer();
+    virtual khtml::Tokenizer *createTokenizer();
 
     virtual bool childAllowed( NodeImpl *newChild );
 
     virtual ElementImpl *createElement ( const DOMString &tagName, int &exceptioncode );
-
-    HTMLMapElementImpl* getMap(const DOMString& url_);
 
     virtual void determineParseMode( const QString &str );
 
@@ -83,12 +65,11 @@ public:
     void removeNamedImageOrForm(const QString &name);
     bool haveNamedImageOrForm(const QString &name);
 
+    HTMLCollectionImpl::CollectionInfo *collectionInfo(int type) { return m_collection_info+type; }
+
 protected:
     HTMLElementImpl *bodyElement;
     HTMLElementImpl *htmlElement;
-    friend class HTMLMapElementImpl;
-    friend class HTMLImageElementImpl;
-    QMap<QString,HTMLMapElementImpl*> mapMap;
 
 protected slots:
     /**
@@ -96,13 +77,10 @@ protected slots:
      */
     void slotHistoryChanged();
 private:
-     // we actually store ints inside the pointer value itself; would use void *
+    HTMLCollectionImpl::CollectionInfo m_collection_info[HTMLCollectionImpl::LAST_TYPE];
+    // we actually store ints inside the pointer value itself; would use void *
     // but that makes the template unhappy.
     QDict<char> namedImageAndFormCounts;
-    
-#if APPLE_CHANGES
-    DOMString m_policyBaseURL;
-#endif
 };
 
 }; //namespace

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,11 @@
 #include <mach-o/fat.h> 
 #include <mach-o/loader.h> 
 #import <mach/m68k/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
 #import <mach/ppc/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
 #import <mach/m88k/thread_status.h>
 #import <mach/i860/thread_status.h>
 #import <mach/i386/thread_status.h>
@@ -62,6 +66,7 @@
 #include "specs.h"
 #include "fvmlibs.h"
 #include "dylibs.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass1.h"
@@ -147,6 +152,7 @@ static void check_overlap(struct merged_segment *msg1,
     			  struct merged_segment *outputs_linkedit_segment);
 static void check_for_overlapping_segments(
     struct merged_segment *outputs_linkedit_segment);
+static void check_for_lazy_pointer_relocs_too_far(void);
 static void print_load_map(void);
 static void print_load_map_for_objects(struct merged_section *ms);
 #endif /* !defined(RLD) */
@@ -228,7 +234,7 @@ layout(void)
 	 * in the output file can be determined.
 	 */
 	save_lazy_symbol_pointer_relocs = prebinding;
-	merge_literal_sections();
+	merge_literal_sections(FALSE);
 	if(errors)
 	    return;
 #ifdef DEBUG
@@ -241,13 +247,53 @@ layout(void)
 	 * Layout any sections that have -sectorder options specified for them.
 	 */
 	layout_ordered_sections();
+
+	/*
+	 * If -dead_strip is specified mark the fine_relocs that are live and
+	 * update all the merged counts, and resize everything to only contain
+	 * live items.
+	 */
+	if(dead_strip == TRUE){
+	    /*
+	     * Mark the fine_relocs and symbols that are live.
+	     */
+	    live_marking();
+
+	    /*
+	     * If live_marking() encountered a relocation error just return now.
+	     */
+	    if(errors)
+		return;
+
+	    /*
+	     * Now with all the live fine_relocs and live merged symbols marked
+	     * merged tables, calculated sizes and counts for everything that is
+	     * live.
+	     */
+	    count_live_symbols();
+
+	    /*
+	     * Now resize all sections using the live block sizes and adjust
+	     * the number of relocation entries so the counts includes entries
+	     * only for live blocks.
+	     */
+	    resize_live_sections();
+
+	    /*
+	     * Now re-merge all the literal sections so that only live literals
+	     * end up in the output.
+	     */
+	    merge_literal_sections(TRUE);
+	}
 #endif /* RLD */
 
 	/*
-	 * Report undefined symbols and account for merged that will not be
-	 * in the output file.
+	 * Report undefined symbols and account for the merged symbols that will
+	 * not be in the output file.
 	 */
 	process_undefineds();
+	if(errors)
+	    return;
 
 #ifndef RLD
 	/*
@@ -281,11 +327,12 @@ layout(void)
 	    layout_dylib_tables();
 
 	/*
-	 * If the output is intended for the dynamic link editor layout the
-	 * relocation entries that will be in the output file.
+	 * If the output is intended for the dynamic link editor or -dead_strip
+	 * is specified relayout the relocation entries for only the ones that
+	 * will be in the output file.
 	 */
-	if(output_for_dyld)
-	    layout_relocs_for_dyld();
+	if(output_for_dyld == TRUE || dead_strip == TRUE)
+	    relayout_relocs();
 
 	/*
 	 * If the segment alignment is not set, set it based on the target
@@ -423,6 +470,12 @@ layout_segments(void)
     struct merged_dylib *mdl;
     struct dynamic_library *dp;
 #endif /* !defined(RLD) */
+#ifdef RLD
+#ifndef SA_RLD
+    kern_return_t r;
+#endif /* !defined SA_RLD */
+    unsigned long allocate_size;
+#endif /* defined(RLD) */
     struct merged_symbol *merged_symbol;
 
     static struct merged_segment linkedit_segment = { {0} };
@@ -469,13 +522,17 @@ layout_segments(void)
 	/*
 	 * Set thread_in_output in the output_thread_info if we are going to
 	 * create a thread command.  It is created if this is filetype is not a
-	 * shared library and we have seen an object file so we know what type
-	 * of machine the thread is for.  Or and entry point name was specified.
+	 * shared library or bundle and we have seen an object file so we know
+	 * what type of machine the thread is for.  Or if we haven't seen an
+	 * object file but entry point symbol name was specified.
 	 */
- 	if(filetype != MH_FVMLIB && filetype != MH_DYLIB &&
+ 	if(filetype != MH_FVMLIB &&
+	   filetype != MH_DYLIB &&
+	   filetype != MH_BUNDLE &&
 	   arch_flag.cputype != 0 &&
- 	   ((merged_segments != NULL && merged_segments->content_sections != NULL) ||
-	    entry_point_name != NULL)){
+ 	   ((merged_segments != NULL &&
+	     merged_segments->content_sections != NULL) ||
+	     entry_point_name != NULL)){
 
 	    output_thread_info.thread_in_output = TRUE;
 
@@ -995,7 +1052,7 @@ layout_segments(void)
 			 * the initial LC_PREBOUND_DYLIB commands seems to work
 			 * for most but not all things.
 			 */
-			headerpad += dp->pbdylib->cmdsize * 3;
+			headerpad += dp->pbdylib->cmdsize * 3 * indirect_library_ratio;
 		    }
 		}
 	    }
@@ -1192,13 +1249,15 @@ layout_segments(void)
 	    if(no_fix_prebinding)
 		output_mach_header.flags |= MH_NOFIXPREBINDING;
 	}
+	if(some_non_subsection_via_symbols_objects == FALSE)
+	    output_mach_header.flags |= MH_SUBSECTIONS_VIA_SYMBOLS;
 
 	/*
 	 * The total headers size needs to be known in the case of MH_EXECUTE,
-	 * MH_BUNDLE, MH_FVMLIB, MH_DYLIB MH_DYLINKER format file types because
-	 * their headers get loaded as part of of the first segment.  For the
-	 * MH_FVMLIB file type the headers are placed on their own page (the
-	 * size of the segment alignment).
+	 * MH_BUNDLE, MH_FVMLIB, MH_DYLIB and MH_DYLINKER format file types
+	 * because their headers get loaded as part of of the first segment.
+	 * For the MH_FVMLIB and MH_DYLINKER file types the headers are placed
+	 * on their own page or pages (the size of the segment alignment).
 	 */
 	headers_size = sizeof(struct mach_header) + sizeofcmds;
 	if(filetype == MH_FVMLIB){
@@ -1208,17 +1267,19 @@ layout_segments(void)
 		      (unsigned int)headers_size, (unsigned int)segalign);
 	    headers_size = segalign;
 	}
+	else if(filetype == MH_DYLINKER){
+	    headers_size = round(headers_size, segalign);
+	}
 
 	/*
-	 * For MH_EXECUTE, MH_BUNDLE, MH_DYLIB and MH_DYLINKER formats the as
-	 * much of the segment padding that can be is moved to the begining of
-	 * the segment just after the headers.  This is done so that the headers
-	 * could added to by a smart program like segedit(1) some day.
+	 * For MH_EXECUTE, MH_BUNDLE, and MH_DYLIB formats the as much of the
+	 * segment padding that can be is moved to the begining of the segment
+	 * just after the headers.  This is done so that the headers could
+	 * added to by a smart program like segedit(1) some day.
 	 */
 	if(filetype == MH_EXECUTE ||
 	   filetype == MH_BUNDLE ||
-	   filetype == MH_DYLIB ||
-	   filetype == MH_DYLINKER){
+	   filetype == MH_DYLIB){
 	    if(first_msg != NULL){
 		size = 0;
 		content = &(first_msg->content_sections);
@@ -1321,10 +1382,6 @@ layout_segments(void)
 	 * is the address of this memory.
 	 */
 	output_size = 0;
-#ifndef SA_RLD
-	kern_return_t r;
-#endif
-	unsigned long allocate_size;
 
 	headers_size = round(headers_size, max_align);
 	output_size = headers_size;
@@ -1430,6 +1487,15 @@ layout_segments(void)
 	 * Check for overlapping segments (including fvmlib segments).
 	 */
 	check_for_overlapping_segments(&linkedit_segment);
+
+	/*
+	 * If prebinding check to see the that the lazy pointer relocation
+	 * entries are not too far away to fit into the 24-bit r_adderess field
+	 * of a scattered relocation entry.
+	 */
+	if(prebinding)
+	    check_for_lazy_pointer_relocs_too_far();
+
 	if(prebinding)
 	    output_mach_header.flags |= MH_PREBOUND;
 #endif /* RLD */
@@ -2054,6 +2120,47 @@ struct merged_segment *outputs_linkedit_segment)
 }
 
 /*
+ * check_for_lazy_pointer_relocs_too_far() is call when prebinding is TRUE and
+ * checks to see that the lazy pointer's will not be too far away to overflow
+ * the the 24-bit r_address field of a scattered relocation entry.  If so
+ * then prebinding will be disabled.
+ */
+static
+void
+check_for_lazy_pointer_relocs_too_far(
+void)
+{
+    struct merged_segment **p, *msg;
+    struct merged_section **content, *ms;
+    unsigned long base_addr;
+
+	if(segs_read_only_addr_specified == TRUE)
+	    base_addr = segs_read_write_addr;
+	else
+	    base_addr = merged_segments->sg.vmaddr;
+
+	p = &merged_segments;
+	while(*p && prebinding){
+	    msg = *p;
+	    content = &(msg->content_sections);
+	    while(*content && prebinding){
+		ms = *content;
+		if((ms->s.flags & SECTION_TYPE) ==
+		   S_LAZY_SYMBOL_POINTERS){
+		    if(((ms->s.addr + ms->s.size) - base_addr) & 0xff000000){
+			warning("prebinding disabled because output is too "
+				"large (limitation of the 24-bit r_address "
+				"field of scattered relocation entries)");
+			prebinding = FALSE;
+		    }
+		}
+		content = &(ms->next);
+	    }
+	    p = &(msg->next);
+	}
+}
+
+/*
  * print_load_map() is called from layout() if a load map is requested.
  */
 static
@@ -2068,11 +2175,11 @@ print_load_map(void)
 	print("Load map for: %s\n", outputfile);
 	print("Segment name     Section name     Address    Size\n");
 	for(msg = merged_segments; msg ; msg = msg->next){
-	    print("%-16s %-16s 0x%08x 0x%08x\n",
+	    print("%-16.16s %-16.16s 0x%08x 0x%08x\n",
 		   msg->sg.segname, "", (unsigned int)(msg->sg.vmaddr),
 		   (unsigned int)(msg->sg.vmsize));
 	    for(ms = msg->content_sections; ms ; ms = ms->next){
-		print("%-16s %-16s 0x%08x 0x%08x",
+		print("%-16.16s %-16.16s 0x%08x 0x%08x",
 		       ms->s.segname, ms->s.sectname,
 		       (unsigned int)(ms->s.addr), (unsigned int)(ms->s.size));
 		if(ms->contents_filename)
@@ -2081,20 +2188,33 @@ print_load_map(void)
 		    if(ms->order_load_maps){
 			print("\n");
 			for(i = 0; i < ms->norder_load_maps; i++){
-			    print("\t\t\t\t  0x%08x 0x%08x ",
-			      (unsigned int)(fine_reloc_output_offset(
-			        ms->order_load_maps[i].section_map,
-				ms->order_load_maps[i].value -
-				ms->order_load_maps[i].section_map->s->addr) +
-				ms->order_load_maps[i].section_map->
-							output_section->s.addr),
-				(unsigned int)(ms->order_load_maps[i].size));
+			    if(dead_strip == FALSE ||
+			       ms->order_load_maps[i].load_order->
+			       fine_reloc->live == TRUE){
+				print("\t\t\t\t  0x%08x 0x%08x ",
+				  (unsigned int)(fine_reloc_output_offset(
+				    ms->order_load_maps[i].section_map,
+				    ms->order_load_maps[i].value -
+				    ms->order_load_maps[i].section_map->
+					s->addr) +
+				    ms->order_load_maps[i].section_map->
+					output_section->s.addr),
+				    (unsigned int)
+					(ms->order_load_maps[i].size));
+			    }
+			    else{
+				print("\t\t\t\t  (dead stripped)       ");
+			    }
 			    if(ms->order_load_maps[i].archive_name != NULL)
 				print("%s:",
 					   ms->order_load_maps[i].archive_name);
-			    print("%s:%s\n",
-				  ms->order_load_maps[i].object_name,
-				  ms->order_load_maps[i].symbol_name);
+			    if(ms->order_load_maps[i].symbol_name != NULL)
+				print("%s:%s\n",
+				      ms->order_load_maps[i].object_name,
+				      ms->order_load_maps[i].symbol_name);
+			    else
+				print("%s\n",
+				      ms->order_load_maps[i].object_name);
 			}
 		    }
 		    else{
@@ -2104,11 +2224,30 @@ print_load_map(void)
 		}
 	    }
 	    for(ms = msg->zerofill_sections; ms ; ms = ms->next){
-		print("%-16s %-16s 0x%08x 0x%08x\n",
+		print("%-16.16s %-16.16s 0x%08x 0x%08x\n",
 		       ms->s.segname, ms->s.sectname,
 		       (unsigned int)(ms->s.addr), (unsigned int)(ms->s.size));
 		if(ms->order_load_maps){
 		    for(i = 0; i < ms->norder_load_maps; i++){
+			if(dead_strip == FALSE ||
+			   ms->order_load_maps[i].load_order->
+			   fine_reloc->live == TRUE){
+			    print("\t\t\t\t  0x%08x 0x%08x ",
+				(unsigned int)(fine_reloc_output_offset(
+				    ms->order_load_maps[i].section_map,
+				    ms->order_load_maps[i].value -
+				    ms->order_load_maps[i].section_map->
+					s->addr) +
+				    ms->order_load_maps[i].section_map->
+					output_section->s.addr),
+				    (unsigned int)
+					(ms->order_load_maps[i].size));
+			}
+			else{
+			    print("\t\t\t\t  (dead stripped)       ");
+			}
+
+/* old
 			print("\t\t\t\t  0x%08x 0x%08x ",
 			    (unsigned int)(fine_reloc_output_offset(
 				ms->order_load_maps[i].section_map,
@@ -2117,6 +2256,7 @@ print_load_map(void)
 				ms->order_load_maps[i].section_map->
 							output_section->s.addr),
 				(unsigned int)(ms->order_load_maps[i].size));
+*/
 			if(ms->order_load_maps[i].archive_name != NULL)
 			    print("%s:", ms->order_load_maps[i].archive_name);
 			print("%s:%s\n",
@@ -2150,7 +2290,7 @@ print_load_map(void)
 	    print("\nLoad map for base file: %s\n", base_obj->file_name);
 	    print("Segment name     Section name     Address    Size\n");
 	    for(msg = base_obj_segments; msg ; msg = msg->next){
-		print("%-16s %-16s 0x%08x 0x%08x\n",
+		print("%-16.16s %-16.16s 0x%08x 0x%08x\n",
 		      msg->sg.segname, "", (unsigned int)(msg->sg.vmaddr),
 		      (unsigned int)(msg->sg.vmsize));
 	    }
@@ -2160,7 +2300,7 @@ print_load_map(void)
 	    print("\nLoad map for fixed VM shared libraries\n");
 	    print("Segment name     Section name     Address    Size\n");
 	    for(msg = fvmlib_segments; msg ; msg = msg->next){
-		print("%-16s %-16s 0x%08x 0x%08x %s\n",
+		print("%-16.16s %-16.16s 0x%08x 0x%08x %s\n",
 		      msg->sg.segname, "", (unsigned int)(msg->sg.vmaddr),
 		      (unsigned int)(msg->sg.vmsize), msg->filename);
 	    }
@@ -2203,13 +2343,38 @@ struct merged_section *ms)
 			    for(k = 0;
 				k < object_file->section_maps[j].nfine_relocs;
 				k++){
-				print("       (input address 0x%08x) 0x%08x "
-				      "0x%08x ",
+				print("  (input address 0x%08x) ",
 				      (unsigned int) 
 				      (object_file->section_maps[j].s->addr +
-					fine_relocs[k].input_offset),
-				      (unsigned int)(ms->s.addr +
-					fine_relocs[k].output_offset),
+					fine_relocs[k].input_offset));
+				if((object_file->section_maps[j].s->flags &
+				    SECTION_TYPE) == S_SYMBOL_STUBS ||
+				   (object_file->section_maps[j].s->flags &
+				    SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
+				   (object_file->section_maps[j].s->flags &
+				    SECTION_TYPE) ==
+				    S_NON_LAZY_SYMBOL_POINTERS ||
+				   (object_file->section_maps[j].s->flags &
+				    SECTION_TYPE) == S_COALESCED){
+				    if(fine_relocs[k].use_contents == FALSE)
+					print("(eliminated)    ");
+				    else if(dead_strip == TRUE &&
+				       fine_relocs[k].live == FALSE)
+					print("(dead stripped) ");
+				    else
+					print("     0x%08x ",
+					      (unsigned int)(ms->s.addr +
+						fine_relocs[k].output_offset));
+				  
+				}
+				else if(dead_strip == TRUE &&
+				   fine_relocs[k].live == FALSE)
+				    print("(dead stripped) ");
+				else
+				    print("     0x%08x ",
+					  (unsigned int)(ms->s.addr +
+					    fine_relocs[k].output_offset));
+				print("0x%08x ",
 				      (unsigned int)
 				      (k == (unsigned int)
 					((object_file->section_maps[j].
@@ -2255,10 +2420,10 @@ print_mach_header(void)
 	print("    magic = 0x%x\n", (unsigned int)(output_mach_header.magic));
 	print("    cputype = %d\n", output_mach_header.cputype);
 	print("    cpusubtype = %d\n", output_mach_header.cpusubtype);
-	print("    filetype = %lu\n", output_mach_header.filetype);
-	print("    ncmds = %lu\n", output_mach_header.ncmds);
-	print("    sizeofcmds = %lu\n", output_mach_header.sizeofcmds);
-	print("    flags = %lu\n", output_mach_header.flags);
+	print("    filetype = %u\n", output_mach_header.filetype);
+	print("    ncmds = %u\n", output_mach_header.ncmds);
+	print("    sizeofcmds = %u\n", output_mach_header.sizeofcmds);
+	print("    flags = %u\n", output_mach_header.flags);
 }
 
 /*
@@ -2270,12 +2435,12 @@ void
 print_symtab_info(void)
 {
 	print("Symtab info for output file\n");
-	print("    cmd = %lu\n", output_symtab_info.symtab_command.cmd);
-	print("    cmdsize = %lu\n", output_symtab_info.symtab_command.cmdsize);
-	print("    nsyms = %lu\n", output_symtab_info.symtab_command.nsyms);
-	print("    symoff = %lu\n", output_symtab_info.symtab_command.symoff);
-	print("    strsize = %lu\n", output_symtab_info.symtab_command.strsize);
-	print("    stroff = %lu\n", output_symtab_info.symtab_command.stroff);
+	print("    cmd = %u\n", output_symtab_info.symtab_command.cmd);
+	print("    cmdsize = %u\n", output_symtab_info.symtab_command.cmdsize);
+	print("    nsyms = %u\n", output_symtab_info.symtab_command.nsyms);
+	print("    symoff = %u\n", output_symtab_info.symtab_command.symoff);
+	print("    strsize = %u\n", output_symtab_info.symtab_command.strsize);
+	print("    stroff = %u\n", output_symtab_info.symtab_command.stroff);
 }
 
 /*

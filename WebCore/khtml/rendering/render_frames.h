@@ -23,6 +23,7 @@
 #ifndef __render_frames_h__
 #define __render_frames_h__
 
+#include "render_container.h"
 #include "rendering/render_replaced.h"
 #include "xml/dom_nodeimpl.h"
 #include "html/html_baseimpl.h"
@@ -39,7 +40,7 @@ namespace khtml
 {
   struct ChildFrame;
 
-class RenderFrameSet : public RenderBox
+class RenderFrameSet : public RenderContainer
 {
   friend class DOM::HTMLFrameSetElementImpl;
 public:
@@ -61,7 +62,7 @@ public:
   void setResizing(bool e);
 
   bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty,
-                   HitTestAction hitTestAction = HitTestAll, bool inside=false);
+                   HitTestAction hitTestAction);
 
     DOM::HTMLFrameSetElementImpl *element() const
     { return static_cast<DOM::HTMLFrameSetElementImpl*>(RenderObject::element()); }
@@ -88,7 +89,7 @@ private:
     bool m_clientresizing;
 };
 
-class RenderPart : public khtml::RenderWidget
+class RenderPart : public RenderWidget
 {
     Q_OBJECT
 public:
@@ -118,14 +119,14 @@ public:
      */
     virtual bool partLoadingErrorNotify( khtml::ChildFrame *childFrame, const KURL& url, const QString& serviceType );
 
-    virtual short intrinsicWidth() const;
+    virtual int intrinsicWidth() const;
     virtual int intrinsicHeight() const;
 
 public slots:
     virtual void slotViewCleared();
 };
 
-class RenderFrame : public khtml::RenderPart
+class RenderFrame : public RenderPart
 {
     Q_OBJECT
 public:
@@ -141,15 +142,13 @@ public slots:
 };
 
 // I can hardly call the class RenderObject ;-)
-class RenderPartObject : public khtml::RenderPart
+class RenderPartObject : public RenderPart
 {
     Q_OBJECT
 public:
     RenderPartObject( DOM::HTMLElementImpl * );
 
     virtual const char *renderName() const { return "RenderPartObject"; }
-
-    virtual void close();
 
     virtual void layout( );
     virtual void updateWidget();

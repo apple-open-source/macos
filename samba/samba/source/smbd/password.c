@@ -139,7 +139,7 @@ int register_vuid(auth_serversupplied_info *server_info, DATA_BLOB session_key, 
 		return UID_FIELD_INVALID;
 	}
 
-	if((vuser = (user_struct *)malloc( sizeof(user_struct) )) == NULL) {
+	if((vuser = SMB_MALLOC_P(user_struct)) == NULL) {
 		DEBUG(0,("Failed to malloc users struct!\n"));
 		data_blob_free(&session_key);
 		return UID_FIELD_INVALID;
@@ -252,23 +252,30 @@ int register_vuid(auth_serversupplied_info *server_info, DATA_BLOB session_key, 
 	}
 
 	/* Register a home dir service for this user iff
+	
 	   (a) This is not a guest connection,
-	   (b) we have a home directory defined, and
-	   (c) there s not an existing static share by that name */
+	   (b) we have a home directory defined 
+	   (c) there s not an existing static share by that name
+	   
+	   If a share exists by this name (autoloaded or not) reuse it . */
 
-	if ( (!vuser->guest) 
-		&& vuser->unix_homedir 
-		&& *(vuser->unix_homedir) 
-		&& (lp_servicenumber(vuser->user.unix_name) == -1) ) 
+	vuser->homes_snum = -1;
+
+	if ( (!vuser->guest) && vuser->unix_homedir && *(vuser->unix_homedir)) 
 	{
-			DEBUG(3, ("Adding/updating homes service for user '%s' using home directory: '%s'\n", 
-				vuser->user.unix_name, vuser->unix_homedir));
+		int servicenumber = lp_servicenumber(vuser->user.unix_name);
 
+		if ( servicenumber == -1 ) {
+			DEBUG(3, ("Adding homes service for user '%s' using home directory: '%s'\n", 
+				vuser->user.unix_name, vuser->unix_homedir));
 			vuser->homes_snum = add_home_service(vuser->user.unix_name, 
-				vuser->user.unix_name, vuser->unix_homedir);
-	} else {
-		vuser->homes_snum = -1;
-	}
+						vuser->user.unix_name, vuser->unix_homedir);
+		} else {
+			DEBUG(3, ("Using static (or previously created) service for user '%s'; path = '%s'\n", 
+				vuser->user.unix_name, lp_pathname(servicenumber) ));
+			vuser->homes_snum = servicenumber;
+		}
+	} 
 	
 	if (srv_is_signing_negotiated() && !vuser->guest && !srv_signing_started()) {
 		/* Try and turn on server signing on the first non-guest sessionsetup. */
@@ -309,7 +316,7 @@ void add_session_user(const char *user)
 			DEBUG(3,("add_session_user: session userlist already too large.\n"));
 			return;
 		}
-		newlist = Realloc( session_userlist, len_session_userlist + PSTRING_LEN );
+		newlist = SMB_REALLOC( session_userlist, len_session_userlist + PSTRING_LEN );
 		if( newlist == NULL ) {
 			DEBUG(1,("Unable to resize session_userlist\n"));
 			return;
@@ -466,7 +473,7 @@ BOOL authorise_login(int snum, fstring user, DATA_BLOB password,
 {
 	BOOL ok = False;
 	
-#if DEBUG_PASSWORD
+#ifdef DEBUG_PASSWORD
 	DEBUG(100,("authorise_login: checking authorisation on user=%s pass=%s\n",
 		   user,password.data));
 #endif
@@ -491,9 +498,9 @@ BOOL authorise_login(int snum, fstring user, DATA_BLOB password,
 		char *user_list = NULL;
 
 		if ( session_userlist )
-			user_list = strdup(session_userlist);
+			user_list = SMB_STRDUP(session_userlist);
 		else
-			user_list = strdup("");
+			user_list = SMB_STRDUP("");
 
 		if (!user_list)
 			return(False);

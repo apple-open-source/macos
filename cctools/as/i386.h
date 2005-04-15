@@ -204,6 +204,9 @@ typedef struct {
 #ifdef NeXT_MOD
   char *cpus;
 #endif /* NeXT_MOD */
+
+  /* opcode_suffix is the optional one-byte suffix */
+  uchar opcode_suffix;
 } template;
 
 /*

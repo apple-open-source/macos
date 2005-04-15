@@ -43,7 +43,7 @@ XMLPUBFUN int XMLCALL
 		xmlSchemaValidateFacet		(xmlSchemaTypePtr base,
 						 xmlSchemaFacetPtr facet,
 						 const xmlChar *value,
-						 xmlSchemaValPtr val);
+						 xmlSchemaValPtr val);	
 XMLPUBFUN void XMLCALL		
 		xmlSchemaFreeValue		(xmlSchemaValPtr val);
 XMLPUBFUN xmlSchemaFacetPtr XMLCALL 
@@ -58,6 +58,31 @@ XMLPUBFUN void XMLCALL
 XMLPUBFUN int XMLCALL		
 		xmlSchemaCompareValues		(xmlSchemaValPtr x,
 						 xmlSchemaValPtr y);
+XMLPUBFUN xmlSchemaTypePtr XMLCALL		
+		xmlSchemaGetBuiltInListSimpleTypeItemType(xmlSchemaTypePtr type);
+XMLPUBFUN int XMLCALL
+xmlSchemaValidateListSimpleTypeFacet(xmlSchemaFacetPtr facet,
+				     const xmlChar *value,
+				     unsigned long actualLen,
+				     unsigned long *expectedLen);
+XMLPUBFUN xmlSchemaTypePtr XMLCALL
+xmlSchemaGetBuiltInType(xmlSchemaValType type);
+XMLPUBFUN int XMLCALL
+xmlSchemaIsBuiltInTypeFacet(xmlSchemaTypePtr type, 
+			    int facetType);
+XMLPUBFUN xmlChar * XMLCALL
+xmlSchemaCollapseString(const xmlChar *value);
+XMLPUBFUN unsigned long  XMLCALL
+xmlSchemaGetFacetValueAsULong(xmlSchemaFacetPtr facet);
+XMLPUBFUN int XMLCALL
+xmlSchemaValidateLengthFacet(xmlSchemaTypePtr type, 
+			     xmlSchemaFacetPtr facet,
+			     const xmlChar *value,
+			     xmlSchemaValPtr val,
+			     unsigned long *length) ;
+XMLPUBFUN int XMLCALL
+xmlSchemaValPredefTypeNodeNoNorm(xmlSchemaTypePtr type, const xmlChar *value,
+				 xmlSchemaValPtr *val, xmlNodePtr node);
 
 #ifdef __cplusplus
 }

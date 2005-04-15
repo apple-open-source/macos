@@ -375,6 +375,32 @@ void DSGetExtendedLDAPResult (	LDAP			   *inHost,
 	} //switch(ldapReturnCode)
 }
 
+static int standard_password_replace( LDAP *ld, char *dn, char *oldPwd, char *newPwd );
+static int standard_password_replace( LDAP *ld, char *dn, char *oldPwd, char *newPwd )
+{
+	char *pwdDelete[2] = {};
+	pwdDelete[0] = oldPwd;
+	pwdDelete[1] = NULL;
+	LDAPMod modDelete = {};
+	modDelete.mod_op = LDAP_MOD_DELETE;
+	modDelete.mod_type = "userPassword";
+	modDelete.mod_values = pwdDelete;
+	char *pwdCreate[2] = {};
+	pwdCreate[0] = newPwd;
+	pwdCreate[1] = NULL;
+	LDAPMod modAdd = {};
+	modAdd.mod_op = LDAP_MOD_ADD;
+	modAdd.mod_type = "userPassword";
+	modAdd.mod_values = pwdCreate;
+	
+	LDAPMod *mods[3] = {};
+	mods[0] = &modDelete;
+	mods[1] = &modAdd;
+	mods[2] = NULL;
+	
+	return ldap_modify_s( ld, dn, mods );
+}
+
 static int standard_password_create( LDAP *ld, char *dn, char *newPwd );
 static int standard_password_create( LDAP *ld, char *dn, char *newPwd )
 {
@@ -9855,6 +9881,9 @@ sInt32 CLDAPv3Plugin::DoChangePassword ( sLDAPContextData *inContext, tDataBuffe
 				int rc = exop_password_create( aLDAPHost, accountId, newPwd );
 				if( rc != LDAP_SUCCESS ) {
 					rc = standard_password_create( aLDAPHost, accountId, newPwd );
+					if ( rc != LDAP_SUCCESS ) {
+						rc = standard_password_replace( aHost, accountId, oldPwd, newPwd );
+					}
 				}
 	
 				// *** gbv not sure what error codes to check for

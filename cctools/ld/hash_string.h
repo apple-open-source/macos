@@ -28,7 +28,8 @@ static
 inline
 unsigned long
 hash_string(
-char *key)
+char *key,
+unsigned long *len)
 {
     char *cp;
     long k;
@@ -37,5 +38,7 @@ char *key)
 	k = 0;
 	while(*cp)
 	    k = (((k << 1) + (k >> 14)) ^ (*cp++)) & 0x3fff;
+	if(len != NULL)
+	    *len = cp - key;
 	return(k);
 }

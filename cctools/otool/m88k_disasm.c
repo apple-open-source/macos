@@ -27,6 +27,7 @@
 #include <mach-o/reloc.h>
 #include <mach-o/m88k/reloc.h>
 #include "stuff/bytesex.h"
+#include "stuff/symbol.h"
 #include "otool.h"
 
 #define	D(x)		(((x) >> 21) & 0x1f)
@@ -74,9 +75,9 @@ static void print_immediate(
     unsigned long sect_offset,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -91,9 +92,9 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -1033,9 +1034,9 @@ unsigned long value,
 unsigned long sect_offset,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
@@ -1190,48 +1191,48 @@ enum bool verbose)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].n_value == value){
+	    if(sorted_symbols[mid].nl.n_value == value){
 		if(reloc_found){
 		    switch(r_type){
 		    case M88K_RELOC_HI16:
 			if(offset == 0)
 			    printf("hi16(%s)\n",
-				   sorted_symbols[mid].n_un.n_name);
+				   sorted_symbols[mid].name);
 			else
 			    printf("hi16(%s+0x%x)\n",
-				    sorted_symbols[mid].n_un.n_name,
+				    sorted_symbols[mid].name,
 				    (unsigned int)offset);
 			break;
 		    case M88K_RELOC_LO16:
 			if(offset == 0)
 			    printf("lo16(%s)\n",
-				   sorted_symbols[mid].n_un.n_name);
+				   sorted_symbols[mid].name);
 			else
 			    printf("lo16(%s+0x%x)\n",
-				   sorted_symbols[mid].n_un.n_name,
+				   sorted_symbols[mid].name,
 				   (unsigned int)offset);
 			break;
 		    default:
 			if(offset == 0)
-			    printf("%s\n",sorted_symbols[mid].n_un.n_name);
+			    printf("%s\n",sorted_symbols[mid].name);
 			else
 			    printf("%s+0x%x\n",
-				   sorted_symbols[mid].n_un.n_name,
+				   sorted_symbols[mid].name,
 				   (unsigned int)offset);
 			break;
 		    }
 		}
 		else{
 		    if(offset == 0)
-			printf("%s\n",sorted_symbols[mid].n_un.n_name);
+			printf("%s\n",sorted_symbols[mid].name);
 		    else
 			printf("%s+0x%x\n",
-			       sorted_symbols[mid].n_un.n_name,
+			       sorted_symbols[mid].name,
 			       (unsigned int)offset);
 		}
 		return;
 	    }
-	    if(sorted_symbols[mid].n_value > value){
+	    if(sorted_symbols[mid].nl.n_value > value){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }

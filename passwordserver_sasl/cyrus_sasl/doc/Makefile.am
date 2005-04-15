@@ -1,6 +1,6 @@
 # Makefile.am for SASL documentation
 # Rob Earhart
-# $Id: Makefile.am,v 1.1 2002/02/27 23:59:55 snsimon Exp $
+# $Id: Makefile.am,v 1.4 2005/01/10 19:13:36 snsimon Exp $
 #
 ################################################################
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
@@ -57,10 +57,17 @@ EXTRA_DIST =	rfc1321.txt \
 		rfc2945.txt \
 		rfc3174.txt \
 		testing.txt \
-		draft-burdis-cat-srp-sasl-06.txt \
-		draft-ietf-cat-sasl-gssapi-05.txt \
-		draft-myers-saslrev-01.txt \
-		draft-sasl-login.txt \
+		server-plugin-flow.fig \
+		draft-burdis-cat-srp-sasl-08.txt \
+		draft-ietf-sasl-anon-02.txt \
+		draft-ietf-sasl-crammd5-01.txt \
+		draft-ietf-sasl-gssapi-00.txt \
+		draft-ietf-sasl-plain-03.txt \
+		draft-ietf-sasl-rfc2222bis-03.txt \
+		draft-ietf-sasl-rfc2831bis-02.txt \
+		draft-ietf-sasl-saslprep-04.txt \
+		draft-murchison-sasl-login-00.txt \
+		draft-newman-sasl-c-api-01.txt \
 		programming.html \
 		sysadmin.html \
 		gssapi.html \
@@ -69,9 +76,13 @@ EXTRA_DIST =	rfc1321.txt \
 		plugprog.html \
 		appconvert.html \
 		macosx.html \
+		windows.html \
 		readme.html \
+		mechanisms.html \
 		upgrading.html \
 		index.html \
+		components.html \
 		install.html \
 		TODO \
-		ONEWS
+		ONEWS \
+		NTMakefile

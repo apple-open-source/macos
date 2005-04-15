@@ -4,7 +4,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -48,12 +48,13 @@
 #include <kglobal.h>
 #include <qtimer.h>
 #include <qpainter.h>
+#include "qdict.h"
 
 using namespace khtml;
 using namespace DOM;
 
 RenderFrameSet::RenderFrameSet( HTMLFrameSetElementImpl *frameSet)
-    : RenderBox(frameSet)
+    : RenderContainer(frameSet)
 {
   // init RenderObject attributes
     setInline(false);
@@ -86,13 +87,14 @@ RenderFrameSet::~RenderFrameSet()
 }
 
 bool RenderFrameSet::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
-                                 HitTestAction hitTestAction, bool inside)
+                                 HitTestAction hitTestAction)
 {
-    RenderBox::nodeAtPoint(info, _x, _y, _tx, _ty, hitTestAction, inside);
+    if (hitTestAction != HitTestForeground)
+        return false;
 
-    inside = m_resizing || canResize(_x, _y);
-
-    if ( inside && element() && !element()->noResize() && !info.readonly()){
+    bool inside = RenderContainer::nodeAtPoint(info, _x, _y, _tx, _ty, hitTestAction) || 
+                  m_resizing || canResize(_x, _y);
+    if (inside && element() && !element()->noResize() && !info.readonly() && !info.innerNode()) {
         info.setInnerNode(element());
         info.setInnerNonSharedNode(element());
     }
@@ -154,7 +156,7 @@ void RenderFrameSet::layout( )
         if (grid) {
             // first distribute the available width for fixed rows, then handle the
             // percentage ones and distribute remaining over relative
-            for(int i = 0; i< gridLen; ++i)
+            for(int i = 0; i< gridLen; ++i) {
                 if (grid[i].isFixed()) {
                     gridLayout[i] = kMin(grid[i].value > 0 ? grid[i].value : 0, remainingLen[k]);
                     remainingLen[k] -= gridLayout[i];
@@ -164,13 +166,20 @@ void RenderFrameSet::layout( )
                     totalRelative += grid[i].value > 1 ? grid[i].value : 1;
                     countRelative++;
                 }
-
-            for(int i = 0; i < gridLen; i++)
-                if(grid[i].isPercent()) {
-                    gridLayout[i] = kMin(kMax(grid[i].width(availableLen[k]), 0), remainingLen[k]);
-                    remainingLen[k] -= gridLayout[i];
-                    totalPercent += grid[i].value;
+                else if (grid[i].isPercent()) {
+                    totalPercent += grid[i].value >= 0 ? grid[i].value : 0;
                     countPercent++;
+                }
+            }
+
+            int currPercent = totalPercent;
+            int percentLen = (countRelative && currPercent < 100) ? currPercent * remainingLen[k] / 100 : remainingLen[k];
+            for(int i = 0; i < gridLen; i++)
+                if (grid[i].isPercent() && grid[i].value >= 0 && currPercent) {
+                    gridLayout[i] = grid[i].value * percentLen / currPercent;
+                    remainingLen[k] -= gridLayout[i];
+                    percentLen -= gridLayout[i];
+                    currPercent -= grid[i].value;
                 }
 
             assert(remainingLen[k] >= 0);
@@ -218,7 +227,7 @@ void RenderFrameSet::layout( )
 
     RenderObject *child = firstChild();
     if ( !child )
-      return;
+	goto end2;
 
     if(!m_hSplitVar && !m_vSplitVar)
     {
@@ -550,7 +559,7 @@ void RenderFrameSet::dump(QTextStream *stream, QString ind) const
   for (i = 0; i < (uint)element()->totalCols(); i++)
     *stream << " vSplitvar(" << i << ")=" << m_vSplitVar[i];
 
-  RenderBox::dump(stream,ind);
+  RenderContainer::dump(stream,ind);
 }
 #endif
 
@@ -565,7 +574,7 @@ RenderPart::RenderPart(DOM::HTMLElementImpl* node)
 
 RenderPart::~RenderPart()
 {
-    if(m_widget->inherits("KHTMLView")) {
+    if (m_widget && m_widget->inherits("KHTMLView")) {
 	static_cast<KHTMLView *>(m_widget)->deref();
     }
 }
@@ -580,11 +589,11 @@ void RenderPart::setWidget( QWidget *widget )
 	return;
     }
 
-    if(m_widget->inherits("KHTMLView")) {
+    if (m_widget && m_widget->inherits("KHTMLView")) {
 	static_cast<KHTMLView *>(m_widget)->deref();
     }
     
-    if(widget->inherits("KHTMLView")) {	
+    if (widget && widget->inherits("KHTMLView")) {	
 	static_cast<KHTMLView *>(widget)->ref();
 	setQWidget( widget, false );
 	connect( widget, SIGNAL( cleared() ), this, SLOT( slotViewCleared() ) );
@@ -603,7 +612,7 @@ bool RenderPart::partLoadingErrorNotify(khtml::ChildFrame *, const KURL& , const
     return false;
 }
 
-short RenderPart::intrinsicWidth() const
+int RenderPart::intrinsicWidth() const
 {
   // KDE may need a non-zero width here, although this will mess up pages (e.g., thinker.org).
 #if APPLE_CHANGES
@@ -637,7 +646,7 @@ RenderFrame::RenderFrame( DOM::HTMLFrameElementImpl *frame )
 
 void RenderFrame::slotViewCleared()
 {
-    if(element() && m_widget->inherits("QScrollView")) {
+    if (element() && m_widget && m_widget->inherits("QScrollView")) {
 #ifdef DEBUG_LAYOUT
         kdDebug(6031) << "frame is a scrollview!" << endl;
 #endif
@@ -678,7 +687,8 @@ void RenderPartObject::updateWidget()
 {
   QString url;
   QString serviceType;
-  QStringList params;
+  QStringList paramNames;
+  QStringList paramValues;
   KHTMLPart *part = m_view->part();
 
   setNeedsLayoutAndMinMaxRecalc();
@@ -689,10 +699,14 @@ void RenderPartObject::updateWidget()
 
       // Check for a child EMBED tag.
       HTMLEmbedElementImpl *embed = 0;
-      for (NodeImpl *child = o->firstChild(); child; child = child->nextSibling()) {
+      for (NodeImpl *child = o->firstChild(); child; ) {
           if (child->id() == ID_EMBED) {
               embed = static_cast<HTMLEmbedElementImpl *>( child );
               break;
+          } else if (child->id() == ID_OBJECT) {
+              child = child->nextSibling();         // Don't descend into nested OBJECT tags
+          } else {
+              child = child->traverseNextNode(o);   // Otherwise descend (EMBEDs may be inside COMMENT tags)
           }
       }
       
@@ -702,11 +716,11 @@ void RenderPartObject::updateWidget()
           embedOrObject = (HTMLElementImpl *)embed;
           DOMString attribute = embedOrObject->getAttribute(ATTR_WIDTH);
           if (!attribute.isEmpty()) {
-              o->addCSSLength(CSS_PROP_WIDTH, attribute);
+              o->setAttribute(ATTR_WIDTH, attribute);
           }
           attribute = embedOrObject->getAttribute(ATTR_HEIGHT);
           if (!attribute.isEmpty()) {
-              o->addCSSLength(CSS_PROP_HEIGHT, attribute);
+              o->setAttribute(ATTR_HEIGHT, attribute);
           }
           url = embed->url;
           serviceType = embed->serviceType;
@@ -722,39 +736,77 @@ void RenderPartObject::updateWidget()
           serviceType = o->serviceType;
       }
       
-      // Then try the PARAM tags for the URL and type attributes.
+      QDict<bool> uniqueParamNames(5, false);
+      
+      // Scan the PARAM children.
+      // Get the URL and type from the params if we don't already have them.
+      // Get the attributes from the params if there is no EMBED tag.
       NodeImpl *child = o->firstChild();
-      while (child && (url.isEmpty() || serviceType.isEmpty())) {
+      while (child && (url.isEmpty() || serviceType.isEmpty() || !embed)) {
           if (child->id() == ID_PARAM) {
               HTMLParamElementImpl *p = static_cast<HTMLParamElementImpl *>( child );
               QString name = p->name().lower();
-              if (url.isEmpty() && (name == "src" || name == "movie"|| name == "code")) {
+              if (url.isEmpty() && (name == "src" || name == "movie" || name == "code" || name == "url")) {
                   url = p->value();
               }
               if (serviceType.isEmpty() && name == "type") {
                   serviceType = p->value();
+                  int pos = serviceType.find( ";" );
+                  if (pos != -1) {
+                      serviceType = serviceType.left(pos);
+                  }
               }
-              
+              if (!embed) {
+                  bool dummyValue = true;
+                  uniqueParamNames.insert(p->name(), &dummyValue);
+                  paramNames.append(p->name());
+                  paramValues.append(p->value());
+              }
           }
           child = child->nextSibling();
       }
       
-      // Lastly try to map a specific CLASSID to a type.
+      // When OBJECT is used for an applet via Sun's Java plugin, the CODEBASE attribute in the tag
+      // points to the Java plugin itself (an ActiveX component) while the actual applet CODEBASE is
+      // in a PARAM tag. See <http://java.sun.com/products/plugin/1.2/docs/tags.html>. This means
+      // we have to explicitly suppress the tag's CODEBASE attribute if there is none in a PARAM,
+      // else our Java plugin will misinterpret it. [4004531]
+      if (!embed && serviceType.lower() == "application/x-java-applet") {
+          bool dummyValue = true;
+          uniqueParamNames.insert("codebase", &dummyValue); // pretend we found it in a PARAM already
+      }
+      
+      // Turn the attributes of either the EMBED tag or OBJECT tag into arrays, but don't override PARAM values.
+      NamedAttrMapImpl* attributes = embedOrObject->attributes();
+      if (attributes) {
+          for (unsigned long i = 0; i < attributes->length(); ++i) {
+              AttributeImpl* it = attributes->attributeItem(i);
+              QString name = o->getDocument()->attrName(it->id()).string();
+              if (embed || uniqueParamNames.find(name) == 0) {
+                  paramNames.append(name);
+                  paramValues.append(it->value().string());
+              }
+          }
+      }
+      
+      // If we still don't have a type, try to map from a specific CLASSID to a type.
       if (serviceType.isEmpty() && !o->classId.isEmpty()) {
+          // It is ActiveX, but the nsplugin system handling
+          // should also work, that's why we don't override the
+          // serviceType with application/x-activex-handler
+          // but let the KTrader in khtmlpart::createPart() detect
+          // the user's preference: launch with activex viewer or
+          // with nspluginviewer (Niko)          
           if (o->classId.contains("D27CDB6E-AE6D-11cf-96B8-444553540000")) {
-              // It is ActiveX, but the nsplugin system handling
-              // should also work, that's why we don't override the
-              // serviceType with application/x-activex-handler
-              // but let the KTrader in khtmlpart::createPart() detect
-              // the user's preference: launch with activex viewer or
-              // with nspluginviewer (Niko)
               serviceType = "application/x-shockwave-flash";
-          } else if(o->classId.contains("CFCDAA03-8BE4-11cf-B84B-0020AFBBCCFA")) {
+          } else if (o->classId.contains("CFCDAA03-8BE4-11cf-B84B-0020AFBBCCFA")) {
               serviceType = "audio/x-pn-realaudio-plugin";
-          } else if(o->classId.contains("02BF25D5-8C17-4B23-BC80-D3488ABDDC6B")) {
+          } else if (o->classId.contains("02BF25D5-8C17-4B23-BC80-D3488ABDDC6B")) {
               serviceType = "video/quicktime";
-          } else if(o->classId.contains("166B1BCA-3F9C-11CF-8075-444553540000")) {
+          } else if (o->classId.contains("166B1BCA-3F9C-11CF-8075-444553540000")) {
               serviceType = "application/x-director";
+          } else if (o->classId.contains("6BF52A52-394A-11d3-B153-00C04F79FAA6")) {
+              serviceType = "application/x-mplayer2";
           } else {
               // We have a clsid, means this is activex (Niko)
               serviceType = "application/x-activex-handler";
@@ -769,20 +821,17 @@ void RenderPartObject::updateWidget()
 #endif
           return;
       }
-      
-      // Turn the attributes of either the EMBED tag or OBJECT tag into an array.
-      NamedAttrMapImpl* attributes = embedOrObject->attributes();
-      if (attributes) {
-          for (unsigned long i = 0; i < attributes->length(); ++i) {
-              AttributeImpl* it = attributes->attributeItem(i);
-              params.append(o->getDocument()->attrName(it->id()).string() + "=\"" + it->value().string() + "\"");
-          }
+      // Avoid infinite recursion. If the plug-in's URL is the same as the part's URL, infinite frames may be created.
+      if (!url.isEmpty() && part->completeURL(url) == part->baseURL()) {
+          return;
       }
-      
+            
+#if !APPLE_CHANGES      
       params.append( QString::fromLatin1("__KHTML__CLASSID=\"%1\"").arg( o->classId ) );
       params.append( QString::fromLatin1("__KHTML__CODEBASE=\"%1\"").arg( o->getAttribute(ATTR_CODEBASE).string() ) );
-      
-      part->requestObject( this, url, serviceType, params );
+#endif
+
+      part->requestObject( this, url, serviceType, paramNames, paramValues );
   } else if ( element()->id() == ID_EMBED ) {
 
       HTMLEmbedElementImpl *o = static_cast<HTMLEmbedElementImpl *>(element());
@@ -795,23 +844,29 @@ void RenderPartObject::updateWidget()
 #endif
           return;
       }
+      // Avoid infinite recursion. If the plug-in's URL is the same as the part's URL, infinite frames may be created.
+      if (!url.isEmpty() && part->completeURL(url) == part->baseURL()) {
+          return;
+      }
       // add all attributes set on the embed object
       NamedAttrMapImpl* a = o->attributes();
       if (a) {
           for (unsigned long i = 0; i < a->length(); ++i) {
               AttributeImpl* it = a->attributeItem(i);
-              params.append(o->getDocument()->attrName(it->id()).string() + "=\"" + it->value().string() + "\"");
+              paramNames.append(o->getDocument()->attrName(it->id()).string());
+              paramValues.append(it->value().string());
           }
       }
-      part->requestObject( this, url, serviceType, params );
+      part->requestObject( this, url, serviceType, paramNames, paramValues );
   } else {
       assert(element()->id() == ID_IFRAME);
       HTMLIFrameElementImpl *o = static_cast<HTMLIFrameElementImpl *>(element());
       url = o->url.string();
-      if (url.isEmpty())
+      if (url.isEmpty()) {
 	  url = "about:blank";
+      }
       KHTMLView *v = static_cast<KHTMLView *>(m_view);
-      bool requestSucceeded = v->part()->requestFrame( this, url, o->name.string(), QStringList(), true );
+      bool requestSucceeded = v->part()->requestFrame( this, url, o->name.string(), QStringList(), QStringList(), true );
       if (requestSucceeded && url == "about:blank") {
 	  KHTMLPart *newPart = v->part()->findFrame( o->name.string() );
 	  if (newPart && newPart->xmlDocImpl()) {
@@ -819,14 +874,6 @@ void RenderPartObject::updateWidget()
 	  }
       }
   }
-}
-
-// ugly..
-void RenderPartObject::close()
-{
-    if ( element()->id() == ID_OBJECT )
-        updateWidget();
-    RenderPart::close();
 }
 
 bool RenderPartObject::partLoadingErrorNotify( khtml::ChildFrame *childFrame, const KURL& url, const QString& serviceType )
@@ -923,7 +970,7 @@ void RenderPartObject::layout( )
     KHTMLAssert( minMaxKnown() );
 
 #if !APPLE_CHANGES
-    short m_oldwidth = m_width;
+    int m_oldwidth = m_width;
     int m_oldheight = m_height;
 #endif
 
@@ -937,7 +984,7 @@ void RenderPartObject::layout( )
 
 void RenderPartObject::slotViewCleared()
 {
-  if(element() && m_widget->inherits("QScrollView") ) {
+  if(element() && m_widget && m_widget->inherits("QScrollView") ) {
 #ifdef DEBUG_LAYOUT
       kdDebug(6031) << "iframe is a scrollview!" << endl;
 #endif
@@ -998,7 +1045,7 @@ void RenderPart::updateWidgetPositions()
         
         QScrollView *view = static_cast<QScrollView *>(m_widget);
         if (view && view->inherits("KHTMLView"))
-            static_cast<KHTMLView*>(view)->scheduleRelayout();
+            static_cast<KHTMLView*>(view)->layout();
     }
 }
 #endif

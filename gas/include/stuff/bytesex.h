@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2004, Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, Apple Computer, Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,19 +33,24 @@
 #define __private_extern__ __declspec(private_extern)
 #endif
 
-#import <mach-o/fat.h>
-#import <mach-o/loader.h>
-#import <mach/m68k/thread_status.h>
-#import <mach/ppc/thread_status.h>
-#import <mach/m88k/thread_status.h>
-#import <mach/i860/thread_status.h>
-#import <mach/i386/thread_status.h>
-#import <mach/hppa/thread_status.h>
-#import <mach/sparc/thread_status.h>
-#import <mach-o/nlist.h>
-#import <mach-o/reloc.h>
-#import <mach-o/ranlib.h>
-#import "stuff/bool.h"
+#include "stuff/target_arch.h"
+#include <mach-o/fat.h>
+#include <mach-o/loader.h>
+#include <mach/m68k/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#include <mach/ppc/thread_status.h>
+#undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#include <mach/m88k/thread_status.h>
+#include <mach/i860/thread_status.h>
+#include <mach/i386/thread_status.h>
+#include <mach/hppa/thread_status.h>
+#include <mach/sparc/thread_status.h>
+#include <mach-o/nlist.h>
+#include <mach-o/reloc.h>
+#include <mach-o/ranlib.h>
+#include "stuff/bool.h"
 
 enum byte_sex {
     UNKNOWN_BYTE_SEX,
@@ -59,6 +64,9 @@ enum byte_sex {
 		      (((a) << 8) & 0x00ff0000) | \
 		      (((a) >> 8) & 0x0000ff00) | \
 	((unsigned long)(a) >> 24) )
+
+__private_extern__ long long SWAP_LONG_LONG(
+    long long ll);
 
 __private_extern__ float SWAP_FLOAT(
     float f);
@@ -82,6 +90,10 @@ __private_extern__ void swap_mach_header(
     struct mach_header *mh,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_mach_header_64(
+    struct mach_header_64 *mh,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_load_command(
     struct load_command *lc,
     enum byte_sex target_byte_sex);
@@ -90,8 +102,17 @@ __private_extern__ void swap_segment_command(
     struct segment_command *sg,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_segment_command_64(
+    struct segment_command_64 *sg,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_section(
     struct section *s,
+    unsigned long nsects,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_section_64(
+    struct section_64 *s,
     unsigned long nsects,
     enum byte_sex target_byte_sex);
 
@@ -161,6 +182,10 @@ __private_extern__ void swap_m68k_thread_state_user_reg(
 
 __private_extern__ void swap_ppc_thread_state_t(
     ppc_thread_state_t *cpu,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_ppc_thread_state64_t(
+    ppc_thread_state64_t *cpu,
     enum byte_sex target_byte_sex);
 
 __private_extern__ void swap_ppc_float_state_t(
@@ -235,6 +260,10 @@ __private_extern__ void swap_routines_command(
     struct routines_command *r_cmd,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_routines_command_64(
+    struct routines_command_64 *r_cmd,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_twolevel_hints_command(
     struct twolevel_hints_command *hints_cmd,
     enum byte_sex target_byte_sex);
@@ -245,6 +274,11 @@ __private_extern__ void swap_prebind_cksum_command(
 
 __private_extern__ void swap_nlist(
     struct nlist *symbols,
+    unsigned long nsymbols,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_nlist_64(
+    struct nlist_64 *symbols,
     unsigned long nsymbols,
     enum byte_sex target_byte_sex);
 
@@ -273,6 +307,11 @@ __private_extern__ void swap_dylib_module(
     unsigned long nmods,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_dylib_module_64(
+    struct dylib_module_64 *mods,
+    unsigned long nmods,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_dylib_table_of_contents(
     struct dylib_table_of_contents *tocs,
     unsigned long ntocs,
@@ -290,7 +329,7 @@ __private_extern__ void swap_twolevel_hint(
  * using the error() routine.
  */
 __private_extern__ enum bool swap_object_headers(
-    struct mach_header *mh,
+    void *mach_header, /* either a mach_header or a mach_header_64 */
     struct load_command *load_commands);
 
 /*

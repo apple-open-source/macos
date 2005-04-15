@@ -1,12 +1,12 @@
 /*
  * Mar  8, 2000 by Hajimu UMEMOTO <ume@mahoroba.org>
- * $Id: getaddrinfo.c,v 1.2 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: getaddrinfo.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  *
- * This module is besed on ssh-1.2.27-IPv6-1.5 written by
+ * This module is based on ssh-1.2.27-IPv6-1.5 written by
  * KIKUCHI Takahiro <kick@kyoto.wide.ad.jp>
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,14 +59,38 @@
  */
 
 #include "config.h"
-#ifndef macintosh
+#ifndef WIN32
 #include <sys/param.h>
-#include <arpa/inet.h>
-#endif
+# ifndef macintosh
+#  include <arpa/inet.h>
+# endif /* macintosh */
+#endif /* WIN32 */
 #include <ctype.h>
 
+#ifdef WIN32
+/* : Windows socket library is missing inet_aton, emulate it with
+   : inet_addr. inet_aton return 0 if the address is uncorrect, a non zero
+   : value otherwise */
+int
+inet_aton (const char *cp, struct in_addr *inp)
+{
+    if (cp == NULL || inp == NULL) {
+	return (0);
+    }
+
+    /* : handle special case */
+    if (strcmp (cp, "255.255.255.255") == 0) {
+	inp->s_addr = (unsigned int) 0xFFFFFFFF;
+	return (1);
+    }
+
+    inp->s_addr = inet_addr (cp);
+    return (1);
+}
+#endif /* WIN32 */
+
 static struct addrinfo *
-malloc_ai(int port, u_long addr, int socktype, int proto)
+malloc_ai(int port, unsigned long addr, int socktype, int proto)
 {
     struct addrinfo *ai;
 
@@ -152,7 +176,7 @@ getaddrinfo(const char *hostname, const char *servname,
     }
     if (servname) {
 	if (isdigit((int)*servname))
-	    port = htons(atoi(servname));
+	    port = htons((short) atoi(servname));
 	else {
 	    struct servent *se;
 	    char *pe_proto;
@@ -168,6 +192,7 @@ getaddrinfo(const char *hostname, const char *servname,
 		pe_proto = NULL;
 		break;
 	    }
+	    /* xxx thread safety ? */
 	    if ((se = getservbyname(servname, pe_proto)) == NULL)
 		return EAI_SERVICE;
 	    port = se->s_port;
@@ -183,7 +208,12 @@ getaddrinfo(const char *hostname, const char *servname,
         else
 	    return EAI_MEMORY;
     }
-    if (inet_aton(hostname, &in)) {
+#if HAVE_INET_ATON
+    if (inet_aton(hostname, &in))
+#else
+    if ((in.s_addr = inet_addr(hostname)) != -1)
+#endif
+    {
 	*res = malloc_ai(port, in.s_addr, socktype, proto);
 	if (*res)
 	    return 0;
@@ -193,6 +223,7 @@ getaddrinfo(const char *hostname, const char *servname,
     if (hints && hints->ai_flags & AI_NUMERICHOST)
 	return EAI_NODATA;
 #ifndef macintosh
+    /* xxx thread safety? / gethostbyname_r */
     if ((hp = gethostbyname(hostname)) &&
 	hp->h_name && hp->h_name[0] && hp->h_addr_list[0]) {
 	for (i = 0; hp->h_addr_list[i]; i++) {

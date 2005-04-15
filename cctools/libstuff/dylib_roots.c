@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
@@ -219,6 +220,7 @@ void *cookie)
     unsigned long i;
     struct check_block *block;
     struct load_command *lc;
+    uint32_t ncmds;
 
 #ifdef BIG_DEBUG
 	printf("In check_for_dylib() ofile->file_name = %s",
@@ -230,13 +232,17 @@ void *cookie)
 #endif /* BIG_DEBUG */
 
 	block = (struct check_block *)cookie;
-	if(ofile->mh == NULL){
+        if(ofile->mh != NULL){
+	    ncmds = ofile->mh->ncmds;
+	} else if (ofile->mh64 != NULL) {
+	    ncmds = ofile->mh64->ncmds;
+	} else {
 	    block->check_result = FALSE;
 	    return;
 	}
 
 	lc = ofile->load_commands;
-	for(i = 0; i < ofile->mh->ncmds; i++){
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_ID_DYLIB){
 		return;
 	    }
@@ -245,3 +251,4 @@ void *cookie)
 	block->check_result = FALSE;
 	return;
 }
+#endif /* !defined(RLD) */

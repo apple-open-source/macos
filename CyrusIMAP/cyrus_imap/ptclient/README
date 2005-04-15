@@ -1,0 +1,13 @@
+$Id: README,v 1.5 2003/10/22 18:50:29 rjs3 Exp $
+
+This directory contains support programs for various protection database
+authorization modules (ptloader for AFS PTS groups, and hopefully an ldaploader
+soon).
+
+This code links against the rest of the cyrus libraries.
+
+The files to care about:
+
+ptloader: the AFS pts server loader service
+ptexpire: program to expire pts entries on command
+ptdump: program to dump the current cache

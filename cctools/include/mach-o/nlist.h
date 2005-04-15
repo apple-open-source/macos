@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
  * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
@@ -63,23 +63,40 @@
  *
  *	@(#)nlist.h	8.2 (Berkeley) 1/21/94
  */
+#include <stdint.h>
 
 /*
- * Format of a symbol table entry of a Mach-O file.  Modified from the BSD
- * format.  The modifications from the original format were changing n_other
- * (an unused field) to n_sect and the addition of the N_SECT type.  These
- * modifications are required to support symbols in an arbitrary number of
- * sections not just the three sections (text, data and bss) in a BSD file.
+ * Format of a symbol table entry of a Mach-O file for 32-bit architectures.
+ * Modified from the BSD format.  The modifications from the original format
+ * were changing n_other (an unused field) to n_sect and the addition of the
+ * N_SECT type.  These modifications are required to support symbols in a larger
+ * number of sections not just the three sections (text, data and bss) in a BSD
+ * file.
  */
 struct nlist {
 	union {
+#ifndef __LP64__
 		char *n_name;	/* for use when in-core */
-		long  n_strx;	/* index into the string table */
+#endif
+		int32_t n_strx;	/* index into the string table */
 	} n_un;
-	unsigned char n_type;	/* type flag, see below */
-	unsigned char n_sect;	/* section number or NO_SECT */
-	short	      n_desc;	/* see <mach-o/stab.h> */
-	unsigned long n_value;	/* value of this symbol (or stab offset) */
+	uint8_t n_type;		/* type flag, see below */
+	uint8_t n_sect;		/* section number or NO_SECT */
+	int16_t n_desc;		/* see <mach-o/stab.h> */
+	uint32_t n_value;	/* value of this symbol (or stab offset) */
+};
+
+/*
+ * This is the symbol table entry structure for 64-bit architectures.
+ */
+struct nlist_64 {
+    union {
+        uint32_t  n_strx; /* index into the string table */
+    } n_un;
+    uint8_t n_type;        /* type flag, see below */
+    uint8_t n_sect;        /* section number or NO_SECT */
+    uint16_t n_desc;       /* see <mach-o/stab.h> */
+    uint64_t n_value;      /* value of this symbol (or stab offset) */
 };
 
 /*
@@ -218,8 +235,21 @@ struct nlist {
 #define EXECUTABLE_ORDINAL 0xff
 
 /*
- * The N_DESC_DISCARDED bit of the n_desc field never appears in an object file
- * but is used in very rare cases by the dynamic link editor.
+ * The bit 0x0020 of the n_desc field is used for two non-overlapping purposes
+ * and has two different symbolic names, N_NO_DEAD_STRIP and N_DESC_DISCARDED.
+ */
+
+/*
+ * The N_NO_DEAD_STRIP bit of the n_desc field only ever appears in a 
+ * relocatable .o file (MH_OBJECT filetype). And is used to indicate to the
+ * static link editor it is never to dead strip the symbol.
+ */
+#define N_NO_DEAD_STRIP 0x0020 /* symbol is not to be dead stripped */
+
+/*
+ * The N_DESC_DISCARDED bit of the n_desc field never appears in linked image.
+ * But is used in very rare cases by the dynamic link editor to mark an in
+ * memory symbol as discared and longer used for linking.
  */
 #define N_DESC_DISCARDED 0x0020	/* symbol is discarded */
 
@@ -237,6 +267,12 @@ struct nlist {
  * is only supported for symbols in coalesed sections.
  */
 #define N_WEAK_DEF	0x0080 /* coalesed symbol is a weak definition */
+
+/*
+ * The N_REF_TO_WEAK bit of the n_desc field indicates to the dynamic linker
+ * that the undefined symbol should be resolved using flat namespace searching.
+ */
+#define	N_REF_TO_WEAK	0x0080 /* reference to a weak symbol */
 
 #ifndef __STRICT_BSD__
 /*

@@ -260,7 +260,7 @@ void
 md_begin(
 void)
 {
-  char * hash_err;
+  const char * hash_err;
 
   obstack_begin (&o,4096);
 
@@ -442,6 +442,8 @@ template *t)
     pt (t->operand_types[i]);
     fprintf (stdout, "\n");
   }
+  if (t->opcode_suffix != 0)
+    fprintf(stdout, "opcode suffix %x\n", t->opcode_suffix);
 }
 
 static char *seg_names[] = {
@@ -1578,6 +1580,12 @@ string_instruction_bad_match:
 	  }
 	}
       }				/* end immediate output */
+         
+         /* output suffix (3DNow! only) */
+         if (t->opcode_suffix != 0) {
+           p = frag_more(1);
+           *p = t->opcode_suffix & 0xff;
+         }
     }
 
 #ifdef DEBUG386
@@ -2109,7 +2117,7 @@ char ***vecP)
 void				/* Knows about order of bytes in address. */
 md_number_to_chars(
 char *con,		/* Return 'nbytes' of chars here. */
-long value,		/* The value of the bits. */
+signed_target_addr_t value,	/* The value of the bits. */
 int nbytes)		/* Number of bytes in the output. */
 {
   register char * p = con;
@@ -2137,7 +2145,7 @@ int nbytes)		/* Number of bytes in the output. */
 void				/* Knows about order of bytes in address. */
 md_number_to_imm(
 unsigned char *con,	/* Return 'nbytes' of chars here. */
-long value,		/* The value of the bits. */
+signed_target_addr_t value,	/* The value of the bits. */
 int nbytes,		/* Number of bytes in the output. */
 fixS *fixP,
 int nsect)

@@ -2,24 +2,23 @@
  * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
+ *
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*      @(#)ui.c      *
@@ -41,6 +40,7 @@
 #include <unistd.h>
 #include <UNCUserNotification.h>
 #include <CoreFoundation/CoreFoundation.h>
+/* #include <CoreFoundation/CFStringDefaultEncoding.h> */
 #include <Security/SecKeychainAPI.h>
 
 /* hide keychain redundancy and complexity */
@@ -83,6 +83,7 @@
 
 #define SMB_AUTH_TIMEOUT 300
 
+extern uid_t real_uid, eff_uid;
 
 static void
 smb_tty_prompt(char *prmpt, char *buf, size_t buflen)
@@ -179,18 +180,82 @@ smb_save2keychain(struct smb_ctx *ctx)
 		smb_error("add null to keychain error %d", 0, err);
 }
 
+static void
+GetSystemEncoding(CFStringEncoding *encoding,UInt32 *region_not_US )
+
+{
+
+        /* need to parse out the encoding from /var/root/.CFUserTextEncoding */
+
+        FILE *fp;
+
+        char buf[1024];
+
+        *region_not_US = 0; /* 0 = US region 1 = other */
+
+        *encoding = 0;
+
+        seteuid(eff_uid);
+        fp = fopen("/var/root/.CFUserTextEncoding","r");
+
+        if (fp == NULL) {
+
+                smb_error( "GetSystemEncoding: Could not open config file, return 0 (MacRoman)",
+                        -1,"/var/root/.CFUserTextEncoding");
+
+                seteuid(real_uid);
+                return; /* both encoding and region are 0 by default */
+
+        }
+
+        seteuid(real_uid);
+
+        if ( fgets(buf,sizeof(buf),fp) != NULL) {
+
+                int i = 0;
+
+                /* null or eof terminates */
+                while ( buf[i] != '\0' && buf[i] != 0x0a && buf[i] != ':' )
+
+                i++;
+
+                if (buf[i] == ':')
+                        /* not a terminating char? */
+                        if (buf[i+1] != '0')
+                                *region_not_US = 1; /* not US region */
+
+                buf[i] = '\0';
+
+                char* endPtr = NULL;
+
+                *encoding = strtol(buf,&endPtr,10);
+        }
+
+        fclose(fp);
+
+
+        return;
+
+}
+
 static CFStringEncoding
 get_windows_encoding_equivalent( void )
 {
-        
-        CFStringEncoding encoding = CFStringGetSystemEncoding();          
-        
+       
+        CFStringEncoding encoding;
+        UInt32 region_not_US;
+
+        GetSystemEncoding(&encoding,&region_not_US);
+
         switch ( encoding )
         {
-                case	kCFStringEncodingMacRoman:
-                        encoding = kCFStringEncodingDOSLatin1;
+                case    kCFStringEncodingMacRoman:
+                        if (region_not_US) /* not US */
+                                encoding = kCFStringEncodingDOSLatin1;
+                        else /* US region */
+                                encoding = kCFStringEncodingDOSLatinUS;
                         break;
-                        
+
                 case	kCFStringEncodingMacJapanese:
                         encoding = kCFStringEncodingDOSJapanese;
                         break;

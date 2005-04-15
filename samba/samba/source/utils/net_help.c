@@ -19,7 +19,7 @@
 */
 
 #include "includes.h"
-#include "../utils/net.h"
+#include "utils/net.h"
 
 int net_common_methods_usage(int argc, const char**argv)
 {
@@ -121,14 +121,35 @@ int net_help_share(int argc, const char **argv)
 	 "\tenumerates all exported resources (network shares) "
 	 "on target server\n\n"
 	 "net [<method>] share ADD <name=serverpath> [misc. options] [targets]"
-	 "\n\tAdds a share from a server (makes the export active)\n\n"
-	 "net [<method>] share DELETE <sharename> [misc. options] [targets]\n"
-	 "\n\tDeletes a share from a server (makes the export inactive)\n");
+	"\n\tadds a share from a server (makes the export active)\n\n"
+	"net [<method>] share DELETE <sharename> [misc. options] [targets]"
+	"\n\tdeletes a share from a server (makes the export inactive)\n\n"
+	"net [<method>] share ALLOWEDUSERS [<filename>] "
+	"[misc. options] [targets]"
+	"\n\tshows a list of all shares together with all users allowed to"
+	"\n\taccess them. This needs the output of 'net usersidlist' on"
+	"\n\tstdin or in <filename>.\n"
+	 "net [<method>] share MIGRATE FILES <sharename> [misc. options] [targets]"
+	 "\n\tMigrates files from remote to local server\n\n"
+	 "net [<method>] share MIGRATE SHARES <sharename> [misc. options] [targets]"
+	 "\n\tMigrates shares from remote to local server\n\n"
+/*	 "net [<method>] share MIGRATE SECURITY <sharename> [misc. options] [targets]"
+	 "\n\tMigrates share-ACLs from remote to local server\n\n" */
+	 "net [<method>] share MIGRATE ALL <sharename> [misc. options] [targets]"
+	 "\n\tMigrates shares (including directories, files) from remote\n"
+	 "\tto local server\n\n"
+	);
 	net_common_methods_usage(argc, argv);
 	net_common_flags_usage(argc, argv);
 	d_printf(
 	 "\t-C or --comment=<comment>\tdescriptive comment (for add only)\n"
-	 "\t-M or --maxusers=<num>\t\tmax users allowed for share\n");
+	 "\t-M or --maxusers=<num>\t\tmax users allowed for share\n"
+	 "\t      --acls\t\t\tcopies ACLs as well\n"
+	 "\t      --attrs\t\t\tcopies DOS Attributes as well\n"
+	 "\t      --timestampes\t\tpreserve timestampes while copying files\n"
+	 "\t      --destination\t\tmigration target server (default: localhost)\n"
+	 "\t-e or --exclude\t\t\tlist of shares to be excluded from mirroring\n"
+	 "\t-v or --verbose\t\t\tgive verbose output\n");
 	return -1;
 }
 
@@ -148,6 +169,38 @@ int net_help_file(int argc, const char **argv)
 	net_common_flags_usage(argc, argv);
 	return -1;
 }
+
+int net_help_printer(int argc, const char **argv)
+{
+	d_printf("net rpc printer LIST [printer] [misc. options] [targets]\n"\
+		 "\tlists all printers on print-server\n\n");
+	d_printf("net rpc printer DRIVER [printer] [misc. options] [targets]\n"\
+		 "\tlists all printer-drivers on print-server\n\n");
+	d_printf("net rpc printer PUBLISH action [printer] [misc. options] [targets]\n"\
+		 "\tpublishes printer settings in Active Directory\n"
+		 "\taction can be one of PUBLISH, UPDATE, UNPUBLISH or LIST\n\n");
+	d_printf("net rpc printer MIGRATE PRINTERS [printer] [misc. options] [targets]"\
+		 "\n\tmigrates printers from remote to local server\n\n");
+	d_printf("net rpc printer MIGRATE SETTINGS [printer] [misc. options] [targets]"\
+		 "\n\tmigrates printer-settings from remote to local server\n\n");
+	d_printf("net rpc printer MIGRATE DRIVERS [printer] [misc. options] [targets]"\
+		 "\n\tmigrates printer-drivers from remote to local server\n\n");
+	d_printf("net rpc printer MIGRATE FORMS [printer] [misc. options] [targets]"\
+		 "\n\tmigrates printer-forms from remote to local server\n\n");
+	d_printf("net rpc printer MIGRATE SECURITY [printer] [misc. options] [targets]"\
+		 "\n\tmigrates printer-ACLs from remote to local server\n\n");
+	d_printf("net rpc printer MIGRATE ALL [printer] [misc. options] [targets]"\
+		 "\n\tmigrates drivers, forms, queues, settings and acls from\n"\
+		 "\tremote to local print-server\n\n");
+	net_common_methods_usage(argc, argv);
+	net_common_flags_usage(argc, argv);
+	d_printf(
+	 "\t-v or --verbose\t\t\tgive verbose output\n"
+	 "\t      --destination\t\tmigration target server (default: localhost)\n");
+
+	return -1;
+}
+
 
 int net_help_status(int argc, const char **argv)
 {
@@ -172,6 +225,7 @@ static int net_usage(int argc, const char **argv)
 		 "  net changesecretpw\tto change the machine password in the local secrets database only\n"\
 		 "                    \tthis requires the -f flag as a safety barrier\n"\
 		 "  net status\t\tShow server status\n"\
+		"  net usersidlist\tto get a list of all users with their SIDs\n"
 		 "\n"\
 		 "  net ads <command>\tto run ADS commands\n"\
 		 "  net rap <command>\tto run RAP (pre-RPC) commands\n"\
@@ -209,6 +263,7 @@ int net_help(int argc, const char **argv)
 		{"PASSWORD", net_rap_password_usage},
 		{"TIME", net_time_usage},
 		{"LOOKUP", net_lookup_usage},
+		{"USERSIDLIST", net_usersidlist_usage},
 #ifdef WITH_FAKE_KASERVER
 		{"AFSKEY", net_afskey_usage},
 #endif

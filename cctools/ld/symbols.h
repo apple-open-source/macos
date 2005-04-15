@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,7 @@
  */
 struct merged_symbol {
     struct nlist nlist;		/* the nlist structure of this merged symbol */
+    unsigned long name_len;	/* the size of the symbol name */
     struct object_file		/* pointer to the object file this symbol is */
 	*definition_object;	/*  defined in */
     struct dynamic_library	/* pointer to the dynamic library this symbol */
@@ -79,7 +80,10 @@ struct merged_symbol {
 	weak_reference_mismatch:1, /* seen both a weak and non-weak reference */
 	define_a_way:1,		   /* set if this symbol was defined as a */
 				   /*  result of -undefined define_a_way */
-	output_index:23;	/* the symbol table index this symbol will */
+	live:1,			   /* TRUE if the symbol is not to be dead */
+				   /*  stripped. */
+	unused:22;
+    unsigned long output_index;	/* the symbol table index this symbol will */
 				/*  have in the output file. */
     int undef_order;		/* if the symbol was undefined the order it */
 				/*  was seen. */
@@ -294,6 +298,12 @@ __private_extern__ struct indr_symbol_pair *indr_symbol_pairs;
 __private_extern__ unsigned long nindr_symbol_pairs;
 
 /*
+ * merged_symbols_relocated is set when the merged symbols are relocated to
+ * have addresses and section numbers as they would in the output file.
+ */
+__private_extern__ enum bool merged_symbols_relocated;
+
+/*
  * The strings in the string table can't start at offset 0 because a symbol with
  * a string offset of zero is defined to have a null "" symbol name.  So the
  * first STRING_SIZE_OFFSET bytes are not used and the first string starts after
@@ -328,6 +338,12 @@ __private_extern__ void free_undefined_list(
 __private_extern__ void define_common_symbols(
     void);
 __private_extern__ void define_undefined_symbols_a_way(
+    void);
+__private_extern__ void mark_globals_live(
+    void);
+__private_extern__ void mark_N_NO_DEAD_STRIP_local_symbols_live(
+    void);
+__private_extern__ void count_live_symbols(
     void);
 __private_extern__ void define_link_editor_execute_symbols(
     unsigned long header_address);

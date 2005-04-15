@@ -59,6 +59,9 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.34.12.2  2005/03/08 03:48:49  collin
+	*** empty log message ***
+	
 	Revision 1.34.12.1  2004/09/13 21:10:12  niels
 	*** empty log message ***
 	
@@ -127,6 +130,14 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // device/unit/nub interfaces (newest first)
 // ============================================================
 
+//
+// version 8
+//
+// kIOFireWireDeviceInterface_v8
+//		uuid: 22A258BB-A859-11D8-AA56-000A95992A78
+#define kIOFireWireDeviceInterfaceID_v8	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0x22, 0xA2, 0x58, 0xBB, 0xA8, 0x59, 0x11, 0xD8, \
+											0xAA, 0x56, 0x00, 0x0A, 0x95, 0x99, 0x2A, 0x78 )
 //
 // version 7
 //
@@ -1427,6 +1438,38 @@ public:
 	//
 	
 	IOFireWireSessionRef		(*GetSessionRef)( IOFireWireLibDeviceRef self ) ;
+
+	//
+	// v8
+	//
+	
+	/*!	@function CreateLocalIsochPortWithOptions
+		@abstract Create a local isoch port
+		@discussion
+		
+			Same as CreateLocalIsochPort(), above, but allows additional options to be passed.
+			Availability: IOFireWireDeviceInterface_v8 and newer
+			
+		@param options Currently supported options are 'kFWIsochPortUseSeparateKernelThread'. If this
+			option is used, a separate kernel thread will be created to handle interrupt
+			processing for this port only.
+			Pass 'kFWIsochPortDefaultOptions' for no options.
+		@result Returns kIOReturnSuccess if a valid speed has been returned in 'outSpeed'. Returns
+			kIOFireWireBusReset if 'checkGeneration' does not match the current bus generation number.*/	
+	
+	IOFireWireLibLocalIsochPortRef (*CreateLocalIsochPortWithOptions)( 
+			IOFireWireLibDeviceRef  self, 
+			Boolean					inTalking,
+			DCLCommand *			dclProgram,
+			UInt32					startEvent,
+			UInt32					startState,
+			UInt32					startMask,
+			IOVirtualRange			dclProgramRanges[],	// optional optimization parameters
+			UInt32					dclProgramRangeCount,	
+			IOVirtualRange			bufferRanges[],
+			UInt32					bufferRangeCount,
+			IOFWIsochPortOptions	options,
+			REFIID 					iid) ; 
 	
 } IOFireWireDeviceInterface, IOFireWireUnitInterface, IOFireWireNubInterface ;
 #endif // ifdef KERNEL

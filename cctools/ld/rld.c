@@ -68,6 +68,7 @@ extern const struct section *getsectbynamefromheader(
 #include "stuff/best_arch.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "symbols.h"
@@ -241,10 +242,10 @@ const char *output_filename)
 
 #if defined(KLD) && defined(__DYNAMIC__)
 /*
- * kld_load() is used by kmodload(8) for loading kernel drivers running in
+ * kld_load() is used by kextload(8) for loading kernel drivers running in
  * user space.  It is like rld_load() above but only takes one object_filename
  * argument.  Errors for the kld api's are done through kld_error_vprintf()
- * which kmodload(8) provides.
+ * which kextload(8) provides.
  * 
  * Note thes symbols are really __private_extern__ and done by the "nmedit -p"
  * command in the Makefile so that the other __private_extern__ symbols can be
@@ -1802,9 +1803,11 @@ rld_set_link_options(
 #endif /* KLD */
 unsigned long link_options)
 {
+#ifdef KLD
 	if(KLD_STRIP_NONE & link_options)
 	    kld_requested_strip_level = STRIP_NONE;
 	else
+#endif /* KLD */
 	    kld_requested_strip_level = STRIP_ALL;
 }
 #endif /* !defined(SA_RLD) */

@@ -42,6 +42,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass1.h"
@@ -334,7 +335,8 @@ struct section_map *section_map)
 			merged_symbol = *hash_pointer;
 		    }
 		    else{
-			if(nlists[symbolnum].n_type != (N_EXT | N_UNDF)){
+			if((nlists[symbolnum].n_type & N_EXT) != N_EXT ||
+			   (nlists[symbolnum].n_type & N_TYPE) != N_UNDF){
 			    error_with_cur_obj("r_symbolnum (%lu) field of "
 				"external relocation entry %lu in section "
 				"(%.16s,%.16s) refers to a non-undefined "

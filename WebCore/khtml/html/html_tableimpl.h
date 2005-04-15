@@ -97,11 +97,18 @@ public:
 
     // overrides
     virtual NodeImpl *addChild(NodeImpl *child);
-    virtual void parseAttribute(AttributeImpl *attr);
-    virtual void attach();
-
-    DOM::CSSStyleDeclarationImpl* createSharedCellDecls();
     
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
+
+    // Used to obtain either a solid or outset border decl.
+    virtual CSSMutableStyleDeclarationImpl* additionalAttributeStyleDecl();
+    CSSMutableStyleDeclarationImpl* getSharedCellDecl();
+
+    virtual void attach();
+    
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
+
 protected:
     HTMLTableSectionElementImpl *head;
     HTMLTableSectionElementImpl *foot;
@@ -112,9 +119,7 @@ protected:
     Frame frame;
     Rules rules;
 #endif
-
-    DOM::CSSStyleDeclarationImpl *m_sharedCellDecls;
-    
+  
     bool m_noBorder     : 1;
     bool m_solid        : 1;
     uint unused		: 14;
@@ -132,7 +137,8 @@ public:
         : HTMLElementImpl(doc)
         { }
 
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 };
 
 // -------------------------------------------------------------------------
@@ -199,12 +205,17 @@ public:
     int rowSpan() const { return rSpan; }
     
     virtual Id id() const { return _id; }
-    virtual void parseAttribute(AttributeImpl *attr);
+    
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
+
     virtual void attach();
 
     // used by table cells to share style decls created by the enclosing table.
-    virtual DOM::CSSStyleDeclarationImpl* getAdditionalStyleDecls();
+    virtual CSSMutableStyleDeclarationImpl* additionalAttributeStyleDecl();
     
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
+
 protected:
     int _row;
     int _col;
@@ -227,7 +238,8 @@ public:
     void setTable(HTMLTableElementImpl *t) { table = t; }
 
     // overrides
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 
     int span() const { return _span; }
 
@@ -249,7 +261,9 @@ public:
         : HTMLTablePartElementImpl(doc) {}
 
     virtual Id id() const;
-    virtual void parseAttribute(AttributeImpl *attr);
+    
+    virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 };
 
 }; //namespace

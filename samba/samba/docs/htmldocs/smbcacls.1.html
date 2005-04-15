@@ -1,5 +1,5 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbcacls</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbcacls.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbcacls &#8212; Set or get ACLs on an NT file or directory names</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbcacls</tt>  {//server/share} {filename} [-D acls] [-M acls] [-a acls] [-S acls] [-C name] [-G name] [-n] [-t] [-U username] [-h] [-d]</p></div></div><div class="refsect1" lang="en"><a name="id2432578"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p>The <span><b class="command">smbcacls</b></span> program manipulates NT Access Control
-	Lists (ACLs) on SMB file shares. </p></div><div class="refsect1" lang="en"><a name="id2432607"></a><h2>OPTIONS</h2><p>The following options are available to the <span><b class="command">smbcacls</b></span> program.  
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smbcacls</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smbcacls.1"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smbcacls &#8212; Set or get ACLs on an NT file or directory names</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><tt class="command">smbcacls</tt>  {//server/share} {filename} [-D acls] [-M acls] [-a acls] [-S acls] [-C name] [-G name] [--numeric] [-t] [-U username] [-h] [-d]</p></div></div><div class="refsect1" lang="en"><a name="id2478516"></a><h2>DESCRIPTION</h2><p>This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.</p><p>The <span><b class="command">smbcacls</b></span> program manipulates NT Access Control
+	Lists (ACLs) on SMB file shares. </p></div><div class="refsect1" lang="en"><a name="id2478545"></a><h2>OPTIONS</h2><p>The following options are available to the <span><b class="command">smbcacls</b></span> program.  
 	The format of ACLs is described in the section ACL FORMAT </p><div class="variablelist"><dl><dt><span class="term">-a acls</span></dt><dd><p>Add the ACLs specified to the ACL list.  Existing 
 		access control entries are unchanged. </p></dd><dt><span class="term">-M acls</span></dt><dd><p>Modify the mask value (permissions) for the ACLs 
 		specified on the command line.  An error will be printed for each 
@@ -22,7 +22,7 @@
 		be changed to the name given using the <i class="parameter"><tt>-G</tt></i> 
 		option.  The name can be a sid in the form S-1-x-y-z or a name 
 		resolved against the server specified n the first argument.
-		</p><p>This command is a shortcut for -M GROUP:name.</p></dd><dt><span class="term">-n</span></dt><dd><p>This option displays all ACL information in numeric 
+		</p><p>This command is a shortcut for -M GROUP:name.</p></dd><dt><span class="term">--numeric</span></dt><dd><p>This option displays all ACL information in numeric 
 		format.  The default is to convert SIDs to names and ACE types 
 		and masks to a readable string format.  </p></dd><dt><span class="term">-t</span></dt><dd><p>
 		Don't actually do anything, only validate the correctness of 
@@ -48,11 +48,11 @@ amounts of log data, and should only be used when
 investigating a problem. Levels above 3 are designed for 
 use only by developers and generate HUGE amounts of log
 data, most of which is extremely cryptic.</p><p>Note that specifying this parameter here will 
-override the <a class="indexterm" name="id2431622"></a>log level parameter
+override the <a class="indexterm" name="id2430271"></a>log level parameter
 in the <tt class="filename">smb.conf</tt> file.</p></dd><dt><span class="term">-l|--logfile=logdirectory</span></dt><dd><p>Base directory name for log/debug files. The extension
 <tt class="constant">".progname"</tt> will be appended (e.g. log.smbclient, 
 log.smbd, etc...). The log file is never removed by the client.
-</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2431659"></a><h2>ACL FORMAT</h2><p>The format of an ACL is one or more ACL entries separated by 
+</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2429141"></a><h2>ACL FORMAT</h2><p>The format of an ACL is one or more ACL entries separated by 
 	either commas or newlines.  An ACL entry is one of the following: </p><pre class="programlisting"> 
 REVISION:&lt;revision number&gt;
 OWNER:&lt;sid or name&gt;
@@ -62,10 +62,10 @@ ACL:&lt;sid or name&gt;:&lt;type&gt;/&lt;flags&gt;/&lt;mask&gt;
 	NT ACL revision for the security descriptor.  
 	If not specified it defaults to 1.  Using values other than 1 may 
 	cause strange behaviour. </p><p>The owner and group specify the owner and group sids for the 
-	object.  If a SID in the format CWS-1-x-y-z is specified this is used, 
+	object.  If a SID in the format S-1-x-y-z is specified this is used, 
 	otherwise the name specified is resolved using the server on which 
 	the file or directory resides. </p><p>ACLs specify permissions granted to the SID.  This SID again 
-	can be specified in CWS-1-x-y-z format or as a name in which case 
+	can be specified in S-1-x-y-z format or as a name in which case 
 	it is resolved against the server on which the file or directory 
 	resides.  The type, flags and mask values determine the type of 
 	access granted to the SID. </p><p>The type can be either 0 or 1 corresponding to ALLOWED or 
@@ -78,13 +78,13 @@ ACL:&lt;sid or name&gt;:&lt;type&gt;/&lt;flags&gt;/&lt;mask&gt;
 	file permissions of the same name. </p><div class="itemizedlist"><ul type="disc"><li><p><span class="emphasis"><em>R</em></span> - Allow read access </p></li><li><p><span class="emphasis"><em>W</em></span> - Allow write access</p></li><li><p><span class="emphasis"><em>X</em></span> - Execute permission on the object</p></li><li><p><span class="emphasis"><em>D</em></span> - Delete the object</p></li><li><p><span class="emphasis"><em>P</em></span> - Change permissions</p></li><li><p><span class="emphasis"><em>O</em></span> - Take ownership</p></li></ul></div><p>The following combined permissions can be specified:</p><div class="itemizedlist"><ul type="disc"><li><p><span class="emphasis"><em>READ</em></span> -  Equivalent to 'RX'
 		permissions</p></li><li><p><span class="emphasis"><em>CHANGE</em></span> - Equivalent to 'RXWD' permissions
 		</p></li><li><p><span class="emphasis"><em>FULL</em></span> - Equivalent to 'RWXDPO' 
-		permissions</p></li></ul></div></div><div class="refsect1" lang="en"><a name="id2429165"></a><h2>EXIT STATUS</h2><p>The <span><b class="command">smbcacls</b></span> program sets the exit status 
+		permissions</p></li></ul></div></div><div class="refsect1" lang="en"><a name="id2429305"></a><h2>EXIT STATUS</h2><p>The <span><b class="command">smbcacls</b></span> program sets the exit status 
 	depending on the success or otherwise of the operations performed.  
 	The exit status may be one of the following values. </p><p>If the operation succeeded, smbcacls returns and exit 
 	status of 0.  If <span><b class="command">smbcacls</b></span> couldn't connect to the specified server, 
 	or there was an error getting or setting the ACLs, an exit status 
 	of 1 is returned.  If there was an error parsing any command line 
-	arguments, an exit status of 2 is returned. </p></div><div class="refsect1" lang="en"><a name="id2429197"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2429208"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+	arguments, an exit status of 2 is returned. </p></div><div class="refsect1" lang="en"><a name="id2429338"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2429349"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p><span><b class="command">smbcacls</b></span> was written by Andrew Tridgell 

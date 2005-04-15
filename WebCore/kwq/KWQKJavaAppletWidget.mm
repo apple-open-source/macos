@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,39 +25,41 @@
 
 #import "KWQKJavaAppletWidget.h"
 
+#import "dom_docimpl.h"
 #import "KHTMLView.h"
 #import "KWQExceptions.h"
-#import "KWQKHTMLPart.h"
 #import "KWQKJavaAppletContext.h"
-#import "KWQKURL.h"
-#import "KWQView.h"
 #import "WebCoreBridge.h"
 
 KJavaAppletWidget::KJavaAppletWidget(const QSize &size, KJavaAppletContext *c, const QMap<QString, QString> &args)
 {
     KWQ_BLOCK_EXCEPTIONS;
     
-    NSMutableDictionary *attributes = [[NSMutableDictionary alloc] init];
+    NSMutableArray *attributeNames = [[NSMutableArray alloc] init];
+    NSMutableArray *attributeValues = [[NSMutableArray alloc] init];
     QMapConstIterator<QString, QString> it = args.begin();
     QMapConstIterator<QString, QString> end = args.end();
-    QString baseURLString = NULL;
+    QString baseURLString;
     while (it != end) {
         if (it.key().lower() == "baseurl") {
             baseURLString = it.data();
         }
-        [attributes setObject:it.data().getNSString() forKey:it.key().getNSString()];
+        [attributeNames addObject:it.key().getNSString()];
+        [attributeValues addObject:it.data().getNSString()];
         ++it;
     }
     
-    KHTMLPart *part = c->part();
-    KURL baseURL = baseURLString != NULL ? KURL(baseURLString) : part->baseURL();
-    
-    setView([KWQ(part)->bridge() viewForJavaAppletWithFrame:NSMakeRect(x(), y(), size.width(), size.height())
-                                                 attributes:attributes
-                                                    baseURL:baseURL.getNSURL()]);
-    [attributes release];
-    part->view()->addChild(this, x(), y());
+    KWQKHTMLPart *part = KWQ(c->part());
+    if (baseURLString.isEmpty()) {
+        baseURLString = part->xmlDocImpl()->baseURL();
+    }
+    setView([part->bridge() viewForJavaAppletWithFrame:NSMakeRect(0, 0, size.width(), size.height())
+                                        attributeNames:attributeNames
+                                       attributeValues:attributeValues
+                                               baseURL:part->completeURL(baseURLString).getNSURL()]);
+    [attributeNames release];
+    [attributeValues release];
+    part->view()->addChild(this);
     
     KWQ_UNBLOCK_EXCEPTIONS;
 }
-

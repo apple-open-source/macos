@@ -95,9 +95,9 @@ files_struct *open_fake_file_shared1(enum FAKE_FILE_TYPE fake_file_type, connect
 
 static FAKE_FILE fake_files[] = {
 #ifdef WITH_QUOTAS
-	{FAKE_FILE_NAME_QUOTA,	FAKE_FILE_TYPE_QUOTA,	init_quota_handle,	destroy_quota_handle},
+	{FAKE_FILE_NAME_QUOTA_UNIX,	FAKE_FILE_TYPE_QUOTA,	init_quota_handle,	destroy_quota_handle},
 #endif /* WITH_QUOTAS */
-	{NULL,			FAKE_FILE_TYPE_NONE,	NULL,			NULL }
+	{NULL,				FAKE_FILE_TYPE_NONE,	NULL,			NULL }
 };
 
 int is_fake_file(char *fname)
@@ -132,7 +132,7 @@ struct _FAKE_FILE_HANDLE *init_fake_file_handle(enum FAKE_FILE_TYPE type)
 				return NULL;	
 			}
 
-			if ((fh =(FAKE_FILE_HANDLE *)talloc_zero(mem_ctx, sizeof(FAKE_FILE_HANDLE)))==NULL) {
+			if ((fh =TALLOC_ZERO_P(mem_ctx, FAKE_FILE_HANDLE))==NULL) {
 				DEBUG(0,("talloc_zero() failed.\n"));
 				talloc_destroy(mem_ctx);
 				return NULL;
@@ -156,7 +156,7 @@ struct _FAKE_FILE_HANDLE *init_fake_file_handle(enum FAKE_FILE_TYPE type)
 void destroy_fake_file_handle(FAKE_FILE_HANDLE **fh)
 {
 	if (!fh||!(*fh))
-		return ;
+		return;
 
 	if ((*fh)->free_pd)
 		(*fh)->free_pd(&(*fh)->pd);		

@@ -1,9 +1,9 @@
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $
+ * $Id: plugin_common.c,v 1.6 2005/01/31 19:12:48 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,13 +45,13 @@
 #include <config.h>
 #ifndef macintosh
 #ifdef WIN32
-# include <winsock.h>
+# include <winsock2.h>
 #else
-# include <sys/param.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
 # include <arpa/inet.h>
 # include <netdb.h>
+# include <sys/utsname.h>
 #endif /* WIN32 */
 #endif /* macintosh */
 #ifdef HAVE_UNISTD_H
@@ -64,6 +64,7 @@
 
 #include <errno.h>
 #include <ctype.h>
+#include <stdio.h>
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
@@ -90,7 +91,7 @@ static void sockaddr_unmapped(
     if (sa->sa_family != AF_INET6)
 	return;
     sin6 = (struct sockaddr_in6 *)sa;
-    if (!IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr))
+    if (!IN6_IS_ADDR_V4MAPPED((&sin6->sin6_addr)))
 	return;
     sin4 = (struct sockaddr_in *)sa;
     addr = *(uint32_t *)&sin6->sin6_addr.s6_addr[12];
@@ -316,21 +317,23 @@ sasl_interact_t *_plug_find_prompt(sasl_interact_t **promptlist,
 /*
  * Retrieve the simple string given by the callback id.
  */
-int _plug_get_simple(const sasl_utils_t *utils, unsigned int id,
+int _plug_get_simple(const sasl_utils_t *utils, unsigned int id, int required,
 		     const char **result, sasl_interact_t **prompt_need)
 {
 
-    int ret;
+    int ret = SASL_FAIL;
     sasl_getsimple_t *simple_cb;
     void *simple_context;
     sasl_interact_t *prompt;
+
+    *result = NULL;
 
     /* see if we were given the result in the prompt */
     prompt = _plug_find_prompt(prompt_need, id);
     if (prompt != NULL) {
 	/* We prompted, and got.*/
 	
-	if (!prompt->result) {
+	if (required && !prompt->result) {
 	    SETERROR(utils, "Unexpectedly missing a prompt result");
 	    return SASL_BADPARAM;
 	}
@@ -342,12 +345,15 @@ int _plug_get_simple(const sasl_utils_t *utils, unsigned int id,
     /* Try to get the callback... */
     ret = utils->getcallback(utils->conn, id, &simple_cb, &simple_context);
 
+    if (ret == SASL_FAIL && !required)
+	return SASL_OK;
+
     if (ret == SASL_OK && simple_cb) {
 	ret = simple_cb(simple_context, id, result, NULL);
 	if (ret != SASL_OK)
 	    return ret;
 
-	if (!*result) {
+	if (required && !*result) {
 	    PARAMERROR(utils);
 	    return SASL_BADPARAM;
 	}
@@ -362,11 +368,12 @@ int _plug_get_simple(const sasl_utils_t *utils, unsigned int id,
 int _plug_get_password(const sasl_utils_t *utils, sasl_secret_t **password,
 		       unsigned int *iscopy, sasl_interact_t **prompt_need)
 {
-    int ret;
+    int ret = SASL_FAIL;
     sasl_getsecret_t *pass_cb;
     void *pass_context;
     sasl_interact_t *prompt;
 
+    *password = NULL;
     *iscopy = 0;
 
     /* see if we were given the password in the prompt */
@@ -421,10 +428,12 @@ int _plug_challenge_prompt(const sasl_utils_t *utils, unsigned int id,
 			   const char *challenge, const char *promptstr,
 			   const char **result, sasl_interact_t **prompt_need)
 {
-    int ret;
+    int ret = SASL_FAIL;
     sasl_chalprompt_t *chalprompt_cb;
     void *chalprompt_context;
     sasl_interact_t *prompt;
+
+    *result = NULL;
 
     /* see if we were given the password in the prompt */
     prompt = _plug_find_prompt(prompt_need, id);
@@ -465,10 +474,12 @@ int _plug_challenge_prompt(const sasl_utils_t *utils, unsigned int id,
 int _plug_get_realm(const sasl_utils_t *utils, const char **availrealms,
 		    const char **realm, sasl_interact_t **prompt_need)
 {
-    int ret;
+    int ret = SASL_FAIL;
     sasl_getrealm_t *realm_cb;
     void *realm_context;
     sasl_interact_t *prompt;
+
+    *realm = NULL;
 
     /* see if we were given the result in the prompt */
     prompt = _plug_find_prompt(prompt_need, SASL_CB_GETREALM);
@@ -594,49 +605,120 @@ int _plug_make_prompts(const sasl_utils_t *utils,
     return SASL_OK;
 }
 
+void _plug_decode_init(decode_context_t *text,
+		       const sasl_utils_t *utils, unsigned int in_maxbuf)
+{
+    memset(text, 0, sizeof(decode_context_t));
+
+    text->utils = utils;
+    text->needsize = 4;
+    text->in_maxbuf = in_maxbuf;
+}
+
 /*
- * Decode and concatenate multiple packets using the given function
- * to decode each packet.
+ * Decode as much of the input as possible (possibly none),
+ * using decode_pkt() to decode individual packets.
  */
-int _plug_decode(const sasl_utils_t *utils,
-		 void *context,
+int _plug_decode(decode_context_t *text,
 		 const char *input, unsigned inputlen,
 		 char **output,		/* output buffer */
 		 unsigned *outputsize,	/* current size of output buffer */
 		 unsigned *outputlen,	/* length of data in output buffer */
-		 int (*decode_pkt)(void *context,
-				   const char **input, unsigned *inputlen,
-				   char **output, unsigned *outputlen))
+		 int (*decode_pkt)(void *rock,
+				   const char *input, unsigned inputlen,
+				   char **output, unsigned *outputlen),
+		 void *rock)
 {
-    char *tmp = NULL;
-    unsigned tmplen = 0;
+    unsigned int tocopy;
+    unsigned diff;
+    char *tmp;
+    unsigned tmplen;
     int ret;
     
     *outputlen = 0;
 
-    while (inputlen!=0)
-    {
-	/* no need to free tmp */
-      ret = decode_pkt(context, &input, &inputlen, &tmp, &tmplen);
+    while (inputlen) { /* more input */
+	if (text->needsize) { /* need to get the rest of the 4-byte size */
 
-      if(ret != SASL_OK) return ret;
+	    /* copy as many bytes (up to 4) as we have into size buffer */
+	    tocopy = (inputlen > text->needsize) ? text->needsize : inputlen;
+	    memcpy(text->sizebuf + 4 - text->needsize, input, tocopy);
+	    text->needsize -= tocopy;
+		
+	    input += tocopy;
+	    inputlen -= tocopy;
+		
+	    if (!text->needsize) { /* we have the entire 4-byte size */
+		memcpy(&(text->size), text->sizebuf, 4);
+		text->size = ntohl(text->size);
+		
+		if (!text->size) /* should never happen */
+		    return SASL_FAIL;
+	    
+		if (text->size > text->in_maxbuf) {
+		    text->utils->log(NULL, SASL_LOG_ERR, 
+				     "encoded packet size too big (%d > %d)",
+				     text->size, text->in_maxbuf);
+		    return SASL_FAIL;
+		}
+	    
+		if (!text->buffer)
+		    text->buffer = text->utils->malloc(text->in_maxbuf);
+		if (text->buffer == NULL) return SASL_NOMEM;
 
-      if (tmp!=NULL) /* if received 2 packets merge them together */
-      {
-	  ret = _plug_buf_alloc(utils, output, outputsize,
-				*outputlen + tmplen + 1);
-	  if(ret != SASL_OK) return ret;
+		text->cursize = 0;
+	    } else {
+		/* We do NOT have the entire 4-byte size...
+		 * wait for more data */
+		return SASL_OK;
+	    }
+	}
+	
+	/* need to check every time */
+	if (text->size > text->in_maxbuf) {
+		text->utils->log(NULL, SASL_LOG_ERR, 
+				 "encoded packet size too big (%d > %d)",
+				 text->size, text->in_maxbuf);
+		return SASL_FAIL;
+	}
+	
+	diff = text->size - text->cursize; /* bytes needed for full packet */
+	if (inputlen < diff) {	/* not a complete packet, need more input */
+	    memcpy(text->buffer + text->cursize, input, inputlen);
+	    text->cursize += inputlen;
+	    return SASL_OK;
+	}
+	
+	/* copy the rest of the packet */
+	memcpy(text->buffer + text->cursize, input, diff);
+	input += diff;
+	inputlen -= diff;
 
-	  memcpy(*output + *outputlen, tmp, tmplen);
+	/* decode the packet (no need to free tmp) */
+	ret = decode_pkt(rock, text->buffer, text->size, &tmp, &tmplen);
+	if (ret != SASL_OK) return ret;
 
-	  /* Protect stupid clients */
-	  *(*output + *outputlen + tmplen) = '\0';
+	/* append the decoded packet to the output */
+	ret = _plug_buf_alloc(text->utils, output, outputsize,
+			      *outputlen + tmplen + 1); /* +1 for NUL */
+	if (ret != SASL_OK) return ret;
+	
+	memcpy(*output + *outputlen, tmp, tmplen);
+	*outputlen += tmplen;
 
-	  *outputlen+=tmplen;
-      }
+	/* protect stupid clients */
+	*(*output + *outputlen) = '\0';
+
+	/* reset for the next packet */
+	text->needsize = 4;
     }
 
     return SASL_OK;    
+}
+
+void _plug_decode_free(decode_context_t *text)
+{
+    if (text->buffer) text->utils->free(text->buffer);
 }
 
 /* returns the realm we should pretend to be in */
@@ -681,3 +763,146 @@ int _plug_parseuser(const sasl_utils_t *utils,
 
     return ret;
 }
+
+char * _plug_get_error_message (const sasl_utils_t *utils,
+#ifdef WIN32
+				DWORD error
+#else
+				int error
+#endif
+				)
+{
+    char * return_value;
+#ifdef WIN32
+    LPVOID lpMsgBuf;
+
+    FormatMessage( 
+	FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+	FORMAT_MESSAGE_FROM_SYSTEM | 
+	FORMAT_MESSAGE_IGNORE_INSERTS,
+	NULL,
+	error,
+	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+	(LPTSTR) &lpMsgBuf,
+	0,
+	NULL 
+    );
+
+    if (_plug_strdup (utils, lpMsgBuf, &return_value, NULL) != SASL_OK) {
+	return_value = NULL;
+    }
+
+    LocalFree( lpMsgBuf );
+#else /* !WIN32 */
+    if (_plug_strdup (utils, strerror(error), &return_value, NULL) != SASL_OK) {
+	return_value = NULL;
+    }
+#endif /* WIN32 */
+    return (return_value);
+}
+
+void _plug_snprintf_os_info (char * osbuf, int osbuf_len)
+{
+#ifdef WIN32
+    OSVERSIONINFOEX versioninfo;
+    char *sysname;
+
+/* :
+  DWORD dwOSVersionInfoSize; 
+  DWORD dwMajorVersion; 
+  DWORD dwMinorVersion; 
+  DWORD dwBuildNumber; 
+  TCHAR szCSDVersion[ 128 ];
+//Only NT SP 6 and later
+  WORD wServicePackMajor;
+  WORD wServicePackMinor;
+  WORD wSuiteMask;
+  BYTE wProductType;
+ */
+
+    versioninfo.dwOSVersionInfoSize = sizeof (versioninfo);
+    sysname = "Unknown Windows";
+
+    if (GetVersionEx ((OSVERSIONINFO *) &versioninfo) == FALSE) {
+	snprintf(osbuf, osbuf_len, "%s", sysname);
+	goto SKIP_OS_INFO;
+    }
+
+    switch (versioninfo.dwPlatformId) {
+	case VER_PLATFORM_WIN32s: /* Win32s on Windows 3.1 */
+	    sysname = "Win32s on Windows 3.1";
+/* I can't test if dwBuildNumber has any meaning on Win32s */
+	    break;
+
+	case VER_PLATFORM_WIN32_WINDOWS: /* 95/98/ME */
+	    switch (versioninfo.dwMinorVersion) {
+		case 0:
+		    sysname = "Windows 95";
+		    break;
+		case 10:
+		    sysname = "Windows 98";
+		    break;
+		case 90:
+		    sysname = "Windows Me";
+		    break;
+		default:
+		    sysname = "Unknown Windows 9X/ME series";
+		    break;
+	    }
+/* Clear the high order word, as it contains major/minor version */
+	    versioninfo.dwBuildNumber &= 0xFFFF;
+	    break;
+
+	case VER_PLATFORM_WIN32_NT: /* NT/2000/XP/.NET */
+	    if (versioninfo.dwMinorVersion > 99) {
+	    } else {
+		switch (versioninfo.dwMajorVersion * 100 + versioninfo.dwMinorVersion) {
+		    case 351:
+			sysname = "Windows NT 3.51";
+			break;
+		    case 400:
+			sysname = "Windows NT 4.0";
+			break;
+		    case 500:
+			sysname = "Windows 2000";
+			break;
+		    case 501:
+			sysname = "Windows XP/.NET"; /* or Windows .NET Server */
+			break;
+		    default:
+			sysname = "Unknown Windows NT series";
+			break;
+		}
+	    }
+	    break;
+
+	default:
+	    break;
+    }
+
+    snprintf(osbuf, osbuf_len,
+	     "%s %s (Build %u)",
+	     sysname,
+	     versioninfo.szCSDVersion,
+	     versioninfo.dwBuildNumber
+	     );
+
+SKIP_OS_INFO:
+    ;
+
+#else /* !WIN32 */
+    struct utsname os;
+
+    uname(&os);
+    snprintf(osbuf, osbuf_len, "%s %s", os.sysname, os.release);
+#endif /* WIN32 */
+}
+
+#if defined(WIN32)
+unsigned int plug_sleep (unsigned int seconds)
+{
+    long dwSec = seconds*1000;
+    Sleep (dwSec);
+    return 0;
+}
+#endif

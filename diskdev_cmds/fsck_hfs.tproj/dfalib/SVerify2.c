@@ -142,17 +142,24 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	BTHeaderRec		*header;
 	NodeRec			node;
 	NodeDescPtr		nodeDescP;
-	UInt16			*statusFlag;
+	UInt16			*statusFlag = NULL;
 	UInt32			leafRecords = 0;
 	BTreeControlBlock	*calculatedBTCB	= GetBTreeControlBlock( refNum );
 
 	//	Set up
-	if ( refNum == kCalculatedCatalogRefNum )
-		statusFlag	= &(GPtr->CBTStat);
-	else if ( refNum == kCalculatedExtentRefNum )
-		statusFlag	= &(GPtr->EBTStat);
-	else
-		statusFlag	= &(GPtr->ABTStat);
+	switch(refNum) {
+		case kCalculatedCatalogRefNum:
+			statusFlag = &(GPtr->CBTStat);
+			break;
+		case kCalculatedExtentRefNum:
+			statusFlag = &(GPtr->EBTStat);
+			break;
+		case kCalculatedAttributesRefNum:
+			statusFlag = &(GPtr->ABTStat);
+			break;
+		default:
+			return (-1);
+	};
 
 	GPtr->TarBlock = 0;
 	node.buffer = NULL;
@@ -474,7 +481,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			if (checkLeafRecord != NULL) {
 				for (i = 0; i < nodeDescP->numRecords; i++) {
 					GetRecordByIndex(calculatedBTCB, nodeDescP, i, &keyPtr, &dataPtr, &recSize);
-					result = checkLeafRecord(keyPtr, dataPtr, recSize);
+					result = checkLeafRecord(GPtr, keyPtr, dataPtr, recSize);
 					if (result) goto exit;
 				}
 			}
@@ -626,13 +633,22 @@ OSErr	CmpBTH( SGlobPtr GPtr, SInt16 fileRefNum )
 	SInt16 *statP;
 	SFCB * fcb;
 
-	if (fileRefNum == kCalculatedCatalogRefNum) {
-		statP = (SInt16 *)&GPtr->CBTStat;
-		fcb = GPtr->calculatedCatalogFCB;
-	} else {
-		statP = (SInt16 *)&GPtr->EBTStat;
-		fcb = GPtr->calculatedExtentsFCB;
-	}
+	switch(fileRefNum) {
+		case kCalculatedCatalogRefNum:
+			statP = (SInt16 *)&GPtr->CBTStat;
+			fcb = GPtr->calculatedCatalogFCB;
+			break;
+		case kCalculatedExtentRefNum:
+			statP = (SInt16 *)&GPtr->EBTStat;
+			fcb = GPtr->calculatedExtentsFCB;
+			break;
+		case kCalculatedAttributesRefNum:
+			statP = (SInt16 *)&GPtr->ABTStat;
+			fcb = GPtr->calculatedAttributesFCB;
+			break;
+		default:
+			return (-1);
+	};
 
 	/* 
 	 * Get BTree header record from disk 
@@ -757,7 +773,19 @@ int CmpBTM( SGlobPtr GPtr, short fileRefNum )
 
 	result = noErr;
 	calculatedBTCB	= GetBTreeControlBlock( fileRefNum );
-	statP = (SInt16 *)((fileRefNum == kCalculatedCatalogRefNum) ? &GPtr->CBTStat : &GPtr->EBTStat);
+	switch(fileRefNum) {
+		case kCalculatedCatalogRefNum:
+			statP = &GPtr->CBTStat;
+			break;
+		case kCalculatedExtentRefNum:
+			statP = &GPtr->EBTStat;
+			break;
+		case kCalculatedAttributesRefNum:
+			statP = &GPtr->ABTStat;
+			break;
+		default:
+			return (-1);
+	};
 
 	nodeNum	= 0;	/* start with header node */
 	node.buffer = NULL;

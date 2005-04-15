@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_ruleimpl.h,v 1.9 2003/08/29 22:04:02 mjs Exp $
+ * $Id: css_ruleimpl.h,v 1.12 2004/11/19 00:12:20 darin Exp $
  */
 #ifndef _CSS_css_ruleimpl_h_
 #define _CSS_css_ruleimpl_h_
@@ -30,6 +30,7 @@
 #include "css/css_base.h"
 #include "misc/loader_client.h"
 #include "misc/shared.h"
+#include "css_valueimpl.h"
 
 namespace khtml {
     class CachedCSSStyleSheet;
@@ -37,10 +38,10 @@ namespace khtml {
 
 namespace DOM {
 
+class CSSMutableStyleDeclarationImpl;
 class CSSRule;
 class CSSStyleSheet;
 class CSSStyleSheetImpl;
-class CSSStyleDeclarationImpl;
 class MediaListImpl;
 
 class CSSRuleImpl : public StyleBaseImpl
@@ -87,12 +88,12 @@ public:
 
     virtual ~CSSFontFaceRuleImpl();
 
-    CSSStyleDeclarationImpl *style() const { return m_style; }
+    CSSMutableStyleDeclarationImpl *style() const { return m_style; }
 
     virtual bool isFontFaceRule() { return true; }
 
 protected:
-    CSSStyleDeclarationImpl *m_style;
+    CSSMutableStyleDeclarationImpl *m_style;
 };
 
 
@@ -180,7 +181,7 @@ public:
 
     virtual ~CSSPageRuleImpl();
 
-    CSSStyleDeclarationImpl *style() const { return m_style; }
+    CSSMutableStyleDeclarationImpl *style() const { return m_style; }
 
     virtual bool isPageRule() { return true; }
 
@@ -188,9 +189,10 @@ public:
     void setSelectorText(DOM::DOMString str);
 
 protected:
-    CSSStyleDeclarationImpl *m_style;
+    CSSMutableStyleDeclarationImpl *m_style;
 };
 
+class CSSImportantRuleImpl;
 
 class CSSStyleRuleImpl : public CSSRuleImpl
 {
@@ -199,7 +201,7 @@ public:
 
     virtual ~CSSStyleRuleImpl();
 
-    CSSStyleDeclarationImpl *style() const { return m_style; }
+    CSSMutableStyleDeclarationImpl *style() const { return m_style; }
 
     virtual bool isStyleRule() { return true; }
 
@@ -208,19 +210,16 @@ public:
 
     virtual bool parseString( const DOMString &string, bool = false );
 
-    void setSelector( QPtrList<CSSSelector> *selector) { m_selector = selector; }
-    void setDeclaration( CSSStyleDeclarationImpl *style);
+    void setSelector(CSSSelector* selector) { m_selector = selector; }
+    void setDeclaration( CSSMutableStyleDeclarationImpl *style);
 
-    QPtrList<CSSSelector> *selector() { return m_selector; }
-    CSSStyleDeclarationImpl *declaration() { return m_style; }
-
-    void setNonCSSHints();
-
+    CSSSelector* selector() { return m_selector; }
+    CSSMutableStyleDeclarationImpl *declaration() { return m_style; }
+ 
 protected:
-    CSSStyleDeclarationImpl *m_style;
-    QPtrList<CSSSelector> *m_selector;
+    CSSMutableStyleDeclarationImpl *m_style;
+    CSSSelector* m_selector;
 };
-
 
 class CSSUnknownRuleImpl : public CSSRuleImpl
 {

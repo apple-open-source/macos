@@ -1,0 +1,61 @@
+2005-03-16  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4054948
+	* directives.c (do_pragma):  Handle unknown pragmas correctly.
+	(cpp_handle_deferred_pragma):  Ditto.
+
+2005-02-27  Devang Patel  <dpatel@apple.com>
+
+	Radar 3982899
+	* directives.c (do_line): Save sysp early before line table is realloc'ed.
+
+2005-02-21  Devang Patel  <dpatel@apple.com>
+
+	Radar 4007432
+	* charset.c (_cpp_convert_input): Check '\r' before inserting
+	'\n' at the end.
+
+2005-02-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 3958387
+	* libcpp/lex.c (_cpp_get_fresh_line): Check warn_newline_at_eof.
+
+2005-01-04  Anders Bertelrud  <anders@apple.com>
+
+	Radar 3871393
+	* include/cpplib.h (struct cpp_dir):  Added 'header_map' field. 
+
+2005-01-06  Mike Stump  <mrs@apple.com>
+
+	Radar 3929334
+	* files.c (pch_open_file): Add indirection for pch files for distcc.
+	(read_from_parent): Add.
+	(write_to_parent): Add.
+	(init_indirect_pipes): Add.
+	(indirect_file): Add.
+
+2004-12-10  Devang Patel  <dpatel@apple.com>
+
+        Undo Radar 3909961
+        * libcpp/directivec.c (do_elif): Do not check EOL when -Wextra-tokens is used.
+
+2004-12-10  Devang Patel  <dpatel@apple.com>
+
+        Radar 3909961
+        * libcpp/directivec.c (do_elif): Check EOL when -Wextra-tokens is used.
+
+2004-08-03  Stan Shebs  <shebs@apple.com>
+
+	Radar 3368707
+	Support for CodeWarrior-style assembly language blocks and
+	functions.  
+	* include/cpplib.h (CPP_BOL, CPP_EOL): Define.
+	* internal.h (struct cpp_context): New field bol_p.
+	* lex.c (lex_identifier): Handle special chars in opcodes.
+	(cw_asm_label_follows): New global.
+	(_cpp_lex_direct): Special handling for @-labels,
+	flag end of operands when ';' seen.
+	* macro.c (enter_macro_context): Add bol_p argument and use.
+	(push_ptoken_context): Seed bol_p field.
+	(push_token_context): Ditto.
+	(cpp_get_token): Detect tokens at beginning of line and record.

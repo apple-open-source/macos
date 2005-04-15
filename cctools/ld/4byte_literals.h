@@ -40,6 +40,8 @@
  */
 struct literal4_data {
     struct literal4_block *literal4_blocks;	/* the literal4's */
+    struct literal4_load_order_data	 /* the load order info needed to */
+	*literal4_load_order_data;	 /*  re-merge when using -dead_strip */
 #ifdef DEBUG
     unsigned long nfiles;	/* number of files with this section */
     unsigned long nliterals;	/* total number of literals in the input files*/
@@ -63,13 +65,30 @@ struct literal4_block {
     struct literal4_block *next;	/* the next block */
 };
 
+/* the load order info needed to re-merge when using -dead_strip */
+struct literal4_load_order_data {
+    unsigned long nliteral4_order_lines;
+    struct literal4_order_line *literal4_order_lines;
+};
+/* the load order info for a single literal4 order line */
+struct literal4_order_line {
+    struct literal4 literal4;
+    unsigned long line_number;
+    unsigned long output_offset;
+};
+
 __private_extern__ void literal4_merge(
     struct literal4_data *data,
     struct merged_section *ms,
     struct section *s,
-    struct section_map *section_map);
+    struct section_map *section_map,
+    enum bool redo_live);
 
 __private_extern__ void literal4_order(
+    struct literal4_data *data,
+    struct merged_section *ms);
+
+__private_extern__ void literal4_reset_live(
     struct literal4_data *data,
     struct merged_section *ms);
 

@@ -4,7 +4,6 @@ Library
 ) Test suite [still] needs work
 ) better support for including missing routines
 ) check return settings (ssf, etc.) on auth failure
-) add SASL_SEC_MUTUAL_AUTHENTICATION
 
 Documentation
 ~~~~~~~~~~~~~
@@ -29,7 +28,6 @@ Digest-MD5
 ~~~~~~~~~~
 ) Checking wacko cases or even not so wacko cases
 ) Testing
-) reauth? (probably not)
 
 Kerberos_V4
 ~~~~~~~~~~~

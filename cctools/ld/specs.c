@@ -42,6 +42,7 @@
 #include "ld.h"
 #ifndef RLD
 #include "specs.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 

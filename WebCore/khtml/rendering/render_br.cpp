@@ -21,11 +21,16 @@
  */
 #include "render_br.h"
 
-using namespace khtml;
+#include "dom_position.h"
+#include "render_block.h"
+#include "render_line.h"
 
+using namespace khtml;
+using DOM::Position;
 
 RenderBR::RenderBR(DOM::NodeImpl* node)
-    : RenderText(node, new DOM::DOMStringImpl(QChar('\n')))
+    : RenderText(node, new DOM::DOMStringImpl(QChar('\n'))),
+      m_lineHeight(-1)
 {
 }
 
@@ -33,43 +38,91 @@ RenderBR::~RenderBR()
 {
 }
 
-void RenderBR::cursorPos(int /*offset*/, int &_x, int &_y, int &height)
+InlineBox* RenderBR::createInlineBox(bool makePlaceholder, bool isRootLineBox, bool isOnlyRun)
 {
-    if (previousSibling() && !previousSibling()->isBR() && !previousSibling()->isFloating()) {
-        int offset = 0;
-        if (previousSibling()->isText())
-            offset = static_cast<RenderText*>(previousSibling())->length();
+    // We only treat a box as text for a <br> if we are on a line by ourself or in strict mode
+    // (Note the use of strict mode.  In "almost strict" mode, we don't treat the box for <br> as text.)
+    InlineTextBox* box = static_cast<InlineTextBox*>(RenderText::createInlineBox(makePlaceholder, isRootLineBox, isOnlyRun));
+    box->setIsText(isOnlyRun || document()->inStrictMode());
+    return box;
+}
 
-        previousSibling()->cursorPos(offset,_x,_y,height);
-        return;
+short RenderBR::baselinePosition( bool firstLine, bool isRootLineBox) const
+{
+    if (firstTextBox() && !firstTextBox()->isText())
+        return 0;
+    return RenderText::baselinePosition(firstLine, isRootLineBox);
+}
+
+short RenderBR::lineHeight(bool firstLine, bool isRootLineBox) const
+{
+    if (firstTextBox() && !firstTextBox()->isText())
+        return 0;
+
+    if (firstLine) {
+        RenderStyle* s = style(firstLine);
+        Length lh = s->lineHeight();
+        if (lh.value < 0) {
+            if (s == style()) {
+                if (m_lineHeight == -1)
+                    m_lineHeight = RenderObject::lineHeight(false);
+                return m_lineHeight;
+            }
+            return s->fontMetrics().lineSpacing();
+	}
+        if (lh.isPercent())
+            return lh.minWidth(s->font().pixelSize());
+        return lh.value;
     }
+    
+    if (m_lineHeight == -1)
+        m_lineHeight = RenderObject::lineHeight(false);
+    return m_lineHeight;
+}
+
+void RenderBR::setStyle(RenderStyle* _style)
+{
+    RenderText::setStyle(_style);
+    m_lineHeight = -1;
+}
+
+long RenderBR::caretMinOffset() const 
+{ 
+    return 0; 
+}
+
+long RenderBR::caretMaxOffset() const 
+{ 
+    return 1; 
+}
+
+unsigned long RenderBR::caretMaxRenderedOffset() const
+{
+    return 1;
+}
+
+VisiblePosition RenderBR::positionForCoordinates(int _x, int _y)
+{
+    return VisiblePosition(element(), 0, DOWNSTREAM);
+}
+
+QRect RenderBR::caretRect(int offset, EAffinity affinity, int *extraWidthToEndOfLine)
+{
+    // EDIT FIXME: This does not work yet. Some other changes are need before
+    // an accurate position can be determined.
 
     int absx, absy;
     absolutePosition(absx,absy);
-    if (absx == -1) {
-        // we don't know our absolute position, and there is no point returning just a relative one
-        _x = _y = -1;
-    }
-    else {
-        _x += absx;
-        _y += absy;
-    }
-    height = RenderText::verticalPositionHint( false );
 
+   if (extraWidthToEndOfLine)
+        *extraWidthToEndOfLine = containingBlockWidth() - xPos();
+ 
+    // FIXME: an older version of this code wasn't setting width at
+    // all, using the default of 1...
+    return QRect(xPos() + absx, yPos() + absy, 1, lineHeight(false));
 }
 
-FindSelectionResult RenderBR::checkSelectionPointIgnoringContinuations(int _x, int _y, int _tx, int _ty, DOM::NodeImpl*& node, int &offset)
+InlineBox *RenderBR::inlineBox(long offset, EAffinity affinity)
 {
-    FindSelectionResult result = RenderText::checkSelectionPointIgnoringContinuations(_x, _y, _tx, _ty, node, offset);
-
-    // Since the DOM does not consider this to be a text element, we can't return an offset of 1,
-    // because that means after the first child (and we have none) rather than after the
-    // first character. Instead we return a result of "after" and an offset of 0.
-    if (offset == 1 && node == element()) {
-        offset = 0;
-        result = SelectionPointAfter;
-    }
-
-    return result;
+    return firstTextBox();
 }
-

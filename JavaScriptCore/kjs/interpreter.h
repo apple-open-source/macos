@@ -28,6 +28,13 @@
 #include "value.h"
 #include "object.h"
 #include "types.h"
+#include "protect.h"
+
+#if APPLE_CHANGES
+
+#include "runtime.h"
+
+#endif
 
 namespace KJS {
 
@@ -197,7 +204,10 @@ namespace KJS {
      * execution. This should either be Null() or an Object.
      * @return A completion object representing the result of the execution.
      */
-    Completion evaluate(const UString &code, const Value &thisV = Value(), const UString &filename = UString());
+    Completion evaluate(const UString &sourceURL, int startingLineNumber, const UString &code, const Value &thisV = Value());
+
+	// Overload of evaluate to keep JavaScriptGlue both source and binary compatible.
+	Completion evaluate(const UString &code, const Value &thisV = Value(), const UString &sourceFilename = UString());
 
     /**
      * @internal
@@ -357,6 +367,36 @@ namespace KJS {
 
     void saveBuiltins (SavedBuiltins &) const;
     void restoreBuiltins (const SavedBuiltins &);
+
+#if APPLE_CHANGES
+    /**
+     * Determine if the value is a global object (for any interpreter).  This may
+     * be difficult to determine for multiple uses of JSC in a process that are
+     * logically independent of each other.  In the case of WebCore, this method
+     * is used to determine if an object is the Window object so we can perform
+     * security checks.
+     */
+    virtual bool isGlobalObject(const Value &v) { return false; }
+    
+    /** 
+     * Find the interpreter for a particular global object.  This should really
+     * be a static method, but we can't do that is C++.  Again, as with isGlobalObject()
+     * implementation really need to know about all instances of Interpreter
+     * created in an application to correctly implement this method.  The only
+     * override of this method is currently in WebCore.
+     */
+    virtual Interpreter *interpreterForGlobalObject (const ValueImp *imp) { return 0; }
+    
+    /**
+     * Determine if the it is 'safe' to execute code in the target interpreter from an
+     * object that originated in this interpreter.  This check is used to enforce WebCore
+     * cross frame security rules.  In particular, attempts to access 'bound' objects are
+     * not allowed unless isSafeScript returns true.
+     */
+    virtual bool isSafeScript (const Interpreter *target) { return true; }
+    
+    virtual void *createLanguageInstanceForValue (ExecState *exec, Bindings::Instance::BindingLanguage language, const Object &value, const Bindings::RootObject *origin, const Bindings::RootObject *current);
+#endif
     
   private:
     InterpreterImp *rep;
@@ -397,7 +437,18 @@ namespace KJS {
      *
      * @return The interpreter executing the script
      */
-    Interpreter *interpreter() const { return _interpreter; }
+    Interpreter *dynamicInterpreter() const { return _interpreter; }
+
+    // for compatibility
+    Interpreter *interpreter() const { return dynamicInterpreter(); }
+
+    /**
+     * Returns the interpreter associated with the current scope's
+     * global object
+     *
+     * @return The interpreter currently in scope
+     */
+    Interpreter *lexicalInterpreter() const;
 
     /**
      * Returns the execution context associated with this execution state
@@ -416,7 +467,7 @@ namespace KJS {
         : _interpreter(interp), _context(con) { }
     Interpreter *_interpreter;
     ContextImp *_context;
-    Value _exception;
+    ProtectedValue _exception;
   };
 
 }; // namespace

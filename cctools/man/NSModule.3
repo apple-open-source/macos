@@ -1,4 +1,4 @@
-.TH NSModule 3 "March 10, 2001" "Apple Computer, Inc."
+.TH NSModule 3 "October 6, 2003" "Apple Computer, Inc."
 .SH NAME
 NSModule \- programmatic interface for working with modules and symbols
 .SH SYNOPSIS
@@ -129,6 +129,11 @@ are used for plugins.
 A module name is specified when a module is linked so that later
 .I NSNameOfModule
 can be used with the module handle and to do things like report errors.
+If you want 
+.IR gdb (1)
+to be able to debug your module, when calling
+.I NSLinkModule
+you should pass the image path as the module name.
 When a module is linked, all libraries referenced by the module are added to
 the list of libraries to be searched.
 The parameter,
@@ -169,7 +174,8 @@ returned indirectly.
 .B NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES
 With this option the module init routines are not called.  This is only useful
 to the fix-and-continue implementation.
-.TP NSLINKMODULE_OPTION_TRAILING_PHYS_NAME
+.TP
+.B NSLINKMODULE_OPTION_TRAILING_PHYS_NAME
 With this option the parameter,
 .I moduleName
 is assumed to be a string with the logical name of the image with the physical

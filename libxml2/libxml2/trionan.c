@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: trionan.c,v 1.1.1.2 2004/02/05 20:17:02 rbraun Exp $
+ * $Id: trionan.c,v 1.14 2003/10/15 08:17:58 veillard Exp $
  *
  * Copyright (C) 2001 Bjorn Reese <breese@users.sourceforge.net>
  *
@@ -112,7 +112,7 @@
  * Constants
  */
 
-static TRIO_CONST char rcsid[] = "@(#)$Id: trionan.c,v 1.1.1.2 2004/02/05 20:17:02 rbraun Exp $";
+static TRIO_CONST char rcsid[] = "@(#)$Id: trionan.c,v 1.14 2003/10/15 08:17:58 veillard Exp $";
 
 #if defined(USE_IEEE_754)
 

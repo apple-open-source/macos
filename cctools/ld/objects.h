@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
  *
  * The following include file need to be included before this file:
  * #include "ld.h"
+ * #include "sections.h"
  */
 
 /*
@@ -159,11 +160,16 @@ struct section_map {
 	*fine_relocs;		/*  items which are smaller than the section. */
     unsigned long nfine_relocs;	/* Number of structures in the map */
     enum bool no_load_order;	/* Not to be scattered, loaded normalily */
+    unsigned long order;	/* order when no_load_order == TRUE */
     struct load_order		/* Map of symbols used for -sectorder */
 	*load_orders;
     unsigned long nload_orders;	/* Number of structures in the map */
+    enum bool start_section;	/* There is a symbol at the start of the */
+				/*  section. */
     enum bool			/* For symbol stub sections if any indirect */
 	absolute_indirect_defineds; /* symbol is defined as an absolute */
+    enum bool			/* TRUE when the input relocation entries */
+	input_relocs_already_swapped; /* have been already swapped */
     /*
      * These are set in count_reloc() and tested in output_section() for
      * internal error checking.
@@ -189,12 +195,20 @@ struct section_map {
  * the item from the object file will be used in the output file.
  */
 struct fine_reloc {
-    unsigned long indirect_defined:1, /* TRUE if the indirect sym is defined */
-		  use_contents:1,     /* TRUE if this item is used */
-		  local_symbol:1,     /* TRUE if the indirect sym is local */
-		  input_offset:29;   /* offset in the input file for the item */
+    unsigned long
+	indirect_defined:1,	     /* TRUE if the indirect sym is defined */
+	use_contents:1,		     /* TRUE if this item is used */
+	local_symbol:1,		     /* TRUE if the indirect sym is local */
+	live:1,			     /* TRUE if referenced (for -dead_strip) */
+	refs_marked_live:1,	     /* TRUE when references marked live */
+	searched_for_live_refs:1,    /* TRUE if searched for live refs */
+	indirect_symbol_local:1,     /* TRUE if this is for an indirect */
+				     /*  section with INDIRECT_SYMBOL_LOCAL */
+	unused_bits:25;
+    unsigned long input_offset;      /* offset in the input file for the item */
     unsigned long output_offset;     /* offset in the output file for the item*/
-    struct merged_symbol *merged_symbol;
+    struct merged_symbol	     /* the global merged_symbol for the item */
+		  *merged_symbol;    /*  if any (else NULL) */
 };
 
 /*
@@ -205,10 +219,16 @@ struct fine_reloc {
 struct load_order {
     char *name;			/* symbol's name */
     unsigned long value;	/* symbol's value */
+    unsigned long index;	/* symbol's index in symbol table */
     unsigned long order;	/* order in output, 0 if not assigned yet */
+    unsigned long line_number;  /* line number if specified or zero */
     unsigned long input_offset;	/* offset in the input file for the item */
     unsigned long input_size;	/* size of symbol in the input file */
     unsigned long output_offset;/* offset in the output file for the item */
+    struct fine_reloc *fine_reloc; /* the fine_reloc for this load_order */
+    /* the following is only used in coalesced_section_merge() to know if this
+       load_order struct is for global coalesced symbol */
+    enum bool global_coalesced_symbol;
 };
 
 /*
@@ -276,6 +296,10 @@ __private_extern__ unsigned long fine_reloc_output_address(
     struct section_map *map,
     unsigned long input_offset,
     unsigned long output_base_address);
+__private_extern__ void fine_reloc_output_ref(
+    struct section_map *map,
+    unsigned long input_offset,
+    struct live_ref *ref);
 __private_extern__ enum bool fine_reloc_offset_in_output(
     struct section_map *map,
     unsigned long input_offset);
@@ -296,6 +320,10 @@ __private_extern__ void remove_objects(
 #endif /* RLD */
 
 #ifdef DEBUG
-void print_object_list(
+__private_extern__ void print_object_list(
     void);
+__private_extern__ void print_fine_relocs(
+    struct fine_reloc *fine_relocs,
+    unsigned long nfine_relocs,
+    char *string);
 #endif /* DEBUG */

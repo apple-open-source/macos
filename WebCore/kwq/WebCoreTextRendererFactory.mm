@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +27,11 @@
 #import "WebCoreTextRendererFactory.h"
 
 #import "KWQAssertions.h"
+#import "KWQKHTMLPart.h"
+#import "KWQListBox.h"
+#import "WebCoreBridge.h"
 
-inline void WebCoreInitializeTextRun(WebCoreTextRun *run, const UniChar *characters, unsigned int length, int from, int to)
+void WebCoreInitializeTextRun(WebCoreTextRun *run, const UniChar *characters, unsigned int length, int from, int to)
 {
     run->characters = characters;
     run->length = length;
@@ -36,7 +39,7 @@ inline void WebCoreInitializeTextRun(WebCoreTextRun *run, const UniChar *charact
     run->to = to;
 }
 
-inline void WebCoreInitializeEmptyTextStyle(WebCoreTextStyle *style)
+void WebCoreInitializeEmptyTextStyle(WebCoreTextStyle *style)
 {
     style->padding = 0;
     style->textColor = nil;
@@ -46,9 +49,18 @@ inline void WebCoreInitializeEmptyTextStyle(WebCoreTextStyle *style)
     style->letterSpacing = 0;
     style->wordSpacing = 0;
     style->smallCaps = false;
-    style->applyRounding = true;
+    style->applyRunRounding = true;
+    style->applyWordRounding = true;
     style->attemptFontSubstitution = true;
     style->families = nil;
+}
+
+void WebCoreInitializeEmptyTextGeometry(WebCoreTextGeometry *geometry)
+{
+    geometry->point = NSMakePoint(0,0);
+    geometry->selectionY = 0;
+    geometry->selectionHeight = 0;
+    geometry->useFontMetricsForSelectionYAndHeight = true;
 }
 
 @implementation WebCoreTextRendererFactory
@@ -83,6 +95,14 @@ static WebCoreTextRendererFactory *sharedFactory;
 - (id <WebCoreTextRenderer>)rendererWithFont:(NSFont *)font usingPrinterFont:(BOOL)usingPrinterFont
 {
     return nil;
+}
+
+- (void)clearCaches
+{
+    QListBox::clearCachedTextRenderers();
+    for (QPtrListIterator<KWQKHTMLPart> it(KWQKHTMLPart::instances()); it.current(); ++it) {
+        [it.current()->bridge() setNeedsReapplyStyles];
+    }
 }
 
 @end

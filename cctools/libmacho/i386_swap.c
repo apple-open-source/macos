@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #ifdef SHLIB
 #undef environ
 #endif
@@ -361,3 +362,4 @@ enum NXByteOrder target_byte_sex)
 {
 	user->self = NXSwapLong(user->self);
 }
+#endif /* !defined(RLD) */

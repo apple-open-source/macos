@@ -49,38 +49,51 @@ RuntimeObjectImp::RuntimeObjectImp(ObjectImp *proto)
 
 RuntimeObjectImp::~RuntimeObjectImp()
 {
-    if (ownsInstance)
+    if (ownsInstance) {
         delete instance;
+    }
 }
 
 RuntimeObjectImp::RuntimeObjectImp(Bindings::Instance *i, bool oi) : ObjectImp ((ObjectImp *)0)
 {
     ownsInstance = oi;
     instance = i;
-    _initializeClassInfoFromInstance();
 }
 
 Value RuntimeObjectImp::get(ExecState *exec, const Identifier &propertyName) const
 {
+    Value result = Undefined();
+
     instance->begin();
     
-    // See if the instance have a field with the specified name.
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii());
-    if (aField) {
-        return instance->getValueOfField (aField); 
-    }
+    Class *aClass = instance->getClass();
     
-    // Now check if a method with specified name exists, if so return a function object for
-    // that method.
-    MethodList *methodList = instance->getClass()->methodsNamed(propertyName.ascii());
-    if (methodList) {
-        instance->end();
-        return Object (new RuntimeMethodImp(exec, propertyName, methodList));
+    if (aClass) {
+        
+        // See if the instance have a field with the specified name.
+        Field *aField = aClass->fieldNamed(propertyName.ascii(), instance);
+        if (aField) {
+            result = instance->getValueOfField (exec, aField); 
+        }
+        else {
+            // Now check if a method with specified name exists, if so return a function object for
+            // that method.
+            MethodList methodList = aClass->methodsNamed(propertyName.ascii(), instance);
+            if (methodList.length() > 0) {
+                result = Object (new RuntimeMethodImp(exec, propertyName, methodList));
+            }
+        }
+	
+        if (result.type() == UndefinedType) {
+            // Try a fallback object.
+            result = aClass->fallbackObject (exec, instance, propertyName);
+        }
     }
-    
+        
     instance->end();
+
     
-    return Undefined();
+    return result;
 }
 
 void RuntimeObjectImp::put(ExecState *exec, const Identifier &propertyName,
@@ -89,9 +102,14 @@ void RuntimeObjectImp::put(ExecState *exec, const Identifier &propertyName,
     instance->begin();
 
     // Set the value of the property.
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii());
+    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance);
     if (aField) {
         getInternalInstance()->setValueOfField(exec, aField, value);
+    }
+    else {
+	if (getInternalInstance()->supportsSetValueOfUndefinedField()){
+	    getInternalInstance()->setValueOfUndefinedField(exec, propertyName, value);
+	}
     }
 
     instance->end();
@@ -99,34 +117,41 @@ void RuntimeObjectImp::put(ExecState *exec, const Identifier &propertyName,
 
 bool RuntimeObjectImp::canPut(ExecState *exec, const Identifier &propertyName) const
 {
+    bool result = false;
+
     instance->begin();
 
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii());
+    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance);
 
     instance->end();
 
-    return aField ? true : false;
+    if (aField)
+	return true;
+    
+    return result;
 }
 
 bool RuntimeObjectImp::hasProperty(ExecState *exec,
                             const Identifier &propertyName) const
 {
+    bool result = false;
+    
     instance->begin();
 
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii());
+    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance);
     if (aField) {
         instance->end();
         return true;
     }
         
-    MethodList *methodList = instance->getClass()->methodsNamed(propertyName.ascii());
+    MethodList methodList = instance->getClass()->methodsNamed(propertyName.ascii(), instance);
 
     instance->end();
 
-    if (methodList)
+    if (methodList.length() > 0)
         return true;
-        
-    return false;
+
+    return result;
 }
 
 bool RuntimeObjectImp::deleteProperty(ExecState *exec,
@@ -138,17 +163,31 @@ bool RuntimeObjectImp::deleteProperty(ExecState *exec,
 
 Value RuntimeObjectImp::defaultValue(ExecState *exec, Type hint) const
 {
+    Value result;
+    
     instance->begin();
 
-    Value aValue = getInternalInstance()->defaultValue(hint);
+    result = getInternalInstance()->defaultValue(hint);
+    
+    instance->end();
+    
+    return result;
+}
+    
+bool RuntimeObjectImp::implementsCall() const
+{
+    // Only true for default functions.
+    return true;
+}
+
+Value RuntimeObjectImp::call(ExecState *exec, Object &thisObj, const List &args)
+{
+    instance->begin();
+
+    Value aValue = getInternalInstance()->invokeDefaultMethod(exec, args);
     
     instance->end();
     
     return aValue;
 }
-    
-void RuntimeObjectImp::_initializeClassInfoFromInstance()
-{
-    if (!instance)
-        return;
-}
+

@@ -61,7 +61,6 @@
 #define kApplePMUUCMagicCookie      0x0101BEEF
 
 // Global keys
-static CFStringRef          gTZNotificationNameString = NULL;
 static CFStringRef          EnergyPrefsKey = NULL;
 static CFStringRef          AutoWakePrefsKey = NULL;
 static CFStringRef          ConsoleUserKey = NULL;
@@ -69,6 +68,9 @@ static SCDynamicStoreRef    energyDS = NULL;
 
 static io_service_t         gIOResourceService = 0;
 static io_connect_t         _pm_ack_port = 0;
+
+
+static void tellSMU_GMTOffset(void);
 
 
 /* PMUInterestNotification
@@ -129,6 +131,7 @@ SleepWakeCallback(void * port,io_service_t y,natural_t messageType,void * messag
 
     switch ( messageType ) {
     case kIOMessageSystemWillSleep:
+        tellSMU_GMTOffset(); // tell SMU what our timezone offset is
     case kIOMessageCanSystemSleep:
         IOAllowPowerChange(_pm_ack_port, (long)messageArgument);
         break;
@@ -204,9 +207,9 @@ PowerSourcesHaveChanged(void *info)
 }
 
 
-/* timeZoneChangedCallback
+/* tellSMU_GMTOffset
  *
- * Receives notifications when system timezone changes.
+ * Tell the SMU what the seconds offset from GMT is.
  * Why does power management care which timezone we're in?
  * We don't, really. The SMU firmware needs to know for
  * a feature which shall remain nameless. Timezone info
@@ -215,18 +218,16 @@ PowerSourcesHaveChanged(void *info)
  * whenever it changes. And this PM plugin was a vaguely
  * convenient place for this code to live.
  */
-static void timeZoneChangedCallBack(
-    CFNotificationCenterRef center, 
-    void *observer, 
-    CFStringRef notificationName, 
-    const void *object, 
-    CFDictionaryRef userInfo)
+static void 
+tellSMU_GMTOffset(void)
 {
     static io_registry_entry_t  smuRegEntry = MACH_PORT_NULL;
     static io_connect_t         smuConnect = MACH_PORT_NULL;
     CFTimeZoneRef               tzr = NULL;
     CFDataRef                   d = NULL;
     int                         secondsOffset = 0;
+
+    if(!systemHasSMU()) return;
     
     if(MACH_PORT_NULL == smuRegEntry)
     {
@@ -234,8 +235,7 @@ static void timeZoneChangedCallBack(
         smuRegEntry = (io_registry_entry_t)IOServiceGetMatchingService(0,
                                     IOServiceNameMatching("AppleSMU"));
         if(MACH_PORT_NULL == smuRegEntry) {
-            // No SMU == we are on a system without SMU and therefore don't
-            // need to know.
+            // Error - unable to locate SMU
             return;
         }
         // Open up SMU's User Client
@@ -244,17 +244,11 @@ static void timeZoneChangedCallBack(
 
     CFTimeZoneResetSystem();
     tzr = CFTimeZoneCopySystem();
-    if(!tzr) return;
+    if(!tzr) goto exit;
 
-    if(kCFCompareEqualTo != CFStringCompare(notificationName, 
-            gTZNotificationNameString, 0) )
-    {
-        // bail unless this was the tz change note
-        goto exit;
-    }
-
-    secondsOffset = (int)CFTimeZoneGetSecondsFromGMT(tzr, 0);
+    secondsOffset = (int)CFTimeZoneGetSecondsFromGMT(tzr, CFAbsoluteTimeGetCurrent());
     d = CFDataCreate(0, &secondsOffset, sizeof(int));
+    if(!d) goto exit;
 
     IOConnectSetCFProperty(smuConnect, CFSTR("TimeZoneOffsetSeconds"), d);
 
@@ -263,6 +257,36 @@ exit:
     if(d) CFRelease(d);
 }
 
+/* displayPowerStateChange
+ *
+ * displayPowerStateChange gets notified when the display changes power state.
+ * Power state changes look like this:
+ * (1) Full power -> dim
+ * (2) dim -> display sleep
+ * (3) display sleep -> display sleep
+ * 
+ * We're interested in state transition 2. When that occurs on an SMU system
+ * we'll tell the SMU what the system clock's offset from GMT is.
+ */
+static void 
+displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, void *arg)
+{
+    static      int level = 0;
+    switch (messageType)
+    {
+        case kIOMessageDeviceWillPowerOff:
+            level++;
+            if(2 == level) {
+                // Display is transition from dim to full sleep.
+                tellSMU_GMTOffset();            
+            }
+            break;
+            
+        case kIOMessageDeviceHasPoweredOn:
+            level = 0;
+            break;
+    }            
+}
 
 
 /* initializeESPrefsDynamicStore
@@ -376,45 +400,62 @@ finish:
     return;
 }
 
-/* initializeTimezoneChangeNotifications
- *
- * Sets up the tz notifications that we get on behalf of AppleSMU.kext & the SMU
- */
-static void
-initializeTimezoneChangeNotifications(void)
+static bool
+systemHasSMU(void)
 {
-    CFNotificationCenterRef         distNoteCenter = NULL;
-    io_registry_entry_t             smuRegEntry = MACH_PORT_NULL;
+    static io_registry_entry_t              smuRegEntry = MACH_PORT_NULL;
+    static bool                             known = false;
+
+    if(known) return (smuRegEntry?true:false);
 
     smuRegEntry = (io_registry_entry_t)IOServiceGetMatchingService(0,
                         IOServiceNameMatching("AppleSMU"));
     if(MACH_PORT_NULL == smuRegEntry)
     {
         // SMU not supported on this platform, no need to install tz handler
-        return;
+        known = true;
+        return false;
     }
     IOObjectRelease(smuRegEntry);
+    known = true;
+    return true;
+}
+
+/* intializeDisplaySleepNotifications
+ *
+ * Notifications on display sleep. Our only purpose for listening to these
+ * is to tell the SMU what our timezone offset is when display sleep kicks
+ * in. As such, we only install the notifications on machines with an SMU.
+ */
+static void
+intializeDisplaySleepNotifications(void)
+{
+    IONotificationPortRef       note_port = MACH_PORT_NULL;
+    CFRunLoopSourceRef          dimSrc = NULL;
+    io_service_t                display_wrangler = MACH_PORT_NULL;
+    io_object_t                 dimming_notification_object = MACH_PORT_NULL;
+    IOReturn                    ret;
+
+    if(!systemHasSMU()) return;
+
+    display_wrangler = IOServiceGetMatchingService(NULL, IOServiceNameMatching("IODisplayWrangler"));
+    if(!display_wrangler) return;
     
-    gTZNotificationNameString = CFStringCreateWithCString(
-                        kCFAllocatorDefault,
-                        "NSSystemTimeZoneDidChangeDistributedNotification",
-                        kCFStringEncodingMacRoman);
-
-
-    distNoteCenter = CFNotificationCenterGetDistributedCenter();
-    if(distNoteCenter)
+    note_port = IONotificationPortCreate(NULL);
+    if(!note_port) return;
+    
+    ret = IOServiceAddInterestNotification(note_port, display_wrangler, 
+                kIOGeneralInterest, displayPowerStateChange,
+                NULL, &dimming_notification_object);
+    if(ret != kIOReturnSuccess) return;
+    
+    dimSrc = IONotificationPortGetRunLoopSource(note_port);
+    
+    if(dimSrc)
     {
-        CFNotificationCenterAddObserver(
-                       distNoteCenter, 
-                       NULL, 
-                       timeZoneChangedCallBack, 
-                       gTZNotificationNameString,
-                       NULL, 
-                       CFNotificationSuspensionBehaviorDeliverImmediately);
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), dimSrc, kCFRunLoopDefaultMode);
+        CFRelease(dimSrc);
     }
-
-    // And give SMU an initial reading of the timezone
-    timeZoneChangedCallBack(NULL, NULL, gTZNotificationNameString, NULL, NULL);
 }
 
 
@@ -472,8 +513,8 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
     // Install notification on ApplePMU&IOPMrootDomain general interest messages
     initializeInterestNotifications();
     
-    // Install timezone change notifications
-    initializeTimezoneChangeNotifications();
+    // Register for display dim/undim notifications
+    intializeDisplaySleepNotifications();
 
     // Register for SystemPower notifications
     _pm_ack_port = IORegisterForSystemPower (0, &notify, SleepWakeCallback, &anIterator);

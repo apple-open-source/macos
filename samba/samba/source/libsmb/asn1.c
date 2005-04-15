@@ -32,7 +32,7 @@ BOOL asn1_write(ASN1_DATA *data, const void *p, int len)
 	if (data->has_error) return False;
 	if (data->length < data->ofs+len) {
 		uint8 *newp;
-		newp = Realloc(data->data, data->ofs+len);
+		newp = SMB_REALLOC(data->data, data->ofs+len);
 		if (!newp) {
 			SAFE_FREE(data->data);
 			data->has_error = True;
@@ -58,7 +58,7 @@ BOOL asn1_push_tag(ASN1_DATA *data, uint8 tag)
 	struct nesting *nesting;
 
 	asn1_write_uint8(data, tag);
-	nesting = (struct nesting *)malloc(sizeof(struct nesting));
+	nesting = SMB_MALLOC_P(struct nesting);
 	if (!nesting) {
 		data->has_error = True;
 		return False;
@@ -219,6 +219,9 @@ BOOL asn1_load(ASN1_DATA *data, DATA_BLOB blob)
 /* read from a ASN1 buffer, advancing the buffer pointer */
 BOOL asn1_read(ASN1_DATA *data, void *p, int len)
 {
+	if (data->has_error)
+		return False;
+
 	if (len < 0 || data->ofs + len < data->ofs || data->ofs + len < len) {
 		data->has_error = True;
 		return False;
@@ -252,7 +255,7 @@ BOOL asn1_start_tag(ASN1_DATA *data, uint8 tag)
 		data->has_error = True;
 		return False;
 	}
-	nesting = (struct nesting *)malloc(sizeof(struct nesting));
+	nesting = SMB_MALLOC_P(struct nesting);
 	if (!nesting) {
 		data->has_error = True;
 		return False;
@@ -309,6 +312,9 @@ BOOL asn1_end_tag(ASN1_DATA *data)
 /* work out how many bytes are left in this nested tag */
 int asn1_tag_remaining(ASN1_DATA *data)
 {
+	if (data->has_error)
+		return 0;
+
 	if (!data->nesting) {
 		data->has_error = True;
 		return -1;
@@ -320,17 +326,17 @@ int asn1_tag_remaining(ASN1_DATA *data)
 BOOL asn1_read_OID(ASN1_DATA *data, char **OID)
 {
 	uint8 b;
-	pstring oid;
+	pstring oid_str;
 	fstring el;
 
 	if (!asn1_start_tag(data, ASN1_OID)) return False;
 	asn1_read_uint8(data, &b);
 
-	oid[0] = 0;
+	oid_str[0] = 0;
 	fstr_sprintf(el, "%u",  b/40);
-	pstrcat(oid, el);
+	pstrcat(oid_str, el);
 	fstr_sprintf(el, " %u",  b%40);
-	pstrcat(oid, el);
+	pstrcat(oid_str, el);
 
 	while (asn1_tag_remaining(data) > 0) {
 		unsigned v = 0;
@@ -339,12 +345,12 @@ BOOL asn1_read_OID(ASN1_DATA *data, char **OID)
 			v = (v<<7) | (b&0x7f);
 		} while (!data->has_error && b & 0x80);
 		fstr_sprintf(el, " %u",  v);
-		pstrcat(oid, el);
+		pstrcat(oid_str, el);
 	}
 
 	asn1_end_tag(data);
 
-	*OID = strdup(oid);
+	*OID = SMB_STRDUP(oid_str);
 
 	return !data->has_error;
 }
@@ -374,7 +380,7 @@ BOOL asn1_read_GeneralString(ASN1_DATA *data, char **s)
 		data->has_error = True;
 		return False;
 	}
-	*s = malloc(len+1);
+	*s = SMB_MALLOC(len+1);
 	if (! *s) {
 		data->has_error = True;
 		return False;

@@ -46,13 +46,11 @@ public:
     virtual ~RenderImage();
 
     virtual const char *renderName() const { return "RenderImage"; }
-    
-    virtual SelectionState selectionState() const {return m_selectionState;}
-    virtual void setSelectionState(SelectionState s) {m_selectionState = s;}
 
     virtual bool isImage() const { return true; }
+    virtual bool isImageButton() const { return false; }
     
-    virtual void paintObject( QPainter *p, int /*x*/, int /*y*/, int /*w*/, int /*h*/, int tx, int ty, PaintAction paintAction);
+    virtual void paint(PaintInfo& i, int tx, int ty);
 
     virtual void layout();
 
@@ -66,18 +64,16 @@ public:
 
     // hook to keep RendeObject::m_inline() up to date
     virtual void setStyle(RenderStyle *style);
-    virtual void updateFromElement();
-
-    virtual void notifyFinished(CachedObject *finishedObj);
-    void dispatchLoadEvent();
-
-    virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty,
-                             HitTestAction hitTestAction = HitTestAll, bool inside=false);
+    void updateAltText();
     
-    virtual short calcReplacedWidth() const;
+    void setImage(CachedImage* image);
+    CachedImage* getImage() const { return image; }
+    
+    virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty,
+                             HitTestAction hitTestAction);
+    
+    virtual int calcReplacedWidth() const;
     virtual int calcReplacedHeight() const;
-
-    virtual void detach();
 
     // Called to set generated content images (e.g., :before/:after generated images).
     void setContentObject(CachedObject* co);
@@ -86,10 +82,13 @@ public:
     
     DOM::HTMLMapElementImpl* imageMap();
 
+#if APPLE_CHANGES
+    void resetAnimation();
+#endif
+
 private:
     bool isWidthSpecified() const;
     bool isHeightSpecified() const;
-    QColor selectionTintColor(QPainter *p) const;
 
     /*
      * Pointer to the image
@@ -110,8 +109,6 @@ private:
 
     CachedImage *image;
     bool berrorPic : 1;
-    bool loadEventSent : 1;
-    SelectionState m_selectionState : 3;
 };
 
 

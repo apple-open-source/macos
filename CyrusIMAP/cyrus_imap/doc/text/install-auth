@@ -1,0 +1,171 @@
+Authenticating Users
+
+Introduction
+
+    The Cyrus IMAP Server uses the Cyrus SASL library to authenticate
+    users. Please refer to the Cyrus SASL documentation for specific
+    details on SASL. This section focuses specifically on the server
+    processes distributed with Cyrus IMAPd. 
+
+Authentication Mechanisms
+
+    At this writing, the underlying Cyrus SASL library supports a variety
+    of SASL mechanisms, including CRAM-MD5, DIGEST-MD5, KERBEROS_V4, and
+    GSSAPI. The Cyrus IMAP, POP, and LMTP servers also support STARTTLS
+    using client-side certificates and the EXTERNAL authentication method. 
+
+    GSSAPI is specific to Kerberos version 5. Additionally, STARTTLS client
+    side certificates have not been extensively tested. 
+
+    When STARTTLS is enabled, the PLAIN SASL mechanism (if installed) also
+    becomes available. This is because one should not pass a clear text
+    password over the wire unless the connection is encrypted. 
+
+    The IMAP protocol also supports a way for users to authenticate without
+    using SASL (the specification). This is via the 'LOGIN' command (not to
+    be confused by the LOGIN SASL mechanism). The IMAP LOGIN command (as
+    with PLAIN) will send your password in clear-text to the server. In
+    this case, the password is still verified through the Cyrus SASL
+    library, though no SASL mechanism actually performs a negotiation. 
+
+    The POP server is capable of APOP authentication, but this requries
+    that Cyrus SASL be compiled --with-checkapop, and also that you are
+    using an auxprop backend for your password store (e.g. the sasldb
+    auxprop plugin). 
+
+Authentication Recommendations
+
+      * If you are running a mail server on a single machine, we recommend
+        that you configure the system to use CRAM-MD5 or DIGEST-MD5. We
+        have not provided utilities for you to let users change their
+        passwords but either we or someone else might provide that feature. 
+      * If you have more than one mail server, we recommend that you
+        configure the system to use GSSAPI and Kerberos5. 
+      * If you have some other authentication mechanism that requires the
+        clear text password, you should use saslauthd. 
+
+        saslauthd is something specific to the Cyrus SASL libraries. While
+        it is less generic than PAM, it is much simpler to configure. The
+        IMAP server simply sends a userid and a corresponding password down
+        a Unix domain pipe. Then, saslauthd takes that userid and password
+        and tries to authenticate with it -- using whatever authentication
+        you use -- and simply returns "yes" or "no" as to whether or not
+        the password was correct. 
+
+        It is possible to configure saslauthd to check these passwords via
+        a PAM mechanism, /etc/passwd, or other possibilities. 
+
+        PAM stands for pluggable authentication modules and the purpose is
+        to provide a common API which applications can use to obtain
+        authentication for a user. You can think of PAM as a complementary
+        layer under the SASL layer. See
+        http://www.kernel.org/pub/linux/libs/pam/FAQ for more information
+        on PAM. By using a PAM module, all the other applications on your
+        system can take advantage of it -- for example, login, xlock, etc. 
+
+        Keep in mind that when you use PLAIN or LOGIN you should encrypt
+        the stream so a user's password can not be trivially sniffed off of
+        the network. 
+
+Configuring Authentication
+
+    Cyrus SASL has a number of options that can be configured by the
+    application. To configure these via imapd.conf, simply prefix the
+    appropriate option name with sasl_ (e.g. pwcheck_method becomes
+    sasl_pwcheck_method). 
+
+/etc/sasldb2
+
+    The easiest method for authenticating users is to use the libsasl
+    authentication database and create users using the "saslpasswd2"
+    utility. Set "sasl_pwcheck_method: auxprop", and be sure that the SASL
+    sasldb auxprop module is installed (it is, by default). Make sure Cyrus
+    can read "/etc/sasldb2": 
+
+       chown cyrus /etc/sasldb2*
+
+Shadow Passwords
+
+    If you want to authenticate users from "/etc/shadow", things are
+    considerably more complicated, since the cyrus user cannot read the
+    shadow password file. Additionally, this will not allow you to use
+    shared secret mechanisms. To do this, it is necessary to configure
+    libsasl with saslauthd support, and set "sasl_pwcheck_method:
+    saslauthd". The SASL library will then make calls to an external
+    utility running as root to authenticate users. 
+
+Kerberos
+
+Configuring Kerberos v4
+
+    Cyrus IMAP supports Kerberos v4 if the SASL library was compiled with
+    KERBEROS_V4 support. 
+
+    You'll have to create a Kerberos v4 identity for the server and add the
+    server's key to the "srvtab" file. The file must be readable by the
+    cyrus user. The server's Kerberos identity is "imap.HOST@REALM", where
+    "HOST" is the first component of the machine's host name and "REALM" is
+    the machine's Kerberos realm. 
+
+     1. Here is a sample session, creating a srvtab file for the host named
+        "foobar": 
+
+           ksrvutil -f /var/imap/srvtab add
+
+        Here is the information "ksrvutil" requests. Respond by filling in
+        values or by pressing RETURN. In this example, the host name is
+        "foobar" and the realm is "ANDREW.CMU.EDU". 
+
+           Name: imap
+           Instance: foobar
+           Realm: ANDREW.CMU.EDU
+           Version number: 
+           New principal: imap.foobar@ANDREW.CMU.EDU; version 0
+           Is this correct? (y,n) [y] 
+           Password: 
+           Verifying, please re-enter Password: 
+           Key successfully added.
+           Would you like to add another key? (y,n) [y] n
+
+     2. 
+        If you plan to install Kerberized POP, create the Kerberos identity
+        "pop.HOST@REALM" and add the key to the "srvtab" file. Likewise, if
+        you plan on using LMTP over TCP, create the Kerberos identity
+        "lmtp.HOST@REALM" and add the key to the "srvtab" file. 
+     3. 
+
+        Make the "srvtab" file owned by the cyrus user: 
+
+           chown cyrus /var/imap/srvtab
+
+     4. Add the option srvtab option to /etc/imapd.conf: 
+
+           srvtab: /var/imap/srvtab
+
+     5. Test using imtest -m KERBEROS_V4. imtest will attempt to authorize
+        as the current Unix user regardless of the current ticket's held.
+        Override this with the -u option. 
+
+Troubleshooting Kerberos_V4 problems
+
+    Run the program "krbck" (found in the imap directory) as the cyrus user
+    on the IMAP server. This program will diagnose some common Kerberos v4
+    configuration errors. 
+
+Configuring Kerberos v5
+
+    Cyrus IMAP supports Kerberos v5 if the SASL library was compiled with
+    GSSAPI support. 
+
+    You'll have to create a Kerberos v5 identity for the server. Kerberos
+    v5 keys are generally stored in "/etc/krb5.keytab". 
+
+     1. Add the "imap/hostname" key using "kadmin". 
+     2. Let the cyrus user read "/etc/krb5.keytab": user: 
+
+           chown cyrus /etc/krb5.keytab
+
+     3. Test using imtest -m GSSAPI. imtest will attempt to authorize as
+        the current Unix user regardless of the current ticket's held.
+        Override this with the -u option. 
+

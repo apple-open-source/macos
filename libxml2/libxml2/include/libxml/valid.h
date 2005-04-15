@@ -30,7 +30,9 @@ typedef xmlValidState *xmlValidStatePtr;
 
 /**
  * xmlValidityErrorFunc:
- * @ctx:  an xmlValidCtxtPtr validity error context
+ * @ctx:  usually an xmlValidCtxtPtr to a validity error context,
+ *        but comes from ctxt->userData (which normally contains such
+ *        a pointer); ctxt->userData can be changed by the user.
  * @msg:  the string to format *printf like vararg
  * @...:  remaining arguments to the format
  *
@@ -43,7 +45,9 @@ typedef void (*xmlValidityErrorFunc) (void *ctx,
 
 /**
  * xmlValidityWarningFunc:
- * @ctx:  an xmlValidCtxtPtr validity error context
+ * @ctx:  usually an xmlValidCtxtPtr to a validity error context,
+ *        but comes from ctxt->userData (which normally contains such
+ *        a pointer); ctxt->userData can be changed by the user.
  * @msg:  the string to format *printf like vararg
  * @...:  remaining arguments to the format
  *
@@ -53,6 +57,21 @@ typedef void (*xmlValidityErrorFunc) (void *ctx,
 typedef void (*xmlValidityWarningFunc) (void *ctx,
 			       const char *msg,
 			       ...);
+
+#ifdef IN_LIBXML
+/**
+ * XML_CTXT_FINISH_DTD_0:
+ *
+ * Special value for finishDtd field when embedded in an xmlParserCtxt
+ */
+#define XML_CTXT_FINISH_DTD_0 0xabcd1234
+/**
+ * XML_CTXT_FINISH_DTD_1:
+ *
+ * Special value for finishDtd field when embedded in an xmlParserCtxt
+ */
+#define XML_CTXT_FINISH_DTD_1 0xabcd1235
+#endif
 
 /*
  * xmlValidCtxt:
@@ -71,7 +90,7 @@ struct _xmlValidCtxt {
     int                nodeMax;       /* Max depth of the parsing stack */
     xmlNodePtr        *nodeTab;       /* array of nodes */
 
-    int              finishDtd;       /* finished validating the Dtd ? */
+    unsigned int     finishDtd;       /* finished validating the Dtd ? */
     xmlDocPtr              doc;       /* the document */
     int                  valid;       /* temporary validity check result */
 
@@ -269,7 +288,7 @@ XMLPUBFUN xmlListPtr XMLCALL
 /**
  * The public function calls related to validity checking.
  */
-
+#ifdef LIBXML_VALID_ENABLED
 XMLPUBFUN int XMLCALL		
 		xmlValidateRoot		(xmlValidCtxtPtr ctxt,
 					 xmlDocPtr doc);
@@ -337,6 +356,8 @@ XMLPUBFUN int XMLCALL
 		xmlValidateNotationUse	(xmlValidCtxtPtr ctxt,
 					 xmlDocPtr doc,
 					 const xmlChar *notationName);
+#endif /* LIBXML_VALID_ENABLED */
+
 XMLPUBFUN int XMLCALL		
 		xmlIsMixedElement	(xmlDocPtr doc,
 					 const xmlChar *name);
@@ -363,13 +384,16 @@ XMLPUBFUN xmlElementPtr XMLCALL
 XMLPUBFUN int XMLCALL		
 		xmlValidGetValidElements(xmlNode *prev,
 					 xmlNode *next,
-					 const xmlChar **list,
+					 const xmlChar **names,
 					 int max);
 XMLPUBFUN int XMLCALL		
 		xmlValidGetPotentialChildren(xmlElementContent *ctree,
 					 const xmlChar **list,
 					 int *len,
 					 int max);
+
+#ifdef LIBXML_VALID_ENABLED
+
 XMLPUBFUN int XMLCALL		
 		xmlValidateNameValue	(const xmlChar *value);
 XMLPUBFUN int XMLCALL		
@@ -379,6 +403,7 @@ XMLPUBFUN int XMLCALL
 XMLPUBFUN int XMLCALL		
 		xmlValidateNmtokensValue(const xmlChar *value);
 
+#endif /* LIBXML_VALID_ENABLED */
 #ifdef LIBXML_REGEXP_ENABLED
 /*
  * Validation based on the regexp support

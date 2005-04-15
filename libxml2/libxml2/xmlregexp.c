@@ -3,7 +3,7 @@
  *
  * Basically designed with the purpose of compiling regexps for 
  * the variety of validation/shemas mechanisms now available in
- * XML related specifications thise includes:
+ * XML related specifications these include:
  *    - XML-1.0 DTD validation
  *    - XML Schemas structure part 1
  *    - XML Schemas Datatypes part 2 especially Appendix F
@@ -35,8 +35,8 @@
 #define INT_MAX 123456789 /* easy to flag and big enough for our needs */
 #endif
 
-/* #define DEBUG_REGEXP_GRAPH  */
-/* #define DEBUG_REGEXP_EXEC */
+/* #define DEBUG_REGEXP_GRAPH */
+/* #define DEBUG_REGEXP_EXEC */ 
 /* #define DEBUG_PUSH */
 /* #define DEBUG_COMPACTION */
 
@@ -49,6 +49,7 @@
 
 #define CUR_SCHAR(s, l) xmlStringCurrentChar(NULL, s, &l)
 #define NEXTL(l) ctxt->cur += l;
+#define XML_REG_STRING_SEPARATOR '|'
 
 /**
  * TODO:
@@ -267,7 +268,7 @@ struct _xmlRegExecRollback {
     xmlRegStatePtr state;/* the current state */
     int index;		/* the index in the input stack */
     int nextbranch;	/* the next transition to explore in that state */
-    int *counts;	/* save the automate state if it has some */
+    int *counts;	/* save the automata state if it has some */
 };
 
 typedef struct _xmlRegInputToken xmlRegInputToken;
@@ -280,14 +281,14 @@ struct _xmlRegInputToken {
 
 struct _xmlRegExecCtxt {
     int status;		/* execution status != 0 indicate an error */
-    int determinist;	/* did we found an inderterministic behaviour */
+    int determinist;	/* did we find an indeterministic behaviour */
     xmlRegexpPtr comp;	/* the compiled regexp */
     xmlRegExecCallbacks callback;
     void *data;
 
     xmlRegStatePtr state;/* the current state */
     int transno;	/* the current transition on that state */
-    int transcount;	/* the number of char in char counted transitions */
+    int transcount;	/* the number of chars in char counted transitions */
 
     /*
      * A stack of rollback states
@@ -327,7 +328,7 @@ static void xmlRegFreeAtom(xmlRegAtomPtr atom);
  ************************************************************************/
 /**
  * xmlRegexpErrMemory:
- * @extra:  extra informations
+ * @extra:  extra information
  *
  * Handle an out of memory condition
  */
@@ -347,9 +348,9 @@ xmlRegexpErrMemory(xmlRegParserCtxtPtr ctxt, const char *extra)
 
 /**
  * xmlRegexpErrCompile:
- * @extra:  extra informations
+ * @extra:  extra information
  *
- * Handle an compilation failure
+ * Handle a compilation failure
  */
 static void
 xmlRegexpErrCompile(xmlRegParserCtxtPtr ctxt, const char *extra)
@@ -379,7 +380,7 @@ static int xmlFAComputesDeterminism(xmlRegParserCtxtPtr ctxt);
  * xmlRegEpxFromParse:
  * @ctxt:  the parser context used to build it
  *
- * Allocate a new regexp and fill it with the reult from the parser
+ * Allocate a new regexp and fill it with the result from the parser
  *
  * Returns the new regexp or NULL in case of error
  */
@@ -418,7 +419,7 @@ xmlRegEpxFromParse(xmlRegParserCtxtPtr ctxt) {
 	/*
 	 * Switch to a compact representation
 	 * 1/ counting the effective number of states left
-	 * 2/ conting the unique number of atoms, and check that
+	 * 2/ counting the unique number of atoms, and check that
 	 *    they are all of the string type
 	 * 3/ build a table state x atom for the transitions
 	 */
@@ -505,7 +506,7 @@ xmlRegEpxFromParse(xmlRegParserCtxtPtr ctxt) {
 
 	/*
 	 * Allocate the transition table. The first entry for each
-	 * state correspond to the state type.
+	 * state corresponds to the state type.
 	 */
 	transdata = NULL;
 
@@ -539,7 +540,7 @@ xmlRegEpxFromParse(xmlRegParserCtxtPtr ctxt) {
 		}
 		targetno = stateRemap[trans->to];
 		/*
-		 * if the same atome can generate transition to 2 different
+		 * if the same atom can generate transitions to 2 different
 		 * states then it means the automata is not determinist and
 		 * the compact form can't be used !
 		 */
@@ -1182,6 +1183,9 @@ static void
 xmlRegStateAddTrans(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr state,
 	            xmlRegAtomPtr atom, xmlRegStatePtr target,
 		    int counter, int count) {
+
+    int nrtrans;
+
     if (state == NULL) {
 	ERROR("add state: state is NULL");
 	return;
@@ -1190,6 +1194,25 @@ xmlRegStateAddTrans(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr state,
 	ERROR("add state: target is NULL");
 	return;
     }
+    /*
+     * Other routines follow the philosophy 'When in doubt, add a transition'
+     * so we check here whether such a transition is already present and, if
+     * so, silently ignore this request.
+     */
+
+    for (nrtrans=0; nrtrans<state->nbTrans; nrtrans++) {
+        if ((state->trans[nrtrans].atom == atom) &&
+            (state->trans[nrtrans].to == target->no) &&
+            (state->trans[nrtrans].counter == counter) &&
+            (state->trans[nrtrans].count == count)) {
+#ifdef DEBUG_REGEXP_GRAPH
+            printf("Ignoring duplicate transition from %d to %d\n",
+                    state->no, target->no);
+#endif
+            return;
+        }
+    }
+
     if (state->maxTrans == 0) {
 	state->maxTrans = 4;
 	state->trans = (xmlRegTrans *) xmlMalloc(state->maxTrans *
@@ -1214,14 +1237,15 @@ xmlRegStateAddTrans(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr state,
 #ifdef DEBUG_REGEXP_GRAPH
     printf("Add trans from %d to %d ", state->no, target->no);
     if (count == REGEXP_ALL_COUNTER)
-	printf("all transition");
+	printf("all transition\n");
     else if (count >= 0)
-	printf("count based %d", count);
+	printf("count based %d\n", count);
     else if (counter >= 0)
-	printf("counted %d", counter);
+	printf("counted %d\n", counter);
     else if (atom == NULL)
-	printf("epsilon transition");
-    printf("\n");
+	printf("epsilon transition\n");
+    else if (atom != NULL) 
+        xmlRegPrintAtom(stdout, atom);
 #endif
 
     state->trans[state->nbTrans].atom = atom;
@@ -1346,7 +1370,7 @@ xmlFAGenerateCountedTransition(xmlRegParserCtxtPtr ctxt,
  * @to:  the target state or NULL for building a new one
  * @atom:  the atom generating the transition
  *
- * Returns 0 if succes and -1 in case of error.
+ * Returns 0 if success and -1 in case of error.
  */
 static int
 xmlFAGenerateTransitions(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr from,
@@ -1358,7 +1382,7 @@ xmlFAGenerateTransitions(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr from,
     if (atom->type == XML_REGEXP_SUBREG) {
 	/*
 	 * this is a subexpression handling one should not need to
-	 * create a new node excep for XML_REGEXP_QUANT_RANGE.
+	 * create a new node except for XML_REGEXP_QUANT_RANGE.
 	 */
 	if (xmlRegAtomPush(ctxt, atom) < 0) {
 	    return(-1);
@@ -1390,13 +1414,26 @@ xmlFAGenerateTransitions(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr from,
 
 		/*
 		 * This one is nasty:
-		 *   1/ register a new counter
-		 *   2/ register an epsilon transition associated to
+		 *   1/ if range has minOccurs == 0, create a new state
+		 *	and create epsilon transitions from atom->start
+		 *	to atom->stop, as well as atom->start to the new
+		 *	state
+		 *   2/ register a new counter
+		 *   3/ register an epsilon transition associated to
 		 *      this counter going from atom->stop to atom->start
-		 *   3/ create a new state
-		 *   4/ generate a counted transition from atom->stop to
+		 *   4/ create a new state
+		 *   5/ generate a counted transition from atom->stop to
 		 *      that state
 		 */
+		if (atom->min == 0) {
+		    xmlFAGenerateEpsilonTransition(ctxt, atom->start,
+			atom->stop);
+		    newstate = xmlRegNewState(ctxt);
+		    xmlRegStatePush(ctxt, newstate);
+		    ctxt->state = newstate;
+		    xmlFAGenerateEpsilonTransition(ctxt, atom->start,
+			newstate);
+		}
 		counter = xmlRegGetCounter(ctxt);
 		ctxt->counters[counter].min = atom->min - 1;
 		ctxt->counters[counter].max = atom->max - 1;
@@ -1459,7 +1496,7 @@ xmlFAGenerateTransitions(xmlRegParserCtxtPtr ctxt, xmlRegStatePtr from,
  * @ctxt:  a regexp parser context
  * @fromnr:  the from state
  * @tonr:  the to state 
- * @cpunter:  should that transition be associted to a counted
+ * @counter:  should that transition be associated to a counted
  *
  */
 static void
@@ -1615,7 +1652,7 @@ xmlFAEliminateEpsilonTransitions(xmlRegParserCtxtPtr ctxt) {
 	xmlRegStatePtr target = NULL;
 	state->reached = XML_REGEXP_MARK_VISITED;
 	/*
-	 * Mark all state reachable from the current reachable state
+	 * Mark all states reachable from the current reachable state
 	 */
 	for (transnr = 0;transnr < state->nbTrans;transnr++) {
 	    if ((state->trans[transnr].to >= 0) &&
@@ -1664,7 +1701,7 @@ xmlFAEliminateEpsilonTransitions(xmlRegParserCtxtPtr ctxt) {
  * @atom1:  an atom
  * @atom2:  an atom
  *
- * Compares two atoms to check whether they are equivatents
+ * Compares two atoms to check whether they are equivalents
  *
  * Returns 1 if yes and 0 otherwise
  */
@@ -1757,7 +1794,7 @@ xmlFAComputesDeterminism(xmlRegParserCtxtPtr ctxt) {
 	return(ctxt->determinist);
 
     /*
-     * Check for all states that there isn't 2 transitions
+     * Check for all states that there aren't 2 transitions
      * with the same atom and a different target.
      */
     for (statenr = 0;statenr < ctxt->nbStates;statenr++) {
@@ -1781,7 +1818,7 @@ xmlFAComputesDeterminism(xmlRegParserCtxtPtr ctxt) {
 		if (t2->atom != NULL) {
 		    if (t1->to == t2->to) {
 			if (xmlFACompareAtoms(t1->atom, t2->atom))
-			    t2->to = -1; /* eliminate */
+			    t2->to = -1; /* eliminated */
 		    } else {
 			/* not determinist ! */
 			if (xmlFACompareAtoms(t1->atom, t2->atom))
@@ -2089,7 +2126,7 @@ xmlRegCheckCharacter(xmlRegAtomPtr atom, int codepoint) {
 
 /************************************************************************
  * 									*
- *	Saving an restoring state of an execution context		*
+ *	Saving and restoring state of an execution context		*
  * 									*
  ************************************************************************/
 
@@ -2195,7 +2232,7 @@ xmlFARegExecRollBack(xmlRegExecCtxtPtr exec) {
 
 /************************************************************************
  * 									*
- *	Verifyer, running an input against a compiled regexp		*
+ *	Verifier, running an input against a compiled regexp		*
  * 									*
  ************************************************************************/
 
@@ -2234,12 +2271,27 @@ xmlFARegExec(xmlRegexpPtr comp, const xmlChar *content) {
 	xmlRegAtomPtr atom;
 
 	/*
-	 * End of input on non-terminal state, rollback, however we may
+	 * If end of input on non-terminal state, rollback, however we may
 	 * still have epsilon like transition for counted transitions
-	 * on counters, in that case don't break too early.
+	 * on counters, in that case don't break too early.  Additionally,
+	 * if we are working on a range like "AB{0,2}", where B is not present,
+	 * we don't want to break.
 	 */
-	if ((exec->inputString[exec->index] == 0) && (exec->counts == NULL))
-	    goto rollback;
+	if ((exec->inputString[exec->index] == 0) && (exec->counts == NULL)) {
+	    /*
+	     * if there is a transition, we must check if
+	     *  atom allows minOccurs of 0
+	     */
+	    if (exec->transno < exec->state->nbTrans) {
+	        trans = &exec->state->trans[exec->transno];
+		if (trans->to >=0) {
+		    atom = trans->atom;
+		    if (!((atom->min == 0) && (atom->max > 0)))
+		        goto rollback;
+		}
+	    } else
+	        goto rollback;
+	}
 
 	exec->transcount = 0;
 	for (;exec->transno < exec->state->nbTrans;exec->transno++) {
@@ -2270,7 +2322,7 @@ xmlFARegExec(xmlRegexpPtr comp, const xmlChar *content) {
 	    } else if (exec->inputString[exec->index] != 0) {
                 codepoint = CUR_SCHAR(&(exec->inputString[exec->index]), len);
 		ret = xmlRegCheckCharacter(atom, codepoint);
-		if ((ret == 1) && (atom->min > 0) && (atom->max > 0)) {
+		if ((ret == 1) && (atom->min >= 0) && (atom->max > 0)) {
 		    xmlRegStatePtr to = comp->states[trans->to];
 
 		    /*
@@ -2325,7 +2377,21 @@ xmlFARegExec(xmlRegexpPtr comp, const xmlChar *content) {
 		    if (ret == 0) {
 			goto rollback;
 		    }
+		} else if ((ret == 0) && (atom->min == 0) && (atom->max > 0)) {
+		    /*
+		     * we don't match on the codepoint, but minOccurs of 0
+		     * says that's ok.  Setting len to 0 inhibits stepping
+		     * over the codepoint.
+		     */
+		    exec->transcount = 1;
+		    len = 0;
+		    ret = 1;
 		}
+	    } else if ((atom->min == 0) && (atom->max > 0)) {
+	        /* another spot to match when minOccurs is 0 */
+		exec->transcount = 1;
+		len = 0;
+		ret = 1;
 	    }
 	    if (ret == 1) {
 		if (exec->state->nbTrans > exec->transno + 1) {
@@ -2383,7 +2449,7 @@ progress:
 
 /************************************************************************
  * 									*
- *	Progressive interface to the verifyer one atom at a time	*
+ *	Progressive interface to the verifier one atom at a time	*
  * 									*
  ************************************************************************/
 
@@ -2512,6 +2578,47 @@ xmlFARegExecSaveInputString(xmlRegExecCtxtPtr exec, const xmlChar *value,
     exec->inputStack[exec->inputStackNr].data = NULL;
 }
 
+/**
+ * xmlRegStrEqualWildcard:
+ * @expStr:  the string to be evaluated 
+ * @valStr:  the validation string
+ *
+ * Checks if both strings are equal or have the same content. "*"
+ * can be used as a wildcard in @valStr; "|" is used as a seperator of 
+ * substrings in both @expStr and @valStr.
+ *
+ * Returns 1 if the comparison is satisfied and the number of substrings
+ * is equal, 0 otherwise.
+ */
+
+static int
+xmlRegStrEqualWildcard(const xmlChar *expStr, const xmlChar *valStr) {
+    if (expStr == valStr) return(1);
+    if (expStr == NULL) return(0);
+    if (valStr == NULL) return(0);
+    do {
+	/*
+	* Eval if we have a wildcard for the current item.
+	*/
+        if (*expStr != *valStr) {
+	    if ((*valStr != 0) && (*expStr != 0) && (*expStr++ == '*')) {
+		do {
+		    if (*valStr == XML_REG_STRING_SEPARATOR)
+			break;
+		    *valStr++;
+		} while (*valStr != 0);
+		continue;
+	    } else
+		return(0);
+	}
+	*expStr++;
+	*valStr++;
+    } while (*valStr != 0);
+    if (*expStr != 0)
+	return (0);
+    else
+	return (1);
+}
 
 /**
  * xmlRegCompactPushString:
@@ -2551,14 +2658,14 @@ xmlRegCompactPushString(xmlRegExecCtxtPtr exec,
 #endif
 
     /*
-     * Examine all outside transition from current state
+     * Examine all outside transitions from current state
      */
     for (i = 0;i < comp->nbstrings;i++) {
 	target = comp->compact[state * (comp->nbstrings + 1) + i + 1];
 	if ((target > 0) && (target <= comp->nbstates)) {
-	    target--; /* to avoid 0 */
-	    if (xmlStrEqual(comp->stringMap[i], value)) {
-		exec->index = target;
+	    target--; /* to avoid 0 */    
+	    if (xmlRegStrEqualWildcard(comp->stringMap[i], value)) {
+		exec->index = target;		
 		if ((exec->callback != NULL) && (comp->transdata != NULL)) {
 		    exec->callback(exec->data, value,
 			  comp->transdata[state * comp->nbstrings + i], data);
@@ -2737,7 +2844,7 @@ xmlRegExecPushString(xmlRegExecCtxtPtr exec, const xmlChar *value,
 		exec->status = -2;
 		break;
 	    } else if (value != NULL) {
-		ret = xmlStrEqual(value, atom->valuep);
+		ret = xmlRegStrEqualWildcard(atom->valuep, value);
 		if ((ret == 1) && (trans->counter >= 0)) {
 		    xmlRegCounterPtr counter;
 		    int count;
@@ -2934,7 +3041,7 @@ xmlRegExecPushString2(xmlRegExecCtxtPtr exec, const xmlChar *value,
 	str = buf;
     }
     memcpy(&str[0], value, lenp);
-    str[lenp] = '|';
+    str[lenp] = XML_REG_STRING_SEPARATOR;
     memcpy(&str[lenp + 1], value2, lenn);
     str[lenn + lenp + 1] = 0;
 
@@ -3098,7 +3205,7 @@ progress:
 #endif
 /************************************************************************
  * 									*
- *	Parser for the Shemas Datatype Regular Expressions		*
+ *	Parser for the Schemas Datatype Regular Expressions		*
  *	http://www.w3.org/TR/2001/REC-xmlschema-2-20010502/#regexs	*
  * 									*
  ************************************************************************/
@@ -3572,7 +3679,7 @@ xmlFAParseCharRange(xmlRegParserCtxtPtr ctxt) {
 	return;
     }
     cur = CUR;
-    if (cur != '-') {
+    if ((cur != '-') || (NXT(1) == ']')) {
         xmlRegAtomAddRange(ctxt, ctxt->atom, ctxt->neg,
 		              XML_REGEXP_CHARVAL, start, end, NULL);
 	return;
@@ -3650,15 +3757,11 @@ xmlFAParseCharGroup(xmlRegParserCtxtPtr ctxt) {
 	    ctxt->neg = !ctxt->neg;
 	    xmlFAParsePosCharGroup(ctxt);
 	    ctxt->neg = neg;
-	} else if (CUR == '-') {
+	} else if ((CUR == '-') && (NXT(1) == '[')) {
 	    int neg = ctxt->neg;
-	    NEXT;
 	    ctxt->neg = 2;
-	    if (CUR != '[') {
-		ERROR("charClassExpr: '[' expected");
-		break;
-	    }
-	    NEXT;
+	    NEXT;	/* eat the '-' */
+	    NEXT;	/* eat the '[' */
 	    xmlFAParseCharGroup(ctxt);
 	    if (CUR == ']') {
 		NEXT;
@@ -3866,49 +3969,32 @@ xmlFAParsePiece(xmlRegParserCtxtPtr ctxt) {
 /**
  * xmlFAParseBranch:
  * @ctxt:  a regexp parser context
- * @first:  is taht the first
  *
  * [2]   branch   ::=   piece*
  8
  */
 static int
-xmlFAParseBranch(xmlRegParserCtxtPtr ctxt, int first) {
+xmlFAParseBranch(xmlRegParserCtxtPtr ctxt) {
     xmlRegStatePtr previous;
-    xmlRegAtomPtr prevatom = NULL;
     int ret;
 
     previous = ctxt->state;
     ret = xmlFAParsePiece(ctxt);
     if (ret != 0) {
-	if (first) {
-	    if (xmlFAGenerateTransitions(ctxt, previous, NULL, ctxt->atom) < 0)
-	        return(-1);
-	    previous = ctxt->state;
-	} else {
-	    prevatom = ctxt->atom;
-	}
+	if (xmlFAGenerateTransitions(ctxt, previous, NULL, ctxt->atom) < 0)
+	    return(-1);
+	previous = ctxt->state;
 	ctxt->atom = NULL;
     }
     while ((ret != 0) && (ctxt->error == 0)) {
 	ret = xmlFAParsePiece(ctxt);
 	if (ret != 0) {
-	    if (first) {
-		if (xmlFAGenerateTransitions(ctxt, previous, NULL,
-		                             ctxt->atom) < 0)
+	    if (xmlFAGenerateTransitions(ctxt, previous, NULL,
+					 ctxt->atom) < 0)
 		    return(-1);
-	    } else {
-		if (xmlFAGenerateTransitions(ctxt, previous, NULL,
-		                             prevatom) < 0)
-		    return(-1);
-		prevatom = ctxt->atom;
-	    }
 	    previous = ctxt->state;
 	    ctxt->atom = NULL;
 	}
-    }
-    if (!first) {
-	if (xmlFAGenerateTransitions(ctxt, previous, ctxt->end, prevatom) < 0)
-	    return(-1);
     }
     return(0);
 }
@@ -3916,18 +4002,24 @@ xmlFAParseBranch(xmlRegParserCtxtPtr ctxt, int first) {
 /**
  * xmlFAParseRegExp:
  * @ctxt:  a regexp parser context
- * @top:  is that the top-level expressions ?
+ * @top:  is this the top-level expression ?
  *
  * [1]   regExp   ::=     branch  ( '|' branch )*
  */
 static void
 xmlFAParseRegExp(xmlRegParserCtxtPtr ctxt, int top) {
-    xmlRegStatePtr start, end, oldend;
+    xmlRegStatePtr start, end;
 
-    oldend = ctxt->end;
-
+    /* if not top start should have been generated by an epsilon trans */
     start = ctxt->state;
-    xmlFAParseBranch(ctxt, (ctxt->end == NULL));
+    ctxt->end = NULL;
+    xmlFAParseBranch(ctxt);
+    if (top) {
+#ifdef DEBUG_REGEXP_GRAPH
+	printf("State %d is final\n", ctxt->state->no);
+#endif
+	ctxt->state->type = XML_REGEXP_FINAL_STATE;
+    }
     if (CUR != '|') {
 	ctxt->end = ctxt->state;
 	return;
@@ -3936,11 +4028,21 @@ xmlFAParseRegExp(xmlRegParserCtxtPtr ctxt, int top) {
     while ((CUR == '|') && (ctxt->error == 0)) {
 	NEXT;
 	ctxt->state = start;
-	ctxt->end = end;
-	xmlFAParseBranch(ctxt, 0);
+	ctxt->end = NULL;
+	xmlFAParseBranch(ctxt);
+	if (top) {
+	    ctxt->state->type = XML_REGEXP_FINAL_STATE;
+#ifdef DEBUG_REGEXP_GRAPH
+	    printf("State %d is final\n", ctxt->state->no);
+#endif
+	} else {
+	    xmlFAGenerateEpsilonTransition(ctxt, ctxt->state, end);
+	}
     }
-    if (!top)
-	ctxt->end = oldend;
+    if (!top) {
+	ctxt->state = end;
+	ctxt->end = end;
+    }
 }
 
 /************************************************************************
@@ -3960,6 +4062,8 @@ void
 xmlRegexpPrint(FILE *output, xmlRegexpPtr regexp) {
     int i;
 
+    if (output == NULL)
+        return;
     fprintf(output, " regexp: ");
     if (regexp == NULL) {
 	fprintf(output, "NULL\n");
@@ -3989,7 +4093,7 @@ xmlRegexpPrint(FILE *output, xmlRegexpPtr regexp) {
  * @regexp:  a regular expression string
  *
  * Parses a regular expression conforming to XML Schemas Part 2 Datatype
- * Appendix F and build an automata suitable for testing strings against
+ * Appendix F and builds an automata suitable for testing strings against
  * that regular expression
  *
  * Returns the compiled expression or NULL in case of error
@@ -4035,9 +4139,9 @@ xmlRegexpCompile(const xmlChar *regexp) {
  * @comp:  the compiled regular expression
  * @content:  the value to check against the regular expression
  *
- * Check if the regular expression generate the value
+ * Check if the regular expression generates the value
  *
- * Returns 1 if it matches, 0 if not and a negativa value in case of error
+ * Returns 1 if it matches, 0 if not and a negative value in case of error
  */
 int
 xmlRegexpExec(xmlRegexpPtr comp, const xmlChar *content) {
@@ -4052,7 +4156,7 @@ xmlRegexpExec(xmlRegexpPtr comp, const xmlChar *content) {
  *
  * Check if the regular expression is determinist
  *
- * Returns 1 if it yes, 0 if not and a negativa value in case of error
+ * Returns 1 if it yes, 0 if not and a negative value in case of error
  */
 int
 xmlRegexpIsDeterminist(xmlRegexpPtr comp) {
@@ -4214,7 +4318,7 @@ xmlAutomataSetFinalState(xmlAutomataPtr am, xmlAutomataStatePtr state) {
  * @token: the input string associated to that transition
  * @data: data passed to the callback function if the transition is activated
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds a transition from the @from state to the target state
  * activated by the value of @token
  *
@@ -4254,7 +4358,7 @@ xmlAutomataNewTransition(xmlAutomataPtr am, xmlAutomataStatePtr from,
  * @token2: the second input string associated to that transition
  * @data: data passed to the callback function if the transition is activated
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds a transition from the @from state to the target state
  * activated by the value of @token
  *
@@ -4304,6 +4408,94 @@ xmlAutomataNewTransition2(xmlAutomataPtr am, xmlAutomataStatePtr from,
 }
 
 /**
+ * xmlAutomataNewCountTrans2:
+ * @am: an automata
+ * @from: the starting point of the transition
+ * @to: the target point of the transition or NULL
+ * @token: the input string associated to that transition
+ * @token2: the second input string associated to that transition
+ * @min:  the minimum successive occurences of token
+ * @max:  the maximum successive occurences of token
+ * @data:  data associated to the transition
+ *
+ * If @to is NULL, this creates first a new target state in the automata
+ * and then adds a transition from the @from state to the target state
+ * activated by a succession of input of value @token and @token2 and 
+ * whose number is between @min and @max
+ *
+ * Returns the target state or NULL in case of error
+ */
+xmlAutomataStatePtr
+xmlAutomataNewCountTrans2(xmlAutomataPtr am, xmlAutomataStatePtr from,
+			 xmlAutomataStatePtr to, const xmlChar *token,
+			 const xmlChar *token2,
+			 int min, int max, void *data) {
+    xmlRegAtomPtr atom;
+    int counter;
+
+    if ((am == NULL) || (from == NULL) || (token == NULL))
+	return(NULL);
+    if (min < 0)
+	return(NULL);
+    if ((max < min) || (max < 1))
+	return(NULL);
+    atom = xmlRegNewAtom(am, XML_REGEXP_STRING);
+    if (atom == NULL)
+	return(NULL);
+    if ((token2 == NULL) || (*token2 == 0)) {
+	atom->valuep = xmlStrdup(token);
+    } else {
+	int lenn, lenp;
+	xmlChar *str;
+
+	lenn = strlen((char *) token2);
+	lenp = strlen((char *) token);
+
+	str = (xmlChar *) xmlMallocAtomic(lenn + lenp + 2);
+	if (str == NULL) {
+	    xmlRegFreeAtom(atom);
+	    return(NULL);
+	}
+	memcpy(&str[0], token, lenp);
+	str[lenp] = '|';
+	memcpy(&str[lenp + 1], token2, lenn);
+	str[lenn + lenp + 1] = 0;
+
+	atom->valuep = str;
+    }
+    atom->data = data;
+    if (min == 0)
+	atom->min = 1;
+    else
+	atom->min = min;
+    atom->max = max;
+
+    /*
+     * associate a counter to the transition.
+     */
+    counter = xmlRegGetCounter(am);
+    am->counters[counter].min = min;
+    am->counters[counter].max = max;
+
+    /* xmlFAGenerateTransitions(am, from, to, atom); */
+    if (to == NULL) {
+        to = xmlRegNewState(am);
+	xmlRegStatePush(am, to);
+    }
+    xmlRegStateAddTrans(am, from, atom, to, counter, -1);
+    xmlRegAtomPush(am, atom);
+    am->state = to;
+
+    if (to == NULL)
+	to = am->state;
+    if (to == NULL)
+	return(NULL);
+    if (min == 0)
+	xmlFAGenerateEpsilonTransition(am, from, to);
+    return(to);
+}
+
+/**
  * xmlAutomataNewCountTrans:
  * @am: an automata
  * @from: the starting point of the transition
@@ -4313,7 +4505,7 @@ xmlAutomataNewTransition2(xmlAutomataPtr am, xmlAutomataStatePtr from,
  * @max:  the maximum successive occurences of token
  * @data:  data associated to the transition
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds a transition from the @from state to the target state
  * activated by a succession of input of value @token and whose number
  * is between @min and @max
@@ -4370,6 +4562,90 @@ xmlAutomataNewCountTrans(xmlAutomataPtr am, xmlAutomataStatePtr from,
 }
 
 /**
+ * xmlAutomataNewOnceTrans2:
+ * @am: an automata
+ * @from: the starting point of the transition
+ * @to: the target point of the transition or NULL
+ * @token: the input string associated to that transition
+ * @token2: the second input string associated to that transition
+ * @min:  the minimum successive occurences of token
+ * @max:  the maximum successive occurences of token
+ * @data:  data associated to the transition
+ *
+ * If @to is NULL, this creates first a new target state in the automata
+ * and then adds a transition from the @from state to the target state
+ * activated by a succession of input of value @token and @token2 and whose 
+ * number is between @min and @max, moreover that transition can only be 
+ * crossed once.
+ *
+ * Returns the target state or NULL in case of error
+ */
+xmlAutomataStatePtr
+xmlAutomataNewOnceTrans2(xmlAutomataPtr am, xmlAutomataStatePtr from,
+			 xmlAutomataStatePtr to, const xmlChar *token,
+			 const xmlChar *token2,
+			 int min, int max, void *data) {
+    xmlRegAtomPtr atom;
+    int counter;
+
+    if ((am == NULL) || (from == NULL) || (token == NULL))
+	return(NULL);
+    if (min < 1)
+	return(NULL);
+    if ((max < min) || (max < 1))
+	return(NULL);
+    atom = xmlRegNewAtom(am, XML_REGEXP_STRING);
+    if (atom == NULL)
+	return(NULL);
+    if ((token2 == NULL) || (*token2 == 0)) {
+	atom->valuep = xmlStrdup(token);
+    } else {
+	int lenn, lenp;
+	xmlChar *str;
+
+	lenn = strlen((char *) token2);
+	lenp = strlen((char *) token);
+
+	str = (xmlChar *) xmlMallocAtomic(lenn + lenp + 2);
+	if (str == NULL) {
+	    xmlRegFreeAtom(atom);
+	    return(NULL);
+	}
+	memcpy(&str[0], token, lenp);
+	str[lenp] = '|';
+	memcpy(&str[lenp + 1], token2, lenn);
+	str[lenn + lenp + 1] = 0;
+
+	atom->valuep = str;
+    }    
+    atom->data = data;
+    atom->quant = XML_REGEXP_QUANT_ONCEONLY;
+    if (min == 0)
+	atom->min = 1;
+    else
+	atom->min = min;
+    atom->max = max;
+    /*
+     * associate a counter to the transition.
+     */
+    counter = xmlRegGetCounter(am);
+    am->counters[counter].min = 1;
+    am->counters[counter].max = 1;
+
+    /* xmlFAGenerateTransitions(am, from, to, atom); */
+    if (to == NULL) {
+	to = xmlRegNewState(am);
+	xmlRegStatePush(am, to);
+    }
+    xmlRegStateAddTrans(am, from, atom, to, counter, -1);
+    xmlRegAtomPush(am, atom);
+    am->state = to;
+    return(to);
+}
+
+    
+
+/**
  * xmlAutomataNewOnceTrans:
  * @am: an automata
  * @from: the starting point of the transition
@@ -4379,10 +4655,10 @@ xmlAutomataNewCountTrans(xmlAutomataPtr am, xmlAutomataStatePtr from,
  * @max:  the maximum successive occurences of token
  * @data:  data associated to the transition
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds a transition from the @from state to the target state
  * activated by a succession of input of value @token and whose number
- * is between @min and @max, moreover that transistion can only be crossed
+ * is between @min and @max, moreover that transition can only be crossed
  * once.
  *
  * Returns the target state or NULL in case of error
@@ -4426,10 +4702,6 @@ xmlAutomataNewOnceTrans(xmlAutomataPtr am, xmlAutomataStatePtr from,
     xmlRegStateAddTrans(am, from, atom, to, counter, -1);
     xmlRegAtomPush(am, atom);
     am->state = to;
-    if (to == NULL)
-	to = am->state;
-    if (to == NULL)
-	return(NULL);
     return(to);
 }
 
@@ -4458,8 +4730,8 @@ xmlAutomataNewState(xmlAutomataPtr am) {
  * @from: the starting point of the transition
  * @to: the target point of the transition or NULL
  *
- * If @to is NULL, this create first a new target state in the automata
- * and then adds a an epsilon transition from the @from state to the
+ * If @to is NULL, this creates first a new target state in the automata
+ * and then adds an epsilon transition from the @from state to the
  * target state
  *
  * Returns the target state or NULL in case of error
@@ -4482,7 +4754,7 @@ xmlAutomataNewEpsilon(xmlAutomataPtr am, xmlAutomataStatePtr from,
  * @to: the target point of the transition or NULL
  * @lax: allow to transition if not all all transitions have been activated
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds a an ALL transition from the @from state to the
  * target state. That transition is an epsilon transition allowed only when
  * all transitions from the @from node have been activated.
@@ -4532,7 +4804,7 @@ xmlAutomataNewCounter(xmlAutomataPtr am, int min, int max) {
  * @to: the target point of the transition or NULL
  * @counter: the counter associated to that transition
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds an epsilon transition from the @from state to the target state
  * which will increment the counter provided
  *
@@ -4556,7 +4828,7 @@ xmlAutomataNewCountedTrans(xmlAutomataPtr am, xmlAutomataStatePtr from,
  * @to: the target point of the transition or NULL
  * @counter: the counter associated to that transition
  *
- * If @to is NULL, this create first a new target state in the automata
+ * If @to is NULL, this creates first a new target state in the automata
  * and then adds an epsilon transition from the @from state to the target state
  * which will be allowed only if the counter is within the right range.
  *

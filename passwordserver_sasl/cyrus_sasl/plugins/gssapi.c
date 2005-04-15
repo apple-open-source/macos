@@ -1,10 +1,10 @@
 /* GSSAPI SASL plugin
  * Leif Johansson
  * Rob Siemborski (SASL v2 Conversion)
- * $Id: gssapi.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $
+ * $Id: gssapi.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@
 #endif
 
 #ifdef WIN32
-#  include <winsock.h>
+#  include <winsock2.h>
 
 #  ifndef R_OK
 #    define R_OK 04
@@ -80,18 +80,33 @@
 
 #include <errno.h>
 
-#ifdef WIN32
-/* This must be after sasl.h */
-# include "saslgssapi.h"
-#endif /* WIN32 */
-
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: gssapi.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $";
+//static const char plugin_id[] = "$Id: gssapi.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $";
+
+static const char * GSSAPI_BLANK_STRING = "";
 
 #ifndef HAVE_GSS_C_NT_HOSTBASED_SERVICE
 extern gss_OID gss_nt_service_name;
 #define GSS_C_NT_HOSTBASED_SERVICE gss_nt_service_name
+#endif
+
+#ifdef WANT_KERBEROS5_3DES
+/* Check if CyberSafe flag is defined */
+#ifdef CSF_GSS_C_DES3_FLAG
+#define K5_MAX_SSF	112
+#endif
+
+/* Heimdal and MIT use the following */
+#ifdef GSS_KRB5_CONF_C_QOP_DES3_KD
+#define K5_MAX_SSF	112
+#endif
+
+#endif
+
+#ifndef K5_MAX_SSF
+/* All Kerberos implementations support DES */
+#define K5_MAX_SSF	56
 #endif
 
 /* GSSAPI SASL Mechanism by Leif Johansson <leifj@matematik.su.se>
@@ -99,9 +114,12 @@ extern gss_OID gss_nt_service_name;
  * gssapi_client from the heimdal distribution by Assar Westerlund
  * <assar@sics.se> and Johan Danielsson <joda@pdc.kth.se>. 
  * See the configure.in file for details on dependencies.
- * Heimdal can be obtained from http://www.pdc.kth.se/heimdal
  *
  * Important contributions from Sam Hartman <hartmans@fundsxpress.com>.
+ *
+ * This code was tested with the following distributions of Kerberos:
+ * Heimdal (http://www.pdc.kth.se/heimdal), MIT (http://web.mit.edu/kerberos/www/)
+ * CyberSafe (http://www.cybersafe.com/) and SEAM.
  */
 
 typedef struct context {
@@ -116,12 +134,7 @@ typedef struct context {
     const sasl_utils_t *utils;
     
     /* layers buffering */
-    char *buffer;
-    int bufsize;
-    char sizebuf[4];
-    int cursize;
-    int size;
-    unsigned needsize;
+    decode_context_t decode_context;
     
     char *encode_buf;                /* For encoding/decoding mem management */
     char *decode_buf;
@@ -145,15 +158,21 @@ enum {
     SASL_GSSAPI_STATE_AUTHENTICATED = 4
 };
 
+/* sasl_gss_log: only logs status string returned from gss_display_status() */
+#define sasl_gss_log(x,y,z) sasl_gss_seterror_(x,y,z,1)
+#define sasl_gss_seterror(x,y,z) sasl_gss_seterror_(x,y,z,0)
+
 static void
-sasl_gss_seterror(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min)
+sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
+	int logonly)
 {
     OM_uint32 maj_stat, min_stat;
     gss_buffer_desc msg;
     OM_uint32 msg_ctx;
     int ret;
     char *out = NULL;
-    size_t len, curlen = 0;
+    size_t len;
+	unsigned curlen = 0;
     const char prefix[] = "GSSAPI Error: ";
     
     if(!utils) return;
@@ -170,9 +189,14 @@ sasl_gss_seterror(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min)
 				      GSS_C_GSS_CODE, GSS_C_NULL_OID,
 				      &msg_ctx, &msg);
 	if(GSS_ERROR(maj_stat)) {
-	    utils->seterror(utils->conn, 0,
-			    "GSSAPI Failure "
-			    "(could not get major error message)");
+	    if (logonly) {
+		utils->log(utils->conn, SASL_LOG_FAIL,
+			"GSSAPI Failure: (could not get major error message)");
+	    } else {
+		utils->seterror(utils->conn, 0,
+				"GSSAPI Failure "
+				"(could not get major error message)");
+	    }
 	    utils->free(out);
 	    return;
 	}
@@ -210,9 +234,14 @@ sasl_gss_seterror(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min)
 				      GSS_C_MECH_CODE, GSS_C_NULL_OID,
 				      &msg_ctx, &msg);
 	if(GSS_ERROR(maj_stat)) {
-	    utils->seterror(utils->conn, 0,
-			    "GSSAPI Failure "
-			    "(could not get minor error message)");
+	    if (logonly) {
+		utils->log(utils->conn, SASL_LOG_FAIL,
+			"GSSAPI Failure: (could not get minor error message)");
+	    } else {
+		utils->seterror(utils->conn, 0,
+				"GSSAPI Failure "
+				"(could not get minor error message)");
+	    }
 	    utils->free(out);
 	    return;
 	}
@@ -242,7 +271,11 @@ sasl_gss_seterror(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min)
     
     strcat(out, ")");
     
-    utils->seterror(utils->conn, 0, out);
+    if (logonly) {
+	utils->log(utils->conn, SASL_LOG_FAIL, out);
+    } else {
+	utils->seterror(utils->conn, 0, out);
+    }
     utils->free(out);
 }
 
@@ -338,79 +371,24 @@ static int gssapi_integrity_encode(void *context, const struct iovec *invec,
     return sasl_gss_encode(context,invec,numiov,output,outputlen,0);
 }
 
-#define myMIN(a,b) (((a) < (b)) ? (a) : (b))
-
-static int gssapi_decode_once(void *context,
-			      const char **input, unsigned *inputlen,
-			      char **output, unsigned *outputlen)
+static int gssapi_decode_packet(void *context,
+				const char *input, unsigned inputlen,
+				char **output, unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
     OM_uint32 maj_stat, min_stat;
     gss_buffer_t input_token, output_token;
     gss_buffer_desc real_input_token, real_output_token;
     int result;
-    unsigned diff;
     
     if (text->state != SASL_GSSAPI_STATE_AUTHENTICATED) {
 	SETERROR(text->utils, "GSSAPI Failure");
 	return SASL_NOTDONE;
     }
     
-    /* first we need to extract a packet */
-    if (text->needsize > 0) {
-	/* how long is it? */
-	int tocopy = myMIN(text->needsize, *inputlen);
-	
-	memcpy(text->sizebuf + 4 - text->needsize, *input, tocopy);
-	text->needsize -= tocopy;
-	*input += tocopy;
-	*inputlen -= tocopy;
-	
-	if (text->needsize == 0) {
-	    /* got the entire size */
-	    memcpy(&text->size, text->sizebuf, 4);
-	    text->size = ntohl(text->size);
-	    text->cursize = 0;
-	    
-	    if (text->size > 0xFFFF || text->size <= 0) {
-		SETERROR(text->utils, "Illegal size in sasl_gss_decode_once");
-		return SASL_FAIL;
-	    }
-	    
-	    if (text->bufsize < text->size + 5) {
-		result = _plug_buf_alloc(text->utils, &text->buffer,
-					 &(text->bufsize), text->size+5);
-		if(result != SASL_OK) return result;
-	    }
-	}
-	if (*inputlen == 0) {
-	    /* need more data ! */
-	    *outputlen = 0;
-	    *output = NULL;
-	    
-	    return SASL_OK;
-	}
-    }
-    
-    diff = text->size - text->cursize;
-    
-    if (*inputlen < diff) {
-	/* ok, let's queue it up; not enough data */
-	memcpy(text->buffer + text->cursize, *input, *inputlen);
-	text->cursize += *inputlen;
-	*inputlen = 0;
-	*outputlen = 0;
-	*output = NULL;
-	return SASL_OK;
-    } else {
-	memcpy(text->buffer + text->cursize, *input, diff);
-	*input += diff;
-	*inputlen -= diff;
-    }
-    
     input_token = &real_input_token; 
-    real_input_token.value = text->buffer;
-    real_input_token.length = text->size;
+    real_input_token.value = (char *) input;
+    real_input_token.length = inputlen;
     
     output_token = &real_output_token;
     output_token->value = NULL;
@@ -449,10 +427,6 @@ static int gssapi_decode_once(void *context,
 	gss_release_buffer(&min_stat, output_token);
     }
     
-    /* reset for the next packet */
-    text->size = -1;
-    text->needsize = 4;
-    
     return SASL_OK;
 }
 
@@ -463,9 +437,9 @@ static int gssapi_decode(void *context,
     context_t *text = (context_t *) context;
     int ret;
     
-    ret = _plug_decode(text->utils, context, input, inputlen,
+    ret = _plug_decode(&text->decode_context, input, inputlen,
 		       &text->decode_buf, &text->decode_buf_len, outputlen,
-		       gssapi_decode_once);
+		       gssapi_decode_packet, text);
     
     *output = text->decode_buf;
     
@@ -481,8 +455,6 @@ static context_t *gss_new_context(const sasl_utils_t *utils)
     
     memset(ret,0,sizeof(context_t));
     ret->utils = utils;
-    
-    ret->needsize = 4;
     
     return ret;
 }
@@ -538,11 +510,8 @@ static void sasl_gss_free_context_contents(context_t *text)
 	text->utils->free(text->enc_in_buf);
 	text->enc_in_buf = NULL;
     }
-    
-    if (text->buffer) {
-	text->utils->free(text->buffer);
-	text->buffer = NULL;
-    }
+
+    _plug_decode_free(&text->decode_context);
     
     if (text->authid) { /* works for both client and server */
 	text->utils->free(text->authid);
@@ -597,10 +566,11 @@ gssapi_server_mech_step(void *conn_context,
     context_t *text = (context_t *)conn_context;
     gss_buffer_t input_token, output_token;
     gss_buffer_desc real_input_token, real_output_token;
-    OM_uint32 maj_stat, min_stat;
+    OM_uint32 maj_stat = 0, min_stat = 0;
+    OM_uint32 max_input;
     gss_buffer_desc name_token;
     int ret;
-    
+
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -681,11 +651,11 @@ gssapi_server_mech_step(void *conn_context,
 				   NULL);
 	
 	if (GSS_ERROR(maj_stat)) {
+	    sasl_gss_log(text->utils, maj_stat, min_stat);
+	    text->utils->seterror(text->utils->conn, SASL_NOLOG, "GSSAPI Failure: gss_accept_sec_context");
 	    if (output_token->value) {
 		gss_release_buffer(&min_stat, output_token);
 	    }
-	    text->utils->seterror(text->utils->conn, SASL_NOLOG, "GSSAPI Failure: gss_accept_sec_context");
-	    text->utils->log(NULL, SASL_LOG_DEBUG, "GSSAPI Failure: gss_accept_sec_context");
 	    sasl_gss_free_context_contents(text);
 	    return SASL_BADAUTH;
 	}
@@ -705,8 +675,11 @@ gssapi_server_mech_step(void *conn_context,
 	    }
 	    
 	    gss_release_buffer(&min_stat, output_token);
+	} else {
+	    /* No output token, send an empty string */
+	    *serverout = GSSAPI_BLANK_STRING;
+	    serveroutlen = 0;
 	}
-	
 	
 	if (maj_stat == GSS_S_COMPLETE) {
 	    /* Switch to ssf negotiation */
@@ -767,7 +740,13 @@ gssapi_server_mech_step(void *conn_context,
 	    
 	    maj_stat = gss_import_name (&min_stat,
 					&name_without_realm,
+	    /* Solaris 8/9 gss_import_name doesn't accept GSS_C_NULL_OID here,
+	       so use GSS_C_NT_USER_NAME instead if available.  */
+#ifdef HAVE_GSS_C_NT_USER_NAME
+					GSS_C_NT_USER_NAME,
+#else
 					GSS_C_NULL_OID,
+#endif
 					&without);
 	    
 	    if (GSS_ERROR(maj_stat)) {
@@ -838,7 +817,15 @@ gssapi_server_mech_step(void *conn_context,
 	}
 	
 	/* build up our security properties token */
-	*((unsigned long *)sasldata) = params->props.maxbufsize & 0xFFFFFF;
+        if (params->props.maxbufsize > 0xFFFFFF) {
+            /* make sure maxbufsize isn't too large */
+            /* maxbufsize = 0xFFFFFF */
+            sasldata[1] = sasldata[2] = sasldata[3] = 0xFF;
+        } else {
+            sasldata[1] = (params->props.maxbufsize >> 16) & 0xFF;
+            sasldata[2] = (params->props.maxbufsize >> 8) & 0xFF;
+            sasldata[3] = (params->props.maxbufsize >> 0) & 0xFF;
+        }
 	sasldata[0] = 0;
 	if(text->requiressf != 0 && !params->props.maxbufsize) {
 	    params->utils->seterror(params->utils->conn, 0,
@@ -853,7 +840,7 @@ gssapi_server_mech_step(void *conn_context,
 	    && params->props.maxbufsize) {
 	    sasldata[0] |= 2;
 	}
-	if (text->requiressf <= 56 && text->limitssf >= 56
+	if (text->requiressf <= K5_MAX_SSF && text->limitssf >= K5_MAX_SSF
 	    && params->props.maxbufsize) {
 	    sasldata[0] |= 4;
 	}
@@ -930,11 +917,12 @@ gssapi_server_mech_step(void *conn_context,
 	    oparams->encode=&gssapi_integrity_encode;
 	    oparams->decode=&gssapi_decode;
 	    oparams->mech_ssf=1;
-	} else if (layerchoice == 4 && text->requiressf <= 56 &&
-		   text->limitssf >= 56) { /* privacy */
+	} else if (layerchoice == 4 && text->requiressf <= K5_MAX_SSF &&
+		   text->limitssf >= K5_MAX_SSF) { /* privacy */
 	    oparams->encode = &gssapi_privacy_encode;
 	    oparams->decode = &gssapi_decode;
-	    oparams->mech_ssf = 56;
+	    /* FIX ME: Need to extract the proper value here */
+	    oparams->mech_ssf = K5_MAX_SSF;
 	} else {
 	    /* not a supported encryption layer */
 	    SETERROR(text->utils,
@@ -991,17 +979,30 @@ gssapi_server_mech_step(void *conn_context,
 	}	
 	
 	/* No matter what, set the rest of the oparams */
-	memcpy(&oparams->maxoutbuf,((char *) real_output_token.value) + 1,
-	       sizeof(unsigned));
-	oparams->maxoutbuf = ntohl(oparams->maxoutbuf) - 4;
+        oparams->maxoutbuf =
+	    (((unsigned char *) output_token->value)[1] << 16) |
+            (((unsigned char *) output_token->value)[2] << 8) |
+            (((unsigned char *) output_token->value)[3] << 0);
+
 	if (oparams->mech_ssf) {
-	    /* FIXME, this is probabally too big */
-	    oparams->maxoutbuf -= 50;
+ 	    maj_stat = gss_wrap_size_limit( &min_stat,
+					    text->gss_ctx,
+					    1,
+					    GSS_C_QOP_DEFAULT,
+					    (OM_uint32) oparams->maxoutbuf,
+					    &max_input);
+	    
+	    oparams->maxoutbuf -= (max_input - oparams->maxoutbuf);
 	}
 	
 	gss_release_buffer(&min_stat, output_token);
 	
 	text->state = SASL_GSSAPI_STATE_AUTHENTICATED;
+	
+	/* used by layers */
+	_plug_decode_init(&text->decode_context, text->utils,
+			  (params->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF :
+			  params->props.maxbufsize);
 	
 	oparams->doneflag = 1;
 	
@@ -1021,12 +1022,13 @@ static sasl_server_plug_t gssapi_server_plugins[] =
 {
     {
 	"GSSAPI",			/* mech_name */
-	56,				/* max_ssf */
+	K5_MAX_SSF,			/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOACTIVE
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* glob_context */
 	&gssapi_server_mech_new,	/* mech_new */
 	&gssapi_server_mech_step,	/* mech_step */
@@ -1052,7 +1054,7 @@ int gssapiv2_server_plug_init(
     int *plugcount)
 {
 #ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
-    const char *keytab;
+    const char *keytab = NULL;
     char keytab_path[1024];
     unsigned int rl;
 #endif
@@ -1132,7 +1134,7 @@ static int gssapi_client_mech_step(void *conn_context,
     context_t *text = (context_t *)conn_context;
     gss_buffer_t input_token, output_token;
     gss_buffer_desc real_input_token, real_output_token;
-    OM_uint32 maj_stat, min_stat;
+    OM_uint32 maj_stat = 0, min_stat = 0;
     gss_buffer_desc name_token;
     int ret;
     OM_uint32 req_flags, out_req_flags;
@@ -1213,6 +1215,9 @@ static int gssapi_client_mech_step(void *conn_context,
 	    }
 	}
 	    
+	if (serverinlen == 0)
+	    input_token = GSS_C_NO_BUFFER;
+
 	if (serverinlen) {
 	    real_input_token.value = (void *)serverin;
 	    real_input_token.length = serverinlen;
@@ -1231,12 +1236,15 @@ static int gssapi_client_mech_step(void *conn_context,
 	if(params->props.max_ssf > params->external_ssf) {
 	    /* We are requesting a security layer */
 	    req_flags |= GSS_C_INTEG_FLAG;
-	    if(params->props.max_ssf - params->external_ssf > 56) {
+	    /* Any SSF bigger than 1 is confidentiality. */
+	    /* Let's check if the client of the API requires confidentiality,
+	       and it wasn't already provided by an external layer */
+	    if(params->props.max_ssf - params->external_ssf > 1) {
 		/* We want to try for privacy */
 		req_flags |= GSS_C_CONF_FLAG;
 	    }
 	}
-	
+
 	maj_stat = gss_init_sec_context(&min_stat,
 					GSS_C_NO_CREDENTIAL,
 					&text->gss_ctx,
@@ -1283,6 +1291,7 @@ static int gssapi_client_mech_step(void *conn_context,
 					   NULL,       /* targ_name */
 					   NULL,       /* lifetime */
 					   NULL,       /* mech */
+					   /* FIX ME: Should check the resulting flags here */
 					   NULL,       /* flags */
 					   NULL,       /* local init */
 					   NULL);      /* open */
@@ -1356,7 +1365,7 @@ static int gssapi_client_mech_step(void *conn_context,
 	}
 	
 	/* taken from kerberos.c */
-	if (secprops->min_ssf > (56 + external)) {
+	if (secprops->min_ssf > (K5_MAX_SSF + external)) {
 	    return SASL_TOOWEAK;
 	} else if (secprops->min_ssf > secprops->max_ssf) {
 	    return SASL_BADPARAM;
@@ -1379,11 +1388,12 @@ static int gssapi_client_mech_step(void *conn_context,
 	serverhas = ((char *)output_token->value)[0];
 	
 	/* if client didn't set use strongest layer available */
-	if (allowed >= 56 && need <= 56 && (serverhas & 4)) {
+	if (allowed >= K5_MAX_SSF && need <= K5_MAX_SSF && (serverhas & 4)) {
 	    /* encryption */
 	    oparams->encode = &gssapi_privacy_encode;
 	    oparams->decode = &gssapi_decode;
-	    oparams->mech_ssf = 56;
+	    /* FIX ME: Need to extract the proper value here */
+	    oparams->mech_ssf = K5_MAX_SSF;
 	    mychoice = 4;
 	} else if (allowed >= 1 && need <= 1 && (serverhas & 2)) {
 	    /* integrity */
@@ -1403,9 +1413,13 @@ static int gssapi_client_mech_step(void *conn_context,
 	    return SASL_TOOWEAK;
 	}
 	
-	oparams->maxoutbuf = (*(unsigned long *)output_token->value & 0xFFFFFF);
+        oparams->maxoutbuf =
+	    (((unsigned char *) output_token->value)[1] << 16) |
+            (((unsigned char *) output_token->value)[2] << 8) |
+            (((unsigned char *) output_token->value)[3] << 0);
+
 	if(oparams->mech_ssf) {
-	    /* FIXME: probabally too large */
+	    /* xxx probably too large */
 	    oparams->maxoutbuf -= 50;
 	}
 	
@@ -1430,9 +1444,22 @@ static int gssapi_client_mech_step(void *conn_context,
 	
 	if (alen)
 	    memcpy((char *)input_token->value+4,oparams->user,alen);
-	
-	*((unsigned long *)input_token->value) =
-	    params->props.maxbufsize & 0xFFFFFF;
+
+	/* build up our security properties token */
+        if (params->props.maxbufsize > 0xFFFFFF) {
+            /* make sure maxbufsize isn't too large */
+            /* maxbufsize = 0xFFFFFF */
+            ((unsigned char *)input_token->value)[1] = 0xFF;
+            ((unsigned char *)input_token->value)[2] = 0xFF;
+            ((unsigned char *)input_token->value)[3] = 0xFF;
+        } else {
+            ((unsigned char *)input_token->value)[1] = 
+                (params->props.maxbufsize >> 16) & 0xFF;
+            ((unsigned char *)input_token->value)[2] = 
+                (params->props.maxbufsize >> 8) & 0xFF;
+            ((unsigned char *)input_token->value)[3] = 
+                (params->props.maxbufsize >> 0) & 0xFF;
+        }
 	((unsigned char *)input_token->value)[0] = mychoice;
 	
 	maj_stat = gss_wrap (&min_stat,
@@ -1475,6 +1502,11 @@ static int gssapi_client_mech_step(void *conn_context,
 	
 	oparams->doneflag = 1;
 	
+	/* used by layers */
+	_plug_decode_init(&text->decode_context, text->utils,
+			  (params->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF :
+			  params->props.maxbufsize);
+	
 	return SASL_OK;
     }
 	
@@ -1487,8 +1519,7 @@ static int gssapi_client_mech_step(void *conn_context,
     return SASL_FAIL; /* should never get here */
 }
 
-static const long gssapi_client_required_prompts[] = {
-    SASL_CB_USER,
+static const long gssapi_required_prompts[] = {
     SASL_CB_LIST_END
 };  
 
@@ -1496,13 +1527,15 @@ static sasl_client_plug_t gssapi_client_plugins[] =
 {
     {
 	"GSSAPI",			/* mech_name */
-	56,				/* max_ssf */
+	K5_MAX_SSF,			/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOACTIVE
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
-	gssapi_client_required_prompts,	/* required_prompts */
+	SASL_FEAT_NEEDSERVERFQDN
+	| SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_ALLOWS_PROXY,	/* features */
+	gssapi_required_prompts,	/* required_prompts */
 	NULL,				/* glob_context */
 	&gssapi_client_mech_new,	/* mech_new */
 	&gssapi_client_mech_step,	/* mech_step */

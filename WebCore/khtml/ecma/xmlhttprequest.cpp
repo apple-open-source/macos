@@ -1,7 +1,7 @@
 // -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -19,6 +19,7 @@
  */
 
 #include "xmlhttprequest.h"
+
 #include "xmlhttprequest.lut.h"
 #include "kjs_window.h"
 #include "kjs_events.h"
@@ -36,6 +37,7 @@
 #include <kdebug.h>
 #include <kio/job.h>
 #include <qobject.h>
+#include <qregexp.h>
 
 #ifdef APPLE_CHANGES
 #include "KWQLoader.h"
@@ -52,6 +54,7 @@ using khtml::Decoder;
   getAllResponseHeaders	XMLHttpRequest::GetAllResponseHeaders	DontDelete|Function 0
   getResponseHeader	XMLHttpRequest::GetResponseHeader	DontDelete|Function 1
   open			XMLHttpRequest::Open			DontDelete|Function 5
+  overrideMimeType      XMLHttpRequest::OverrideMIMEType        DontDelete|Function 1
   send			XMLHttpRequest::Send			DontDelete|Function 1
   setRequestHeader	XMLHttpRequest::SetRequestHeader	DontDelete|Function 2
 @end
@@ -135,14 +138,21 @@ Value XMLHttpRequest::getValueProperty(ExecState *exec, int token) const
       return Undefined();
     }
     if (!createdDocument) {
-      QString mimeType = "text/xml";
+      QString mimeType;
       
-      Value header = getResponseHeader("Content-Type");
-      if (header.type() != UndefinedType) {
-	mimeType = QStringList::split(";", header.toString(exec).qstring())[0].stripWhiteSpace();
+      if (MIMETypeOverride.isEmpty()) {
+        Value header = getResponseHeader("Content-Type");
+        if (header.type() == UndefinedType) {
+          mimeType = "text/xml";
+        } else {
+	  mimeType = QStringList::split(";", header.toString(exec).qstring())[0].stripWhiteSpace();
+        }
+      } else {
+        mimeType = MIMETypeOverride;
       }
       
-      if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "application/xhtml+xml") {
+      if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "application/xhtml+xml" ||
+          mimeType == "text/xsl" || mimeType == "application/rss+xml" || mimeType == "application/atom+xml") {
 	responseXML = DOM::Document(doc->implementation()->createDocument());
 
 	DOM::DocumentImpl *docImpl = static_cast<DOM::DocumentImpl *>(responseXML.handle());
@@ -194,17 +204,29 @@ void XMLHttpRequest::putValue(ExecState *exec, int token, const Value& value, in
 {
   switch(token) {
   case Onreadystatechange:
-    onReadyStateChangeListener = Window::retrieveActive(exec)->getJSEventListener(value, true);
+    onReadyStateChangeListener = Window::retrieveActive(exec)->getJSUnprotectedEventListener(value, true);
     if (onReadyStateChangeListener) onReadyStateChangeListener->ref();
     break;
   case Onload:
-    onLoadListener = Window::retrieveActive(exec)->getJSEventListener(value, true);
+    onLoadListener = Window::retrieveActive(exec)->getJSUnprotectedEventListener(value, true);
     if (onLoadListener) onLoadListener->ref();
     break;
   default:
     kdWarning() << "HTMLDocument::putValue unhandled token " << token << endl;
   }
 }
+
+void XMLHttpRequest::mark()
+{
+  DOMObject::mark();
+
+  if (onReadyStateChangeListener)
+    onReadyStateChangeListener->mark();
+
+  if (onLoadListener)
+    onLoadListener->mark();
+}
+
 
 XMLHttpRequest::XMLHttpRequest(ExecState *exec, const DOM::Document &d)
   : DOMObject(XMLHttpRequestProto::self(exec)),
@@ -309,7 +331,7 @@ void XMLHttpRequest::send(const QString& _body)
 
   if (method.lower() == "post" && (url.protocol().lower() == "http" || url.protocol().lower() == "https") ) {
       // FIXME: determine post encoding correctly by looking in headers for charset
-      job = KIO::http_post( url, QCString(_body.utf8()), false );
+      job = KIO::http_post( url, _body.utf8(), false );
   }
   else
   {
@@ -328,10 +350,13 @@ void XMLHttpRequest::send(const QString& _body)
     data = KWQServeSynchronousRequest(khtml::Cache::loader(), doc->docLoader(), job, finalURL, headers);
     job = 0;
     processSyncLoadResults(data, finalURL, headers);
+    
     return;
   }
 #endif
 
+  gcProtect (this);
+  
   qObject->connect( job, SIGNAL( result( KIO::Job* ) ),
 		    SLOT( slotFinished( KIO::Job* ) ) );
 #if APPLE_CHANGES
@@ -362,6 +387,8 @@ void XMLHttpRequest::abort()
     decoder = 0;
   }
   aborted = true;
+
+  gcUnprotect (this);
 }
 
 void XMLHttpRequest::setRequestHeader(const QString& name, const QString &value)
@@ -496,13 +523,16 @@ void XMLHttpRequest::slotFinished(KIO::Job *)
     response += decoder->flush();
   }
 
-  changeState(Completed);
   job = 0;
+
+  changeState(Completed);
   
   if (decoder) {
     decoder->deref();
     decoder = 0;
   }
+
+  gcUnprotect (this);
 }
 
 void XMLHttpRequest::slotRedirection(KIO::Job*, const KURL& url)
@@ -520,6 +550,7 @@ void XMLHttpRequest::slotData(KIO::Job*, const QByteArray &_data)
 {
   if (state < Loaded) {
     responseHeaders = job->queryMetaData("HTTP-Headers");
+    encoding = job->queryMetaData("charset");
     changeState(Loaded);
   }
   
@@ -562,22 +593,25 @@ Value XMLHttpRequestProtoFunc::tryCall(ExecState *exec, Object &thisObj, const L
   XMLHttpRequest *request = static_cast<XMLHttpRequest *>(thisObj.imp());
 
   switch (id) {
-  case XMLHttpRequest::Abort:
+  case XMLHttpRequest::Abort: {
     request->abort();
     return Undefined();
-  case XMLHttpRequest::GetAllResponseHeaders:
+  }
+  case XMLHttpRequest::GetAllResponseHeaders: {
     if (args.size() != 0) {
       return Undefined();
     }
 
     return request->getAllResponseHeaders();
-  case XMLHttpRequest::GetResponseHeader:
+  }
+  case XMLHttpRequest::GetResponseHeader: {
     if (args.size() != 1) {
       return Undefined();
     }
 
     return request->getResponseHeader(args[0].toString(exec).qstring());
-  case XMLHttpRequest::Open: 
+  }
+  case XMLHttpRequest::Open:
     {
       if (args.size() < 2 || args.size() > 5) {
 	return Undefined();
@@ -639,7 +673,7 @@ Value XMLHttpRequestProtoFunc::tryCall(ExecState *exec, Object &thisObj, const L
 
       return Undefined();
     }
-  case XMLHttpRequest::SetRequestHeader:
+  case XMLHttpRequest::SetRequestHeader: {
     if (args.size() != 2) {
       return Undefined();
     }
@@ -648,8 +682,16 @@ Value XMLHttpRequestProtoFunc::tryCall(ExecState *exec, Object &thisObj, const L
     
     return Undefined();
   }
+  case XMLHttpRequest::OverrideMIMEType: {
+    if (args.size() != 1) {
+      return Undefined();
+    }
+    request->MIMETypeOverride = args[0].toString(exec).qstring();
+    return Undefined();
+  }
+  }
 
   return Undefined();
 }
 
-}; // end namespace
+} // end namespace

@@ -36,6 +36,7 @@
 #include <limits.h>
 #include <mach/mach.h>
 #else /* defined(KLD) && defined(__STATIC__) */
+#include <mach/mach.h>
 #include <mach/kern_return.h>
 #define CHAR_MAX 0xff
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
@@ -47,16 +48,20 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "cstring_literals.h"
 #include "pass2.h"
 #include "hash_string.h"
+#include "symbols.h"
 
 /*
  * cstring_merge() merges cstring literals from the specified section in the
- * current object file (cur_obj).  It allocates a fine relocation map and
- * sets the fine_relocs field in the section_map to it (as well as the count).
+ * current object file (cur_obj).  When redo_live is FALSE it allocates a fine
+ * relocation map and sets the fine_relocs field in the section_map to it (as
+ * well as the count).  When redo_live is TRUE it re-merges only the live
+ * cstrings based on the live bit in the previouly allocated fine_relocs.
  */
 __private_extern__
 void
@@ -64,15 +69,18 @@ cstring_merge(
 struct cstring_data *data,
 struct merged_section *ms,
 struct section *s,
-struct section_map *section_map)
+struct section_map *section_map,
+enum bool redo_live)
 {
     unsigned long ncstrings, i;
     char *cstrings, *p;
     struct fine_reloc *fine_relocs;
-    
+ 
 	if(s->size == 0){
-	    section_map->fine_relocs = NULL;
-	    section_map->nfine_relocs = 0;
+	    if(redo_live == FALSE){
+		section_map->fine_relocs = NULL;
+		section_map->nfine_relocs = 0;
+	    }
 	    return;
 	}
 	/*
@@ -89,26 +97,55 @@ struct section_map *section_map)
 	for(p = cstrings; p < cstrings + s->size; p += strlen(p) + 1)
 	    ncstrings++;
 #ifdef DEBUG
-	data->nfiles++;
-	data->nbytes += s->size;
-	data->ninput_strings += ncstrings;
+	if(redo_live == FALSE){
+	    data->nfiles++;
+	    data->nbytes += s->size;
+	    data->ninput_strings += ncstrings;
+	}
 #endif /* DEBUG */
 
-	fine_relocs = allocate(ncstrings * sizeof(struct fine_reloc));
-	memset(fine_relocs, '\0', ncstrings * sizeof(struct fine_reloc));
-
 	/*
-	 * lookup and enter each C string in the section and record the offsets
-	 * in the input file and in the output file.
+	 * We will be called the first time with redo_live == FALSE and will
+	 * just merge the cstrings from the input file and create the
+	 * fine_relocs.
 	 */
-	p = cstrings;
-	for(i = 0; i < ncstrings; i++){
-	    fine_relocs[i].input_offset = p - cstrings;
-	    fine_relocs[i].output_offset = lookup_cstring(p, data, ms);
-	    p += strlen(p) + 1;
+	if(redo_live == FALSE){
+	    fine_relocs = allocate(ncstrings * sizeof(struct fine_reloc));
+	    memset(fine_relocs, '\0', ncstrings * sizeof(struct fine_reloc));
+
+	    /*
+	     * lookup and enter each C string in the section and record the
+	     * offsets in the input file and in the output file.
+	     */
+	    p = cstrings;
+	    for(i = 0; i < ncstrings; i++){
+		fine_relocs[i].input_offset = p - cstrings;
+		fine_relocs[i].output_offset = lookup_cstring(p, data, ms);
+		p += strlen(p) + 1;
+	    }
+	    section_map->fine_relocs = fine_relocs;
+	    section_map->nfine_relocs = ncstrings;
 	}
-	section_map->fine_relocs = fine_relocs;
-	section_map->nfine_relocs = ncstrings;
+	else{
+	    /*
+	     * redo_live == TRUE and this is being called a second time after
+	     * all the cstrings were previouly merged when -dead_strip is
+	     * specified.  So now we walk the fine_relocs and only re-merge the
+	     * live strings.
+	     */
+	    fine_relocs = section_map->fine_relocs;
+	    ncstrings = section_map->nfine_relocs;
+	    p = cstrings;
+	    for(i = 0; i < ncstrings; i++){
+		if(fine_relocs[i].live == TRUE){
+		    fine_relocs[i].output_offset = lookup_cstring(p, data, ms);
+		}
+		else{
+		    fine_relocs[i].output_offset = 0;
+		}
+		p += strlen(p) + 1;
+	    }
+	}
 }
 
 /*
@@ -124,9 +161,10 @@ struct cstring_data *data,
 struct merged_section *ms)
 {
 #ifndef RLD
-    unsigned long i, line_number, line_length, max_line_length;
+    unsigned long i, line_number, line_length, max_line_length, output_offset;
     char *buffer;
     kern_return_t r;
+    struct cstring_order_line *cstring_order_lines;
  
 	/*
 	 * Parse the load order file by changing '\n' to '\0'.  Also check for
@@ -148,6 +186,7 @@ struct merged_section *ms)
 		ms->order_addr[i] = '\0';
 		if(line_length > max_line_length)
 		    max_line_length = line_length;
+		line_number++;
 		line_length = 1;
 	    }
 	    else
@@ -161,40 +200,152 @@ struct merged_section *ms)
 	buffer = allocate(max_line_length + 1);
 
 	/*
+	 * If -dead_strip is specified allocate the needed structures so that
+	 * the order of the live cstrings can be recreated later by
+	 * cstring_reset_live().
+	 */
+	cstring_order_lines = NULL;
+	if(dead_strip == TRUE){
+	    data->cstring_load_order_data =
+		allocate(sizeof(struct cstring_load_order_data));
+	    cstring_order_lines = allocate(sizeof(struct cstring_order_line) *
+					   (line_number - 1));
+	    data->cstring_load_order_data->order_line_buffer =
+		buffer;
+	    data->cstring_load_order_data->cstring_order_lines =
+		cstring_order_lines;
+	    data->cstring_load_order_data->ncstring_order_lines =
+		(line_number - 1);
+	}
+
+	/*
 	 * Process each line in the order file by translating all escape
 	 * characters and then entering the cstring using lookup_cstring().
+	 * If -dead_strip is specified save away the starting character index
+	 * of each order line and the output offset.
 	 */
 	line_number = 1;
 	for(i = 0; i < ms->order_size; i++){
+	    if(dead_strip == TRUE)
+		cstring_order_lines[line_number - 1].character_index = i;
+
 	    get_cstring_from_sectorder(ms, &i, buffer, line_number, 1);
-	    (void)lookup_cstring(buffer, data, ms);
+	    output_offset = lookup_cstring(buffer, data, ms);
+
+	    if(dead_strip == TRUE)
+		cstring_order_lines[line_number - 1].output_offset =
+		    output_offset;
+
 	    line_number++;
 	}
 
-	/* deallocate the buffer */
-	free(buffer);
+	/*
+	 * If -dead_strip is not specified free up the memory for the line
+	 * buffer and the load order file.  If -dead_strip is specified these
+	 * will be free'ed up in cstring_reset_live().
+	 */
+	if(dead_strip == FALSE){
+
+	    /* deallocate the line buffer */
+	    free(buffer);
+
+	    /*
+	     * Deallocate the memory for the load order file now that it is
+	     * nolonger needed (since the memory has been written on it is
+	     * always deallocated so it won't get written to the swap file
+	     * unnecessarily).
+	     */
+	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)
+		ms->order_addr, ms->order_size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_deallocate() memory for -sectorder "
+			   "file: %s for section (%.16s,%.16s)",
+			   ms->order_filename, ms->s.segname,
+			   ms->s.sectname);
+	    ms->order_addr = NULL;
+	}
+#endif /* !defined(RLD) */
+}
+
+/*
+ * cstring_reset_live() is called when -dead_strip is specified after all the
+ * literals from the input objects are merged.  It clears out the cstring_data
+ * so the live cstrings can be re-merged (by later calling cstring_merge() with
+ * redo_live == TRUE.  In here we first merge in the live cstrings from the
+ * order file if any. 
+ */
+__private_extern__
+void
+cstring_reset_live(
+struct cstring_data *data,
+struct merged_section *ms)
+{
+#ifndef RLD
+    unsigned long i, ncstring_order_lines, character_index, line_number;
+    char *buffer;
+    struct cstring_order_line *cstring_order_lines;
+    enum bool live;
+    kern_return_t r;
+
+	/* reset the merge section size back to zero */
+	ms->s.size = 0;
+
+	/* clear out the previously merged data */
+	cstring_free(data);
 
 	/*
-	 * Deallocate the memory for the load order file now that it is
-	 * nolonger needed (since the memory has been written on it is
-	 * allways deallocated so it won't get written to the swap file
-	 * unnecessarily).
+	 * If this merged section has an order file we need to re-merged only
+	 * the live cstrings from that order file.
 	 */
-	if((r = vm_deallocate(mach_task_self(), (vm_address_t)
-	    ms->order_addr, ms->order_size)) != KERN_SUCCESS)
-	    mach_fatal(r, "can't vm_deallocate() memory for -sectorder "
-		       "file: %s for section (%.16s,%.16s)",
-		       ms->order_filename, ms->s.segname,
-		       ms->s.sectname);
-	ms->order_addr = NULL;
-#else /* RLD */
-#ifdef __MWERKS__
-    struct cstring_data *dummy1;
-    struct merged_section *dummy2;
-        dummy1 = data;
-	dummy2 = ms;
-#endif
-#endif /* RLD */
+	if(ms->order_filename != NULL){
+	    buffer = data->cstring_load_order_data->order_line_buffer;
+	    cstring_order_lines =
+		data->cstring_load_order_data->cstring_order_lines;
+	    ncstring_order_lines =
+		data->cstring_load_order_data->ncstring_order_lines;
+	    for(i = 0; i < ncstring_order_lines; i++){
+		/*
+		 * Figure out if this cstring order line's output_index is live
+		 * and if so re-merge the cstring literal.
+		 */
+		live = is_literal_output_offset_live(
+			ms, cstring_order_lines[i].output_offset);
+		line_number = i + 1;
+		if(live){
+		    character_index = cstring_order_lines[i].character_index;
+		    get_cstring_from_sectorder(ms, &character_index, buffer,
+					       line_number, 1);
+		    (void)lookup_cstring(buffer, data, ms);
+		}
+		else{
+		    if(sectorder_detail == TRUE)
+			warning("specification of string in -sectorder file: "
+				"%s on line %lu for section (%.16s,%.16s) not "
+				"used (dead stripped)", ms->order_filename,
+				line_number, ms->s.segname, ms->s.sectname);
+		}
+	    }
+
+	    /* deallocate the various data structures no longer needed */
+	    free(data->cstring_load_order_data->order_line_buffer);
+	    free(data->cstring_load_order_data->cstring_order_lines);
+	    free(data->cstring_load_order_data);
+	    data->cstring_load_order_data = NULL;
+
+	    /*
+	     * Deallocate the memory for the load order file now that it is
+	     * nolonger needed (since the memory has been written on it is
+	     * allways deallocated so it won't get written to the swap file
+	     * unnecessarily).
+	     */
+	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)
+		ms->order_addr, ms->order_size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_deallocate() memory for -sectorder "
+			   "file: %s for section (%.16s,%.16s)",
+			   ms->order_filename, ms->s.segname,
+			   ms->s.sectname);
+	    ms->order_addr = NULL;
+	}
+#endif /* !defined(RLD) */
 }
 
 /*
@@ -214,6 +365,7 @@ char *buffer,
 unsigned long line_number,
 unsigned long char_pos)
 {
+#ifndef RLD
     unsigned long i, j, k, char_value;
     char octal[4], hex[9];
 
@@ -372,6 +524,7 @@ unsigned long char_pos)
 	}
 	buffer[j] = '\0';
 	*index = i;
+#endif /* !defined(RLD) */
 }
 
 /*
@@ -403,7 +556,7 @@ struct merged_section *ms)
 #if defined(DEBUG) && defined(PROBE_COUNT)
 	    data->nprobes++;
 #endif
-	hashval = hash_string(cstring) % CSTRING_HASHSIZE;
+	hashval = hash_string(cstring, NULL) % CSTRING_HASHSIZE;
 	for(bp = data->hashtable[hashval]; bp; bp = bp->next){
 	    if(strcmp(cstring, bp->cstring) == 0)
 		return(bp->offset);
@@ -594,7 +747,7 @@ struct merged_section *ms)
 	    return;
 	print("literal cstring section (%.16s,%.16s) contains:\n",
 	      ms->s.segname, ms->s.sectname);
-	print("    %lu bytes of merged strings\n", ms->s.size);
+	print("    %u bytes of merged strings\n", ms->s.size);
 	print("    from %lu files and %lu total bytes from those "
 	      "files\n", data->nfiles, data->nbytes);
 	print("    average number of bytes per file %g\n",

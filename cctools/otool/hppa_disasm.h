@@ -24,6 +24,7 @@
 #import <mach-o/reloc.h>
 #import <mach-o/nlist.h>
 #import <stuff/bool.h>
+#include "stuff/symbol.h"
 
 extern unsigned long hppa_disassemble(
     char *sect,
@@ -33,9 +34,9 @@ extern unsigned long hppa_disassemble(
     enum byte_sex object_byte_sex,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,

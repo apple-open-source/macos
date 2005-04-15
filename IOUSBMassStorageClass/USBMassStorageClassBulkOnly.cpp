@@ -486,6 +486,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 				{
 					commandInProgress = true;
 				}
+
 			}
 		}
 		break;
@@ -554,7 +555,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 			boRequestBlock->boPhaseDesc->release();
 			
 			// Bulk transfer is done, get the Command Status Wrapper from the device
-			if ( resultingStatus == kIOUSBPipeStalled)
+			if ( resultingStatus == kIOUSBPipeStalled )
 			{
 				// The device reported an error on the command
 				// report an error to the client
@@ -565,7 +566,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 					commandInProgress = true;
 				}
 			}
-			else if ( resultingStatus != kIOReturnSuccess)
+           	else if ( resultingStatus != kIOReturnSuccess)
 			{
 				// An error occurred trying to get the first CSW, we should check and clear the stall,
 				// and then try the CSW again

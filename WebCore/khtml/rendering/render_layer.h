@@ -53,9 +53,6 @@
 class QScrollBar;
 template <class T> class QPtrVector;
 
-// Uncomment to enable incremental painting
-#define INCREMENTAL_REPAINTING 1
-
 namespace khtml {
     class RenderStyle;
     class RenderTable;
@@ -76,6 +73,39 @@ public:
     
 private:
     RenderLayer* m_layer;
+};
+
+class ClipRects
+{
+public:
+    ClipRects(const QRect& r) :m_overflowClipRect(r), m_fixedClipRect(r), m_posClipRect(r), m_refCnt(0) {}
+    ClipRects(const QRect& o, const QRect& f, const QRect& p)
+      :m_overflowClipRect(o), m_fixedClipRect(f), m_posClipRect(p), m_refCnt(0) {}
+
+    const QRect& overflowClipRect() { return m_overflowClipRect; }
+    const QRect& fixedClipRect() { return m_fixedClipRect; }
+    const QRect& posClipRect() { return m_posClipRect; }
+
+    void ref() { m_refCnt++; }
+    void deref(RenderArena* renderArena) { if (--m_refCnt == 0) detach(renderArena); }
+    
+    void detach(RenderArena* renderArena);
+
+    // Overloaded new operator.
+    void* operator new(size_t sz, RenderArena* renderArena) throw();    
+
+    // Overridden to prevent the normal delete from being called.
+    void operator delete(void* ptr, size_t sz);
+        
+private:
+    // The normal operator new is disallowed on all render objects.
+    void* operator new(size_t sz) throw();
+
+private:
+    QRect m_overflowClipRect;
+    QRect m_fixedClipRect;
+    QRect m_posClipRect;
+    uint m_refCnt;
 };
 
 // This class handles the auto-scrolling of layers with overflow: marquee.
@@ -104,7 +134,8 @@ public:
     
     void start();
     void suspend();
-    
+    void stop();
+
     void updateMarqueeStyle();
     void updateMarqueePosition();
 
@@ -117,8 +148,9 @@ private:
     int m_end;
     int m_speed;
     int m_unfurlPos;
-    bool m_reset;
-    bool m_suspended;
+    bool m_reset: 1;
+    bool m_suspended : 1;
+    bool m_stopped : 1;
     EWhiteSpace m_whiteSpace : 2;
     EMarqueeDirection m_direction : 4;
 };
@@ -147,6 +179,8 @@ public:
     void removeOnlyThisLayer();
     void insertOnlyThisLayer();
 
+    void repaintIncludingDescendants();
+    
     void styleChanged();
     
     Marquee* marquee() const { return m_marquee; }
@@ -166,13 +200,13 @@ public:
     
     int xPos() const { return m_x; }
     int yPos() const { return m_y; }
-    short width() const { return m_width; }
+    int width() const { return m_width; }
     int height() const { return m_height; }
 
-    void setWidth(short w) { m_width = w; }
+    void setWidth(int w) { m_width = w; }
     void setHeight(int h) { m_height = h; }
 
-    short scrollWidth();
+    int scrollWidth();
     int scrollHeight();
     
     void setPos( int xPos, int yPos ) {
@@ -183,8 +217,8 @@ public:
     // Scrolling methods for layers that can scroll their overflow.
     void scrollOffset(int& x, int& y);
     void subtractScrollOffset(int& x, int& y);
-    short scrollXOffset() { return m_scrollX; }
-    int scrollYOffset() { return m_scrollY; }
+    int scrollXOffset() const { return m_scrollX; }
+    int scrollYOffset() const { return m_scrollY; }
     void scrollToOffset(int x, int y, bool updateScrollbars = true, bool repaint = true);
     void scrollToXOffset(int x) { scrollToOffset(x, m_scrollY); }
     void scrollToYOffset(int y) { scrollToOffset(m_scrollX, y); }
@@ -202,17 +236,17 @@ public:
     void updateScrollInfoAfterLayout();
     void slotValueChanged(int);
     void updateScrollPositionFromScrollbars();
-
+    bool scroll(KWQScrollDirection direction, KWQScrollGranularity granularity, float multiplier=1.0);
+    
     void updateLayerPosition();
-#ifdef INCREMENTAL_REPAINTING
     void updateLayerPositions(bool doFullRepaint = false, bool checkForRepaint=true);
     void computeRepaintRects();
     void relativePositionOffset(int& relX, int& relY) {
         relX += m_relX; relY += m_relY;
     }
-#else
-    void updateLayerPositions();
-#endif
+     
+    void clearClipRects();
+    void clearClipRect();
 
     // Get the enclosing stacking context for this layer.  A stacking context is a layer
     // that has a non-auto z-index.
@@ -235,24 +269,26 @@ public:
 
     // The two main functions that use the layer system.  The paint method
     // paints the layers that intersect the damage rect from back to
-    // front.  The nodeAtPoint method looks for mouse events by walking
+    // front.  The hitTest method looks for mouse events by walking
     // layers that intersect the point from front to back.
-    void paint(QPainter *p, const QRect& damageRect, bool selectionOnly=false);
-    bool nodeAtPoint(RenderObject::NodeInfo& info, int x, int y);
+    void paint(QPainter *p, const QRect& damageRect, bool selectionOnly=false, RenderObject *paintingRoot=0);
+    bool hitTest(RenderObject::NodeInfo& info, int x, int y);
 
     // This method figures out our layerBounds in coordinates relative to
     // |rootLayer}.  It also computes our background and foreground clip rects
     // for painting/event handling.
     void calculateRects(const RenderLayer* rootLayer, const QRect& paintDirtyRect, QRect& layerBounds,
                         QRect& backgroundRect, QRect& foregroundRect);
-    void calculateClipRects(const RenderLayer* rootLayer, QRect& overflowClipRect,
-                            QRect& posClipRect, QRect& fixedClipRect);
+    void calculateClipRects(const RenderLayer* rootLayer);
+    ClipRects* clipRects() const { return m_clipRects; }
 
     bool intersectsDamageRect(const QRect& layerBounds, const QRect& damageRect) const;
     bool containsPoint(int x, int y, const QRect& damageRect) const;
     
     void updateHoverActiveState(RenderObject::NodeInfo& info);
     
+    QRect repaintRect() const { return m_repaintRect; }
+
     void detach(RenderArena* renderArena);
 
      // Overloaded new operator.  Derived classes must override operator new
@@ -276,12 +312,11 @@ private:
     void collectLayers(QPtrVector<RenderLayer>*&, QPtrVector<RenderLayer>*&);
 
     void paintLayer(RenderLayer* rootLayer, QPainter *p, const QRect& paintDirtyRect, 
-                    bool haveTransparency=false, bool selectionOnly=false);
-    RenderLayer* nodeAtPointForLayer(RenderLayer* rootLayer, RenderObject::NodeInfo& info,
-                                     int x, int y, const QRect& hitTestRect);
-
+                    bool haveTransparency, bool selectionOnly, RenderObject *paintingRoot);
+    RenderLayer* hitTestLayer(RenderLayer* rootLayer, RenderObject::NodeInfo& info,
+                              int x, int y, const QRect& hitTestRect);
     void computeScrollDimensions(bool* needHBar = 0, bool* needVBar = 0);
-    
+
 protected:   
     RenderObject* m_object;
     
@@ -292,29 +327,27 @@ protected:
     RenderLayer* m_first;
     RenderLayer* m_last;
 
-#ifdef INCREMENTAL_REPAINTING
     QRect m_repaintRect; // Cached repaint rects. Used by layout.
     QRect m_fullRepaintRect;
 
     // Our current relative position offset.
     int m_relX;
     int m_relY;
-#endif
 
     // Our (x,y) coordinates are in our parent layer's coordinate space.
-    short m_x;
+    int m_x;
     int m_y;
 
     // The layer's width/height
-    short m_width;
+    int m_width;
     int m_height;
     
     // Our scroll offsets if the view is scrolled.
-    short m_scrollX;
+    int m_scrollX;
     int m_scrollY;
     
     // The width/height of our scrolled area.
-    short m_scrollWidth;
+    int m_scrollWidth;
     int m_scrollHeight;
     
     // For layers with overflow, we have a pair of scrollbars.
@@ -329,8 +362,11 @@ protected:
     QPtrVector<RenderLayer>* m_posZOrderList;
     QPtrVector<RenderLayer>* m_negZOrderList;
     
+    ClipRects* m_clipRects;      // Cached clip rects used when painting and hit testing.
+
     bool m_scrollDimensionsDirty : 1;
     bool m_zOrderListsDirty : 1;
+
 #if APPLE_CHANGES
     bool m_usedTransparency : 1; // Tracks whether we need to close a transparent layer, i.e., whether
                                  // we ended up painting this layer or any descendants (and therefore need to

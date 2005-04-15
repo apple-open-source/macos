@@ -53,7 +53,7 @@ struct pa_it {
 #ifdef undef
     symbol_dictS *nlistp;      /*** used to be:    struct nlist *nlistp; */
 #else
-    struct nlist *nlistp;
+    nlist_t *nlistp;
 #endif
     expressionS exp;
     int pcrel;

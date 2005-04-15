@@ -1,0 +1,141 @@
+2004-11-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* mkfixinc.sh: Check error code from 'cat'.  Don't try running
+	built fixincl program.
+	* mkheaders.in: Use @SHELL@ rather than ${SHELL} to avoid picking
+	up csh from user.
+
+2004-11-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Add code to determine noncanonical_target,
+	local_prefix, gcc_version; process mkheaders.in to make mkheaders.
+	* configure: Regenerate.
+	* fixinc.in: Move here from gcc/; fix many cross-hosting bugs.
+	* mkfixinc.sh: Move here from gcc/; update for changes to fixinc.in.
+	* mkheaders.in: Move here from gcc/; remove some unnecessary macros;
+	update for changes to fixinc.in.
+	* Makefile.in: Add many new macros.
+	(install): New target.
+	(mkheaders): New target.
+	(fixinc.sh): New target.
+	(all): Add mkheaders and fixinc.sh.
+	* README-fixinc: Move here from gcc/.
+
+2004-11-01  Mike Stump  <mrs@apple.com>
+
+	* inclhack.def (stdio_va_list): Break out clients from here...
+	(stdio_va_list_clients): ...to here.  Also, don't fix if stdarg.h is
+        included or ifdef va_start.
+	* fixincl.x: Regenerate.
+
+2004-10-28  Mike Stump  <mrs@apple.com>
+
+	* inclhack.def (void_null): Avoid changing NULL on C++ friendly
+	systems.
+	* fixincl.x: Regenerate.
+
+2004-10-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* inclhack.def (darwin_gcc4_breakage): New.
+	* fixincl.x: Regenerate.
+
+2004-10-27  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	PR bootstrap/17832
+
+	* fixfixes.c (main): Check for _PC_NAME_MAX.
+
+2004-10-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR other/17991
+
+	* configure.ac: Fix typo.
+	* configure: Regenerate.
+	* fixincl.c (fix_with_system): tSCC is not a pointer.  Fix.
+
+2004-10-20  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	PR bootstrap/17832
+
+	* fixincl.c (SIGCHLD): Remove definition.
+	(initialize): Remove SIGIOT and SIGPIPE checks.
+	(create_file): Fix mkdir() for Win32.
+	(internal_fix): Use dup2() instead of fcntl().
+
+	* fixlib.h (SIGQUIT): Define if undefined.
+	(SIGIOT): Same.
+	(SIGPIPE): Same.
+	(SIGALRM): Same.
+	(SIGKILL): Same.
+
+	* procopen.c (chain_open): Use dup2() instead of fcntl().
+
+2004-08-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR other/17991
+
+	* Makefile.in (ALLOBJ, TESTOBJ, FIXOBJ): Add fixopts.o.
+	Update copyright year.
+	* fixfixes.c (main): Call initialize_opts from fixopts.c.
+	* fixincl.c (initialize): Call initialize_opts from fixopts.c,
+	do not include code for parsing options (environment vars).
+	(fix_with_system): Use a search path for applyfix, so that you
+	can run the test suite with two-process fixincludes.
+	* fixopts.c: New file.
+	* configure.ac: Add --enable-twoprocess.  Export ac_exeext
+	to config.h.  Default to --enable-twoprocess for MinGW32.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2004-10-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* tests/base/sys/cdefs.h: Update from test area.
+
+2004-09-17  Roger Sayle  <roger@eyesopen.com>
+
+	* inclhack.def (linux_ia64_ucontext): New fix.
+	* fixincl.x: Regenerate.
+	* tests/base/sys/ucontext.h: New file.
+
+2004-09-15  Roger Sayle  <roger@eyesopen.com>
+
+	* tests/base/sys/time.h: Correct mismatch in 2004-09-10 check-in.
+	* tests/base/stdlib.h: Likewise.
+
+2004-09-13  Loren J. Rittle  <ljrittle@acm.org>
+
+	* inclhack.def (freebsd_gcc4_breakage): Add.
+	* fixincl.x: Regenerate.
+	* tests/base/sys/cdefs.h: Update for new test.
+
+2004-09-10  Adam Nemet  <anemet@lnxw.com>
+
+	* inclhack.def (lynx_void_int): Remove.
+	(lynxos_fcntl_proto): Remove.
+	(lynxos_no_warning_in_sys_time_h): New fix.
+	(lynxos_missing_putenv): New fix.
+	* fixincl.x: Regenerate.
+	* tests/base/fcntl.h: Remove.
+	* tests/base/sys/time.h: Update from test area.
+	* tests/base/curses.h: Likewise.
+	* tests/base/stdlib.h: Likewise.
+
+2004-09-03  Jan Beulich  <jbeulich@novell.com>
+
+	* inclhack.def: Suppress exception_structure and math_exception
+	for NetWare headers.
+	* fixincl.x: Regenerate.
+
+2004-08-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	* .cvsignore: New.
+	* Makefile.in: From gcc/fixinc/Makefile.in, making it fully
+	autoconfiscated.
+	* configure.ac: New.
+	* config.h.in: Generate.
+	* configure: Generate.
+	* aclocal.m4: New.
+	* fixlib.h: Remove inclusions of gcc files.
+	* system.h: New.
+
+	Other files copied from gcc/fixinc.

@@ -3,6 +3,8 @@ RC_OS = macos
 OFLAG = -O
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -force_cpusubtype_ALL -msoft-float -nostdinc \
+-I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
+-I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/libsa \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers \
@@ -73,7 +75,8 @@ HFILES = ld.h pass1.h objects.h sections.h cstring_literals.h symbols.h \
 	 fvmlibs.h layout.h specs.h pass2.h generic_reloc.h hash_string.h \
 	 sets.h 4byte_literals.h 8byte_literals.h literal_pointers.h dylibs.h \
 	 indirect_sections.h mod_sections.h i860_reloc.h ppc_reloc.h \
-	 m88k_reloc.h hppa_reloc.h sparc_reloc.h coalesced_sections.h
+	 m88k_reloc.h hppa_reloc.h sparc_reloc.h coalesced_sections.h \
+	 live_refs.h
 CFILES = ld.c pass1.c objects.c sections.c cstring_literals.c symbols.c \
 	 fvmlibs.c layout.c specs.c pass2.c generic_reloc.c rld.c sets.c \
 	 4byte_literals.c 8byte_literals.c literal_pointers.c dylibs.c \
@@ -281,8 +284,8 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 	    cd static_kld; $(MAKE) -f ../Makefile libkld.a VPATH=.. \
 		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-static -DRLD -DKLD $(KERN)" CC="$(CC)"		\
-		LIBSTUFF="-L../../libstuff -lstuff" PRIVATE_IFLAG=""	\
-		LIBMACHO="-L../../libmacho/otmp_obj -lmacho_static"	\
+		LIBSTUFF="-L../../libstuff -lstuff_kld" PRIVATE_IFLAG="" \
+		LIBMACHO="-L../../libmacho/ktmp_obj -lmacho_kld"	\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_CFLAGS="$(RC_CFLAGS)" RC_ARCHS="$(RC_ARCHS)";	\
 	else								\
@@ -290,8 +293,8 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		libkld.a VPATH=$(SRCROOT) OFILE_DIR=$(OBJROOT)/static_kld \
 		SYMROOT=$(SYMROOT)/ld_dir SRCROOT=$(SRCROOT) CC="$(CC)"	\
 		COPTS="-static -DRLD -DKLD $(KERN)" RC_CFLAGS="$(RC_CFLAGS)" \
-		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
-		LIBMACHO="-L$(SYMROOT)/../libmacho -lmacho_static"	\
+		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff_kld"		\
+		LIBMACHO="-L$(SYMROOT)/../libmacho -lmacho_kld"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" PRIVATE_IFLAG="" \
 		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)";		\
 	fi
@@ -335,8 +338,8 @@ libkld.dylib: $(OBJS)
 	libtool -o $(SYMROOT)/libkld.dylib $(SYMROOT)/dynamic_libkld.o
 
 ld_vers.c:
-	vers_string -l $(VERS_STRING_FLAGS) ld > $(OFILE_DIR)/$@
-
+	echo "const char apple_version[]= " \"`vers_string $(VERS_STRING_FLAGS) -f cctools`\" ";" > \
+                $(OFILE_DIR)/$@
 
 makeUser.c ld.c: make.h
 

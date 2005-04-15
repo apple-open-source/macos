@@ -25,7 +25,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This is the main pcscd daemon.
 
-$Id: pcscdaemon.c,v 1.2 2003/02/13 20:06:27 ghoo Exp $
+$Id: pcscdaemon.c,v 1.2.22.1 2004/12/10 01:06:37 mb Exp $
 
 ********************************************************************/
 
@@ -423,7 +423,8 @@ int main(int argc, char **argv)
 	/*
 	 * Create the /tmp/pcsc directory and chmod it 
 	 */
-	rv = SYS_Mkdir(PCSCLITE_IPC_DIR, S_ISVTX | S_IRWXO | S_IRWXG | S_IRWXU);
+	rv = SYS_Mkdir(PCSCLITE_IPC_DIR,
+        S_ISVTX | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP | S_IRWXU);
 	if (rv != 0)
 	{
 		DebugLogB("main: cannot create " PCSCLITE_IPC_DIR ": %s",
@@ -431,7 +432,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	rv = SYS_Chmod(PCSCLITE_IPC_DIR, S_ISVTX | S_IRWXO | S_IRWXG | S_IRWXU);
+	rv = SYS_Chmod(PCSCLITE_IPC_DIR,
+        S_ISVTX | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP | S_IRWXU);
 	if (rv != 0)
 	{
 		DebugLogB("main: cannot chmod " PCSCLITE_IPC_DIR ": %s",

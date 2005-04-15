@@ -1,9 +1,9 @@
 /*
  * load the sasl plugins
- * $Id: mac_dyn_dlopen.c,v 1.1 2002/02/28 00:13:36 snsimon Exp $
+ * $Id: mac_dyn_dlopen.c,v 1.4 2005/01/10 19:09:04 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

@@ -38,13 +38,16 @@
 #include <assert.h>
 #include <string.h>
 
-using namespace KJS;
+#if APPLE_CHANGES
+#include <unicode/uchar.h>
+#endif
+
+namespace KJS {
 
 // ----------------------------- FunctionImp ----------------------------------
 
 const ClassInfo FunctionImp::info = {"Function", &InternalFunctionImp::info, 0, 0};
 
-namespace KJS {
   class Parameter {
   public:
     Parameter(const Identifier &n) : name(n), next(0L) { }
@@ -52,11 +55,10 @@ namespace KJS {
     Identifier name;
     Parameter *next;
   };
-};
 
 FunctionImp::FunctionImp(ExecState *exec, const Identifier &n)
   : InternalFunctionImp(
-      static_cast<FunctionPrototypeImp*>(exec->interpreter()->builtinFunctionPrototype().imp())
+      static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
       ), param(0L), ident(n)
 {
 }
@@ -73,9 +75,9 @@ bool FunctionImp::implementsCall() const
 
 Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
 {
-  Object &globalObj = exec->interpreter()->globalObject();
+  Object &globalObj = exec->dynamicInterpreter()->globalObject();
 
-  Debugger *dbg = exec->interpreter()->imp()->debugger();
+  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
   int sid = -1;
   int lineno = -1;
   if (dbg) {
@@ -93,9 +95,9 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
   }
 
   // enter a new execution context
-  ContextImp ctx(globalObj, exec->interpreter()->imp(), thisObj, codeType(),
+  ContextImp ctx(globalObj, exec->dynamicInterpreter()->imp(), thisObj, codeType(),
                  exec->context().imp(), this, &args);
-  ExecState newExec(exec->interpreter(), &ctx);
+  ExecState newExec(exec->dynamicInterpreter(), &ctx);
   newExec.setException(exec->exception()); // could be null
 
   // assign user supplied arguments to parameters
@@ -211,7 +213,7 @@ Value FunctionImp::get(ExecState *exec, const Identifier &propertyName) const
                     (context->activationObject())->get(exec, propertyName);
             context = context->callingContext();
         }
-        return Undefined();
+        return Null();
     }
     
     // Compute length of parameters.
@@ -282,7 +284,7 @@ Object DeclaredFunctionImp::construct(ExecState *exec, const List &args)
   if (p.type() == ObjectType)
     proto = Object(static_cast<ObjectImp*>(p.imp()));
   else
-    proto = exec->interpreter()->builtinObjectPrototype();
+    proto = exec->lexicalInterpreter()->builtinObjectPrototype();
 
   Object obj(new ObjectImp(proto));
 
@@ -314,14 +316,14 @@ const ClassInfo ArgumentsImp::info = {"Arguments", 0, 0, 0};
 
 // ECMA 10.1.8
 ArgumentsImp::ArgumentsImp(ExecState *exec, FunctionImp *func)
-  : ArrayInstanceImp(exec->interpreter()->builtinObjectPrototype().imp(), 0)
+  : ArrayInstanceImp(exec->lexicalInterpreter()->builtinObjectPrototype().imp(), 0)
 {
   Value protect(this);
   putDirect(calleePropertyName, func, DontEnum);
 }
 
 ArgumentsImp::ArgumentsImp(ExecState *exec, FunctionImp *func, const List &args)
-  : ArrayInstanceImp(exec->interpreter()->builtinObjectPrototype().imp(), args)
+  : ArrayInstanceImp(exec->lexicalInterpreter()->builtinObjectPrototype().imp(), args)
 {
   Value protect(this);
   putDirect(calleePropertyName, func, DontEnum);
@@ -493,6 +495,115 @@ static Value decode(ExecState *exec, const List &args, const char *do_not_unesca
   return String(s);
 }
 
+static bool isStrWhiteSpace(unsigned short c)
+{
+    switch (c) {
+        case 0x0009:
+        case 0x000A:
+        case 0x000B:
+        case 0x000C:
+        case 0x000D:
+        case 0x0020:
+        case 0x00A0:
+        case 0x2028:
+        case 0x2029:
+            return true;
+        default:
+#if APPLE_CHANGES
+            return u_charType(c) == U_SPACE_SEPARATOR;
+#else
+            // ### properly support other Unicode Zs characters
+            return false;
+#endif
+    }
+}
+
+static int parseDigit(unsigned short c, int radix)
+{
+    int digit = -1;
+
+    if (c >= '0' && c <= '9') {
+        digit = c - '0';
+    } else if (c >= 'A' && c <= 'Z') {
+        digit = c - 'A' + 10;
+    } else if (c >= 'a' && c <= 'z') {
+        digit = c - 'a' + 10;
+    }
+
+    if (digit >= radix)
+        return -1;
+    return digit;
+}
+
+static double parseInt(const UString &s, int radix)
+{
+    int length = s.size();
+    int p = 0;
+
+    while (p < length && isStrWhiteSpace(s[p].uc)) {
+        ++p;
+    }
+
+    double sign = 1;
+    if (p < length) {
+        if (s[p] == '+') {
+            ++p;
+        } else if (s[p] == '-') {
+            sign = -1;
+            ++p;
+        }
+    }
+
+    if ((radix == 0 || radix == 16) && length - p >= 2 && s[p] == '0' && (s[p + 1] == 'x' || s[p + 1] == 'X')) {
+        radix = 16;
+        p += 2;
+    } else if (radix == 0) {
+        if (p < length && s[p] == '0')
+            radix = 8;
+        else
+            radix = 10;
+    }
+
+    if (radix < 2 || radix > 36)
+        return NaN;
+
+    bool sawDigit = false;
+    double number = 0;
+    while (p < length) {
+        int digit = parseDigit(s[p].uc, radix);
+        if (digit == -1)
+            break;
+        sawDigit = true;
+        number *= radix;
+        number += digit;
+        ++p;
+    }
+
+    if (!sawDigit)
+        return NaN;
+
+    return sign * number;
+}
+
+static double parseFloat(const UString &s)
+{
+    // Check for 0x prefix here, because toDouble allows it, but we must treat it as 0.
+    // Need to skip any whitespace and then one + or - sign.
+    int length = s.size();
+    int p = 0;
+    while (p < length && isStrWhiteSpace(s[p].uc)) {
+        ++p;
+    }
+    if (p < length && (s[p] == '+' || s[p] == '-')) {
+        ++p;
+    }
+    if (length - p >= 2 && s[p] == '0' && (s[p + 1] == 'x' || s[p + 1] == 'X')) {
+        return 0;
+    }
+
+    return s.toDouble( true /*tolerant*/, false /* NaN for empty string */ );
+}
+
 Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
 {
   Value res;
@@ -502,6 +613,7 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
     "abcdefghijklmnopqrstuvwxyz"
     "0123456789"
     "*+-./@_";
+
   static const char do_not_escape_when_encoding_URI_component[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz"
@@ -526,7 +638,7 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
       int sid;
       int errLine;
       UString errMsg;
-      ProgramNode *progNode = Parser::parse(s.data(),s.size(),&sid,&errLine,&errMsg);
+      ProgramNode *progNode = Parser::parse(UString(), 0, s.data(),s.size(),&sid,&errLine,&errMsg);
 
       // no program node means a syntax occurred
       if (!progNode) {
@@ -540,13 +652,13 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
 
       // enter a new execution context
       Object thisVal(Object::dynamicCast(exec->context().thisValue()));
-      ContextImp ctx(exec->interpreter()->globalObject(),
-                     exec->interpreter()->imp(),
+      ContextImp ctx(exec->dynamicInterpreter()->globalObject(),
+                     exec->dynamicInterpreter()->imp(),
                      thisVal,
                      EvalCode,
                      exec->context().imp());
 
-      ExecState newExec(exec->interpreter(), &ctx);
+      ExecState newExec(exec->dynamicInterpreter(), &ctx);
       newExec.setException(exec->exception()); // could be null
 
       // execute the code
@@ -572,26 +684,11 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
     }
     break;
   }
-  case ParseInt: {
-    CString cstr = args[0].toString(exec).cstring();
-    int radix = args[1].toInt32(exec);
-
-    char* endptr;
-    errno = 0;
-#ifdef HAVE_FUNC_STRTOLL
-    long long llValue = strtoll(cstr.c_str(), &endptr, radix);
-    double value = llValue;
-#else
-    long value = strtol(cstr.c_str(), &endptr, radix);
-#endif
-    if (errno != 0 || endptr == cstr.c_str())
-      res = Number(NaN);
-    else
-      res = Number(value);
+  case ParseInt:
+    res = Number(parseInt(args[0].toString(exec), args[1].toInt32(exec)));
     break;
-  }
   case ParseFloat:
-    res = Number(args[0].toString(exec).toDouble( true /*tolerant*/ ));
+    res = Number(parseFloat(args[0].toString(exec)));
     break;
   case IsNaN:
     res = Boolean(isNaN(args[0].toNumber(exec)));
@@ -614,11 +711,54 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
     res = encode(exec, args, do_not_escape_when_encoding_URI_component);
     break;
   case Escape:
-    res = encode(exec, args, do_not_escape);
-    break;
+    {
+      UString r = "", s, str = args[0].toString(exec);
+      const UChar *c = str.data();
+      for (int k = 0; k < str.size(); k++, c++) {
+        int u = c->uc;
+        if (u > 255) {
+          char tmp[7];
+          sprintf(tmp, "%%u%04X", u);
+          s = UString(tmp);
+        } else if (u != 0 && strchr(do_not_escape, (char)u)) {
+          s = UString(c, 1);
+        } else {
+          char tmp[4];
+          sprintf(tmp, "%%%02X", u);
+          s = UString(tmp);
+        }
+        r += s;
+      }
+      res = String(r);
+      break;
+    }
   case UnEscape:
-    res = decode(exec, args, "", false);
-    break;
+    {
+      UString s = "", str = args[0].toString(exec);
+      int k = 0, len = str.size();
+      while (k < len) {
+        const UChar *c = str.data() + k;
+        UChar u;
+        if (*c == UChar('%') && k <= len - 6 && *(c+1) == UChar('u')) {
+          if (Lexer::isHexDigit((c+2)->uc) && Lexer::isHexDigit((c+3)->uc) &&
+              Lexer::isHexDigit((c+4)->uc) && Lexer::isHexDigit((c+5)->uc)) {
+	  u = Lexer::convertUnicode((c+2)->uc, (c+3)->uc,
+				    (c+4)->uc, (c+5)->uc);
+	  c = &u;
+	  k += 5;
+          }
+        } else if (*c == UChar('%') && k <= len - 3 &&
+                   Lexer::isHexDigit((c+1)->uc) && Lexer::isHexDigit((c+2)->uc)) {
+          u = UChar(Lexer::convertHex((c+1)->uc, (c+2)->uc));
+          c = &u;
+          k += 2;
+        }
+        k++;
+        s += UString(c, 1);
+      }
+      res = String(s);
+      break;
+    }
 #ifndef NDEBUG
   case KJSPrint:
     puts(args[0].toString(exec).ascii());
@@ -628,3 +768,5 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
 
   return res;
 }
+
+} // namespace

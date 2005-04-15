@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOFireWireFamily ;
-export deferred SRCROOT = /Users/cpieper/Desktop/Builds/fw_lavender/projects/IOFireWireFamily ;
+export deferred SRCROOT = /Users/cpieper/Sources/Builds/wheat_tot_doomsday/projects/IOFireWireFamily ;
 
 # User-defined project-wide settings for project
 

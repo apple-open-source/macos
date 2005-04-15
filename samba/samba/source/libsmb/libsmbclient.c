@@ -24,7 +24,7 @@
 
 #include "includes.h"
 
-#include "../include/libsmb_internal.h"
+#include "include/libsmb_internal.h"
 
 /*
  * Internal flags for extended attributes
@@ -99,7 +99,7 @@ decode_urlpart(char *segment, size_t sizeof_segment)
     }
 
     /* make a copy of the old one */
-    new_usegment = (char*)malloc( old_length * 3 + 1 );
+    new_usegment = (char*)SMB_MALLOC( old_length * 3 + 1 );
 
     while( i < old_length ) {
 	int bReencode = False;
@@ -596,6 +596,7 @@ SMBCSRV *smbc_server(SMBCCTX *context,
                  */
                 c.port = 445;
                 if (!cli_connect(&c, server_n, &ip)) {
+			cli_shutdown(&c);
                         errno = ENETUNREACH;
                         return NULL;
                 }
@@ -670,7 +671,7 @@ SMBCSRV *smbc_server(SMBCCTX *context,
 	 * Let's find a free server_fd 
 	 */
 
-	srv = (SMBCSRV *)malloc(sizeof(*srv));
+	srv = SMB_MALLOC_P(SMBCSRV);
 	if (!srv) {
 		errno = ENOMEM;
 		goto failed;
@@ -680,12 +681,18 @@ SMBCSRV *smbc_server(SMBCCTX *context,
 	srv->cli = c;
 	srv->dev = (dev_t)(str_checksum(server) ^ str_checksum(share));
 
-	/* now add it to the cache (internal or external) */
+	/* now add it to the cache (internal or external)  */
+	/* Let the cache function set errno if it wants to */
+	errno = 0;
 	if (context->callbacks.add_cached_srv_fn(context, srv, server, share, workgroup, username)) {
+		int saved_errno = errno;
 		DEBUG(3, (" Failed to add server to cache\n"));
+		errno = saved_errno;
+		if (errno == 0) {
+			errno = ENOMEM;
+		}
 		goto failed;
 	}
-
 	
 	DEBUG(2, ("Server connect ok: //%s/%s: %p\n", 
 		  server, share, srv));
@@ -769,7 +776,7 @@ SMBCSRV *smbc_attr_server(SMBCCTX *context,
                         return NULL;
                 }
 
-                ipc_srv = (SMBCSRV *)malloc(sizeof(*ipc_srv));
+                ipc_srv = SMB_MALLOC_P(SMBCSRV);
                 if (!ipc_srv) {
                         errno = ENOMEM;
                         cli_shutdown(ipc_cli);
@@ -864,7 +871,7 @@ static SMBCFILE *smbc_open_ctx(SMBCCTX *context, const char *fname, int flags, m
 	}
 	else {
 	  
-		file = malloc(sizeof(SMBCFILE));
+		file = SMB_MALLOC_P(SMBCFILE);
 
 		if (!file) {
 
@@ -888,7 +895,7 @@ static SMBCFILE *smbc_open_ctx(SMBCCTX *context, const char *fname, int flags, m
 		/* Fill in file struct */
 
 		file->cli_fd  = fd;
-		file->fname   = strdup(fname);
+		file->fname   = SMB_STRDUP(fname);
 		file->srv     = srv;
 		file->offset  = 0;
 		file->file    = True;
@@ -1622,7 +1629,7 @@ static int add_dirent(SMBCFILE *dir, const char *name, const char *comment, uint
 
 	size = sizeof(struct smbc_dirent) + u_name_len + u_comment_len + 1;
     
-	dirent = malloc(size);
+	dirent = SMB_MALLOC(size);
 
 	if (!dirent) {
 
@@ -1635,7 +1642,7 @@ static int add_dirent(SMBCFILE *dir, const char *name, const char *comment, uint
 
 	if (dir->dir_list == NULL) {
 
-		dir->dir_list = malloc(sizeof(struct smbc_dir_list));
+		dir->dir_list = SMB_MALLOC_P(struct smbc_dir_list);
 		if (!dir->dir_list) {
 
 			SAFE_FREE(dirent);
@@ -1649,7 +1656,7 @@ static int add_dirent(SMBCFILE *dir, const char *name, const char *comment, uint
 	}
 	else {
 
-		dir->dir_end->next = malloc(sizeof(struct smbc_dir_list));
+		dir->dir_end->next = SMB_MALLOC_P(struct smbc_dir_list);
 		
 		if (!dir->dir_end->next) {
 			
@@ -1828,7 +1835,7 @@ static SMBCFILE *smbc_opendir_ctx(SMBCCTX *context, const char *fname)
 
 	pstrcpy(workgroup, context->workgroup);
 
-	dir = malloc(sizeof(*dir));
+	dir = SMB_MALLOC_P(SMBCFILE);
 
 	if (!dir) {
 
@@ -1840,7 +1847,7 @@ static SMBCFILE *smbc_opendir_ctx(SMBCCTX *context, const char *fname)
 	ZERO_STRUCTP(dir);
 
 	dir->cli_fd   = 0;
-	dir->fname    = strdup(fname);
+	dir->fname    = SMB_STRDUP(fname);
 	dir->srv      = NULL;
 	dir->offset   = 0;
 	dir->file     = False;
@@ -1939,7 +1946,6 @@ static SMBCFILE *smbc_opendir_ctx(SMBCCTX *context, const char *fname)
 				SAFE_FREE(dir->fname);
 				SAFE_FREE(dir);
 			}
-			errno = cli_errno(&srv->cli);
 
 			return NULL;
 
@@ -2032,7 +2038,6 @@ static SMBCFILE *smbc_opendir_ctx(SMBCCTX *context, const char *fname)
                                         SAFE_FREE(dir->fname);
                                         SAFE_FREE(dir);
                                 }
-                                errno = cli_errno(&srv->cli);
                                 
                                 return NULL;
                                 
@@ -2106,7 +2111,6 @@ static SMBCFILE *smbc_opendir_ctx(SMBCCTX *context, const char *fname)
 						SAFE_FREE(dir->fname);
 						SAFE_FREE(dir);
 					}
-					errno = cli_errno(&srv->cli);
 					return NULL;
 					
 				}
@@ -2150,7 +2154,7 @@ static SMBCFILE *smbc_opendir_ctx(SMBCCTX *context, const char *fname)
 				}
 				else {
 
-					errno = ENODEV;   /* Neither the workgroup nor server exists */
+					errno = ECONNREFUSED;   /* Neither the workgroup nor server exists */
 					if (dir) {
 						SAFE_FREE(dir->fname);
 						SAFE_FREE(dir);
@@ -3106,7 +3110,7 @@ static BOOL add_ace(SEC_ACL **the_acl, SEC_ACE *ace, TALLOC_CTX *ctx)
 		return True;
 	}
 
-	aces = calloc(1+(*the_acl)->num_aces,sizeof(SEC_ACE));
+	aces = SMB_CALLOC_ARRAY(SEC_ACE, 1+(*the_acl)->num_aces);
 	memcpy(aces, (*the_acl)->ace, (*the_acl)->num_aces * sizeof(SEC_ACE));
 	memcpy(aces+(*the_acl)->num_aces, ace, sizeof(SEC_ACE));
 	new = make_sec_acl(ctx,(*the_acl)->revision,1+(*the_acl)->num_aces, aces);
@@ -3139,7 +3143,7 @@ static SEC_DESC *sec_desc_parse(TALLOC_CTX *ctx,
 		}
 
 		if (StrnCaseCmp(tok,"OWNER:", 6) == 0) {
-			owner_sid = (DOM_SID *)calloc(1, sizeof(DOM_SID));
+			owner_sid = SMB_CALLOC_ARRAY(DOM_SID, 1);
 			if (!owner_sid ||
 			    !convert_string_to_sid(ipc_cli, pol,
                                                    numeric,
@@ -3151,7 +3155,7 @@ static SEC_DESC *sec_desc_parse(TALLOC_CTX *ctx,
 		}
 
 		if (StrnCaseCmp(tok,"OWNER+:", 7) == 0) {
-			owner_sid = (DOM_SID *)calloc(1, sizeof(DOM_SID));
+			owner_sid = SMB_CALLOC_ARRAY(DOM_SID, 1);
 			if (!owner_sid ||
 			    !convert_string_to_sid(ipc_cli, pol,
                                                    False,
@@ -3163,7 +3167,7 @@ static SEC_DESC *sec_desc_parse(TALLOC_CTX *ctx,
 		}
 
 		if (StrnCaseCmp(tok,"GROUP:", 6) == 0) {
-			grp_sid = (DOM_SID *)calloc(1, sizeof(DOM_SID));
+			grp_sid = SMB_CALLOC_ARRAY(DOM_SID, 1);
 			if (!grp_sid ||
 			    !convert_string_to_sid(ipc_cli, pol,
                                                    numeric,
@@ -3175,7 +3179,7 @@ static SEC_DESC *sec_desc_parse(TALLOC_CTX *ctx,
 		}
 
 		if (StrnCaseCmp(tok,"GROUP+:", 7) == 0) {
-			grp_sid = (DOM_SID *)calloc(1, sizeof(DOM_SID));
+			grp_sid = SMB_CALLOC_ARRAY(DOM_SID, 1);
 			if (!grp_sid ||
 			    !convert_string_to_sid(ipc_cli, pol,
                                                    False,
@@ -4269,7 +4273,7 @@ SMBCCTX * smbc_new_context(void)
 {
         SMBCCTX * context;
 
-        context = malloc(sizeof(SMBCCTX));
+        context = SMB_MALLOC_P(SMBCCTX);
         if (!context) {
                 errno = ENOMEM;
                 return NULL;
@@ -4277,7 +4281,7 @@ SMBCCTX * smbc_new_context(void)
 
         ZERO_STRUCTP(context);
 
-        context->internal = malloc(sizeof(struct smbc_internal_data));
+        context->internal = SMB_MALLOC_P(struct smbc_internal_data);
         if (!context->internal) {
                 errno = ENOMEM;
                 return NULL;
@@ -4484,8 +4488,8 @@ SMBCCTX * smbc_init_context(SMBCCTX * context)
                  */
                 user = getenv("USER");
                 /* walk around as "guest" if no username can be found */
-                if (!user) context->user = strdup("guest");
-                else context->user = strdup(user);
+                if (!user) context->user = SMB_STRDUP("guest");
+                else context->user = SMB_STRDUP(user);
         }
 
         if (!context->netbios_name) {
@@ -4494,14 +4498,14 @@ SMBCCTX * smbc_init_context(SMBCCTX * context)
                  * back on constructing our netbios name from our hostname etc
                  */
                 if (global_myname()) {
-                        context->netbios_name = strdup(global_myname());
+                        context->netbios_name = SMB_STRDUP(global_myname());
                 }
                 else {
                         /*
                          * Hmmm, I want to get hostname as well, but I am too lazy for the moment
                          */
                         pid = sys_getpid();
-                        context->netbios_name = malloc(17);
+                        context->netbios_name = SMB_MALLOC(17);
                         if (!context->netbios_name) {
                                 errno = ENOMEM;
                                 return NULL;
@@ -4514,11 +4518,11 @@ SMBCCTX * smbc_init_context(SMBCCTX * context)
 
         if (!context->workgroup) {
                 if (lp_workgroup()) {
-                        context->workgroup = strdup(lp_workgroup());
+                        context->workgroup = SMB_STRDUP(lp_workgroup());
                 }
                 else {
                         /* TODO: Think about a decent default workgroup */
-                        context->workgroup = strdup("samba");
+                        context->workgroup = SMB_STRDUP("samba");
                 }
         }
 

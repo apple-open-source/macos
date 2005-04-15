@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smb.conf</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smb.conf.5"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smb.conf &#8212; The configuration file for the Samba suite</p></div><div class="refsect1" lang="en"><a name="id2492338"></a><h2>SYNOPSIS</h2><p>The <tt class="filename">smb.conf</tt> file is a configuration  
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>smb.conf</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.64.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="smb.conf.5"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2>Name</h2><p>smb.conf &#8212; The configuration file for the Samba suite</p></div><div class="refsect1" lang="en"><a name="id2431071"></a><h2>SYNOPSIS</h2><p>The <tt class="filename">smb.conf</tt> file is a configuration  
 	file for the Samba suite. <tt class="filename">smb.conf</tt> contains  
 	runtime configuration information for the Samba programs. The <tt class="filename">smb.conf</tt> file 
 	is designed to be configured and  administered by the <a href="swat.8.html"><span class="citerefentry"><span class="refentrytitle">swat</span>(8)</span></a> program. The complete
@@ -19,7 +19,7 @@
 	either a string (no quotes needed) or a boolean, which may be given 
 	as yes/no, 0/1 or true/false. Case is not significant in boolean 
 	values, but is preserved in string values. Some items such as 
-	create modes are numeric.</p></div><div class="refsect1" lang="en"><a name="id2432580"></a><h2>SECTION DESCRIPTIONS</h2><p>Each section in the configuration file (except for the
+	create modes are numeric.</p></div><div class="refsect1" lang="en"><a name="id2478518"></a><h2>SECTION DESCRIPTIONS</h2><p>Each section in the configuration file (except for the
 	[global] section) describes a shared resource (known
 	as a &#8220;<span class="quote"><span class="emphasis"><em>share</em></span></span>&#8221;). The section name is the name of the 
 	shared resource and the parameters within the section define 
@@ -45,24 +45,24 @@
 	UNIX user by the host system. The server does not grant more
 	access than the host system grants.</p><p>The following sample section defines a file space share. 
 	The user has write access to the path <tt class="filename">/home/bar</tt>. 
-	The share is accessed via the share name &#8220;<span class="quote"><span class="emphasis"><em>foo</em></span></span>&#8221;:</p><div class="example"><a name="id2479923"></a><p class="title"><b>Example 1. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[foo]</tt></i></td></tr><tr><td><a class="indexterm" name="id2479940"></a><i class="parameter"><tt>
+	The share is accessed via the share name &#8220;<span class="quote"><span class="emphasis"><em>foo</em></span></span>&#8221;:</p><div class="example"><a name="id2430083"></a><p class="title"><b>Example 1. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[foo]</tt></i></td></tr><tr><td><a class="indexterm" name="id2430100"></a><i class="parameter"><tt>
 					
-				path = /home/bar</tt></i></td></tr><tr><td><a class="indexterm" name="id2479956"></a><i class="parameter"><tt>
+				path = /home/bar</tt></i></td></tr><tr><td><a class="indexterm" name="id2430116"></a><i class="parameter"><tt>
 					
 				read only = read only = no</tt></i></td></tr></table></div><p>The following sample section defines a printable share. 
 	The share is read-only, but printable. That is, the only write 
 	access permitted is via calls to open, write to and close a 
 	spool file. The <span class="emphasis"><em>guest ok</em></span> parameter means 
 	access will be permitted as the default guest user (specified 
-	elsewhere):</p><div class="example"><a name="id2479984"></a><p class="title"><b>Example 2. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[aprinter]</tt></i></td></tr><tr><td><a class="indexterm" name="id2480000"></a><i class="parameter"><tt>
+	elsewhere):</p><div class="example"><a name="id2430144"></a><p class="title"><b>Example 2. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[aprinter]</tt></i></td></tr><tr><td><a class="indexterm" name="id2430160"></a><i class="parameter"><tt>
 					
-				path = /usr/spool/public</tt></i></td></tr><tr><td><a class="indexterm" name="id2431525"></a><i class="parameter"><tt>
+				path = /usr/spool/public</tt></i></td></tr><tr><td><a class="indexterm" name="id2430176"></a><i class="parameter"><tt>
 					
-				read only = yes</tt></i></td></tr><tr><td><a class="indexterm" name="id2431540"></a><i class="parameter"><tt>
+				read only = yes</tt></i></td></tr><tr><td><a class="indexterm" name="id2430192"></a><i class="parameter"><tt>
 					
-				printable = yes</tt></i></td></tr><tr><td><a class="indexterm" name="id2431556"></a><i class="parameter"><tt>
+				printable = yes</tt></i></td></tr><tr><td><a class="indexterm" name="id2430207"></a><i class="parameter"><tt>
 					
-				guest ok = yes</tt></i></td></tr></table></div></div><div class="refsect1" lang="en"><a name="id2431573"></a><h2>SPECIAL SECTIONS</h2><div class="refsect2" lang="en"><a name="id2431579"></a><h3>The [global] section</h3><p>Parameters in this section apply to the server 
+				guest ok = yes</tt></i></td></tr></table></div></div><div class="refsect1" lang="en"><a name="id2430224"></a><h2>SPECIAL SECTIONS</h2><div class="refsect2" lang="en"><a name="id2430230"></a><h3>The [global] section</h3><p>Parameters in this section apply to the server 
 		as a whole, or are defaults for sections that do not 
 		specifically define certain items. See the notes
 		under PARAMETERS for more information.</p></div><div class="refsect2" lang="en"><a name="HOMESECT"></a><h3>The [homes] section</h3><p>If a section called [homes] is included in the 
@@ -87,7 +87,7 @@
 		a client PC.</p><p>The [homes] section can specify all the parameters 
 		a normal service section can specify, though some make more sense 
 		than others. The following is a typical and suitable [homes]
-		section:</p><div class="example"><a name="id2431680"></a><p class="title"><b>Example 3. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[homes]</tt></i></td></tr><tr><td><a class="indexterm" name="id2431697"></a><i class="parameter"><tt>
+		section:</p><div class="example"><a name="id2429164"></a><p class="title"><b>Example 3. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[homes]</tt></i></td></tr><tr><td><a class="indexterm" name="id2429181"></a><i class="parameter"><tt>
 					
 				read only = no</tt></i></td></tr></table></div><p>An important point is that if guest access is specified 
 		in the [homes] section, all home directories will be 
@@ -118,11 +118,11 @@
 		to load the configuration file.</p><p>Typically the path specified is that of a 
 		world-writeable spool directory with the sticky bit set on 
 		it. A typical [printers] entry looks like 
-		this:</p><div class="example"><a name="id2429154"></a><p class="title"><b>Example 4. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[printers]</tt></i></td></tr><tr><td><a class="indexterm" name="id2429171"></a><i class="parameter"><tt>
+		this:</p><div class="example"><a name="id2429295"></a><p class="title"><b>Example 4. </b></p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><i class="parameter"><tt>[printers]</tt></i></td></tr><tr><td><a class="indexterm" name="id2429311"></a><i class="parameter"><tt>
 					
-				path = /usr/spool/public</tt></i></td></tr><tr><td><a class="indexterm" name="id2429185"></a><i class="parameter"><tt>
+				path = /usr/spool/public</tt></i></td></tr><tr><td><a class="indexterm" name="id2429327"></a><i class="parameter"><tt>
 					
-				guest ok = yes</tt></i></td></tr><tr><td><a class="indexterm" name="id2429201"></a><i class="parameter"><tt>
+				guest ok = yes</tt></i></td></tr><tr><td><a class="indexterm" name="id2429342"></a><i class="parameter"><tt>
 					
 				printable = yes</tt></i></td></tr></table></div><p>All aliases given for a printer in the printcap file 
 		are legitimate printer names as far as the server is concerned. 
@@ -142,7 +142,7 @@ alias|alias|alias|alias...
 		printers are defined on the system you may be able to use
 		&#8220;<span class="quote"><span class="emphasis"><em>printcap name = lpstat</em></span></span>&#8221; to automatically obtain a list 
 		of printers. See the &#8220;<span class="quote"><span class="emphasis"><em>printcap name</em></span></span>&#8221; option 
-		for more details.</p></div></div></div><div class="refsect1" lang="en"><a name="id2429270"></a><h2>PARAMETERS</h2><p>Parameters define the specific attributes of sections.</p><p>Some parameters are specific to the [global] section
+		for more details.</p></div></div></div><div class="refsect1" lang="en"><a name="id2429411"></a><h2>PARAMETERS</h2><p>Parameters define the specific attributes of sections.</p><p>Some parameters are specific to the [global] section
 	(e.g., <span class="emphasis"><em>security</em></span>).  Some parameters are usable 
 	in all sections (e.g., <span class="emphasis"><em>create mode</em></span>). All others 
 	are permissible only in normal sections. For the purposes of the 
@@ -156,7 +156,7 @@ alias|alias|alias|alias...
 	the default behavior for all services.</p><p>Parameters are arranged here in alphabetical order - this may 
 	not create best bedfellows, but at least you can find them! Where
 	there are synonyms, the preferred synonym is described, others refer 
-	to the preferred synonym.</p></div><div class="refsect1" lang="en"><a name="id2429318"></a><h2>VARIABLE SUBSTITUTIONS</h2><p>Many of the strings that are settable in the config file 
+	to the preferred synonym.</p></div><div class="refsect1" lang="en"><a name="id2429460"></a><h2>VARIABLE SUBSTITUTIONS</h2><p>Many of the strings that are settable in the config file 
 	can take substitutions. For example the option &#8220;<span class="quote"><span class="emphasis"><em>path =
 	/tmp/%u</em></span></span>&#8221; is interpreted as &#8220;<span class="quote"><span class="emphasis"><em>path = 
 	/tmp/john</em></span></span>&#8221; if the user connected with the username john.</p><p>These substitutions are mostly noted in the descriptions below, 
@@ -192,12 +192,15 @@ alias|alias|alias|alias...
 	It can also be set to adjust the case of 8.3 format filenames.</p><p>There are several options that control the way mangling is 
 	performed, and they are grouped here rather than listed separately. 
 	For the defaults look at the output of the testparm program. </p><p>All of these options can be set separately for each service 
-	(or globally, of course). </p><p>The options are: </p><div class="variablelist"><dl><dt><span class="term">mangle case = yes/no</span></dt><dd><p> controls whether names that have characters that 
-		aren't of the &#8220;<span class="quote"><span class="emphasis"><em>default</em></span></span>&#8221; case are mangled. For example, 
-		if this is yes, a name like &#8220;<span class="quote"><span class="emphasis"><em>Mail</em></span></span>&#8221; will be mangled. 
-		Default <span class="emphasis"><em>no</em></span>.</p></dd><dt><span class="term">case sensitive = yes/no</span></dt><dd><p>controls whether filenames are case sensitive. If 
+	(or globally, of course). </p><p>The options are: </p><div class="variablelist"><dl><dt><span class="term">case sensitive = yes/no/auto</span></dt><dd><p>controls whether filenames are case sensitive. If 
 		they aren't, Samba must do a filename search and match on passed 
-		names. Default <span class="emphasis"><em>no</em></span>.</p></dd><dt><span class="term">default case = upper/lower</span></dt><dd><p>controls what the default case is for new 
+		names. The default setting of auto allows clients that support case
+		sensitive filenames (Linux CIFSVFS and smbclient 3.0.5 and above currently)
+		to tell the Samba server on a per-packet basis that they wish to access
+		the file system in a case-sensitive manner (to support UNIX case sensitive
+		semantics). No Windows or DOS system supports case-sensitive filename so
+		setting this option to auto is that same as setting it to no for them.
+		Default <span class="emphasis"><em>auto</em></span>.</p></dd><dt><span class="term">default case = upper/lower</span></dt><dd><p>controls what the default case is for new 
 		filenames. Default <span class="emphasis"><em>lower</em></span>.</p></dd><dt><span class="term">preserve case = yes/no</span></dt><dd><p>controls whether new files are created with the 
 		case that the client passes, or if they are forced to be the 
 		&#8220;<span class="quote"><span class="emphasis"><em>default</em></span></span>&#8221; case. Default <span class="emphasis"><em>yes</em></span>.
@@ -236,7 +239,7 @@ alias|alias|alias|alias...
 		the group of the same name.</p></li><li><p>If the service is a guest service, a 
 		connection is made as the username given in the &#8220;<span class="quote"><span class="emphasis"><em>guest 
 		account =</em></span></span>&#8221; for the service, irrespective of the 
-		supplied password.</p></li></ol></div></div><div class="refsect1" lang="en"><a name="id2492947"></a><h2>EXPLANATION OF EACH PARAMETER</h2><div class="variablelist"><font color="red">&lt;xi:include&gt;&lt;/xi:include&gt;</font><dl><dt><span class="term"><a name="ABORTSHUTDOWNSCRIPT"></a>abort shutdown script (G)</span></dt><dd><p><span class="emphasis"><em>This parameter only exists in the HEAD cvs branch</em></span>
+		supplied password.</p></li></ol></div></div><div class="refsect1" lang="en"><a name="id2491474"></a><h2>EXPLANATION OF EACH PARAMETER</h2><div class="variablelist"><dl><dt><span class="term"><a name="ABORTSHUTDOWNSCRIPT"></a>abort shutdown script (G)</span></dt><dd><p><span class="emphasis"><em>This parameter only exists in the HEAD cvs branch</em></span>
 	This a full path name to a script called by <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a> that
 	should stop a shutdown procedure issued by the <a href="#SHUTDOWNSCRIPT">
 	<i class="parameter"><tt>shutdown script</tt></i></a>.</p><p>This command will be run as user.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>abort shutdown script</tt></i> = 
@@ -358,7 +361,8 @@ alias|alias|alias|alias...
 	tools. It will be run by <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a>	<span class="emphasis"><em>AS ROOT</em></span>. 
 	Any <i class="parameter"><tt>%g</tt></i> will be replaced with the group name and 
 	any <i class="parameter"><tt>%u</tt></i> will be replaced with the user name.
-	</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>add user to group script</tt></i> = 
+	</p><p>Note that the <span><b class="command">adduser</b></span> command used in the example below does 
+		not support the used syntax on all systems. </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>add user to group script</tt></i> = 
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>add user to group script</tt></i> = /usr/sbin/adduser %u %g
 </em></span>
@@ -601,9 +605,9 @@ alias|alias|alias|alias...
 </p></dd><dt><span class="term"><a name="CLIENTSCHANNEL"></a>client schannel (G)</span></dt><dd><p>This controls whether the client offers or even
     demands the use of the netlogon schannel.
     <i class="parameter"><tt>client schannel = no</tt></i> does not
-    offer the schannel, <i class="parameter"><tt>server schannel =
+    offer the schannel, <i class="parameter"><tt>client schannel =
     auto</tt></i> offers the schannel but does not
-    enforce it, and <i class="parameter"><tt>server schannel =
+    enforce it, and <i class="parameter"><tt>client schannel =
     yes</tt></i> denies access if the server is not
 	able to speak netlogon schannel. </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>client schannel</tt></i> = auto
 </em></span>
@@ -617,13 +621,11 @@ alias|alias|alias|alias...
     When set to mandatory, SMB signing is required and if set 
 	to disabled, SMB signing is not offered either.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>client signing</tt></i> = auto
 </em></span>
-</p></dd><dt><span class="term"><a name="CLIENTUSESPNEGO"></a>client use spnego (G)</span></dt><dd><p> This variable controls whether samba clients will try 
+</p></dd><dt><span class="term"><a name="CLIENTUSESPNEGO"></a>client use spnego (G)</span></dt><dd><p> This variable controls whether Samba clients will try 
     to use Simple and Protected NEGOciation (as specified by rfc2478) with 
-    WindowsXP and Windows2000 servers to agree upon an authentication mechanism. 
-	SPNEGO client support for SMB Signing is currently broken, so 
-	you might want to turn this option off when operating with  
-	Windows 2003 domain controllers in particular.
-</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>client use spnego</tt></i> = yes
+    supporting servers (including WindowsXP, Windows2000 and Samba
+    3.0) to agree upon an authentication
+    mechanism.  This enables Kerberos authentication in particular.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>client use spnego</tt></i> = yes
 </em></span>
 </p></dd><dt><span class="term"><a name="COMMENT"></a>comment (S)</span></dt><dd><p>This is a text field that is seen next to a share 
 	when a client does a queries the server, either via the network 
@@ -681,6 +683,29 @@ alias|alias|alias|alias...
 	offline caching disabled using <span><b class="command">csc policy = disable</b></span>.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>csc policy</tt></i> = manual
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>csc policy</tt></i> = programs
+</em></span>
+</p></dd><dt><span class="term"><a name="CUPSOPTIONS"></a>cups options (S)</span></dt><dd><p>This parameter is only applicable if <a href="#PRINTING"><i class="parameter"><tt>printing</tt></i></a> is 
+    set to <tt class="constant">cups</tt>.  Its value is a free form string of options
+    passed directly to the cups library.  
+    </p><p>You can pass any generic print option known to CUPS (as listed
+   in the CUPS "Software Users' Manual").  You can also pass any printer
+   specific option (as listed in "lpoptions -d printername -l")
+   valid for the target queue.</p><p>You should set this parameter to <tt class="constant">raw</tt> if your CUPS server 
+   <tt class="filename">error_log</tt> file contains messages such as
+   "Unsupported format 'application/octet-stream'" when printing from a Windows client 
+   through Samba.  It is no longer necessary to enable
+   system wide raw printing in <tt class="filename">/etc/cups/mime.{convs,types}</tt>.
+   </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>cups options</tt></i> = ""
+</em></span>
+</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>cups options</tt></i> = "raw,media=a4,job-sheets=secret,secret"
+</em></span>
+</p></dd><dt><span class="term"><a name="CUPSSERVER"></a>cups server (G)</span></dt><dd><p>This parameter is only applicable if <a href="#PRINTING"><i class="parameter"><tt>printing</tt></i></a> is 
+    set to <tt class="constant">cups</tt>.
+    </p><p>If set, this option overrides the ServerName option in the CUPS
+   <tt class="filename">client.conf</tt>. This is necessary if you have virtual
+   samba servers that connect to different CUPS daemons.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>cups server</tt></i> = ""
+</em></span>
+</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>cups server</tt></i> = MYCUPSSERVER
 </em></span>
 </p></dd><dt><span class="term"><a name="DEADTIME"></a>deadtime (G)</span></dt><dd><p>The value of the parameter (a decimal integer) 
     represents the number of minutes of inactivity before a connection 
@@ -764,6 +789,19 @@ alias|alias|alias|alias...
 	interesting things.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>default service</tt></i> = 
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>default service</tt></i> = pub
+</em></span>
+</p></dd><dt><span class="term"><a name="DEFERSHARINGVIOLATIONS"></a>defer sharing violations (G)</span></dt><dd><p>
+	Windows allows specifying how a file will be shared with 
+	other processes when it is opened. Sharing violations occur when 
+	a file is opened by a different process using options that violate 
+	the share settings specified by other processes. This parameter causes
+	smbd to act as a Windows server does, and defer returning a "sharing
+	violation" error message for up to one second, allowing the client
+	to close the file causing the violation in the meantime.
+	</p><p>Unix by default does not have this behaviour.</p><p>
+	There should be no reason to turn off this parameter, as it is
+	designed to enable Samba to more correctly emulate Windows.
+	</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>defer sharing violations</tt></i> = True
 </em></span>
 </p></dd><dt><span class="term"><a name="DELETEGROUPSCRIPT"></a>delete group script (G)</span></dt><dd><p>This is the full pathname to a script that will 
 	be run <span class="emphasis"><em>AS ROOT</em></span> <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a> when a group is requested to be deleted. 
@@ -1049,7 +1087,19 @@ timestamp as DOS requires.</p><p>Default: <span class="emphasis"><em><i class="p
     will be negotiated with the client. Note that Windows NT 4.0 SP3 and 
     above and also Windows 98 will by default expect encrypted passwords 
     unless a registry entry is changed. To use encrypted passwords in 
-	Samba see the chapter "User Database" in the Samba HOWTO Collection. </p><p>In order for encrypted passwords to work correctly
+    Samba see the chapter "User Database" in the Samba HOWTO Collection.
+    </p><p>
+    MS Windows clients that expect Microsoft encrypted passwords and that
+    do not have plain text password support enabled will be able to
+    connect only to a Samba server that has encypted password support
+    enabled and for which the user accounts have a valid encrypted password.
+    Refer to the smbpasswd command man page for information regarding the
+    creation of encrypted passwords for user accounts.
+    </p><p>
+    The use of plain text passwords is NOT advised as support for this feature
+    is no longer maintained in Microsoft Windows products. If you want to use
+    plain text passwords you must set this parameter to no.
+    </p><p>In order for encrypted passwords to work correctly
     <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a> must either 
     have access to a local <a href="smbpasswd.5.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(5)</span></a> file (see the <a href="smbpasswd.8.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(8)</span></a> program for information on how to set up 
     and maintain this file), or set the <a href="#SECURITY">security = [server|domain|ads]</a> parameter which 
@@ -1202,6 +1252,29 @@ timestamp as DOS requires.</p><p>Default: <span class="emphasis"><em><i class="p
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>force group</tt></i> = agroup
 </em></span>
+</p></dd><dt><span class="term"><a name="FORCEPRINTERNAME"></a>force printername (S)</span></dt><dd><p>When printing from Windows NT (or later), 
+    each printer in <tt class="filename">smb.conf</tt> has two 
+    associated names which can be used by the client.  The first
+    is the sharename (or shortname) defined in smb.conf.  This
+    is the only printername available for use by Windows 9x clients.
+    The second name associated with a printer can be seen when 
+    browsing to the "Printers" (or "Printers and Faxes") folder 
+    on the Samba server.  This is referred to simply as the printername
+    (not to be confused with the <i class="parameter"><tt>printer name</tt></i> option).
+    </p><p>When assigning a new driver to a printer on a remote 
+    Windows compatible print server such as Samba, the Windows client
+    will rename the printer to match the driver name just uploaded.
+    This can result in confusion for users when multiple 
+    printers are bound to the same driver.  To prevent Samba from
+    allowing the printer's printername to differ from the sharename
+    defined in smb.conf, set <i class="parameter"><tt>force printername = yes</tt></i>.
+    </p><p>Be aware that enabling this parameter may affect migrating
+    printers from a Windows server to Samba since Windows has no way to 
+    force the sharename and printername to match.</p><p>It is recommended that this parameter's value not be changed
+    once the printer is in use by clients as this could cause a user
+    not be able to delete printer connections from their local Printers 
+    folder.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>force printername</tt></i> = no
+</em></span>
 </p></dd><dt><span class="term"><a name="FORCESECURITYMODE"></a>force security mode (S)</span></dt><dd><p>This parameter controls what UNIX permission 
     bits can be modified when a Windows NT client is manipulating 
     the UNIX permission on a file using the native NT security dialog 
@@ -1218,6 +1291,20 @@ timestamp as DOS requires.</p><p>Default: <span class="emphasis"><em><i class="p
     this set to 0000.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>force security mode</tt></i> = 0
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>force security mode</tt></i> = 700
+</em></span>
+</p></dd><dt><span class="term"><a name="FORCEUNKNOWNACLUSER"></a>force unknown acl user (S)</span></dt><dd><p>If this parameter is set, a Windows NT ACL that contains an unknown
+              SID (security descriptor, or representation of a user or group
+              id) as the owner or group owner of the file will be silently
+              mapped into the current UNIX uid or gid of the currently
+              connected user.</p><p>This is designed to allow Windows NT clients to copy files and
+              folders containing ACLs that were created locally on the client
+              machine and contain users local to that machine only (no domain
+              users) to be copied to a Samba server (usually with XCOPY /O)
+              and have the unknown userid and groupid of the file owner map to
+              the current connected user.  This can only be fixed correctly
+              when winbindd allows arbitrary mapping from any Windows NT SID
+              to a UNIX uid or gid.</p><p>Try using this parameter when XCOPY /O gives an ACCESS_DENIED
+    error.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>force unknown acl user</tt></i> = no
 </em></span>
 </p></dd><dt><span class="term"><a name="FORCEUSER"></a>force user (S)</span></dt><dd><p>This specifies a UNIX user name that will be 
     assigned as the default user for all users connecting to this service. 
@@ -1356,9 +1443,9 @@ all files beginning with a dot.
     hostname lookups or use the ip addresses instead. An example place
     where hostname lookups are currently used is when checking 
     the <span><b class="command">hosts deny</b></span> and <span><b class="command">hosts allow</b></span>.
-    </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>hostname lookups</tt></i> = yes
+    </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>hostname lookups</tt></i> = no
 </em></span>
-</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>hostname lookups</tt></i> = no
+</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>hostname lookups</tt></i> = yes
 </em></span>
 </p></dd><dt><span class="term"><a name="ALLOWHOSTS"></a>allow hosts</span></dt><dd><p>This parameter is a synonym for hosts allow.</p></dd><dt><span class="term"><a name="HOSTSALLOW"></a>hosts allow (S)</span></dt><dd><p>A synonym for this parameter is <i class="parameter"><tt>allow 
     hosts</tt></i>.</p><p>This parameter is a comma, space, or tab delimited 
@@ -1416,9 +1503,18 @@ all files beginning with a dot.
 	LDAP backend. This way all domain members and controllers will have the same UID and GID
 	to SID mappings. This avoids the risk of UID / GID inconsistencies across UNIX / Linux
 	systems that are sharing information over protocols other than SMB/CIFS (ie: NFS).
+	</p><p>
+	An alternate method of SID to UID / GID  mapping can be achieved using the idmap_rid
+	plug-in. This plug-in uses the account RID to derive the UID and GID by adding the
+	RID to a base value specified. This utility requires that the parameter
+	&#8220;<span class="quote"><span class="emphasis"><em>allow trusted domains = No</em></span></span>&#8221; must be specified, as it is not compatible
+	with multiple domain environments. The idmap uid and idmap gid ranges must also be
+	specified.
 	</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>idmap backend</tt></i> = 
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>idmap backend</tt></i> = ldap:ldap://ldapslave.example.com
+</em></span>
+</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>idmap backend</tt></i> = idmap_rid:DOMNAME=1000-100000000
 </em></span>
 </p></dd><dt><span class="term"><a name="WINBINDGID"></a>winbind gid</span></dt><dd><p>This parameter is a synonym for idmap gid.</p></dd><dt><span class="term"><a name="IDMAPGID"></a>idmap gid (G)</span></dt><dd><p>The idmap gid parameter specifies the range of group ids that are allocated for
 	the purpose of mapping UNX groups to NT group SIDs. This range of group ids should have no 
@@ -1524,7 +1620,7 @@ Basically you should only use this option if you strike difficulties.</p><p>Defa
 </p></dd><dt><span class="term"><a name="KERNELCHANGENOTIFY"></a>kernel change notify (G)</span></dt><dd><p>This parameter specifies whether Samba should ask the 
 	kernel for change notifications in directories so that
 	SMB clients can refresh whenever the data on the server changes.
-	</p><p>This parameter is only usd when your kernel supports 
+	</p><p>This parameter is only used when your kernel supports 
 	change notification to user programs, using the F_NOTIFY fcntl.
 	</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>kernel change notify</tt></i> = yes
 </em></span>
@@ -1577,9 +1673,10 @@ Basically you should only use this option if you strike difficulties.</p><p>Defa
 </em></span>
 </p></dd><dt><span class="term"><a name="LDAPFILTER"></a>ldap filter (G)</span></dt><dd><p>This parameter specifies the RFC 2254 compliant LDAP search filter.
 	The default is to match the login name with the <tt class="constant">uid</tt> 
-	attribute for all entries matching the <tt class="constant">sambaAccount</tt>		
-	objectclass.  Note that this filter should only return one entry.
-</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap filter</tt></i> = (&amp;(uid=%u)(objectclass=sambaAccount))
+	attribute. Note that this filter should only return one entry.
+</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap filter</tt></i> = (uid=%u)
+</em></span>
+</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>ldap filter</tt></i> = (&amp;(uid=%u)(objectclass=sambaSamAccount))
 </em></span>
 </p></dd><dt><span class="term"><a name="LDAPGROUPSUFFIX"></a>ldap group suffix (G)</span></dt><dd><p>This parameters specifies the suffix that is 
 	used for groups when these are added to the LDAP directory.
@@ -1627,7 +1724,8 @@ back-end's data.  </p><p>This option simply causes Samba to wait a short time, t
 allow the LDAP server to catch up.  If you have a particularly
 high-latency network, you may wish to time the LDAP replication with a
 network sniffer, and increase this value accordingly.  Be aware that no
-checking is performed that the data has actually replicated.</p><p>The value is specified in milliseconds</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap replication sleep</tt></i> = 1000
+checking is performed that the data has actually replicated.</p><p>The value is specified in milliseconds, the maximum
+value is 5000 (5 seconds).</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap replication sleep</tt></i> = 1000
 </em></span>
 </p></dd><dt><span class="term"><a name="LDAPSERVER"></a>ldap server (G)</span></dt><dd><p>This parameter is only available if Samba has been
 	configure to include the <span><b class="command">--with-ldapsam</b></span> 
@@ -1653,6 +1751,13 @@ checking is performed that the data has actually replicated.</p><p>The value is 
 	suffix</b></span> and <span><b class="command">ldap machine
 	suffix</b></span>. It also used as the base dn for all ldap
 searches. </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap suffix</tt></i> = 
+</em></span>
+</p></dd><dt><span class="term"><a name="LDAPTIMEOUT"></a>ldap timeout (G)</span></dt><dd><p>When Samba connects to an ldap server that server
+may be down or unreachable. To prevent Samba from hanging whilst
+waiting for the connection this parameter specifies in seconds how
+long Samba should wait before failing the connect. The default is
+to only wait fifteen seconds for the ldap server to respond to the
+connect request.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap timeout</tt></i> = 15
 </em></span>
 </p></dd><dt><span class="term"><a name="LDAPUSERSUFFIX"></a>ldap user suffix (G)</span></dt><dd><p>This parameter specifies where users are added to the tree. 
 	If this parameter is not specified, the value from <span><b class="command">ldap suffix</b></span>.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>ldap user suffix</tt></i> = 
@@ -1740,7 +1845,7 @@ master browser.</p><p>Default: <span class="emphasis"><em><i class="parameter"><
 	behalf of a client request.  Experiments have shown that
 	Windows 2k servers do not reply with a failure if the lock
 	could not be immediately granted, but try a few more times
-	in case the lock could later be aquired.  This behavior
+	in case the lock could later be acquired.  This behavior
 	is used to support PC database formats such as MS Access
 	and FoxPro.
 </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>lock spin count</tt></i> = 3
@@ -1814,7 +1919,9 @@ master browser.</p><p>Default: <span class="emphasis"><em><i class="parameter"><
 	Therefore, it is vital that the logon path does not include a 
 	reference to the homes share (i.e. setting this parameter to
 	\%N\%U\profile_path will cause problems).</p><p>This option takes the standard substitutions, allowing 
-	you to have separate logon scripts for each user or machine.</p><p>Note that this option is only useful if Samba is set up 
+	you to have separate logon scripts for each user or machine.</p><div class="warning" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Warning</h3><p>
+        Do not quote the value. Setting this as &#8220;<span class="quote"><span class="emphasis"><em>\\%N\profile\%U</em></span></span>&#8221;
+		will break profile handling.  </p></div><p>Note that this option is only useful if Samba is set up 
 	as a logon server.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>logon path</tt></i> = \\%N\%U\profile
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>logon path</tt></i> = &gt;\\PROFILESERVER\PROFILE\%U
@@ -1925,14 +2032,14 @@ master browser.</p><p>Default: <span class="emphasis"><em><i class="parameter"><
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>lprm command</tt></i> = /usr/bin/cancel %p-%j
 </em></span>
 </p></dd><dt><span class="term"><a name="MACHINEPASSWORDTIMEOUT"></a>machine password timeout (G)</span></dt><dd><p>If a Samba server is a member of a Windows 
-	NT Domain (see the <a href="#SECURITYEQUALSDOMAIN">security = domain</a>) 
+	NT Domain (see the <a href="#SECURITYEQUALSDOMAIN">security = domain</a>
 	parameter) then periodically a running smbd
 	 process will try and change the MACHINE ACCOUNT 
 	PASSWORD stored in the TDB called <tt class="filename">private/secrets.tdb
 	</tt>.  This parameter specifies how often this password 
 	will be changed, in seconds. The default is one week (expressed in 
 	seconds), the same as a Windows NT Domain member server.</p><p>See also <a href="smbpasswd.8.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(8)</span></a>, and the <a href="#SECURITYEQUALSDOMAIN">
-	security = domain</a>) parameter.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>machine password timeout</tt></i> = 604800
+	security = domain</a> parameter.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>machine password timeout</tt></i> = 604800
 </em></span>
 </p></dd><dt><span class="term"><a name="MAGICOUTPUT"></a>magic output (S)</span></dt><dd><p>This parameter specifies the name of a file 
 	which will contain output created by a magic script (see the 
@@ -1958,8 +2065,6 @@ master browser.</p><p>Default: <span class="emphasis"><em><i class="parameter"><
 		should <span class="emphasis"><em>NOT</em></span> be relied upon.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>magic script</tt></i> = 
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>magic script</tt></i> = user.csh
-</em></span>
-</p></dd><dt><span class="term"><a name="MANGLECASE"></a>mangle case (S)</span></dt><dd><p>See the section on <a href="#NAMEMANGLINGSECT" title="NAME MANGLING">NAME MANGLING</a></p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>mangle case</tt></i> = no
 </em></span>
 </p></dd><dt><span class="term"><a name="MANGLEDMAP"></a>mangled map (S)</span></dt><dd><p>This is for those who want to directly map UNIX 
 	file names which cannot be represented on Windows/DOS.  The mangling 
@@ -2024,12 +2129,12 @@ master browser.</p><p>Default: <span class="emphasis"><em><i class="parameter"><
 </em></span>
 </p></dd><dt><span class="term"><a name="MANGLINGMETHOD"></a>mangling method (G)</span></dt><dd><p> controls the algorithm used for the generating
 	the mangled names. Can take two different values, "hash" and
-	"hash2". "hash" is  the default and is the algorithm that has been
-	used in Samba for many years. "hash2" is a newer and considered
-	a better algorithm (generates less collisions) in the names.
-	However, many Win32 applications store the mangled names and so
-	changing to the new algorithm must not be done
-	lightly as these applications may break unless reinstalled.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>mangling method</tt></i> = hash2
+	"hash2". "hash" is the algorithm that was used
+	used in Samba for many years and was the default in Samba 2.2.x "hash2" is
+        now the default and is newer and considered a better algorithm (generates less collisions) in
+        the names. Many Win32 applications store the mangled names and so
+	changing to algorithms must not be done lightly as these applications
+        may break unless reinstalled.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>mangling method</tt></i> = hash2
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>mangling method</tt></i> = hash
 </em></span>
@@ -2764,6 +2869,16 @@ draw attention to the fact that a problem occurred.</p><p>Default: <span class="
     </tt></i></a> parameter controls only non-printing access to 
     the resource.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>printable</tt></i> = no
 </em></span>
+</p></dd><dt><span class="term"><a name="PRINTCAPCACHETIME"></a>printcap cache time (G)</span></dt><dd><p>This option specifies the number of seconds before the printing
+    subsystem is again asked for the known printers.  If the value
+    is greater than 60 the initial waiting time is set to 60 seconds
+    to allow an earlier first rescan of the printing subsystem.
+    </p><p>Setting this parameter to 0 (the default) disables any 
+    rescanning for new or removed printers after the initial startup.
+    </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>printcap cache time</tt></i> = 0
+</em></span>
+</p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>printcap cache time</tt></i> = 600
+</em></span>
 </p></dd><dt><span class="term"><a name="PRINTCAP"></a>printcap</span></dt><dd><p>This parameter is a synonym for printcap name.</p></dd><dt><span class="term"><a name="PRINTCAPNAME"></a>printcap name (S)</span></dt><dd><p>This parameter may be used to override the 
     compiled-in default printcap name used by the server (usually <tt class="filename">
     /etc/printcap</tt>). See the discussion of the <a href="#PRINTERSSECT" title="The [printers] section">[printers]</a> section above for reasons 
@@ -2862,7 +2977,11 @@ print5|My Printer 5
     <tt class="constant">SYSV</tt>, <tt class="constant">HPUX</tt>,
     <tt class="constant">QNX</tt>, <tt class="constant">SOFTQ</tt>,
     and <tt class="constant">CUPS</tt>.</p><p>To see what the defaults are for the other print 
-    commands when using the various options use the <a href="testparm.1.html"><span class="citerefentry"><span class="refentrytitle">testparm</span>(1)</span></a> program.</p><p>This option can be set on a per printer basis</p><p>See also the discussion in the <a href="#PRINTERSSECT" title="The [printers] section">
+    commands when using the various options use the <a href="testparm.1.html"><span class="citerefentry"><span class="refentrytitle">testparm</span>(1)</span></a> program.</p><p>This option can be set on a per printer basis.  Please be 
+    aware however, that you must place any of the various printing 
+    commands (e.g. print command, lpq command, etc...) after defining
+    the value for the <i class="parameter"><tt>printing</tt></i> option since it will 
+    reset the printing commands to default values.</p><p>See also the discussion in the <a href="#PRINTERSSECT" title="The [printers] section">
     [printers]</a> section.</p><p><span class="emphasis"><em>No default</em></span></p></dd><dt><span class="term"><a name="PRIVATEDIR"></a>private dir (G)</span></dt><dd><p>This parameters defines the directory
     smbd will use for storing such files as <tt class="filename">smbpasswd</tt>
     and <tt class="filename">secrets.tdb</tt>.
@@ -3547,6 +3666,15 @@ clients.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>time
     on a print share which has valid print driver installed on the Samba 
 	server.</em></span></p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>use client driver</tt></i> = no
 </em></span>
+</p></dd><dt><span class="term"><a name="USEKERBEROSKEYTAB"></a>use kerberos keytab (G)</span></dt><dd><p>
+Specifies whether Samba should attempt to maintain service principals in the systems
+keytab file for <tt class="constant">host/FQDN</tt> and <tt class="constant">cifs/FQDN</tt>.
+</p><p>When you are using the heimdal Kerberos libraries, you must also 
+specify the following in <tt class="filename">/etc/krb5.conf</tt>:</p><pre class="programlisting">
+[libdefaults]
+  default_keytab_name = FILE:/etc/krb5.keytab
+</pre><p>Default: <span class="emphasis"><em><i class="parameter"><tt>use kerberos keytab</tt></i> = False
+</em></span>
 </p></dd><dt><span class="term"><a name="USEMMAP"></a>use mmap (G)</span></dt><dd><p>This global parameter determines if the tdb internals of Samba can
     depend on mmap working correctly on the running system. Samba requires a coherent
     mmap/read-write system memory cache. Currently only HPUX does not have such a
@@ -3654,19 +3782,36 @@ guest = *
     modification.</p><p>Also note that no reverse mapping is done. The main effect
     this has is with printing. Users who have been mapped may have
     trouble deleting print jobs as PrintManager under WfWg will think
-	they don't own the print job.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>username map</tt></i> = 
+    they don't own the print job.</p><p>
+   Samba versions prior to 3.0.8 would only support reading the fully qualified
+   username (e.g.: DOMAIN\user) from the username map when performing a
+   kerberos login from a client.  However, when looking up a map
+   entry for a user authenticated by NTLM[SSP], only the login name would be
+   used for matches.  This resulted in inconsistent behavior sometimes
+   even on the same server.
+   </p><p>
+   The following functionality is obeyed in version 3.0.8 and later:
+   </p><p>
+    When performing local authentication, the username map is
+    applied to the login name before attempting to authenticate
+    the connection.
+    </p><p>
+    When relying upon a external domain controller for validating
+    authentication requests, smbd will apply the username map
+    to the fully qualified username (i.e. DOMAIN\user) only
+    after the user has been successfully authenticated.
+    </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>username map</tt></i> = 
 # no username map
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>username map</tt></i> = /usr/local/samba/lib/users.map
 </em></span>
-</p></dd><dt><span class="term"><a name="USESENDFILE"></a>use sendfile (S)</span></dt><dd><p>If this parameter is <tt class="constant">yes</tt>, and Samba
-    was built with the --with-sendfile-support option, and the underlying operating
-    system supports sendfile system call, then some SMB read calls (mainly ReadAndX
+</p></dd><dt><span class="term"><a name="USESENDFILE"></a>use sendfile (S)</span></dt><dd><p>If this parameter is <tt class="constant">yes</tt>, and the <tt class="constant">sendfile()</tt> system call is supported by the underlying operating system, then some SMB read calls (mainly ReadAndX
     and ReadRaw) will use the more efficient sendfile system call for files that
     are exclusively oplocked. This may make more efficient use of the system CPU's
-    and cause Samba to be faster. This is off by default as it's effects are unknown
-    as yet. In particular, it appears that Windows 9X clients fail to work against
-    Samba with this parameter enabled in config.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>use sendfile</tt></i> = no
+    and cause Samba to be faster. Samba automatically turns this off for clients
+    that use protocol levels lower than NT LM 0.12 and when it detects a client is
+    Windows 9x (using sendfile from Linux will cause these clients to fail).
+    </p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>use sendfile</tt></i> = yes
 </em></span>
 </p></dd><dt><span class="term"><a name="USESPNEGO"></a>use spnego (G)</span></dt><dd><p>This variable controls controls whether samba will try 
     to use Simple and Protected NEGOciation (as specified by rfc2478) with 
@@ -3788,7 +3933,8 @@ veto files = /.AppleDouble/.bin/.AppleDesktop/Network Trash Folder/
 </p></dd><dt><span class="term"><a name="WINBINDCACHETIME"></a>winbind cache time (G)</span></dt><dd><p>This parameter specifies the number of 
 	seconds the <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> daemon will cache 
 	user and group information before querying a Windows NT server 
-	again.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>winbind cache time</tt></i> = 300
+	again.</p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>This does not apply to authentication requests,
+	these are always evaluated in real time.</p></div><p>Default: <span class="emphasis"><em><i class="parameter"><tt>winbind cache time</tt></i> = 300
 </em></span>
 </p></dd><dt><span class="term"><a name="WINBINDENABLELOCALACCOUNTS"></a>winbind enable local accounts (G)</span></dt><dd><p>This parameter controls whether or not winbindd 
 	will act as a stand in replacement for the various account
@@ -3796,7 +3942,7 @@ veto files = /.AppleDouble/.bin/.AppleDesktop/Network Trash Folder/
 	If enabled, winbindd will support the creation of local 
 	users and groups as another source of UNIX account information
 	available via getpwnam() or getgrgid(), etc...
-	</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>winbind enable local accounts</tt></i> = yes
+	</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>winbind enable local accounts</tt></i> = no
 </em></span>
 </p></dd><dt><span class="term"><a name="WINBINDENUMGROUPS"></a>winbind enum groups (G)</span></dt><dd><p>On large installations using <a href="winbindd.8.html"><span class="citerefentry"><span class="refentrytitle">winbindd</span>(8)</span></a> it may be necessary to suppress 
 	the enumeration of groups through the <span><b class="command">setgrent()</b></span>,
@@ -3887,7 +4033,7 @@ veto files = /.AppleDouble/.bin/.AppleDesktop/Network Trash Folder/
 	multi-subnetted network.</p><p>If you want to work in multiple namespaces, you can 
 	give every wins server a 'tag'. For each tag, only one 
 	(working) server will be queried for a name. The tag should be 
-	seperated from the ip address by a colon.
+	separated from the ip address by a colon.
 	</p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>You need to set up Samba to point 
 	to a WINS server if you have multiple subnets and wish cross-subnet 
 	browsing to work correctly.</p></div><p>See the <a href="#">???</a>.</p><p>Default: <span class="emphasis"><em><i class="parameter"><tt>wins server</tt></i> = 
@@ -3961,7 +4107,7 @@ veto files = /.AppleDouble/.bin/.AppleDesktop/Network Trash Folder/
 </em></span>
 </p><p>Example: <span class="emphasis"><em><i class="parameter"><tt>wtmp directory</tt></i> = /var/log/wtmp
 </em></span>
-</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2517311"></a><h2>WARNINGS</h2><p>Although the configuration file permits service names 
+</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id2516568"></a><h2>WARNINGS</h2><p>Although the configuration file permits service names 
 	to contain spaces, your client software may not. Spaces will 
 	be ignored in comparisons anyway, so it shouldn't be a 
 	problem - but be aware of the possibility.</p><p>On a similar note, many clients - especially DOS clients - 
@@ -3972,8 +4118,8 @@ veto files = /.AppleDouble/.bin/.AppleDesktop/Network Trash Folder/
 	for an administrator easy, but the various combinations of default 
 	attributes can be tricky. Take extreme care when designing these 
 	sections. In particular, ensure that the permissions on spool 
-	directories are correct.</p></div><div class="refsect1" lang="en"><a name="id2517349"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2517360"></a><h2>SEE ALSO</h2><p>
-	<a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a>, <a href="smbpasswd.8.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(8)</span></a>, <a href="swat.8.html"><span class="citerefentry"><span class="refentrytitle">swat</span>(8)</span></a>, <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a>, <a href="nmbd.8.html"><span class="citerefentry"><span class="refentrytitle">nmbd</span>(8)</span></a>, <a href="smbclient.1.html"><span class="citerefentry"><span class="refentrytitle">smbclient</span>(1)</span></a>, <a href="nmblookup.1.html"><span class="citerefentry"><span class="refentrytitle">nmblookup</span>(1)</span></a>, <a href="testparm.1.html"><span class="citerefentry"><span class="refentrytitle">testparm</span>(1)</span></a>, <a href="testprns.1.html"><span class="citerefentry"><span class="refentrytitle">testprns</span>(1)</span></a>.</p></div><div class="refsect1" lang="en"><a name="id2517440"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
+	directories are correct.</p></div><div class="refsect1" lang="en"><a name="id2516607"></a><h2>VERSION</h2><p>This man page is correct for version 3.0 of the Samba suite.</p></div><div class="refsect1" lang="en"><a name="id2516618"></a><h2>SEE ALSO</h2><p>
+	<a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a>, <a href="smbpasswd.8.html"><span class="citerefentry"><span class="refentrytitle">smbpasswd</span>(8)</span></a>, <a href="swat.8.html"><span class="citerefentry"><span class="refentrytitle">swat</span>(8)</span></a>, <a href="smbd.8.html"><span class="citerefentry"><span class="refentrytitle">smbd</span>(8)</span></a>, <a href="nmbd.8.html"><span class="citerefentry"><span class="refentrytitle">nmbd</span>(8)</span></a>, <a href="smbclient.1.html"><span class="citerefentry"><span class="refentrytitle">smbclient</span>(1)</span></a>, <a href="nmblookup.1.html"><span class="citerefentry"><span class="refentrytitle">nmblookup</span>(1)</span></a>, <a href="testparm.1.html"><span class="citerefentry"><span class="refentrytitle">testparm</span>(1)</span></a>, <a href="testprns.1.html"><span class="citerefentry"><span class="refentrytitle">testprns</span>(1)</span></a>.</p></div><div class="refsect1" lang="en"><a name="id2516697"></a><h2>AUTHOR</h2><p>The original Samba software and related utilities 
 	were created by Andrew Tridgell. Samba is now developed
 	by the Samba Team as an Open Source project similar 
 	to the way the Linux kernel is developed.</p><p>The original Samba man pages were written by Karl Auer. 

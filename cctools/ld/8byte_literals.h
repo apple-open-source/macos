@@ -40,6 +40,8 @@
  */
 struct literal8_data {
     struct literal8_block *literal8_blocks;	/* the literal8's */
+    struct literal8_load_order_data	 /* the load order info needed to */
+	*literal8_load_order_data;	 /*  re-merge when using -dead_strip */
 #ifdef DEBUG
     unsigned long nfiles;	/* number of files with this section */
     unsigned long nliterals;	/* total number of literals in the input files*/
@@ -56,7 +58,7 @@ struct literal8 {
     unsigned long long1;
 };
 
-/* the blocks that store the liiterals; allocated as needed */
+/* the blocks that store the literals; allocated as needed */
 struct literal8_block {
     unsigned long used;			/* the number of literals used in */
     struct literal8			/*  this block */
@@ -64,13 +66,30 @@ struct literal8_block {
     struct literal8_block *next;	/* the next block */
 };
 
+/* the load order info needed to re-merge when using -dead_strip */
+struct literal8_load_order_data {
+    unsigned long nliteral8_order_lines;
+    struct literal8_order_line *literal8_order_lines;
+};
+/* the load order info for a single literal8 order line */
+struct literal8_order_line {
+    struct literal8 literal8;
+    unsigned long line_number;
+    unsigned long output_offset;
+};
+
 __private_extern__ void literal8_merge(
     struct literal8_data *data,
     struct merged_section *ms,
     struct section *s,
-    struct section_map *section_map);
+    struct section_map *section_map,
+    enum bool redo_live);
 
 __private_extern__ void literal8_order(
+    struct literal8_data *data,
+    struct merged_section *ms);
+
+__private_extern__ void literal8_reset_live(
     struct literal8_data *data,
     struct merged_section *ms);
 

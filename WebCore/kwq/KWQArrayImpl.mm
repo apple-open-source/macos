@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,17 +31,6 @@
 #define	MIN(a,b) (((a)<(b))?(a):(b))
 
 using std::nothrow;
-
-class KWQArrayImpl::KWQArrayPrivate
-{
-public:	
-    KWQArrayPrivate(size_t pNumItems, size_t pItemSize);
-    ~KWQArrayPrivate();
-    size_t numItems;
-    size_t itemSize;
-    char *data;
-    int refCount;
-};
 
 KWQArrayImpl::KWQArrayPrivate::KWQArrayPrivate(size_t pItemSize, size_t pNumItems) : 
     numItems(pNumItems), 
@@ -75,11 +64,6 @@ KWQArrayImpl &KWQArrayImpl::operator=(const KWQArrayImpl &a)
 {
     d = a.d;
     return *this;
-}
-
-void *KWQArrayImpl::at(size_t pos) const
-{
-    return &d->data[pos * d->itemSize];
 }
 
 void *KWQArrayImpl::data() const
@@ -131,6 +115,13 @@ void KWQArrayImpl::duplicate(const void *data, size_t newSize)
     }
 
     memcpy(d->data, data, newSize * d->itemSize);
+}
+
+void KWQArrayImpl::detach()
+{
+    if (d->refCount > 1) {
+        duplicate(d->data, d->numItems);
+    }
 }
 
 bool KWQArrayImpl::fill(const void *item, int numItems)

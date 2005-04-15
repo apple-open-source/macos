@@ -34,7 +34,7 @@ u_int32_t opendirectory_add_data_buffer_item(tDataBufferPtr dataBuffer, u_int32_
 tDirStatus opendirectory_authenticate_node(tDirReference	dirRef, tDirNodeReference nodeRef);
 
 tDirStatus opendirectory_user_session_key(const char *account_name, char *session_key, char *slot_id);
-tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name, char *serverchallenge, char* ntv2response, char *session_key, char 
+tDirStatus opendirectory_ntlmv2user_session_key(const char *account_name, u_int32_t ntv2response_len, char* ntv2response, char* domain, u_int32_t *session_key_len, char *session_key, char 
 *slot_id);
 tDirStatus opendirectory_cred_session_key(char *client_challenge, char *server_challenge, char *machine_acct, char *session_key, char *slot_id);
 tDirStatus opendirectory_set_workstation_nthash(char *account_name, char *nt_hash, char *slot_id);

@@ -792,7 +792,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
     //
     for ( i = 0; i< frameCount; i++)
     {
-        if (pFrames[i].frReqCount > kUSBMaxIsocFrameReqCount)
+        if (pFrames[i].frReqCount > kUSBMaxFSIsocEndpointReqCount)
         {
             USBLog(3,"%s[%p]::UIMCreateIsochTransfer Isoch frame too big %d",getName(), this, pFrames[i].frReqCount);
             return kIOReturnBadArgument;
@@ -2106,7 +2106,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(
     //
     for ( i = 0; i< frameCount; i++)
     {
-        if (pFrames[i].frReqCount > kUSBMaxIsocFrameReqCount)
+        if (pFrames[i].frReqCount > kUSBMaxFSIsocEndpointReqCount)
         {
             USBLog(3,"%s[%p]::UIMCreateIsochTransfer(LL) Isoch frame (%d) too big %d",getName(), this, i + 1, pFrames[i].frReqCount);
             return kIOReturnBadArgument;

@@ -2,7 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2004 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -206,25 +206,33 @@ namespace KJS {
       friend bool operator==(const UString&, const UString&);
       
       static Rep *create(UChar *d, int l);
+      static Rep *create(Rep *base, int offset, int length);
       void destroy();
       
-      UChar *data() const { return dat; }
+      UChar *data() const { return baseString ? (baseString->buf + baseString->preCapacity + offset) : (buf + preCapacity + offset); }
       int size() const { return len; }
       
-      unsigned hash() const { if (_hash == 0) _hash = computeHash(dat, len); return _hash; }
+      unsigned hash() const { if (_hash == 0) _hash = computeHash(data(), len); return _hash; }
       static unsigned computeHash(const UChar *, int length);
       static unsigned computeHash(const char *);
 
       void ref() { ++rc; }
       void deref() { if (--rc == 0) destroy(); }
 
-      UChar *dat;
+      // unshared data
+      int offset;
       int len;
-      int capacity;
       int rc;
       mutable unsigned _hash;
-      
-      enum { capacityForIdentifier = 0x10000000 };
+      bool isIdentifier;
+      UString::Rep *baseString;
+
+      // potentially shared data
+      UChar *buf;
+      int usedCapacity;
+      int capacity;
+      int usedPreCapacity;
+      int preCapacity;
       
       static Rep null;
       static Rep empty;
@@ -297,6 +305,16 @@ namespace KJS {
      * Constructs a string from a double.
      */
     static UString from(double d);
+
+    struct Range {
+    public:
+      Range(int pos, int len) : position(pos), length(len) {}
+      Range() {}
+      int position;
+      int length;
+    };
+
+    UString spliceSubstringsWithSeparators(const Range *substringRanges, int rangeCount, const UString *separators, int separatorCount) const;
 
     /**
      * Append another string.
@@ -448,6 +466,12 @@ namespace KJS {
     void attach(Rep *r);
     void detach();
     void release();
+    int expandedSize(int size, int otherSize) const;
+    int usedCapacity() const;
+    int usedPreCapacity() const;
+    void expandCapacity(int requiredLength);
+    void expandPreCapacity(int requiredPreCap);
+
     Rep *rep;
   };
 
@@ -485,16 +509,6 @@ namespace KJS {
   // Only allows Unicode characters (U-00000000 to U-0010FFFF).
   // Returns -1 if the sequence is not valid (including presence of extra bytes).
   int decodeUTF8Sequence(const char *);
-
-  // Given a UTF-8 string, converts offsets from the UTF-16 form of the string into offsets into the UTF-8 string.
-  // Note: This function can overrun the buffer if the string contains a partial UTF-8 sequence, so it should
-  // not be called with strings that might contain such sequences.
-  void convertUTF16OffsetsToUTF8Offsets(const char *UTF8String, int *offsets, int numOffsets);
-
-  // Given a UTF-8 string, converts offsets from the UTF-8 string into offsets into the UTF-16 form of the string.
-  // Note: This function can overrun the buffer if the string contains a partial UTF-8 sequence, so it should
-  // not be called with strings that might contain such sequences.
-  void convertUTF8OffsetsToUTF16Offsets(const char *UTF8String, int *offsets, int numOffsets);
 
 }; // namespace
 

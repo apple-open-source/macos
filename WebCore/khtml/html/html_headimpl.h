@@ -52,12 +52,12 @@ public:
     DOMString target() const { return m_target; }
 
     virtual Id id() const;
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
 
     void process();
-
+    
 protected:
     DOMString m_href;
     DOMString m_target;
@@ -78,7 +78,7 @@ public:
     StyleSheetImpl* sheet() const { return m_sheet; }
 
     // overload from HTMLElementImpl
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 
     void process();
 
@@ -96,6 +96,8 @@ public:
 
     int disabledState() { return m_disabledState; }
     void setDisabledState(bool _disabled);
+
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
     
 protected:
     khtml::CachedCSSStyleSheet *m_cachedSheet;
@@ -120,7 +122,7 @@ public:
     ~HTMLMetaElementImpl();
 
     virtual Id id() const;
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
     virtual void insertedIntoDocument();
 
     void process();
@@ -140,6 +142,9 @@ public:
     ~HTMLScriptElementImpl();
 
     virtual Id id() const;
+    
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
+    
 };
 
 // -------------------------------------------------------------------------
@@ -155,7 +160,7 @@ public:
     StyleSheetImpl *sheet() const { return m_sheet; }
 
     // overload from HTMLElementImpl
-    virtual void parseAttribute(AttributeImpl *attr);
+    virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     virtual void childrenChanged();

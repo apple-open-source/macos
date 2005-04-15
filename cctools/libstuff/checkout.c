@@ -20,10 +20,12 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdio.h>
 #include <string.h>
 #include "stuff/ofile.h"
 #include "stuff/breakout.h"
+#include "stuff/round.h"
 
 static void check_object(
     struct arch *arch,
@@ -75,10 +77,10 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-
-    unsigned long i;
+    unsigned long i, ncmds, flags;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct dylib_command *dl_id;
 
 	/*
@@ -89,9 +91,18 @@ struct object *object)
 	object->dyst = NULL;
 	object->hints_cmd = NULL;
 	object->seg_linkedit = NULL;
+	object->seg_linkedit64 = NULL;
 	dl_id = NULL;
 	lc = object->load_commands;
-	for(i = 0; i < object->mh->ncmds; i++){
+	if(object->mh != NULL){
+	    ncmds = object->mh->ncmds;
+	    flags = object->mh->flags;
+	}
+	else{
+	    ncmds = object->mh64->ncmds;
+	    flags = object->mh64->flags;
+	}
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SYMTAB){
 		if(object->st != NULL)
 		    fatal_arch(arch, member, "malformed file (more than one "
@@ -119,6 +130,15 @@ struct object *object)
 		    object->seg_linkedit = sg;
 		}
 	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		if(strcmp(sg64->segname, SEG_LINKEDIT) == 0){
+		    if(object->seg_linkedit64 != NULL)
+			fatal_arch(arch, member, "malformed file (more than "
+			    "one " SEG_LINKEDIT "segment): ");
+		    object->seg_linkedit64 = sg64;
+		}
+	    }
 	    else if(lc->cmd == LC_ID_DYLIB){
 		if(dl_id != NULL)
 		    fatal_arch(arch, member, "malformed file (more than one "
@@ -131,10 +151,10 @@ struct object *object)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	if((object->mh->filetype == MH_DYLIB ||
-	    object->mh->filetype == MH_DYLIB_STUB) && dl_id == NULL)
+	if((object->mh_filetype == MH_DYLIB ||
+	    object->mh_filetype == MH_DYLIB_STUB) && dl_id == NULL)
 	    fatal_arch(arch, member, "malformed file (no LC_ID_DYLIB load "
-		"command in %s file): ", object->mh->filetype == MH_DYLIB ?
+		"command in %s file): ", object->mh_filetype == MH_DYLIB ?
 		"MH_DYLIB" : "MH_DYLIB_STUB");
 	if(object->hints_cmd != NULL){
 	    if(object->dyst == NULL && object->hints_cmd->nhints != 0)
@@ -162,8 +182,8 @@ struct object *object)
 	     * and a relocatable object file.  Since it has a dynamic symbol
 	     * table command it could have an indirect symbol table.
 	     */
-	    if(object->mh->filetype == MH_DYLIB /* ||
-	       object->mh->filetype == MH_DYLIB_STUB */ ){
+	    if(object->mh_filetype == MH_DYLIB /* ||
+	       object->mh_filetype == MH_DYLIB_STUB */ ){
 		/*
 		 * This is a dynamic shared library.
 		 * The order of the symbolic info is:
@@ -184,7 +204,7 @@ struct object *object)
 		 */
 		dyld_order(arch, member, object);
 	    }
-	    else if(object->mh->flags & MH_DYLDLINK){
+	    else if(flags & MH_DYLDLINK){
 		/*
 		 * This is a file for the dynamic linker (output of ld(1) with
 		 * -output_for_dyld .  That is the relocation entries are split
@@ -248,17 +268,32 @@ struct object *object)
 {
     unsigned long offset, isym;
 
-	if(object->seg_linkedit == NULL)
-	    fatal_arch(arch, member, "malformed file (no " SEG_LINKEDIT
-		" segment): ");
-	if(object->seg_linkedit->filesize != 0 &&
-	   object->seg_linkedit->fileoff +
-	   object->seg_linkedit->filesize != object->object_size)
-	    fatal_arch(arch, member, "the " SEG_LINKEDIT " segment "
-		"does not cover the end of the file (can't "
-		"be processed) in: ");
+	if(object->mh != NULL){
+	    if(object->seg_linkedit == NULL)
+		fatal_arch(arch, member, "malformed file (no " SEG_LINKEDIT
+		    " segment): ");
+	    if(object->seg_linkedit->filesize != 0 &&
+	       object->seg_linkedit->fileoff +
+	       object->seg_linkedit->filesize != object->object_size)
+		fatal_arch(arch, member, "the " SEG_LINKEDIT " segment "
+		    "does not cover the end of the file (can't "
+		    "be processed) in: ");
 
-	offset = object->seg_linkedit->fileoff;
+	    offset = object->seg_linkedit->fileoff;
+	}
+	else{
+	    if(object->seg_linkedit64 == NULL)
+		fatal_arch(arch, member, "malformed file (no " SEG_LINKEDIT
+		    " segment): ");
+	    if(object->seg_linkedit64->filesize != 0 &&
+	       object->seg_linkedit64->fileoff +
+	       object->seg_linkedit64->filesize != object->object_size)
+		fatal_arch(arch, member, "the " SEG_LINKEDIT " segment "
+		    "does not cover the end of the file (can't "
+		    "be processed) in: ");
+
+	    offset = object->seg_linkedit64->fileoff;
+	}
 	if(object->dyst->nlocrel != 0){
 	    if(object->dyst->locreloff != offset)
 		order_error(arch, member, "local relocation entries "
@@ -269,7 +304,10 @@ struct object *object)
 	if(object->st->nsyms != 0){
 	    if(object->st->symoff != offset)
 		order_error(arch, member, "symbol table out of place");
-	    offset += object->st->nsyms * sizeof(struct nlist);
+	    if(object->mh != NULL)
+		offset += object->st->nsyms * sizeof(struct nlist);
+	    else
+		offset += object->st->nsyms * sizeof(struct nlist_64);
 	}
 	isym = 0;
 	if(object->dyst->nlocalsym != 0){
@@ -316,8 +354,12 @@ struct object *object)
 	if(object->dyst->nmodtab != 0){
 	    if(object->dyst->modtaboff != offset)
 		order_error(arch, member, "module table out of place");
-	    offset += object->dyst->nmodtab *
-		      sizeof(struct dylib_module);
+	    if(object->mh != NULL)
+		offset += object->dyst->nmodtab *
+			  sizeof(struct dylib_module);
+	    else
+		offset += object->dyst->nmodtab *
+			  sizeof(struct dylib_module_64);
 	}
 	if(object->dyst->nextrefsyms != 0){
 	    if(object->dyst->extrefsymoff != offset)
@@ -352,15 +394,30 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    unsigned long end;
-
+    unsigned long end, strend, rounded_strend;
 
 	if(object->st != NULL && object->st->nsyms != 0){
 	    end = object->object_size;
 	    if(object->st->strsize != 0){
-		if(object->st->stroff + object->st->strsize != end)
+		strend = object->st->stroff + object->st->strsize;
+		/*
+		 * Since archive member sizes are now rounded to 8 bytes the
+		 * string table may not be exactly at the end of the
+		 * object_size due to rounding.
+		 */
+		rounded_strend = round(strend, 8);
+		if(strend != end && rounded_strend != end)
 		    fatal_arch(arch, member, "string table not at the end "
 			"of the file (can't be processed) in file: ");
+		/*
+		 * To make the code work that assumes the end of string table is
+		 * at the end of the object file change the object_size to be
+		 * the end of the string table here.  This could be done at the
+		 * end of this routine but since all the later checks are fatal
+		 * we'll just do this here.
+		 */
+		if(rounded_strend != strend)
+		    object->object_size = strend;
 		end = object->st->stroff;
 	    }
 	    if(object->dyst != NULL &&
@@ -374,17 +431,36 @@ struct object *object)
 			"processed) in file: ");
 		}
 		end = object->dyst->indirectsymoff;
-		if(object->st->symoff +
-		   object->st->nsyms * sizeof(struct nlist) != end)
-		    fatal_arch(arch, member, "symbol table does not directly "
-			"preceed the indirect symbol table (can't be "
-			"processed) in file: ");
+		if(object->mh != NULL){
+		    if(object->st->symoff +
+		       object->st->nsyms * sizeof(struct nlist) != end)
+			fatal_arch(arch, member, "symbol table does not "
+			    "directly preceed the indirect symbol table (can't "
+			    "be processed) in file: ");
+		}
+		else{
+		    if(object->st->symoff +
+		       object->st->nsyms * sizeof(struct nlist_64) != end)
+			fatal_arch(arch, member, "symbol table does not "
+			    "directly preceed the indirect symbol table (can't "
+			    "be processed) in file: ");
+		}
 	    }
-	    else if(object->st->symoff +
-	       object->st->nsyms * sizeof(struct nlist) != end){
-		fatal_arch(arch, member, "symbol table and string table "
-		    "not at the end of the file (can't be processed) in "
-		    "file: ");
+	    else{
+		if(object->mh != NULL){
+		    if(object->st->symoff +
+		       object->st->nsyms * sizeof(struct nlist) != end)
+			fatal_arch(arch, member, "symbol table and string "
+			    "table not at the end of the file (can't be "
+			    "processed) in file: ");
+		}
+		else{
+		    if(object->st->symoff +
+		       object->st->nsyms * sizeof(struct nlist_64) != end)
+			fatal_arch(arch, member, "symbol table and string "
+			    "table not at the end of the file (can't be "
+			    "processed) in file: ");
+		}
 	    }
 	    if(object->seg_linkedit != NULL &&
 	       (object->seg_linkedit->flags & SG_FVMLIB) != SG_FVMLIB &&
@@ -397,3 +473,4 @@ struct object *object)
 	    }
 	}
 }
+#endif /* !defined(RLD) */

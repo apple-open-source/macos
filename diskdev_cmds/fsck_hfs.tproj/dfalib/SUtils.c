@@ -2211,3 +2211,328 @@ void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString )
     printf( "\n" );
 
 } /* PrintName */
+
+#if DEBUG_XATTR
+#define MAX_PRIMES 11	
+int primes[] = {32, 27, 25, 7, 11, 13, 17, 19, 23, 29, 31};
+void print_prime_buckets(PrimeBuckets *cur); 
+#endif
+
+/* Function:	RecordXAttrBits
+ *
+ * Description:
+ * This function increments the prime number buckets for the associated 
+ * prime bucket set based on the flags and btreetype to determine 
+ * the discrepancy between the attribute btree and catalog btree for
+ * extended attribute data consistency.  This function is based on
+ * Chinese Remainder Theorem.  
+ * 
+ * Alogrithm:
+ * 1. If none of kHFSHasAttributesMask or kHFSHasSecurity mask is set, 
+ *    return.
+ * 2. Based on btreetype and the flags, determine which prime number
+ *    bucket should be updated.  Initialize pointers accordingly. 
+ * 3. Divide the fileID with pre-defined prime numbers. Store the 
+ *    remainder.
+ * 4. Increment each prime number bucket at an offset of the 
+ *    corresponding remainder with one.
+ *
+ * Input:	1. GPtr - pointer to global scavenger area
+ *        	2. flags - can include kHFSHasAttributesMask and/or kHFSHasSecurityMask
+ *        	3. fileid - fileID for which particular extended attribute is seen
+ *     	   	4. btreetye - can be kHFSPlusCatalogRecord or kHFSPlusAttributeRecord
+ *                            indicates which btree prime number bucket should be incremented
+ *
+ * Output:	nil
+ */
+void RecordXAttrBits(SGlobPtr GPtr, UInt16 flags, HFSCatalogNodeID fileid, UInt16 btreetype) 
+{
+	PrimeBuckets *cur_attr = NULL;
+	PrimeBuckets *cur_sec = NULL;
+	int r32, r27, r25, r7, r11, r13, r17, r19, r23, r29, r31;
+
+	if ( ((flags & kHFSHasAttributesMask) == 0) && 
+	     ((flags & kHFSHasSecurityMask) == 0) ) {
+		/* No attributes exists for this fileID */
+		goto out;
+	}
+	
+	/* Determine which bucket are we updating */
+	if (btreetype ==  kCalculatedCatalogRefNum) {
+		/* Catalog BTree buckets */
+		if (flags & kHFSHasAttributesMask) {
+			cur_attr = &(GPtr->CBTAttrBucket); 
+		}
+		if (flags & kHFSHasSecurityMask) {
+			cur_sec = &(GPtr->CBTSecurityBucket); 
+		}
+	} else if (btreetype ==  kCalculatedAttributesRefNum) {
+		/* Attribute BTree buckets */
+		if (flags & kHFSHasAttributesMask) {
+			cur_attr = &(GPtr->ABTAttrBucket); 
+		}
+		if (flags & kHFSHasSecurityMask) {
+			cur_sec = &(GPtr->ABTSecurityBucket); 
+		}
+	} else {
+		/* Incorrect btreetype found */
+		goto out;
+	}
+
+	/* Perform the necessary divisions here */
+	r32 = fileid % 32;
+	r27 = fileid % 27;
+	r25 = fileid % 25;
+	r7  = fileid % 7;
+	r11 = fileid % 11;
+	r13 = fileid % 13;
+	r17 = fileid % 17;
+	r19 = fileid % 19;
+	r23 = fileid % 23;
+	r29 = fileid % 29;
+	r31 = fileid % 31;
+	
+	/* Update bucket for attribute bit */
+	if (cur_attr) {
+		cur_attr->n32[r32]++;
+		cur_attr->n27[r27]++;
+		cur_attr->n25[r25]++;
+		cur_attr->n7[r7]++;
+		cur_attr->n11[r11]++;
+		cur_attr->n13[r13]++;
+		cur_attr->n17[r17]++;
+		cur_attr->n19[r19]++;
+		cur_attr->n23[r23]++;
+		cur_attr->n29[r29]++;
+		cur_attr->n31[r31]++;
+	}
+
+	/* Update bucket for security bit */
+	if (cur_sec) {
+		cur_sec->n32[r32]++;
+		cur_sec->n27[r27]++;
+		cur_sec->n25[r25]++;
+		cur_sec->n7[r7]++;
+		cur_sec->n11[r11]++;
+		cur_sec->n13[r13]++;
+		cur_sec->n17[r17]++;
+		cur_sec->n19[r19]++;
+		cur_sec->n23[r23]++;
+		cur_sec->n29[r29]++;
+		cur_sec->n31[r31]++;
+	}
+	
+#if 0
+	printf ("\nFor fileID = %d\n", fileid);
+	if (cur_attr) {
+		printf ("Attributes bucket:\n");
+		print_prime_buckets(cur_attr);
+	}
+	if (cur_sec) {
+		printf ("Security bucket:\n");
+		print_prime_buckets(cur_sec);
+	}
+#endif 
+out:
+	return;
+}
+
+/* Function:	ComparePrimeBuckets
+ *
+ * Description:
+ * This function compares the prime number buckets for catalog btree
+ * and attribute btree for the given attribute type (normal attribute
+ * bit or security bit).
+ *
+ * Input:	1. GPtr - pointer to global scavenger area
+ *         	2. BitMask - indicate which attribute type should be compared.
+ *        	             can include kHFSHasAttributesMask and/or kHFSHasSecurityMask
+ * Output:	zero - the buckets are equal
+ *            	non-zero - the buckets are unqual
+ */
+int ComparePrimeBuckets(SGlobPtr GPtr, UInt16 BitMask) 
+{
+	int result = 0;
+	int i;
+	PrimeBuckets *cat;	/* Catalog BTree */
+	PrimeBuckets *attr;	/* Attribute BTree */
+	
+	/* Find the correct PrimeBuckets to compare */
+	if (BitMask & kHFSHasAttributesMask) {
+		/* Compare buckets for attribute bit */
+		cat = &(GPtr->CBTAttrBucket);
+		attr = &(GPtr->ABTAttrBucket); 
+	} else if (BitMask & kHFSHasSecurityMask) {
+		/* Compare buckets for security bit */
+		cat = &(GPtr->CBTSecurityBucket);
+		attr = &(GPtr->ABTSecurityBucket); 
+	} else {
+		printf ("%s: Incorrect BitMask found.\n", __FUNCTION__);
+		goto out;
+	}
+
+	for (i=0; i<32; i++) {
+		if (cat->n32[i] != attr->n32[i]) {
+			goto unequal_out;
+		}
+	}
+	
+	for (i=0; i<27; i++) {
+		if (cat->n27[i] != attr->n27[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<25; i++) {
+		if (cat->n25[i] != attr->n25[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<7; i++) {
+		if (cat->n7[i] != attr->n7[i]) {
+			goto unequal_out;
+		}
+	}
+	
+	for (i=0; i<11; i++) {
+		if (cat->n11[i] != attr->n11[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<13; i++) {
+		if (cat->n13[i] != attr->n13[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<17; i++) {
+		if (cat->n17[i] != attr->n17[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<19; i++) {
+		if (cat->n19[i] != attr->n19[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<23; i++) {
+		if (cat->n23[i] != attr->n23[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<29; i++) {
+		if (cat->n29[i] != attr->n29[i]) {
+			goto unequal_out;
+		}
+	}
+
+	for (i=0; i<31; i++) {
+		if (cat->n31[i] != attr->n31[i]) {
+			goto unequal_out;
+		}
+	}
+
+	goto out;
+
+unequal_out:
+	/* Unequal values found, set the error bit in ABTStat */
+	if (BitMask & kHFSHasAttributesMask) {
+		RcdError (GPtr, E_IncorrectAttrCount);
+		GPtr->ABTStat |= S_AttributeCount; 
+	} else {
+		RcdError (GPtr, E_IncorrectSecurityCount);
+		GPtr->ABTStat |= S_SecurityCount; 
+	}
+#if DEBUG_XATTR
+	if (BitMask & kHFSHasAttributesMask) {
+		printf ("For kHFSHasAttributesMask:\n");
+	} else {
+		printf ("For kHFSHasSecurityMask:\n");
+	}
+	printf("Catalog BTree bucket:\n");
+	print_prime_buckets(cat);
+	printf("Attribute BTree bucket\n");
+	print_prime_buckets(attr);
+#endif
+out:
+	return result;
+}
+
+#if DEBUG_XATTR
+/* Prints the prime number bucket for the passed pointer */
+void print_prime_buckets(PrimeBuckets *cur) 
+{
+	int i;
+	
+	printf ("n32 = { ");
+	for (i=0; i<32; i++) {
+		printf ("%d,", cur->n32[i]);
+	}
+	printf ("}\n");
+
+	printf ("n27 = { ");
+	for (i=0; i<27; i++) {
+		printf ("%d,", cur->n27[i]);
+	}
+	printf ("}\n");
+
+	printf ("n25 = { ");
+	for (i=0; i<25; i++) {
+		printf ("%d,", cur->n25[i]);
+	}
+	printf ("}\n");
+
+	printf ("n7 = { ");
+	for (i=0; i<7; i++) {
+		printf ("%d,", cur->n7[i]);
+	}
+	printf ("}\n");
+	
+	printf ("n11 = { ");
+	for (i=0; i<11; i++) {
+		printf ("%d,", cur->n11[i]);
+	}
+	printf ("}\n");
+
+	printf ("n13 = { ");
+	for (i=0; i<13; i++) {
+		printf ("%d,", cur->n13[i]);
+	}
+	printf ("}\n");
+
+	printf ("n17 = { ");
+	for (i=0; i<17; i++) {
+		printf ("%d,", cur->n17[i]);
+	}
+	printf ("}\n");
+
+	printf ("n19 = { ");
+	for (i=0; i<19; i++) {
+		printf ("%d,", cur->n19[i]);
+	}
+	printf ("}\n");
+
+	printf ("n23 = { ");
+	for (i=0; i<23; i++) {
+		printf ("%d,", cur->n23[i]);
+	}
+	printf ("}\n");
+
+	printf ("n29 = { ");
+	for (i=0; i<29; i++) {
+		printf ("%d,", cur->n29[i]);
+	}
+	printf ("}\n");
+
+	printf ("n31 = { ");
+	for (i=0; i<31; i++) {
+		printf ("%d,", cur->n31[i]);
+	}
+	printf ("}\n");
+}
+#endif 

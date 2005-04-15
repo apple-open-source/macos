@@ -75,7 +75,7 @@ done
 
 if [ -d $SRCDIR../docs/htmldocs/ ]; then
 
-    for dir in htmldocs/ htmldocs/howto htmldocs/guide htmldocs/devel
+    for dir in htmldocs/ htmldocs/Samba-HOWTO-Collection htmldocs/Samba-Guide htmldocs/Samba-Developers-Guide
     do 
     
       if [ ! -d $SRCDIR../docs/$dir ]; then
@@ -103,7 +103,7 @@ if [ -d $SRCDIR../docs/htmldocs/ ]; then
               fi
           fi
           for f in $SRCDIR../docs/$dir/images/*.png; do
-              FNAME=$INSTALLDIR/`basename $f`
+              FNAME=$INSTALLDIR/images/`basename $f`
               echo $FNAME
               cp $f $FNAME || echo Cannot install $FNAME. Does $USER have privileges?
               chmod 0644 $FNAME

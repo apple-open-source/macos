@@ -80,7 +80,6 @@
 #include "host_identifier.h"
 #include "NICache.h"
 #include "nbsp.h"
-#include "hfsvols.h"
 #include "nbimages.h"
 #include "AFPUsers.h"
 #include "NetBootServer.h"
@@ -272,6 +271,21 @@ S_create_volume_dir(NBSPEntry * entry, u_char * dirname, mode_t mode)
 }
 
 /*
+ * Function: set_file_size
+ * 
+ * Purpose:
+ *   Set a file to be a certain length.
+ */
+static int
+set_file_size(int fd, off_t size)
+{
+#ifdef F_SETSIZE
+    fcntl(fd, F_SETSIZE, &size);
+#endif F_SETSIZE
+    return (ftruncate(fd, size));
+}
+
+/*
  * Function: S_create_shadow_file
  *
  * Purpose:
@@ -291,8 +305,8 @@ S_create_shadow_file(u_char * shadow_path, uid_t uid, gid_t gid,
 	my_log(LOG_INFO, "macNC: couldn't create file '%s': %m", shadow_path);
 	return (FALSE);
     }
-    if (hfs_set_file_size(fd, size)) {
-	my_log(LOG_INFO, "macNC: hfs_set_file_size '%s' failed: %m",
+    if (set_file_size(fd, size)) {
+	my_log(LOG_INFO, "macNC: set_file_size '%s' failed: %m",
 	       shadow_path);
 	goto err;
     }
@@ -387,7 +401,8 @@ S_freespace(u_char * path, unsigned long long * size)
 }
 
 static NBSPEntry *
-S_find_volume_with_space(unsigned long long needspace, int def_vol_index)
+S_find_volume_with_space(unsigned long long needspace, int def_vol_index,
+			 boolean_t need_hfs)
 {
     unsigned long long	freespace;
     int 		i;
@@ -398,16 +413,18 @@ S_find_volume_with_space(unsigned long long needspace, int def_vol_index)
     for (i = 0, vol_index = def_vol_index; i < NBSPList_count(G_client_sharepoints);
 	 i++) {
 	NBSPEntry * shp = NBSPList_element(G_client_sharepoints, vol_index);
-	
-	S_get_volpath(path, shp, NULL, NULL);
-	if (S_freespace(path, &freespace) == TRUE) {
+
+	if (need_hfs == FALSE || shp->is_hfs == TRUE) {
+	    S_get_volpath(path, shp, NULL, NULL);
+	    if (S_freespace(path, &freespace) == TRUE) {
 #define SLOP_SPACE_BYTES	(20 * 1024 * 1024)
-	    /* make sure there's some space left on the volume */
-	    if (freespace >= (needspace + SLOP_SPACE_BYTES)) {
-		entry = shp;
-		if (debug)
-		    printf("selected volume %s\n", entry->name);
-		break; /* out of for */
+		/* make sure there's some space left on the volume */
+		if (freespace >= (needspace + SLOP_SPACE_BYTES)) {
+		    entry = shp;
+		    if (debug)
+			printf("selected volume %s\n", entry->name);
+		    break; /* out of for */
+		}
 	    }
 	}
 	vol_index = (vol_index + 1) % NBSPList_count(G_client_sharepoints);
@@ -544,7 +561,7 @@ macNC_allocate_shadow(const char * machine_name, int host_number,
 	}
     }
     if (nc_volume == NULL) { /* locate the client's image dir */
-	nc_volume = S_find_volume_with_space(needspace, def_vol_index);
+	nc_volume = S_find_volume_with_space(needspace, def_vol_index, FALSE);
 	if (nc_volume == NULL) {
 	    if (G_disk_space_warned == FALSE)
 		my_log(LOG_INFO, "macNC: can't create client image: "
@@ -618,8 +635,9 @@ S_add_image_options(NBImageEntryRef image_entry,
     for (i = 0, vol_index = def_vol_index; i < NBSPList_count(G_client_sharepoints);
 	 i++) {
 	NBSPEntry * entry = NBSPList_element(G_client_sharepoints, vol_index);
-	if (S_stat_path_vol_file(dir_path, entry,
-				 nc_images_dir, NULL, &dir_statb) == 0) {
+	if (entry->is_hfs == TRUE
+	    && S_stat_path_vol_file(dir_path, entry,
+				    nc_images_dir, NULL, &dir_statb) == 0) {
 	    nc_volume = entry;
 	    break;
 	}
@@ -806,7 +824,8 @@ S_add_image_options(NBImageEntryRef image_entry,
 	    }
 	}
 	if (nc_volume == NULL) { /* locate the client's image dir */
-	    nc_volume = S_find_volume_with_space(needspace, def_vol_index);
+	    nc_volume = S_find_volume_with_space(needspace, def_vol_index,
+						 TRUE);
 	    if (nc_volume == NULL) {
 		if (G_disk_space_warned == FALSE)
 		    my_log(LOG_INFO, "macNC: can't create client image: "

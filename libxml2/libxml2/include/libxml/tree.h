@@ -63,6 +63,13 @@ typedef xmlEntity *xmlEntityPtr;
 #define XML_XML_NAMESPACE \
     (const xmlChar *) "http://www.w3.org/XML/1998/namespace"
 
+/**
+ * XML_XML_ID:
+ *
+ * This is the name for the special xml:id attribute
+ */
+#define XML_XML_ID (const xmlChar *) "xml:id"
+
 /*
  * The different element types carried by an XML tree.
  *
@@ -578,18 +585,18 @@ XMLPUBFUN void XMLCALL
 XMLPUBFUN int XMLCALL		
 		xmlBufferDump		(FILE *file,
 					 xmlBufferPtr buf);
-XMLPUBFUN void XMLCALL		
+XMLPUBFUN int XMLCALL		
 		xmlBufferAdd		(xmlBufferPtr buf,
 					 const xmlChar *str,
 					 int len);
-XMLPUBFUN void XMLCALL		
+XMLPUBFUN int XMLCALL		
 		xmlBufferAddHead	(xmlBufferPtr buf,
 					 const xmlChar *str,
 					 int len);
-XMLPUBFUN void XMLCALL		
+XMLPUBFUN int XMLCALL		
 		xmlBufferCat		(xmlBufferPtr buf,
 					 const xmlChar *str);
-XMLPUBFUN void XMLCALL	
+XMLPUBFUN int XMLCALL	
 		xmlBufferCCat		(xmlBufferPtr buf,
 					 const char *str);
 XMLPUBFUN int XMLCALL		
@@ -717,6 +724,10 @@ XMLPUBFUN xmlNodePtr XMLCALL
 XMLPUBFUN xmlNodePtr XMLCALL	
 		xmlNewText		(const xmlChar *content);
 XMLPUBFUN xmlNodePtr XMLCALL	
+		xmlNewDocPI		(xmlDocPtr doc,
+					 const xmlChar *name,
+					 const xmlChar *content);
+XMLPUBFUN xmlNodePtr XMLCALL	
 		xmlNewPI		(const xmlChar *name,
 					 const xmlChar *content);
 XMLPUBFUN xmlNodePtr XMLCALL	
@@ -748,6 +759,9 @@ XMLPUBFUN xmlNodePtr XMLCALL
 		xmlDocCopyNode		(const xmlNodePtr node,
 					 xmlDocPtr doc,
 					 int recursive);
+XMLPUBFUN xmlNodePtr XMLCALL	
+		xmlDocCopyNodeList	(xmlDocPtr doc,
+					 const xmlNodePtr node);
 XMLPUBFUN xmlNodePtr XMLCALL	
 		xmlCopyNodeList		(const xmlNodePtr node);
 #ifdef LIBXML_TREE_ENABLED

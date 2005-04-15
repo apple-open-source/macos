@@ -227,7 +227,7 @@ namespace IOFireWireLib {
 			LocalIsochPort (	const IUnknownVTbl & interface, Device & userClient, bool talking, DCLCommand * dclProgram, 
 								UInt32 startEvent, UInt32 startState, UInt32 startMask, 
 								IOVirtualRange programRanges[], UInt32 programRangeCount, IOVirtualRange bufferRanges[], 
-								UInt32 bufferRangeCount ) ;								
+								UInt32 bufferRangeCount, IOFWIsochPortOptions options ) ;								
 			virtual ~LocalIsochPort () ;
 
 		protected :
@@ -282,7 +282,8 @@ namespace IOFireWireLib {
 		public:
 			LocalIsochPortCOM( Device& userclient, bool inTalking, DCLCommand* inDCLProgram, UInt32 inStartEvent,
 					UInt32 inStartState, UInt32 inStartMask, IOVirtualRange inDCLProgramRanges[], 
-					UInt32 inDCLProgramRangeCount, IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount) ;
+					UInt32 inDCLProgramRangeCount, IOVirtualRange inBufferRanges[], UInt32 inBufferRangeCount,
+					IOFWIsochPortOptions options ) ;
 			virtual ~LocalIsochPortCOM() ;	
 			
 			// --- IUNKNOWN support ----------------
@@ -296,7 +297,8 @@ namespace IOFireWireLib {
 											IOVirtualRange					inDCLProgramRanges[],			// optional optimization parameters
 											UInt32							inDCLProgramRangeCount,
 											IOVirtualRange					inBufferRanges[],
-											UInt32							inBufferRangeCount) ;
+											UInt32							inBufferRangeCount,
+											IOFWIsochPortOptions			options ) ;
 			virtual HRESULT			QueryInterface(
 											REFIID 		iid, 
 											void** 		ppv ) ;

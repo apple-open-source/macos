@@ -118,11 +118,13 @@ __xmlMemStrdup
 #else
 xmlMemStrdup DATA
 #endif
+xmlOutputBufferCreateFilenameValue DATA
 #ifdef LIBXML_THREAD_ENABLED
 __xmlParserDebugEntities
 #else
 xmlParserDebugEntities DATA
 #endif
+xmlParserInputBufferCreateFilenameValue DATA
 xmlParserMaxDepth DATA
 #ifdef LIBXML_THREAD_ENABLED
 __xmlParserVersion
@@ -500,6 +502,9 @@ xmlAutomataNewAllTrans
 xmlAutomataNewCountTrans
 #endif
 #ifdef LIBXML_AUTOMATA_ENABLED
+xmlAutomataNewCountTrans2
+#endif
+#ifdef LIBXML_AUTOMATA_ENABLED
 xmlAutomataNewCountedTrans
 #endif
 #ifdef LIBXML_AUTOMATA_ENABLED
@@ -513,6 +518,9 @@ xmlAutomataNewEpsilon
 #endif
 #ifdef LIBXML_AUTOMATA_ENABLED
 xmlAutomataNewOnceTrans
+#endif
+#ifdef LIBXML_AUTOMATA_ENABLED
+xmlAutomataNewOnceTrans2
 #endif
 #ifdef LIBXML_AUTOMATA_ENABLED
 xmlAutomataNewState
@@ -549,6 +557,7 @@ xmlBufferWriteCHAR
 xmlBufferWriteChar
 xmlBufferWriteQuotedString
 xmlBuildQName
+xmlBuildRelativeURI
 xmlBuildURI
 xmlByteConsumed
 #ifdef LIBXML_C14N_ENABLED
@@ -690,6 +699,9 @@ xmlCtxtResetPush
 xmlCtxtUseOptions
 xmlCurrentChar
 #ifdef LIBXML_DEBUG_ENABLED
+xmlDebugCheckDocument
+#endif
+#ifdef LIBXML_DEBUG_ENABLED
 xmlDebugDumpAttr
 #endif
 #ifdef LIBXML_DEBUG_ENABLED
@@ -733,6 +745,7 @@ xmlDictQLookup
 xmlDictReference
 xmlDictSize
 xmlDocCopyNode
+xmlDocCopyNodeList
 xmlDocDump
 xmlDocDumpFormatMemory
 xmlDocDumpFormatMemoryEnc
@@ -963,6 +976,7 @@ xmlMallocAtomicLoc
 #ifdef DEBUG_MEMORY_LOCATION
 xmlMallocLoc
 #endif
+xmlMemBlocks
 xmlMemDisplay
 xmlMemFree
 xmlMemGet
@@ -1057,6 +1071,9 @@ xmlNanoHTTPCleanup
 xmlNanoHTTPClose
 #endif
 #ifdef LIBXML_HTTP_ENABLED
+xmlNanoHTTPContentLength
+#endif
+#ifdef LIBXML_HTTP_ENABLED
 xmlNanoHTTPEncoding
 #endif
 #ifdef LIBXML_HTTP_ENABLED
@@ -1111,6 +1128,7 @@ xmlNewDocComment
 xmlNewDocFragment
 xmlNewDocNode
 xmlNewDocNodeEatName
+xmlNewDocPI
 xmlNewDocProp
 xmlNewDocRawNode
 xmlNewDocText
@@ -1172,9 +1190,11 @@ xmlOutputBufferClose
 xmlOutputBufferCreateFd
 xmlOutputBufferCreateFile
 xmlOutputBufferCreateFilename
+xmlOutputBufferCreateFilenameDefault
 xmlOutputBufferCreateIO
 xmlOutputBufferFlush
 xmlOutputBufferWrite
+xmlOutputBufferWriteEscape
 xmlOutputBufferWriteString
 xmlParseAttValue
 xmlParseAttribute
@@ -1217,6 +1237,7 @@ xmlParseExternalEntity
 xmlParseExternalID
 xmlParseExternalSubset
 xmlParseFile
+xmlParseInNodeContext
 xmlParseMarkupDecl
 xmlParseMemory
 xmlParseMisc
@@ -1250,6 +1271,7 @@ xmlParserHandleReference
 xmlParserInputBufferCreateFd
 xmlParserInputBufferCreateFile
 xmlParserInputBufferCreateFilename
+xmlParserInputBufferCreateFilenameDefault
 xmlParserInputBufferCreateIO
 xmlParserInputBufferCreateMem
 xmlParserInputBufferCreateStatic
@@ -1268,6 +1290,7 @@ xmlPatternMatch
 xmlPatterncompile
 xmlPedanticParserDefault
 xmlPopInput
+xmlPopInputCallbacks
 xmlPrintURI
 xmlPushInput
 xmlRMutexLock
@@ -1357,6 +1380,9 @@ xmlRelaxNGGetParserErrors
 xmlRelaxNGGetValidErrors
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
+xmlRelaxNGInitTypes
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
 xmlRelaxNGNewDocParserCtxt
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
@@ -1404,7 +1430,6 @@ xmlResetLastError
 xmlSAX2AttributeDecl
 xmlSAX2CDataBlock
 xmlSAX2Characters
-xmlSAX2CheckNamespace
 xmlSAX2Comment
 xmlSAX2ElementDecl
 xmlSAX2EndDocument
@@ -1415,11 +1440,9 @@ xmlSAX2ExternalSubset
 xmlSAX2GetColumnNumber
 xmlSAX2GetEntity
 xmlSAX2GetLineNumber
-xmlSAX2GetNamespace
 xmlSAX2GetParameterEntity
 xmlSAX2GetPublicId
 xmlSAX2GetSystemId
-xmlSAX2GlobalNamespace
 xmlSAX2HasExternalSubset
 xmlSAX2HasInternalSubset
 xmlSAX2IgnorableWhitespace
@@ -1428,13 +1451,11 @@ xmlSAX2InitDocbDefaultSAXHandler
 xmlSAX2InitHtmlDefaultSAXHandler
 xmlSAX2InternalSubset
 xmlSAX2IsStandalone
-xmlSAX2NamespaceDecl
 xmlSAX2NotationDecl
 xmlSAX2ProcessingInstruction
 xmlSAX2Reference
 xmlSAX2ResolveEntity
 xmlSAX2SetDocumentLocator
-xmlSAX2SetNamespace
 xmlSAX2StartDocument
 xmlSAX2StartElement
 xmlSAX2StartElementNs
@@ -1450,12 +1471,21 @@ xmlSAXParseMemoryWithData
 xmlSAXUserParseFile
 xmlSAXUserParseMemory
 xmlSAXVersion
+xmlSaveClose
+xmlSaveDoc
 xmlSaveFile
 xmlSaveFileEnc
 xmlSaveFileTo
+xmlSaveFlush
 xmlSaveFormatFile
 xmlSaveFormatFileEnc
 xmlSaveFormatFileTo
+xmlSaveSetAttrEscape
+xmlSaveSetEscape
+xmlSaveToFd
+xmlSaveToFilename
+xmlSaveToIO
+xmlSaveTree
 xmlSaveUri
 xmlScanName
 #ifdef LIBXML_SCHEMAS_ENABLED
@@ -1463,6 +1493,9 @@ xmlSchemaCheckFacet
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaCleanupTypes
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaCollapseString
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaCompareValues
@@ -1486,11 +1519,30 @@ xmlSchemaFreeValidCtxt
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaFreeValue
 #endif
+xmlSchemaFreeWildcard
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaGetBuiltInListSimpleTypeItemType
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaGetBuiltInType
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaGetFacetValueAsULong
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaGetParserErrors
+#endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaGetPredefinedType
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaGetValidErrors
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaInitTypes
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaIsBuiltInTypeFacet
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaNewDocParserCtxt
@@ -1517,13 +1569,31 @@ xmlSchemaSetParserErrors
 xmlSchemaSetValidErrors
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaSetValidOptions
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaValPredefTypeNode
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaValPredefTypeNodeNoNorm
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaValidCtxtGetOptions
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaValidateDoc
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaValidateFacet
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaValidateLengthFacet
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaValidateListSimpleTypeFacet
+#endif
+#ifdef LIBXML_SCHEMAS_ENABLED
+xmlSchemaValidateOneElement
 #endif
 #ifdef LIBXML_SCHEMAS_ENABLED
 xmlSchemaValidatePredefinedType
@@ -1629,6 +1699,7 @@ xmlTextReaderAttributeCount
 xmlTextReaderBaseUri
 xmlTextReaderClose
 xmlTextReaderConstBaseUri
+xmlTextReaderConstEncoding
 xmlTextReaderConstLocalName
 xmlTextReaderConstName
 xmlTextReaderConstNamespaceUri
@@ -1636,6 +1707,7 @@ xmlTextReaderConstPrefix
 xmlTextReaderConstString
 xmlTextReaderConstValue
 xmlTextReaderConstXmlLang
+xmlTextReaderConstXmlVersion
 xmlTextReaderCurrentDoc
 xmlTextReaderCurrentNode
 xmlTextReaderDepth
@@ -1650,6 +1722,7 @@ xmlTextReaderHasAttributes
 xmlTextReaderHasValue
 xmlTextReaderIsDefault
 xmlTextReaderIsEmptyElement
+xmlTextReaderIsNamespaceDecl
 xmlTextReaderIsValid
 xmlTextReaderLocalName
 xmlTextReaderLocatorBaseURI
@@ -1686,12 +1759,16 @@ xmlTextReaderRelaxNGValidate
 xmlTextReaderSetErrorHandler
 xmlTextReaderSetParserProp
 xmlTextReaderSetStructuredErrorHandler
+xmlTextReaderStandalone
 xmlTextReaderValue
 xmlTextReaderXmlLang
 xmlTextWriterEndAttribute
 xmlTextWriterEndCDATA
 xmlTextWriterEndComment
 xmlTextWriterEndDTD
+xmlTextWriterEndDTDAttlist
+xmlTextWriterEndDTDElement
+xmlTextWriterEndDTDEntity
 xmlTextWriterEndDocument
 xmlTextWriterEndElement
 xmlTextWriterEndPI
@@ -1722,6 +1799,7 @@ xmlTextWriterWriteDTDAttlist
 xmlTextWriterWriteDTDElement
 xmlTextWriterWriteDTDEntity
 xmlTextWriterWriteDTDExternalEntity
+xmlTextWriterWriteDTDExternalEntityContents
 xmlTextWriterWriteDTDInternalEntity
 xmlTextWriterWriteDTDNotation
 xmlTextWriterWriteElement
@@ -1765,7 +1843,9 @@ xmlThrDefIndentTreeOutput
 xmlThrDefKeepBlanksDefaultValue
 xmlThrDefLineNumbersDefaultValue
 xmlThrDefLoadExtDtdDefaultValue
+xmlThrDefOutputBufferCreateFilenameDefault
 xmlThrDefParserDebugEntities
+xmlThrDefParserInputBufferCreateFilenameDefault
 xmlThrDefPedanticParserDefaultValue
 xmlThrDefRegisterNodeDefault
 xmlThrDefSaveNoEmptyTags

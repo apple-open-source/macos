@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,6 +121,9 @@ struct cmd_flags {
     char *bincl_name;	/*  the begin include name for -b */
     enum bool i;	/* start searching for begin include at -iN index */
     unsigned long index;/*  the index to start searching at */
+    enum bool A;	/* pathname or library name of an object on each line */
+    enum bool P;	/* portable output format */
+    char *format;	/* the -t format */
 };
 /* These need to be static because of the qsort compare function */
 static struct cmd_flags cmd_flags = { 0 };
@@ -130,13 +133,14 @@ static unsigned long strsize = 0;
 /* flags set by processing a specific object file */
 struct process_flags {
     unsigned long nsect;	/* The nsect, address and size for the */
-    unsigned long sect_addr,	/*  section specified by the -s flag */
+    uint64_t sect_addr,		/*  section specified by the -s flag */
 	     sect_size;
     enum bool sect_start_symbol;/* For processing the -l flag, set if a */
 				/*  symbol with the start address of the */
 				/*  section is found */
     unsigned long nsects;	/* For printing the symbol types, the number */
     struct section **sections;	/*  of sections and an array of section ptrs */
+    struct section_64 **sections64;
     unsigned char text_nsect,	/* For printing symbols types, T, D, and B */
 		  data_nsect,	/*  for text, data and bss symbols */
 		  bss_nsect;
@@ -144,9 +148,16 @@ struct process_flags {
     char **lib_names;		/*  references types, the number of libraries */
 				/*  an array of pointers to library names */
 };
+
+struct symbol {
+    char *name;
+    char *indr_name;
+    struct nlist_64 nl;
+};
+
 struct value_diff {
-    unsigned long size;
-    struct nlist symbol;
+    uint64_t size;
+    struct symbol symbol;
 };
 
 static void usage(
@@ -155,20 +166,26 @@ static void nm(
     struct ofile *ofile,
     char *arch_name,
     void *cookie);
-static struct nlist *select_symbols(
+static struct symbol *select_symbols(
     struct ofile *ofile,
     struct symtab_command *st,
     struct dysymtab_command *dyst,
     struct cmd_flags *cmd_flags,
     struct process_flags *process_flags,
     unsigned long *nsymbols);
+static void make_symbol_32(
+    struct symbol *symbol,
+    struct nlist *nl);
+static void make_symbol_64(
+    struct symbol *symbol,
+    struct nlist_64 *nl);
 static enum bool select_symbol(
-    struct nlist *symbol,
+    struct symbol *symbol,
     struct cmd_flags *cmd_flags,
     struct process_flags *process_flags);
 static void print_mach_symbols(
     struct ofile *ofile,
-    struct nlist *symbols,
+    struct symbol *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strsize,
@@ -177,7 +194,7 @@ static void print_mach_symbols(
     char *arch_name);
 static void print_symbols(
     struct ofile *ofile,
-    struct nlist *symbols,
+    struct symbol *symbols,
     unsigned long nsymbols,
     char *strings,
     unsigned long strsize,
@@ -188,8 +205,8 @@ static void print_symbols(
 static char * stab(
     unsigned char n_type);
 static int compare(
-    struct nlist *p1,
-    struct nlist *p2);
+    struct symbol *p1,
+    struct symbol *p2);
 static int value_diff_compare(
     struct value_diff *p1,
     struct value_diff *p2);
@@ -230,11 +247,16 @@ char **envp)
 	cmd_flags.l = FALSE;
 	cmd_flags.f = FALSE;
 	cmd_flags.bincl_name = NULL;
+	cmd_flags.A = FALSE;
+	cmd_flags.P = FALSE;
+	cmd_flags.format = "%llx";
 
         files = allocate(sizeof(char *) * argc);
 	for(i = 1; i < argc; i++){
 	    if(argv[i][0] == '-'){
-		if(argv[i][1] == '\0'){
+		if(argv[i][1] == '\0' ||
+		   (argv[i][1] == '-' && argv[i][2] == '\0')){
+		    i++;
 		    for( ; i < argc; i++)
 			files[cmd_flags.nfiles++] = argv[i];
 		    break;
@@ -258,6 +280,33 @@ char **envp)
 			    usage();
 			}
 			narch_flags++;
+		    }
+		    i++;
+		}
+		else if(strcmp(argv[i], "-t") == 0){
+		    if(i + 1 == argc){
+			error("missing argument to %s option", argv[i]);
+			usage();
+		    }
+		    if(argv[i+1][1] != '\0'){
+			error("invalid argument to option: %s %s",
+			      argv[i], argv[i+1]);
+			usage();
+		    }
+		    switch(argv[i+1][0]){
+		    case 'd':
+			cmd_flags.format = "%lld";
+			break;
+		    case 'o':
+			cmd_flags.format = "%llo";
+			break;
+		    case 'x':
+			cmd_flags.format = "%llx";
+			break;
+		    default:
+			error("invalid argument to option: %s %s",
+			      argv[i], argv[i+1]);
+			usage();
 		    }
 		    i++;
 		}
@@ -328,6 +377,12 @@ char **envp)
 			case 'v':
 			    cmd_flags.v = TRUE;
 			    break;
+			case 'A':
+			    cmd_flags.A = TRUE;
+			    break;
+			case 'P':
+			    cmd_flags.P = TRUE;
+			    break;
 			default:
 			    error("invalid argument -%c", argv[i][j]);
 			    usage();
@@ -377,8 +432,8 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [-agnoprumxjl[s segname sectname] [-] "
-		"[[-arch <arch_flag>] ...] [file ...]\n", progname);
+	fprintf(stderr, "Usage: %s [-agnoprumxjlfAP[s segname sectname] [-] "
+		"[-t format] [[-arch <arch_flag>] ...] [file ...]\n", progname);
 	exit(EXIT_FAILURE);
 }
 
@@ -393,6 +448,7 @@ struct ofile *ofile,
 char *arch_name,
 void *cookie)
 {
+    uint32_t ncmds, mh_flags;
     struct cmd_flags *cmd_flags;
     struct process_flags process_flags;
     unsigned long i, j, k;
@@ -400,10 +456,12 @@ void *cookie)
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
     struct dylib_command *dl;
 
-    struct nlist *symbols;
+    struct symbol *symbols;
     unsigned long nsymbols;
     struct value_diff *value_diffs;
 
@@ -427,7 +485,15 @@ void *cookie)
 	st = NULL;
 	dyst = NULL;
 	lc = ofile->load_commands;
-	for(i = 0; i < ofile->mh->ncmds; i++){
+	if(ofile->mh != NULL){
+	    ncmds = ofile->mh->ncmds;
+	    mh_flags = ofile->mh->flags;
+	}
+	else{
+	    ncmds = ofile->mh64->ncmds;
+	    mh_flags = ofile->mh64->flags;
+	}
+	for(i = 0; i < ncmds; i++){
 	    if(st == NULL && lc->cmd == LC_SYMTAB){
 		st = (struct symtab_command *)lc;
 	    }
@@ -438,7 +504,11 @@ void *cookie)
 		sg = (struct segment_command *)lc;
 		process_flags.nsects += sg->nsects;
 	    }
-	    else if((ofile->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		process_flags.nsects += sg64->nsects;
+	    }
+	    else if((mh_flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
 		    (lc->cmd == LC_LOAD_DYLIB ||
 		     lc->cmd == LC_LOAD_WEAK_DYLIB)){
 		process_flags.nlibs++;
@@ -450,11 +520,21 @@ void *cookie)
 	    return;
 	}
 	if(process_flags.nsects > 0){
-	    process_flags.sections = (struct section **)
-		       malloc(sizeof(struct section *) * process_flags.nsects);
+	    if(ofile->mh != NULL){
+		process_flags.sections = (struct section **)
+			   malloc(sizeof(struct section *) *
+			   process_flags.nsects);
+		process_flags.sections64 = NULL;
+	    }
+	    else{
+		process_flags.sections64 = (struct section_64 **)
+			   malloc(sizeof(struct section_64 *) *
+			   process_flags.nsects);
+		process_flags.sections = NULL;
+	    }
 	    k = 0;
 	    lc = ofile->load_commands;
-	    for (i = 0; i < ofile->mh->ncmds; i++){
+	    for (i = 0; i < ncmds; i++){
 		if(lc->cmd == LC_SEGMENT){
 		    sg = (struct segment_command *)lc;
 		    s = (struct section *)
@@ -482,17 +562,44 @@ void *cookie)
 			process_flags.sections[k++] = s + j;
 		    }
 		}
+		else if(lc->cmd == LC_SEGMENT_64){
+		    sg64 = (struct segment_command_64 *)lc;
+		    s64 = (struct section_64 *)
+			  ((char *)sg64 + sizeof(struct segment_command_64));
+		    for(j = 0; j < sg64->nsects; j++){
+			if(strcmp((s64 + j)->sectname, SECT_TEXT) == 0 &&
+			   strcmp((s64 + j)->segname, SEG_TEXT) == 0)
+			    process_flags.text_nsect = k + 1;
+			else if(strcmp((s64 + j)->sectname, SECT_DATA) == 0 &&
+				strcmp((s64 + j)->segname, SEG_DATA) == 0)
+			    process_flags.data_nsect = k + 1;
+			else if(strcmp((s64 + j)->sectname, SECT_BSS) == 0 &&
+				strcmp((s64 + j)->segname, SEG_DATA) == 0)
+			    process_flags.bss_nsect = k + 1;
+			if(cmd_flags->segname != NULL){
+			    if(strncmp((s64 + j)->sectname, cmd_flags->sectname,
+				       sizeof(s64->sectname)) == 0 &&
+			       strncmp((s64 + j)->segname, cmd_flags->segname,
+				       sizeof(s64->segname)) == 0){
+				process_flags.nsect = k + 1;
+				process_flags.sect_addr = (s64 + j)->addr;
+				process_flags.sect_size = (s64 + j)->size;
+			    }
+			}
+			process_flags.sections64[k++] = s64 + j;
+		    }
+		}
 		lc = (struct load_command *)
 		      ((char *)lc + lc->cmdsize);
 	    }
 	}
-	if((ofile->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	if((mh_flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
 	   process_flags.nlibs > 0){
 	    process_flags.lib_names = (char **)
 		       malloc(sizeof(char *) * process_flags.nlibs);
 	    j = 0;
 	    lc = ofile->load_commands;
-	    for (i = 0; i < ofile->mh->ncmds; i++){
+	    for (i = 0; i < ncmds; i++){
 		if(lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_LOAD_WEAK_DYLIB){
 		    dl = (struct dylib_command *)lc;
 		    process_flags.lib_names[j] =
@@ -517,34 +624,34 @@ void *cookie)
 	strsize = st->strsize;
 	if(cmd_flags->x == FALSE){
 	    for(i = 0; i < nsymbols; i++){
-		if(symbols[i].n_un.n_strx == 0)
-		    symbols[i].n_un.n_name = "";
-		else if(symbols[i].n_un.n_strx < 0 ||
-			(unsigned long)symbols[i].n_un.n_strx > st->strsize)
-		    symbols[i].n_un.n_name = "bad string index";
+		if(symbols[i].nl.n_un.n_strx == 0)
+		    symbols[i].name = "";
+		else if(symbols[i].nl.n_un.n_strx < 0 ||
+			(unsigned long)symbols[i].nl.n_un.n_strx > st->strsize)
+		    symbols[i].name = "bad string index";
 		else
-		    symbols[i].n_un.n_name = symbols[i].n_un.n_strx + strings;
+		    symbols[i].name = symbols[i].nl.n_un.n_strx + strings;
 
-		if((symbols[i].n_type & N_STAB) == 0 &&
-		   (symbols[i].n_type & N_TYPE) == N_INDR){
-		    if(symbols[i].n_value == 0)
-			symbols[i].n_value = (long)"";
-		    else if(symbols[i].n_value > st->strsize)
-			symbols[i].n_value = (long)"bad string index";
+		if((symbols[i].nl.n_type & N_STAB) == 0 &&
+		   (symbols[i].nl.n_type & N_TYPE) == N_INDR){
+		    if(symbols[i].nl.n_value == 0)
+			symbols[i].indr_name = "";
+		    else if(symbols[i].nl.n_value > st->strsize)
+			symbols[i].indr_name = "bad string index";
 		    else
-			symbols[i].n_value =
-				    (long)(symbols[i].n_value + strings);
+			symbols[i].indr_name = strings + symbols[i].nl.n_value;
 		}
 	    }
 	    if(cmd_flags->l == TRUE &&
 	       (long)process_flags.nsect != -1 &&
 	       process_flags.sect_start_symbol == FALSE &&
 	       process_flags.sect_size != 0){
-		symbols = reallocate(symbols,(nsymbols+1)*sizeof(struct nlist));
-		symbols[nsymbols].n_un.n_name = ".section_start";
-		symbols[nsymbols].n_type = N_SECT;
-		symbols[nsymbols].n_sect = process_flags.nsect;
-		symbols[nsymbols].n_value = process_flags.sect_addr;
+		symbols = reallocate(symbols,
+				     (nsymbols + 1) * sizeof(struct symbol));
+		symbols[nsymbols].name = ".section_start";
+		symbols[nsymbols].nl.n_type = N_SECT;
+		symbols[nsymbols].nl.n_sect = process_flags.nsect;
+		symbols[nsymbols].nl.n_value = process_flags.sect_addr;
 		nsymbols++;
 	    }
 	}
@@ -554,7 +661,7 @@ void *cookie)
 	    ofile->dylib_module_name != NULL ||
 	    cmd_flags->nfiles > 1 ||
 	    arch_name != NULL) &&
-	    cmd_flags->o == FALSE){
+	    (cmd_flags->o == FALSE && cmd_flags->A == FALSE)){
 	    if(ofile->dylib_module_name != NULL){
 		printf("\n%s(%s)", ofile->file_name, ofile->dylib_module_name);
 	    }
@@ -572,7 +679,7 @@ void *cookie)
 
 	/* sort the symbols if needed */
 	if(cmd_flags->p == FALSE && cmd_flags->b == FALSE)
-	    qsort(symbols, nsymbols, sizeof(struct nlist),
+	    qsort(symbols, nsymbols, sizeof(struct symbol),
 		  (int (*)(const void *, const void *))compare);
 
 	value_diffs = NULL;
@@ -582,12 +689,13 @@ void *cookie)
 	    value_diffs = allocate(sizeof(struct value_diff) * nsymbols);
 	    for(i = 0; i < nsymbols - 1; i++){
 		value_diffs[i].symbol = symbols[i];
-		value_diffs[i].size = symbols[i+1].n_value - symbols[i].n_value;
+		value_diffs[i].size = symbols[i+1].nl.n_value -
+				      symbols[i].nl.n_value;
 	    }
 	    value_diffs[i].symbol = symbols[i];
 	    value_diffs[i].size =
 		process_flags.sect_addr + process_flags.sect_size -
-		symbols[i].n_value;
+		symbols[i].nl.n_value;
 	    qsort(value_diffs, nsymbols, sizeof(struct value_diff), 
 		  (int (*)(const void *, const void *))value_diff_compare);
 	    for(i = 0; i < nsymbols; i++)
@@ -603,17 +711,25 @@ void *cookie)
 			  cmd_flags, &process_flags, arch_name, value_diffs);
 
 	free(symbols);
-	if(process_flags.sections != NULL)
-	    free(process_flags.sections);
+	if(process_flags.sections != NULL){
+	    if(process_flags.sections != NULL){
+		free(process_flags.sections);
+		process_flags.sections = NULL;
+	    }
+	    if(process_flags.sections64 != NULL){
+		free(process_flags.sections64);
+		process_flags.sections64 = NULL;
+	    }
+	}
 }
 
 /*
- * select_symbols returns an allocated array of nlist structs as the symbols
+ * select_symbols returns an allocated array of symbol structs as the symbols
  * that are to be printed based on the flags.  The number of symbols in the
  * array returned in returned indirectly through nsymbols.
  */
 static
-struct nlist *
+struct symbol *
 select_symbols(
 struct ofile *ofile,
 struct symtab_command *st,
@@ -623,58 +739,102 @@ struct process_flags *process_flags,
 unsigned long *nsymbols)
 {
     unsigned long i, flags, nest;
-    struct nlist *all_symbols, *selected_symbols, undefined;
+    struct nlist *all_symbols;
+    struct nlist_64 *all_symbols64;
+    struct symbol *selected_symbols, symbol;
     struct dylib_module m;
+    struct dylib_module_64 m64;
     struct dylib_reference *refs;
     enum bool found;
+    uint32_t irefsym, nrefsym, nextdefsym, iextdefsym, nlocalsym, ilocalsym;
 
-	all_symbols = (struct nlist *)(ofile->object_addr + st->symoff);
-	selected_symbols = allocate(sizeof(struct nlist) * st->nsyms);
+	if(ofile->mh != NULL){
+	    all_symbols = (struct nlist *)(ofile->object_addr + st->symoff);
+	    all_symbols64 = NULL;
+	}
+	else{
+	    all_symbols = NULL;
+	    all_symbols64 = (struct nlist_64 *)(ofile->object_addr +st->symoff);
+	}
+	selected_symbols = allocate(sizeof(struct symbol) * st->nsyms);
 	*nsymbols = 0;
 
-	if(ofile->object_byte_sex != get_host_byte_sex())
-	    swap_nlist(all_symbols, st->nsyms, get_host_byte_sex());
+	if(ofile->object_byte_sex != get_host_byte_sex()){
+	    if(ofile->mh != NULL)
+		swap_nlist(all_symbols, st->nsyms, get_host_byte_sex());
+	    else
+		swap_nlist_64(all_symbols64, st->nsyms, get_host_byte_sex());
+	}
 
 	if(ofile->dylib_module != NULL){
-	    m = *ofile->dylib_module;
+	    if(ofile->mh != NULL){
+		m = *ofile->dylib_module;
+		if(ofile->object_byte_sex != get_host_byte_sex())
+		    swap_dylib_module(&m, 1, get_host_byte_sex());
+		irefsym = m.irefsym;
+		nrefsym = m.nrefsym;
+		nextdefsym = m.nextdefsym;
+		iextdefsym = m.iextdefsym;
+		nlocalsym = m.nlocalsym;
+		ilocalsym = m.ilocalsym;
+	    }
+	    else{
+		m64 = *ofile->dylib_module64;
+		if(ofile->object_byte_sex != get_host_byte_sex())
+		    swap_dylib_module_64(&m64, 1, get_host_byte_sex());
+		irefsym = m64.irefsym;
+		nrefsym = m64.nrefsym;
+		nextdefsym = m64.nextdefsym;
+		iextdefsym = m64.iextdefsym;
+		nlocalsym = m64.nlocalsym;
+		ilocalsym = m64.ilocalsym;
+	    }
 	    refs = (struct dylib_reference *)(ofile->object_addr +
 					      dyst->extrefsymoff);
 	    if(ofile->object_byte_sex != get_host_byte_sex()){
-		swap_dylib_module(&m, 1, get_host_byte_sex());
-		swap_dylib_reference(refs + m.irefsym, m.nrefsym,
+		swap_dylib_reference(refs + irefsym, nrefsym,
 				     get_host_byte_sex());
 	    }
-	    for(i = 0; i < m.nrefsym; i++){
-		flags = refs[i + m.irefsym].flags;
+	    for(i = 0; i < nrefsym; i++){
+		flags = refs[i + irefsym].flags;
 		if(flags == REFERENCE_FLAG_UNDEFINED_NON_LAZY ||
 		   flags == REFERENCE_FLAG_UNDEFINED_LAZY ||
 		   flags == REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY ||
 		   flags == REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY){
-		    undefined = all_symbols[refs[i + m.irefsym].isym];
+		    if(ofile->mh != NULL)
+			make_symbol_32(&symbol,
+				      all_symbols + refs[i + irefsym].isym);
+		    else
+			make_symbol_64(&symbol,
+				      all_symbols64 + refs[i + irefsym].isym);
 		    if(flags == REFERENCE_FLAG_UNDEFINED_NON_LAZY ||
 		       flags == REFERENCE_FLAG_UNDEFINED_LAZY ||
 		       cmd_flags->m == TRUE)
-			undefined.n_type = N_UNDF | N_EXT;
+			symbol.nl.n_type = N_UNDF | N_EXT;
 		    else
-			undefined.n_type = N_UNDF;
-		    undefined.n_desc = (undefined.n_desc &~ REFERENCE_TYPE) |
+			symbol.nl.n_type = N_UNDF;
+		    symbol.nl.n_desc = (symbol.nl.n_desc &~ REFERENCE_TYPE) |
 				       flags;
-		    undefined.n_value = 0;
-		    if(select_symbol(&undefined, cmd_flags, process_flags))
-			selected_symbols[(*nsymbols)++] = undefined;
+		    symbol.nl.n_value = 0;
+		    if(select_symbol(&symbol, cmd_flags, process_flags))
+			selected_symbols[(*nsymbols)++] = symbol;
 		}
 	    }
-	    for(i = 0; i < m.nextdefsym && m.iextdefsym + i < st->nsyms; i++){
-		if(select_symbol(all_symbols + (m.iextdefsym + i), cmd_flags,
-				 process_flags))
-		    selected_symbols[(*nsymbols)++] =
-			all_symbols[m.iextdefsym + i];
+	    for(i = 0; i < nextdefsym && iextdefsym + i < st->nsyms; i++){
+		if(ofile->mh != NULL)
+		    make_symbol_32(&symbol, all_symbols + iextdefsym + i);
+		else
+		    make_symbol_64(&symbol, all_symbols64 + iextdefsym + i);
+		if(select_symbol(&symbol, cmd_flags, process_flags))
+		    selected_symbols[(*nsymbols)++] = symbol;
 	    }
-	    for(i = 0; i < m.nlocalsym && m.ilocalsym + i < st->nsyms; i++){
-		if(select_symbol(all_symbols + (m.ilocalsym + i), cmd_flags,
-				 process_flags))
-		    selected_symbols[(*nsymbols)++] =
-			all_symbols[m.ilocalsym + i];
+	    for(i = 0; i < nlocalsym && ilocalsym + i < st->nsyms; i++){
+		if(ofile->mh != NULL)
+		    make_symbol_32(&symbol, all_symbols + ilocalsym + i);
+		else
+		    make_symbol_64(&symbol, all_symbols64 + ilocalsym + i);
+		if(select_symbol(&symbol, cmd_flags, process_flags))
+		    selected_symbols[(*nsymbols)++] = symbol;
 	    }
 	}
 	else if(cmd_flags->b == TRUE){
@@ -685,27 +845,34 @@ unsigned long *nsymbols)
 	    else
 		i = 0;
 	    for( ; i < st->nsyms; i++){
-		if(all_symbols[i].n_type == N_BINCL &&
-		   all_symbols[i].n_un.n_strx != 0 &&
-		   (unsigned long)all_symbols[i].n_un.n_strx < st->strsize &&
+		if(ofile->mh != NULL)
+		    make_symbol_32(&symbol, all_symbols + i);
+		else
+		    make_symbol_64(&symbol, all_symbols64 + i);
+		if(symbol.nl.n_type == N_BINCL &&
+		   symbol.nl.n_un.n_strx != 0 &&
+		   (unsigned long)symbol.nl.n_un.n_strx < st->strsize &&
 		   strcmp(cmd_flags->bincl_name,
-			  strings + all_symbols[i].n_un.n_strx) == 0){
-		    selected_symbols[(*nsymbols)++] = all_symbols[i];
+			  strings + symbol.nl.n_un.n_strx) == 0){
+		    selected_symbols[(*nsymbols)++] = symbol;
 		    found = TRUE;
 		    nest = 0;
 		    for(i = i + 1 ; i < st->nsyms; i++){
-			if(all_symbols[i].n_type == N_BINCL)
+			if(ofile->mh != NULL)
+			    make_symbol_32(&symbol, all_symbols + i);
+			else
+			    make_symbol_64(&symbol, all_symbols64 + i);
+			if(symbol.nl.n_type == N_BINCL)
 			    nest++;
-			else if(all_symbols[i].n_type == N_EINCL){
+			else if(symbol.nl.n_type == N_EINCL){
 			    if(nest == 0){
-				selected_symbols[(*nsymbols)++] =
-						all_symbols[i];
+				selected_symbols[(*nsymbols)++] = symbol;
 				break;
 			    }
 			    nest--;
 			}
 			else if(nest == 0)
-			    selected_symbols[(*nsymbols)++] = all_symbols[i];
+			    selected_symbols[(*nsymbols)++] = symbol;
 		    }
 		}
 		if(found == TRUE)
@@ -714,17 +881,47 @@ unsigned long *nsymbols)
 	}
 	else{
 	    for(i = 0; i < st->nsyms; i++){
-		if(select_symbol(all_symbols + i, cmd_flags, process_flags))
-		    selected_symbols[(*nsymbols)++] = all_symbols[i];
+		if(ofile->mh != NULL)
+		    make_symbol_32(&symbol, all_symbols + i);
+		else
+		    make_symbol_64(&symbol, all_symbols64 + i);
+		if(select_symbol(&symbol, cmd_flags, process_flags))
+		    selected_symbols[(*nsymbols)++] = symbol;
 	    }
 	}
-	if(ofile->object_byte_sex != get_host_byte_sex())
-	    swap_nlist(all_symbols, st->nsyms, ofile->object_byte_sex);
+	if(ofile->object_byte_sex != get_host_byte_sex()){
+	    if(ofile->mh != NULL)
+		swap_nlist(all_symbols, st->nsyms, ofile->object_byte_sex);
+	    else
+		swap_nlist_64(all_symbols64, st->nsyms, ofile->object_byte_sex);
+	}
 	/*
 	 * Could reallocate selected symbols to the exact size but it is more
 	 * of a time waste than a memory savings.
 	 */
 	return(selected_symbols);
+}
+
+static
+void
+make_symbol_32(
+struct symbol *symbol,
+struct nlist *nl)
+{
+	symbol->nl.n_un.n_strx = nl->n_un.n_strx;
+	symbol->nl.n_type = nl->n_type;
+	symbol->nl.n_sect = nl->n_sect;
+	symbol->nl.n_desc = nl->n_desc;
+	symbol->nl.n_value = nl->n_value;
+}
+
+static
+void
+make_symbol_64(
+struct symbol *symbol,
+struct nlist_64 *nl)
+{
+	symbol->nl = *nl;
 }
 
 /*
@@ -734,31 +931,32 @@ unsigned long *nsymbols)
 static
 enum bool
 select_symbol(
-struct nlist *symbol,
+struct symbol *symbol,
 struct cmd_flags *cmd_flags,
 struct process_flags *process_flags)
 {
 	if(cmd_flags->u == TRUE){
-	    if((symbol->n_type == (N_UNDF | N_EXT) && symbol->n_value == 0) ||
-	       symbol->n_type == (N_PBUD | N_EXT))
+	    if((symbol->nl.n_type == (N_UNDF | N_EXT) &&
+		symbol->nl.n_value == 0) ||
+	       symbol->nl.n_type == (N_PBUD | N_EXT))
 		return(TRUE);
 	    else
 		return(FALSE);
 	}
-	if(cmd_flags->g == TRUE && (symbol->n_type & N_EXT) == 0)
+	if(cmd_flags->g == TRUE && (symbol->nl.n_type & N_EXT) == 0)
 	    return(FALSE);
 	if(cmd_flags->s == TRUE){
-	    if(((symbol->n_type & N_TYPE) == N_SECT) &&
-		(symbol->n_sect == process_flags->nsect)){
+	    if(((symbol->nl.n_type & N_TYPE) == N_SECT) &&
+		(symbol->nl.n_sect == process_flags->nsect)){
 		if(cmd_flags->l &&
-		   symbol->n_value == process_flags->sect_addr){
+		   symbol->nl.n_value == process_flags->sect_addr){
 		    process_flags->sect_start_symbol = TRUE;
 		}
 	    }
 	    else
 		return(FALSE);
 	}
-	if((symbol->n_type & N_STAB) &&
+	if((symbol->nl.n_type & N_STAB) &&
 	   (cmd_flags->a == FALSE || cmd_flags->g == TRUE ||
 	    cmd_flags->u == TRUE))
 		return(FALSE);
@@ -773,7 +971,7 @@ static
 void
 print_mach_symbols(
 struct ofile *ofile,
-struct nlist *symbols,
+struct symbol *symbols,
 unsigned long nsymbols,
 char *strings,
 unsigned long strsize,
@@ -782,105 +980,128 @@ struct process_flags *process_flags,
 char *arch_name)
 {
     unsigned long i, library_ordinal;
+    char *ta_xfmt, *i_xfmt, *spaces;
+    uint32_t mh_flags;
 
+	if(ofile->mh != NULL){
+	    ta_xfmt = "%08llx";
+	    i_xfmt =  "%08x";
+	    mh_flags = ofile->mh->flags;
+	    spaces = "        ";
+	}
+	else{
+	    ta_xfmt = "%016llx";
+	    i_xfmt =  "%016x";
+	    mh_flags = ofile->mh64->flags;
+	    spaces = "                ";
+	}
 	for(i = 0; i < nsymbols; i++){
 	    if(cmd_flags->x == TRUE){
-		printf("%08lx %02x %02x %04x ", symbols[i].n_value,
-		       (unsigned int)(symbols[i].n_type & 0xff),
-		       (unsigned int)(symbols[i].n_sect & 0xff),
-		       (unsigned int)(symbols[i].n_desc & 0xffff));
-		if(symbols[i].n_un.n_strx == 0)
-		    printf("%08x (null)", (unsigned int)symbols[i].n_un.n_strx);
-		else if((unsigned long)symbols[i].n_un.n_strx > strsize)
-		    printf("%08x (bad string index)",
-			   (unsigned int)symbols[i].n_un.n_strx);
-		else
-		    printf("%08x %s", (unsigned int)symbols[i].n_un.n_strx,
-			   symbols[i].n_un.n_strx + strings);
-		if((symbols[i].n_type & N_STAB) == 0 &&
-		   (symbols[i].n_type & N_TYPE) == N_INDR){
-		    if(symbols[i].n_value == 0)
-			printf(" (indirect for %08lx (null))\n",
-			       symbols[i].n_value);
-		    else if(symbols[i].n_value > strsize)
-			printf(" (indirect for %08lx (bad string index))\n",
-			       symbols[i].n_value);
-		    else
-			printf(" (indirect for %08lx %s)\n", symbols[i].n_value,
-			       symbols[i].n_value + strings);
+		printf(ta_xfmt, symbols[i].nl.n_value);
+		printf(" %02x %02x %04x ",
+		       (unsigned int)(symbols[i].nl.n_type & 0xff),
+		       (unsigned int)(symbols[i].nl.n_sect & 0xff),
+		       (unsigned int)(symbols[i].nl.n_desc & 0xffff));
+		if(symbols[i].nl.n_un.n_strx == 0){
+		    printf(i_xfmt, symbols[i].nl.n_un.n_strx);
+		    printf(" (null)");
+		}
+		else if((unsigned long)symbols[i].nl.n_un.n_strx > strsize){
+		    printf(i_xfmt, symbols[i].nl.n_un.n_strx);
+		    printf(" (bad string index)");
+		}
+		else{
+		    printf(i_xfmt, symbols[i].nl.n_un.n_strx);
+		    printf(" %s", symbols[i].nl.n_un.n_strx + strings);
+		}
+		if((symbols[i].nl.n_type & N_STAB) == 0 &&
+		   (symbols[i].nl.n_type & N_TYPE) == N_INDR){
+		    if(symbols[i].nl.n_value == 0){
+			printf(" (indirect for ");
+			printf(ta_xfmt, symbols[i].nl.n_value);
+			printf(" (null))\n");
+		    }
+		    else if(symbols[i].nl.n_value > strsize){
+			printf(" (indirect for ");
+			printf(ta_xfmt, symbols[i].nl.n_value);
+			printf(" (bad string index))\n");
+		    }
+		    else{
+			printf(" (indirect for ");
+			printf(ta_xfmt, symbols[i].nl.n_value);
+			printf(" %s)\n", symbols[i].indr_name);
+		    }
 		}
 		else
 		    printf("\n");
 		continue;
 	    }
 
-	    if(symbols[i].n_type & N_STAB){
-		if(cmd_flags->o == TRUE){
+	    if(symbols[i].nl.n_type & N_STAB){
+		if(cmd_flags->o == TRUE || cmd_flags->A == TRUE){
 		    if(arch_name != NULL)
 			printf("(for architecture %s):", arch_name);
 		    if(ofile->dylib_module_name != NULL){
-			printf("%s:%s:", ofile->file_name,
+			printf("%s:%s: ", ofile->file_name,
 			       ofile->dylib_module_name);
 		    }
 		    else if(ofile->member_ar_hdr != NULL){
-			printf("%s:%.*s:", ofile->file_name,
+			printf("%s:%.*s: ", ofile->file_name,
 			       (int)ofile->member_name_size,
 			       ofile->member_name);
 		    }
 		    else
-			printf("%s:", ofile->file_name);
+			printf("%s: ", ofile->file_name);
 		}
-		printf("%08lx - %02x %04x %5.5s %s\n",
-		       symbols[i].n_value,
-		       (unsigned int)symbols[i].n_sect & 0xff,
-		       (unsigned int)symbols[i].n_desc & 0xffff,
-		       stab(symbols[i].n_type), symbols[i].n_un.n_name);
+		printf(ta_xfmt, symbols[i].nl.n_value);
+		printf(" - %02x %04x %5.5s %s\n",
+		       (unsigned int)symbols[i].nl.n_sect & 0xff,
+		       (unsigned int)symbols[i].nl.n_desc & 0xffff,
+		       stab(symbols[i].nl.n_type), symbols[i].name);
 		continue;
 	    }
 
-	    if(cmd_flags->o == TRUE){
-		if(cmd_flags->o == TRUE){
-		    if(arch_name != NULL)
-			printf("(for architecture %s):", arch_name);
-		    if(ofile->dylib_module_name != NULL){
-			printf("%s:%s:", ofile->file_name,
-			       ofile->dylib_module_name);
-		    }
-		    else if(ofile->member_ar_hdr != NULL){
-			printf("%s:%.*s:", ofile->file_name,
-			       (int)ofile->member_name_size,
-			       ofile->member_name);
-		    }
-		    else
-			printf("%s:", ofile->file_name);
+	    if(cmd_flags->o == TRUE || cmd_flags->A == TRUE){
+		if(arch_name != NULL)
+		    printf("(for architecture %s):", arch_name);
+		if(ofile->dylib_module_name != NULL){
+		    printf("%s:%s: ", ofile->file_name,
+			   ofile->dylib_module_name);
 		}
+		else if(ofile->member_ar_hdr != NULL){
+		    printf("%s:%.*s: ", ofile->file_name,
+			   (int)ofile->member_name_size,
+			   ofile->member_name);
+		}
+		else
+		    printf("%s: ", ofile->file_name);
 	    }
 
-	    if(((symbols[i].n_type & N_TYPE) == N_UNDF &&
-		 symbols[i].n_value == 0) ||
-		 (symbols[i].n_type & N_TYPE) == N_INDR)
-		printf("        ");
+	    if(((symbols[i].nl.n_type & N_TYPE) == N_UNDF &&
+		 symbols[i].nl.n_value == 0) ||
+		 (symbols[i].nl.n_type & N_TYPE) == N_INDR)
+		printf(spaces);
 	    else
-		printf("%08lx", symbols[i].n_value);
+		printf(ta_xfmt, symbols[i].nl.n_value);
 
-	    switch(symbols[i].n_type & N_TYPE){
+	    switch(symbols[i].nl.n_type & N_TYPE){
 	    case N_UNDF:
 	    case N_PBUD:
-		if((symbols[i].n_type & N_TYPE) == N_UNDF &&
-		   symbols[i].n_value != 0)
+		if((symbols[i].nl.n_type & N_TYPE) == N_UNDF &&
+		   symbols[i].nl.n_value != 0)
 		    printf(" (common) ");
 		else{
-		    if((symbols[i].n_type & N_TYPE) == N_PBUD)
+		    if((symbols[i].nl.n_type & N_TYPE) == N_PBUD)
 			printf(" (prebound ");
 		    else
 			printf(" (");
-		    if((symbols[i].n_desc & REFERENCE_TYPE) ==
+		    if((symbols[i].nl.n_desc & REFERENCE_TYPE) ==
 		       REFERENCE_FLAG_UNDEFINED_LAZY)
 			printf("undefined [lazy bound]) ");
-		    else if((symbols[i].n_desc & REFERENCE_TYPE) ==
+		    else if((symbols[i].nl.n_desc & REFERENCE_TYPE) ==
 			    REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY)
 			printf("undefined [private lazy bound]) ");
-		    else if((symbols[i].n_desc & REFERENCE_TYPE) ==
+		    else if((symbols[i].nl.n_desc & REFERENCE_TYPE) ==
 			    REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY)
 			printf("undefined [private]) ");
 		    else
@@ -895,11 +1116,22 @@ char *arch_name)
 		printf(" (indirect) ");
 		break;
 	    case N_SECT:
-		if(symbols[i].n_sect >= 1 &&
-		   symbols[i].n_sect <= process_flags->nsects){
-		    printf(" (%.16s,%.16s) ",
-		       process_flags->sections[symbols[i].n_sect-1]->segname,
-		       process_flags->sections[symbols[i].n_sect-1]->sectname);
+		if(symbols[i].nl.n_sect >= 1 &&
+		   symbols[i].nl.n_sect <= process_flags->nsects){
+		    if(ofile->mh != NULL){
+			printf(" (%.16s,%.16s) ",
+			       process_flags->sections[
+				    symbols[i].nl.n_sect-1]->segname,
+			       process_flags->sections[
+				    symbols[i].nl.n_sect-1]->sectname);
+		    }
+		    else{
+			printf(" (%.16s,%.16s) ",
+			       process_flags->sections64[
+				    symbols[i].nl.n_sect-1]->segname,
+			       process_flags->sections64[
+				    symbols[i].nl.n_sect-1]->sectname);
+		    }
 		}
 		else
 		    printf(" (?,?) ");
@@ -909,41 +1141,44 @@ char *arch_name)
 		    break;
 	    }
 
-	    if(symbols[i].n_type & N_EXT){
-		if(symbols[i].n_desc & REFERENCED_DYNAMICALLY)
+	    if(symbols[i].nl.n_type & N_EXT){
+		if(symbols[i].nl.n_desc & REFERENCED_DYNAMICALLY)
 		    printf("[referenced dynamically] ");
-		if(symbols[i].n_type & N_PEXT){
-		    if((symbols[i].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+		if(symbols[i].nl.n_type & N_PEXT){
+		    if((symbols[i].nl.n_desc & N_WEAK_DEF) == N_WEAK_DEF)
 			printf("weak private external ");
 		    else
 			printf("private external ");
 		}
 		else{
-		    if((symbols[i].n_desc & N_WEAK_REF) == N_WEAK_REF ||
-		       (symbols[i].n_desc & N_WEAK_DEF) == N_WEAK_DEF)
+		    if((symbols[i].nl.n_desc & N_WEAK_REF) == N_WEAK_REF ||
+		       (symbols[i].nl.n_desc & N_WEAK_DEF) == N_WEAK_DEF)
 			printf("weak external ");
 		    else
 			printf("external ");
 		}
 	    }
 	    else{
-		if(symbols[i].n_type & N_PEXT)
+		if(symbols[i].nl.n_type & N_PEXT)
 		    printf("non-external (was a private external) ");
 		else
 		    printf("non-external ");
 	    }
+	    
+	    if(ofile->mh_filetype == MH_OBJECT &&
+	       (symbols[i].nl.n_desc & N_NO_DEAD_STRIP) == N_NO_DEAD_STRIP)
+		    printf("[no dead strip] ");
 
-	    if((symbols[i].n_type & N_TYPE) == N_INDR)
-		printf("%s (for %s)", symbols[i].n_un.n_name,
-		       (char *)symbols[i].n_value);
+	    if((symbols[i].nl.n_type & N_TYPE) == N_INDR)
+		printf("%s (for %s)", symbols[i].name, symbols[i].indr_name);
 	    else
-		printf("%s", symbols[i].n_un.n_name);
+		printf("%s", symbols[i].name);
 
-	    if((ofile->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
-	       (((symbols[i].n_type & N_TYPE) == N_UNDF &&
-		 symbols[i].n_value == 0) ||
-	        (symbols[i].n_type & N_TYPE) == N_PBUD)){
-		library_ordinal = GET_LIBRARY_ORDINAL(symbols[i].n_desc);
+	    if((mh_flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	       (((symbols[i].nl.n_type & N_TYPE) == N_UNDF &&
+		 symbols[i].nl.n_value == 0) ||
+	        (symbols[i].nl.n_type & N_TYPE) == N_PBUD)){
+		library_ordinal = GET_LIBRARY_ORDINAL(symbols[i].nl.n_desc);
 		if(library_ordinal != 0){
 		    if(library_ordinal == EXECUTABLE_ORDINAL)
 			printf(" (from executable)");
@@ -970,7 +1205,7 @@ static
 void
 print_symbols(
 struct ofile *ofile,
-struct nlist *symbols,
+struct symbol *symbols,
 unsigned long nsymbols,
 char *strings,
 unsigned long strsize,
@@ -981,61 +1216,147 @@ struct value_diff *value_diffs)
 {
     unsigned long i;
     unsigned char c, *p;
+    char *ta_xfmt, *i_xfmt, *spaces;
+
+	if(ofile->mh != NULL){
+	    ta_xfmt = "%08llx";
+	    i_xfmt =  "%08x";
+	    spaces = "        ";
+	}
+	else{
+	    ta_xfmt = "%016llx";
+	    i_xfmt =  "%016x";
+	    spaces = "                ";
+	}
 
 	for(i = 0; i < nsymbols; i++){
 	    if(cmd_flags->x == TRUE){
-		printf("%08lx %02x %02x %04x ", symbols[i].n_value,
-		       (unsigned int)(symbols[i].n_type & 0xff),
-		       (unsigned int)(symbols[i].n_sect & 0xff),
-		       (unsigned int)(symbols[i].n_desc & 0xffff));
-		if(symbols[i].n_un.n_strx == 0)
-		    printf("%08x (null)", (unsigned int)symbols[i].n_un.n_strx);
-		else if((unsigned long)symbols[i].n_un.n_strx > strsize)
-		    printf("%08x (bad string index)",
-			   (unsigned int)symbols[i].n_un.n_strx);
-		else
-		    printf("%08x %s", (unsigned int)symbols[i].n_un.n_strx,
-			   symbols[i].n_un.n_strx + strings);
-		if((symbols[i].n_type & N_STAB) == 0 &&
-		   (symbols[i].n_type & N_TYPE) == N_INDR){
-		    if(symbols[i].n_value == 0)
-			printf(" (indirect for %08lx (null))\n",
-			       symbols[i].n_value);
-		    else if(symbols[i].n_value > strsize)
-			printf(" (indirect for %08lx (bad string index))\n",
-			       symbols[i].n_value);
-		    else
-			printf(" (indirect for %08lx %s)\n", symbols[i].n_value,
-			       symbols[i].n_value + strings);
+		printf(ta_xfmt, symbols[i].nl.n_value);
+		printf(" %02x %02x %04x ",
+		       (unsigned int)(symbols[i].nl.n_type & 0xff),
+		       (unsigned int)(symbols[i].nl.n_sect & 0xff),
+		       (unsigned int)(symbols[i].nl.n_desc & 0xffff));
+		if(symbols[i].nl.n_un.n_strx == 0){
+		    printf(i_xfmt, symbols[i].nl.n_un.n_strx);
+		    printf(" (null)");
+		}
+		else if((unsigned long)symbols[i].nl.n_un.n_strx > strsize){
+		    printf(i_xfmt, symbols[i].nl.n_un.n_strx);
+		    printf(" (bad string index)");
+		}
+		else{
+		    printf(i_xfmt, symbols[i].nl.n_un.n_strx);
+		    printf(" %s", symbols[i].nl.n_un.n_strx + strings);
+		}
+		if((symbols[i].nl.n_type & N_STAB) == 0 &&
+		   (symbols[i].nl.n_type & N_TYPE) == N_INDR){
+		    if(symbols[i].nl.n_value == 0){
+			printf(" (indirect for ");
+			printf(ta_xfmt, symbols[i].nl.n_value);
+			printf(" (null))\n");
+		    }
+		    else if(symbols[i].nl.n_value > strsize){
+			printf(" (indirect for ");
+			printf(ta_xfmt, symbols[i].nl.n_value);
+			printf(" (bad string index))\n");
+		    }
+		    else{
+			printf(" (indirect for ");
+			printf(ta_xfmt, symbols[i].nl.n_value);
+			printf(" %s)\n", symbols[i].indr_name);
+		    }
 		}
 		else
 		    printf("\n");
 		continue;
 	    }
-	    c = symbols[i].n_type;
-	    if(c & N_STAB){
-		if(cmd_flags->o == TRUE){
+	    if(cmd_flags->P == TRUE){
+		if(cmd_flags->A == TRUE){
 		    if(arch_name != NULL)
-			printf("(for architecture %s):", arch_name);
+			printf("(for architecture %s): ", arch_name);
 		    if(ofile->dylib_module_name != NULL){
-			printf("%s:%s:", ofile->file_name,
+			printf("%s[%s]: ", ofile->file_name,
 			       ofile->dylib_module_name);
 		    }
 		    else if(ofile->member_ar_hdr != NULL){
-			printf("%s:%.*s:", ofile->file_name,
+			printf("%s[%.*s]: ", ofile->file_name,
 			       (int)ofile->member_name_size,
 			       ofile->member_name);
 		    }
 		    else
-			printf("%s:", ofile->file_name);
+			printf("%s: ", ofile->file_name);
 		}
-		printf("%08lx - %02x %04x %5.5s ",
-		       symbols[i].n_value,
-		       (unsigned int)symbols[i].n_sect & 0xff,
-		       (unsigned int)symbols[i].n_desc & 0xffff,
-		       stab(symbols[i].n_type));
+		printf("%s ", symbols[i].name);
+
+		/* type */
+		c = symbols[i].nl.n_type;
+		if(c & N_STAB)
+		    c = '-';
+		else{
+		    switch(c & N_TYPE){
+		    case N_UNDF:
+			c = 'u';
+			if(symbols[i].nl.n_value != 0)
+			    c = 'c';
+			break;
+		    case N_PBUD:
+			c = 'u';
+			break;
+		    case N_ABS:
+			c = 'a';
+			break;
+		    case N_SECT:
+			if(symbols[i].nl.n_sect ==
+			   process_flags->text_nsect)
+			    c = 't';
+			else if(symbols[i].nl.n_sect ==
+				process_flags->data_nsect)
+			    c = 'd';
+			else if(symbols[i].nl.n_sect ==
+				process_flags->bss_nsect)
+			    c = 'b';
+			else
+			    c = 's';
+			break;
+		    case N_INDR:
+			c = 'i';
+			break;
+		    default:
+			c = '?';
+			break;
+		    }
+		}
+		if((symbols[i].nl.n_type & N_EXT) && c != '?')
+		    c = toupper(c);
+		printf("%c ", c);
+		printf(cmd_flags->format, symbols[i].nl.n_value);
+		printf(" 0\n"); /* the 0 is the size for conformance */
+		continue;
+	    }
+	    c = symbols[i].nl.n_type;
+	    if(c & N_STAB){
+		if(cmd_flags->o == TRUE || cmd_flags->A == TRUE){
+		    if(arch_name != NULL)
+			printf("(for architecture %s):", arch_name);
+		    if(ofile->dylib_module_name != NULL){
+			printf("%s:%s: ", ofile->file_name,
+			       ofile->dylib_module_name);
+		    }
+		    else if(ofile->member_ar_hdr != NULL){
+			printf("%s:%.*s: ", ofile->file_name,
+			       (int)ofile->member_name_size,
+			       ofile->member_name);
+		    }
+		    else
+			printf("%s: ", ofile->file_name);
+		}
+		printf(ta_xfmt, symbols[i].nl.n_value);
+		printf(" - %02x %04x %5.5s ",
+		       (unsigned int)symbols[i].nl.n_sect & 0xff,
+		       (unsigned int)symbols[i].nl.n_desc & 0xffff,
+		       stab(symbols[i].nl.n_type));
 		if(cmd_flags->b == TRUE){
-		    for(p = symbols[i].n_un.n_name; *p != '\0'; p++){
+		    for(p = symbols[i].name; *p != '\0'; p++){
 			printf("%c", *p);
 			if(*p == '('){
 			    p++;
@@ -1054,14 +1375,14 @@ struct value_diff *value_diffs)
 		    printf("\n");
 		}
 		else{
-		    printf("%s\n", symbols[i].n_un.n_name);
+		    printf("%s\n", symbols[i].name);
 		}
 		continue;
 	    }
 	    switch(c & N_TYPE){
 	    case N_UNDF:
 		c = 'u';
-		if(symbols[i].n_value != 0)
+		if(symbols[i].nl.n_value != 0)
 		    c = 'c';
 		break;
 	    case N_PBUD:
@@ -1071,11 +1392,11 @@ struct value_diff *value_diffs)
 		c = 'a';
 		break;
 	    case N_SECT:
-		if(symbols[i].n_sect == process_flags->text_nsect)
+		if(symbols[i].nl.n_sect == process_flags->text_nsect)
 		    c = 't';
-		else if(symbols[i].n_sect == process_flags->data_nsect)
+		else if(symbols[i].nl.n_sect == process_flags->data_nsect)
 		    c = 'd';
-		else if(symbols[i].n_sect == process_flags->bss_nsect)
+		else if(symbols[i].nl.n_sect == process_flags->bss_nsect)
 		    c = 'b';
 		else
 		    c = 's';
@@ -1089,40 +1410,41 @@ struct value_diff *value_diffs)
 	    }
 	    if(cmd_flags->u == TRUE && c != 'u')
 		continue;
-	    if(cmd_flags->o == TRUE){
-		if(cmd_flags->o == TRUE){
-		    if(arch_name != NULL)
-			printf("(for architecture %s):", arch_name);
-		    if(ofile->dylib_module_name != NULL){
-			printf("%s:%s:", ofile->file_name,
-			       ofile->dylib_module_name);
-		    }
-		    else if(ofile->member_ar_hdr != NULL){
-			printf("%s:%.*s:", ofile->file_name,
-			       (int)ofile->member_name_size,
-			       ofile->member_name);
-		    }
-		    else
-			printf("%s:", ofile->file_name);
+	    if(cmd_flags->o == TRUE || cmd_flags->A == TRUE){
+		if(arch_name != NULL)
+		    printf("(for architecture %s):", arch_name);
+		if(ofile->dylib_module_name != NULL){
+		    printf("%s:%s: ", ofile->file_name,
+			   ofile->dylib_module_name);
 		}
+		else if(ofile->member_ar_hdr != NULL){
+		    printf("%s:%.*s: ", ofile->file_name,
+			   (int)ofile->member_name_size,
+			   ofile->member_name);
+		}
+		else
+		    printf("%s: ", ofile->file_name);
 	    }
-	    if((symbols[i].n_type & N_EXT) && c != '?')
+	    if((symbols[i].nl.n_type & N_EXT) && c != '?')
 		c = toupper(c);
 	    if(cmd_flags->u == FALSE && cmd_flags->j == FALSE){
 		if(c == 'u' || c == 'U' || c == 'i' || c == 'I')
-		    printf("        ");
+		    printf(spaces);
 		else{
-		    if(cmd_flags->v && value_diffs != NULL)
-			printf("%08lx ", value_diffs[i].size);
-		    printf("%08lx", symbols[i].n_value);
+		    if(cmd_flags->v && value_diffs != NULL){
+			printf(ta_xfmt, value_diffs[i].size);
+			printf(" ");
+		    }
+		    printf(ta_xfmt, symbols[i].nl.n_value);
 		}
 		printf(" %c ", c);
 	    }
-	    if(cmd_flags->j == FALSE && (symbols[i].n_type & N_TYPE) == N_INDR)
-		printf("%s (indirect for %s)\n", symbols[i].n_un.n_name,
-		       (char *)symbols[i].n_value);
+	    if(cmd_flags->j == FALSE &&
+	       (symbols[i].nl.n_type & N_TYPE) == N_INDR)
+		printf("%s (indirect for %s)\n", symbols[i].name,
+		       symbols[i].indr_name);
 	    else 
-		printf("%s\n", symbols[i].n_un.n_name);
+		printf("%s\n", symbols[i].name);
 	}
 }
 
@@ -1188,33 +1510,37 @@ unsigned char n_type)
 static
 int
 compare(
-struct nlist *p1,
-struct nlist *p2)
+struct symbol *p1,
+struct symbol *p2)
 {
     int r;
 
 	r = 0;
 	if(cmd_flags.n == TRUE){
-	    if(p1->n_value > p2->n_value)
+	    if(p1->nl.n_value > p2->nl.n_value)
 		return(cmd_flags.r == FALSE ? 1 : -1);
-	    else if(p1->n_value < p2->n_value)
+	    else if(p1->nl.n_value < p2->nl.n_value)
 		return(cmd_flags.r == FALSE ? -1 : 1);
-	    /* if p1->n_value == p2->n_value fall through and sort by name */
+	    /*
+	     * If p1->nl.n_value == p2->nl.n_value fall through
+	     * and sort by name
+	     */
 	}
 
 	if(cmd_flags.x == TRUE){
-	    if((unsigned long)p1->n_un.n_strx > strsize ||
-	       (unsigned long)p2->n_un.n_strx > strsize){
-		if((unsigned long)p1->n_un.n_strx > strsize)
+	    if((unsigned long)p1->nl.n_un.n_strx > strsize ||
+	       (unsigned long)p2->nl.n_un.n_strx > strsize){
+		if((unsigned long)p1->nl.n_un.n_strx > strsize)
 		    r = -1;
-		else if((unsigned long)p2->n_un.n_strx > strsize)
+		else if((unsigned long)p2->nl.n_un.n_strx > strsize)
 		    r = 1;
 	    }
 	    else
-		r = strcmp(p1->n_un.n_strx + strings, p2->n_un.n_strx +strings);
+		r = strcmp(p1->nl.n_un.n_strx + strings,
+			   p2->nl.n_un.n_strx + strings);
 	}
 	else
-	    r = strcmp(p1->n_un.n_name, p2->n_un.n_name);
+	    r = strcmp(p1->name, p2->name);
 
 	if(cmd_flags.r == TRUE)
 	    return(-r);

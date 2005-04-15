@@ -1,0 +1,430 @@
+<!-- $Id: install-upgrade.html,v 1.34 2004/01/07 20:08:43 ken3 Exp $ -->
+<HTML>
+<HEAD>
+<TITLE>Upgrading From Previous Versions
+</title>
+</head>
+<body>
+
+<h1>Upgrading From Previous Versions</h1>
+
+<h2>Upgrading from 2.2.2 or earlier</h2>
+<ul>
+<li>The Cyrus database backend configuration is now handled at runtime
+using <tt>imapd.conf</tt> options.  If you are not using the default
+backend for any of the databases, make sure that you specify the
+correct backend(s) in appropriate option(s).</li>
+<li>The format of the <tt>newspeer</tt> option has been changed.
+The existing format will still be parsed, but the option should be
+upgraded to use the new format (see <tt>imapd.conf(5)</tt> for
+details).</li>
+</ul>
+
+<h2>Upgrading from 2.2.1 or earlier</h2>
+<ul>
+<li>The sieve bytecode format has changed again to correct an issue
+with the short circuiting of the allof and anyof operators. To
+upgrade existing scripts (outside of home directories), you can run the
+<tt>tools/masssievec</tt> perl script included with the distribution. It
+requires a path to your <tt>sievec</tt> binary.  This should also upgrade
+scripts that have already been compiled to bytecode.  For example:
+<pre>
+masssievec /usr/src/cyrus/sieve/sievec
+</pre></li>
+
+</ul>
+
+<h2>Upgrading from 2.2.0 or earlier</h2>
+
+<ul>
+<li>The improved directory hashing (fulldirhash) is now a runtime
+configuration option.  If you are currently using this feature, then
+make sure that you enable the <tt>fulldirhash</tt> option in
+<tt>imapd.conf</tt>.</li>
+
+<li>The format of mailbox index files has changed.  They are upgraded on
+the fly, so you need to do nothing to upgrade.  However, to downgrade them
+you will need to remove the cyrus.index files, and reconstruct the mailboxes,
+otherwise the index files will be invalid.</li>
+
+<li><tt>ctl_deliver -E</tt> has been deprecated in favor of
+<tt>cyr_expire -E</tt>.  This new tool does both duplicate delivery
+database pruning as well as message expunging. You should replace the
+appropriate <tt>EVENTS</tt> entry in <tt>cyrus.conf</tt> with one of
+those in the sample configurations in the <tt>master/conf</tt>
+directory.</li>
+
+<li>The sieve bytecode format has changed.  The new format is encoded in
+network byte order, and will be transferable between architechures.  To
+upgrade existing scripts (outside of home directories), you can run the
+<tt>tools/masssievec</tt> perl script included with the distribution. It
+requires a path to your <tt>sievec</tt> binary.  This should also upgrade
+scripts that have already been compiled to bytecode.  For example:
+
+<pre>
+masssievec /usr/src/cyrus/sieve/sievec
+</pre>
+</ul>
+
+
+<h2>Upgrading from 2.1.x or earlier</h2>
+
+<h3>General information (ALL SITES)</h3>
+
+<ul>
+<li>The default database formats for the mailbox list and the seen
+state databases has been changed to the skiplist backend.  There are
+two ways of dealing with this if you have been using the defaults.
+
+<ol>
+<li>Specify <tt>--with-mboxlist-db=berkeley</tt> and
+<tt>--with-seen-db=flat</tt> to <tt>configure</tt>.  This will
+instruct Cyrus to continue to use the previous defaults.</li>
+
+<li>Use the <tt>cvt_cyrusdb</tt> program to directly convert the databases.
+This should be done with the server down, and with the binaries from the new
+Cyrus distribution.  Change any paths that do not match your configuration.<br>
+For the mailbox list, the command looks like:
+<pre>
+/usr/cyrus/bin/cvt_cyrusdb /var/imap/mailboxes.db berkeley /var/imap/mailboxes.db.new skiplist
+mv /var/imap/mailboxes.db.new /var/imap/mailboxes.db
+</pre>
+Note that the use of full paths to the database files is important.  You
+should also backup your old mailboxes database before moving the new one
+in.<br />
+
+For the seen state databases, the command to get them all in one fell swoop
+looks like:
+<pre>
+find /var/imap/user -name \*.seen -exec /usr/cyrus/bin/cvt_cyrusdb \{\} flat \{\}.new skiplist \; -exec mv \{\}.new \{\} \;
+</pre>
+
+The slashes are important for shell escaping.  Again, you should back
+up the contents of your <tt>/var/imap/user</tt> directory before
+executing this command. These commands may take some time to complete,
+especially if your databases are large.
+
+</li></ol>
+
+We believe that skiplist offers considerable performance advantages
+for these two databases over the previous defaults.  </li>
+
+<li>Sieve scripts are now compiled into bytecode.  The program
+<tt>sievec</tt> is provided to do this process manually (timsieved will
+compile submitted sieve scripts as they are uploaded).  To upgrade
+existing scripts (outside of home directories), you can run the
+<tt>tools/masssievec</tt> perl script included with the distribution.
+It requires a path to your <tt>sievec</tt> binary.  For example:
+
+<pre>
+masssievec /usr/src/cyrus/sieve/sievec
+</pre>
+
+Note that this will fail for scripts that use the &quot;envelope&quot;
+extention but do not require it.  Cyrus 2.1's <tt>timsieved</tt> did
+not do appropriate checking that the optional envelope test was
+required before it was used.
+</li> 
+
+<li> Configuration subsystem changes: 
+
+<ul> 
+ <li>The tls_[service]_* configuration options have been removed.  Now
+ use [servicename]_tls_*, where servicename is the service identifier
+ from <tt>cyrus.conf</tt> for that particular process.</li>
+
+ <li>The <tt>admins</tt> and <tt>lmtp_admins</tt> configuration
+ options no longer union. Per-service options completely override
+ the default value when they are specified.</li>
+
+ <li><tt>lmtp_allowplaintext</tt> is no longer a defined parameter and must
+ be specified using the service name of your lmtp process if you
+ require a specific value.</li>
+</ul>
+</li>
+</ul>
+
+<h3>Specialized information (Murder, AFS, etc.)</h3>
+
+<ul>
+<li>The IMAP IDLE command is now supported by proxyd and is controlled
+by the <tt>imapidlepoll</tt> option, which is enabled by default (60
+seconds).  To disable IMAP IDLE in proxyd, set <tt>imapidlepoll</tt>
+to 0.</li>
+
+<li>User moves via RENAME and XFER are now controlled by the
+<tt>allowusermoves</tt> option, which defaults to off.</li>
+
+<li>If you use <tt>ptloader</tt>, it now runs as a regular cyrus
+service.  This means that you will need master to acquire and maintain
+AFS tokens for it.  You will also need to create the ptclient
+directory under your imap configdirectory, to hold the PTS cache (now
+a full-fledged cyrusdb) and UNIX socket.  In <tt>cyrus.conf</tt>,
+ptloader should be setup to listen on
+<i>&lt;configdirectory&gt;</i>/ptclient/ptsock. See the
+<tt>master/test/cmu-backend.conf</tt> example configuration file.</li>
+
+<li>Also, <tt>ptloader</tt> has been given a generic interface. You
+should now specify "<tt>--with-auth=pts</tt>" (instead of
+"<tt>--with-auth=krb_pts</tt>") to <tt>configure</tt>.  There is also
+a <tt>--with-pts=</tt> <tt>configure</tt> option that defaults to
+<tt>afskrb</tt> (Kerberos Canonicalization, AFS PTS Groups).  There is
+also an experimental ldap module.  Note also that if <tt>ptloader</tt>
+fails the lookup, authorization (and therefore authentication) will
+now fail, as canonicalization is done inside of ptloader.</li>
+
+<li>The format of sieve referrals has changed to be more consistant
+with the current managesieve draft, this may cause interoperability
+problems when using managesieve clients and servers from different
+cyrus versions.</li>
+
+<li>Clients that use old-style ACL commands that include the
+&quot;MAILBOX&quot; directive will no longer function.
+We do not know of any clients that have this problem currently.</li>
+
+<li>Any applications that link libcyrus.a now need to link libcyrus_min.a
+as well.</li>
+
+
+</ul>
+
+<h2>Upgrading from 2.1.13 or earlier</h2>
+<ul>
+<li>We are now more forgiving of MIME boundry headers generated by earlier
+versions of eudora.  However, if you have messages already in the mailstore
+that you want to fix you will need to reconstruct the affected mailboxes
+to regenerate the cached bodystructure data to take this into account.
+Nothing needs to be done for new messages to be treated in this way.</li>
+</ul>
+
+<h2>Upgrading from 2.1.12 or earlier</h2>
+<ul>
+<li>timsieved was corrected to behave properly in the altnamespace configuration.
+However, this means that it was previously looking for sieve scripts in
+&quot;user.name&quot; format instead of the (correct) &quot;user^name&quot;
+format.  A sample script to do this (which should be run in the top level of
+the sieve directory) is in <tt>tools/convert-sieve.pl</tt>.  Note that this
+is only needed if you are running with altnamespace turned on.</li>
+</ul>
+
+<h2>Upgrading from 2.1.3 or earlier</h2>
+<ul>
+<li>If you use notifications (previously <tt>notify_zephyr</tt> or
+<tt>notify_unix</tt>) this functionality has been seperated out to
+<tt>notifyd</tt>.  See the <tt>notifyd</tt> manpage and example
+entries in <tt>master/conf</tt>.</li>
+
+</ul>
+
+<h2>Upgrading from 2.1.2 or earlier</h2>
+
+<ul>
+<li> Sieve has been updated to be compliant with RFC 3028 and
+draft-martin-sieve-notify-01.  All <tt>notify</tt> actions and any
+<tt>fileinto</tt> and/or <tt>redirect</tt> actions using stringlists
+will have to be updated/changed. </li>
+</ul>
+
+<h2>Upgrading from 2.0.16 or earlier</h2>
+
+<ul>
+<li> You must install and configure Cyrus SASL version 2 to use Cyrus
+IMAP 2.1 and later.  You can download SASL at <a
+href="http://asg.web.cmu.edu/cyrus/download/">http://asg.web.cmu.edu/cyrus/download/</a>.
+
+<li> If you use <tt>timsieved</tt> to manage Sieve scripts, and have
+enabled the alternate namespace and/or the Unix hierarchy separator,
+run the script "<tt>tools/translatesieve</tt>".  This script will
+translate the folder names in <tt>fileinto</tt> actions.
+
+<li> Cyrus now uses the service name "sieve" instead of "imap" for the
+SASL profile of <tt>timsieved</tt>. If you use <tt>timsieved</tt> to
+manage Sieve scripts, be sure to update your password checking
+mechanism appropriately,
+
+<li> If you have enabled the improved directory hashing scheme, run
+the script "<tt>tools/rehash full</tt>".  This script will rehash your
+existing directories.
+
+<li> The hashed deliver databases (used for duplicate delivery suppression
+and Sieve) have been merged into a single <tt>deliver.db</tt> database.
+You can safely remove the entire <tt>/var/imap/deliverdb</tt>
+directory structure after shutting down the server.
+
+<li>All of the Cyrus databases have been unified under a single BDB 
+environment.  A new <tt>ctl_cyrusdb</tt> tool is now used for database 
+recovery and checkpointing instead of <tt>ctl_mboxlist</tt> and 
+<tt>ctl_deliver</tt>.  You should replace the appropriate <tt>START</tt> and 
+<tt>EVENTS</tt> entries in <tt>cyrus.conf</tt> with those in the 
+sample configurations in the <tt>master/conf</tt> directory.
+
+<li> Cyrus now caches SSL/TLS sessions in an external database. If you
+have support for SSL/TLS, and haven't disabled session caching (see
+<tt>imapd.conf(5)</tt>), you should add a line like the following to
+the <tt>EVENTS</tt> section of <tt>cyrus.conf</tt> to prune expired
+sessions from the database:
+
+<pre><kbd>   # this is only necessary if caching TLS sessions
+   tlsprune      cmd="tls_prune" period=1440
+</kbd></pre>
+</ul>
+
+<h2>Upgrading from 2.0.6, 2.0.7, 2.0.8, or 2.0.9 or earlier</h2>
+
+<ul>
+<li> If you use <tt>timsieved</tt> to manage Sieve scripts, run the
+script "<tt>tools/upgradesieve</tt>".  <tt>timsieved</tt> now uses
+symlinks instead of hard links.
+</ul>
+
+<h2>Upgrading from a previous 2.0 version to 2.0.6</h2>
+
+<b>Warning:</b> You do not need to follow these instructions if you're
+upgrading from version 1.6.
+
+<ul>
+<li>You can now pick whether to use Berkeley db to store seen state,
+the subscription files, and the mailboxes file or a flat text file, at
+compile time only.  (Look in <tt>imap/seen_db.c</tt> and
+<tt>imap/mboxlist.h</tt>.)
+
+<li>The format of the mailboxes file and seen state has changed.  It is
+not possible to preserve seen state, but upgrade the mailboxes file as
+follows:
+<ol>
+<li> Run <tt>ctl_mboxlist -d &gt; mboxlist.temp</tt> to dump existing
+mailboxes.
+
+<li> Remove old database files: <tt>rm mailboxes.db db/*
+user/*/*.seen</tt>
+
+<li>With the new version of ctl_mboxlist, run <tt>ctl_mboxlist -u &lt;
+mboxlist.temp</tt>.
+</ol>
+</ul>
+
+<h2>Upgrading from 1.6.22 or 1.6.24</h2>
+
+<b>Warning:</b> Cyrus imapd 2.0 will automatically convert on-disk
+file formats as the server is used.  <b>It is not possible to run 1.6
+after 2.0 has been used on a mail spool without reconstructing every
+mailbox.</b>
+
+<ul>
+<li>Create some extra directories and remove the duplicate delivery
+database:
+<pre>
+<kbd>   mkdir /var/imap/db
+   mkdir /var/imap/socket
+   chown cyrus /var/imap/db /var/imap/socket
+   rm -rf /var/imap/deliverdb
+</kbd></pre>
+
+<li>Convert mailboxes file to Berkeley DB:
+<pre>
+<kbd>   su cyrus
+   cd /var/imap
+   ctl_mboxlist -u &lt; mailboxes
+   ctl_cyrusdb -c
+</kbd></pre>
+
+Please keep a backup of your mailboxes file.  You can dump an
+old-style mailboxes file by using <tt>ctl_mboxlist -d</tt>.
+
+<li>remove "<tt>/etc/inetd.conf</tt>" entries. The <tt>imap</tt> and
+<tt>popd3d</tt> lines need to be removed from <tt>/etc/inetd.conf</tt>
+and inetd needs to be restarted.
+
+<li>master process configuration: You'll need to configure the master
+process Cyrus process and ensure that it starts on boot.  see <a
+href="install-configure.html#master">this section</a> of the
+configuration instructions.
+
+<li>MTA configuration. You will have to reconfigure your MTA to speak
+to lmtpd.  See <a href="install-configure.html#mta">this section</a> of
+the configuration document.
+
+<li>cyrus.seen conversion. The cyrus.seen file will be automatically
+upgraded as users read mail.  After some time, you might want to
+delete the cyrus.seen file in each mailbox; it is superceded by the
+user/joe.seen file.
+
+<li>cyrus.index conversion.  The cyrus.index file will be
+automatically upgraded the first time each mailbox is SELECTed.
+
+<li>Netnews conversion. The netnews programs are no longer built. If
+you are using netnews, you will need to apply the diff in the
+<tt>netnews/</tt> directory to INN or see if INN is now distributing
+those changes.  You will also want to run <tt>remotepurge</tt> on a
+regular basis to purge old netnews posts.
+
+</ul>
+
+
+<h2>Upgrading from 1.6.13</h2>
+<ul>
+<li> Upgrading from the Cyrus IMAP server version 1.6.13 or earlier:
+if you use Sieve, you should run the "<tt>tools/upgradesieve</tt>"
+script, as the format of the "<tt>/usr/sieve</tt>" directory has
+changed slightly.
+
+<p>timsieved, included in this release, will handle maintenance of Sieve
+scripts.
+
+<li> Upgrading from the Cyrus IMAP server version 1.6.10 or earlier:
+if you export news via the IMAP server, you'll have to change your
+"<tt>newsfeeds</tt>" file to contain
+<pre>collectnews!:*:Tf,WR:collectnews</pre>  The format of the
+input to collectnews has changed.
+
+<p>Duplicate delivery suppression is now required for Sieve.
+
+<li> Upgrading from the Cyrus IMAP server version 1.6.1 or earlier
+(including 1.5.x!): the quota and user directories are now hashed by
+the first character of the username.  This is to reduce the number of
+entries in any given directory. It doesn't do a great job (and in some
+cases it will do a really poor job) but as a quick hack it shouldn't
+make things worse.  Optionally, the data partitions can also be hashed
+by enabling the "hashimapspool" option.
+
+<p>You must hash your directories using the "<tt>dohash</tt>" script
+in the tools subdirectory.  (If you want to hash your mail spool, be
+sure to set "hashimapspool" before running "<tt>dohash</tt>".)  This
+must be run as the Cyrus user. Be sure to stop mail service while
+converting. Doing this in single user mode is probably the safest.
+
+</ul>
+
+<h2>Upgrading from 1.5</h2>
+<ul>
+<li> Upgrading from the Cyrus IMAP server version 1.5 or earlier:
+libsasl is now required.  Configuring SASL to work may be a chore,
+especially if you use shadow passwords.
+
+<li> An ANSI C compiler is now required.  gcc should work fine and can
+be acquired from <a href="http://www.gnu.org/software/gcc/gcc.html">
+http://www.gnu.org/software/gcc/gcc.html</a>.
+
+<li> Make sure to read the upgrading instructions under 1.6 above.
+
+<li> Upgrading from 1.5.14 or earlier requires deleting the delivered
+database.  Remove the file delivered.db in the configdirectory and make a
+directory called "deliverdb" in the configdirectory.  This may cause some
+duplicates to get through.
+
+<li> Upgrading from 1.5.14 or earlier requires removing the PTS cache
+database (if the AFS PTS group support is used, which is not the
+default).  The PTS cache is in /var/ptclient/ptscache.db, and you
+should remove it. This is because the format for the PTS cache for
+IMSP has changed.  If you use AFS ACLs, IMSPd, and IMAPd on the same
+machine, make sure you have version 1.5a5 of the IMSP server for this
+version of the IMAP server.  (If you don't have IMSP, or AFS, don't
+worry about it.)
+
+</ul>
+
+<HR><P>
+last modified: $Date: 2004/01/07 20:08:43 $
+</BODY></HTML>
+
+

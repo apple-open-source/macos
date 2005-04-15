@@ -27,6 +27,9 @@
  *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFireWireLibIsochPort.cpp,v $
+ * Revision 1.33.10.1  2005/03/08 03:48:49  collin
+ * *** empty log message ***
+ *
  * Revision 1.33  2004/02/17 23:13:23  niels
  * *** empty log message ***
  *
@@ -590,7 +593,7 @@ namespace IOFireWireLib {
 	LocalIsochPort::LocalIsochPort( const IUnknownVTbl & interface, Device & userclient, bool talking,
 			DCLCommand* program, UInt32 startEvent, UInt32 startState, UInt32 startMask,
 			IOVirtualRange userProgramRanges[], UInt32 userProgramRangeCount, 
-			IOVirtualRange userBufferRanges[], UInt32 userBufferRangeCount )
+			IOVirtualRange userBufferRanges[], UInt32 userBufferRangeCount, IOFWIsochPortOptions options )
 	: IsochPortCOM( interface, userclient, talking, false )
 	, mDCLProgram( program )
 	, mExpectedStopTokens(0)
@@ -710,7 +713,12 @@ namespace IOFireWireLib {
 		params.startState					= startState ;
 		params.startMask					= startMask ;
 		params.userObj						= this ;
-		
+		params.options						= options;
+
+#if 0
+		params.options |= kFWIsochEnableRobustness;
+#endif
+	
 		InfoLog("startEvent=%x, startState=%x, startMask=%x\n", params.startEvent, params.startState, params.startMask) ;
 
 		IOByteCount	outputSize = sizeof( UserObjectHandle ) ;
@@ -1177,10 +1185,10 @@ namespace IOFireWireLib {
 	
 	LocalIsochPortCOM::LocalIsochPortCOM( Device& userclient, bool talking, DCLCommand* program, UInt32 startEvent,
 			UInt32 startState, UInt32 startMask, IOVirtualRange programRanges[], UInt32 programRangeCount,
-			IOVirtualRange bufferRanges[], UInt32 bufferRangeCount)
+			IOVirtualRange bufferRanges[], UInt32 bufferRangeCount, IOFWIsochPortOptions options )
 	: LocalIsochPort( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, talking, program, 
 			startEvent, startState, startMask, programRanges, 
-			programRangeCount, bufferRanges, bufferRangeCount )
+			programRangeCount, bufferRanges, bufferRangeCount, options )
 	{
 	}
 	
@@ -1192,14 +1200,15 @@ namespace IOFireWireLib {
 	LocalIsochPortCOM::Alloc( Device & userclient, Boolean talking, DCLCommand * program,
 			UInt32 startEvent, UInt32 startState, UInt32 startMask,
 			IOVirtualRange programRanges[], UInt32 programRangeCount, 
-			IOVirtualRange bufferRanges[], UInt32 bufferRangeCount )
+			IOVirtualRange bufferRanges[], UInt32 bufferRangeCount,
+			IOFWIsochPortOptions options )
 	{
 		LocalIsochPortCOM*	me = nil ;
 		
 		try
 		{
 			me = new LocalIsochPortCOM (	userclient, (bool)talking, program, startEvent, startState, startMask,
-											programRanges, programRangeCount, bufferRanges, bufferRangeCount ) ;
+											programRanges, programRangeCount, bufferRanges, bufferRangeCount, options ) ;
 		}
 		catch(...)
 		{

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,11 +37,12 @@ struct WebCoreTextStyle
     int wordSpacing;
     int padding;
     NSString **families;
-    unsigned smallCaps:1;
-    unsigned rtl:1;
-    unsigned visuallyOrdered:1;
-    unsigned applyRounding:1;
-    unsigned attemptFontSubstitution:1;
+    unsigned smallCaps : 1;
+    unsigned rtl : 1;
+    unsigned visuallyOrdered : 1;
+    unsigned applyRunRounding : 1;
+    unsigned applyWordRounding : 1;
+    unsigned attemptFontSubstitution : 1;
 };
 
 struct WebCoreTextRun
@@ -52,6 +53,13 @@ struct WebCoreTextRun
     int to;
 };
 
+struct WebCoreTextGeometry
+{
+    NSPoint point;
+    float selectionY;
+    float selectionHeight;
+    bool useFontMetricsForSelectionYAndHeight : 1;
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,18 +67,19 @@ extern "C" {
 
 typedef struct WebCoreTextRun WebCoreTextRun;
 typedef struct WebCoreTextStyle WebCoreTextStyle;
+typedef struct WebCoreTextGeometry WebCoreTextGeometry;
 
 extern void WebCoreInitializeTextRun(WebCoreTextRun *run, const UniChar *characters, unsigned int length, int from, int to);
 extern void WebCoreInitializeEmptyTextStyle(WebCoreTextStyle *style);
+extern void WebCoreInitializeEmptyTextGeometry(WebCoreTextGeometry *geometry);
 
 #ifdef __cplusplus
 }
 #endif
 
-
 @protocol WebCoreTextRenderer <NSObject>
 
-// WebCoreTestRenderer must guarantee that no calls to any of these
+// WebCoreTextRenderer must guarantee that no calls to any of these
 // methods will raise any ObjC exceptions. It's too expensive to do
 // blocking for all of them at the WebCore level, and some
 // implementations may be able to guarantee no exceptions without the
@@ -86,10 +95,12 @@ extern void WebCoreInitializeEmptyTextStyle(WebCoreTextStyle *style);
 - (float)floatWidthForRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style widths:(float *)buffer;
 
 // drawing
-- (void)drawRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style atPoint:(NSPoint)point;
-- (void)drawHighlightForRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style atPoint:(NSPoint)point;
-- (void)drawLineForCharacters:(NSPoint)point yOffset:(float)yOffset withWidth:(int)width withColor:(NSColor *)color;
+- (void)drawRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style geometry:(const WebCoreTextGeometry *)geometry;
+- (void)drawHighlightForRun:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style geometry:(const WebCoreTextGeometry *)geometry;
+- (void)drawLineForCharacters:(NSPoint)point yOffset:(float)yOffset width: (int)width color:(NSColor *)color thickness:(float)thickness;
+- (void)drawLineForMisspelling:(NSPoint)point withWidth:(int)width;
+- (int)misspellingLineThickness;
 
 // selection point check
-- (int)pointToOffset:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style position:(int)x reversed:(BOOL)reversed;
+- (int)pointToOffset:(const WebCoreTextRun *)run style:(const WebCoreTextStyle *)style position:(int)x reversed:(BOOL)reversed includePartialGlyphs:(BOOL)includePartialGlyphs;
 @end

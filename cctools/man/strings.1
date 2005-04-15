@@ -34,7 +34,7 @@
 .\"
 .\"     @(#)strings.1	8.1 (Berkeley) 6/6/93
 .\"
-.TH STRINGS 1 "October 23, 1997" "Apple Computer, Inc."
+.TH STRINGS 1 "November 10, 2004" "Apple Computer, Inc."
 .SH NAME
 strings \- find the printable strings in a object, or other binary, file
 .SH SYNOPSIS
@@ -46,8 +46,14 @@ strings \- find the printable strings in a object, or other binary, file
 ] [
 .B \-o
 ] [
+.B \-t
+.I format
+] [
 \fB\-\fInumber\fR
-] [file ...]
+] [
+.B \-n
+.I number
+] [--] [file ...]
 .SH DESCRIPTION
 .I Strings
 looks for ASCII strings in a binary file or standard input.
@@ -77,13 +83,36 @@ This option causes
 .I strings
 to look for strings in all bytes of the files (the default for non-object files).
 .TP
+.B \-\-
+This option causes
+.I strings
+to treat all the following arguments as files.
+.TP
 .B \-o
 Preceded each string by its offset in the file (in decimal).
+.TP
+.BI \-t " format"
+Write each string preceded by its byte offset from the start of the file.
+The format shall be dependent on the single character used as the format
+option-argument:
+.TP
+.I d
+The offset shall be written in decimal.
+.TP
+.I o
+The offset shall be written in octal.
+.TP
+.I x
+The offset shall be written in hexadecimal.
 .TP
 .BI \- number
 The decimal
 .I number
 is used as the minimum string length rather than the default of 4.
+.TP
+.BI \-n " number"
+Specify the minimum string length, where the number argument is a positive
+decimal integer. The default shall be 4.
 .SH "SEE ALSO"
 od(1)
 .SH BUGS

@@ -1,10 +1,10 @@
 /* CRAM-MD5 SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: cram.c,v 1.3 2002/07/03 23:22:25 snsimon Exp $
+ * $Id: cram.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,11 +43,11 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <config.h>
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <config.h>
-#include <time.h>
 #ifndef macintosh
 #include <sys/stat.h>
 #endif
@@ -63,14 +63,9 @@
 #include <sasl_cram_plugin_decl.h>
 #endif
 
-#ifdef WIN32
-/* This must be after sasl.h, saslutil.h */
-# include "saslCRAM.h"
-#endif /* WIN32 */
-
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: cram.c,v 1.3 2002/07/03 23:22:25 snsimon Exp $";
+//static const char plugin_id[] = "$Id: cram.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $";
 
 /* convert a string of 8bit chars to it's representation in hex
  * using lowercase letters
@@ -215,15 +210,15 @@ crammd5_server_mech_step1(server_context_t *text,
     /* always true unless using APPLE_ALLOW_VERIFY_ONLY */
     if ( text->challenge == NULL )
     {
-        /* allocate some space for the challenge */
-        text->challenge = sparams->utils->malloc(200 + 1);
-        if (text->challenge == NULL) {
-        MEMERROR(sparams->utils);
-        return SASL_NOMEM;
-        }
+    /* allocate some space for the challenge */
+    text->challenge = sparams->utils->malloc(200 + 1);
+    if (text->challenge == NULL) {
+	MEMERROR(sparams->utils);
+	return SASL_NOMEM;
+    }
     
-        /* create the challenge */
-        snprintf(text->challenge, 200, "<%s.%s@%s>", randdigits, time,
+    /* create the challenge */
+    snprintf(text->challenge, 200, "<%s.%s@%s>", randdigits, time,
             sparams->serverFQDN);
     }
     
@@ -238,7 +233,7 @@ crammd5_server_mech_step1(server_context_t *text,
     
     return SASL_CONTINUE;
 }
-
+    
 static int
 crammd5_server_mech_step2(server_context_t *text,
 			  sasl_server_params_t *sparams,
@@ -250,7 +245,8 @@ crammd5_server_mech_step2(server_context_t *text,
 {
     char *userid = NULL;
     sasl_secret_t *sec = NULL;
-    int pos, len;
+    int pos;
+    unsigned len;
     int result = SASL_FAIL;
     const char *password_request[] = { SASL_AUX_PASSWORD,
 				       "*cmusaslsecretCRAM-MD5",
@@ -299,7 +295,7 @@ crammd5_server_mech_step2(server_context_t *text,
 	/* We didn't find this username */
 	sparams->utils->seterror(sparams->utils->conn,0,
 				 "no secret in database");
-	result = SASL_NOUSER;
+	result = sparams->transition ? SASL_TRANS : SASL_NOUSER;
 	goto done;
     }
     
@@ -333,6 +329,9 @@ crammd5_server_mech_step2(server_context_t *text,
 	return SASL_FAIL;
     }
     
+    /* erase the plaintext password */
+    sparams->utils->prop_erase(sparams->propctx, password_request[0]);
+
     /* ok this is annoying:
        so we have this half-way hmac transform instead of the plaintext
        that means we half to:
@@ -347,12 +346,15 @@ crammd5_server_mech_step2(server_context_t *text,
     sparams->utils->hmac_md5_final((unsigned char *) &digest, &tmphmac);
     
     /* convert to base 16 with lower case letters */
-    digest_str = convert16((unsigned char *) digest, 4, sparams->utils);
+    digest_str = convert16((unsigned char *) digest, 16, sparams->utils);
     
     /* if same then verified 
      *  - we know digest_str is null terminated but clientin might not be
+     *  - verify the length of clientin anyway!
      */
-    if (strncmp(digest_str, clientin+pos+1, strlen(digest_str)) != 0) {
+    len = strlen(digest_str);
+    if (clientinlen-pos-1 < len ||
+	strncmp(digest_str, clientin+pos+1, len) != 0) {
 	sparams->utils->seterror(sparams->utils->conn, 0,
 				 "incorrect digest response");
 	result = SASL_BADAUTH;
@@ -446,7 +448,7 @@ static sasl_server_plug_t crammd5_server_plugins[] =
 #if APPLE_ALLOW_VERIFY_ONLY
     0,								/* features */
 #else
-	SASL_FEAT_SERVER_FIRST,			/* features */
+	SASL_FEAT_SERVER_FIRST,		/* features */
 #endif
 
 	NULL,				/* glob_context */
@@ -514,27 +516,14 @@ static int crammd5_client_mech_new(void *glob_context __attribute__((unused)),
 static char *make_hashed(sasl_secret_t *sec, char *nonce, int noncelen, 
 			 const sasl_utils_t *utils)
 {
-    char secret[65];
     unsigned char digest[24];  
-    int lup;
     char *in16;
     
     if (sec == NULL) return NULL;
     
-    if (sec->len < 64) {
-	memcpy(secret, sec->data, sec->len);
-	
-	/* fill in rest with 0's */
-	for (lup= sec->len; lup < 64; lup++)
-	    secret[lup]='\0';
-	
-    } else {
-	memcpy(secret, sec->data, 64);
-    }
-    
     /* do the hmac md5 hash output 128 bits */
     utils->hmac_md5((unsigned char *) nonce, noncelen,
-		    (unsigned char *) secret, 64, digest);
+		    sec->data, sec->len, digest);
     
     /* convert that to hex form */
     in16 = convert16(digest, 16, utils);
@@ -721,21 +710,21 @@ static void crammd5_client_mech_dispose(void *conn_context,
 static sasl_client_plug_t crammd5_client_plugins[] = 
 {
     {
-	"CRAM-MD5",						/* mech_name */
-	0,								/* max_ssf */
+	"CRAM-MD5",			/* mech_name */
+	0,				/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
-	| SASL_SEC_NOANONYMOUS,			/* security_flags */
+	| SASL_SEC_NOANONYMOUS,		/* security_flags */
     
 #if APPLE_ALLOW_VERIFY_ONLY
     0,								/* features */
 #else
-	SASL_FEAT_SERVER_FIRST,			/* features */
+	SASL_FEAT_SERVER_FIRST,		/* features */
 #endif
 
-	NULL,							/* required_prompts */
-	NULL,							/* glob_context */
-	&crammd5_client_mech_new,		/* mech_new */
-	&crammd5_client_mech_step,		/* mech_step */
+	NULL,				/* required_prompts */
+	NULL,				/* glob_context */
+	&crammd5_client_mech_new,	/* mech_new */
+	&crammd5_client_mech_step,	/* mech_step */
 	&crammd5_client_mech_dispose,	/* mech_dispose */
 	NULL,				/* mech_free */
 	NULL,				/* idle */

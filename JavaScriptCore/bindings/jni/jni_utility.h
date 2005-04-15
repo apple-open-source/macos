@@ -72,6 +72,7 @@ jmethodID getMethodID (jobject obj, const char *name, const char *sig);
 jobject callJNIObjectMethod (jobject obj, const char *name, const char *sig, ... );
 void callJNIVoidMethod (jobject obj, const char *name, const char *sig, ... );
 jboolean callJNIBooleanMethod (jobject obj, const char *name, const char *sig, ... );
+jboolean callJNIStaticBooleanMethod (jclass cls, const char *name, const char *sig, ... );
 jbyte callJNIByteMethod (jobject obj, const char *name, const char *sig, ... );
 jchar callJNICharMethod (jobject obj, const char *name, const char *sig, ... );
 jshort callJNIShortMethod (jobject obj, const char *name, const char *sig, ... );
@@ -104,6 +105,8 @@ jdouble callJNIDoubleMethodIDA (jobject obj, jmethodID methodID, jvalue *args);
 
 JavaVM *getJavaVM();
 JNIEnv *getJNIEnv();
+
+bool dispatchJNICall (const void *targetAppletView, jobject obj, bool isStatic, JNIType returnType, jmethodID methodID, jvalue *args, jvalue &result, const char *callingURL, Value &exceptionDescription);
 
 } // namespace Bindings
 

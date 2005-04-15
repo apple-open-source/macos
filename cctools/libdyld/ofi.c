@@ -23,40 +23,40 @@
 #ifdef SHLIB
 #include "shlib.h"
 #endif
-#import <stdio.h>
-#import <stdlib.h>
-#import <stdarg.h>
-#import <string.h>
-#import <errno.h>
-#ifndef __OPENSTEP__
-#import <crt_externs.h>
-#endif
-#import <mach/mach.h>
-#import "stuff/openstep_mach.h"
-#include <unistd.h>
-#ifdef _POSIX_THREADS
-#include <pthread.h>
-#else
-#import <mach/cthreads.h>
-#endif
-#import <mach/mach_error.h>
-
-#import "stuff/bool.h"
-#import "mach-o/dyld.h"
-#import "mach-o/getsect.h"
-#import "mach-o/dyld_priv.h"
-#import "stuff/ofile.h"
-#import "stuff/arch.h"
-#import "stuff/errors.h"
 
 static const char* nlist_bsearch_strings;
 static const char* toc_bsearch_strings;
 static const struct nlist* toc_bsearch_symbols;
-#import "inline_strcmp.h"
-#import "inline_bsearch.h"
+#include "inline_strcmp.h"
+#include "inline_bsearch.h"
 
+#include <stdio.h>
+#include <stdlib.h> 
+#include <stdarg.h>
+#include <string.h>
+#include <errno.h>
+#ifndef __OPENSTEP__
+#include <crt_externs.h>
+#endif
+#include <mach/mach.h>
+#include "stuff/openstep_mach.h"
+#include <unistd.h>
+#ifdef _POSIX_THREADS
+#include <pthread.h>
+#else
+#include <mach/cthreads.h>
+#endif
+#include <mach/mach_error.h>
 
-#import "ofi.h"
+#include "stuff/bool.h"
+#include "mach-o/dyld.h"
+#include "mach-o/getsect.h"
+#include "mach-o/dyld_priv.h"
+#include "stuff/ofile.h"
+#include "stuff/arch.h"
+#include "stuff/errors.h"
+
+#include "ofi.h"
 
 /*
  * These variables: progname and errors are along with the functions: vprint(),

@@ -53,7 +53,13 @@
  */
 #define _MH_EXECUTE_SYM	"__mh_execute_header"
 #define MH_EXECUTE_SYM	"_mh_execute_header"
-extern const struct mach_header _mh_execute_header;
+extern const struct
+#ifdef __LP64__
+mach_header_64
+#else
+mach_header
+#endif
+_mh_execute_header;
 
 /*
  * The value of the link editor defined symbol _MH_BUNDLE_SYM is the address
@@ -64,7 +70,13 @@ extern const struct mach_header _mh_execute_header;
  */
 #define _MH_BUNDLE_SYM	"__mh_bundle_header"
 #define MH_BUNDLE_SYM	"_mh_bundle_header"
-extern const struct mach_header _mh_bundle_header;
+extern const struct
+#ifdef __LP64__
+mach_header_64
+#else
+mach_header
+#endif
+_mh_bundle_header;
 
 /*
  * The value of the link editor defined symbol _MH_DYLIB_SYM is the address
@@ -75,7 +87,13 @@ extern const struct mach_header _mh_bundle_header;
  */
 #define _MH_DYLIB_SYM	"__mh_dylib_header"
 #define MH_DYLIB_SYM	"_mh_dylib_header"
-extern const struct mach_header _mh_dylib_header;
+extern const struct
+#ifdef __LP64__
+mach_header_64
+#else
+mach_header
+#endif
+_mh_dylib_header;
 
 /*
  * The value of the link editor defined symbol _MH_DYLINKER_SYM is the address
@@ -86,7 +104,13 @@ extern const struct mach_header _mh_dylib_header;
  */
 #define _MH_DYLINKER_SYM	"__mh_dylinker_header"
 #define MH_DYLINKER_SYM		"_mh_dylinker_header"
-extern const struct mach_header _mh_dylinker_header;
+extern const struct
+#ifdef __LP64__
+mach_header_64
+#else
+mach_header
+#endif
+_mh_dylinker_header;
 
 /*
  * For the MH_PRELOAD file type the headers are not loaded as part of any

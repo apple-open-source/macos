@@ -6,9 +6,9 @@
 	objectVersion = 39;
 	objects = {
 		0007B625016E594E00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServices.h;
 			path = APIFramework/DirServices.h;
 			refType = 4;
@@ -90,36 +90,36 @@
 			sourceTree = "<group>";
 		};
 		000E7C450174E03B00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSTCPEndpoint.cpp;
 			path = Proxy/DSTCPEndpoint.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		000E7C460174E03B00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSTCPListener.cpp;
 			path = Proxy/DSTCPListener.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		000E7C490174E03B00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSTCPEndpoint.h;
 			path = Proxy/DSTCPEndpoint.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		000E7C4A0174E03B00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSTCPListener.h;
 			path = Proxy/DSTCPListener.h;
 			refType = 4;
@@ -150,27 +150,27 @@
 			};
 		};
 		000ED2F7029558D500DD2B5A = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = TimClient.framework;
 			path = /System/Library/PrivateFrameworks/TimClient.framework;
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
 		0033335902D6E42E00DD2B92 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CPluginConfig.cpp;
 			path = Server/CPluginConfig.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0033335A02D6E42E00DD2B92 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CPluginConfig.h;
 			path = Server/CPluginConfig.h;
 			refType = 4;
@@ -303,54 +303,54 @@
 			sourceTree = "<group>";
 		};
 		0035DA9600AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CClientEndPoint.cpp;
 			path = APIFramework/CClientEndPoint.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DA9700AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CMessaging.cpp;
 			path = APIFramework/CMessaging.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DA9800AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DirServices.cpp;
 			path = APIFramework/DirServices.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DA9900AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DirServicesCustom.cpp;
 			path = APIFramework/DirServicesCustom.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DA9A00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DirServicesPriv.cpp;
 			path = APIFramework/DirServicesPriv.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DA9B00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DirServicesUtils.cpp;
 			path = APIFramework/DirServicesUtils.cpp;
 			refType = 4;
@@ -378,72 +378,72 @@
 			sourceTree = "<group>";
 		};
 		0035DA9D00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CClientEndPoint.h;
 			path = APIFramework/CClientEndPoint.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DA9E00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CMessaging.h;
 			path = APIFramework/CMessaging.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAA000AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServicesConst.h;
 			path = APIFramework/DirServicesConst.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAA100AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServicesCustom.h;
 			path = APIFramework/DirServicesCustom.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAA200AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServicesPriv.h;
 			path = APIFramework/DirServicesPriv.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAA300AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServicesTypes.h;
 			path = APIFramework/DirServicesTypes.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAA400AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServicesTypesPriv.h;
 			path = APIFramework/DirServicesTypesPriv.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAA500AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServicesUtils.h;
 			path = APIFramework/DirServicesUtils.h;
 			refType = 4;
@@ -464,45 +464,45 @@
 			sourceTree = "<group>";
 		};
 		0035DAB500AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNiNodeList.cpp;
 			path = PlugIns/NetInfo/CNiNodeList.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAB600AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNiPlugIn.cpp;
 			path = PlugIns/NetInfo/CNiPlugIn.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAB700AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNodeRegister.cpp;
 			path = PlugIns/NetInfo/CNodeRegister.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAB800AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = NiLib2.cpp;
 			path = PlugIns/NetInfo/NiLib2.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAB900AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = NiLib3.cpp;
 			path = PlugIns/NetInfo/NiLib3.cpp;
 			refType = 4;
@@ -527,54 +527,54 @@
 			sourceTree = "<group>";
 		};
 		0035DABC00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNiNodeList.h;
 			path = PlugIns/NetInfo/CNiNodeList.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DABD00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNiPlugIn.h;
 			path = PlugIns/NetInfo/CNiPlugIn.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DABE00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNodeRegister.h;
 			path = PlugIns/NetInfo/CNodeRegister.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAC000AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = my_ni_pwdomain.h;
 			path = PlugIns/NetInfo/my_ni_pwdomain.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAC100AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = NiLib2.h;
 			path = PlugIns/NetInfo/NiLib2.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAC200AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = NiLib3.h;
 			path = PlugIns/NetInfo/NiLib3.h;
 			refType = 4;
@@ -592,9 +592,9 @@
 			sourceTree = "<group>";
 		};
 		0035DAC500AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = nibind_glue.c;
 			path = PlugIns/NetInfo/nibind_glue.c;
 			refType = 4;
@@ -612,27 +612,27 @@
 			sourceTree = "<group>";
 		};
 		0035DAC700AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CAliases.cpp;
 			path = PlugIns/Search/CAliases.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAC800AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CConfigs.cpp;
 			path = PlugIns/Search/CConfigs.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAC900AB52B200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSearchPlugin.cpp;
 			path = PlugIns/Search/CSearchPlugin.cpp;
 			refType = 4;
@@ -651,27 +651,27 @@
 			sourceTree = "<group>";
 		};
 		0035DACB00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CAliases.h;
 			path = PlugIns/Search/CAliases.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DACC00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CConfigs.h;
 			path = PlugIns/Search/CConfigs.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DACD00AB52B200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSearchPlugin.h;
 			path = PlugIns/Search/CSearchPlugin.h;
 			refType = 4;
@@ -724,234 +724,234 @@
 			sourceTree = "<group>";
 		};
 		0035DAF200AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CHandlers.cpp;
 			path = Server/CHandlers.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAF300AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CLauncher.cpp;
 			path = Server/CLauncher.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAF400AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CListener.cpp;
 			path = Server/CListener.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAF700AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CMsgQueue.cpp;
 			path = Server/CMsgQueue.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAF800AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNodeList.cpp;
 			path = Server/CNodeList.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAFA00AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CPluginHandler.cpp;
 			path = Server/CPluginHandler.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAFB00AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CPlugInList.cpp;
 			path = Server/CPlugInList.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAFC00AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CRefTable.cpp;
 			path = Server/CRefTable.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAFD00AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CServerPlugin.cpp;
 			path = Server/CServerPlugin.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAFE00AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSrvrEndPoint.cpp;
 			path = Server/CSrvrEndPoint.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DAFF00AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSrvrMessaging.cpp;
 			path = Server/CSrvrMessaging.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0000AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DirServiceMain.cpp;
 			path = Server/DirServiceMain.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0100AB584900DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = ServerControl.cpp;
 			path = Server/ServerControl.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0400AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CHandlers.h;
 			path = Server/CHandlers.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0500AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CLauncher.h;
 			path = Server/CLauncher.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0600AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CListener.h;
 			path = Server/CListener.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0900AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CMsgQueue.h;
 			path = Server/CMsgQueue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0A00AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNodeList.h;
 			path = Server/CNodeList.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0C00AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CPluginHandler.h;
 			path = Server/CPluginHandler.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0D00AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CPlugInList.h;
 			path = Server/CPlugInList.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0E00AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CRefTable.h;
 			path = Server/CRefTable.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB0F00AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CServerPlugin.h;
 			path = Server/CServerPlugin.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB1000AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSrvrEndPoint.h;
 			path = Server/CSrvrEndPoint.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB1100AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSrvrMessaging.h;
 			path = Server/CSrvrMessaging.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB1200AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirServiceMain.h;
 			path = Server/DirServiceMain.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0035DB1300AB584900DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = ServerControl.h;
 			path = Server/ServerControl.h;
 			refType = 4;
@@ -971,7 +971,7 @@
 			sourceTree = "<group>";
 		};
 		0035DB1900AB596200DD2B59 = {
-			expectedFileType = wrapper.framework;
+			explicitFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			path = DirectoryService.framework;
@@ -979,7 +979,7 @@
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0035DB1A00AB596200DD2B59 = {
-			expectedFileType = wrapper.framework;
+			explicitFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			path = DirectoryServiceCore.framework;
@@ -1069,11 +1069,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.1</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.1</string>
+	<string>1.7.2</string>
 </dict>
 </plist>
 ";
@@ -1222,11 +1222,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.1</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.1</string>
+	<string>1.7.2</string>
 </dict>
 </plist>
 ";
@@ -1313,7 +1313,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0035DB5700AC460E00DD2B59 = {
-			expectedFileType = "compiled.mach-o.executable";
+			explicitFileType = "compiled.mach-o.executable";
 			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = DirectoryServiceDaemon;
@@ -1787,9 +1787,9 @@
 			sourceTree = "<group>";
 		};
 		0035DBFC00AC584500DD2B59 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
@@ -1897,18 +1897,18 @@
 			targetProxy = 612C203C04B0E4C30054D1C8;
 		};
 		00465D79017F86AE00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSTCPConnection.cpp;
 			path = Proxy/DSTCPConnection.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00465D7A017F86AE00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSTCPConnection.h;
 			path = Proxy/DSTCPConnection.h;
 			refType = 4;
@@ -1950,45 +1950,45 @@
 			sourceTree = "<group>";
 		};
 		004C967D00B0949D00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSCThread.cpp;
 			path = Threads/DSCThread.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C967E00B0949D00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSLThread.cpp;
 			path = Threads/DSLThread.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C967F00B0949D00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSEventSemaphore.cpp;
 			path = Threads/DSEventSemaphore.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C968000B0949D00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSMutexSemaphore.cpp;
 			path = Threads/DSMutexSemaphore.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C968100B0949D00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSSemaphore.cpp;
 			path = Threads/DSSemaphore.cpp;
 			refType = 4;
@@ -2008,45 +2008,45 @@
 			sourceTree = "<group>";
 		};
 		004C968300B0949D00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSCThread.h;
 			path = Threads/DSCThread.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C968400B0949D00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSLThread.h;
 			path = Threads/DSLThread.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C968500B0949D00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSEventSemaphore.h;
 			path = Threads/DSEventSemaphore.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C968600B0949D00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSMutexSemaphore.h;
 			path = Threads/DSMutexSemaphore.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		004C968700B0949D00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSSemaphore.h;
 			path = Threads/DSSemaphore.h;
 			refType = 4;
@@ -2059,9 +2059,9 @@
 			};
 		};
 		0059650C00B1D58400DD2B59 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
@@ -2142,7 +2142,7 @@
 			name = Deployment;
 		};
 		007A862000B5EE9B00DD2B59 = {
-			expectedFileType = wrapper.cfbundle;
+			explicitFileType = wrapper.cfbundle;
 			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = ShellScript.bundle;
@@ -2283,9 +2283,9 @@
 			sourceTree = "<group>";
 		};
 		007ACA9502B6EF0C00DD2B5A = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = libCdsaCrypt.h;
 			path = CDSA/libCdsaCrypt.h;
 			refType = 4;
@@ -2304,9 +2304,9 @@
 			};
 		};
 		007ACA9802B6EF2300DD2B5A = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = libCdsaCrypt.cpp;
 			path = CDSA/libCdsaCrypt.cpp;
 			refType = 4;
@@ -2331,36 +2331,36 @@
 			};
 		};
 		00873A260263815600DD2B8D = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = SMBAuth.c;
 			path = PlugIns/NetInfo/SMBAuth.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00873A270263815600DD2B8D = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SMBAuth.h;
 			path = PlugIns/NetInfo/SMBAuth.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0089BC3001763DD200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSNetworkUtilities.cpp;
 			path = Proxy/DSNetworkUtilities.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		0089BC3101763DD200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSNetworkUtilities.h;
 			path = Proxy/DSNetworkUtilities.h;
 			refType = 4;
@@ -2379,9 +2379,9 @@
 			};
 		};
 		00905E5700C59CDA00DD2B59 = {
-			expectedFileType = sourcecode.exports;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
 			name = DirectoryService.exp;
 			path = APIFramework/DirectoryService.exp;
 			refType = 4;
@@ -2496,270 +2496,270 @@
 			sourceTree = "<group>";
 		};
 		009E453D00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CBuff.cpp;
 			path = CoreFramework/Private/CBuff.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E453E00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CDataBuff.cpp;
 			path = CoreFramework/Private/CDataBuff.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E453F00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CFile.cpp;
 			path = CoreFramework/Private/CFile.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454000AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CLog.cpp;
 			path = CoreFramework/Private/CLog.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454100AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = COSUtils.cpp;
 			path = CoreFramework/Private/COSUtils.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454200AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CString.cpp;
 			path = CoreFramework/Private/CString.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454500AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSUtils.cpp;
 			path = CoreFramework/Private/DSUtils.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454900AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CBuff.h;
 			path = CoreFramework/Private/CBuff.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454A00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CDataBuff.h;
 			path = CoreFramework/Private/CDataBuff.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454B00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CFile.h;
 			path = CoreFramework/Private/CFile.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454C00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CLog.h;
 			path = CoreFramework/Private/CLog.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454D00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = COSUtils.h;
 			path = CoreFramework/Private/COSUtils.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E454E00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CString.h;
 			path = CoreFramework/Private/CString.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455100AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSUtils.h;
 			path = CoreFramework/Private/DSUtils.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455500AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = PrivateTypes.h;
 			path = CoreFramework/Private/PrivateTypes.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455600AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SharedConsts.h;
 			path = CoreFramework/Private/SharedConsts.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455700AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSLogException.h;
 			path = CoreFramework/Private/DSLogException.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455800AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CAttributeList.cpp;
 			path = CoreFramework/Public/CAttributeList.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455900AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CContinue.cpp;
 			path = CoreFramework/Public/CContinue.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455B00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CPlugInRef.cpp;
 			path = CoreFramework/Public/CPlugInRef.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455C00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CRecNameList.cpp;
 			path = CoreFramework/Public/CRecNameList.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455D00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CRecTypeList.cpp;
 			path = CoreFramework/Public/CRecTypeList.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E455E00AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CSharedData.cpp;
 			path = CoreFramework/Public/CSharedData.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456100AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CAttributeList.h;
 			path = CoreFramework/Public/CAttributeList.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456200AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CContinue.h;
 			path = CoreFramework/Public/CContinue.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456400AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CPlugInRef.h;
 			path = CoreFramework/Public/CPlugInRef.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456500AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CRecNameList.h;
 			path = CoreFramework/Public/CRecNameList.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456600AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CRecTypeList.h;
 			path = CoreFramework/Public/CRecTypeList.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456700AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CSharedData.h;
 			path = CoreFramework/Public/CSharedData.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E456800AC9A6200DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = PluginData.h;
 			path = CoreFramework/Public/PluginData.h;
 			refType = 4;
@@ -3023,7 +3023,7 @@
 			sourceTree = "<group>";
 		};
 		009E459C00AC9B4200DD2B59 = {
-			expectedFileType = "compiled.mach-o.dylib";
+			explicitFileType = "compiled.mach-o.dylib";
 			fallbackIsa = PBXFileReference;
 			isa = PBXLibraryReference;
 			path = libDSPlugInCommon.a;
@@ -3098,54 +3098,54 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		009E45A300AC9BCA00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CDSServerModule.cpp;
 			path = PlugIns/Common/CDSServerModule.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E45A400AC9BCA00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = ServerModule.cpp;
 			path = PlugIns/Common/ServerModule.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E45A500AC9BCA00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = ServerModuleLib.cpp;
 			path = PlugIns/Common/ServerModuleLib.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E45A600AC9BCA00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CDSServerModule.h;
 			path = PlugIns/Common/CDSServerModule.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E45A700AC9BCA00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = ServerModule.h;
 			path = PlugIns/Common/ServerModule.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		009E45A800AC9BCA00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = ServerModuleLib.h;
 			path = PlugIns/Common/ServerModuleLib.h;
 			refType = 4;
@@ -3237,18 +3237,18 @@
 			};
 		};
 		00A5FAEE02144DC700DD2B5A = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CRCCalc.cpp;
 			path = CoreFramework/Private/CRCCalc.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00A5FAEF02144DC700DD2B5A = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CRCCalc.h;
 			path = CoreFramework/Private/CRCCalc.h;
 			refType = 4;
@@ -3294,18 +3294,18 @@
 			};
 		};
 		00AB682F0184BFDD00DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CDSRefMap.cpp;
 			path = APIFramework/CDSRefMap.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00AB68300184BFDD00DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CDSRefMap.h;
 			path = APIFramework/CDSRefMap.h;
 			refType = 4;
@@ -3324,27 +3324,27 @@
 			};
 		};
 		00B4A5FD011B10C000DD2B59 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CDSRefTable.cpp;
 			path = APIFramework/CDSRefTable.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00B4A5FE011B10C000DD2B59 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CDSRefTable.h;
 			path = APIFramework/CDSRefTable.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00C0099100E8F71100DD2B59 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
@@ -3357,9 +3357,9 @@
 			};
 		};
 		00CB9FE900B065BB00DD2B59 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
@@ -3396,18 +3396,18 @@
 			};
 		};
 		00F958B602B8F33C00DD2B5A = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = my_ni_pwdomain.c;
 			path = PlugIns/NetInfo/my_ni_pwdomain.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		00F958B802B8F59B00DD2B5A = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = nibind_glue.h;
 			path = PlugIns/NetInfo/nibind_glue.h;
 			refType = 4;
@@ -3424,36 +3424,36 @@
 //613
 //614
 		61092FC80428EEA600DD2B5C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirectoryService.h;
 			path = APIFramework/DirectoryService.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		611F6C250428EFAC00DD2B5C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirectoryServicePriv.h;
 			path = APIFramework/DirectoryServicePriv.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		611F6C260428F03500DD2B5C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirectoryServiceCorePriv.h;
 			path = CoreFramework/Private/DirectoryServiceCorePriv.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		611F6C270428F11500DD2B5C = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DirectoryServiceCore.h;
 			path = CoreFramework/Public/DirectoryServiceCore.h;
 			refType = 4;
@@ -3509,18 +3509,18 @@
 			remoteInfo = "Core Framework";
 		};
 		6177A56904E470CC0042E116 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CInternalDispatchThread.cpp;
 			path = Server/CInternalDispatchThread.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		6177A56A04E470CC0042E116 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CInternalDispatchThread.h;
 			path = Server/CInternalDispatchThread.h;
 			refType = 4;
@@ -3539,9 +3539,9 @@
 			};
 		};
 		617FFD110443802400D50B1F = {
-			expectedFileType = "compiled.mach-o.dylib";
 			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libcrypto.dylib;
 			path = /usr/lib/libcrypto.dylib;
 			refType = 0;
@@ -3649,36 +3649,36 @@
 			sourceTree = "<group>";
 		};
 		61ADDD0603F74CDA00BD54C7 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CLDAPNode.cpp;
 			path = PlugIns/LDAPv3/CLDAPNode.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		61ADDD0703F74CDA00BD54C7 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CLDAPNode.h;
 			path = PlugIns/LDAPv3/CLDAPNode.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		61ADDD0803F74CDB00BD54C7 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CLDAPv3Configs.cpp;
 			path = PlugIns/LDAPv3/CLDAPv3Configs.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		61ADDD0903F74CDB00BD54C7 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CLDAPv3Configs.h;
 			path = PlugIns/LDAPv3/CLDAPv3Configs.h;
 			refType = 4;
@@ -3709,9 +3709,9 @@
 			};
 		};
 		61ADDD0E03F74D1300BD54C7 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CLDAPv3Plugin.cpp;
 			path = PlugIns/LDAPv3/CLDAPv3Plugin.cpp;
 			refType = 4;
@@ -3724,9 +3724,9 @@
 			};
 		};
 		61ADDD1003F74D2300BD54C7 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CLDAPv3Plugin.h;
 			path = PlugIns/LDAPv3/CLDAPv3Plugin.h;
 			refType = 4;
@@ -3767,18 +3767,18 @@
 			sourceTree = "<group>";
 		};
 		61ADDD1503F74EA000BD54C7 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CConfigurePlugin.cpp;
 			path = PlugIns/Configure/CConfigurePlugin.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		61ADDD1603F74EA000BD54C7 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CConfigurePlugin.h;
 			path = PlugIns/Configure/CConfigurePlugin.h;
 			refType = 4;
@@ -3797,18 +3797,18 @@
 			};
 		};
 		61ADDD1903F74EC900BD54C7 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CNetInfoPlugin.cpp;
 			path = PlugIns/NetInfo/CNetInfoPlugin.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		61ADDD1A03F74EC900BD54C7 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CNetInfoPlugin.h;
 			path = PlugIns/NetInfo/CNetInfoPlugin.h;
 			refType = 4;
@@ -3827,9 +3827,9 @@
 			};
 		};
 		61ADDD2203F74F6800BD54C7 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = LDAP.framework;
 			path = /System/Library/Frameworks/LDAP.framework;
 			refType = 0;
@@ -3842,9 +3842,9 @@
 			};
 		};
 		61ADDD2403F74F7A00BD54C7 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
@@ -3866,9 +3866,9 @@
 			sourceTree = "<group>";
 		};
 		61C157140444F28900D7A0F6 = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = GetMACAddress.c;
 			path = PlugIns/Search/GetMACAddress.c;
 			refType = 4;
@@ -3881,9 +3881,9 @@
 			};
 		};
 		61C157160444F29B00D7A0F6 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = GetMACAddress.h;
 			path = PlugIns/Search/GetMACAddress.h;
 			refType = 4;
@@ -4020,9 +4020,9 @@
 			};
 		};
 		61F5A6B2040C23DB00DD2B5C = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = DirectoryService.8;
 			path = Server/DirectoryService.8;
 			refType = 4;
@@ -4045,9 +4045,9 @@
 //693
 //694
 		6910548D02EE3F5E0ADD2B8D = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = LDAP.framework;
 			path = /System/Library/Frameworks/LDAP.framework;
 			refType = 0;
@@ -4066,18 +4066,18 @@
 			};
 		};
 		69CDD7AB01CEA0F60ADD2B8D = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSEncryptedEndpoint.cpp;
 			path = Proxy/DSEncryptedEndpoint.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		69CDD7AC01CEA0F60ADD2B8D = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSEncryptedEndpoint.h;
 			path = Proxy/DSEncryptedEndpoint.h;
 			refType = 4;
@@ -4106,9 +4106,9 @@
 //793
 //794
 		792C562204F720C1000BF6A8 = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = DirectoryService.order;
 			refType = 4;
 			sourceTree = "<group>";
@@ -4124,9 +4124,9 @@
 //843
 //844
 		847D67D204BCB59C00DF229F = {
-			expectedFileType = "compiled.mach-o.dylib";
 			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libsasl2.2.0.1.dylib;
 			path = /usr/lib/libsasl2.2.0.1.dylib;
 			refType = 0;
@@ -4149,8 +4149,8 @@
 //AA3
 //AA4
 		AA82EE6805EC2305004CEFBB = {
-			expectedFileType = "compiled.mach-o.dylib";
 			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libbsm.dylib;
 			path = /usr/lib/libbsm.dylib;
 			refType = 0;
@@ -4163,8 +4163,8 @@
 			};
 		};
 		AA82EE7F05EC2356004CEFBB = {
-			expectedFileType = wrapper.framework;
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = PasswordServer.framework;
 			path = /System/Library/PrivateFrameworks/PasswordServer.framework;
 			refType = 0;
@@ -4187,18 +4187,18 @@
 //E53
 //E54
 		E509144E0624B82200863364 = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = DSLDAPUtils.c;
 			path = PlugIns/LDAPv3/DSLDAPUtils.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		E509144F0624B82200863364 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSLDAPUtils.h;
 			path = PlugIns/LDAPv3/DSLDAPUtils.h;
 			refType = 4;
@@ -4263,9 +4263,9 @@
 //F53
 //F54
 		F530523B035F584001DD2930 = {
-			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = DSTCPEndian.cpp;
 			path = Proxy/DSTCPEndian.cpp;
 			refType = 4;
@@ -4278,9 +4278,9 @@
 			};
 		};
 		F530523D035F585301DD2930 = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = DSTCPEndian.h;
 			path = Proxy/DSTCPEndian.h;
 			refType = 4;
@@ -4305,9 +4305,9 @@
 			};
 		};
 		F54C5BD802B6D41301DD2B8D = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = TimConditional.h;
 			path = PlugIns/NetInfo/TimConditional.h;
 			refType = 4;
@@ -4452,9 +4452,9 @@
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FE1481880406E8E300DD2834 = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = DirectoryServiceAttributes.7;
 			path = Server/DirectoryServiceAttributes.7;
 			refType = 4;
@@ -4477,9 +4477,9 @@
 			};
 		};
 		FEE5DCE7047D43B6003C3C56 = {
-			expectedFileType = text.plist;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist;
 			name = DirectoryService.plist;
 			path = Server/DirectoryService.plist;
 			refType = 4;

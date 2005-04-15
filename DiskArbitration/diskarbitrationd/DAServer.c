@@ -46,6 +46,7 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <IOKit/IOBSD.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/storage/IOMedia.h>
 ///w:start
 #include <sys/stat.h>
@@ -98,6 +99,38 @@ static DADiskRef __DADiskListGetDiskWithIOMedia( io_service_t media )
     }
 
     return NULL;
+}
+
+static void __DAMediaBusyStateChangedCallback( void * context, io_service_t service, void * argument )
+{
+    DADiskRef disk;
+
+    disk = __DADiskListGetDiskWithIOMedia( service );
+
+    if ( disk )
+    {
+        if ( argument )
+        {
+            DADiskSetBusy( disk, CFAbsoluteTimeGetCurrent( ) );
+        }
+        else
+        {
+            DADiskSetBusy( disk, 0 );
+        }
+    }
+}
+
+static void __DAMediaChangedCallback( void * context, io_service_t service, natural_t message, void * argument )
+{
+    switch ( message )
+    {
+        case kIOMessageServiceBusyStateChange:
+        {
+            __DAMediaBusyStateChangedCallback( context, service, argument );
+
+            break;
+        }
+    }
 }
 
 static void __DAMediaDisappearedUnmountCallback( int status, void * context )
@@ -442,6 +475,9 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
 
             if ( disk )
             {
+                int         busy;
+                io_object_t busyNotification;
+
                 /*
                  * Determine whether a media object disappearance and appearance occurred.  We must do this
                  * since the I/O Kit appearance queue is separate from the I/O Kit disappearance queue, and
@@ -461,6 +497,34 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                     _DAMediaDisappearedCallback( disk, gDAMediaDisappearedNotification );
 
                     assert( ___CFArrayContainsValue( gDADiskList, disk ) == FALSE );
+                }
+
+                /*
+                 * Create the "media changed" notification.
+                 */
+
+                busyNotification = NULL;
+
+                IOServiceAddInterestNotification( gDAMediaPort, media, kIOBusyInterest, __DAMediaChangedCallback, NULL, &busyNotification );
+
+                if ( busyNotification )
+                {
+                    DADiskSetBusyNotification( disk, busyNotification );
+
+                    IOObjectRelease( busyNotification );
+                }
+
+                /*
+                 * Set the busy state.
+                 */
+
+                busy = 0;
+
+                IOServiceGetBusyState( media, &busy );
+
+                if ( busy )
+                {
+                    DADiskSetBusy( disk, CFAbsoluteTimeGetCurrent( ) );
                 }
 
                 /*

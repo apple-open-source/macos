@@ -37,6 +37,8 @@ struct tdb_print_db *get_print_db_byname(const char *printername)
 	pstring printdb_path;
 	BOOL done_become_root = False;
 
+	SMB_ASSERT(printername != NULL);
+
 	for (p = print_db_head, last_entry = print_db_head; p; p = p->next) {
 		/* Ensure the list terminates... JRA. */
 		SMB_ASSERT(p->next != print_db_head);
@@ -78,7 +80,7 @@ struct tdb_print_db *get_print_db_byname(const char *printername)
        
 	if (!p)	{
 		/* Create one. */
-		p = (struct tdb_print_db *)malloc(sizeof(struct tdb_print_db));
+		p = SMB_MALLOC_P(struct tdb_print_db);
 		if (!p) {
 			DEBUG(0,("get_print_db: malloc fail !\n"));
 			return NULL;
@@ -96,8 +98,8 @@ struct tdb_print_db *get_print_db_byname(const char *printername)
 		done_become_root = True;
 	}
 
-	p->tdb = tdb_open_ex(printdb_path, 5000, TDB_DEFAULT, O_RDWR|O_CREAT, 
-		0600, smbd_tdb_log);
+	p->tdb = tdb_open_log(printdb_path, 5000, TDB_DEFAULT, O_RDWR|O_CREAT, 
+		0600);
 
 	if (done_become_root)
 		unbecome_root();

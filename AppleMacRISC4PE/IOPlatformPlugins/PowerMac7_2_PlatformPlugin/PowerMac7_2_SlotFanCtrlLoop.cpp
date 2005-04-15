@@ -258,6 +258,8 @@ ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 
 void PowerMac7_2_SlotFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 {
+	bool				updateCtrlLoopState = false;
+
 	if ( activeAGPControl )
 	{
 		if (ctrlloopState == kIOPCtrlLoopFirstAdjustment ||
@@ -267,7 +269,7 @@ void PowerMac7_2_SlotFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 			if (agpControl->sendTargetValue( newTarget ))
 			{
 				agpControl->setTargetValue(newTarget);
-				ctrlloopState = kIOPCtrlLoopAllRegistered;
+				updateCtrlLoopState |= true;
 			}
 			else
 			{
@@ -297,7 +299,7 @@ void PowerMac7_2_SlotFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 				if (outputControl->sendTargetValue( pciFanTarget ))
 				{
 					outputControl->setTargetValue( pciFanTarget );
-					ctrlloopState = kIOPCtrlLoopAllRegistered;
+					updateCtrlLoopState |= true;
 				}
 				else
 				{
@@ -315,7 +317,7 @@ void PowerMac7_2_SlotFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 			if (outputControl->sendTargetValue( newTarget ))
 			{
 				outputControl->setTargetValue(newTarget);
-				ctrlloopState = kIOPCtrlLoopAllRegistered;
+				updateCtrlLoopState |= true;
 			}
 			else
 			{
@@ -323,6 +325,9 @@ void PowerMac7_2_SlotFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 			}
 		}
 	}
+
+	if ( updateCtrlLoopState )
+		ctrlloopState = kIOPCtrlLoopAllRegistered;
 }
 
 void PowerMac7_2_SlotFanCtrlLoop::sensorRegistered( IOPlatformSensor * aSensor )

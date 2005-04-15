@@ -22,9 +22,19 @@
 #ifndef RENDER_LINE_H
 #define RENDER_LINE_H
 
+#include "rendering/render_object.h"
+
+namespace DOM {
+class AtomicString;
+};
+
 namespace khtml {
 
+class EllipsisBox;
 class InlineFlowBox;
+class RootInlineBox;
+class RenderBlock;
+class RenderFlow;
 
 // InlineBox represents a rectangle that occurs on a line.  It corresponds to
 // some RenderObject (i.e., it represents a portion of that RenderObject).
@@ -33,7 +43,7 @@ class InlineBox
 public:
     InlineBox(RenderObject* obj)
     :m_object(obj), m_x(0), m_y(0), m_width(0), m_height(0), m_baseline(0),
-     m_firstLine(false), m_constructed(false)
+     m_firstLine(false), m_constructed(false), m_dirty(false), m_extracted(false)
     {
         m_next = 0;
         m_prev = 0;
@@ -42,8 +52,17 @@ public:
 
     virtual ~InlineBox() {};
 
-    void detach(RenderArena* renderArena);
+    virtual void detach(RenderArena* renderArena);
 
+    virtual void deleteLine(RenderArena* arena);
+    virtual void extractLine();
+    virtual void attachLine();
+
+    virtual void adjustPosition(int dx, int dy);
+
+    virtual void paint(RenderObject::PaintInfo& i, int _tx, int _ty);
+    virtual bool nodeAtPoint(RenderObject::NodeInfo& i, int x, int y, int tx, int ty);
+    
     // Overloaded new operator.
     void* operator new(size_t sz, RenderArena* renderArena) throw();
 
@@ -61,27 +80,45 @@ public:
     virtual bool isInlineTextBox() { return false; }
     virtual bool isRootInlineBox() { return false; }
     
+    virtual bool isText() const { return false; }
+
     bool isConstructed() { return m_constructed; }
     virtual void setConstructed() {
         m_constructed = true;
         if (m_next)
             m_next->setConstructed();
     }
-
+    void setExtracted(bool b = true) { m_extracted = b; }
+    
     void setFirstLineStyleBit(bool f) { m_firstLine = f; }
+    bool isFirstLineStyle() const { return m_firstLine; }
 
-    InlineBox* nextOnLine() { return m_next; }
-    InlineBox* prevOnLine() { return m_prev; }
-    RenderObject* object() { return m_object; }
+    void remove();
 
-    InlineFlowBox* parent() { return m_parent; }
+    InlineBox* nextOnLine() const { return m_next; }
+    InlineBox* prevOnLine() const { return m_prev; }
+    void setNextOnLine(InlineBox* next) { m_next = next; }
+    void setPrevOnLine(InlineBox* prev) { m_prev = prev; }
+    bool nextOnLineExists() const;
+    bool prevOnLineExists() const;
+
+    virtual InlineBox* firstLeafChild();
+    virtual InlineBox* lastLeafChild();
+    InlineBox* nextLeafChild();
+    InlineBox* prevLeafChild();
+        
+    RenderObject* object() const { return m_object; }
+
+    InlineFlowBox* parent() const { return m_parent; }
     void setParent(InlineFlowBox* par) { m_parent = par; }
 
-    void setWidth(short w) { m_width = w; }
-    short width() { return m_width; }
+    RootInlineBox* root();
+    
+    void setWidth(int w) { m_width = w; }
+    int width() { return m_width; }
 
-    void setXPos(short x) { m_x = x; }
-    short xPos() { return m_x; }
+    void setXPos(int x) { m_x = x; }
+    int xPos() { return m_x; }
 
     void setYPos(int y) { m_y = y; }
     int yPos() { return m_y; }
@@ -96,19 +133,39 @@ public:
 
     virtual int topOverflow() { return yPos(); }
     virtual int bottomOverflow() { return yPos()+height(); }
+    virtual int leftOverflow() { return xPos(); }
+    virtual int rightOverflow() { return xPos()+width(); }
+
+    virtual long caretMinOffset() const;
+    virtual long caretMaxOffset() const;
+    virtual unsigned long caretMaxRenderedOffset() const;
     
+    virtual void clearTruncation() {};
+
+    bool isDirty() const { return m_dirty; }
+    void markDirty(bool dirty=true) { m_dirty = dirty; }
+
+    void dirtyLineBoxes();
+    
+    virtual RenderObject::SelectionState selectionState();
+
+    virtual bool canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidth);
+    virtual int placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool&);
+
 public: // FIXME: Would like to make this protected, but methods are accessing these
         // members over in the part.
     RenderObject* m_object;
 
-    short m_x;
+    int m_x;
     int m_y;
-    short m_width;
+    int m_width;
     int m_height;
     int m_baseline;
     
     bool m_firstLine : 1;
     bool m_constructed : 1;
+    bool m_dirty : 1;
+    bool m_extracted : 1;
 
     InlineBox* m_next; // The next element on the same line as us.
     InlineBox* m_prev; // The previous element on the same line as us.
@@ -126,15 +183,13 @@ public:
         m_nextLine = 0;
     }
 
-    InlineRunBox* prevLineBox() { return m_prevLine; }
-    InlineRunBox* nextLineBox() { return m_nextLine; }
+    InlineRunBox* prevLineBox() const { return m_prevLine; }
+    InlineRunBox* nextLineBox() const { return m_nextLine; }
     void setNextLineBox(InlineRunBox* n) { m_nextLine = n; }
     void setPreviousLineBox(InlineRunBox* p) { m_prevLine = p; }
 
-    virtual void paintBackgroundAndBorder(QPainter *p, int _x, int _y,
-                       int _w, int _h, int _tx, int _ty, int xOffsetOnLine) {};
-    virtual void paintDecorations(QPainter *p, int _x, int _y,
-                       int _w, int _h, int _tx, int _ty) {};
+    virtual void paintBackgroundAndBorder(RenderObject::PaintInfo& i, int _tx, int _ty) {};
+    virtual void paintDecorations(RenderObject::PaintInfo& i, int _tx, int _ty, bool paintedChildren = false) {};
     
 protected:
     InlineRunBox* m_prevLine;  // The previous box that also uses our RenderObject
@@ -153,35 +208,44 @@ public:
         m_hasTextChildren = false;
     }
 
+    RenderFlow* flowObject();
+
     virtual bool isInlineFlowBox() { return true; }
 
+    InlineFlowBox* prevFlowBox() const { return static_cast<InlineFlowBox*>(m_prevLine); }
+    InlineFlowBox* nextFlowBox() const { return static_cast<InlineFlowBox*>(m_nextLine); }
+    
     InlineBox* firstChild() { return m_firstChild; }
     InlineBox* lastChild() { return m_lastChild; }
-    
+
+    virtual InlineBox* firstLeafChild();
+    virtual InlineBox* lastLeafChild();
+    InlineBox* firstLeafChildAfterBox(InlineBox* start=0);
+    InlineBox* lastLeafChildBeforeBox(InlineBox* start=0);
+        
     virtual void setConstructed() {
         InlineBox::setConstructed();
         if (m_firstChild)
             m_firstChild->setConstructed();
     }
-    void addToLine(InlineBox* child) {
-        if (!m_firstChild)
-            m_firstChild = m_lastChild = child;
-        else {
-            m_lastChild->m_next = child;
-            child->m_prev = m_lastChild;
-            m_lastChild = child;
-        }
-        child->setFirstLineStyleBit(m_firstLine);
-        child->setParent(this);
-        if (child->isInlineTextBox())
-            m_hasTextChildren = true;
-    }
+    void addToLine(InlineBox* child);
 
-    virtual void paintBackgroundAndBorder(QPainter *p, int _x, int _y,
-                       int _w, int _h, int _tx, int _ty, int xOffsetOnLine);
-    virtual void paintDecorations(QPainter *p, int _x, int _y,
-                       int _w, int _h, int _tx, int _ty);
+    virtual void deleteLine(RenderArena* arena);
+    virtual void extractLine();
+    virtual void attachLine();
+    virtual void adjustPosition(int dx, int dy);
+
+    virtual void clearTruncation();
     
+    virtual void paintBackgroundAndBorder(RenderObject::PaintInfo& i, int _tx, int _ty);
+    void paintBackgrounds(QPainter* p, const QColor& c, const BackgroundLayer* bgLayer,
+                          int my, int mh, int _tx, int _ty, int w, int h);
+    void paintBackground(QPainter* p, const QColor& c, const BackgroundLayer* bgLayer,
+                         int my, int mh, int _tx, int _ty, int w, int h);
+    virtual void paintDecorations(RenderObject::PaintInfo& i, int _tx, int _ty, bool paintedChildren = false);
+    virtual void paint(RenderObject::PaintInfo& i, int _tx, int _ty);
+    virtual bool nodeAtPoint(RenderObject::NodeInfo& i, int x, int y, int tx, int ty);
+
     int marginBorderPaddingLeft();
     int marginBorderPaddingRight();
     int marginLeft();
@@ -202,10 +266,8 @@ public:
     // Helper functions used during line construction and placement.
     void determineSpacingForFlowBoxes(bool lastLine, RenderObject* endObject);
     int getFlowSpacingWidth();
-    bool nextOnLineExists();
-    bool prevOnLineExists();
     bool onEndChain(RenderObject* endObject);
-    int placeBoxesHorizontally(int x);
+    int placeBoxesHorizontally(int x, int& leftPosition, int& rightPosition);
     void verticallyAlignBoxes(int& heightOfBlock);
     void computeLogicalBoxHeights(int& maxPositionTop, int& maxPositionBottom,
                                   int& maxAscent, int& maxDescent, bool strictMode);
@@ -215,8 +277,15 @@ public:
                               int& topPosition, int& bottomPosition);
     void shrinkBoxesWithNoTextChildren(int topPosition, int bottomPosition);
     
-    virtual void setOverflowPositions(int top, int bottom) {}
+    virtual void setVerticalOverflowPositions(int top, int bottom) {}
+
+    void removeChild(InlineBox* child);
     
+    virtual RenderObject::SelectionState selectionState();
+
+    virtual bool canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidth);
+    virtual int placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool&);
+
 protected:
     InlineBox* m_firstChild;
     InlineBox* m_lastChild;
@@ -229,19 +298,97 @@ class RootInlineBox : public InlineFlowBox
 {
 public:
     RootInlineBox(RenderObject* obj)
-    :InlineFlowBox(obj)
-    {
-        m_topOverflow = m_bottomOverflow = 0;
-    }
+    : InlineFlowBox(obj), m_topOverflow(0), m_bottomOverflow(0), m_leftOverflow(0), m_rightOverflow(0),
+      m_lineBreakObj(0), m_lineBreakPos(0), 
+      m_blockHeight(0), m_endsWithBreak(false), m_hasSelectedChildren(false), m_ellipsisBox(0)
+    {}
+    
+    virtual void detach(RenderArena* renderArena);
+    void detachEllipsisBox(RenderArena* renderArena);
+
+    RootInlineBox* nextRootBox() { return static_cast<RootInlineBox*>(m_nextLine); }
+    RootInlineBox* prevRootBox() { return static_cast<RootInlineBox*>(m_prevLine); }
+
+    virtual void adjustPosition(int dx, int dy);
     
     virtual bool isRootInlineBox() { return true; }
     virtual int topOverflow() { return m_topOverflow; }
     virtual int bottomOverflow() { return m_bottomOverflow; }
-    virtual void setOverflowPositions(int top, int bottom) { m_topOverflow = top; m_bottomOverflow = bottom; }
+    virtual int leftOverflow() { return m_leftOverflow; }
+    virtual int rightOverflow() { return m_rightOverflow; }
+    virtual void setVerticalOverflowPositions(int top, int bottom) { m_topOverflow = top; m_bottomOverflow = bottom; }
+    void setHorizontalOverflowPositions(int left, int right) { m_leftOverflow = left; m_rightOverflow = right; }
+    void setLineBreakInfo(RenderObject* obj, uint breakPos)
+    { m_lineBreakObj = obj; m_lineBreakPos = breakPos; }
+    void setLineBreakPos(int p) { m_lineBreakPos = p; }
+
+    void setBlockHeight(int h) { m_blockHeight = h; }
+    void setEndsWithBreak(bool b) { m_endsWithBreak = b; }
+    
+    int blockHeight() const { return m_blockHeight; }
+    bool endsWithBreak() const { return m_endsWithBreak; }
+    RenderObject* lineBreakObj() const { return m_lineBreakObj; }
+    uint lineBreakPos() const { return m_lineBreakPos; }
+
+    void childRemoved(InlineBox* box);
+
+    bool canAccommodateEllipsis(bool ltr, int blockEdge, int lineBoxEdge, int ellipsisWidth);
+    void placeEllipsis(const DOM::AtomicString& ellipsisStr, bool ltr, int blockEdge, int ellipsisWidth, InlineBox* markupBox = 0);
+    virtual int placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool&);
+
+    EllipsisBox* ellipsisBox() const { return m_ellipsisBox; }
+    void paintEllipsisBox(RenderObject::PaintInfo& i, int _tx, int _ty) const;
+    bool hitTestEllipsisBox(RenderObject::NodeInfo& info, int _x, int _y, int _tx, int _ty,
+                            HitTestAction hitTestAction, bool inBox);
+    
+    virtual void clearTruncation();
+
+    virtual void paint(RenderObject::PaintInfo& i, int _tx, int _ty);
+    virtual bool nodeAtPoint(RenderObject::NodeInfo& i, int x, int y, int tx, int ty);
+
+    bool hasSelectedChildren() const { return m_hasSelectedChildren; }
+    void setHasSelectedChildren(bool b);
+    
+    virtual RenderObject::SelectionState selectionState();
+    InlineBox* firstSelectedBox();
+    InlineBox* lastSelectedBox();
+    
+    GapRects fillLineSelectionGap(int selTop, int selHeight, RenderBlock* rootBlock, int blockX, int blockY, 
+                                  int tx, int ty, const RenderObject::PaintInfo* i);
+    
+    RenderBlock* block() const;
+
+    int selectionTop();
+    int selectionHeight() { return kMax(0, m_bottomOverflow - selectionTop()); }
+ 
+    InlineBox* closestLeafChildForXPos(int _x, int _tx);
 
 protected:
+    // Normally we are only as tall as the style on our block dictates, but we might have content
+    // that spills out above the height of our font (e.g, a tall image), or something that extends further
+    // below our line (e.g., a child whose font has a huge descent).
     int m_topOverflow;
     int m_bottomOverflow;
+    int m_leftOverflow;
+    int m_rightOverflow;
+
+    // Where this line ended.  The exact object and the position within that object are stored so that
+    // we can create a BidiIterator beginning just after the end of this line.
+    RenderObject* m_lineBreakObj;
+    uint m_lineBreakPos;
+    
+    // The height of the block at the end of this line.  This is where the next line starts.
+    int m_blockHeight;
+    
+    // Whether the line ends with a <br>.
+    bool m_endsWithBreak : 1;
+    
+    // Whether we have any children selected (this bit will also be set if the <br> that terminates our
+    // line is selected).
+    bool m_hasSelectedChildren : 1;
+
+    // An inline text box that represents our text truncation string.
+    EllipsisBox* m_ellipsisBox;
 };
 
 }; //namespace

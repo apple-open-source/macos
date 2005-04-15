@@ -172,7 +172,26 @@ extern int _lookup_link();
 	configurationArray = [configManager config];
 	global = [configManager configGlobal:configurationArray];
 
-	parallel_gai = [configManager boolForKey:"ParallelGAI" dict:global default:parallel_gai];
+	str = [configManager stringForKey:"GAISearch" dict:global default:NULL];
+	if (str != NULL)
+	{
+		if (!strcasecmp(str, "Parallel")) gai_pref = GAI_P;
+		else if (!strcasecmp(str, "P")) gai_pref = GAI_P;
+		else if (!strcasecmp(str, "IPv4")) gai_pref = GAI_4;
+		else if (!strcasecmp(str, "4")) gai_pref = GAI_4;
+		else if (!strcasecmp(str, "IPv6")) gai_pref = GAI_6;
+		else if (!strcasecmp(str, "6")) gai_pref = GAI_6;
+		else if (!strcasecmp(str, "Default")) gai_pref = GAI_S46;
+		else if (!strcasecmp(str, "Serial")) gai_pref = GAI_S46;
+		else if (!strcasecmp(str, "Serial46")) gai_pref = GAI_S46;
+		else if (!strcasecmp(str, "46")) gai_pref = GAI_S46;
+		else if (!strcasecmp(str, "Serial64")) gai_pref = GAI_S64;
+		else if (!strcasecmp(str, "64")) gai_pref = GAI_S64;
+		free(str);
+	}
+
+	gai_wait = [configManager intForKey:"GAIWait" dict:global default:gai_wait];
+
 	lookup_local_interfaces = [configManager boolForKey:"LookupLocalInterfaces" dict:global default:lookup_local_interfaces];
 
 	debug_enabled = [configManager boolForKey:"Debug" dict:global default:debug_enabled];
@@ -223,6 +242,7 @@ extern int _lookup_link();
 	struct sockaddr_in6 *sin6;
 	struct sockaddr_in *sin4;
 	char buf[128];
+	BOOL isLinkLocal, isSiteLocal;
 
 	if (getifaddrs(&ifa)) return;
 
@@ -233,7 +253,10 @@ extern int _lookup_link();
 		if (family == AF_INET6)
 		{
 			sin6 = (struct sockaddr_in6 *)ifap->ifa_addr;
-			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr))
+			isLinkLocal = (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) != 0);
+			isSiteLocal = (IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr) != 0);
+
+			if (isLinkLocal || isSiteLocal)
 			{
 				sin6->sin6_scope_id = ntohs(*(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
 				sin6->sin6_addr.s6_addr[2] = 0;

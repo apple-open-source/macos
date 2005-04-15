@@ -23,9 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 #include <value.h>
+#include <interpreter.h>
 
-#include <runtime.h>
+#include <runtime_object.h>
 #include <jni_instance.h>
+#include <objc_instance.h>
+#include <c_instance.h>
+#include <NP_jsobject.h>
+#include <jni_jsobject.h>
 
 using namespace KJS;
 using namespace KJS::Bindings;
@@ -58,18 +63,121 @@ MethodList::~MethodList()
     delete [] _methods;
 }
 
-
-Instance *Instance::createBindingForLanguageInstance (BindingLanguage language, void *instance)
-{
-    if (language == Instance::JavaLanguage)
-        return new Bindings::JavaInstance ((jobject)instance);
-    return 0;
+MethodList::MethodList (const MethodList &other) {
+    _length = other._length;
+    _methods = new Method *[_length];
+    if (_length > 0)
+        memcpy (_methods, other._methods, sizeof(Method *) * _length);
 }
 
-Value Instance::getValueOfField (const Field *aField) const {  
-    return aField->valueFromInstance (this);
+MethodList &MethodList::operator=(const MethodList &other)
+{
+    if (this == &other)
+        return *this;
+            
+    delete [] _methods;
+    
+    _length = other._length;
+    _methods = new Method *[_length];
+    if (_length > 0)
+        memcpy (_methods, other._methods, sizeof(Method *) * _length);
+
+    return *this;
+}
+
+
+static KJSDidExecuteFunctionPtr _DidExecuteFunction;
+
+void Instance::setDidExecuteFunction (KJSDidExecuteFunctionPtr func) { _DidExecuteFunction = func; }
+KJSDidExecuteFunctionPtr Instance::didExecuteFunction () { return _DidExecuteFunction; }
+
+Value Instance::getValueOfField (KJS::ExecState *exec, const Field *aField) const {  
+    return aField->valueFromInstance (exec, this);
 }
 
 void Instance::setValueOfField (KJS::ExecState *exec, const Field *aField, const Value &aValue) const {  
-    return aField->setValueToInstance (exec, this, aValue);
+    aField->setValueToInstance (exec, this, aValue);
+}
+
+Instance *Instance::createBindingForLanguageInstance (BindingLanguage language, void *nativeInstance, const RootObject *executionContext)
+{
+    Instance *newInstance = 0;
+    
+    switch (language) {
+	case Instance::JavaLanguage: {
+	    newInstance = new Bindings::JavaInstance ((jobject)nativeInstance, executionContext);
+	    break;
+	}
+	case Instance::ObjectiveCLanguage: {
+	    newInstance = new Bindings::ObjcInstance ((struct objc_object *)nativeInstance);
+	    break;
+	}
+	case Instance::CLanguage: {
+	    newInstance = new Bindings::CInstance ((NPObject *)nativeInstance);
+	    break;
+	}
+	default:
+	    break;
+    }
+
+    if (newInstance)
+	newInstance->setExecutionContext (executionContext);
+	
+    return newInstance;
+}
+
+Object Instance::createRuntimeObject (BindingLanguage language, void *nativeInstance, const RootObject *executionContext)
+{
+    Instance *interfaceObject = Instance::createBindingForLanguageInstance (language, (void *)nativeInstance, executionContext);
+    
+    Interpreter::lock();
+    Object theObject(new RuntimeObjectImp(interfaceObject,true));
+    Interpreter::unlock();
+    
+    return theObject;
+}
+
+void *Instance::createLanguageInstanceForValue (ExecState *exec, BindingLanguage language, const Object &value, const RootObject *origin, const RootObject *current)
+{
+    void *result = 0;
+    
+    if (value.type() != ObjectType)
+	return 0;
+
+    ObjectImp *imp = static_cast<ObjectImp*>(value.imp());
+    
+    switch (language) {
+	case Instance::ObjectiveCLanguage: {
+	    result = createObjcInstanceForValue (value, origin, current);
+	    break;
+	}
+	case Instance::CLanguage: {
+	    result = _NPN_CreateScriptObject (0, imp, origin, current);
+	    break;
+	}
+	case Instance::JavaLanguage: {
+	    // FIXME:  factor creation of jni_jsobjects, also remove unnecessary thread
+	    // invocation code.
+	    break;
+	}
+	default:
+	    break;
+    }
+    
+    return result;
+}
+
+Instance::Instance (const Instance &other) 
+{
+    setExecutionContext (other.executionContext());
+};
+
+Instance &Instance::operator=(const Instance &other)
+{
+    if (this == &other)
+        return *this;
+
+    setExecutionContext (other.executionContext());
+    
+    return *this;
 }

@@ -43,15 +43,18 @@
 ################################################################
 
 all_sasl_libs = ../lib/libsasl2.la $(SASL_DB_LIB) $(LIB_SOCKET)
-all_sasl_static_libs = ../lib/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS)
+all_sasl_static_libs = ../lib/.libs/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS) $(LIB_MYSQL) $(LIB_PGSQL)
 
 sbin_PROGRAMS = @SASL_DB_UTILS@ @SMTPTEST_PROGRAM@
 EXTRA_PROGRAMS = saslpasswd2 sasldblistusers2 testsuite testsuitestatic smtptest
 
 noinst_PROGRAMS = dbconverter-2
 
-man_MANS = @SASL_DB_MANS@
-EXTRA_MANS = saslpasswd2.8 sasldblistusers2.8
+if NO_SASL_DB_MANS
+man_MANS = 
+else
+man_MANS = saslpasswd2.8 sasldblistusers2.8
+endif
 
 saslpasswd2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
 saslpasswd2_SOURCES = saslpasswd.c
@@ -64,8 +67,8 @@ testsuite_LDADD = $(all_sasl_libs) @DMALLOC_LIBS@
 CLEANFILES=$(EXTRA_PROGRAMS)
 
 testsuitestatic_SOURCES = testsuite.c
-testsuitestatic_LDADD = $(all_sasl_static_libs) @DMALLOC_LIBS@
-testsuitestatic_DEPENDENCIES = ../lib/libsasl2.a
+testsuitestatic_LDADD = $(all_sasl_static_libs) @DMALLOC_LIBS@ @SASL_DL_LIB@
+testsuitestatic_DEPENDENCIES = ../lib/.libs/libsasl2.a
 
 smtptest_SOURCES =
 smtptest_DEPENDENCIES = ./smtptest.lo ./libsfsasl2.la
@@ -84,8 +87,8 @@ libsfsasl2_la_SOURCES =
 libsfsasl2_la_LIBADD = sfsasl.lo
 libsfsasl2_la_LDFLAGS = -version-info 1:0:0 -export-dynamic -rpath $(libdir)
 
-INCLUDES=-I$(top_srcdir)/include
-EXTRA_DIST = saslpasswd2.8 sasldblistusers2.8 sfsasl.h sfsasl.c smtptest.c testsuite.c
+INCLUDES=-I$(top_srcdir)/include -I$(top_builddir)/include @SASL_DB_INC@
+EXTRA_DIST = saslpasswd2.8 sasldblistusers2.8 sfsasl.h sfsasl.c smtptest.c testsuite.c NTMakefile
 
 sfsasl.lo: sfsasl.c
 	$(LIBTOOL) --mode=compile $(COMPILE) @SFIO_INC_FLAGS@ -c $(srcdir)/sfsasl.c

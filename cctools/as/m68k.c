@@ -3009,7 +3009,7 @@ void)
 	register struct m68k_opcode *ins;
 	register struct m68_incant *hack,
 		*slak;
-	register char *retval = 0;		/* empty string, or error msg text */
+	const char *retval = 0;		/* empty string, or error msg text */
 	register int i;
 	register char c;
 
@@ -3146,7 +3146,7 @@ int *sizeP)
 void
 md_number_to_chars(
 char *buf,
-long val,
+signed_target_addr_t val,
 int n)
 {
 	switch(n) {
@@ -3171,7 +3171,7 @@ int n)
 void
 md_number_to_imm(
 unsigned char *buf,
-long val,
+signed_target_addr_t val,
 int n,
 fixS *fixP,
 int nsect)
@@ -3726,7 +3726,7 @@ int ok)
 		adds(exp)=0;
 		subs(exp)=0;
 		offs(exp)= (ok==10) ? 1 : 0;
-		as_warn("Null expression defaults to %ld",offs(exp));
+		as_warn("Null expression defaults to " TA_DFMT ,offs(exp));
 		return 0;
 	}
 
@@ -3821,7 +3821,8 @@ int ok)
 			adds(exp)=0;
 			subs(exp)=0;
 			offs(exp)= (ok==10) ? 1 : 0;
-			as_warn("Can't deal with expression \"%s\": defaulting to %ld",exp->e_beg,offs(exp));
+			as_warn("Can't deal with expression \"%s\": defaulting "
+				"to " TA_DFMT, exp->e_beg, offs(exp));
 		}
 		break;
 	case SEG_BIG:
@@ -3842,7 +3843,8 @@ int ok)
 			adds(exp)=0;
 			subs(exp)=0;
 			offs(exp)= (ok==10) ? 1 : 0;
-			as_warn("Can't deal with expression \"%s\": defaulting to %ld",exp->e_beg,offs(exp));
+			as_warn("Can't deal with expression \"%s\": defaulting "
+				"to " TA_DFMT, exp->e_beg, offs(exp));
 		}
 		break;
 	default:

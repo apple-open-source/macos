@@ -184,7 +184,7 @@ static struct packet_struct *create_and_init_netbios_packet(struct nmb_name *nmb
 	struct nmb_packet *nmb = NULL;
 
 	/* Allocate the packet_struct we will return. */
-	if((packet = (struct packet_struct *)malloc(sizeof(*packet))) == NULL) {
+	if((packet = SMB_MALLOC_P(struct packet_struct)) == NULL) {
 		DEBUG(0,("create_and_init_netbios_packet: malloc fail (1) for packet struct.\n"));
 		return NULL;
 	}
@@ -230,7 +230,7 @@ static BOOL create_and_init_additional_record(struct packet_struct *packet,
 {
 	struct nmb_packet *nmb = &packet->packet.nmb;
 
-	if((nmb->additional = (struct res_rec *)malloc(sizeof(struct res_rec))) == NULL) {
+	if((nmb->additional = SMB_MALLOC_P(struct res_rec)) == NULL) {
 		DEBUG(0,("initiate_name_register_packet: malloc fail for additional record.\n"));
 		return False;
 	}
@@ -534,7 +534,7 @@ void queue_wins_refresh(struct nmb_name *nmbname,
 	DEBUG(6,("Refreshing name %s IP %s with WINS server %s using tag '%s'\n",
 		 nmb_namestr(nmbname), ip_str, inet_ntoa(wins_ip), tag));
 
-	userdata = (struct userdata_struct *)malloc(sizeof(*userdata) + strlen(tag) + 1);
+	userdata = (struct userdata_struct *)SMB_MALLOC(sizeof(*userdata) + strlen(tag) + 1);
 	if (!userdata) {
 		DEBUG(0,("Failed to allocate userdata structure!\n"));
 		return;
@@ -1203,6 +1203,16 @@ an error packet of type %x\n", nmb_namestr(&dgram->dest_name), inet_ntoa(p->ip),
 		return;
 	}
 
+	/* Ensure we have a large enough packet before looking inside. */
+	if (dgram->datasize < (smb_vwv12 - 2)) {
+		/* That's the offset minus the 4 byte length + 2 bytes of offset. */
+		DEBUG(0,("process_dgram: ignoring too short dgram packet (%u) sent to name %s from IP %s\n",
+			(unsigned int)dgram->datasize,
+			nmb_namestr(&dgram->dest_name),
+			inet_ntoa(p->ip) ));
+		return;
+	}
+
 	buf = &dgram->data[0];
 	buf -= 4; /* XXXX for the pseudo tcp length - someday I need to get rid of this */
 
@@ -1212,14 +1222,36 @@ an error packet of type %x\n", nmb_namestr(&dgram->dest_name), inet_ntoa(p->ip),
 	len = SVAL(buf,smb_vwv11);
 	buf2 = smb_base(buf) + SVAL(buf,smb_vwv12);
 
-	if (len <= 0)
+	if (len <= 0 || len > dgram->datasize) {
+		DEBUG(0,("process_dgram: ignoring malformed1 (datasize = %d, len = %d) datagram \
+packet sent to name %s from IP %s\n",
+			dgram->datasize,
+			len,
+			nmb_namestr(&dgram->dest_name),
+			inet_ntoa(p->ip) ));
 		return;
+	}
 
-	if (buf2 + len > buf + sizeof(dgram->data)) {
-		DEBUG(2,("process_dgram: datagram from %s to %s IP %s for %s len=%d too long.\n",
-			nmb_namestr(&dgram->source_name),nmb_namestr(&dgram->dest_name),
-			inet_ntoa(p->ip), smb_buf(buf),len));
-		len = (buf + sizeof(dgram->data)) - buf;
+	if (buf2 < dgram->data || (buf2 >= dgram->data + dgram->datasize)) {
+		DEBUG(0,("process_dgram: ignoring malformed2 (datasize = %d, len=%d, off=%d) datagram \
+packet sent to name %s from IP %s\n",
+			dgram->datasize,
+			len,
+			PTR_DIFF(buf2, dgram->data),
+			nmb_namestr(&dgram->dest_name),
+			inet_ntoa(p->ip) ));
+		return;
+	}
+
+	if ((buf2 + len < dgram->data) || (buf2 + len > dgram->data + dgram->datasize)) {
+		DEBUG(0,("process_dgram: ignoring malformed3 (datasize = %d, len=%d, off=%d) datagram \
+packet sent to name %s from IP %s\n",
+			dgram->datasize,
+			len,
+			PTR_DIFF(buf2, dgram->data),
+			nmb_namestr(&dgram->dest_name),
+			inet_ntoa(p->ip) ));
+		return;
 	}
 
 	DEBUG(4,("process_dgram: datagram from %s to %s IP %s for %s of type %d len=%d\n",
@@ -1613,7 +1645,7 @@ static BOOL create_listen_fdset(fd_set **ppset, int **psock_array, int *listen_n
 	struct subnet_record *subrec = NULL;
 	int count = 0;
 	int num = 0;
-	fd_set *pset = (fd_set *)malloc(sizeof(fd_set));
+	fd_set *pset = SMB_MALLOC_P(fd_set);
 
 	if(pset == NULL) {
 		DEBUG(0,("create_listen_fdset: malloc fail !\n"));
@@ -1630,7 +1662,7 @@ only use %d.\n", (count*2) + 2, FD_SETSIZE));
 		return True;
 	}
 
-	if((sock_array = (int *)malloc(((count*2) + 2)*sizeof(int))) == NULL) {
+	if((sock_array = SMB_MALLOC_ARRAY(int, (count*2) + 2)) == NULL) {
 		DEBUG(0,("create_listen_fdset: malloc fail for socket array.\n"));
 		return True;
 	}

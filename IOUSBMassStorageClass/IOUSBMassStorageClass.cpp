@@ -645,6 +645,12 @@ IOUSBMassStorageClass::SendSCSICommand(
 	
    	STATUS_LOG((6, "%s: SendSCSICommand was called", getName()));
 
+	if ( isInactive () )
+	{	
+		STATUS_LOG((6, "%s: SendSCSICommand returning false", getName()));
+		return false;
+	}
+
 	// Verify that the SCSI Task to execute is valid.
   	if ( request == NULL )
  	{

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,23 +29,30 @@
 #include "KWQString.h"
 #include "KWQWidget.h"
 
+#ifdef __OBJC__
+@class KWQTextFieldController;
+#else
+class KWQTextFieldController;
+#endif
+
 class QLineEdit : public QWidget {
 public:
-    enum EchoMode { Normal, Password };
+    enum Type { Normal, Password, Search };
 
-    QLineEdit();
+    QLineEdit(Type);
     ~QLineEdit();
+
+    virtual void setPalette(const QPalette &);
+
     void setAlignment(AlignmentFlags);
 
     void setCursorPosition(int);
     int cursorPosition() const;
 
-    void setEchoMode(EchoMode);
-
     void setEdited(bool);
     bool edited() const;
 
-    void setFont(const QFont &font);
+    void setFont(const QFont &);
     
     void setMaxLength(int);
     int maxLength() const;
@@ -54,7 +61,7 @@ public:
     bool isReadOnly() const;
 
     void setText(const QString &);
-    QString text();
+    QString text() const;
 
     void setWritingDirection(QPainter::TextDirection);
     
@@ -65,15 +72,32 @@ public:
     
     void returnPressed() { m_returnPressed.call(); }
     void textChanged() { m_textChanged.call(text()); }
+    void performSearch() { m_performSearch.call(); }
 
     void clicked();
     
+    virtual FocusPolicy focusPolicy() const;
     virtual bool checksDescendantsForFocus() const;
+
+    Type type() const { return m_type; }
+    
+    void setLiveSearch(bool liveSearch);
+    void setAutoSaveName(const QString& name);
+    void setMaxResults(int maxResults);
+    void setPlaceholderString(const QString& placeholder);
+    void addSearchResult();
 
 private:
     KWQSignal m_returnPressed;
     KWQSignal m_textChanged;
     KWQSignal m_clicked;
+    KWQSignal m_performSearch;
+    Type m_type;
+    KWQTextFieldController *m_controller;
 };
+
+#ifdef __OBJC__
+NSTextAlignment KWQNSTextAlignmentForAlignmentFlags(Qt::AlignmentFlags);
+#endif
 
 #endif

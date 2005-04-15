@@ -8,7 +8,7 @@
 		772ABEDD024BAEBF05DD284B = {
 			isa = PBXTargetDependency;
 			target = 777A3D81024BAC7C05DD284B;
-			targetProxy = 84D1326B04CE05F800A80155;
+			targetProxy = 84C04FC20549A382005DCF0F;
 		};
 		7733E6E90238127C05DD284B = {
 			fileRef = 777745B10236D8FA05DD284B;
@@ -19,106 +19,106 @@
 		7733E6EF023812C505DD284B = {
 			isa = PBXTargetDependency;
 			target = 77F5D6B80236D6E205DD284B;
-			targetProxy = 84D1326A04CE05F800A80155;
+			targetProxy = 84C04FCE0549A382005DCF0F;
 		};
 		7733E6F0023812C905DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7BFD0236E3D505DD284B;
-			targetProxy = 84D1326904CE05F800A80155;
+			targetProxy = 84C04FCB0549A382005DCF0F;
 		};
 		7733E6F1023812CC05DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C080236E43005DD284B;
-			targetProxy = 84D1326804CE05F800A80155;
+			targetProxy = 84C04FCD0549A382005DCF0F;
 		};
 		7733E6F2023812CE05DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C130236E47005DD284B;
-			targetProxy = 84D1326704CE05F800A80155;
+			targetProxy = 84C04FCC0549A382005DCF0F;
 		};
 		7733E6F3023812D005DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C1E0236E56505DD284B;
-			targetProxy = 84D1326604CE05F800A80155;
+			targetProxy = 84C04FC40549A382005DCF0F;
 		};
 		7733E6F4023812D305DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C290236E5AF05DD284B;
-			targetProxy = 84D1326504CE05F800A80155;
+			targetProxy = 84C04FC30549A382005DCF0F;
 		};
 		7733E6F5023812D505DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C360236E66305DD284B;
-			targetProxy = 84D1326404CE05F800A80155;
+			targetProxy = 84C04FC70549A382005DCF0F;
 		};
 		7733E7110238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = anonymous_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7120238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = crammd5_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7130238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = digestmd5_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7140238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = gssapiv2_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7150238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = login_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7160238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = otp_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7170238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = plain_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7180238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = sasldb_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		7733E7190238197D05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = srp_init.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -166,9 +166,9 @@
 			};
 		};
 		7733E72902381A7F05DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = liblogin.la;
 			refType = 4;
 			sourceTree = "<group>";
@@ -192,25 +192,25 @@
 			sourceTree = "<group>";
 		};
 		773841500236DD5105DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = allockey.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		773841530236DD5105DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = db_ndbm.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		773841580236DD5105DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = sasldb.h;
 			refType = 4;
 			sourceTree = "<group>";
@@ -234,79 +234,73 @@
 			sourceTree = "<group>";
 		};
 		77753A710236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = gai.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A720236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = "hmac-md5.h";
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A750236D84505DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = makemd5.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A760236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = md5.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A780236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = prop.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A790236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = sasl.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A7A0236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = saslplug.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77753A7B0236D84505DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = saslutil.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		77753A7E0236D84505DD284B = {
-			fileRef = 77753A750236D84505DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		777745B10236D8FA05DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = md5global.h;
 			refType = 4;
 			sourceTree = "<group>";
@@ -366,9 +360,8 @@
 			productReference = 777745BE0236DB2A05DD284B;
 		};
 		777745BE0236DB2A05DD284B = {
-			expectedFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = makemd5;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -441,12 +434,12 @@
 		777745CB0236DBE605DD284B = {
 			isa = PBXTargetDependency;
 			target = 777745BD0236DB2A05DD284B;
-			targetProxy = 84D1326D04CE05F800A80155;
+			targetProxy = 84C04FC90549A382005DCF0F;
 		};
 		777745CC0236DCA805DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = config.h;
 			path = cyrus_sasl/config.h;
 			refType = 4;
@@ -514,9 +507,8 @@
 			productReference = 777A3D82024BAC7C05DD284B;
 		};
 		777A3D82024BAC7C05DD284B = {
-			expectedFileType = archive.ar;
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libsasldb.a;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -559,6 +551,10 @@
 				777E7BC30236DDED05DD284B,
 				777E7BC40236DDED05DD284B,
 				7733E7150238197D05DD284B,
+				84DECA06054847E400C45D20,
+				84DECA07054847E400C45D20,
+				84DECA08054847E400C45D20,
+				84DECA09054847E400C45D20,
 				777E7BC80236DDED05DD284B,
 				7733E7160238197D05DD284B,
 				777E7BC90236DDED05DD284B,
@@ -571,6 +567,7 @@
 				777E7BCE0236DDED05DD284B,
 				7733E7190238197D05DD284B,
 				77CB5EFD0236F45705DD284B,
+				84DECA4205484A1500C45D20,
 			);
 			isa = PBXGroup;
 			name = plugins;
@@ -579,113 +576,113 @@
 			sourceTree = "<group>";
 		};
 		777E7BBE0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = anonymous.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BBF0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = cram.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC00236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = digestmd5.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC10236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = gssapi.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC20236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kerberos4.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC30236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kerberos4_init.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC40236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = login.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC80236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = otp.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BC90236DDED05DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = otp.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BCA0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = plain.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BCB0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = plugin_common.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BCC0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = plugin_common.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BCD0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = sasldb.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7BCE0236DDED05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = srp.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -780,9 +777,8 @@
 			productReference = 777E7BFE0236E3D505DD284B;
 		};
 		777E7BFE0236E3D505DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libanonymous.2.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -877,9 +873,8 @@
 			productReference = 777E7C090236E43005DD284B;
 		};
 		777E7C090236E43005DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libcrammd5.2.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -954,7 +949,7 @@
 				DYLIB_CURRENT_VERSION = 1;
 				INSTALL_PATH = /usr/lib/sasl2;
 				LIBRARY_STYLE = BUNDLE;
-				OPTIMIZATION_CFLAGS = "-Os";
+				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-lcrypto ";
 				OTHER_LIBTOOL_FLAGS = "";
@@ -974,9 +969,8 @@
 			productReference = 777E7C140236E47005DD284B;
 		};
 		777E7C140236E47005DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libdigestmd5.2.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1071,9 +1065,8 @@
 			productReference = 777E7C1F0236E56505DD284B;
 		};
 		777E7C1F0236E56505DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = login.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1170,9 +1163,8 @@
 			productReference = 777E7C2A0236E5AF05DD284B;
 		};
 		777E7C2A0236E5AF05DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libotp.2.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1273,9 +1265,8 @@
 			productReference = 777E7C370236E66305DD284B;
 		};
 		777E7C370236E66305DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libplain.2.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1323,6 +1314,8 @@
 				777E7C6C0236E73C05DD284B,
 				777E7C6D0236E73C05DD284B,
 				777E7C6E0236E73C05DD284B,
+				AA1FB856074A76D400911FCE,
+				AA16473207930EF20045A1BC,
 			);
 			isa = PBXGroup;
 			name = lib;
@@ -1331,121 +1324,121 @@
 			sourceTree = "<group>";
 		};
 		777E7C5C0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = auxprop.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C5D0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = canonusr.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C5E0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = checkpw.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C5F0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = client.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C600236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = common.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C610236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = config.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C620236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = dlopen.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C630236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = external.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C660236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = getsubopt.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C690236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = md5.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C6A0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = saslint.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C6B0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = saslutil.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C6C0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = server.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C6D0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = seterror.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		777E7C6E0236E73C05DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = snprintf.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -1461,8 +1454,7 @@
 			files = (
 				77853DF80236ED9B05DD284B,
 				77CB5EF80236F0A205DD284B,
-				77CB5EF90236F0B105DD284B,
-				F56C514D029C0BA301DD284B,
+				84118E850547012300C5C0FC,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1475,16 +1467,16 @@
 				77853DF60236ED9A05DD284B,
 				77853DF70236ED9B05DD284B,
 				77853DF90236ED9B05DD284B,
-				77853DFA0236ED9D05DD284B,
-				77853DFB0236ED9D05DD284B,
 				77853DFC0236ED9E05DD284B,
 				77853DFD0236ED9E05DD284B,
 				77853DFE0236ED9E05DD284B,
 				77853DFF0236ED9F05DD284B,
 				77853E000236ED9F05DD284B,
 				77853E010236EDA005DD284B,
-				77CB5EFA0236F0B105DD284B,
-				F56C514C029C0BA301DD284B,
+				84118E800546FEAE00C5C0FC,
+				84118E810546FEF200C5C0FC,
+				84118E840547012200C5C0FC,
+				AA1FB857074A76D400911FCE,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1509,17 +1501,19 @@
 				777E7C870236E74C05DD284B,
 				777E7C880236E74C05DD284B,
 				777E7C890236E74C05DD284B,
+				AA16473D079310020045A1BC,
 				F5BA890502BFD46701DD284B,
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
-				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 3.15;
+				EXPORTED_SYMBOLS_FILE = "cyrus_sasl/lib/sasl-lib.exp";
 				INSTALL_PATH = /usr/lib;
 				LIBRARY_SEARCH_PATHS = "";
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_CFLAGS = "-DDO_DLOPEN -DPIC -DHAVE_DLFCN_H";
+				OTHER_LDFLAGS = "-lcrypto -dead_strip";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
@@ -1534,20 +1528,12 @@
 			name = lib;
 			productInstallPath = /usr/lib;
 			productName = lib;
-			productReference = 777E7C8B0236E74C05DD284B;
-		};
-		777E7C8B0236E74C05DD284B = {
-			expectedFileType = "compiled.mach-o.dylib";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
-			path = libsasl2.2.0.1.dylib;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+			productReference = 843E1F1105472B830071DCEE;
 		};
 		777E7CA10236E7A305DD284B = {
 			isa = PBXTargetDependency;
 			target = 777E7C8A0236E74C05DD284B;
-			targetProxy = 84D1326C04CE05F800A80155;
+			targetProxy = 84C04FCA0549A382005DCF0F;
 		};
 		77853DF40236ED9905DD284B = {
 			fileRef = 777E7C6E0236E73C05DD284B;
@@ -1581,18 +1567,6 @@
 		};
 		77853DF90236ED9B05DD284B = {
 			fileRef = 777E7C690236E73C05DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		77853DFA0236ED9D05DD284B = {
-			fileRef = 777E7C630236E73C05DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		77853DFB0236ED9D05DD284B = {
-			fileRef = 777E7C620236E73C05DD284B;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1639,27 +1613,19 @@
 			settings = {
 			};
 		};
-		77CB5EF90236F0B105DD284B = {
-			fileRef = 77F5D6C00236D70605DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		77CB5EFA0236F0B105DD284B = {
-			fileRef = 77F5D6C10236D70605DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		77CB5EFD0236F45705DD284B = {
 			children = (
 				77D234400236F4E905DD284B,
 				77D234410236F4E905DD284B,
 				77D234420236F4E905DD284B,
+				8481F5A605472DC500B2B3B0,
+				84C0502D0549A8A1005DCF0F,
 				7733E72902381A7F05DD284B,
+				84DECA9C05484F6A00C45D20,
 				77D234430236F4E905DD284B,
 				77D234440236F4E905DD284B,
 				77D234450236F4E905DD284B,
+				AA55533906A30BBB00E276FD,
 			);
 			isa = PBXGroup;
 			name = "la files";
@@ -1667,49 +1633,49 @@
 			sourceTree = "<group>";
 		};
 		77D234400236F4E905DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = libanonymous.la;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77D234410236F4E905DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = libcrammd5.la;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77D234420236F4E905DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = libdigestmd5.la;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77D234430236F4E905DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = libotp.la;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77D234440236F4E905DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = libplain.la;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		77D234450236F4E905DD284B = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = libsasldb.la;
 			refType = 4;
 			sourceTree = "<group>";
@@ -1823,7 +1789,6 @@
 		77F5D6980236D69405DD284B = {
 			children = (
 				777745CC0236DCA805DD284B,
-				77F5D6BC0236D70605DD284B,
 				77753A700236D84505DD284B,
 				7738414F0236DD5105DD284B,
 				777E7BBD0236DDED05DD284B,
@@ -1835,8 +1800,6 @@
 			sourceTree = "<group>";
 		};
 		77F5D69A0236D69405DD284B = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1849,8 +1812,6 @@
 			name = Development;
 		};
 		77F5D69B0236D69405DD284B = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -1873,14 +1834,17 @@
 			projectDirPath = "";
 			targets = (
 				77F5D6A00236D6A905DD284B,
-				77F5D6A50236D6B705DD284B,
-				77F5D6D10236D75105DD284B,
+				84F521060549A09A00E96C8F,
 				777745BD0236DB2A05DD284B,
 				77F5D6B80236D6E205DD284B,
 				777E7BFD0236E3D505DD284B,
 				777E7C080236E43005DD284B,
 				777E7C130236E47005DD284B,
+				8417724A0549A1DD005994D5,
+				843E1F1605472B9A0071DCEE,
 				777E7C1E0236E56505DD284B,
+				84C9863C054846870094A32F,
+				84C98633054846530094A32F,
 				777E7C290236E5AF05DD284B,
 				777E7C360236E66305DD284B,
 				777E7C8A0236E74C05DD284B,
@@ -1909,86 +1873,16 @@
 				7733E6F3023812D005DD284B,
 				7733E6F4023812D305DD284B,
 				7733E6F5023812D505DD284B,
+				8410ED9105484EF500FDB992,
+				AA74DD1C0662A243001C5861,
 			);
 			isa = PBXAggregateTarget;
 			name = ALL;
 			productName = ALL;
 		};
-		77F5D6A10236D6B705DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-				77F5D6D40236D77B05DD284B,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6A20236D6B705DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-				77F5D6D50236D77B05DD284B,
-				77753A7E0236D84505DD284B,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6A30236D6B705DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6A40236D6B705DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6A50236D6B705DD284B = {
-			buildPhases = (
-				77F5D6A10236D6B705DD284B,
-				77F5D6A20236D6B705DD284B,
-				77F5D6A30236D6B705DD284B,
-				77F5D6A40236D6B705DD284B,
-			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				INSTALL_PATH = /usr/lib;
-				LIBRARY_SEARCH_PATHS = "/Users/Shared/passwordserver_sasl/cyrus_sasl/dlcompat-20010505";
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = libdl.a;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-			);
-			isa = PBXLibraryTarget;
-			name = libdl.a;
-			productInstallPath = /usr/lib;
-			productName = dlcompat;
-			productReference = 77F5D6A60236D6B705DD284B;
-		};
-		77F5D6A60236D6B705DD284B = {
-			expectedFileType = "compiled.mach-o.dylib";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
-			path = libdl.a;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		77F5D6A70236D6B705DD284B = {
 			children = (
-				77F5D6A60236D6B705DD284B,
 				77F5D6B90236D6E205DD284B,
-				77F5D6D20236D75105DD284B,
 				777745BE0236DB2A05DD284B,
 				777E7BFE0236E3D505DD284B,
 				777E7C090236E43005DD284B,
@@ -1996,8 +1890,12 @@
 				777E7C1F0236E56505DD284B,
 				777E7C2A0236E5AF05DD284B,
 				777E7C370236E66305DD284B,
-				777E7C8B0236E74C05DD284B,
 				777A3D82024BAC7C05DD284B,
+				843E1F1105472B830071DCEE,
+				843E1F1705472B9A0071DCEE,
+				84C98634054846530094A32F,
+				84C9863D054846870094A32F,
+				8417724B0549A1DD005994D5,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -2072,158 +1970,11 @@
 			productReference = 77F5D6B90236D6E205DD284B;
 		};
 		77F5D6B90236D6E205DD284B = {
-			expectedFileType = "compiled.mach-o.bundle";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
 			path = libsasldb.2.so;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		77F5D6BC0236D70605DD284B = {
-			children = (
-				77F5D6BE0236D70605DD284B,
-				77F5D6BF0236D70605DD284B,
-				77F5D6C00236D70605DD284B,
-				77F5D6C10236D70605DD284B,
-				77F5D6C90236D70605DD284B,
-			);
-			isa = PBXGroup;
-			name = "dlcompat-20010505";
-			path = "cyrus_sasl/dlcompat-20010505";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		77F5D6BE0236D70605DD284B = {
-			expectedFileType = text;
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = APPLE_LICENSE;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		77F5D6BF0236D70605DD284B = {
-			expectedFileType = text;
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = ChangeLog;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		77F5D6C00236D70605DD284B = {
-			expectedFileType = sourcecode.c.h;
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = dlfcn.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		77F5D6C10236D70605DD284B = {
-			expectedFileType = sourcecode.c.c;
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = dlopen.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		77F5D6C90236D70605DD284B = {
-			expectedFileType = text;
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = README;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		77F5D6CD0236D75105DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-				77F5D6D60236D7AB05DD284B,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6CE0236D75105DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-				77F5D6D70236D7AC05DD284B,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6CF0236D75105DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6D00236D75105DD284B = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		77F5D6D10236D75105DD284B = {
-			buildPhases = (
-				77F5D6CD0236D75105DD284B,
-				77F5D6CE0236D75105DD284B,
-				77F5D6CF0236D75105DD284B,
-				77F5D6D00236D75105DD284B,
-			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				INSTALL_PATH = /usr/lib;
-				LIBRARY_STYLE = DYNAMIC;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = libdl.dylib;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-			);
-			isa = PBXLibraryTarget;
-			name = libdl.dylib;
-			productInstallPath = /usr/lib;
-			productName = libdl.dylib;
-			productReference = 77F5D6D20236D75105DD284B;
-		};
-		77F5D6D20236D75105DD284B = {
-			expectedFileType = "compiled.mach-o.dylib";
-			fallbackIsa = PBXFileReference;
-			isa = PBXLibraryReference;
-			path = libdl.dylib;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		77F5D6D40236D77B05DD284B = {
-			fileRef = 77F5D6C00236D70605DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		77F5D6D50236D77B05DD284B = {
-			fileRef = 77F5D6C10236D70605DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		77F5D6D60236D7AB05DD284B = {
-			fileRef = 77F5D6C00236D70605DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		77F5D6D70236D7AC05DD284B = {
-			fileRef = 77F5D6C10236D70605DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //770
 //771
@@ -2235,113 +1986,777 @@
 //842
 //843
 //844
-		84D1326404CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C360236E66305DD284B;
-			remoteInfo = plugin_plain;
+		8410ED9105484EF500FDB992 = {
+			isa = PBXTargetDependency;
+			target = 84C98633054846530094A32F;
+			targetProxy = 84C04FC50549A382005DCF0F;
 		};
-		84D1326504CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C290236E5AF05DD284B;
-			remoteInfo = plugin_otp;
+		84118E800546FEAE00C5C0FC = {
+			fileRef = 777E7C630236E73C05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		84D1326604CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C1E0236E56505DD284B;
-			remoteInfo = plugin_login;
+		84118E810546FEF200C5C0FC = {
+			fileRef = 777E7C620236E73C05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		84D1326704CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C130236E47005DD284B;
-			remoteInfo = plugin_digest;
+		84118E840547012200C5C0FC = {
+			fileRef = F56C514A029C0BA301DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		84D1326804CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7C080236E43005DD284B;
-			remoteInfo = plugin_cram;
+		84118E850547012300C5C0FC = {
+			fileRef = F56C514B029C0BA301DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
-		84D1326904CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 777E7BFD0236E3D505DD284B;
-			remoteInfo = plugin_anonymous;
+		841772460549A1DD005994D5 = {
+			buildActionMask = 2147483647;
+			files = (
+				841772580549A2B8005994D5,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84D1326A04CE05F800A80155 = {
-			containerPortal = 77F5D69C0236D69405DD284B;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 77F5D6B80236D6E205DD284B;
-			remoteInfo = plugin_sasldb;
+		841772470549A1DD005994D5 = {
+			buildActionMask = 2147483647;
+			files = (
+				841772550549A2B4005994D5,
+				841772560549A2B5005994D5,
+				841772570549A2B7005994D5,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84D1326B04CE05F800A80155 = {
+		841772480549A1DD005994D5 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		841772490549A1DD005994D5 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8417724A0549A1DD005994D5 = {
+			buildPhases = (
+				841772460549A1DD005994D5,
+				841772470549A1DD005994D5,
+				841772480549A1DD005994D5,
+				841772490549A1DD005994D5,
+				841772640549A306005994D5,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lkrb4";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libkerberos4.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = plugin_kerberos4;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_kerberos4;
+			productReference = 8417724B0549A1DD005994D5;
+		};
+		8417724B0549A1DD005994D5 = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libkerberos4.2.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		841772550549A2B4005994D5 = {
+			fileRef = 777E7BC20236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		841772560549A2B5005994D5 = {
+			fileRef = 777E7BC30236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		841772570549A2B7005994D5 = {
+			fileRef = 777E7BCB0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		841772580549A2B8005994D5 = {
+			fileRef = 777E7BCC0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		841772630549A2ED005994D5 = {
+			isa = PBXTargetDependency;
+			target = 8417724A0549A1DD005994D5;
+			targetProxy = 84C04FC60549A382005DCF0F;
+		};
+		841772640549A306005994D5 = {
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2/disabled;
+			dstSubfolderSpec = 0;
+			files = (
+				84C0502E0549A8A1005DCF0F,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		843E1F1105472B830071DCEE = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libsasl2.2.dylib;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		843E1F1205472B9A0071DCEE = {
+			buildActionMask = 2147483647;
+			files = (
+				8481F5D90547306600B2B3B0,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		843E1F1305472B9A0071DCEE = {
+			buildActionMask = 2147483647;
+			files = (
+				8481F5D60547306000B2B3B0,
+				8481F5D70547306100B2B3B0,
+				8481F5D80547306600B2B3B0,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		843E1F1405472B9A0071DCEE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		843E1F1505472B9A0071DCEE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		843E1F1605472B9A0071DCEE = {
+			buildPhases = (
+				843E1F1205472B9A0071DCEE,
+				843E1F1305472B9A0071DCEE,
+				843E1F1405472B9A0071DCEE,
+				843E1F1505472B9A0071DCEE,
+				8481F5A205472D6A00B2B3B0,
+				AA0A78020662A5110017B8E5,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lgssapi_krb5";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libgssapiv2.2.0.18.so;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = plugin_gssapi;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_gssapi;
+			productReference = 843E1F1705472B9A0071DCEE;
+		};
+		843E1F1705472B9A0071DCEE = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libgssapiv2.2.0.18.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		8481F5A205472D6A00B2B3B0 = {
+			buildActionMask = 12;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				8481F5A705472DC500B2B3B0,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8481F5A605472DC500B2B3B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = libgssapiv2.la;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8481F5A705472DC500B2B3B0 = {
+			fileRef = 8481F5A605472DC500B2B3B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8481F5D60547306000B2B3B0 = {
+			fileRef = 777E7BC10236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8481F5D70547306100B2B3B0 = {
+			fileRef = 7733E7140238197D05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8481F5D80547306600B2B3B0 = {
+			fileRef = 777E7BCB0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8481F5D90547306600B2B3B0 = {
+			fileRef = 777E7BCC0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84C04FC20549A382005DCF0F = {
 			containerPortal = 77F5D69C0236D69405DD284B;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 777A3D81024BAC7C05DD284B;
 			remoteInfo = sasldb;
 		};
-		84D1326C04CE05F800A80155 = {
+		84C04FC30549A382005DCF0F = {
 			containerPortal = 77F5D69C0236D69405DD284B;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
-			remoteGlobalIDString = 777E7C8A0236E74C05DD284B;
-			remoteInfo = lib;
+			remoteGlobalIDString = 777E7C290236E5AF05DD284B;
+			remoteInfo = plugin_otp;
 		};
-		84D1326D04CE05F800A80155 = {
+		84C04FC40549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C1E0236E56505DD284B;
+			remoteInfo = plugin_login;
+		};
+		84C04FC50549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 84C98633054846530094A32F;
+			remoteInfo = plugin_ntlm;
+		};
+		84C04FC60549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 8417724A0549A1DD005994D5;
+			remoteInfo = plugin_kerberos4;
+		};
+		84C04FC70549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C360236E66305DD284B;
+			remoteInfo = plugin_plain;
+		};
+		84C04FC80549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 843E1F1605472B9A0071DCEE;
+			remoteInfo = plugin_gssapi;
+		};
+		84C04FC90549A382005DCF0F = {
 			containerPortal = 77F5D69C0236D69405DD284B;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 777745BD0236DB2A05DD284B;
 			remoteInfo = include;
 		};
+		84C04FCA0549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C8A0236E74C05DD284B;
+			remoteInfo = lib;
+		};
+		84C04FCB0549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7BFD0236E3D505DD284B;
+			remoteInfo = plugin_anonymous;
+		};
+		84C04FCC0549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C130236E47005DD284B;
+			remoteInfo = plugin_digest;
+		};
+		84C04FCD0549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C080236E43005DD284B;
+			remoteInfo = plugin_cram;
+		};
+		84C04FCE0549A382005DCF0F = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 77F5D6B80236D6E205DD284B;
+			remoteInfo = plugin_sasldb;
+		};
+		84C0502D0549A8A1005DCF0F = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = libkerberos4.la;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84C0502E0549A8A1005DCF0F = {
+			fileRef = 84C0502D0549A8A1005DCF0F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84C9862F054846530094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+				84DECA130548480400C45D20,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98630054846530094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+				84DECA0C054847E400C45D20,
+				84DECA0D054847E400C45D20,
+				84DECA120548480300C45D20,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98631054846530094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98632054846530094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98633054846530094A32F = {
+			buildPhases = (
+				84C9862F054846530094A32F,
+				84C98630054846530094A32F,
+				84C98631054846530094A32F,
+				84C98632054846530094A32F,
+				84DECA250548488A00C45D20,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libntlm.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = plugin_ntlm;
+			productInstallPath = /usr/local/lib;
+			productName = plugin_ntlm;
+			productReference = 84C98634054846530094A32F;
+		};
+		84C98634054846530094A32F = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libntlm.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		84C98638054846870094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+				84DECA110548480100C45D20,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98639054846870094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+				84DECA0E054847FD00C45D20,
+				84DECA0F054847FD00C45D20,
+				84DECA100548480000C45D20,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C9863A054846870094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+				84DECA4305484A1500C45D20,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C9863B054846870094A32F = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C9863C054846870094A32F = {
+			buildPhases = (
+				84C98638054846870094A32F,
+				84C98639054846870094A32F,
+				84C9863A054846870094A32F,
+				84C9863B054846870094A32F,
+				84DECA28054848B000C45D20,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsql.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = plugin_mysql;
+			productInstallPath = /usr/lib/sasl2/disabled;
+			productName = plugin_mysql;
+			productReference = 84C9863D054846870094A32F;
+		};
+		84C9863D054846870094A32F = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = libsql.so;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		84DECA06054847E400C45D20 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = mysql_init.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84DECA07054847E400C45D20 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = mysql.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84DECA08054847E400C45D20 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = ntlm_init.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84DECA09054847E400C45D20 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = ntlm.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84DECA0C054847E400C45D20 = {
+			fileRef = 84DECA08054847E400C45D20;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA0D054847E400C45D20 = {
+			fileRef = 84DECA09054847E400C45D20;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA0E054847FD00C45D20 = {
+			fileRef = 84DECA07054847E400C45D20;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA0F054847FD00C45D20 = {
+			fileRef = 84DECA06054847E400C45D20;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA100548480000C45D20 = {
+			fileRef = 777E7BCB0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA110548480100C45D20 = {
+			fileRef = 777E7BCC0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA120548480300C45D20 = {
+			fileRef = 777E7BCB0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA130548480400C45D20 = {
+			fileRef = 777E7BCC0236DDED05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA250548488A00C45D20 = {
+			buildActionMask = 2147483647;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				84DECA9D05484F6B00C45D20,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84DECA28054848B000C45D20 = {
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2/disabled;
+			dstSubfolderSpec = 0;
+			files = (
+				AA55533A06A30BBB00E276FD,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		84DECA4205484A1500C45D20 = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			name = libmysqlclient.a;
+			path = /usr/lib/mysql/libmysqlclient.a;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		84DECA4305484A1500C45D20 = {
+			fileRef = 84DECA4205484A1500C45D20;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84DECA9C05484F6A00C45D20 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = libntlm.la;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84DECA9D05484F6B00C45D20 = {
+			fileRef = 84DECA9C05484F6A00C45D20;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84F521060549A09A00E96C8F = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KerberosTargets;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				84F5210E0549A0CF00E96C8F,
+				841772630549A2ED005994D5,
+			);
+			isa = PBXAggregateTarget;
+			name = KerberosTargets;
+			productName = KerberosTargets;
+		};
+		84F5210E0549A0CF00E96C8F = {
+			isa = PBXTargetDependency;
+			target = 843E1F1605472B9A0071DCEE;
+			targetProxy = 84C04FC80549A382005DCF0F;
+		};
 //840
 //841
 //842
 //843
 //844
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
+		AA0A78020662A5110017B8E5 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"${DSTROOT}/usr/lib/sasl2\"\nrm -f \"libgssapiv2.2.so\"\nln -s \"libgssapiv2.2.0.18.so\" \"libgssapiv2.2.so\"\nmkdir -p \"${DSTROOT}/usr/lib/sasl2/openldap\"\ncd \"${DSTROOT}/usr/lib/sasl2/openldap\"\nrm -f \"libgssapiv2.la\" \"libgssapiv2.2.so\"\nln -s \"../libgssapiv2.la\" .\nln -s \"../libgssapiv2.2.so\" .";
+		};
+		AA16473207930EF20045A1BC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = passwordserver_sasl.plist;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		AA16473D079310020045A1BC = {
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				AA1647400793105B0045A1BC,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA1647400793105B0045A1BC = {
+			fileRef = AA16473207930EF20045A1BC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AA1FB856074A76D400911FCE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
+			path = "sasl-lib.exp";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		AA1FB857074A76D400911FCE = {
+			fileRef = AA1FB856074A76D400911FCE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AA55533906A30BBB00E276FD = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = libsql.la;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		AA55533A06A30BBB00E276FD = {
+			fileRef = AA55533906A30BBB00E276FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AA74DD1B0662A243001C5861 = {
+			containerPortal = 77F5D69C0236D69405DD284B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 84C9863C054846870094A32F;
+			remoteInfo = plugin_mysql;
+		};
+		AA74DD1C0662A243001C5861 = {
+			isa = PBXTargetDependency;
+			target = 84C9863C054846870094A32F;
+			targetProxy = AA74DD1B0662A243001C5861;
+		};
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
 //F50
 //F51
 //F52
 //F53
 //F54
 		F56C514A029C0BA301DD284B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = plugin_common.c;
 			refType = 4;
 			sourceTree = "<group>";
 		};
 		F56C514B029C0BA301DD284B = {
-			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = plugin_common.h;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		F56C514C029C0BA301DD284B = {
-			fileRef = F56C514A029C0BA301DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F56C514D029C0BA301DD284B = {
-			fileRef = F56C514B029C0BA301DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		F5BA890502BFD46701DD284B = {
 			buildActionMask = 8;
@@ -2350,7 +2765,7 @@
 			isa = PBXShellScriptBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "cd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.dylib\" \"libsasl2.2.dylib\"\nln -s \"libsasl2.2.0.1.dylib\" \"libsasl2.dylib\"\nln -s \"libsasl2.2.0.1.dylib\" \"libsasl2.2.dylib\"";
+			shellScript = "cd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.dylib\" \"libsasl2.2.dylib\" \nln -s \"libsasl2.2.0.1.dylib\" \"libsasl2.2.dylib\"\nln -s \"libsasl2.2.0.1.dylib\" \"libsasl2.dylib\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/cyrus_sasl/COPYING\" \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\n";
 		};
 	};
 	rootObject = 77F5D69C0236D69405DD284B;

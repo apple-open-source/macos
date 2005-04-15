@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_CPUFanCtrlLoop.cpp,v 1.13 2004/08/31 02:38:08 dirty Exp $
+ *  File: $Id: SMU_Neo2_CPUFanCtrlLoop.cpp,v 1.14 2005/02/18 23:05:31 dirty Exp $
  *
  */
 
@@ -798,6 +798,7 @@ void SMU_Neo2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 	UInt32						mainNewTarget = newTarget;
 	bool						outputAtMax = false;
 	bool						updateOutputAtMax = false;
+	bool						updateCtrlLoopState = false;
 
 	targetValue = newTarget;
 
@@ -819,7 +820,7 @@ void SMU_Neo2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 		if ( outputControl->sendTargetValue( mainNewTarget ) )
 			{
 			outputControl->setTargetValue( mainNewTarget );
-			ctrlloopState = kIOPCtrlLoopAllRegistered;
+			updateCtrlLoopState |= true;
 			}
 		else
 			{
@@ -851,7 +852,7 @@ void SMU_Neo2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 			if ( linkedControl->sendTargetValue( linkedNewTarget ) )
 				{
 				linkedControl->setTargetValue( linkedNewTarget );
-				ctrlloopState = kIOPCtrlLoopAllRegistered;
+				updateCtrlLoopState |= true;
 				}
 			else
 				{
@@ -866,6 +867,9 @@ void SMU_Neo2_CPUFanCtrlLoop::sendNewTarget( ControlValue newTarget )
 
 		( void ) platformPlugin->setEnvArray( gIOPPluginEnvCtrlLoopOutputAtMax, this, outputAtMax );
 		}
+
+	if ( updateCtrlLoopState )
+		ctrlloopState = kIOPCtrlLoopAllRegistered;
 	}
 
 

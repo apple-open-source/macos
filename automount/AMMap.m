@@ -199,28 +199,71 @@ static char * bootstrap_error_string(int errNum);
 	return [self mount:v withUid:99];
 }
 
+BOOL AbandonMountSequence( void )
+{
+	/* If there's a mount in progress in a subnode and this process is NOT the submounter,
+	   leave the remainder of the mount sequence to the submounter ancestor */
+	return (gForkedMountInProgress || gBlockedMountDependency) && !gSubMounter;
+}
+
 - (unsigned int)mount:(Vnode *)v withUid:(int)uid
 {
-	unsigned int i, len, status = 0, substatus, fail;
+	unsigned int i, len = 0, status = 0, substatus, fail = 0;
 	Array *kids;
+	int result;
+	pid_t child_pid;
 
 	sys_msg(debug_mount, LOG_DEBUG, "Mount triggered at %s", [[v path] value]);
 	if ([v server]) {
+		/* Mount a server, possibly fork()-ing in the process and returning with gForkedMountInProgress or gBlockedMountDependency set: */
+		sys_msg(debug_mount, LOG_DEBUG, "Mounting %s...", [[v path] value]);
 		status = [controller nfsmount:v withUid:uid];
 		if (status != 0)
 		{
-			sys_msg(debug_mount, LOG_ERR, "Mount %s status %d",
-				[[v path] value], status);
-			return status;
+			sys_msg(debug_mount, LOG_ERR, "Attempt to mount %s returned %d (%s)", [[v path] value], status, strerror(status));
+			goto Mount_Done;
 		}
-	
-		sys_msg(debug_mount, LOG_DEBUG, "Mount %s status NFS_OK",
-			[[v path] value]);
+		sys_msg(debug_mount, LOG_DEBUG, "Mount of %s completed successfully.", [[v path] value]);
 	};
 	
 	/* if there's a mount in progress in another process, leave subnodes for that child process to handle: */
-	if (gForkedMountInProgress || gBlockedMountDependency) return status;
+	if (AbandonMountSequence()) {
+		sys_msg(debug_mount, LOG_DEBUG, "Abandoning mount sequence from parent process %d [outside]...", getpid());
+		sys_msg(debug_mount, LOG_DEBUG, "Mount at %s returning status = %d", [[v path] value], status);
+		goto Mount_Done;
+	};
 	
+	if (gForkedMount && !gSubMounter) {
+		/* The previous mount left this process running as a forked-off mount child-process */
+		sys_msg(debug_mount, LOG_DEBUG, "Marking process %d as gSubMounter...", getpid());
+		gSubMounter = YES;		/* Note the fact that we're the top-most mounter child process */
+		gForkedMount = NO;		/* Make way for recording subsequent offsprint processes */
+	};
+	
+	if (gSubMounter) {
+		if (gForkedMount) {
+			/* We're offspring from a mouter child process and grandchild processes should not continue in the loop: */
+			sys_msg(debug_mount, LOG_DEBUG, "Forcing exit from grand-child process %d...", getpid());
+			exit((gMountResult < 128) ? gMountResult : ECANCELED);
+		} else if (gForkedMountInProgress) {
+			sys_msg(debug_mount, LOG_DEBUG, "Submounter %d: waiting for exit of grand-child process %d...", getpid(), gForkedMountPID);
+			while ((((child_pid = wait4(gForkedMountPID, &result, 0, NULL)) != 0) && (child_pid != -1)) ||
+				   ((child_pid == -1) && (errno == EINTR))) {
+				sys_msg(debug_mount, LOG_DEBUG, "Submounter %d: wait4() returned %d (errno = %d, %s)...", getpid(), child_pid, errno, strerror(errno));
+				if (child_pid == gForkedMountPID) {
+					sys_msg(debug_mount, LOG_DEBUG, "Submounter %d: completing mount by grand-child process %d...", getpid(), gForkedMountPID);
+					[controller completeMountInProgressBy:gForkedMountPID exitStatus:result];
+					/* This process will find "gForkedMountInProgress && !gSubMounter" and will abandon further mount attempts... */
+				};
+			};
+			sys_msg(debug_mount, LOG_DEBUG, "Submounter %d: wait4() loop terminated with %d (errno = %d, %s)...", getpid(), child_pid, errno, strerror(errno));
+			gForkedMountInProgress = NO;
+			gForkedMountPID = (pid_t)-1;
+		};
+	};
+		
+	/* Having mounted the top-level node, mount the lower nodes (being careful not to repeat the loop inside
+	   subsequent further offspring processes */
 	fail = 0;
 	kids = [v children];
 	len = 0;
@@ -228,17 +271,31 @@ static char * bootstrap_error_string(int errNum);
 	for (i = 0; i < len; i++)
 	{
 		Vnode *submountpoint = [kids objectAtIndex:i];
-		substatus = 0;
-		if (![submountpoint mounted]) substatus = [self mount:submountpoint withUid:uid];
+				
+		/* Mount a subnode, possibly leaving two processes running here;
+		   one of them will find 'gForkedMount' set in the next iteration and exit; the other will continue */
+		sys_msg(debug_mount, LOG_DEBUG, "Mounting offspring at %s", [[submountpoint path] value]);
+		substatus = [self mount:submountpoint withUid:uid];
 		if (substatus != 0) fail++;
+
+		/* if there's now, for the first time, a mount in progress in another process,
+		   leave subnodes for that child process to handle and speed a return here from the parent
+		   process (the top-level automount process): */
+		if (AbandonMountSequence()) {
+			sys_msg(debug_mount, LOG_DEBUG, "Abandoning mount sequence from parent process %d [inside]...", getpid());
+			sys_msg(debug_mount, LOG_DEBUG, "Mount at %s returning status = %d", [[v path] value], status);
+			goto Mount_Done;
+		};
 	}
 
+Mount_Done:
 	if ((len != 0) && (fail == len) && ([v source] == nil))
 	{
 		[v setMounted:NO];
 		status = 0;
 	}
 
+	sys_msg(debug_mount, LOG_DEBUG, "Mount at %s returning final status = %d", [[v path] value], status);
 	return status;
 }
 
@@ -276,9 +333,9 @@ static char * bootstrap_error_string(int errNum);
 
 	if (([v mounted]) &&
 		([v server] != nil) &&
-		!(doing_timeout && [v vfsType] && strcasecmp([[v vfsType] value], "url") == 0) &&
 		(![[v server] isLocalHost]))
 	{
+		if (doing_timeout && [v vfsType] && (strcasecmp([[v vfsType] value], "url") == 0)) return 1;
 		if ([v mountTimeToLive] == 0) return 1;
 
 		gettimeofday(&tv, NULL);

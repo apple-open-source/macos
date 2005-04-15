@@ -25,27 +25,45 @@
 
 #import "KWQKHTMLPart.h"
 
+#import "DOMInternal.h"
+
+#import "KWQClipboard.h"
 #import "KWQDOMNode.h"
 #import "KWQDummyView.h"
+#import "KWQEditCommand.h"
 #import "KWQExceptions.h"
+#import "KWQFormData.h"
+#import "KWQFoundationExtras.h"
 #import "KWQKJobClasses.h"
 #import "KWQLogging.h"
 #import "KWQPageState.h"
 #import "KWQPrinter.h"
+#import "KWQRegExp.h"
+#import "KWQScrollBar.h"
 #import "KWQWindowWidget.h"
+
 #import "WebCoreBridge.h"
-#import "WebCoreDOMPrivate.h"
+#import "WebCoreGraphicsBridge.h"
 #import "WebCoreViewFactory.h"
+#import "WebDashboardRegion.h"
+
+#import "css_computedstyle.h"
 #import "csshelper.h"
+#import "dom2_eventsimpl.h"
+#import "dom2_rangeimpl.h"
+#import "dom_position.h"
+#import "dom_textimpl.h"
+#import "html_document.h"
 #import "html_documentimpl.h"
+#import "html_formimpl.h"
 #import "html_misc.h"
+#import "html_tableimpl.h"
+#import "htmlattrs.h"
 #import "htmltokenizer.h"
 #import "khtmlpart_p.h"
 #import "khtmlview.h"
 #import "kjs_binding.h"
 #import "kjs_window.h"
-#import "misc/htmlattrs.h"
-#import "qscrollbar.h"
 #import "render_canvas.h"
 #import "render_frames.h"
 #import "render_image.h"
@@ -53,20 +71,54 @@
 #import "render_style.h"
 #import "render_table.h"
 #import "render_text.h"
-#import "xml/dom2_eventsimpl.h"
+#import "selection.h"
+#import "visible_position.h"
+#import "visible_text.h"
+#import "visible_units.h"
+
+#import <JavaScriptCore/identifier.h>
 #import <JavaScriptCore/property_map.h>
+#import <JavaScriptCore/runtime.h>
+#import <JavaScriptCore/runtime_root.h>
+#import <JavaScriptCore/WebScriptObjectPrivate.h>
+
+#if APPLE_CHANGES
+#import "KWQAccObjectCache.h"
+#endif
 
 #undef _KWQ_TIMING
 
+using DOM::AtomicString;
+using DOM::ClipboardEventImpl;
+using DOM::DocumentFragmentImpl;
 using DOM::DocumentImpl;
+using DOM::DocumentMarker;
 using DOM::DOMString;
 using DOM::ElementImpl;
 using DOM::EventImpl;
+using DOM::HTMLDocumentImpl;
+using DOM::HTMLElementImpl;
+using DOM::HTMLFormElementImpl;
+using DOM::HTMLFrameElementImpl;
+using DOM::HTMLGenericFormElementImpl;
+using DOM::HTMLTableCellElementImpl;
 using DOM::Node;
+using DOM::NodeImpl;
+using DOM::Position;
+using DOM::Range;
+using DOM::RangeImpl;
+using DOM::TextImpl;
 
 using khtml::Cache;
+using khtml::CharacterIterator;
 using khtml::ChildFrame;
 using khtml::Decoder;
+using khtml::DashboardRegionValue;
+using khtml::EditCommandPtr;
+using khtml::endOfWord;
+using khtml::findPlainText;
+using khtml::InlineTextBox;
+using khtml::LeftWordIfOnBoundary;
 using khtml::MouseDoubleClickEvent;
 using khtml::MouseMoveEvent;
 using khtml::MousePressEvent;
@@ -83,8 +135,19 @@ using khtml::RenderStyle;
 using khtml::RenderTableCell;
 using khtml::RenderText;
 using khtml::RenderWidget;
-using khtml::InlineTextBoxArray;
+using khtml::RightWordIfOnBoundary;
+using khtml::Selection;
+using khtml::setEnd;
+using khtml::setStart;
+using khtml::ShadowData;
+using khtml::startOfWord;
+using khtml::startVisiblePosition;
+using khtml::StyleDashboardRegion;
+using khtml::TextIterator;
+using khtml::DOWNSTREAM;
 using khtml::VISIBLE;
+using khtml::VisiblePosition;
+using khtml::WordAwareIterator;
 
 using KIO::Job;
 
@@ -95,11 +158,12 @@ using KJS::SavedProperties;
 using KJS::ScheduledAction;
 using KJS::Window;
 
+using KJS::Bindings::Instance;
+
 using KParts::ReadOnlyPart;
 using KParts::URLArgs;
 
 NSEvent *KWQKHTMLPart::_currentEvent = nil;
-NSResponder *KWQKHTMLPart::_firstResponderAtMouseDownTime = nil;
 
 void KHTMLPart::completed()
 {
@@ -135,6 +199,11 @@ void KHTMLPart::started(Job *j)
     KWQ(this)->_started.call(j);
 }
 
+bool KHTMLView::isKHTMLView() const
+{
+    return true;
+}
+
 static void redirectionTimerMonitor(void *context)
 {
     KWQKHTMLPart *kwq = static_cast<KWQKHTMLPart *>(context);
@@ -149,11 +218,19 @@ KWQKHTMLPart::KWQKHTMLPart()
     , _sendingEventToSubview(false)
     , _mouseDownMayStartDrag(false)
     , _mouseDownMayStartSelect(false)
+    , _activationEventNumber(0)
     , _formValuesAboutToBeSubmitted(nil)
     , _formAboutToBeSubmitted(nil)
     , _windowWidget(NULL)
-    , _usesInactiveTextBackgroundColor(false)
-    , _showsFirstResponder(true)
+    , _drawSelectionOnly(false)
+    , _bindingRoot(0)
+    , _windowScriptObject(0)
+    , _windowScriptNPObject(0)
+    , _dragSrc(0)
+    , _dragClipboard(0)
+    , _elementToDraw(0)
+    , m_markedTextUsesUnderlines(false)
+    , m_windowHasFocus(false)
 {
     // Must init the cache before connecting to any signals
     Cache::init();
@@ -173,12 +250,25 @@ KWQKHTMLPart::~KWQKHTMLPart()
     if (d->m_view) {
 	d->m_view->deref();
     }
+    freeClipboard();
     // these are all basic Foundation classes and our own classes - we
     // know they will not raise in dealloc, so no need to block
     // exceptions.
-    [_formValuesAboutToBeSubmitted release];
-    [_formAboutToBeSubmitted release];
+    KWQRelease(_formValuesAboutToBeSubmitted);
+    KWQRelease(_formAboutToBeSubmitted);
+    
+    KWQRelease(_windowScriptObject);
+    
     delete _windowWidget;
+}
+
+void KWQKHTMLPart::freeClipboard()
+{
+    if (_dragClipboard) {
+        _dragClipboard->setAccessPolicy(KWQClipboard::Numb);
+	_dragClipboard->deref();
+        _dragClipboard = 0;
+    }
 }
 
 void KWQKHTMLPart::setSettings (KHTMLSettings *settings)
@@ -207,18 +297,14 @@ bool KWQKHTMLPart::openURL(const KURL &url)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    bool onLoad = false;
+    bool userGesture = true;
     
     if (jScript() && jScript()->interpreter()) {
         KHTMLPart *rootPart = this;
         while (rootPart->parentPart() != 0)
             rootPart = rootPart->parentPart();
         KJS::ScriptInterpreter *interpreter = static_cast<KJS::ScriptInterpreter *>(KJSProxy::proxy(rootPart)->interpreter());
-        DOM::Event *evt = interpreter->getCurrentEvent();
-        
-        if (evt) {
-            onLoad = (evt->type() == "load");
-        }
+        userGesture = interpreter->wasRunByUserGesture();
     }
 
     // FIXME: The lack of args here to get the reload flag from
@@ -227,7 +313,7 @@ bool KWQKHTMLPart::openURL(const KURL &url)
     [_bridge loadURL:url.getNSURL()
             referrer:[_bridge referrer]
               reload:NO
-              onLoadEvent:onLoad
+         userGesture:userGesture
               target:nil
      triggeringEvent:nil
                 form:nil
@@ -242,10 +328,18 @@ void KWQKHTMLPart::openURLRequest(const KURL &url, const URLArgs &args)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
+    NSString *referrer;
+    QString argsReferrer = args.metaData()["referrer"];
+    if (!argsReferrer.isEmpty()) {
+        referrer = argsReferrer.getNSString();
+    } else {
+        referrer = [_bridge referrer];
+    }
+
     [_bridge loadURL:url.getNSURL()
-            referrer:[_bridge referrer]
+            referrer:referrer
               reload:args.reload
-              onLoadEvent:false
+         userGesture:true
               target:args.frameName.getNSString()
      triggeringEvent:nil
                 form:nil
@@ -304,10 +398,7 @@ HTMLFormElementImpl *KWQKHTMLPart::currentForm() const
     }
 
     // try walking forward in the node tree to find a form element
-    if (!start) {
-        start = xmlDocImpl();
-    }
-    return scanForForm(start);
+    return start ? scanForForm(start) : 0;
 }
 
 // Either get cached regexp or build one that matches any of the labels.
@@ -478,8 +569,9 @@ NSString *KWQKHTMLPart::searchForLabelsBeforeElement(NSArray *labels, ElementImp
 NSString *KWQKHTMLPart::matchLabelsAgainstElement(NSArray *labels, ElementImpl *element)
 {
     QString name = element->getAttribute(ATTR_NAME).string();
-    // Make numbers in field names behave like word boundaries, e.g., "address2"
+    // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
     name.replace(QRegExp("[[:digit:]]"), " ");
+    name.replace('_', ' ');
     
     QRegExp *regExp = regExpForLabels(labels);
     // Use the largest match we can find in the whole name string
@@ -512,44 +604,40 @@ NSString *KWQKHTMLPart::matchLabelsAgainstElement(NSArray *labels, ElementImpl *
 bool KWQKHTMLPart::findString(NSString *string, bool forward, bool caseFlag, bool wrapFlag)
 {
     QString target = QString::fromNSString(string);
-    bool result;
-    // start on the correct edge of the selection, search to end
-    NodeImpl *selStart = selectionStart();
-    int selStartOffset = selectionStartOffset();
-    NodeImpl *selEnd = selectionEnd();
-    int selEndOffset = selectionEndOffset();
-    if (selStart) {
-        if (forward) {
-            // point to last char of selection, find will start right afterwards
-            findTextBegin(selEnd, selEndOffset-1);
-        } else {
-            // point to first char of selection, find will start right before
-            findTextBegin(selStart, selStartOffset);
-        }
-    } else {
-        findTextBegin();
+    if (target.isEmpty()) {
+        return false;
     }
-    result = findTextNext(target, forward, caseFlag, FALSE);
-    if (!result && wrapFlag) {
-        // start back at the other end, search the rest
-        findTextBegin();
-        result = findTextNext(target, forward, caseFlag, FALSE);
-        // if we got back to the same place we started, that doesn't count as success
-        if (result
-            && selStart == selectionStart()
-            && selStartOffset == selectionStartOffset())
-        {
-            result = false;
+
+    // Start on the correct edge of the selection, search to edge of document.
+    Range searchRange(xmlDocImpl());
+    searchRange.selectNodeContents(xmlDocImpl());
+    if (selectionStart()) {
+        if (forward) {
+            setStart(searchRange, VisiblePosition(selection().end(), selection().endAffinity()));
+        } else {
+            setEnd(searchRange, VisiblePosition(selection().start(), selection().startAffinity()));
         }
     }
 
-    // khtml took care of moving the selection, but we need to move first responder too,
-    // so the selection is primary.  We also need to make the selection visible, since we
-    // cut the implementation of this in khtml_part.
-    if (result) {
-        jumpToSelection();
+    // Do the search once, then do it a second time to handle wrapped search.
+    // Searches some or all of document twice in the failure case, but that's probably OK.
+    Range resultRange = findPlainText(searchRange, target, forward, caseFlag);
+    if (resultRange.collapsed() && wrapFlag) {
+        searchRange.selectNodeContents(xmlDocImpl());
+        resultRange = findPlainText(searchRange, target, forward, caseFlag);
+        // If we got back to the same place we started, that doesn't count as success.
+        if (resultRange == selection().toRange()) {
+            return false;
+        }
     }
-    return result;
+
+    if (resultRange.collapsed()) {
+        return false;
+    }
+
+    setSelection(Selection(resultRange, DOWNSTREAM, khtml::SEL_PREFER_UPSTREAM_AFFINITY));
+    jumpToSelection();
+    return true;
 }
 
 void KWQKHTMLPart::clearRecordedFormValues()
@@ -557,9 +645,9 @@ void KWQKHTMLPart::clearRecordedFormValues()
     // It's safe to assume that our own classes and Foundation data
     // structures won't raise exceptions in dealloc
 
-    [_formValuesAboutToBeSubmitted release];
+    KWQRelease(_formValuesAboutToBeSubmitted);
     _formValuesAboutToBeSubmitted = nil;
-    [_formAboutToBeSubmitted release];
+    KWQRelease(_formAboutToBeSubmitted);
     _formAboutToBeSubmitted = nil;
 }
 
@@ -569,11 +657,11 @@ void KWQKHTMLPart::recordFormValue(const QString &name, const QString &value, HT
     // data structures won't raise exceptions
 
     if (!_formValuesAboutToBeSubmitted) {
-        _formValuesAboutToBeSubmitted = [[NSMutableDictionary alloc] init];
+        _formValuesAboutToBeSubmitted = KWQRetainNSRelease([[NSMutableDictionary alloc] init]);
         ASSERT(!_formAboutToBeSubmitted);
-        _formAboutToBeSubmitted = [[WebCoreDOMElement elementWithImpl:element] retain];
+        _formAboutToBeSubmitted = KWQRetain([DOMElement _elementWithImpl:element]);
     } else {
-        ASSERT([_formAboutToBeSubmitted elementImpl] == element);
+        ASSERT([_formAboutToBeSubmitted _elementImpl] == element);
     }
     [_formValuesAboutToBeSubmitted setObject:value.getNSString() forKey:name.getNSString()];
 }
@@ -582,8 +670,16 @@ void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    // The form multi-submit logic here is only right when we are submitting a form that affects this frame.
-    // Eventually when we find a better fix we can remove this altogether.
+    // FIXME: We'd like to remove this altogether and fix the multiple form submission issue another way.
+    // We do not want to submit more than one form from the same page,
+    // nor do we want to submit a single form more than once.
+    // This flag prevents these from happening; not sure how other browsers prevent this.
+    // The flag is reset in each time we start handle a new mouse or key down event, and
+    // also in setView since this part may get reused for a page from the back/forward cache.
+    // The form multi-submit logic here is only needed when we are submitting a form that affects this frame.
+    // FIXME: Frame targeting is only one of the ways the submission could end up doing something other
+    // than replacing this frame's content, so this check is flawed. On the other hand, the check is hardly
+    // needed any more now that we reset _submittedFormURL on each mouse or key down event.
     WebCoreBridge *target = args.frameName.isEmpty() ? _bridge : [_bridge findFrameNamed:args.frameName.getNSString()];
     KHTMLPart *targetPart = [target part];
     bool willReplaceThisFrame = false;
@@ -594,11 +690,6 @@ void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
         }
     }
     if (willReplaceThisFrame) {
-        // We do not want to submit more than one form from the same page,
-        // nor do we want to submit a single form more than once.
-        // This flag prevents these from happening.
-        // Note that the flag is reset in setView()
-        // since this part may get reused if it is pulled from the b/f cache.
         if (_submittedFormURL == url) {
             return;
         }
@@ -609,7 +700,7 @@ void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
         [_bridge loadURL:url.getNSURL()
 	        referrer:[_bridge referrer] 
                   reload:args.reload
-             onLoadEvent:false
+             userGesture:true
   	          target:args.frameName.getNSString()
          triggeringEvent:_currentEvent
                     form:_formAboutToBeSubmitted
@@ -619,7 +710,7 @@ void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
         [_bridge postWithURL:url.getNSURL()
 	            referrer:[_bridge referrer] 
                       target:args.frameName.getNSString()
-                        data:[NSData dataWithBytes:args.postData.data() length:args.postData.size()]
+                        data:arrayFromFormData(args.postData)
                  contentType:args.contentType().mid(14).getNSString()
              triggeringEvent:_currentEvent
                         form:_formAboutToBeSubmitted
@@ -675,14 +766,24 @@ void KHTMLPart::frameDetached()
 void KWQKHTMLPart::urlSelected(const KURL &url, int button, int state, const URLArgs &args)
 {
     KWQ_BLOCK_EXCEPTIONS;
+
+    NSString *referrer;
+    QString argsReferrer = args.metaData()["referrer"];
+    if (!argsReferrer.isEmpty()) {
+        referrer = argsReferrer.getNSString();
+    } else {
+        referrer = [_bridge referrer];
+    }
+
     [_bridge loadURL:url.getNSURL()
-            referrer:[_bridge referrer]
+            referrer:referrer
               reload:args.reload
-         onLoadEvent:false
+         userGesture:true
               target:args.frameName.getNSString()
      triggeringEvent:_currentEvent
                 form:nil
           formValues:nil];
+
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -699,16 +800,11 @@ ReadOnlyPart *KWQKHTMLPart::createPart(const ChildFrame &child, const KURL &url,
 
     BOOL needFrame = [_bridge frameRequiredForMIMEType:mimeType.getNSString() URL:url.getNSURL()];
     if (child.m_type == ChildFrame::Object && !needFrame) {
-        NSMutableArray *attributesArray = [NSMutableArray arrayWithCapacity:child.m_params.count()];
-        for (uint i = 0; i < child.m_params.count(); i++) {
-            [attributesArray addObject:child.m_params[i].getNSString()];
-        }
-        
         KWQPluginPart *newPart = new KWQPluginPart;
         newPart->setWidget(new QWidget([_bridge viewForPluginWithURL:url.getNSURL()
-                                                          attributes:attributesArray
-                                                             baseURL:KURL(d->m_doc->baseURL()).getNSURL()
-                                                            MIMEType:child.m_args.serviceType.getNSString()]));
+                                                      attributeNames:child.m_paramNames.getNSArray()
+                                                     attributeValues:child.m_paramValues.getNSArray()
+                                                             MIMEType:child.m_args.serviceType.getNSString()]));
         part = newPart;
     } else {
         LOG(Frames, "name %s", child.m_name.ascii());
@@ -723,14 +819,17 @@ ReadOnlyPart *KWQKHTMLPart::createPart(const ChildFrame &child, const KURL &url,
         }
         WebCoreBridge *childBridge = [_bridge createChildFrameNamed:child.m_name.getNSString()
                                                             withURL:url.getNSURL()
+                                                           referrer:child.m_args.metaData()["referrer"].getNSString()
                                                          renderPart:child.m_frame
                                                     allowsScrolling:allowsScrolling
                                                         marginWidth:marginWidth
                                                        marginHeight:marginHeight];
 	// This call needs to return an object with a ref, since the caller will expect to own it.
 	// childBridge owns the only ref so far.
-	[childBridge part]->ref();
         part = [childBridge part];
+        if (part) {
+            part->ref();
+        }
     }
 
     return part;
@@ -772,7 +871,7 @@ KHTMLView *KWQKHTMLPart::view() const
 void KWQKHTMLPart::setTitle(const DOMString &title)
 {
     QString text = title.string();
-    text.replace('\\', backslashAsCurrencySymbol());
+    text.replace(QChar('\\'), backslashAsCurrencySymbol());
 
     KWQ_BLOCK_EXCEPTIONS;
     [_bridge setTitle:text.getNSString()];
@@ -782,7 +881,7 @@ void KWQKHTMLPart::setTitle(const DOMString &title)
 void KWQKHTMLPart::setStatusBarText(const QString &status)
 {
     QString text = status;
-    text.replace('\\', backslashAsCurrencySymbol());
+    text.replace(QChar('\\'), backslashAsCurrencySymbol());
 
     KWQ_BLOCK_EXCEPTIONS;
     [_bridge setStatusText:text.getNSString()];
@@ -805,18 +904,20 @@ void KWQKHTMLPart::unfocusWindow()
 
 void KWQKHTMLPart::jumpToSelection()
 {
-    // Assumes that selection will only ever be text nodes. This is currently
+    // Assumes that selection start will only ever be a text node. This is currently
     // true, but will it always be so?
-    if (!d->m_selectionStart.isNull()) {
-        RenderText *rt = dynamic_cast<RenderText *>(d->m_selectionStart.handle()->renderer());
+    if (d->m_selection.start().isNotNull()) {
+        RenderText *rt = dynamic_cast<RenderText *>(d->m_selection.start().node()->renderer());
         if (rt) {
             int x = 0, y = 0;
-            rt->posOfChar(d->m_startOffset, x, y);
+            rt->posOfChar(d->m_selection.start().offset(), x, y);
             // The -50 offset is copied from KHTMLPart::findTextNext, which sets the contents position
             // after finding a matched text string.
-           d->m_view->setContentsPos(x - 50, y - 50);
+            d->m_view->setContentsPos(x - 50, y - 50);
         }
 /*
+        Something like this would fix <rdar://problem/3154293>: "Find Next should not scroll page if the next target is already visible"
+
         I think this would be a better way to do this, to avoid needless horizontal scrolling,
         but it is not feasible until selectionRect() returns a tighter rect around the
         selected text.  Right now it works at element granularity.
@@ -835,6 +936,175 @@ void KWQKHTMLPart::jumpToSelection()
 	KWQ_UNBLOCK_EXCEPTIONS;
 */
     }
+}
+
+QString KWQKHTMLPart::advanceToNextMisspelling(bool startBeforeSelection)
+{
+    // The basic approach is to search in two phases - from the selection end to the end of the doc, and
+    // then we wrap and search from the doc start to (approximately) where we started.
+    
+    // Start at the end of the selection, search to edge of document.  Starting at the selection end makes
+    // repeated "check spelling" commands work.
+    Range searchRange(xmlDocImpl());
+    searchRange.selectNodeContents(xmlDocImpl());
+    bool startedWithSelection = false;
+    if (selectionStart()) {
+        startedWithSelection = true;
+        if (startBeforeSelection) {
+            VisiblePosition start(selection().start(), selection().startAffinity());
+            // We match AppKit's rule: Start 1 character before the selection.
+            VisiblePosition oneBeforeStart = start.previous();
+            setStart(searchRange, oneBeforeStart.isNotNull() ? oneBeforeStart : start);
+        } else {
+            setStart(searchRange, VisiblePosition(selection().end(), selection().endAffinity()));
+        }
+    }
+
+    // If we're not in an editable node, try to find one, make that our range to work in
+    NodeImpl *editableNodeImpl = searchRange.startContainer().handle();
+    if (!editableNodeImpl->isContentEditable()) {
+        editableNodeImpl = editableNodeImpl->nextEditable();
+        if (!editableNodeImpl) {
+            return QString();
+        }
+        searchRange.setStartBefore(editableNodeImpl);
+        startedWithSelection = false;   // won't need to wrap
+    }
+    
+    // topNode defines the whole range we want to operate on 
+    Node topNode(editableNodeImpl->rootEditableElement());
+    searchRange.setEndAfter(topNode);
+
+    // Make sure start of searchRange is not in the middle of a word.  Jumping back a char and then
+    // forward by a word happens to do the trick.
+    if (startedWithSelection) {
+        VisiblePosition oneBeforeStart = startVisiblePosition(searchRange, DOWNSTREAM).previous();
+        if (oneBeforeStart.isNotNull()) {
+            setStart(searchRange, endOfWord(oneBeforeStart));
+        } // else we were already at the start of the editable node
+    }
+    
+    if (searchRange.collapsed()) {
+        return QString();       // nothing to search in
+    }
+    
+    NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    WordAwareIterator it(searchRange);
+    bool wrapped = false;
+    
+    // We go to the end of our first range instead of the start of it, just to be sure
+    // we don't get foiled by any word boundary problems at the start.  It means we might
+    // do a tiny bit more searching.
+    Node searchEndAfterWrapNode = it.range().endContainer();
+    long searchEndAfterWrapOffset = it.range().endOffset();
+
+    while (1) {
+        if (!it.atEnd()) {      // we may be starting at the end of the doc, and already by atEnd
+            const QChar *chars = it.characters();
+            long len = it.length();
+            if (len > 1 || !chars[0].isSpace()) {
+                NSString *chunk = [[NSString alloc] initWithCharactersNoCopy:(unichar *)chars length:len freeWhenDone:NO];
+                NSRange misspelling = [checker checkSpellingOfString:chunk startingAt:0 language:nil wrap:NO inSpellDocumentWithTag:[_bridge spellCheckerDocumentTag] wordCount:NULL];
+                [chunk release];
+                if (misspelling.length > 0) {
+                    // Build up result range and string.  Note the misspelling may span many text nodes,
+                    // but the CharIterator insulates us from this complexity
+                    Range misspellingRange(xmlDocImpl());
+                    CharacterIterator chars(it.range());
+                    chars.advance(misspelling.location);
+                    misspellingRange.setStart(chars.range().startContainer(), chars.range().startOffset());
+                    QString result = chars.string(misspelling.length);
+                    misspellingRange.setEnd(chars.range().startContainer(), chars.range().startOffset());
+
+                    setSelection(Selection(misspellingRange, DOWNSTREAM, khtml::SEL_PREFER_UPSTREAM_AFFINITY));
+                    jumpToSelection();
+                    // Mark misspelling in document.
+                    xmlDocImpl()->addMarker(misspellingRange, DocumentMarker::Spelling);
+                    return result;
+                }
+            }
+        
+            it.advance();
+        }
+        if (it.atEnd()) {
+            if (wrapped || !startedWithSelection) {
+                break;      // finished the second range, or we did the whole doc with the first range
+            } else {
+                // we've gone from the selection to the end of doc, now wrap around
+                wrapped = YES;
+                searchRange.setStartBefore(topNode);
+                // going until the end of the very first chunk we tested is far enough
+                searchRange.setEnd(searchEndAfterWrapNode, searchEndAfterWrapOffset);
+                it = WordAwareIterator(searchRange);
+            }
+        }   
+    }
+    
+    return QString();
+}
+
+bool KWQKHTMLPart::scrollOverflow(KWQScrollDirection direction, KWQScrollGranularity granularity)
+{
+    if (!xmlDocImpl()) {
+        return false;
+    }
+    
+    NodeImpl *node = xmlDocImpl()->focusNode();
+    if (node == 0) {
+        node = d->m_mousePressNode.handle();
+    }
+    
+    if (node != 0) {
+        RenderObject *r = node->renderer();
+        if (r != 0) {
+            return r->scroll(direction, granularity);
+        }
+    }
+    
+    return false;
+}
+
+bool KWQKHTMLPart::scrollOverflowWithScrollWheelEvent(NSEvent *event)
+{
+    RenderObject *r = renderer();
+    if (r == 0) {
+        return false;
+    }
+    
+    NSPoint point = [d->m_view->getDocumentView() convertPoint:[event locationInWindow] fromView:nil];
+    RenderObject::NodeInfo nodeInfo(true, true);
+    r->layer()->hitTest(nodeInfo, (int)point.x, (int)point.y);    
+    
+    NodeImpl *node = nodeInfo.innerNode();
+    if (node == 0) {
+        return false;
+    }
+    
+    r = node->renderer();
+    if (r == 0) {
+        return false;
+    }
+    
+    KWQScrollDirection direction;
+    float multiplier;
+    float deltaX = [event deltaX];
+    float deltaY = [event deltaY];
+    if (deltaX < 0) {
+        direction = KWQScrollRight;
+        multiplier = -deltaX;
+    } else if (deltaX > 0) {
+        direction = KWQScrollLeft;
+        multiplier = deltaX;
+    } else if (deltaY < 0) {
+        direction = KWQScrollDown;
+        multiplier = -deltaY;
+    }  else if (deltaY > 0) {
+        direction = KWQScrollUp;
+        multiplier = deltaY;
+    } else {
+        return false;
+    }
+    return r->scroll(direction, KWQScrollWheel, multiplier);
 }
 
 void KWQKHTMLPart::redirectionTimerStartedOrStopped()
@@ -860,25 +1130,38 @@ void KWQKHTMLPart::redirectionTimerStartedOrStopped()
 void KWQKHTMLPart::paint(QPainter *p, const QRect &rect)
 {
 #ifndef NDEBUG
-    bool isPrinting = (p->device()->devType() == QInternal::Printer);
-    if (!isPrinting && xmlDocImpl() && !xmlDocImpl()->ownerElement()) {
+    bool fillWithRed;
+    if (p->device()->devType() == QInternal::Printer)
+        fillWithRed = false; // Printing, don't fill with red (can't remember why).
+    else if (!xmlDocImpl() || xmlDocImpl()->ownerElement())
+        fillWithRed = false; // Subframe, don't fill with red.
+    else if (view() && view()->isTransparent())
+        fillWithRed = false; // Transparent, don't fill with red.
+    else if (_drawSelectionOnly)
+        fillWithRed = false; // Selections are transparent, don't fill with red.
+    else if (_elementToDraw != 0)
+        fillWithRed = false; // Element images are transparent, don't fill with red.
+    else
+        fillWithRed = true;
+
+    if (fillWithRed) {
         p->fillRect(rect.x(), rect.y(), rect.width(), rect.height(), QColor(0xFF, 0, 0));
     }
 #endif
 
     if (renderer()) {
-        renderer()->layer()->paint(p, rect);
+        // _elementToDraw is used to draw only one element
+        RenderObject *eltRenderer = (_elementToDraw != 0) ? _elementToDraw.handle()->renderer() : 0;
+        renderer()->layer()->paint(p, rect, _drawSelectionOnly, eltRenderer);
+
+#if APPLE_CHANGES
+        // Regions may have changed as a result of the visibility/z-index of element changing.
+        if (renderer()->document()->dashboardRegionsDirty()){
+            renderer()->canvas()->view()->updateDashboardRegions();
+        }
+#endif
     } else {
         ERROR("called KWQKHTMLPart::paint with nil renderer");
-    }
-}
-
-void KWQKHTMLPart::paintSelectionOnly(QPainter *p, const QRect &rect)
-{
-    if (renderer()) {
-        renderer()->layer()->paint(p, rect, true);
-    } else {
-        ERROR("called KWQKHTMLPart::paintSelectionOnly with nil renderer");
     }
 }
 
@@ -903,7 +1186,7 @@ void KWQKHTMLPart::adjustPageHeight(float *newBottom, float oldTop, float oldBot
     }
 }
 
-RenderObject *KWQKHTMLPart::renderer()
+RenderObject *KWQKHTMLPart::renderer() const
 {
     DocumentImpl *doc = xmlDocImpl();
     return doc ? doc->renderer() : 0;
@@ -945,26 +1228,19 @@ NSView *KWQKHTMLPart::nextKeyViewInFrame(NodeImpl *node, KWQSelectionDirection d
         if (renderWidget) {
             QWidget *widget = renderWidget->widget();
             KHTMLView *childFrameWidget = dynamic_cast<KHTMLView *>(widget);
+            NSView *view = nil;
             if (childFrameWidget) {
-                NSView *view = KWQ(childFrameWidget->part())->nextKeyViewInFrame(0, direction);
-                if (view) {
-                    return view;
-                }
+                view = KWQ(childFrameWidget->part())->nextKeyViewInFrame(0, direction);
             } else if (widget) {
-                NSView *view = widget->getView();
-                // AppKit won't be able to handle scrolling and making us the first responder
-                // well unless we are actually installed in the correct place. KHTML only does
-                // that for visible widgets, so we need to do it explicitly here.
-                int x, y;
-                if (view && renderWidget->absolutePosition(x, y)) {
-                    renderWidget->view()->addChild(widget, x, y);
-                    return view;
-                }
+                view = widget->getView();
+            }
+            if (view) {
+                return view;
             }
         }
         else {
             doc->setFocusNode(node);
-            if (view()) {
+            if (view() && node->renderer() && !node->renderer()->isRoot()) {
                 view()->ensureRectVisibleCentered(node->getRect());
             }
             [_bridge makeFirstResponder:[_bridge documentView]];
@@ -976,25 +1252,22 @@ NSView *KWQKHTMLPart::nextKeyViewInFrame(NodeImpl *node, KWQSelectionDirection d
 NSView *KWQKHTMLPart::nextKeyViewInFrameHierarchy(NodeImpl *node, KWQSelectionDirection direction)
 {
     NSView *next = nextKeyViewInFrame(node, direction);
-    if (next) {
-        return next;
-    }
-
-    // remove focus from currently focused node
-    DocumentImpl *doc = xmlDocImpl();
-    if (doc) {
-        doc->setFocusNode(0);
-    }
-    
-    KWQKHTMLPart *parent = KWQ(parentPart());
-    if (parent) {
-        next = parent->nextKeyView(parent->childFrame(this)->m_frame->element(), direction);
-        if (next) {
-            return next;
+    if (!next) {
+        KWQKHTMLPart *parent = KWQ(parentPart());
+        if (parent) {
+            next = parent->nextKeyViewInFrameHierarchy(parent->childFrame(this)->m_frame->element(), direction);
         }
     }
     
-    return nil;
+    // remove focus from currently focused node if we're giving focus to another view
+    if (next && (next != [_bridge documentView])) {
+        DocumentImpl *doc = xmlDocImpl();
+        if (doc) {
+            doc->setFocusNode(0);
+        }            
+    }    
+    
+    return next;
 }
 
 NSView *KWQKHTMLPart::nextKeyView(NodeImpl *node, KWQSelectionDirection direction)
@@ -1099,7 +1372,67 @@ bool KWQKHTMLPart::tabsToLinks() const
 
 bool KWQKHTMLPart::tabsToAllControls() const
 {
-    return ([_bridge keyboardUIMode] & WebCoreKeyboardAccessFull);
+    WebCoreKeyboardUIMode keyboardUIMode = [_bridge keyboardUIMode];
+    BOOL handlingOptionTab = KWQKHTMLPart::currentEventIsKeyboardOptionTab();
+
+    // If tab-to-links is off, option-tab always highlights all controls
+    if ((keyboardUIMode & WebCoreKeyboardAccessTabsToLinks) == 0 && handlingOptionTab) {
+        return YES;
+    }
+    
+    // If system preferences say to include all controls, we always include all controls
+    if (keyboardUIMode & WebCoreKeyboardAccessFull) {
+        return YES;
+    }
+    
+    // Otherwise tab-to-links includes all controls, unless the sense is flipped via option-tab.
+    if (keyboardUIMode & WebCoreKeyboardAccessTabsToLinks) {
+        return !handlingOptionTab;
+    }
+    
+    return handlingOptionTab;
+}
+
+KJS::Bindings::RootObject *KWQKHTMLPart::executionContextForDOM()
+{
+    return bindingRootObject();
+}
+
+KJS::Bindings::RootObject *KWQKHTMLPart::bindingRootObject()
+{
+    if (!_bindingRoot) {
+        _bindingRoot = new KJS::Bindings::RootObject(0);    // The root gets deleted by JavaScriptCore.
+        KJS::ObjectImp *win = static_cast<KJS::ObjectImp *>(KJS::Window::retrieveWindow(this));
+        _bindingRoot->setRootObjectImp (win);
+        _bindingRoot->setInterpreter (KJSProxy::proxy(this)->interpreter());
+        addPluginRootObject (_bindingRoot);
+    }
+    return _bindingRoot;
+}
+
+WebScriptObject *KWQKHTMLPart::windowScriptObject()
+{
+    if (!_windowScriptObject) {
+        KJS::ObjectImp *win = static_cast<KJS::ObjectImp *>(KJS::Window::retrieveWindow(this));
+        _windowScriptObject = KWQRetainNSRelease([[WebScriptObject alloc] _initWithObjectImp:win originExecutionContext:bindingRootObject() executionContext:bindingRootObject()]);
+    }
+
+    return _windowScriptObject;
+}
+
+NPObject *KWQKHTMLPart::windowScriptNPObject()
+{
+    if (!_windowScriptNPObject) {
+        KJS::ObjectImp *win = static_cast<KJS::ObjectImp *>(KJS::Window::retrieveWindow(this));
+        _windowScriptNPObject = _NPN_CreateScriptObject (0, win, bindingRootObject(), bindingRootObject());
+    }
+
+    return _windowScriptNPObject;
+}
+
+void KWQKHTMLPart::partClearedInBegin()
+{
+    [_bridge windowObjectCleared];
 }
 
 QMap<int, ScheduledAction*> *KWQKHTMLPart::pauseActions(const void *key)
@@ -1199,6 +1532,7 @@ void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
     // does not throw
 
     DocumentImpl *doc = [state document];
+    NodeImpl *mousePressNode = [state mousePressNode];
     KURL *url = [state URL];
     SavedProperties *windowProperties = [state windowProperties];
     SavedProperties *locationProperties = [state locationProperties];
@@ -1256,6 +1590,8 @@ void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
     d->m_doc = doc;
     d->m_doc->ref();
     
+    d->m_mousePressNode = Node(mousePressNode);
+    
     Decoder *decoder = doc->decoder();
     if (decoder) {
         decoder->ref();
@@ -1265,6 +1601,8 @@ void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
     }
     d->m_decoder = decoder;
 
+    doc->setParseMode ([state parseMode]);
+    
     updatePolicyBaseURL();
         
     restoreWindowProperties (windowProperties);
@@ -1277,19 +1615,28 @@ void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
     checkCompleted();
 }
 
-WebCoreBridge *KWQKHTMLPart::bridgeForWidget(const QWidget *widget)
+KWQKHTMLPart *KWQKHTMLPart::partForWidget(const QWidget *widget)
 {
     ASSERT_ARG(widget, widget);
-
+    
     NodeImpl *node = nodeForWidget(widget);
     if (node) {
-	return partForNode(node)->bridge() ;
+	return partForNode(node);
     }
     
     // Assume all widgets are either form controls, or KHTMLViews.
     const KHTMLView *view = dynamic_cast<const KHTMLView *>(widget);
     ASSERT(view);
-    return KWQ(view->part())->bridge();
+    return KWQ(view->part());
+}
+
+WebCoreBridge *KWQKHTMLPart::bridgeForWidget(const QWidget *widget)
+{
+    ASSERT_ARG(widget, widget);
+    
+    KWQKHTMLPart *part = partForWidget(widget);
+    ASSERT(part);
+    return part->bridge();
 }
 
 KWQKHTMLPart *KWQKHTMLPart::partForNode(NodeImpl *node)
@@ -1357,9 +1704,8 @@ QPtrList<KWQKHTMLPart> &KWQKHTMLPart::mutableInstances()
 
 void KWQKHTMLPart::updatePolicyBaseURL()
 {
-    // FIXME: docImpl() returns null for everything other than HTML documents; is this causing problems? -dwh
-    if (parentPart() && parentPart()->docImpl()) {
-        setPolicyBaseURL(parentPart()->docImpl()->policyBaseURL());
+    if (parentPart() && parentPart()->xmlDocImpl()) {
+        setPolicyBaseURL(parentPart()->xmlDocImpl()->policyBaseURL());
     } else {
         setPolicyBaseURL(m_url.url());
     }
@@ -1367,10 +1713,8 @@ void KWQKHTMLPart::updatePolicyBaseURL()
 
 void KWQKHTMLPart::setPolicyBaseURL(const DOMString &s)
 {
-    // FIXME: XML documents will cause this to return null.  docImpl() is
-    // an HTMLdocument only. -dwh
-    if (docImpl())
-        docImpl()->setPolicyBaseURL(s);
+    if (xmlDocImpl())
+        xmlDocImpl()->setPolicyBaseURL(s);
     ConstFrameIt end = d->m_frames.end();
     for (ConstFrameIt it = d->m_frames.begin(); it != end; ++it) {
         ReadOnlyPart *subpart = (*it).m_part;
@@ -1440,12 +1784,8 @@ void KWQKHTMLPart::sendResizeEvent()
 {
     KHTMLView *v = d->m_view;
     if (v) {
-        // Sending an event can result in the destruction of the view and part.
-        // We ref so that happens after we return from the KHTMLView function.
-        v->ref();
 	QResizeEvent e;
 	v->resizeEvent(&e);
-        v->deref();
     }
 }
 
@@ -1463,7 +1803,7 @@ void KWQKHTMLPart::sendScrollEvent()
 void KWQKHTMLPart::runJavaScriptAlert(const QString &message)
 {
     QString text = message;
-    text.replace('\\', backslashAsCurrencySymbol());
+    text.replace(QChar('\\'), backslashAsCurrencySymbol());
     KWQ_BLOCK_EXCEPTIONS;
     [_bridge runJavaScriptAlertPanelWithMessage:text.getNSString()];
     KWQ_UNBLOCK_EXCEPTIONS;
@@ -1472,7 +1812,7 @@ void KWQKHTMLPart::runJavaScriptAlert(const QString &message)
 bool KWQKHTMLPart::runJavaScriptConfirm(const QString &message)
 {
     QString text = message;
-    text.replace('\\', backslashAsCurrencySymbol());
+    text.replace(QChar('\\'), backslashAsCurrencySymbol());
 
     KWQ_BLOCK_EXCEPTIONS;
     return [_bridge runJavaScriptConfirmPanelWithMessage:text.getNSString()];
@@ -1484,9 +1824,9 @@ bool KWQKHTMLPart::runJavaScriptConfirm(const QString &message)
 bool KWQKHTMLPart::runJavaScriptPrompt(const QString &prompt, const QString &defaultValue, QString &result)
 {
     QString promptText = prompt;
-    promptText.replace('\\', backslashAsCurrencySymbol());
+    promptText.replace(QChar('\\'), backslashAsCurrencySymbol());
     QString defaultValueText = defaultValue;
-    defaultValueText.replace('\\', backslashAsCurrencySymbol());
+    defaultValueText.replace(QChar('\\'), backslashAsCurrencySymbol());
 
     KWQ_BLOCK_EXCEPTIONS;
     NSString *returnedText = nil;
@@ -1496,7 +1836,7 @@ bool KWQKHTMLPart::runJavaScriptPrompt(const QString &prompt, const QString &def
 
     if (ok) {
         result = QString::fromNSString(returnedText);
-        result.replace(backslashAsCurrencySymbol(), '\\');
+        result.replace(backslashAsCurrencySymbol(), QChar('\\'));
     }
 
     return ok;
@@ -1542,6 +1882,16 @@ bool KWQKHTMLPart::toolbarVisible()
     return [_bridge areToolbarsVisible];
 }
 
+void KWQKHTMLPart::addMessageToConsole(const QString &message, unsigned lineNumber, const QString &sourceURL)
+{
+    NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:
+        message.getNSString(), @"message",
+        [NSNumber numberWithInt: lineNumber], @"lineNumber",
+        sourceURL.getNSString(), @"sourceURL",
+        NULL];
+    [_bridge addMessageToConsole:dictionary];
+}
+
 void KWQKHTMLPart::createEmptyDocument()
 {
     // Although it's not completely clear from the name of this function,
@@ -1577,15 +1927,19 @@ bool KWQKHTMLPart::keyEvent(NSEvent *event)
         return false;
     }
     NodeImpl *node = doc->focusNode();
-    if (!node && docImpl()) {
-	node = docImpl()->body();
-    }
     if (!node) {
-        return false;
+	node = doc->body();
+        if (!node) {
+            return false;
+        }
     }
     
+    if ([event type] == NSKeyDown) {
+        prepareForUserAction();
+    }
+
     NSEvent *oldCurrentEvent = _currentEvent;
-    _currentEvent = [event retain];
+    _currentEvent = KWQRetain(event);
 
     QKeyEvent qEvent(event);
     bool result = !node->dispatchKeyEvent(&qEvent);
@@ -1602,7 +1956,7 @@ bool KWQKHTMLPart::keyEvent(NSEvent *event)
     }
 
     ASSERT(_currentEvent == event);
-    [event release];
+    KWQRelease(event);
     _currentEvent = oldCurrentEvent;
 
     return result;
@@ -1616,13 +1970,10 @@ bool KWQKHTMLPart::keyEvent(NSEvent *event)
 // that a higher level already checked that the URLs match and the scrolling is the right thing to do.
 void KWQKHTMLPart::scrollToAnchor(const KURL &URL)
 {
-    cancelRedirection();
-
     m_url = URL;
     started(0);
 
-    if (!gotoAnchor(URL.encodedHtmlRef()))
-        gotoAnchor(URL.htmlRef());
+    gotoAnchor();
 
     // It's important to model this as a load that starts and immediately finishes.
     // Otherwise, the parent frame may think we never finished loading.
@@ -1638,21 +1989,28 @@ bool KWQKHTMLPart::closeURL()
 
 void KWQKHTMLPart::khtmlMousePressEvent(MousePressEvent *event)
 {
+    bool singleClick = [_currentEvent clickCount] <= 1;
+
     // If we got the event back, that must mean it wasn't prevented,
     // so it's allowed to start a drag or selection.
-    _mouseDownMayStartDrag = true;
     _mouseDownMayStartSelect = true;
+    // Careful that the drag starting logic stays in sync with eventMayStartDrag()
+    _mouseDownMayStartDrag = singleClick;
 
+    d->m_mousePressNode = event->innerNode();
+    
     if (!passWidgetMouseDownEventToWidget(event)) {
         // We don't do this at the start of mouse down handling (before calling into WebCore),
         // because we don't want to do it until we know we didn't hit a widget.
         NSView *view = d->m_view->getDocumentView();
 
-	KWQ_BLOCK_EXCEPTIONS;
-        if ([_currentEvent clickCount] <= 1 && [_bridge firstResponder] != view) {
-            [_bridge makeFirstResponder:view];
+        if (singleClick) {
+            KWQ_BLOCK_EXCEPTIONS;
+            if ([_bridge firstResponder] != view) {
+                [_bridge makeFirstResponder:view];
+            }
+            KWQ_UNBLOCK_EXCEPTIONS;
         }
-	KWQ_UNBLOCK_EXCEPTIONS;
 
         KHTMLPart::khtmlMousePressEvent(event);
     }
@@ -1708,12 +2066,7 @@ bool KWQKHTMLPart::passWidgetMouseDownEventToWidget(QWidget* widget)
     NSView *nodeView = widget->getView();
     ASSERT(nodeView);
     ASSERT([nodeView superview]);
-    NSView *topView = nodeView;
-    NSView *superview;
-    while ((superview = [topView superview])) {
-        topView = superview;
-    }
-    NSView *view = [nodeView hitTest:[[nodeView superview] convertPoint:[_currentEvent locationInWindow] fromView:topView]];
+    NSView *view = [nodeView hitTest:[[nodeView superview] convertPoint:[_currentEvent locationInWindow] fromView:nil]];
     if (view == nil) {
         ERROR("KHTML says we hit a RenderWidget, but AppKit doesn't agree we hit the corresponding NSView");
         return true;
@@ -1723,7 +2076,7 @@ bool KWQKHTMLPart::passWidgetMouseDownEventToWidget(QWidget* widget)
         // In the case where we just became first responder, we should send the mouseDown:
         // to the NSTextField, not the NSTextField's editor. This code makes sure that happens.
         // If we don't do this, we see a flash of selected text when clicking in a text field.
-        if (_firstResponderAtMouseDownTime != view && [view isKindOfClass:[NSTextView class]]) {
+        if (![_bridge wasFirstResponderAtMouseDownTime:view] && [view isKindOfClass:[NSTextView class]]) {
             NSView *superview = view;
             while (superview != nodeView) {
                 superview = [superview superview];
@@ -1778,7 +2131,7 @@ bool KWQKHTMLPart::passWidgetMouseDownEventToWidget(QWidget* widget)
     return true;
 }
 
-bool KWQKHTMLPart::lastEventIsMouseUp()
+bool KWQKHTMLPart::lastEventIsMouseUp() const
 {
     // Many AK widgets run their own event loops and consume events while the mouse is down.
     // When they finish, currentEvent is the mouseUp that they exited on.  We need to update
@@ -1833,6 +2186,67 @@ NSView *KWQKHTMLPart::mouseDownViewIfStillGood()
     return mouseDownView;
 }
 
+// The link drag hysteresis is much larger than the others because there
+// needs to be enough space to cancel the link press without starting a link drag,
+// and because dragging links is rare.
+#define LinkDragHysteresis              40.0
+#define ImageDragHysteresis              5.0
+#define TextDragHysteresis               3.0
+#define GeneralDragHysteresis            3.0
+
+#define TextDragDelay                    0.15
+
+bool KWQKHTMLPart::dragHysteresisExceeded(float dragLocationX, float dragLocationY) const
+{
+    int dragX, dragY;
+    d->m_view->viewportToContents((int)dragLocationX, (int)dragLocationY, dragX, dragY);
+    float deltaX = QABS(dragX - _mouseDownX);
+    float deltaY = QABS(dragY - _mouseDownY);
+
+    float threshold = GeneralDragHysteresis;
+    if (_dragSrcIsImage) {
+        threshold = ImageDragHysteresis;
+    } else if (_dragSrcIsLink) {
+        threshold = LinkDragHysteresis;
+    } else if (_dragSrcInSelection) {
+        threshold = TextDragHysteresis;
+    }
+    return deltaX >= threshold || deltaY >= threshold;
+}
+
+// returns if we should continue "default processing", i.e., whether eventhandler canceled
+bool KWQKHTMLPart::dispatchDragSrcEvent(int eventId, const QPoint &loc) const
+{
+    bool noDefaultProc = d->m_view->dispatchDragEvent(eventId, _dragSrc.handle(), loc, _dragClipboard);
+    return !noDefaultProc;
+}
+
+bool KWQKHTMLPart::eventMayStartDrag(NSEvent *event) const
+{
+    // This is a pre-flight check of whether the event might lead to a drag being started.  Be careful
+    // that its logic needs to stay in sync with khtmlMouseMoveEvent() and the way we set
+    // _mouseDownMayStartDrag in khtmlMousePressEvent
+    
+    if ([event type] != NSLeftMouseDown || [event clickCount] != 1) {
+        return false;
+    }
+    
+    BOOL DHTMLFlag, UAFlag;
+    [_bridge allowDHTMLDrag:&DHTMLFlag UADrag:&UAFlag];
+    if (!DHTMLFlag && !UAFlag) {
+        return false;
+    }
+
+    NSPoint loc = [event locationInWindow];
+    int mouseDownX, mouseDownY;
+    d->m_view->viewportToContents((int)loc.x, (int)loc.y, mouseDownX, mouseDownY);
+    RenderObject::NodeInfo nodeInfo(true, false);
+    renderer()->layer()->hitTest(nodeInfo, mouseDownX, mouseDownY);
+    bool srcIsDHTML;
+    Node possibleSrc = nodeInfo.innerNode()->renderer()->draggableNode(DHTMLFlag, UAFlag, mouseDownX, mouseDownY, srcIsDHTML);
+    return !possibleSrc.isNull();
+}
+
 void KWQKHTMLPart::khtmlMouseMoveEvent(MouseMoveEvent *event)
 {
     KWQ_BLOCK_EXCEPTIONS;
@@ -1847,23 +2261,132 @@ void KWQKHTMLPart::khtmlMouseMoveEvent(MouseMoveEvent *event)
             return;
         }
 
-	if (_mouseDownMayStartDrag &&
-            !d->m_selectionInitiatedWithDoubleClick &&
-            !d->m_selectionInitiatedWithTripleClick &&
-            [_bridge mayStartDragWithMouseDragged:_currentEvent])
-        {
+        // Careful that the drag starting logic stays in sync with eventMayStartDrag()
+    
+	if (_mouseDownMayStartDrag && _dragSrc.isNull()) {
+            BOOL tempFlag1, tempFlag2;
+            [_bridge allowDHTMLDrag:&tempFlag1 UADrag:&tempFlag2];
+            _dragSrcMayBeDHTML = tempFlag1;
+            _dragSrcMayBeUA = tempFlag2;
+            if (!_dragSrcMayBeDHTML && !_dragSrcMayBeUA) {
+                _mouseDownMayStartDrag = false;     // no element is draggable
+            }
+        }
+        
+        if (_mouseDownMayStartDrag && _dragSrc.isNull()) {
+            // try to find an element that wants to be dragged
+            RenderObject::NodeInfo nodeInfo(true, false);
+            renderer()->layer()->hitTest(nodeInfo, _mouseDownX, _mouseDownY);
+            _dragSrc = nodeInfo.innerNode()->renderer()->draggableNode(_dragSrcMayBeDHTML, _dragSrcMayBeUA, _mouseDownX, _mouseDownY, _dragSrcIsDHTML);
+            if (_dragSrc.isNull()) {
+                _mouseDownMayStartDrag = false;     // no element is draggable
+            } else {
+                // remember some facts about this source, while we have a NodeInfo handy
+                NodeImpl *node = nodeInfo.URLElement();
+                _dragSrcIsLink = node ? node->hasAnchor() : false;
+
+                node = nodeInfo.innerNonSharedNode();
+                _dragSrcIsImage = (node && node->renderer() && node->renderer()->isImage());
+
+                _dragSrcInSelection = isPointInsideSelection(_mouseDownX, _mouseDownY);
+            }                
+        }
+        
+        // For drags starting in the selection, the user must wait between the mousedown and mousedrag,
+        // or else we bail on the dragging stuff and allow selection to occur
+        if (_mouseDownMayStartDrag && _dragSrcInSelection && [_currentEvent timestamp] - _mouseDownTimestamp < TextDragDelay) {
+            _mouseDownMayStartDrag = false;
+            // ...but if this was the first click in the window, we don't even want to start selection
+            if (_activationEventNumber == [_currentEvent eventNumber]) {
+                _mouseDownMayStartSelect = false;
+            }
+        }
+
+        if (_mouseDownMayStartDrag) {
             // We are starting a text/image/url drag, so the cursor should be an arrow
             d->m_view->resetCursor();
-            [_bridge handleMouseDragged:_currentEvent];
-            return;
-	} else if (_mouseDownMayStartSelect) {
-	    // we use khtml's selection but our own autoscrolling
-	    [_bridge handleAutoscrollForMouseDragged:_currentEvent];
-            // Don't allow dragging after we've started selecting.
-            _mouseDownMayStartDrag = false;
-	} else {
+            
+            NSPoint dragLocation = [_currentEvent locationInWindow];
+            if (dragHysteresisExceeded(dragLocation.x, dragLocation.y)) {
+                
+                // Once we're past the hysteresis point, we don't want to treat this gesture as a click
+                d->m_view->invalidateClick();
+
+                NSImage *dragImage = nil;       // we use these values if WC is out of the loop
+                NSPoint dragLoc = NSZeroPoint;
+                NSDragOperation srcOp = NSDragOperationNone;                
+                BOOL wcWrotePasteboard = NO;
+                if (_dragSrcMayBeDHTML) {
+                    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:NSDragPboard];
+                    // Must be done before ondragstart adds types and data to the pboard,
+                    // also done for security, as it erases data from the last drag
+                    [pasteboard declareTypes:[NSArray array] owner:nil];
+                    
+                    freeClipboard();    // would only happen if we missed a dragEnd.  Do it anyway, just
+                                        // to make sure it gets numbified
+                    _dragClipboard = new KWQClipboard(true, pasteboard, KWQClipboard::Writable, this);
+                    _dragClipboard->ref();
+                    
+                    // If this is drag of an element, get set up to generate a default image.  Otherwise
+                    // WebKit will generate the default, the element doesn't override.
+                    if (_dragSrcIsDHTML) {
+                        int srcX, srcY;
+                        _dragSrc.handle()->renderer()->absolutePosition(srcX, srcY);
+                        _dragClipboard->setDragImageElement(_dragSrc, QPoint(_mouseDownX - srcX, _mouseDownY - srcY));
+                    }
+                    
+                    _mouseDownMayStartDrag = dispatchDragSrcEvent(EventImpl::DRAGSTART_EVENT, QPoint(_mouseDownWinX, _mouseDownWinY));
+                    // Invalidate clipboard here against anymore pasteboard writing for security.  The drag
+                    // image can still be changed as we drag, but not the pasteboard data.
+                    _dragClipboard->setAccessPolicy(KWQClipboard::ImageWritable);
+                    
+                    if (_mouseDownMayStartDrag) {
+                        // gather values from DHTML element, if it set any
+                        _dragClipboard->sourceOperation(&srcOp);
+
+                        NSArray *types = [pasteboard types];
+                        wcWrotePasteboard = types && [types count] > 0;
+
+                        if (_dragSrcMayBeDHTML) {
+                            dragImage = _dragClipboard->dragNSImage(&dragLoc);
+                        }
+                        
+                        // Yuck, dragSourceMovedTo() can be called as a result of kicking off the drag with
+                        // dragImage!  Because of that dumb reentrancy, we may think we've not started the
+                        // drag when that happens.  So we have to assume it's started before we kick it off.
+                        _dragClipboard->setDragHasStarted();
+                    }
+                }
+                
+                if (_mouseDownMayStartDrag) {
+                    BOOL startedDrag = [_bridge startDraggingImage:dragImage at:dragLoc operation:srcOp event:_currentEvent sourceIsDHTML:_dragSrcIsDHTML DHTMLWroteData:wcWrotePasteboard];
+                    if (!startedDrag && _dragSrcMayBeDHTML) {
+                        // WebKit canned the drag at the last minute - we owe _dragSrc a DRAGEND event
+                        dispatchDragSrcEvent(EventImpl::DRAGEND_EVENT, QPoint(dragLocation));
+                        _mouseDownMayStartDrag = false;
+                    }
+                } 
+
+                if (!_mouseDownMayStartDrag) {
+                    // something failed to start the drag, cleanup
+                    freeClipboard();
+                    _dragSrc = 0;
+                }
+            }
+
+            // No more default handling (like selection), whether we're past the hysteresis bounds or not
             return;
 	}
+        if (!_mouseDownMayStartSelect) {
+            return;
+        }
+
+        // Don't allow dragging or click handling after we've started selecting.
+        _mouseDownMayStartDrag = false;
+        d->m_view->invalidateClick();
+
+        // We use khtml's selection but our own autoscrolling.
+        [_bridge handleAutoscrollForMouseDragged:_currentEvent];
     } else {
 	// If we allowed the other side of the bridge to handle a drag
 	// last time, then m_bMousePressed might still be set. So we
@@ -1877,11 +2400,109 @@ void KWQKHTMLPart::khtmlMouseMoveEvent(MouseMoveEvent *event)
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
+void KWQKHTMLPart::dragSourceMovedTo(const QPoint &loc)
+{
+    if (!_dragSrc.isNull() && _dragSrcMayBeDHTML) {
+        // for now we don't care if event handler cancels default behavior, since there is none
+        dispatchDragSrcEvent(EventImpl::DRAG_EVENT, loc);
+    }
+}
+
+void KWQKHTMLPart::dragSourceEndedAt(const QPoint &loc, NSDragOperation operation)
+{
+    if (!_dragSrc.isNull() && _dragSrcMayBeDHTML) {
+        _dragClipboard->setDestinationOperation(operation);
+        // for now we don't care if event handler cancels default behavior, since there is none
+        dispatchDragSrcEvent(EventImpl::DRAGEND_EVENT, loc);
+    }
+    freeClipboard();
+    _dragSrc = 0;
+}
+
+// Returns whether caller should continue with "the default processing", which is the same as 
+// the event handler NOT setting the return value to false
+bool KWQKHTMLPart::dispatchCPPEvent(int eventId, KWQClipboard::AccessPolicy policy)
+{
+    NodeImpl *target = d->m_selection.start().element();
+    if (!target && xmlDocImpl()) {
+        target = xmlDocImpl()->body();
+    }
+    if (!target) {
+        return true;
+    }
+
+    KWQClipboard *clipboard = new KWQClipboard(false, [NSPasteboard generalPasteboard], (KWQClipboard::AccessPolicy)policy);
+    clipboard->ref();
+
+    int exceptioncode = 0;
+    EventImpl *evt = new ClipboardEventImpl(static_cast<EventImpl::EventId>(eventId), true, true, clipboard);
+    evt->ref();
+    target->dispatchEvent(evt, exceptioncode, true);
+    bool noDefaultProcessing = evt->defaultPrevented();
+    evt->deref();
+
+    // invalidate clipboard here for security
+    clipboard->setAccessPolicy(KWQClipboard::Numb);
+    clipboard->deref();
+
+    return !noDefaultProcessing;
+}
+
+// WinIE uses onbeforecut and onbeforepaste to enables the cut and paste menu items.  They
+// also send onbeforecopy, apparently for symmetry, but it doesn't affect the menu items.
+// We need to use onbeforecopy as a real menu enabler because we allow elements that are not
+// normally selectable to implement copy/paste (like divs, or a document body).
+
+bool KWQKHTMLPart::mayCut()
+{
+    return !dispatchCPPEvent(EventImpl::BEFORECUT_EVENT, KWQClipboard::Numb);
+}
+
+bool KWQKHTMLPart::mayCopy()
+{
+    return !dispatchCPPEvent(EventImpl::BEFORECOPY_EVENT, KWQClipboard::Numb);
+}
+
+bool KWQKHTMLPart::mayPaste()
+{
+    return !dispatchCPPEvent(EventImpl::BEFOREPASTE_EVENT, KWQClipboard::Numb);
+}
+
+bool KWQKHTMLPart::tryCut()
+{
+    // Must be done before oncut adds types and data to the pboard,
+    // also done for security, as it erases data from the last copy/paste.
+    [[NSPasteboard generalPasteboard] declareTypes:[NSArray array] owner:nil];
+
+    return !dispatchCPPEvent(EventImpl::CUT_EVENT, KWQClipboard::Writable);
+}
+
+bool KWQKHTMLPart::tryCopy()
+{
+    // Must be done before oncopy adds types and data to the pboard,
+    // also done for security, as it erases data from the last copy/paste.
+    [[NSPasteboard generalPasteboard] declareTypes:[NSArray array] owner:nil];
+
+    return !dispatchCPPEvent(EventImpl::COPY_EVENT, KWQClipboard::Writable);
+}
+
+bool KWQKHTMLPart::tryPaste()
+{
+    return !dispatchCPPEvent(EventImpl::PASTE_EVENT, KWQClipboard::Readable);
+}
+
 void KWQKHTMLPart::khtmlMouseReleaseEvent(MouseReleaseEvent *event)
 {
     NSView *view = mouseDownViewIfStillGood();
     if (!view) {
-        KHTMLPart::khtmlMouseReleaseEvent(event);
+        // If this was the first click in the window, we don't even want to clear the selection.
+        // This case occurs when the user clicks on a draggable element, since we have to process
+        // the mouse down and drag events to see if we might start a drag.  For other first clicks
+        // in a window, we just don't acceptFirstMouse, and the whole down-drag-up sequence gets
+        // ignored upstream of this layer.
+        if (_activationEventNumber != [_currentEvent eventNumber]) {
+            KHTMLPart::khtmlMouseReleaseEvent(event);
+        }
         return;
     }
     
@@ -1974,33 +2595,27 @@ void KWQKHTMLPart::mouseDown(NSEvent *event)
 
     KWQ_BLOCK_EXCEPTIONS;
 
-    _mouseDownView = nil;
+    prepareForUserAction();
 
-    NSEvent *oldCurrentEvent = _currentEvent;
-    _currentEvent = [event retain];
+    _mouseDownView = nil;
+    _dragSrc = 0;
     
-    NSResponder *oldFirstResponderAtMouseDownTime = _firstResponderAtMouseDownTime;
-    // Unlike other places in WebCore where we get the first
-    // responder, in this case we must be talking about the real first
-    // responder, so we could just ask the bridge's window, instead of
-    // the bridge. It's unclear which is better.
-    _firstResponderAtMouseDownTime = [[_bridge firstResponder] retain];
+    NSEvent *oldCurrentEvent = _currentEvent;
+    _currentEvent = KWQRetain(event);
+    NSPoint loc = [event locationInWindow];
+    _mouseDownWinX = (int)loc.x;
+    _mouseDownWinY = (int)loc.y;
+    d->m_view->viewportToContents(_mouseDownWinX, _mouseDownWinY, _mouseDownX, _mouseDownY);
+    _mouseDownTimestamp = [event timestamp];
 
     _mouseDownMayStartDrag = false;
     _mouseDownMayStartSelect = false;
 
-    // Sending an event can result in the destruction of the view and part.
-    // We ref so that happens after we return from the KHTMLView function.
-    v->ref();
     QMouseEvent kEvent(QEvent::MouseButtonPress, event);
     v->viewportMousePressEvent(&kEvent);
-    v->deref();
     
-    [_firstResponderAtMouseDownTime release];
-    _firstResponderAtMouseDownTime = oldFirstResponderAtMouseDownTime;
-
     ASSERT(_currentEvent == event);
-    [event release];
+    KWQRelease(event);
     _currentEvent = oldCurrentEvent;
 
     KWQ_UNBLOCK_EXCEPTIONS;
@@ -2016,17 +2631,13 @@ void KWQKHTMLPart::mouseDragged(NSEvent *event)
     KWQ_BLOCK_EXCEPTIONS;
 
     NSEvent *oldCurrentEvent = _currentEvent;
-    _currentEvent = [event retain];
+    _currentEvent = KWQRetain(event);
 
-    // Sending an event can result in the destruction of the view and part.
-    // We ref so that happens after we return from the KHTMLView function.
-    v->ref();
     QMouseEvent kEvent(QEvent::MouseMove, event);
     v->viewportMouseMoveEvent(&kEvent);
-    v->deref();
     
     ASSERT(_currentEvent == event);
-    [event release];
+    KWQRelease(event);
     _currentEvent = oldCurrentEvent;
 
     KWQ_UNBLOCK_EXCEPTIONS;
@@ -2042,11 +2653,8 @@ void KWQKHTMLPart::mouseUp(NSEvent *event)
     KWQ_BLOCK_EXCEPTIONS;
 
     NSEvent *oldCurrentEvent = _currentEvent;
-    _currentEvent = [event retain];
+    _currentEvent = KWQRetain(event);
 
-    // Sending an event can result in the destruction of the view and part.
-    // We ref so that happens after we return from the KHTMLView function.
-    v->ref();
     // Our behavior here is a little different that Qt. Qt always sends
     // a mouse release event, even for a double click. To correct problems
     // in khtml's DOM click event handling we do not send a release here
@@ -2062,10 +2670,9 @@ void KWQKHTMLPart::mouseUp(NSEvent *event)
         QMouseEvent releaseEvent(QEvent::MouseButtonRelease, event);
         v->viewportMouseReleaseEvent(&releaseEvent);
     }
-    v->deref();
     
     ASSERT(_currentEvent == event);
-    [event release];
+    KWQRelease(event);
     _currentEvent = oldCurrentEvent;
     
     _mouseDownView = nil;
@@ -2145,20 +2752,33 @@ void KWQKHTMLPart::mouseMoved(NSEvent *event)
     KWQ_BLOCK_EXCEPTIONS;
 
     NSEvent *oldCurrentEvent = _currentEvent;
-    _currentEvent = [event retain];
+    _currentEvent = KWQRetain(event);
     
-    // Sending an event can result in the destruction of the view and part.
-    // We ref so that happens after we return from the KHTMLView function.
-    v->ref();
     QMouseEvent kEvent(QEvent::MouseMove, event);
     v->viewportMouseMoveEvent(&kEvent);
-    v->deref();
     
     ASSERT(_currentEvent == event);
-    [event release];
+    KWQRelease(event);
     _currentEvent = oldCurrentEvent;
 
     KWQ_UNBLOCK_EXCEPTIONS;
+}
+
+// Called as we walk up the element chain for nodes with CSS property -khtml-user-drag == auto
+bool KWQKHTMLPart::shouldDragAutoNode(DOM::NodeImpl* node, int x, int y) const
+{
+    // We assume that WebKit only cares about dragging things that can be leaf nodes (text, images, urls).
+    // This saves a bunch of expensive calls (creating WC and WK element dicts) as we walk farther up
+    // the node hierarchy, and we also don't have to cook up a way to ask WK about non-leaf nodes
+    // (since right now WK just hit-tests using a cached lastMouseDown).
+    if (!node->hasChildNodes() && d->m_view) {
+        int windowX, windowY;
+        d->m_view->contentsToViewport(x, y, windowX, windowY);
+        NSPoint eventLoc = {windowX, windowY};
+        return [_bridge mayStartDragAtEventLocation:eventLoc];
+    } else {
+        return NO;
+    }
 }
 
 bool KWQKHTMLPart::sendContextMenuEvent(NSEvent *event)
@@ -2172,7 +2792,7 @@ bool KWQKHTMLPart::sendContextMenuEvent(NSEvent *event)
     KWQ_BLOCK_EXCEPTIONS;
 
     NSEvent *oldCurrentEvent = _currentEvent;
-    _currentEvent = [event retain];
+    _currentEvent = KWQRetain(event);
     
     QMouseEvent qev(QEvent::MouseButtonPress, event);
 
@@ -2182,15 +2802,15 @@ bool KWQKHTMLPart::sendContextMenuEvent(NSEvent *event)
     NodeImpl::MouseEvent mev(qev.stateAfter(), NodeImpl::MousePress);
     doc->prepareMouseEvent(false, xm, ym, &mev);
 
-    // Sending an event can result in the destruction of the view and part.
-    // We ref so that happens after we return from the KHTMLView function.
-    v->ref();
     bool swallowEvent = v->dispatchMouseEvent(EventImpl::CONTEXTMENU_EVENT,
         mev.innerNode.handle(), true, 0, &qev, true, NodeImpl::MousePress);
-    v->deref();
+    if (!swallowEvent && !isPointInsideSelection(xm, ym) &&
+        ([_bridge selectWordBeforeMenuEvent] || [_bridge isEditable] || mev.innerNode.handle()->isContentEditable())) {
+        selectClosestWordFromMouseEvent(&qev, mev.innerNode, xm, ym);
+    }
 
     ASSERT(_currentEvent == event);
-    [event release];
+    KWQRelease(event);
     _currentEvent = oldCurrentEvent;
 
     return swallowEvent;
@@ -2211,7 +2831,7 @@ NSFileWrapper *KWQKHTMLPart::fileWrapperForElement(ElementImpl *e)
     
     NSFileWrapper *wrapper = nil;
 
-    DOMString attr = e->getAttribute(ATTR_SRC);
+    AtomicString attr = e->getAttribute(ATTR_SRC);
     if (!attr.isEmpty()) {
         NSURL *URL = completeURL(attr.string()).getNSURL();
         wrapper = [_bridge fileWrapperForURL:URL];
@@ -2311,6 +2931,9 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
             if (n.nodeType() == Node::TEXT_NODE) {
                 if (hasNewLine) {
                     addedSpace = true;
+                    needSpace = false;
+                    [pendingStyledSpace release];
+                    pendingStyledSpace = nil;
                     hasNewLine = false;
                 }
                 QString text;
@@ -2318,7 +2941,7 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
                 int start = (n == _startNode) ? startOffset : -1;
                 int end = (n == endNode) ? endOffset : -1;
                 if (renderer->isText()) {
-                    if (renderer->style()->whiteSpace() == PRE) {
+                    if (style->whiteSpace() == PRE) {
                         if (needSpace && !addedSpace) {
                             if (text.isEmpty() && linkStartLocation == [result length]) {
                                 ++linkStartLocation;
@@ -2334,22 +2957,21 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
                     }
                     else {
                         RenderText* textObj = static_cast<RenderText*>(renderer);
-                        InlineTextBoxArray runs = textObj->inlineTextBoxes();
-                        if (runs.count() == 0 && str.length() > 0 && !addedSpace) {
+                        if (!textObj->firstTextBox() && str.length() > 0 && !addedSpace) {
                             // We have no runs, but we do have a length.  This means we must be
                             // whitespace that collapsed away at the end of a line.
-                            text += " ";
+                            text += ' ';
                             addedSpace = true;
                         }
                         else {
                             addedSpace = false;
-                            for (unsigned i = 0; i < runs.count(); i++) {
-                                int runStart = (start == -1) ? runs[i]->m_start : start;
-                                int runEnd = (end == -1) ? runs[i]->m_start + runs[i]->m_len : end;
-                                runEnd = QMIN(runEnd, runs[i]->m_start + runs[i]->m_len);
-                                if (runStart >= runs[i]->m_start &&
-                                    runStart < runs[i]->m_start + runs[i]->m_len) {
-                                    if (i == 0 && runs[0]->m_start == runStart && runStart > 0) {
+                            for (InlineTextBox* box = textObj->firstTextBox(); box; box = box->nextTextBox()) {
+                                int runStart = (start == -1) ? box->m_start : start;
+                                int runEnd = (end == -1) ? box->m_start + box->m_len : end;
+                                runEnd = kMin(runEnd, box->m_start + box->m_len);
+                                if (runStart >= box->m_start &&
+                                    runStart < box->m_start + box->m_len) {
+                                    if (box == textObj->firstTextBox() && box->m_start == runStart && runStart > 0) {
                                         needSpace = true; // collapsed space at the start
                                     }
                                     if (needSpace && !addedSpace) {
@@ -2365,7 +2987,7 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
                                     QString runText = str.mid(runStart, runEnd - runStart);
                                     runText.replace('\n', ' ');
                                     text += runText;
-                                    int nextRunStart = (i+1 < runs.count()) ? runs[i+1]->m_start : str.length(); // collapsed space between runs or at the end
+                                    int nextRunStart = box->nextTextBox() ? box->nextTextBox()->m_start : str.length(); // collapsed space between runs or at the end
                                     needSpace = nextRunStart > runEnd;
                                     [pendingStyledSpace release];
                                     pendingStyledSpace = nil;
@@ -2379,14 +3001,14 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
                     }
                 }
                 
-                text.replace('\\', renderer->backslashAsCurrencySymbol());
+                text.replace(QChar('\\'), renderer->backslashAsCurrencySymbol());
     
                 if (text.length() > 0 || needSpace) {
                     NSMutableDictionary *attrs = [[NSMutableDictionary alloc] init];
                     [attrs setObject:font forKey:NSFontAttributeName];
-                    if (style && style->color().isValid())
+                    if (style && style->color().isValid() && qAlpha(style->color().rgb()) != 0)
                         [attrs setObject:style->color().getNSColor() forKey:NSForegroundColorAttributeName];
-                    if (style && style->backgroundColor().isValid())
+                    if (style && style->backgroundColor().isValid() && qAlpha(style->backgroundColor().rgb()) != 0)
                         [attrs setObject:style->backgroundColor().getNSColor() forKey:NSBackgroundColorAttributeName];
 
                     if (text.length() > 0) {
@@ -2437,11 +3059,11 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
                             listItemLocations.append (info);
                             
                             listText += '\t';
-                            if (itemParent){
-                                khtml::RenderListItem *listRenderer = static_cast<khtml::RenderListItem*>(renderer);
+                            if (itemParent && renderer->isListItem()) {
+                                RenderListItem *listRenderer = static_cast<RenderListItem*>(renderer);
 
                                 maxMarkerWidth = MAX([font pointSize], maxMarkerWidth);
-                                switch(listRenderer->style()->listStyleType()) {
+                                switch(style->listStyleType()) {
                                     case khtml::DISC:
                                         listText += ((QChar)BULLET_CHAR);
                                         break;
@@ -2508,15 +3130,23 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_start, int startOf
                     case ID_H3:
                     case ID_H4:
                     case ID_H5:
-                    case ID_H6:
+                    case ID_H6: {
                         if (!hasNewLine)
                             text += '\n';
-                        if (!hasParagraphBreak) {
-                            text += '\n';
-                            hasParagraphBreak = true;
+                        
+                        // In certain cases, emit a paragraph break.
+                        int bottomMargin = renderer->collapsedMarginBottom();
+                        int fontSize = style->htmlFont().getFontDef().computedPixelSize();
+                        if (bottomMargin * 2 >= fontSize) {
+                            if (!hasParagraphBreak) {
+                                text += '\n';
+                                hasParagraphBreak = true;
+                            }
                         }
+                        
                         hasNewLine = true;
                         break;
+                    }
                         
                     case ID_IMG:
                         if (pendingStyledSpace != nil) {
@@ -2714,10 +3344,300 @@ QRect KWQKHTMLPart::selectionRect() const
     RenderCanvas *root = static_cast<RenderCanvas *>(xmlDocImpl()->renderer());
     if (!root) {
         return QRect();
-
     }
 
     return root->selectionRect();
+}
+
+// returns NSRect because going through QRect would truncate any floats
+NSRect KWQKHTMLPart::visibleSelectionRect() const
+{
+    if (!d->m_view) {
+        return NSZeroRect;
+    }
+    NSView *documentView = d->m_view->getDocumentView();
+    if (!documentView) {
+        return NSZeroRect;
+    }
+    return NSIntersectionRect(selectionRect(), [documentView visibleRect]);     
+}
+
+void KWQKHTMLPart::centerSelectionInVisibleArea() const
+{
+    switch (selection().state()) {
+        case Selection::NONE:
+            break;
+        case Selection::CARET: {
+            if (view())
+                // passing true forces centering even if selection is already exposed
+                view()->ensureRectVisibleCentered(selection().caretRect(), true);
+            break;
+        }
+        case Selection::RANGE:
+            if (view())
+                // passing true forces centering even if selection is already exposed
+                view()->ensureRectVisibleCentered(selectionRect(), true);
+            break;
+    }
+}
+
+NSImage *KWQKHTMLPart::imageFromRect(NSRect rect) const
+{
+    NSView *view = d->m_view->getDocumentView();
+    if (!view) {
+        return nil;
+    }
+    
+    NSRect bounds = [view bounds];
+    NSImage *resultImage = [[[NSImage alloc] initWithSize:rect.size] autorelease];
+    
+    KWQ_BLOCK_EXCEPTIONS;
+    
+    if (rect.size.width != 0 && rect.size.height != 0) {
+        [resultImage setFlipped:YES];
+        [resultImage lockFocus];
+
+        [NSGraphicsContext saveGraphicsState];
+        NSPoint translation = { -(NSMinX(rect) - NSMinX(bounds)), -(NSMinY(rect) - NSMinY(bounds)) };
+        CGContextTranslateCTM((CGContext *)[[NSGraphicsContext currentContext] graphicsPort], translation.x, translation.y);
+
+        // We change the coord system at the CG level, out from under the AK focus machinery, because it doesn't
+        // work to change the coord system of a focused view.  However, WebImageRenderer uses the difference
+        // between the focused view's coord system and the window's coord system to adjust the pattern phase, and
+        // that calc ignores our translation.  So we must tell it about this extra phase offset.
+
+        // Window is not flipped, we are, so y coord must be inverted when describing phase, which is a
+        // window level notion.
+        translation.y = -translation.y;
+        [[WebCoreGraphicsBridge sharedBridge] setAdditionalPatternPhase:translation];
+
+        [view drawRect:rect];
+
+        [[WebCoreGraphicsBridge sharedBridge] setAdditionalPatternPhase:NSZeroPoint];
+        [NSGraphicsContext restoreGraphicsState];
+
+        [resultImage unlockFocus];
+        [resultImage setFlipped:NO];
+    }
+    
+    KWQ_UNBLOCK_EXCEPTIONS;
+    
+    return resultImage;
+}
+
+NSImage *KWQKHTMLPart::selectionImage() const
+{
+    _drawSelectionOnly = true;  // invoke special drawing mode
+    NSImage *result = imageFromRect(visibleSelectionRect());
+    _drawSelectionOnly = false;
+    return result;
+}
+
+NSImage *KWQKHTMLPart::snapshotDragImage(DOM::Node node, NSRect *imageRect, NSRect *elementRect) const
+{
+    RenderObject *renderer = node.handle()->renderer();
+    if (!renderer) {
+        return nil;
+    }
+    
+    renderer->updateDragState(true);    // mark dragged nodes (so they pick up the right CSS)
+    d->m_doc->updateLayout();        // forces style recalc - needed since changing the drag state might
+                                        // imply new styles, plus JS could have changed other things
+    QRect topLevelRect;
+    NSRect paintingRect = renderer->paintingRootRect(topLevelRect);
+
+    _elementToDraw = node;              // invoke special sub-tree drawing mode
+    NSImage *result = imageFromRect(paintingRect);
+    renderer->updateDragState(false);
+    _elementToDraw = 0;
+
+    if (elementRect) {
+        *elementRect = topLevelRect;
+    }
+    if (imageRect) {
+        *imageRect = paintingRect;
+    }
+    return result;
+}
+
+RenderStyle *KWQKHTMLPart::styleForSelectionStart(NodeImpl *&nodeToRemove) const
+{
+    nodeToRemove = 0;
+
+    if (!xmlDocImpl())
+        return 0;
+    if (d->m_selection.isNone())
+        return 0;
+    
+    Position pos = VisiblePosition(d->m_selection.start(), d->m_selection.startAffinity(), khtml::VisiblePosition::INIT_UP).deepEquivalent();
+    if (!pos.inRenderedContent())
+        return 0;
+    NodeImpl *node = pos.node();
+    if (!node)
+        return 0;
+    
+    if (!d->m_typingStyle)
+        return node->renderer()->style();
+
+    int exceptionCode = 0;
+    ElementImpl *styleElement = xmlDocImpl()->createHTMLElement("span", exceptionCode);
+    ASSERT(exceptionCode == 0);
+
+    styleElement->ref();
+
+    styleElement->setAttribute(ATTR_STYLE, d->m_typingStyle->cssText().implementation(), exceptionCode);
+    ASSERT(exceptionCode == 0);
+    
+    TextImpl *text = xmlDocImpl()->createEditingTextNode("");
+    styleElement->appendChild(text, exceptionCode);
+    ASSERT(exceptionCode == 0);
+
+    node->parentNode()->appendChild(styleElement, exceptionCode);
+    ASSERT(exceptionCode == 0);
+
+    styleElement->deref();
+
+    nodeToRemove = styleElement;    
+    return styleElement->renderer()->style();
+}
+
+NSFont *KWQKHTMLPart::fontForSelection(bool *hasMultipleFonts) const
+{
+    if (hasMultipleFonts)
+        *hasMultipleFonts = false;
+
+    if (!d->m_selection.isRange()) {
+        NodeImpl *nodeToRemove;
+        RenderStyle *style = styleForSelectionStart(nodeToRemove); // sets nodeToRemove
+
+        NSFont *result = 0;
+        if (style)
+            result = style->font().getNSFont();
+        
+        if (nodeToRemove) {
+            int exceptionCode;
+            nodeToRemove->remove(exceptionCode);
+            ASSERT(exceptionCode == 0);
+        }
+
+        return result;
+    }
+
+    NSFont *font = nil;
+
+    Range r = d->m_selection.toRange();
+    RangeImpl *range = r.handle();
+    NodeImpl *startNode = range->editingStartPosition().node();
+    if (startNode != nil) {
+        NodeImpl *pastEnd = range->pastEndNode();
+        // In the loop below, n should eventually match pastEnd and not become nil, but we've seen at least one
+        // unreproducible case where this didn't happen, so check for nil also.
+        for (NodeImpl *n = startNode; n && n != pastEnd; n = n->traverseNextNode()) {
+            RenderObject *renderer = n->renderer();
+            if (!renderer)
+                continue;
+            // FIXME: Are there any node types that have renderers, but that we should be skipping?
+            NSFont *f = renderer->style()->font().getNSFont();
+            if (font == nil) {
+                font = f;
+                if (!hasMultipleFonts)
+                    break;
+            } else if (font != f) {
+                *hasMultipleFonts = true;
+                break;
+            }
+        }
+    }
+
+    return font;
+}
+
+NSDictionary *KWQKHTMLPart::fontAttributesForSelectionStart() const
+{
+    NodeImpl *nodeToRemove;
+    RenderStyle *style = styleForSelectionStart(nodeToRemove);
+    if (!style)
+        return nil;
+
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+
+    if (style->backgroundColor().isValid() && style->backgroundColor().alpha() != 0)
+        [result setObject:style->backgroundColor().getNSColor() forKey:NSBackgroundColorAttributeName];
+
+    if (style->font().getNSFont())
+        [result setObject:style->font().getNSFont() forKey:NSFontAttributeName];
+
+    if (style->color().isValid() && style->color() != black)
+        [result setObject:style->color().getNSColor() forKey:NSForegroundColorAttributeName];
+
+    ShadowData *shadow = style->textShadow();
+    if (shadow) {
+        NSShadow *s = [[NSShadow alloc] init];
+        [s setShadowOffset:NSMakeSize(shadow->x, shadow->y)];
+        [s setShadowBlurRadius:shadow->blur];
+        [s setShadowColor:shadow->color.getNSColor()];
+        [result setObject:s forKey:NSShadowAttributeName];
+    }
+
+    int decoration = style->textDecorationsInEffect();
+    if (decoration & khtml::LINE_THROUGH)
+        [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
+
+    int superscriptInt = 0;
+    switch (style->verticalAlign()) {
+        case khtml::BASELINE:
+        case khtml::BOTTOM:
+        case khtml::BASELINE_MIDDLE:
+        case khtml::LENGTH:
+        case khtml::MIDDLE:
+        case khtml::TEXT_BOTTOM:
+        case khtml::TEXT_TOP:
+        case khtml::TOP:
+            break;
+        case khtml::SUB:
+            superscriptInt = -1;
+            break;
+        case khtml::SUPER:
+            superscriptInt = 1;
+            break;
+    }
+    if (superscriptInt)
+        [result setObject:[NSNumber numberWithInt:superscriptInt] forKey:NSSuperscriptAttributeName];
+
+    if (decoration & khtml::UNDERLINE)
+        [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
+
+    if (nodeToRemove) {
+        int exceptionCode = 0;
+        nodeToRemove->remove(exceptionCode);
+        ASSERT(exceptionCode == 0);
+    }
+
+    return result;
+}
+
+NSWritingDirection KWQKHTMLPart::baseWritingDirectionForSelectionStart() const
+{
+    NSWritingDirection result = NSWritingDirectionLeftToRight;
+
+    Position pos = VisiblePosition(d->m_selection.start(), d->m_selection.startAffinity()).deepEquivalent();
+    NodeImpl *node = pos.node();
+    if (!node || !node->renderer() || !node->renderer()->containingBlock())
+        return result;
+    RenderStyle *style = node->renderer()->containingBlock()->style();
+    if (!style)
+        return result;
+        
+    switch (style->direction()) {
+        case khtml::LTR:
+            result = NSWritingDirectionLeftToRight;
+            break;
+        case khtml::RTL:
+            result = NSWritingDirectionRightToLeft;
+            break;
+    }
+
+    return result;
 }
 
 KWQWindowWidget *KWQKHTMLPart::topLevelWidget()
@@ -2725,24 +3645,32 @@ KWQWindowWidget *KWQKHTMLPart::topLevelWidget()
     return _windowWidget;
 }
 
+void KWQKHTMLPart::tokenizerProcessedData()
+{
+    if (d->m_doc) {
+        checkCompleted();
+    }
+    [_bridge tokenizerProcessedData];
+}
+
 int KWQKHTMLPart::selectionStartOffset() const
 {
-    return d->m_startOffset;
+    return d->m_selection.start().offset();
 }
 
 int KWQKHTMLPart::selectionEndOffset() const
 {
-    return d->m_endOffset;
+    return d->m_selection.end().offset();
 }
 
 NodeImpl *KWQKHTMLPart::selectionStart() const
 {
-    return d->m_selectionStart.handle();
+    return d->m_selection.start().node();
 }
 
 NodeImpl *KWQKHTMLPart::selectionEnd() const
 {
-    return d->m_selectionEnd.handle();
+    return d->m_selection.end().node();
 }
 
 void KWQKHTMLPart::setBridge(WebCoreBridge *p)
@@ -2754,6 +3682,14 @@ void KWQKHTMLPart::setBridge(WebCoreBridge *p)
     _windowWidget = new KWQWindowWidget(_bridge);
 }
 
+QString KWQKHTMLPart::overrideMediaType() const
+{
+    NSString *overrideType = [_bridge overrideMediaType];
+    if (overrideType)
+        return QString::fromNSString(overrideType);
+    return QString();
+}
+
 void KWQKHTMLPart::setMediaType(const QString &type)
 {
     if (d->m_view) {
@@ -2761,15 +3697,70 @@ void KWQKHTMLPart::setMediaType(const QString &type)
     }
 }
 
-void KWQKHTMLPart::setShowsFirstResponder(bool flag)
+void KWQKHTMLPart::setSelectionFromNone()
 {
-    if (flag != _showsFirstResponder) {
-        _showsFirstResponder = flag;
-        DocumentImpl *doc = xmlDocImpl();
-        if (doc) {
-            NodeImpl *node = doc->focusNode();
-            if (node && node->renderer())
-                node->renderer()->repaint();
+    // Put the caret someplace if the selection is empty and the part is editable.
+    // This has the effect of flashing the caret in a contentEditable view automatically 
+    // without requiring the programmer to set a selection explicitly.
+    DocumentImpl *doc = xmlDocImpl();
+    if (doc && selection().isNone() && isContentEditable()) {
+        NodeImpl *node = doc->documentElement();
+        while (node) {
+            // Look for a block flow, but skip over the HTML element, since we really
+            // want to get at least as far as the the BODY element in a document.
+            if (node->isBlockFlow() && node->identifier() != ID_HTML)
+                break;
+            node = node->traverseNextNode();
+        }
+        if (node)
+            setSelection(Selection(Position(node, 0), DOWNSTREAM));
+    }
+}
+
+void KWQKHTMLPart::setDisplaysWithFocusAttributes(bool flag)
+{
+    if (d->m_isFocused == flag)
+        return;
+    d->m_isFocused = flag;
+
+    // This method does the job of updating the view based on whether the view is "active".
+    // This involves three kinds of drawing updates:
+
+    // 1. The background color used to draw behind selected content (active | inactive color)
+    if (d->m_view)
+        d->m_view->updateContents(QRect(visibleSelectionRect()));
+
+    // 2. Caret blinking (blinks | does not blink)
+    if (flag)
+        setSelectionFromNone();
+    setCaretVisible(flag);
+    
+    // 3. The drawing of a focus ring around links in web pages.
+    DocumentImpl *doc = xmlDocImpl();
+    if (doc) {
+        NodeImpl *node = doc->focusNode();
+        if (node && node->renderer())
+            node->renderer()->repaint();
+    }
+}
+
+bool KWQKHTMLPart::displaysWithFocusAttributes() const
+{
+    return d->m_isFocused;
+}
+
+void KWQKHTMLPart::setWindowHasFocus(bool flag)
+{
+    if (m_windowHasFocus == flag)
+        return;
+    m_windowHasFocus = flag;
+
+    DocumentImpl *doc = xmlDocImpl();
+    if (doc) {
+        NodeImpl *body = doc->body();
+        if (body) {
+            int eventID = flag ? EventImpl::FOCUS_EVENT : EventImpl::BLUR_EVENT;
+            body->dispatchWindowEvent(eventID, false, false);
         }
     }
 }
@@ -2791,16 +3782,13 @@ QChar KWQKHTMLPart::backslashAsCurrencySymbol() const
     return codec->backslashAsCurrencySymbol();
 }
 
-NSColor *KWQKHTMLPart::bodyBackgroundColor(void) const
+NSColor *KWQKHTMLPart::bodyBackgroundColor() const
 {
-    HTMLDocumentImpl *doc = docImpl();
-    
-    if (doc){
-        HTMLElementImpl *body = doc->body();
-        QColor bgColor =  body->renderer()->style()->backgroundColor();
-        
-        if (bgColor.isValid())
+    if (xmlDocImpl() && xmlDocImpl()->body() && xmlDocImpl()->body()->renderer()) {
+        QColor bgColor = xmlDocImpl()->body()->renderer()->style()->backgroundColor();
+        if (bgColor.isValid()) {
             return bgColor.getNSColor();
+        }
     }
     return nil;
 }
@@ -2831,12 +3819,11 @@ void KWQKHTMLPart::setName(const QString &name)
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-
 void KWQKHTMLPart::didTellBridgeAboutLoad(const QString &urlString)
 {
-    urlsBridgeKnowsAbout.insert(urlString, (char *)1);
+    static char dummy;
+    urlsBridgeKnowsAbout.insert(urlString, &dummy);
 }
-
 
 bool KWQKHTMLPart::haveToldBridgeAboutLoad(const QString &urlString)
 {
@@ -2846,25 +3833,68 @@ bool KWQKHTMLPart::haveToldBridgeAboutLoad(const QString &urlString)
 void KWQKHTMLPart::clear()
 {
     urlsBridgeKnowsAbout.clear();
+    setMarkedTextRange(0, nil, nil);
     KHTMLPart::clear();
 }
 
-void KWQKHTMLPart::print()
+void KHTMLPart::print()
 {
-    [_bridge print];
+    [KWQ(this)->_bridge print];
 }
 
 KJS::Bindings::Instance *KWQKHTMLPart::getAppletInstanceForView (NSView *aView)
 {
-    // Get a pointer to the actual Java applet instance.
-    jobject applet = [_bridge pollForAppletInView:aView];
+    jobject applet;
     
-    if (applet)
+    // Get a pointer to the actual Java applet instance.
+    if ([_bridge respondsToSelector:@selector(getAppletInView:)])
+        applet = [_bridge getAppletInView:aView];
+    else
+        applet = [_bridge pollForAppletInView:aView];
+    
+    if (applet) {
         // Wrap the Java instance in a language neutral binding and hand
         // off ownership to the APPLET element.
-        return KJS::Bindings::Instance::createBindingForLanguageInstance (KJS::Bindings::Instance::JavaLanguage, applet);
+        KJS::Bindings::RootObject *executionContext = KJS::Bindings::RootObject::findRootObjectForNativeHandleFunction ()(aView);
+        KJS::Bindings::Instance *instance = KJS::Bindings::Instance::createBindingForLanguageInstance (KJS::Bindings::Instance::JavaLanguage, applet, executionContext);        
+        return instance;
+    }
     
     return 0;
+}
+
+@interface NSObject (WebPlugIn)
+- (id)objectForWebScript;
+- (void *)pluginScriptableObject;
+@end
+
+static KJS::Bindings::Instance *getInstanceForView(NSView *aView)
+{
+    if ([aView respondsToSelector:@selector(objectForWebScript)]){
+        id object = [aView objectForWebScript];
+        if (object) {
+	    KJS::Bindings::RootObject *executionContext = KJS::Bindings::RootObject::findRootObjectForNativeHandleFunction ()(aView);
+            return KJS::Bindings::Instance::createBindingForLanguageInstance (KJS::Bindings::Instance::ObjectiveCLanguage, object, executionContext);
+	}
+    }
+    else if ([aView respondsToSelector:@selector(pluginScriptableObject)]){
+        void *object = [aView pluginScriptableObject];
+        if (object) {
+	    KJS::Bindings::RootObject *executionContext = KJS::Bindings::RootObject::findRootObjectForNativeHandleFunction ()(aView);
+            return KJS::Bindings::Instance::createBindingForLanguageInstance (KJS::Bindings::Instance::CLanguage, object, executionContext);
+	}
+    }
+    return 0;
+}
+
+KJS::Bindings::Instance *KWQKHTMLPart::getEmbedInstanceForView (NSView *aView)
+{
+    return getInstanceForView(aView);
+}
+
+KJS::Bindings::Instance *KWQKHTMLPart::getObjectInstanceForView (NSView *aView)
+{
+    return getInstanceForView(aView);
 }
 
 void KWQKHTMLPart::addPluginRootObject(const KJS::Bindings::RootObject *root)
@@ -2876,12 +3906,371 @@ void KWQKHTMLPart::cleanupPluginRootObjects()
 {
     KJS::Bindings::RootObject *root;
     while ((root = rootObjects.getLast())) {
-        KJS::Bindings::RootObject::removeAllJavaReferencesForRoot (root);
+        root->removeAllNativeReferences ();
         rootObjects.removeLast();
     }
+}
+
+void KWQKHTMLPart::registerCommandForUndoOrRedo(const EditCommandPtr &cmd, bool isRedo)
+{
+    ASSERT(cmd.get());
+    KWQEditCommand *kwq = [KWQEditCommand commandWithEditCommand:cmd.get()];
+    NSUndoManager *undoManager = [_bridge undoManager];
+    [undoManager registerUndoWithTarget:_bridge selector:(isRedo ? @selector(redoEditing:) : @selector(undoEditing:)) object:kwq];
+    NSString *actionName = [_bridge nameForUndoAction:static_cast<WebUndoAction>(cmd.editingAction())];
+    if (actionName != nil) {
+        [undoManager setActionName:actionName];
+    }
+    _haveUndoRedoOperations = YES;
+}
+
+void KWQKHTMLPart::registerCommandForUndo(const EditCommandPtr &cmd)
+{
+    registerCommandForUndoOrRedo(cmd, NO);
+}
+
+void KWQKHTMLPart::registerCommandForRedo(const EditCommandPtr &cmd)
+{
+    registerCommandForUndoOrRedo(cmd, YES);
+}
+
+void KWQKHTMLPart::clearUndoRedoOperations()
+{
+    if (_haveUndoRedoOperations) {
+	[[_bridge undoManager] removeAllActionsWithTarget:_bridge];
+	_haveUndoRedoOperations = NO;
+    }
+}
+
+void KWQKHTMLPart::issueUndoCommand()
+{
+    if (canUndo())
+        [[_bridge undoManager] undo];
+}
+
+void KWQKHTMLPart::issueRedoCommand()
+{
+    if (canRedo())
+        [[_bridge undoManager] redo];
+}
+
+void KWQKHTMLPart::issueCutCommand()
+{
+    [_bridge issueCutCommand];
+}
+
+void KWQKHTMLPart::issueCopyCommand()
+{
+    [_bridge issueCopyCommand];
+}
+
+void KWQKHTMLPart::issuePasteCommand()
+{
+    [_bridge issuePasteCommand];
+}
+
+void KWQKHTMLPart::issuePasteAndMatchStyleCommand()
+{
+    [_bridge issuePasteAndMatchStyleCommand];
+}
+
+bool KHTMLPart::canUndo() const
+{
+    return [[KWQ(this)->_bridge undoManager] canUndo];
+}
+
+bool KHTMLPart::canRedo() const
+{
+    return [[KWQ(this)->_bridge undoManager] canRedo];
+}
+
+bool KHTMLPart::canPaste() const
+{
+    return [KWQ(this)->_bridge canPaste];
+}
+
+void KWQKHTMLPart::markMisspellingsInAdjacentWords(const VisiblePosition &p)
+{
+    if (![_bridge isContinuousSpellCheckingEnabled])
+        return;
+    markMisspellings(Selection(startOfWord(p, LeftWordIfOnBoundary), endOfWord(p, RightWordIfOnBoundary)));
+}
+
+void KWQKHTMLPart::markMisspellings(const Selection &selection)
+{
+    // This function is called with a selection already expanded to word boundaries.
+    // Might be nice to assert that here.
+
+    if (![_bridge isContinuousSpellCheckingEnabled])
+        return;
+
+    Range searchRange(selection.toRange());
+    if (searchRange.isNull() || searchRange.isDetached())
+        return;
+    
+    // If we're not in an editable node, bail.
+    NodeImpl *editableNodeImpl = searchRange.startContainer().handle();
+    if (!editableNodeImpl->isContentEditable())
+        return;
+    
+    NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    WordAwareIterator it(searchRange);
+    
+    while (!it.atEnd()) {      // we may be starting at the end of the doc, and already by atEnd
+        const QChar *chars = it.characters();
+        long len = it.length();
+        if (len > 1 || !chars[0].isSpace()) {
+            NSString *chunk = [[NSString alloc] initWithCharactersNoCopy:(unichar *)chars length:len freeWhenDone:NO];
+            int startIndex = 0;
+            // Loop over the chunk to find each misspelling in it.
+            while (startIndex < len) {
+                NSRange misspelling = [checker checkSpellingOfString:chunk startingAt:startIndex language:nil wrap:NO inSpellDocumentWithTag:[_bridge spellCheckerDocumentTag] wordCount:NULL];
+                if (misspelling.length == 0) {
+                    break;
+                }
+                else {
+                    // Build up result range and string.  Note the misspelling may span many text nodes,
+                    // but the CharIterator insulates us from this complexity
+                    Range misspellingRange(xmlDocImpl());
+                    CharacterIterator chars(it.range());
+                    chars.advance(misspelling.location);
+                    misspellingRange.setStart(chars.range().startContainer(), chars.range().startOffset());
+                    chars.advance(misspelling.length);
+                    misspellingRange.setEnd(chars.range().startContainer(), chars.range().startOffset());
+                    // Mark misspelling in document.
+                    xmlDocImpl()->addMarker(misspellingRange, DocumentMarker::Spelling);
+                    startIndex = misspelling.location + misspelling.length;
+                }
+            }
+            [chunk release];
+        }
+    
+        it.advance();
+    }
+}
+
+void KWQKHTMLPart::respondToChangedSelection(const Selection &oldSelection, bool closeTyping)
+{
+    if (xmlDocImpl()) {
+        if ([_bridge isContinuousSpellCheckingEnabled]) {
+            VisiblePosition oldStart(oldSelection.start(), oldSelection.startAffinity());
+            Selection oldAdjacentWords(startOfWord(oldStart, LeftWordIfOnBoundary), endOfWord(oldStart, RightWordIfOnBoundary));
+
+            VisiblePosition newStart(selection().start(), selection().startAffinity());
+            Selection newAdjacentWords(startOfWord(newStart, LeftWordIfOnBoundary), endOfWord(newStart, RightWordIfOnBoundary));
+
+            if (oldAdjacentWords != newAdjacentWords) {
+                // Mark misspellings in the portion that was previously unmarked because of
+                // the proximity of the start of the selection. We only spell check words in
+                // the vicinity of the start of the old selection because the spelling checker
+                // is not fast enough to do a lot of spelling checking implicitly. This matches
+                // AppKit. This function is really the only code that knows that rule. The
+                // markMisspellings function is prepared to handler larger ranges.
+
+                // When typing we check spelling elsewhere, so don't redo it here.
+                if (closeTyping) {
+                    markMisspellings(oldAdjacentWords);
+                }
+
+                // This only erases a marker in the first word of the selection.
+                // Perhaps peculiar, but it matches AppKit.
+                xmlDocImpl()->removeMarker(newAdjacentWords.toRange(), DocumentMarker::Spelling);
+            }
+        } else {
+            // When continuous spell checking is off, no markers appear after the selection changes.
+            xmlDocImpl()->removeAllMarkers();
+        }
+    }
+
+    [_bridge respondToChangedSelection];
+}
+
+void KWQKHTMLPart::respondToChangedContents()
+{
+#if APPLE_CHANGES
+    if (KWQAccObjectCache::accessibilityEnabled()) {
+        renderer()->document()->getAccObjectCache()->postNotificationToTopWebArea(renderer(), "AXValueChanged");
+    }
+#endif
+    [_bridge respondToChangedContents];
+}
+
+bool KWQKHTMLPart::isContentEditable() const
+{
+    return KHTMLPart::isContentEditable() || [_bridge isEditable];
+}
+
+bool KWQKHTMLPart::shouldBeginEditing(const Range &range) const
+{
+    ASSERT(!range.isNull());
+    return [_bridge shouldBeginEditing:[DOMRange _rangeWithImpl:range.handle()]];
+}
+
+bool KWQKHTMLPart::shouldEndEditing(const Range &range) const
+{
+    ASSERT(!range.isNull());
+    return [_bridge shouldEndEditing:[DOMRange _rangeWithImpl:range.handle()]];
+}
+
+DOM::Range KWQKHTMLPart::markedTextRange() const
+{
+    return m_markedTextRange;
+}
+
+static QValueList<KWQKHTMLPart::MarkedTextUnderline> convertAttributesToUnderlines(const DOM::Range &markedTextRange, NSArray *attributes, NSArray *ranges)
+{
+    QValueList<KWQKHTMLPart::MarkedTextUnderline> result;
+
+    int baseOffset = markedTextRange.startOffset();
+
+    unsigned length = [attributes count];
+    ASSERT([ranges count] == length);
+
+    for (unsigned i = 0; i < length; i++) {
+        NSNumber *style = [[attributes objectAtIndex:i] objectForKey:NSUnderlineStyleAttributeName];
+        if (!style)
+            continue;
+        NSRange range = [[ranges objectAtIndex:i] rangeValue];
+        NSColor *color = [[attributes objectAtIndex:i] objectForKey:NSUnderlineColorAttributeName];
+        QColor qColor = Qt::black;
+        if (color) {
+            NSColor* deviceColor = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
+            qColor = QColor(qRgba((int)(255 * [deviceColor redComponent]),
+                                  (int)(255 * [deviceColor blueComponent]),
+                                  (int)(255 * [deviceColor greenComponent]),
+                                  (int)(255 * [deviceColor alphaComponent])));
+        }
+
+        result.append(KWQKHTMLPart::MarkedTextUnderline(range.location + baseOffset, 
+                                                        range.location + baseOffset + range.length, 
+                                                        qColor,
+                                                        [style intValue] > 1));
+    }
+
+    return result;
+}
+
+void KWQKHTMLPart::setMarkedTextRange(const DOM::Range &range, NSArray *attributes, NSArray *ranges)
+{
+    ASSERT(!range.handle() || range.startContainer() == range.endContainer());
+    ASSERT(!range.handle() || range.collapsed() || range.startContainer().nodeType() == Node::TEXT_NODE);
+
+    if (attributes == nil) {
+        m_markedTextUsesUnderlines = false;
+        m_markedTextUnderlines.clear();
+    } else {
+        m_markedTextUsesUnderlines = true;
+        m_markedTextUnderlines = convertAttributesToUnderlines(range, attributes, ranges);
+    }
+
+    if (m_markedTextRange.handle() && xmlDocImpl() 
+	&& m_markedTextRange.startContainer().handle()->renderer()) {
+	m_markedTextRange.startContainer().handle()->renderer()->repaint();
+    }
+
+    if ( range.handle() && range.collapsed() ) {
+        m_markedTextRange = DOM::Range(0);
+    } else {
+        m_markedTextRange = range;
+    }
+
+    if (m_markedTextRange.handle() && xmlDocImpl() 
+	&& m_markedTextRange.startContainer().handle()->renderer()) {
+	m_markedTextRange.startContainer().handle()->renderer()->repaint();
+    }
+}
+
+bool KWQKHTMLPart::markedTextUsesUnderlines() const
+{
+    return m_markedTextUsesUnderlines;
+}
+
+QValueList<KWQKHTMLPart::MarkedTextUnderline> KWQKHTMLPart::markedTextUnderlines() const
+{
+    return m_markedTextUnderlines;
 }
 
 bool KWQKHTMLPart::canGoBackOrForward(int distance) const
 {
     return [_bridge canGoBackOrForward:distance];
+}
+
+void KWQKHTMLPart::prepareForUserAction()
+{
+    // Reset the multiple form submission protection code.
+    // We'll let you submit the same form twice if you do two separate user actions.
+    _submittedFormURL = KURL();
+}
+
+void KWQKHTMLPart::didFirstLayout()
+{
+    [_bridge didFirstLayout];
+}
+
+NSMutableDictionary *KWQKHTMLPart::dashboardRegionsDictionary()
+{
+    DocumentImpl *doc = xmlDocImpl();
+    if (!doc) {
+        return nil;
+    }
+
+    const QValueList<DashboardRegionValue> regions = doc->dashboardRegions();
+    uint i, count = regions.count();
+
+    // Convert the QValueList<DashboardRegionValue> into a NSDictionary of WebDashboardRegions
+    NSMutableDictionary *webRegions = [[[NSMutableDictionary alloc] initWithCapacity:count] autorelease];
+    for (i = 0; i < count; i++) {
+        DashboardRegionValue region = regions[i];
+
+        if (region.type == StyleDashboardRegion::None)
+            continue;
+            
+        NSRect clip;
+        clip.origin.x = region.clip.x();
+        clip.origin.y = region.clip.y();
+        clip.size.width = region.clip.width();
+        clip.size.height = region.clip.height();
+        NSRect rect;
+        rect.origin.x = region.bounds.x();
+        rect.origin.y = region.bounds.y();
+        rect.size.width = region.bounds.width();
+        rect.size.height = region.bounds.height();
+        NSString *label = region.label.getNSString();
+        WebDashboardRegionType type = WebDashboardRegionTypeNone;
+        if (region.type == StyleDashboardRegion::Circle)
+            type = WebDashboardRegionTypeCircle;
+        else if (region.type == StyleDashboardRegion::Rectangle)
+            type = WebDashboardRegionTypeRectangle;
+        NSMutableArray *regionValues = [webRegions objectForKey:label];
+        if (!regionValues) {
+            regionValues = [NSMutableArray array];
+            [webRegions setObject:regionValues forKey:label];
+        }
+        
+        WebDashboardRegion *webRegion = [[[WebDashboardRegion alloc] initWithRect:rect clip:clip type:type] autorelease];
+        [regionValues addObject:webRegion];
+    }
+    
+    return webRegions;
+}
+
+void KWQKHTMLPart::dashboardRegionsChanged()
+{
+    NSMutableDictionary *webRegions = dashboardRegionsDictionary();
+    [_bridge dashboardRegionsChanged:webRegions];
+}
+
+bool KWQKHTMLPart::isCharacterSmartReplaceExempt(const QChar &c, bool isPreviousChar)
+{
+    return [_bridge isCharacterSmartReplaceExempt:c.unicode() isPreviousCharacter:isPreviousChar];
+}
+
+bool KWQKHTMLPart::isKHTMLPart() const
+{
+    return true;
+}
+
+DOM::NodeImpl *KWQKHTMLPart::mousePressNode()
+{
+    return d->m_mousePressNode.handle();
 }

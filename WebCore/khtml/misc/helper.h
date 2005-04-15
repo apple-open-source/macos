@@ -2,6 +2,7 @@
  * This file is part of the CSS implementation for KDE.
  *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,28 +23,28 @@
 #ifndef html_helper_h
 #define html_helper_h
 
-#include <qcolor.h>
 class QPainter;
+class QChar;
+
+#include <qcolor.h>
 #include <qfontmetrics.h>
 #include <qfont.h>
 
 namespace khtml
 {
     const QRgb transparentColor = 0x00000000;
+#if !APPLE_CHANGES
     const QRgb invertedColor    = 0x00000002; // This really makes no sense. This is a valid color value, so why
                                               // is it being given special meaning? -dwh
+#endif
     
     extern QPainter *printpainter;
-    void setPrintPainter( QPainter *printer );
+    void setPrintPainter(QPainter *printer);
 
-    //enumerator for findSelectionNode
-    enum FindSelectionResult { SelectionPointBefore,
-			       SelectionPointAfter,
-			       SelectionPointInside,
-			       // the next two are only used inside one line in RenderText
-			       // to get BiDi contexts right.
-			       SelectionPointBeforeInLine,
-			       SelectionPointAfterInLine };
+    void findWordBoundary(const QChar *chars, int len, int position, int *start, int *end);
+    int nextWordFromIndex(const QChar *chars, int len, int position, bool forward);
+    void findSentenceBoundary(const QChar *chars, int len, int position, int *start, int *end);
+    int nextSentenceFromIndex(const QChar *chars, int len, int position, bool forward);
 };
 
 #endif

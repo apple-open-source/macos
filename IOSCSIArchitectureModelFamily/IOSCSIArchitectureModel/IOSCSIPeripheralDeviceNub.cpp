@@ -325,11 +325,11 @@ IOSCSIPeripheralDeviceNub::message ( UInt32			type,
 		case kIOMessageServiceIsRequestingClose:
 		{
 			
-			STATUS_LOG ( ("%s: kIOMessageServiceIsRequestingClose called\n", getName( ) ) );
+			STATUS_LOG ( ( "%s: kIOMessageServiceIsRequestingClose called\n", getName ( ) ) );
 			if ( fProvider != NULL )
-			{	
+			{
 				
-				STATUS_LOG ( ("%s: closing provider\n", getName( ) ) );
+				STATUS_LOG ( ( "%s: closing provider\n", getName ( ) ) );
 				fProvider->close ( this );
 				
 			}
@@ -348,8 +348,10 @@ IOSCSIPeripheralDeviceNub::message ( UInt32			type,
 		
 		default:
 		{
-			STATUS_LOG ( ("%s: some message = %ld called\n", getName ( ), type ) );
+			
+			STATUS_LOG ( ( "%s: some message = %ld called\n", getName ( ), type ) );
 			status = super::message ( type, nub, arg );
+			
 		}
 		break;
 		
@@ -1045,7 +1047,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		{
 			
 			case kINQUIRY_PERIPHERAL_QUALIFIER_NotSupported:
-				// According to the SPC-2 spec, if a devices responds with this
+				// According to the SPC-2 spec, if a device responds with this
 				// qualifier type, it should set the PDT to 0x1F for backward
 				// compatibility...
 				ERROR_LOG ( ( "Device not supported at this Logical Unit\n" ) );

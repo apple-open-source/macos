@@ -1,10 +1,10 @@
 /* db_berkeley.c--SASL berkeley db interface
  * Rob Siemborski
  * Tim Martin
- * $Id: db_berkeley.c,v 1.2 2002/05/22 17:57:42 snsimon Exp $
+ * $Id: db_berkeley.c,v 1.5 2005/01/10 19:01:34 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,19 +85,23 @@ static int berkeleydb_open(const sasl_utils_t *utils,
     ret = db_create(mbdb, NULL, 0);
     if (ret == 0 && *mbdb != NULL)
     {
-	    ret = (*mbdb)->open(*mbdb, path, NULL, DB_HASH, flags, 0660);
-	    if (ret != 0)
-	    {
-		    (void) (*mbdb)->close(*mbdb, 0);
-		    *mbdb = NULL;
-	    }
+#if DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 1
+	ret = (*mbdb)->open(*mbdb, NULL, path, NULL, DB_HASH, flags, 0660);
+#else
+	ret = (*mbdb)->open(*mbdb, path, NULL, DB_HASH, flags, 0660);
+#endif
+	if (ret != 0)
+	{
+	    (void) (*mbdb)->close(*mbdb, 0);
+	    *mbdb = NULL;
+	}
     }
 #endif /* DB_VERSION_MAJOR < 3 */
 
     if (ret != 0) {
 	utils->log(conn, SASL_LOG_ERR,
 		   "unable to open Berkeley db %s: %s",
-		   path, strerror(ret));
+		   path, db_strerror(ret));
 	utils->seterror(conn, SASL_NOLOG, "Unable to open DB");
 	return SASL_FAIL;
     }
@@ -117,7 +121,7 @@ static void berkeleydb_close(const sasl_utils_t *utils, DB *mbdb)
 	/* error closing! */
 	utils->log(NULL, SASL_LOG_ERR,
 		   "error closing sasldb: %s",
-		   strerror(ret));
+		   db_strerror(ret));
     }
 }
 
@@ -193,7 +197,7 @@ int _sasldb_getdata(const sasl_utils_t *utils,
   default:
     utils->seterror(context, 0,
 		    "error fetching from sasldb: %s",
-		    strerror(result));
+		    db_strerror(result));
     result = SASL_FAIL;
     goto cleanup;
     break;
@@ -278,7 +282,7 @@ int _sasldb_putdata(const sasl_utils_t *utils,
     if (result != 0)
     {
       utils->log(NULL, SASL_LOG_ERR,
-		 "error updating sasldb: %s", strerror(result));
+		 "error updating sasldb: %s", db_strerror(result));
       utils->seterror(context, SASL_NOLOG,
 		      "Couldn't update db");
       result = SASL_FAIL;
@@ -290,7 +294,7 @@ int _sasldb_putdata(const sasl_utils_t *utils,
     if (result != 0)
     {
       utils->log(NULL, SASL_LOG_ERR,
-		 "error deleting entry from sasldb: %s", strerror(result));
+		 "error deleting entry from sasldb: %s", db_strerror(result));
       utils->seterror(context, SASL_NOLOG,
 		      "Couldn't update db");
       if (result == DB_NOTFOUND)
@@ -354,14 +358,14 @@ typedef struct berkeleydb_handle
 {
     DB *mbdb;
     DBC *cursor;
-} handle_t;
+} berkleyhandle_t;
 
 sasldb_handle _sasldb_getkeyhandle(const sasl_utils_t *utils,
 				   sasl_conn_t *conn) 
 {
     int ret;
     DB *mbdb;
-    handle_t *handle;
+    berkleyhandle_t *handle;
     
     if(!utils || !conn) return NULL;
 
@@ -376,7 +380,7 @@ sasldb_handle _sasldb_getkeyhandle(const sasl_utils_t *utils,
 	return NULL;
     }
 
-    handle = utils->malloc(sizeof(handle_t));
+    handle = utils->malloc(sizeof(berkleyhandle_t));
     if(!handle) {
 	(void)mbdb->close(mbdb, 0);
 	utils->seterror(conn, 0, "Memory error in _sasldb_gethandle");
@@ -395,7 +399,7 @@ int _sasldb_getnextkey(const sasl_utils_t *utils __attribute__((unused)),
 {
     DB *mbdb;
     int result;
-    handle_t *dbh = (handle_t *)handle;
+    berkleyhandle_t *dbh = (berkleyhandle_t *)handle;
     DBT key, data;
 
     if(!utils || !handle || !out || !max_out)
@@ -447,7 +451,7 @@ int _sasldb_getnextkey(const sasl_utils_t *utils __attribute__((unused)),
 int _sasldb_releasekeyhandle(const sasl_utils_t *utils,
 			     sasldb_handle handle) 
 {
-    handle_t *dbh = (handle_t *)handle;
+    berkleyhandle_t *dbh = (berkleyhandle_t *)handle;
     int ret = 0;
     
     if(!utils || !dbh) return SASL_BADPARAM;

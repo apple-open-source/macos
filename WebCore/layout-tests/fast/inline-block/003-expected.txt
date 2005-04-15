@@ -1,8 +1,8 @@
 layer at (0,0) size 800x600
   RenderCanvas at (0,0) size 800x600
-layer at (0,0) size 800x118
-  RenderBlock {HTML} at (0,0) size 800x118
-    RenderBody {BODY} at (8,8) size 784x102
+layer at (0,0) size 800x600
+  RenderBlock {HTML} at (0,0) size 800x600
+    RenderBody {BODY} at (8,8) size 784x584
       RenderBlock (anonymous) at (0,0) size 784x18
         RenderText {TEXT} at (0,0) size 527x18
           text run at (0,0) width 527: "The two divs below should be on the same line, since they are display: inline-block."
@@ -20,11 +20,11 @@ layer at (0,0) size 800x118
         RenderInline {SPAN} at (0,0) size 784x36
         RenderText {TEXT} at (0,0) size 0x0
         RenderText {TEXT} at (0,0) size 0x0
-layer at (8,66) size 784x22 clip at (10,68) size 780x18
+layer at (8,66) size 784x22 clip at (10,68) size 780x18 scrollX -765
   RenderBlock {MARQUEE} at (0,18) size 784x22 [border: (2px solid #008000)]
     RenderText {TEXT} at (2,2) size 97x18
       text run at (2,2) width 97: "This is div one."
-layer at (8,88) size 784x22 clip at (10,90) size 780x18
+layer at (8,88) size 784x22 clip at (10,90) size 780x18 scrollX -765
   RenderBlock {MARQUEE} at (0,40) size 784x22 [border: (2px solid #008000)]
     RenderText {TEXT} at (2,2) size 98x18
       text run at (2,2) width 98: "This is div two."

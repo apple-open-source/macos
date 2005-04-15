@@ -60,5 +60,8 @@ enum {
 
 #define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
 
+#define kIOFBCurrentPixelClockKey 	"IOFBCurrentPixelClock"
+#define kIOFBCurrentPixelCountKey 	"IOFBCurrentPixelCount"
+
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

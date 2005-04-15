@@ -24,6 +24,9 @@
 #include "xml/dom_docimpl.h"
 #include "xml/dom_elementimpl.h"
 
+// FIXME: Remove when .style gets moved to html_element.cpp.
+#include "html/html_elementimpl.h"
+
 using namespace DOM;
 
 Attr::Attr() : Node()
@@ -203,10 +206,7 @@ DOMString Element::getAttributeNS( const DOMString &namespaceURI,
                                    const DOMString &localName)
 {
     if (!impl) throw DOMException(DOMException::NOT_FOUND_ERR);
-    NodeImpl::Id id = impl->getDocument()->attrId(namespaceURI.implementation(),
-                                                 localName.implementation(), true);
-    if (!id) return DOMString();
-    return static_cast<ElementImpl*>(impl)->getAttribute(id);
+    return static_cast<ElementImpl*>(impl)->getAttributeNS(namespaceURI, localName).domString();
 }
 
 void Element::setAttributeNS( const DOMString &namespaceURI,
@@ -294,9 +294,11 @@ bool Element::isHTMLElement() const
     return ((ElementImpl *)impl)->isHTMLElement();
 }
 
+// FIXME: This should move down to HTMLElement.
 CSSStyleDeclaration Element::style()
 {
-    if (impl) return ((ElementImpl *)impl)->styleRules();
+    if (isHTMLElement())
+        return ((HTMLElementImpl *)impl)->getInlineStyleDecl();
     return 0;
 }
 

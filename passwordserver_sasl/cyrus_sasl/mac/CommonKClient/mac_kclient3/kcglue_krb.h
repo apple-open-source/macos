@@ -1,4 +1,4 @@
-/* $Id: kcglue_krb.h,v 1.1 2002/02/28 00:23:25 snsimon Exp $
+/* $Id: kcglue_krb.h,v 1.4 2005/01/10 19:17:32 snsimon Exp $
  * mit kerberos and kclient include files are not compatable
  * the define things with the same name but different implementations
  * this is an interface that can be included with either kclient.h

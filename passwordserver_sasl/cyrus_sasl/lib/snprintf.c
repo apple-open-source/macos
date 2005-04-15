@@ -48,10 +48,6 @@
 # include <ctype.h>
 #include <sys/types.h>
 
-/* Define this as a fall through, HAVE_STDARG_H is probably already set */
-
-#define HAVE_VARARGS_H
-
 /* varargs declarations: */
 
 #if defined(HAVE_STDARG_H)

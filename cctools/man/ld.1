@@ -1,4 +1,4 @@
-.TH LD 1 "September 10, 2003" "Apple Computer, Inc."
+.TH LD 1 "December 16, 2004" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
@@ -209,7 +209,7 @@ When the environment variable
 .B MACOSX_DEPLOYMENT_TARGET
 is set to
 .B 10.3
-then
+or higher then
 .BI \-undefined " dynamic_lookup"
 can also be used.  The specific library definition recorded
 for each reference is the first library that has a definition as listed on the
@@ -519,7 +519,7 @@ where the link fails with an error message.  The other treatments are
 or
 .I non-weak,
 which makes mismatched undefined symbol references either weak or non-weak
-respectfully in the output.  Care must be taken when using the treatment
+in the output, respectively.  Care must be taken when using the treatment
 .I weak
 as the use of the non-weak symbol references in an object file may cause the
 program to crash when the symbol is not present at execution time.
@@ -543,7 +543,10 @@ is set both the option
 .B \-prebind
 .SM LD_PREBIND
 environment variable are ignore and the output is not prebound.
-and the
+Or if the environment variable
+.B MACOSX_DEPLOYMENT_TARGET
+is set to 10.4 or greater and the output is not a split a dynamic library the
+output is not prebound.
 .TP
 .B \-noprebind
 Do not have the static linker,
@@ -624,7 +627,7 @@ then that file is searched for in the same places, but without prepending
 `lib' or appending `.a' or `.dylib' to the filename.
 .TP
 .BI \-weak-l x
-The is the same as the
+This is the same as the
 .BI \-l x
 but forces the library and all references to it to be marked as weak imports.
 Care must be taken when using this as the use of the non-weak symbol references
@@ -633,7 +636,7 @@ not present at execution time.
 .TP 
 .BI \-weak_library " file_name_path_to_library"
 This is the same as listing a file name path to a library on the link line
-except that it but forces the library and all references to it to be marked as
+except that it forces the library and all references to it to be marked as
 weak imports.
 Care must be taken when using this as the use of the non-weak symbol references
 in an object file may cause the program to crash when the symbol or library is
@@ -649,6 +652,11 @@ are searched before the standard directories.
 .TP
 .B \-Z
 Do not search the standard directories when searching for libraries.
+.TP
+.BI "\-syslibroot " rootdir
+Prepend
+.I rootdir
+to the standard directories when searching for libraries or frameworks.
 .TP
 .B \-search_paths_first
 By default when the
@@ -689,7 +697,7 @@ If the optional suffix is specified the framework is first searched for the
 name with the suffix and then without.
 .TP
 .BI "\-weak_framework " name[,suffix]
-The is the same as the
+This is the same as the
 .BI "\-framework " name[,suffix]
 but forces the framework and all references to it to be marked as weak imports.
 Care must be taken when using this as the use of the non-weak symbol references
@@ -724,7 +732,7 @@ For example, if you link to a library that depends upon the dynamic library libs
 .BI \-executable_path " path_name"
 Specifies that
 .I path_name
-is is is used to replace
+is used to replace
 .I @executable_path
 for dependent libraries.
 
@@ -760,7 +768,8 @@ padding.  In this format, and all
 .SM non-MH_EXECUTE
 formats, the link editor
 defined symbol ``\_\^\_mh_execute_header'' is not defined since the headers are
-not part of the segment.  This format file can't be use with the dynamic linker.
+not part of the segment.  This format file can't be used with the dynamic
+linker.
 .TP
 .B "\-preload"
 Produce a Mach-O preloaded executable format file.  The headers are not placed
@@ -909,7 +918,7 @@ to be
 .I max
 and
 .I init
-respectfully.  The values for
+,respectively.  The values for
 .I max
 and
 .I init
@@ -1044,6 +1053,7 @@ section.  Any section can be ordered in the output file except symbol pointer an
 For non-literal sections, each line of the
 .I orderfile
 contains an object name and a symbol name, separated by a single colon (':').  
+Lines that start with # are ignored and treated as comments.
 If the object file is
 in an archive, the archive name, followed by a single colon, must precede the
 object file name.  The object file names and archive names should be exactly the
@@ -1110,12 +1120,13 @@ in the segment
 Each object file that has one of these sections will have a local 
 symbol created
 whose name is that of the object file, or of the member of the archive. 
-The symbol's value will be the first address where that object file's section was
-loaded.  The symbol has the type N_SECT and its section number is the
+The symbol's value will be the first address where that object file's section
+was loaded.  The symbol has the type N_SECT and its section number is the
 the same as that of the section
 .I (segname,sectname)
 in the output file.
-This symbol will placed in the symbol table just before all other local symbols
+This symbol will be placed in the symbol table just before all other local
+symbols
 for the object file.  This feature is typically used where the section is
 .SM (\_\^\_TEXT,\_\^\_text),
 in order to help the debugger debug object files produced by old versions of 
@@ -1177,12 +1188,6 @@ flag is specified.  If this is used when the
 .B \-bundle
 flag is specified the bundle will fail to load on a MacOS X 10.0 system with a
 malformed object error.
-
-.SM  NSLINKMODULE_OPTION_PRIVATE
-option to
-.IR NSLinkModule (3)
-and that the symbols in the executable are not to cause multiply defined symbol
-errors.
 .TP 
 .BI \-multiply_defined " treatment"
 Specifies how multiply defined symbols in dynamic libraries when
@@ -1208,9 +1213,9 @@ is in effect.
 Specifies how unused multiply defined symbols in dynamic libraries when
 .B \-twolevel_namespace
 is in effect are to be treated.
-An unused multiply defined symbol is one when there is a symbol defined in the
-output that is also defined in the dynamic libraries the output is linked with
-but the symbol in the dynamic library is not used by any reference in the
+An unused multiply defined symbol is one in which there is a symbol defined in
+the output that is also defined in the dynamic libraries the output is linked
+with but the symbol in the dynamic library is not used by any reference in the
 output.
 .I treatment
 can be:
@@ -1322,7 +1327,7 @@ When the environment variable
 .B MACOSX_DEPLOYMENT_TARGET
 is set to
 .B 10.3
-then
+or higher then
 .BI \-undefined " dynamic_lookup"
 can also be used to allow any undefined symbols to be looked up dynamically at
 runtime.  Use of a binary built with this flag requires a system with a dynamic
@@ -1432,8 +1437,20 @@ must be one per line. Leading and trailing white space are not part of the
 symbol name.  Lines starting with # are ignored, as are lines with only white
 space.
 
+.TP
+.B -dead_strip
+Remove blocks of code and data that are unreachable by the entry point or
+exported symbols.
+.B -no_dead_strip_inits_and_terms
+When specified along with
+.B -dead_strip
+cause all constructors and destructors to never be dead stripped.
+
 .PP
 The remaining options are infrequently used:
+.TP
+.B \-v
+Print the version of the linker.
 .TP
 .B \-w
 Suppresses all warning messages.
@@ -1584,13 +1601,13 @@ option above).
 .BI \-sub_umbrella " framework_name"
 Specifies that the
 .I framework_name
-being linked by a dynamic library is to be treated as it one of the
+being linked by a dynamic library is to be treated as one of the
 subframeworks with respect to twolevel namespace.
 .TP
 .BI \-sub_library " library_name"
 Specifies that the
 .I library_name
-being linked by a dynamic library is to be treated as it one of the
+being linked by a dynamic library is to be treated as one of the
 sublibraries with respect to twolevel namespace.  For example the 
 .I library_name
 for
@@ -1683,8 +1700,9 @@ a feature is seen in the input that can't be in the output due to this setting
 a warning is issued.  The current allowable values for this are
 .B 10.1,
 .B 10.2
+.B 10.3,
 and
-.B 10.3
+.B 10.4
 with the default being
 .B 10.1.
 .PP
@@ -1721,6 +1739,16 @@ argument.
 The argument
 .I filename
 is used in the above message when RC_TRACE_PREBINDING_DISABLED is set.
+.TP
+.B LD_SPLITSEGS_NEW_LIBRARIES
+When set and
+.B MACOSX_DEPLOYMENT_TARGET
+is set to 10.4 or greater and the output is a dynamic library, and if the
+install name of the library is not listed the segment address table, and if the
+environment variable
+.B LD_UNPREBOUND_LIBRARIES
+is set with a file name with a list of library install names and the install
+name is not listed, then this is built as a split shared library.
 
 .PP
 Options available in early versions of the Mach-O link editor 
@@ -1742,5 +1770,5 @@ may no longer be supported.
 .br
 a.out	output file
 .SH "SEE ALSO"
-as(1), ar(1), cc(1), libtool(1), ranlib(1), atom(1), nm(1), otool(1) lipo(1), 
+as(1), ar(1), cc(1), libtool(1), ranlib(1), nm(1), otool(1) lipo(1), 
 arch(3), dyld(3), Mach-O(5), strip(1), redo_prebinding(1)

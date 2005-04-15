@@ -2,8 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- *
- * $Id: cssparser.cpp,v 1.55 2003/12/10 21:14:01 hyatt Exp $
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,6 +34,7 @@
 #include "cssproperties.h"
 #include "cssvalues.h"
 #include "misc/helper.h"
+#include "xml/dom_docimpl.h"
 #include "csshelper.h"
 using namespace DOM;
 
@@ -95,12 +95,15 @@ CSSParser::CSSParser( bool strictParsing )
     numParsedProperties = 0;
     maxParsedProperties = 32;
 
+    data = 0;
     valueList = 0;
     rule = 0;
     id = 0;
     important = false;
-    nonCSSHint = false;
     inParseShortHand = false;
+    
+    defaultNamespace = anyNamespace;
+    
     yy_start = 1;
 
 #if YYDEBUG > 0
@@ -125,20 +128,42 @@ CSSParser::~CSSParser()
 
 }
 
-void CSSParser::parseSheet( CSSStyleSheetImpl *sheet, const DOMString &string )
+void ParseString::lower()
 {
-    styleElement = sheet;
+    for (int i = 0; i < length; i++)
+        string[i] = QChar(string[i]).lower().unicode();
+}
 
-    int length = string.length() + 3;
+void CSSParser::setupParser(const char *prefix, const DOMString &string, const char *suffix)
+{
+    int length = string.length() + strlen(prefix) + strlen(suffix) + 2;
+    
     data = (unsigned short *)malloc( length *sizeof( unsigned short ) );
-    memcpy( data, string.unicode(), string.length()*sizeof( unsigned short) );
+    for ( unsigned int i = 0; i < strlen(prefix); i++ )
+	data[i] = prefix[i];
+    
+    memcpy( data + strlen( prefix ), string.unicode(), string.length()*sizeof( unsigned short) );
+
+    unsigned int start = strlen( prefix ) + string.length();
+    unsigned int end = start + strlen(suffix);
+    for ( unsigned int i = start; i < end; i++ )
+        data[i] = suffix[i-start];
+
     data[length-1] = 0;
     data[length-2] = 0;
-    data[length-3] = ' ';
+
     yy_hold_char = 0;
     yyleng = 0;
     yytext = yy_c_buf_p = data;
     yy_hold_char = *yy_c_buf_p;
+}
+
+void CSSParser::parseSheet( CSSStyleSheetImpl *sheet, const DOMString &string )
+{
+    styleElement = sheet;
+    defaultNamespace = anyNamespace; // Reset the default namespace.
+    
+    setupParser ("", string, "");
 
 #ifdef CSS_DEBUG
     kdDebug( 6080 ) << ">>>>>>> start parsing style sheet" << endl;
@@ -159,21 +184,7 @@ CSSRuleImpl *CSSParser::parseRule( DOM::CSSStyleSheetImpl *sheet, const DOM::DOM
 {
     styleElement = sheet;
     
-    const char khtml_rule[] = "@-khtml-rule{";
-    int length = string.length() + 4 + strlen(khtml_rule);
-    data = (unsigned short *)malloc( length *sizeof( unsigned short ) );
-    for ( unsigned int i = 0; i < strlen(khtml_rule); i++ )
-	data[i] = khtml_rule[i];
-    memcpy( data + strlen( khtml_rule ), string.unicode(), string.length()*sizeof( unsigned short) );
-    // qDebug("parse string = '%s'", QConstString( (const QChar *)data, length ).string().latin1() );
-    data[length-1] = 0;
-    data[length-2] = 0;
-    data[length-3] = ' ';
-    data[length-4] = '}';
-    yy_hold_char = 0;
-    yyleng = 0;
-    yytext = yy_c_buf_p = data;
-    yy_hold_char = *yy_c_buf_p;
+    setupParser ("@-khtml-rule{", string, "} ");
 
     CSSParser *old = currentParser;
     currentParser = this;
@@ -186,36 +197,21 @@ CSSRuleImpl *CSSParser::parseRule( DOM::CSSStyleSheetImpl *sheet, const DOM::DOM
     return result;
 }
 
-bool CSSParser::parseValue( DOM::CSSStyleDeclarationImpl *declaration, int _id, const DOM::DOMString &string,
-			    bool _important, bool _nonCSSHint )
+bool CSSParser::parseValue( CSSMutableStyleDeclarationImpl *declaration, int _id, const DOMString &string,
+			    bool _important)
 {
 #ifdef CSS_DEBUG
     kdDebug( 6080 ) << "CSSParser::parseValue: id=" << _id << " important=" << _important
-		    << " nonCSSHint=" << _nonCSSHint << " value='" << string.string() << "'" << endl;
+		    << " value='" << string.string() << "'" << endl;
 #endif
 
     styleElement = declaration->stylesheet();
 
-    const char khtml_value[] = "@-khtml-value{";
-    int length = string.length() + 4 + strlen(khtml_value);
-    data = (unsigned short *)malloc( length *sizeof( unsigned short ) );
-    for ( unsigned int i = 0; i < strlen(khtml_value); i++ )
-	data[i] = khtml_value[i];
-    memcpy( data + strlen( khtml_value ), string.unicode(), string.length()*sizeof( unsigned short) );
-    data[length-1] = 0;
-    data[length-2] = 0;
-    data[length-3] = ' ';
-    data[length-4] = '}';
-    // qDebug("parse string = '%s'", QConstString( (const QChar *)data, length ).string().latin1() );
-    yy_hold_char = 0;
-    yyleng = 0;
-    yytext = yy_c_buf_p = data;
-    yy_hold_char = *yy_c_buf_p;
+    setupParser ("@-khtml-value{", string, "} ");
 
     id = _id;
     important = _important;
-    nonCSSHint = _nonCSSHint;
-
+    
     CSSParser *old = currentParser;
     currentParser = this;
     cssyyparse( this );
@@ -227,43 +223,73 @@ bool CSSParser::parseValue( DOM::CSSStyleDeclarationImpl *declaration, int _id, 
     bool ok = false;
     if ( numParsedProperties ) {
 	ok = true;
-	for ( int i = 0; i < numParsedProperties; i++ ) {
-	    declaration->removeProperty(parsedProperties[i]->m_id, nonCSSHint);
-	    declaration->values()->append( parsedProperties[i] );
-	}
-	numParsedProperties = 0;
+        declaration->addParsedProperties(parsedProperties, numParsedProperties);
+        clearProperties();
     }
 
     return ok;
 }
 
-bool CSSParser::parseDeclaration( DOM::CSSStyleDeclarationImpl *declaration, const DOM::DOMString &string,
-				  bool _nonCSSHint )
+QRgb CSSParser::parseColor( const DOM::DOMString &string )
+{
+    QRgb color = 0;
+    CSSMutableStyleDeclarationImpl *dummyStyleDeclaration = new CSSMutableStyleDeclarationImpl;
+    
+    dummyStyleDeclaration->ref();
+
+    DOM::CSSParser parser(true);
+
+    // First try creating a color specified by name or the "#" syntax.
+    if (!parser.parseColor(string.string(), color)) {
+    
+        // Now try to create a color from the rgb() or rgba() syntax.
+        bool ok = parser.parseColor(dummyStyleDeclaration, string);
+        if ( ok ) {
+            CSSValueImpl *value = parser.parsedProperties[0]->value();
+            if (value->cssValueType() == DOM::CSSValue::CSS_PRIMITIVE_VALUE) {
+                DOM::CSSPrimitiveValueImpl *primitiveValue = static_cast<DOM::CSSPrimitiveValueImpl *>(value);
+                color = primitiveValue->getRGBColorValue();
+            }
+        }
+    
+    }
+    
+    dummyStyleDeclaration->deref();
+    
+    return color;
+}
+
+bool CSSParser::parseColor( CSSMutableStyleDeclarationImpl *declaration, const DOMString &string )
+{
+    styleElement = declaration->stylesheet();
+
+    setupParser ( "@-khtml-decls{color:", string, "} ");
+
+    CSSParser *old = currentParser;
+    currentParser = this;
+    cssyyparse( this );
+    currentParser = old;
+
+    delete rule;
+    rule = 0;
+
+    bool ok = false;
+    if ( numParsedProperties && parsedProperties[0]->m_id == CSS_PROP_COLOR) {
+	ok = true;
+    }
+
+    return ok;
+}
+
+bool CSSParser::parseDeclaration( CSSMutableStyleDeclarationImpl *declaration, const DOMString &string )
 {
 #ifdef CSS_DEBUG
-    kdDebug( 6080 ) << "CSSParser::parseDeclaration: nonCSSHint=" << nonCSSHint
-		    << " value='" << string.string() << "'" << endl;
+    kdDebug( 6080 ) << "CSSParser::parseDeclaration:value='" << string.string() << "'" << endl;
 #endif
 
     styleElement = declaration->stylesheet();
 
-    const char khtml_decls[] = "@-khtml-decls{";
-    int length = string.length() + 4 + strlen(khtml_decls);
-    data = (unsigned short *)malloc( length *sizeof( unsigned short ) );
-    for ( unsigned int i = 0; i < strlen(khtml_decls); i++ )
-	data[i] = khtml_decls[i];
-    memcpy( data + strlen( khtml_decls ), string.unicode(), string.length()*sizeof( unsigned short) );
-    data[length-1] = 0;
-    data[length-2] = 0;
-    data[length-3] = ' ';
-    data[length-4] = '}';
-    // qDebug("parse string = '%s'", QConstString( (const QChar *)data, length ).string().latin1() );
-    yy_hold_char = 0;
-    yyleng = 0;
-    yytext = yy_c_buf_p = data;
-    yy_hold_char = *yy_c_buf_p;
-
-    nonCSSHint = _nonCSSHint;
+    setupParser ( "@-khtml-decls{", string, "} ");
 
     CSSParser *old = currentParser;
     currentParser = this;
@@ -276,15 +302,13 @@ bool CSSParser::parseDeclaration( DOM::CSSStyleDeclarationImpl *declaration, con
     bool ok = false;
     if ( numParsedProperties ) {
 	ok = true;
-	for ( int i = 0; i < numParsedProperties; i++ ) {
-	    declaration->removeProperty(parsedProperties[i]->m_id, false);
-	    declaration->values()->append( parsedProperties[i] );
-	}
-	numParsedProperties = 0;
+        declaration->addParsedProperties(parsedProperties, numParsedProperties);
+        clearProperties();
     }
 
     return ok;
 }
+
 
 void CSSParser::addProperty( int propId, CSSValueImpl *value, bool important )
 {
@@ -292,7 +316,6 @@ void CSSParser::addProperty( int propId, CSSValueImpl *value, bool important )
     prop->m_id = propId;
     prop->setValue( value );
     prop->m_bImportant = important;
-    prop->nonCSSHint = nonCSSHint;
 
     if ( numParsedProperties >= maxParsedProperties ) {
 	maxParsedProperties += 32;
@@ -302,15 +325,11 @@ void CSSParser::addProperty( int propId, CSSValueImpl *value, bool important )
     parsedProperties[numParsedProperties++] = prop;
 }
 
-CSSStyleDeclarationImpl *CSSParser::createStyleDeclaration( CSSStyleRuleImpl *rule )
+CSSMutableStyleDeclarationImpl *CSSParser::createStyleDeclaration( CSSStyleRuleImpl *rule )
 {
-    QPtrList<CSSProperty> *propList = new QPtrList<CSSProperty>;
-    propList->setAutoDelete( true );
-    for ( int i = 0; i < numParsedProperties; i++ )
-	propList->append( parsedProperties[i] );
-
-    numParsedProperties = 0;
-    return new CSSStyleDeclarationImpl(rule, propList);
+    CSSMutableStyleDeclarationImpl *result = new CSSMutableStyleDeclarationImpl(rule, parsedProperties, numParsedProperties);
+    clearProperties();
+    return result;
 }
 
 void CSSParser::clearProperties()
@@ -491,6 +510,13 @@ bool CSSParser::parseValue( int propId, bool important )
 	    return parseShape( propId, important );
 	break;
 
+#if APPLE_CHANGES
+    case CSS_PROP__APPLE_DASHBOARD_REGION:                 // <dashboard-region> | <dashboard-region> 
+	if ( value->unit == Value::Function || id == CSS_VAL_NONE)
+	    return parseDashboardRegions( propId, important );
+	break;
+#endif
+
     /* Start of supported CSS properties with validation. This is needed for parseShortHand to work
      * correctly and allows optimization in khtml::applyRule(..)
      */
@@ -510,9 +536,9 @@ bool CSSParser::parseValue( int propId, bool important )
 	    valid_primitive = true;
 	break;
 
-    case CSS_PROP_OVERFLOW:             // visible | hidden | scroll | auto | inherit
+    case CSS_PROP_OVERFLOW:             // visible | hidden | scroll | auto | marquee | overlay | inherit
 	if (id == CSS_VAL_VISIBLE || id == CSS_VAL_HIDDEN || id == CSS_VAL_SCROLL || id == CSS_VAL_AUTO ||
-            id == CSS_VAL_MARQUEE)
+            id == CSS_VAL_MARQUEE || id == CSS_VAL_OVERLAY)
 	    valid_primitive = true;
 	break;
 
@@ -597,108 +623,6 @@ bool CSSParser::parseValue( int propId, bool important )
 	}
 	break;
 
-    case CSS_PROP_BACKGROUND_REPEAT:    // repeat | repeat-x | repeat-y | no-repeat | inherit
-	if ( id >= CSS_VAL_REPEAT && id <= CSS_VAL_NO_REPEAT )
-	    valid_primitive = true;
-	break;
-
-    case CSS_PROP_BACKGROUND_ATTACHMENT: // scroll | fixed
-	if ( id == CSS_VAL_SCROLL || id == CSS_VAL_FIXED )
-	    valid_primitive = true;
-	break;
-
-    case CSS_PROP_BACKGROUND_POSITION:
-	if ( id ) {
-	    /* Problem: center is ambigous
-	     * In case of 'center' center defines X and Y coords
-	     * In case of 'center top', center defines the Y coord
-	     * in case of 'center left', center defines the X coord
-	     */
-	    int pos[2];
-	    pos[0] = -1;
-	    pos[1] = -1;
-	    bool invalid = false;
-	    switch( id ) {
-	    case CSS_VAL_TOP:
-		pos[1] = 0;
-		break;
-	    case CSS_VAL_BOTTOM:
-		pos[1] = 100;
-		break;
-	    case CSS_VAL_LEFT:
-		pos[0] = 0;
-		break;
-	    case CSS_VAL_RIGHT:
-		pos[0] = 100;
-		break;
-	    case  CSS_VAL_CENTER:
-		break;
-	    default:
-		invalid = true;
-	    }
-	    if ( invalid )
-		break;
-	    value = valueList->next();
-	    if ( value ) {
-	        id = value->id;
-	        switch( id ) {
-	        case CSS_VAL_TOP:
-	            if ( pos[1] != -1 )
-		        invalid = true;
-	            pos[1] = 0;
-	            break;
-	        case CSS_VAL_BOTTOM:
-	            if ( pos[1] != -1 )
-		        invalid = true;
-	            pos[1] = 100;
-	            break;
-	        case CSS_VAL_LEFT:
-	            if ( pos[0] != -1 )
-		        invalid = true;
-	            pos[0] = 0;
-	            break;
-	        case CSS_VAL_RIGHT:
-	            if ( pos[0] != -1 )
-		        invalid = true;
-	            pos[0] = 100;
-	            break;
-	        case  CSS_VAL_CENTER:
-	            break;
-	        default:
-	            invalid = true;
-	        }
-	        if ( !invalid )
-	            value = valueList->next();
-	    }
-	    if ( pos[0] == -1 )
-		pos[0] = 50;
-	    if ( pos[1] == -1 )
-		pos[1] = 50;
-	    addProperty( CSS_PROP_BACKGROUND_POSITION_X,
-			 new CSSPrimitiveValueImpl( pos[0], CSSPrimitiveValue::CSS_PERCENTAGE ),
-			 important );
-	    addProperty( CSS_PROP_BACKGROUND_POSITION_Y,
-			 new CSSPrimitiveValueImpl( pos[1], CSSPrimitiveValue::CSS_PERCENTAGE ),
-			 important );
-	} else {
-	    bool ok = parseValue( CSS_PROP_BACKGROUND_POSITION_X, important );
-	    if ( !ok )
-		break;
-	    value = valueList->current();
-	    if ( value )
-		ok = parseValue( CSS_PROP_BACKGROUND_POSITION_Y, important );
-	    if ( !ok )
-		addProperty( CSS_PROP_BACKGROUND_POSITION_Y,
-			     new CSSPrimitiveValueImpl( 50, CSSPrimitiveValue::CSS_PERCENTAGE ),
-			     important );
-	}
-	return true;
-
-    case CSS_PROP_BACKGROUND_POSITION_X:
-    case CSS_PROP_BACKGROUND_POSITION_Y:
-	valid_primitive = validUnit( value, FPercent|FLength, strict&(!nonCSSHint) );
-	break;
-
     case CSS_PROP_BORDER_SPACING: {
         const int properties[2] = { CSS_PROP__KHTML_BORDER_HORIZONTAL_SPACING,
                                     CSS_PROP__KHTML_BORDER_VERTICAL_SPACING };
@@ -718,7 +642,7 @@ bool CSSParser::parseValue( int propId, bool important )
     }
     case CSS_PROP__KHTML_BORDER_HORIZONTAL_SPACING:
     case CSS_PROP__KHTML_BORDER_VERTICAL_SPACING:
-        valid_primitive = validUnit(value, FLength|FNonNeg, strict&(!nonCSSHint));
+        valid_primitive = validUnit(value, FLength|FNonNeg, strict);
         break;
     case CSS_PROP_SCROLLBAR_FACE_COLOR:         // IE5.5
     case CSS_PROP_SCROLLBAR_SHADOW_COLOR:       // IE5.5
@@ -737,18 +661,20 @@ bool CSSParser::parseValue( int propId, bool important )
             break;
 	}
 	/* nobreak */
-    case CSS_PROP_BACKGROUND_COLOR:     // <color> | transparent | inherit
-    case CSS_PROP_BORDER_TOP_COLOR:     // <color> | transparent | inherit
-    case CSS_PROP_BORDER_RIGHT_COLOR:   // <color> | transparent | inherit
-    case CSS_PROP_BORDER_BOTTOM_COLOR:  // <color> | transparent | inherit
-    case CSS_PROP_BORDER_LEFT_COLOR:    // <color> | transparent | inherit
+    case CSS_PROP_BACKGROUND_COLOR:     // <color> | inherit
+    case CSS_PROP_BORDER_TOP_COLOR:     // <color> | inherit
+    case CSS_PROP_BORDER_RIGHT_COLOR:   // <color> | inherit
+    case CSS_PROP_BORDER_BOTTOM_COLOR:  // <color> | inherit
+    case CSS_PROP_BORDER_LEFT_COLOR:    // <color> | inherit
     case CSS_PROP_COLOR:                // <color> | inherit
-    case CSS_PROP_TEXT_DECORATION_COLOR:
+    case CSS_PROP_TEXT_LINE_THROUGH_COLOR: // CSS3 text decoration colors
+    case CSS_PROP_TEXT_UNDERLINE_COLOR:
+    case CSS_PROP_TEXT_OVERLINE_COLOR:
         if (id == CSS_VAL__KHTML_TEXT)
             valid_primitive = true; // Always allow this, even when strict parsing is on,
                                     // since we use this in our UA sheets.
 	else if ( id >= CSS_VAL_AQUA && id <= CSS_VAL_WINDOWTEXT || id == CSS_VAL_MENU ||
-	     (id >= CSS_VAL_GREY && id < CSS_VAL__KHTML_TEXT && (nonCSSHint|!strict)) ) {
+	     (id >= CSS_VAL_GREY && id < CSS_VAL__KHTML_TEXT && !strict) ) {
 	    valid_primitive = true;
 	} else {
 	    parsedValue = parseColor();
@@ -769,29 +695,37 @@ bool CSSParser::parseValue( int propId, bool important )
 	    valid_primitive = true;
 	break;
 
-    case CSS_PROP_BACKGROUND_IMAGE:     // <uri> | none | inherit
+    case CSS_PROP_BACKGROUND_ATTACHMENT:
+    case CSS_PROP_BACKGROUND_IMAGE:
+    case CSS_PROP_BACKGROUND_POSITION:
+    case CSS_PROP_BACKGROUND_POSITION_X:
+    case CSS_PROP_BACKGROUND_POSITION_Y:
+    case CSS_PROP_BACKGROUND_REPEAT: {
+        CSSValueImpl *val1 = 0, *val2 = 0;
+        int propId1, propId2;
+        if (parseBackgroundProperty(propId, propId1, propId2, val1, val2)) {
+            addProperty(propId1, val1, important);
+            if (val2)
+                addProperty(propId2, val2, important);
+            return true;
+        }
+        return false;
+    }
     case CSS_PROP_LIST_STYLE_IMAGE:     // <uri> | none | inherit
-
-	if ( id == CSS_VAL_NONE ) {
+        if (id == CSS_VAL_NONE) {
 	    parsedValue = new CSSImageValueImpl();
-	    valueList->next();
-#ifdef CSS_DEBUG
-	    kdDebug( 6080 ) << "empty image " << endl;
-#endif
-	} else if ( value->unit == CSSPrimitiveValue::CSS_URI ) {
+            valueList->next();
+        }
+        else if (value->unit == CSSPrimitiveValue::CSS_URI) {
 	    // ### allow string in non strict mode?
 	    DOMString uri = khtml::parseURL( domString( value->string ) );
-	    if ( !uri.isEmpty() ) {
+	    if (!uri.isEmpty()) {
 		parsedValue = new CSSImageValueImpl(
 		    DOMString(KURL( styleElement->baseURL().string(), uri.string()).url()),
-		    styleElement );
-		valueList->next();
-#ifdef CSS_DEBUG
-		kdDebug( 6080 ) << "image, url=" << uri.string() << " base=" << styleElement->baseURL().string() << endl;
-#endif
+		    styleElement);
 	    }
 	}
-	break;
+        break;
 
     case CSS_PROP_OUTLINE_WIDTH:        // <border-width> | inherit
     case CSS_PROP_BORDER_TOP_WIDTH:     //// <border-width> | inherit
@@ -801,7 +735,7 @@ bool CSSParser::parseValue( int propId, bool important )
 	if (id == CSS_VAL_THIN || id == CSS_VAL_MEDIUM || id == CSS_VAL_THICK)
 	    valid_primitive = true;
         else
-            valid_primitive = ( validUnit( value, FLength, strict&(!nonCSSHint) ) );
+            valid_primitive = ( validUnit( value, FLength, strict ) );
 	break;
 
     case CSS_PROP_LETTER_SPACING:       // normal | <length> | inherit
@@ -809,7 +743,31 @@ bool CSSParser::parseValue( int propId, bool important )
 	if ( id == CSS_VAL_NORMAL )
 	    valid_primitive = true;
 	else
-            valid_primitive = validUnit( value, FLength, strict&(!nonCSSHint) );
+            valid_primitive = validUnit( value, FLength, strict );
+	break;
+
+    case CSS_PROP_WORD_WRAP:           // normal | break-word
+	if (id == CSS_VAL_NORMAL || id == CSS_VAL_BREAK_WORD)
+	    valid_primitive = true;
+	break;
+
+    case CSS_PROP__KHTML_FONT_SIZE_DELTA:           // <length>
+	   valid_primitive = validUnit( value, FLength, strict );
+	break;
+
+    case CSS_PROP__KHTML_NBSP_MODE:     // normal | space
+	if (id == CSS_VAL_NORMAL || id == CSS_VAL_SPACE)
+	    valid_primitive = true;
+	break;
+
+    case CSS_PROP__KHTML_LINE_BREAK:   // normal | after-white-space
+	if (id == CSS_VAL_NORMAL || id == CSS_VAL_AFTER_WHITE_SPACE)
+	    valid_primitive = true;
+	break;
+
+    case CSS_PROP__KHTML_MATCH_NEAREST_MAIL_BLOCKQUOTE_COLOR:   // normal | match
+	if (id == CSS_VAL_NORMAL || id == CSS_VAL_MATCH)
+	    valid_primitive = true;
 	break;
 
     case CSS_PROP_TEXT_INDENT:          // <length> | <percentage> | inherit
@@ -817,19 +775,23 @@ bool CSSParser::parseValue( int propId, bool important )
     case CSS_PROP_PADDING_RIGHT:        //   Which is defined as
     case CSS_PROP_PADDING_BOTTOM:       //   <length> | <percentage>
     case CSS_PROP_PADDING_LEFT:         ////
-	valid_primitive = ( !id && validUnit( value, FLength|FPercent, strict&(!nonCSSHint) ) );
+    case CSS_PROP__KHTML_PADDING_START:
+	valid_primitive = ( !id && validUnit( value, FLength|FPercent, strict ) );
 	break;
 
     case CSS_PROP_MAX_HEIGHT:           // <length> | <percentage> | none | inherit
     case CSS_PROP_MAX_WIDTH:            // <length> | <percentage> | none | inherit
-	if ( id == CSS_VAL_NONE ) {
+	if (id == CSS_VAL_NONE || id == CSS_VAL_INTRINSIC || id == CSS_VAL_MIN_INTRINSIC) {
 	    valid_primitive = true;
 	    break;
 	}
 	/* nobreak */
     case CSS_PROP_MIN_HEIGHT:           // <length> | <percentage> | inherit
     case CSS_PROP_MIN_WIDTH:            // <length> | <percentage> | inherit
-    	valid_primitive = ( !id && validUnit( value, FLength|FPercent|FNonNeg, strict&(!nonCSSHint) ) );
+        if (id == CSS_VAL_INTRINSIC || id == CSS_VAL_MIN_INTRINSIC)
+            valid_primitive = true;
+        else
+            valid_primitive = ( !id && validUnit( value, FLength|FPercent|FNonNeg, strict ) );
 	break;
 
     case CSS_PROP_FONT_SIZE:
@@ -837,7 +799,7 @@ bool CSSParser::parseValue( int propId, bool important )
 	if (id >= CSS_VAL_XX_SMALL && id <= CSS_VAL_LARGER)
 	    valid_primitive = true;
 	else
-	    valid_primitive = ( validUnit( value, FLength|FPercent, strict&(!nonCSSHint) ) );
+	    valid_primitive = ( validUnit( value, FLength|FPercent, strict ) );
 	break;
 
     case CSS_PROP_FONT_STYLE:           // normal | italic | oblique | inherit
@@ -857,16 +819,16 @@ bool CSSParser::parseValue( int propId, bool important )
 	if ( id >= CSS_VAL_BASELINE && id <= CSS_VAL__KHTML_BASELINE_MIDDLE )
 	    valid_primitive = true;
 	else
-	    valid_primitive = ( !id && validUnit( value, FLength|FPercent, strict&(!nonCSSHint) ) );
+	    valid_primitive = ( !id && validUnit( value, FLength|FPercent, strict ) );
 	break;
 
     case CSS_PROP_HEIGHT:               // <length> | <percentage> | auto | inherit
     case CSS_PROP_WIDTH:                // <length> | <percentage> | auto | inherit
-	if ( id == CSS_VAL_AUTO )
+	if (id == CSS_VAL_AUTO || id == CSS_VAL_INTRINSIC || id == CSS_VAL_MIN_INTRINSIC)
 	    valid_primitive = true;
 	else
 	    // ### handle multilength case where we allow relative units
-	    valid_primitive = ( !id && validUnit( value, FLength|FPercent|FNonNeg, strict&(!nonCSSHint) ) );
+	    valid_primitive = ( !id && validUnit( value, FLength|FPercent|FNonNeg, strict ) );
 	break;
 
     case CSS_PROP_BOTTOM:               // <length> | <percentage> | auto | inherit
@@ -877,10 +839,11 @@ bool CSSParser::parseValue( int propId, bool important )
     case CSS_PROP_MARGIN_RIGHT:         //   Which is defined as
     case CSS_PROP_MARGIN_BOTTOM:        //   <length> | <percentage> | auto | inherit
     case CSS_PROP_MARGIN_LEFT:          ////
+    case CSS_PROP__KHTML_MARGIN_START:
 	if ( id == CSS_VAL_AUTO )
 	    valid_primitive = true;
 	else
-	    valid_primitive = ( !id && validUnit( value, FLength|FPercent, strict&(!nonCSSHint) ) );
+	    valid_primitive = ( !id && validUnit( value, FLength|FPercent, strict ) );
 	break;
 
     case CSS_PROP_Z_INDEX:              // auto | <integer> | inherit
@@ -900,7 +863,7 @@ bool CSSParser::parseValue( int propId, bool important )
 	if ( id == CSS_VAL_NORMAL )
 	    valid_primitive = true;
 	else
-	    valid_primitive = ( !id && validUnit( value, FNumber|FLength|FPercent, strict&(!nonCSSHint) ) );
+	    valid_primitive = ( !id && validUnit( value, FNumber|FLength|FPercent, strict ) );
 	break;
 #if 0
 	// removed from CSS 2.1
@@ -942,6 +905,7 @@ bool CSSParser::parseValue( int propId, bool important )
     }
 
     case CSS_PROP_TEXT_DECORATION:
+    case CSS_PROP__KHTML_TEXT_DECORATIONS_IN_EFFECT:
     	// none | [ underline || overline || line-through || blink ] | inherit
 	if (id == CSS_VAL_NONE) {
 	    valid_primitive = true;
@@ -978,8 +942,40 @@ bool CSSParser::parseValue( int propId, bool important )
 	break;
 
     /* CSS3 properties */
+    case CSS_PROP__KHTML_BINDING:
+#ifndef KHTML_NO_XBL
+        if (id == CSS_VAL_NONE)
+            valid_primitive = true;
+        else {
+            CSSValueListImpl* values = new CSSValueListImpl();
+            Value* val;
+            CSSValueImpl* parsedValue = 0;
+            while ((val = valueList->current())) {
+                if (val->unit == CSSPrimitiveValue::CSS_URI) {
+                    DOMString value = khtml::parseURL(domString(val->string));
+                    parsedValue = new CSSPrimitiveValueImpl(
+                                    DOMString(KURL(styleElement->baseURL().string(), value.string()).url()), 
+                                    CSSPrimitiveValue::CSS_URI);
+                } 
+                
+                if (parsedValue)
+                    values->append(parsedValue);
+                else
+                    break;
+                valueList->next();
+            }
+            if ( values->length() ) {
+                addProperty( propId, values, important );
+                valueList->next();
+                return true;
+            }
+            delete values;
+            return false;
+        }
+#endif
+        break;
     case CSS_PROP_OUTLINE_OFFSET:
-        valid_primitive = validUnit(value, FLength, strict&(!nonCSSHint));
+        valid_primitive = validUnit(value, FLength, strict);
         break;
     case CSS_PROP_TEXT_SHADOW: // CSS2 property, dropped in CSS2.1, back in CSS3, so treat as CSS3
         if (id == CSS_VAL_NONE)
@@ -1020,7 +1016,6 @@ bool CSSParser::parseValue( int propId, bool important )
     case CSS_PROP__KHTML_BOX_ORDINAL_GROUP:
         valid_primitive = validUnit(value, FInteger|FNonNeg, true);
         break;
-    
     case CSS_PROP__KHTML_MARQUEE: {
         const int properties[5] = { CSS_PROP__KHTML_MARQUEE_DIRECTION, CSS_PROP__KHTML_MARQUEE_INCREMENT,
                                     CSS_PROP__KHTML_MARQUEE_REPETITION,
@@ -1037,7 +1032,7 @@ bool CSSParser::parseValue( int propId, bool important )
         if (id == CSS_VAL_SMALL || id == CSS_VAL_LARGE || id == CSS_VAL_MEDIUM)
             valid_primitive = true;
         else
-            valid_primitive = validUnit(value, FLength|FPercent, strict&(!nonCSSHint));
+            valid_primitive = validUnit(value, FLength|FPercent, strict);
         break;
     case CSS_PROP__KHTML_MARQUEE_STYLE:
         if (id == CSS_VAL_NONE || id == CSS_VAL_SLIDE || id == CSS_VAL_SCROLL || id == CSS_VAL_ALTERNATE ||
@@ -1048,29 +1043,95 @@ bool CSSParser::parseValue( int propId, bool important )
         if (id == CSS_VAL_INFINITE)
             valid_primitive = true;
         else
-            valid_primitive = validUnit(value, FInteger|FNonNeg, strict&(!nonCSSHint));
+            valid_primitive = validUnit(value, FInteger|FNonNeg, strict);
         break;
     case CSS_PROP__KHTML_MARQUEE_SPEED:
         if (id == CSS_VAL_NORMAL || id == CSS_VAL_SLOW || id == CSS_VAL_FAST)
             valid_primitive = true;
         else
-            valid_primitive = validUnit(value, FTime|FInteger|FNonNeg, strict&(!nonCSSHint));
+            valid_primitive = validUnit(value, FTime|FInteger|FNonNeg, strict);
         break;
+    case CSS_PROP__KHTML_USER_DRAG: // auto | none | element
+        if (id == CSS_VAL_AUTO || id == CSS_VAL_NONE || id == CSS_VAL_ELEMENT)
+            valid_primitive = true;
+        break;
+    case CSS_PROP__KHTML_USER_MODIFY:	// read-only | read-write
+        if (id == CSS_VAL_READ_ONLY || id == CSS_VAL_READ_WRITE)
+            valid_primitive = true;
+        break;
+    case CSS_PROP__KHTML_USER_SELECT: // auto | none | text
+        if (id == CSS_VAL_AUTO || id == CSS_VAL_NONE || id == CSS_VAL_TEXT)
+            valid_primitive = true;
+        break;
+    case CSS_PROP_TEXT_OVERFLOW: // clip | ellipsis
+        if (id == CSS_VAL_CLIP || id == CSS_VAL_ELLIPSIS)
+            valid_primitive = true;
+        break;
+    case CSS_PROP__KHTML_MARGIN_COLLAPSE: {
+        const int properties[2] = { CSS_PROP__KHTML_MARGIN_TOP_COLLAPSE,
+            CSS_PROP__KHTML_MARGIN_BOTTOM_COLLAPSE };
+        int num = valueList->numValues;
+        if (num == 1) {
+            if (!parseValue(properties[0], important)) return false;
+            CSSValueImpl* value = parsedProperties[numParsedProperties-1]->value();
+            addProperty(properties[1], value, important);
+            return true;
+        }
+        else if (num == 2) {
+            if (!parseValue(properties[0], important)) return false;
+            if (!parseValue(properties[1], important)) return false;
+            return true;
+        }
+        return false;
+    }
+    case CSS_PROP__KHTML_MARGIN_TOP_COLLAPSE:
+    case CSS_PROP__KHTML_MARGIN_BOTTOM_COLLAPSE:
+        if (id == CSS_VAL_COLLAPSE || id == CSS_VAL_SEPARATE || id == CSS_VAL_DISCARD)
+            valid_primitive = true;
+        break;
+    case CSS_PROP_TEXT_LINE_THROUGH_MODE:
+    case CSS_PROP_TEXT_OVERLINE_MODE:
+    case CSS_PROP_TEXT_UNDERLINE_MODE:
+        if (id == CSS_VAL_CONTINUOUS || id == CSS_VAL_SKIP_WHITE_SPACE)
+            valid_primitive = true;
+        break;
+    case CSS_PROP_TEXT_LINE_THROUGH_STYLE:
+    case CSS_PROP_TEXT_OVERLINE_STYLE:
+    case CSS_PROP_TEXT_UNDERLINE_STYLE:
+        if (id == CSS_VAL_NONE || id == CSS_VAL_SOLID || id == CSS_VAL_DOUBLE ||
+            id == CSS_VAL_DASHED || id == CSS_VAL_DOT_DASH || id == CSS_VAL_DOT_DOT_DASH ||
+            id == CSS_VAL_WAVE)
+            valid_primitive = true;
+        break;
+    case CSS_PROP_TEXT_LINE_THROUGH_WIDTH:
+    case CSS_PROP_TEXT_OVERLINE_WIDTH:
+    case CSS_PROP_TEXT_UNDERLINE_WIDTH:
+        if (id == CSS_VAL_AUTO || id == CSS_VAL_NORMAL || id == CSS_VAL_THIN ||
+            id == CSS_VAL_MEDIUM || id == CSS_VAL_THICK)
+            valid_primitive = true;
+        else
+	    valid_primitive = !id && validUnit(value, FNumber|FLength|FPercent, strict);
+        break;
+    
     // End of CSS3 properties
-        
+
+#if APPLE_CHANGES
+    // Apple specific properties.  These will never be standardized and are purely to
+    // support custom WebKit-based Apple applications.
+    case CSS_PROP__APPLE_LINE_CLAMP:
+        valid_primitive = (!id && validUnit(value, FPercent, false));
+        break;
+    case CSS_PROP__APPLE_TEXT_SIZE_ADJUST:
+        if (id == CSS_VAL_AUTO || id == CSS_VAL_NONE)
+            valid_primitive = true;
+        break;
+#endif
+
 	/* shorthand properties */
     case CSS_PROP_BACKGROUND:
     	// ['background-color' || 'background-image' ||'background-repeat' ||
 	// 'background-attachment' || 'background-position'] | inherit
-    {
-#ifdef CSS_DEBUG_BCKGR
-	kdDebug(6080) << "CSS_PROP_BACKGROUND" << endl;
-#endif
-	const int properties[5] = { CSS_PROP_BACKGROUND_IMAGE, CSS_PROP_BACKGROUND_REPEAT,
-				    CSS_PROP_BACKGROUND_ATTACHMENT, CSS_PROP_BACKGROUND_POSITION,
-				    CSS_PROP_BACKGROUND_COLOR };
-	return parseShortHand(properties, 5, important);
-    }
+	return parseBackgroundShorthand(important);
     case CSS_PROP_BORDER:
  	// [ 'border-width' || 'border-style' || <color> ] | inherit
     {
@@ -1114,7 +1175,7 @@ bool CSSParser::parseValue( int propId, bool important )
 	return parseShortHand(properties, 3, important);
     }
     case CSS_PROP_BORDER_COLOR:
-    	// <color>{1,4} | transparent | inherit
+    	// <color>{1,4} | inherit
     {
 	const int properties[4] = { CSS_PROP_BORDER_TOP_COLOR, CSS_PROP_BORDER_RIGHT_COLOR,
 				    CSS_PROP_BORDER_BOTTOM_COLOR, CSS_PROP_BORDER_LEFT_COLOR };
@@ -1191,6 +1252,110 @@ bool CSSParser::parseValue( int propId, bool important )
 	addProperty( propId, parsedValue, important );
 	return true;
     }
+    return false;
+}
+
+void CSSParser::addBackgroundValue(CSSValueImpl*& lval, CSSValueImpl* rval)
+{
+    if (lval) {
+        if (lval->isValueList())
+            static_cast<CSSValueListImpl*>(lval)->append(rval);
+        else {
+            CSSValueImpl* oldVal = lval;
+            CSSValueListImpl* list = new CSSValueListImpl();
+            lval = list;
+            list->append(oldVal);
+            list->append(rval);
+        }
+    }
+    else
+        lval = rval;
+}
+
+bool CSSParser::parseBackgroundShorthand(bool important)
+{
+    // Position must come before color in this array because a plain old "0" is a legal color
+    // in quirks mode but it's usually the X coordinate of a position.
+    const int numProperties = 5;
+    const int properties[numProperties] = { CSS_PROP_BACKGROUND_IMAGE, CSS_PROP_BACKGROUND_REPEAT,
+        CSS_PROP_BACKGROUND_ATTACHMENT, CSS_PROP_BACKGROUND_POSITION, CSS_PROP_BACKGROUND_COLOR };
+    
+    inParseShortHand = true;
+    
+    bool parsedProperty[numProperties] = { false }; // compiler will repeat false as necessary
+    CSSValueImpl* values[numProperties] = { 0 }; // compiler will repeat 0 as necessary
+    CSSValueImpl* positionYValue = 0;
+    int i;
+
+    while (valueList->current()) {
+        Value* val = valueList->current();
+        if (val->unit == Value::Operator && val->iValue == ',') {
+            // We hit the end.  Fill in all remaining values with the initial value.
+            valueList->next();
+            for (i = 0; i < numProperties; ++i) {
+                if (properties[i] == CSS_PROP_BACKGROUND_COLOR && parsedProperty[i])
+                    // Color is not allowed except as the last item in a list.  Reject the entire
+                    // property.
+                    goto fail;
+
+                if (!parsedProperty[i] && properties[i] != CSS_PROP_BACKGROUND_COLOR) {
+                    addBackgroundValue(values[i], new CSSInitialValueImpl());
+                    if (properties[i] == CSS_PROP_BACKGROUND_POSITION)
+                        addBackgroundValue(positionYValue, new CSSInitialValueImpl());
+                }
+                parsedProperty[i] = false;
+            }
+            if (!valueList->current())
+                break;
+        }
+        
+        bool found = false;
+        for (i = 0; !found && i < numProperties; ++i) {
+            if (!parsedProperty[i]) {
+                CSSValueImpl *val1 = 0, *val2 = 0;
+                int propId1, propId2;
+		if (parseBackgroundProperty(properties[i], propId1, propId2, val1, val2)) {
+		    parsedProperty[i] = found = true;
+                    addBackgroundValue(values[i], val1);
+                    if (properties[i] == CSS_PROP_BACKGROUND_POSITION)
+                        addBackgroundValue(positionYValue, val2);
+		}
+	    }
+	}
+
+        // if we didn't find at least one match, this is an
+        // invalid shorthand and we have to ignore it
+        if (!found)
+            goto fail;
+    }
+    
+    // Fill in any remaining properties with the initial value.
+    for (i = 0; i < numProperties; ++i) {
+        if (!parsedProperty[i]) {
+            addBackgroundValue(values[i], new CSSInitialValueImpl());
+            if (properties[i] == CSS_PROP_BACKGROUND_POSITION)
+                addBackgroundValue(positionYValue, new CSSInitialValueImpl());
+        }
+    }
+    
+    // Now add all of the properties we found.
+    for (i = 0; i < numProperties; i++) {
+        if (properties[i] == CSS_PROP_BACKGROUND_POSITION) {
+            addProperty(CSS_PROP_BACKGROUND_POSITION_X, values[i], important);
+            addProperty(CSS_PROP_BACKGROUND_POSITION_Y, positionYValue, important);
+        }
+        else
+            addProperty(properties[i], values[i], important);
+    }
+    
+    inParseShortHand = false;
+    return true;
+
+fail:
+    inParseShortHand = false;
+    for (int k = 0; k < numProperties; k++)
+        delete values[k];
+    delete positionYValue;
     return false;
 }
 
@@ -1355,6 +1520,368 @@ bool CSSParser::parseContent( int propId, bool important )
     return false;
 }
 
+CSSValueImpl* CSSParser::parseBackgroundColor()
+{
+    int id = valueList->current()->id;
+    if (id == CSS_VAL__KHTML_TEXT || (id >= CSS_VAL_AQUA && id <= CSS_VAL_WINDOWTEXT) || id == CSS_VAL_MENU ||
+        (id >= CSS_VAL_GREY && id < CSS_VAL__KHTML_TEXT && !strict))
+       return new CSSPrimitiveValueImpl(id);
+    return parseColor();
+}
+
+CSSValueImpl* CSSParser::parseBackgroundImage()
+{
+    if (valueList->current()->id == CSS_VAL_NONE)
+        return new CSSImageValueImpl();
+    if (valueList->current()->unit == CSSPrimitiveValue::CSS_URI) {
+        DOMString uri = khtml::parseURL(domString(valueList->current()->string));
+        if (!uri.isEmpty())
+            return new CSSImageValueImpl(DOMString(KURL(styleElement->baseURL().string(), uri.string()).url()), 
+                                         styleElement);
+    }
+    return 0;
+}
+
+CSSValueImpl* CSSParser::parseBackgroundPositionXY(bool& xFound, bool& yFound)
+{
+    int id = valueList->current()->id;
+    if (id == CSS_VAL_LEFT || id == CSS_VAL_TOP || id == CSS_VAL_RIGHT || id == CSS_VAL_BOTTOM || id == CSS_VAL_CENTER) {
+        int percent = 0;
+        if (id == CSS_VAL_LEFT || id == CSS_VAL_RIGHT) {
+            if (xFound)
+                return 0;
+            xFound = true;
+            if (id == CSS_VAL_RIGHT)
+                percent = 100;
+        }
+        else if (id == CSS_VAL_TOP || id == CSS_VAL_BOTTOM) {
+            if (yFound)
+                return 0;
+            yFound = true;
+            if (id == CSS_VAL_BOTTOM)
+                percent = 100;
+        }
+        else if (id == CSS_VAL_CENTER)
+            // Center is ambiguous, so we're not sure which position we've found yet, an x or a y.
+            percent = 50;
+        return new CSSPrimitiveValueImpl(percent, CSSPrimitiveValue::CSS_PERCENTAGE);
+    }
+    if (validUnit(valueList->current(), FPercent|FLength, strict))
+        return new CSSPrimitiveValueImpl(valueList->current()->fValue,
+                                         (CSSPrimitiveValue::UnitTypes)valueList->current()->unit);
+                
+    return 0;
+}
+
+void CSSParser::parseBackgroundPosition(CSSValueImpl*& value1, CSSValueImpl*& value2)
+{
+    value1 = value2 = 0;
+    Value* value = valueList->current();
+    
+    // Parse the first value.  We're just making sure that it is one of the valid keywords or a percentage/length.
+    bool value1IsX = false, value1IsY = false;
+    value1 = parseBackgroundPositionXY(value1IsX, value1IsY);
+    if (!value1)
+        return;
+    
+    // It only takes one value for background-position to be correctly parsed if it was specified in a shorthand (since we
+    // can assume that any other values belong to the rest of the shorthand).  If we're not parsing a shorthand, though, the
+    // value was explicitly specified for our property.
+    value = valueList->next();
+    
+    // First check for the comma.  If so, we are finished parsing this value or value pair.
+    if (value && value->unit == Value::Operator && value->iValue == ',')
+        value = 0;
+    
+    bool value2IsX = false, value2IsY = false;
+    if (value) {
+        value2 = parseBackgroundPositionXY(value2IsX, value2IsY);
+        if (value2)
+            valueList->next();
+        else {
+            if (!inParseShortHand) {
+                delete value1;
+                value1 = 0;
+                return;
+            }
+        }
+    }
+    
+    if (!value2)
+        // Only one value was specified.  If that value was not a keyword, then it sets the x position, and the y position
+        // is simply 50%.  This is our default.
+        // For keywords, the keyword was either an x-keyword (left/right), a y-keyword (top/bottom), or an ambiguous keyword (center).
+        // For left/right/center, the default of 50% in the y is still correct.
+        value2 = new CSSPrimitiveValueImpl(50, CSSPrimitiveValue::CSS_PERCENTAGE);
+
+    if (value1IsY || value2IsX) {
+        // Swap our two values.
+        CSSValueImpl* val = value2;
+        value2 = value1;
+        value1 = val;
+    }
+}
+
+bool CSSParser::parseBackgroundProperty(int propId, int& propId1, int& propId2, 
+                                        CSSValueImpl*& retValue1, CSSValueImpl*& retValue2)
+{
+    CSSValueListImpl *values = 0, *values2 = 0;
+    Value* val;
+    CSSValueImpl *value = 0, *value2 = 0;
+    bool allowComma = false;
+    
+    retValue1 = retValue2 = 0;
+    propId1 = propId;
+    propId2 = propId;
+    if (propId == CSS_PROP_BACKGROUND_POSITION) {
+        propId1 = CSS_PROP_BACKGROUND_POSITION_X;
+        propId2 = CSS_PROP_BACKGROUND_POSITION_Y;
+    }
+
+    while ((val = valueList->current())) {
+        CSSValueImpl *currValue = 0, *currValue2 = 0;
+        if (allowComma) {
+            if (val->unit != Value::Operator || val->iValue != ',')
+                goto failed;
+            valueList->next();
+            allowComma = false;
+        }
+        else {
+            switch (propId) {
+                case CSS_PROP_BACKGROUND_ATTACHMENT:
+                    if (val->id == CSS_VAL_SCROLL || val->id == CSS_VAL_FIXED) {
+                        currValue = new CSSPrimitiveValueImpl(val->id);
+                        valueList->next();
+                    }
+                    break;
+                case CSS_PROP_BACKGROUND_COLOR:
+                    currValue = parseBackgroundColor();
+                    if (currValue)
+                        valueList->next();
+                    break;
+                case CSS_PROP_BACKGROUND_IMAGE:
+                    currValue = parseBackgroundImage();
+                    if (currValue)
+                        valueList->next();
+                    break;
+                case CSS_PROP_BACKGROUND_POSITION:
+                    parseBackgroundPosition(currValue, currValue2);
+                    // unlike the other functions, parseBackgroundPosition advances the valueList pointer
+                    break;
+                case CSS_PROP_BACKGROUND_POSITION_X: {
+                    bool xFound = false, yFound = true;
+                    currValue = parseBackgroundPositionXY(xFound, yFound);
+                    if (currValue)
+                        valueList->next();
+                    break;
+                }
+                case CSS_PROP_BACKGROUND_POSITION_Y: {
+                    bool xFound = true, yFound = false;
+                    currValue = parseBackgroundPositionXY(xFound, yFound);
+                    if (currValue)
+                        valueList->next();
+                    break;
+                }
+                case CSS_PROP_BACKGROUND_REPEAT:
+                    if (val->id >= CSS_VAL_REPEAT && val->id <= CSS_VAL_NO_REPEAT) {
+                        currValue = new CSSPrimitiveValueImpl(val->id);
+                        valueList->next();
+                    }
+                    break;
+            }
+            
+            if (!currValue)
+                goto failed;
+            
+            if (value && !values) {
+                values = new CSSValueListImpl();
+                values->append(value);
+                value = 0;
+            }
+            
+            if (value2 && !values2) {
+                values2 = new CSSValueListImpl();
+                values2->append(value2);
+                value2 = 0;
+            }
+            
+            if (values)
+                values->append(currValue);
+            else
+                value = currValue;
+            if (currValue2) {
+                if (values2)
+                    values2->append(currValue2);
+                else
+                    value2 = currValue2;
+            }
+            allowComma = true;
+        }
+        
+        // When parsing the 'background' shorthand property, we let it handle building up the lists for all
+        // properties.
+        if (inParseShortHand)
+            break;
+    }
+    
+    if (values && values->length()) {
+        retValue1 = values;
+        if (values2 && values2->length())
+            retValue2 = values2;
+        return true;
+    }
+    if (value) {
+        retValue1 = value;
+        retValue2 = value2;
+        return true;
+    }
+
+failed:
+    delete values; delete values2;
+    delete value; delete value2;
+    return false;
+}
+
+#define DASHBOARD_REGION_NUM_PARAMETERS  6
+#define DASHBOARD_REGION_SHORT_NUM_PARAMETERS  2
+
+static Value *skipCommaInDashboardRegion (ValueList *args)
+{
+    if ( args->numValues == (DASHBOARD_REGION_NUM_PARAMETERS*2-1) ||
+         args->numValues == (DASHBOARD_REGION_SHORT_NUM_PARAMETERS*2-1)) {
+        Value *current = args->current();
+        if (current->unit == Value::Operator && current->iValue == ',' )
+            return args->next();
+    }
+    return args->current();
+}
+
+#if APPLE_CHANGES
+bool CSSParser::parseDashboardRegions( int propId, bool important )
+{
+    bool valid = true;
+    
+    Value *value = valueList->current();
+
+    if (value->id == CSS_VAL_NONE) {
+        addProperty( propId, new CSSPrimitiveValueImpl( value->id ), important );
+        return valid;
+    }
+        
+    DashboardRegionImpl *firstRegion = new DashboardRegionImpl(), *region = 0;
+
+    while (value) {
+        if (region == 0) {
+            region = firstRegion;
+        }
+        else {
+            DashboardRegionImpl *nextRegion = new DashboardRegionImpl();
+            region->setNext (nextRegion);
+            region = nextRegion;
+        }
+        
+        if ( value->unit != Value::Function) {
+            valid = false;
+            break;
+        }
+            
+        // Commas count as values, so allow:
+        // dashboard-region(label, type, t, r, b, l) or dashboard-region(label type t r b l)
+        // dashboard-region(label, type, t, r, b, l) or dashboard-region(label type t r b l)
+        // also allow
+        // dashboard-region(label, type) or dashboard-region(label type)
+        // dashboard-region(label, type) or dashboard-region(label type)
+        ValueList *args = value->function->args;
+        int numArgs = value->function->args->numValues;
+        if ((numArgs != DASHBOARD_REGION_NUM_PARAMETERS && numArgs != (DASHBOARD_REGION_NUM_PARAMETERS*2-1)) &&
+            (numArgs != DASHBOARD_REGION_SHORT_NUM_PARAMETERS && numArgs != (DASHBOARD_REGION_SHORT_NUM_PARAMETERS*2-1))){
+            valid = false;
+            break;
+        }
+        
+        QString fname = qString( value->function->name ).lower();
+        if (fname != "dashboard-region(" ) {
+            valid = false;
+            break;
+        }
+            
+        // First arg is a label.
+        Value *arg = args->current();
+        if (arg->unit != CSSPrimitiveValue::CSS_IDENT) {
+            valid = false;
+            break;
+        }
+            
+        region->m_label = qString(arg->string);
+
+        // Second arg is a type.
+        arg = args->next();
+        arg = skipCommaInDashboardRegion (args);
+        if (arg->unit != CSSPrimitiveValue::CSS_IDENT) {
+            valid = false;
+            break;
+        }
+
+        QString geometryType = qString(arg->string).lower();
+        if (geometryType == "circle")
+            region->m_isCircle = true;
+        else if (geometryType == "rectangle")
+            region->m_isRectangle = true;
+        else {
+            valid = false;
+            break;
+        }
+            
+        region->m_geometryType = qString(arg->string);
+
+        if (numArgs == DASHBOARD_REGION_SHORT_NUM_PARAMETERS || numArgs == (DASHBOARD_REGION_SHORT_NUM_PARAMETERS*2-1)) {
+            CSSPrimitiveValueImpl *amount = arg->id == CSS_VAL_AUTO ?
+                new CSSPrimitiveValueImpl(CSS_VAL_AUTO) :
+                new CSSPrimitiveValueImpl((double)0, (CSSPrimitiveValue::UnitTypes) arg->unit );
+                
+            region->setTop( amount );
+            region->setRight( amount );
+            region->setBottom( amount );
+            region->setLeft( amount );
+        }
+        else {
+            // Next four arguments must be offset numbers
+            int i;
+            for (i = 0; i < 4; i++) {
+                arg = args->next();
+                arg = skipCommaInDashboardRegion (args);
+
+                valid = arg->id == CSS_VAL_AUTO || validUnit( arg, FLength, strict );
+                if ( !valid )
+                    break;
+                    
+                CSSPrimitiveValueImpl *amount = arg->id == CSS_VAL_AUTO ?
+                    new CSSPrimitiveValueImpl(CSS_VAL_AUTO) :
+                    new CSSPrimitiveValueImpl(arg->fValue, (CSSPrimitiveValue::UnitTypes) arg->unit );
+                    
+                if ( i == 0 )
+                    region->setTop( amount );
+                else if ( i == 1 )
+                    region->setRight( amount );
+                else if ( i == 2 )
+                    region->setBottom( amount );
+                else
+                    region->setLeft( amount );
+            }
+        }
+
+        value = valueList->next();
+    }
+
+    if (valid)
+        addProperty( propId, new CSSPrimitiveValueImpl( firstRegion ), important );
+    else
+        delete firstRegion;
+        
+    return valid;
+}
+#endif
+
 bool CSSParser::parseShape( int propId, bool important )
 {
     Value *value = valueList->current();
@@ -1371,10 +1898,11 @@ bool CSSParser::parseShape( int propId, bool important )
     int i = 0;
     Value *a = args->current();
     while ( a ) {
-	valid = validUnit( a, FLength, strict );
+	valid = a->id == CSS_VAL_AUTO || validUnit( a, FLength, strict );
 	if ( !valid )
 	    break;
-	CSSPrimitiveValueImpl *length =
+	CSSPrimitiveValueImpl *length = a->id == CSS_VAL_AUTO ?
+            new CSSPrimitiveValueImpl(CSS_VAL_AUTO) :
 	    new CSSPrimitiveValueImpl( a->fValue, (CSSPrimitiveValue::UnitTypes) a->unit );
 	if ( i == 0 )
 	    rect->setTop( length );
@@ -1565,7 +2093,7 @@ CSSValueListImpl *CSSParser::parseFontFamily()
             else if (nextValBreaksFont || !nextValIsFontName)
                 list->append(new CSSPrimitiveValueImpl(value->id));
             else
-                list->append(currFamily = new FontFamilyValueImpl(qString( value->string)));
+                list->append(currFamily = new FontFamilyValueImpl(qString(value->string)));
         }
         else if (value->unit == CSSPrimitiveValue::CSS_STRING) {
             // Strings never share in a family name.
@@ -1607,7 +2135,7 @@ CSSValueListImpl *CSSParser::parseFontFamily()
 }
 
 
-static bool parseColor(const QString &name, QRgb& rgb)
+bool CSSParser::parseColor(const QString &name, QRgb& rgb)
 {
     int len = name.length();
 
@@ -1659,12 +2187,12 @@ CSSPrimitiveValueImpl *CSSParser::parseColorFromValue(Value* value)
         value->fValue >= 0. && value->fValue < 1000000. ) {
         QString str;
         str.sprintf( "%06d", (int)(value->fValue+.5) );
-        if (!::parseColor( str, c ))
+        if (!CSSParser::parseColor( str, c ))
             return 0;
-    } else if ( value->unit == CSSPrimitiveValue::CSS_RGBCOLOR ||
+    } else if (value->unit == CSSPrimitiveValue::CSS_RGBCOLOR ||
                 value->unit == CSSPrimitiveValue::CSS_IDENT ||
-                value->unit == CSSPrimitiveValue::CSS_DIMENSION ) {
-	if (!::parseColor( qString( value->string ), c))
+                (!strict && value->unit == CSSPrimitiveValue::CSS_DIMENSION)) {
+	if (!CSSParser::parseColor( qString( value->string ), c))
             return 0;
     }
     else if ( value->unit == Value::Function &&
@@ -1802,7 +2330,6 @@ struct ShadowParseContext {
     }
     
     CSSValueListImpl* values;
-    bool succeeded;
     CSSPrimitiveValueImpl* x;
     CSSPrimitiveValueImpl* y;
     CSSPrimitiveValueImpl* blur;
@@ -1815,7 +2342,7 @@ struct ShadowParseContext {
     bool allowBreak;
 };
 
-bool CSSParser::parseShadow( int propId, bool important )
+bool CSSParser::parseShadow(int propId, bool important)
 {
     ShadowParseContext context;
     Value* val;
@@ -1843,7 +2370,7 @@ bool CSSParser::parseShadow( int propId, bool important )
             // The only other type of value that's ok is a color value.
             CSSPrimitiveValueImpl* parsedColor = 0;
             bool isColor = (val->id >= CSS_VAL_AQUA && val->id <= CSS_VAL_WINDOWTEXT || val->id == CSS_VAL_MENU ||
-                            (val->id >= CSS_VAL_GREY && val->id <= CSS_VAL__KHTML_TEXT && (nonCSSHint|!strict)));
+                            (val->id >= CSS_VAL_GREY && val->id <= CSS_VAL__KHTML_TEXT && !strict));
             if (isColor) {
                 if (!context.allowColor)
                     return context.failed();
@@ -1899,7 +2426,7 @@ int DOM::CSSParser::lex( void *_yylval ) {
     qDebug("CSSTokenizer: got token %d: '%s'", token, token == END ? "" : QString( (QChar *)t, length ).latin1() );
 #endif
     switch( token ) {
-    case S:
+    case WHITESPACE:
     case SGML_CD:
     case INCLUDES:
     case DASHMATCH:
@@ -1921,6 +2448,7 @@ int DOM::CSSParser::lex( void *_yylval ) {
     case MEDIA_SYM:
     case FONT_FACE_SYM:
     case CHARSET_SYM:
+    case NAMESPACE_SYM:
 
     case IMPORTANT_SYM:
 	break;

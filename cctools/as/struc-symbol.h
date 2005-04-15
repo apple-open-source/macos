@@ -20,6 +20,7 @@ along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifdef NeXT_MOD
+#include "stuff/target_arch.h"
 #import <mach-o/nlist.h>
 #else /* !defined(NeXT_MOD) */
 #ifndef		VMS
@@ -31,7 +32,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 struct symbol			/* our version of an nlist node */
 {
-  struct nlist	sy_nlist;	/* what we write in .o file (if permitted) */
+  nlist_t	sy_nlist;	/* what we write in .o file (if permitted) */
+#ifdef ARCH64
+  char		*sy_name;	/* symbol name */
+#endif
   long unsigned sy_name_offset;	/* 1-origin position of sy_name in symbols */
 				/* part of object file. */
 				/* 0 for (nameless) .stabd symbols. */
@@ -47,9 +51,11 @@ struct symbol			/* our version of an nlist node */
 
 typedef struct symbol symbolS;
 
+#ifndef ARCH64
 #define sy_name		sy_nlist .n_un. n_name
 				/* Name field always points to a string. */
 				/* 0 means .stabd-like anonymous symbol. */
+#endif
 #define sy_type 	sy_nlist.	n_type
 #ifdef NeXT_MOD
 #define sy_other	sy_nlist.	n_sect
@@ -60,7 +66,7 @@ typedef struct symbol symbolS;
 #define sy_value	sy_nlist.	n_value
 				/* Value of symbol is this value + object */
 				/* file address of sy_frag. */
-typedef unsigned valueT;	/* The type of n_value. Helps casting. */
+typedef signed_target_addr_t valueT;	/* The type of n_value. Helps casting. */
 
 struct indirect_symbol {
   char			 *isy_name;	/* name of the indirect */

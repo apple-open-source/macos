@@ -39,7 +39,8 @@ class QTextEdit;
     BOOL inDrawingMachinery;
 }
 
-- initWithQTextEdit:(QTextEdit *)w; 
+- initWithQTextEdit:(QTextEdit *)w;
+- (void)detachQTextEdit;
 
 - (void)setAlignment:(NSTextAlignment)alignment;
 - (void)setBaseWritingDirection:(NSWritingDirection)direction;
@@ -51,6 +52,9 @@ class QTextEdit;
 - (BOOL)isEnabled;
 
 - (void)setFont:(NSFont *)font;
+
+- (void)setTextColor:(NSColor *)color;
+- (void)setBackgroundColor:(NSColor *)color;
 
 - (void)setText:(NSString *)text;
 - (NSString *)text;

@@ -37,7 +37,8 @@
 #include "mkshlib.h"
 #include "branch.h"
 
-char *progname;		/* name of the program for error messages (argv[0]) */
+__private_extern__
+char *progname = NULL;	/* name of the program for error messages (argv[0]) */
 
 char *spec_filename;	/* file name of the specification input file */
 char *host_filename;	/* file name of the host shared library output file */

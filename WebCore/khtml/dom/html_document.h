@@ -157,6 +157,20 @@ public:
     HTMLCollection applets() const;
 
     /**
+     * A collection of all the <embed> OBJECT </embed> elements that
+     * include embedded elements in a document.
+     *
+     */
+    HTMLCollection embeds() const;
+
+    /**
+     * A collection of all the <object> OBJECT </object> elements that
+     * include embedded elements in a document.
+     *
+     */
+    HTMLCollection objects() const;
+
+    /**
      * A collection of all <code> AREA </code> elements and anchor (
      * <code> A </code> ) elements in a document with a value for the
      * <code> href </code> attribute.
@@ -293,9 +307,15 @@ public:
      */
     HTMLCollection all() const;
 
-    DOMString designMode() const;
-    void setDesignMode(const DOMString &);
-
+    /**
+     * Not part of the DOM
+     *
+     * A collection of all the <code>IMG</code>, <code>OBJECT</code>,
+     * <code>EMBED</code>, <code>APPLET</code>, and <code>FORM</code> tags in
+     * a document. Used when looking up elements by name as properties on the document
+     * object, e.g. document.myForm for a form with name attribute of "myForm".
+     */
+    HTMLCollection nameableItems() const;
 };
 
 }; //namespace

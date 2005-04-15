@@ -36,6 +36,9 @@
 #include "IOFireWireSBP2Diagnostics.h"
 #include "IOFWSBP2PseudoAddressSpace.h"
 
+#define kFetchAgentSplitTimeout (3*125*1000)		// 275 milliseconds
+#define kFetchAgentRetryInterval (125*1000)			// 125 milliseconds
+
 extern const OSSymbol *gUnit_Characteristics_Symbol;
 extern const OSSymbol *gManagement_Agent_Offset_Symbol;
 extern const OSSymbol *gFast_Start_Symbol;
@@ -511,6 +514,16 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
                                                             IOFireWireSBP2Login::logoutTimeoutStatic, this);
 	}
 
+	//
+	// create command for fetch agent write retries
+	//
+
+    if( status == kIOReturnSuccess )
+    {
+		fFetchAgentRetryTimerCommand = fControl->createDelayedCmd( kFetchAgentRetryInterval,
+                                                            IOFireWireSBP2Login::fetchAgentRetryTimerStatic, this);
+	}
+
     //
     // create command for writing the fetch agent
     //
@@ -542,9 +555,10 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
         
         if( status == kIOReturnSuccess )
         {
-            // extra long timeout to support Kodak still camera
-            fFetchAgentWriteCommand->setTimeout( 3000 * 125 );
-        }
+            // extra long timeout to support a slow to respond still camera
+            fFetchAgentWriteCommand->setTimeout( kFetchAgentSplitTimeout );
+			fFetchAgentWriteCommand->setRetries( 0 );
+		}
 	}
     else
 	{
@@ -566,9 +580,10 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
         
         if( status == kIOReturnSuccess )
         {
-            // extra long timeout to support Kodak still camera
-            fFetchAgentWriteCommand->setTimeout( 3000 * 125 );
-        }
+			// extra long timeout to support a slow to respond still camera
+            fFetchAgentWriteCommand->setTimeout( kFetchAgentSplitTimeout );
+			fFetchAgentWriteCommand->setRetries( 0 );
+		}
 	}
 	
 	//
@@ -820,15 +835,31 @@ void IOFireWireSBP2Login::free( void )
     // release command for writing the fetch agent
     //
 
+// cancel timer
+	stopFetchAgentRetryTimer();
+	
+	if( fFetchAgentRetryTimerCommand )
+	{
+		fFetchAgentRetryTimerCommand->release();
+		fFetchAgentRetryTimerCommand = NULL;
+	}
+	
     if( fFetchAgentWriteCommandInUse )
-        fFetchAgentWriteCommand->cancel(kIOReturnAborted);
-
+    {
+	    fFetchAgentWriteCommand->cancel(kIOReturnAborted);
+	}
+	
     if( fFetchAgentWriteCommand != NULL )
-        fFetchAgentWriteCommand->release();
-
+    {
+	    fFetchAgentWriteCommand->release();
+		fFetchAgentWriteCommand = NULL;
+	}
+	
     if( fFetchAgentWriteCommandMemory != NULL )
-        fFetchAgentWriteCommandMemory->release();
-     
+    {
+	    fFetchAgentWriteCommandMemory->release();
+		fFetchAgentWriteCommandMemory = NULL;
+    }
     
     //
     // deallocate status block address space
@@ -1499,6 +1530,12 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
 {
     FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : status block write\n", (UInt32)this ) );
 
+	if( len < 8 )
+	{
+	//	IOLog( "IOFireWireSBP2Login<0x%08lx> : illegal status block length = %d\n", this, len );
+		return kFWResponseComplete;
+	}
+	
     //еееееееееееееееее
     if( len < sizeof(fStatusBlock) )
         bcopy( buf, &fStatusBlock, len);
@@ -1559,7 +1596,8 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
                                                  fFetchAgentWriteCommandMemory,
                                                  IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
                 fFetchAgentWriteCommand->updateNodeID( fLoginGeneration, fLoginNodeID );
-		
+				fFetchAgentWriteCommand->setRetries( 0 );
+	
 				// set doorbell reset address
 				fDoorbellAddress = FWAddress( fLoginResponse.commandBlockAgentAddressHi & 0x0000ffff,
 											  fLoginResponse.commandBlockAgentAddressLo + 0x00000010 );
@@ -1743,6 +1781,8 @@ void IOFireWireSBP2Login::suspendedNotify( void )
 	fSuspended = true;
 	
     UInt32 generation = fControl->getGeneration();
+	
+	stopFetchAgentRetryTimer();		// better stop fetch agent retry timer on a bus reset
 	
     switch( fLoginState )
     {
@@ -2100,7 +2140,8 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
                                          fFetchAgentWriteCommandMemory,
                                          IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
 		fFetchAgentWriteCommand->updateNodeID( fLoginGeneration, fLoginNodeID );
-		
+		fFetchAgentWriteCommand->setRetries( 0 );
+	
 		// try enabling unsolicited status now
 		if( fUnsolicitedStatusEnableRequested )
 		{
@@ -2395,6 +2436,8 @@ void IOFireWireSBP2Login::completeLogout( IOReturn state, const void *buf, UInt3
 
 void IOFireWireSBP2Login::clearAllTasksInSet( void )
 {
+	stopFetchAgentRetryTimer();
+
 	// send reset notification for each orb
 	// find ORB
 	IOFireWireSBP2ORB * item;
@@ -2561,8 +2604,10 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
 	    
     if( status == kIOReturnSuccess )
     {
-        if( fFetchAgentWriteCommandInUse && ( commandFlags & kFWSBP2CommandImmediate ) && fORBToWrite )
-        {
+        if( (fFetchAgentWriteCommandInUse || fFetchAgentRetryTimerSet) &&	// if we're still writing the fetch agent
+			( commandFlags & kFWSBP2CommandImmediate ) &&					// and this is an immediate orb
+			fORBToWrite )							
+		{
             FWKLOG(("IOFireWireSBP2Login<0x%08lx> : fetchAgentWriteCommand still in use\n", (UInt32)this ));
             status = kIOReturnNoResources;
         }
@@ -2591,8 +2636,8 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
 	
     if( status == kIOReturnSuccess )
     {
-        // retries failed fetch agent writes up to four times
-        orb->setFetchAgentWriteRetries( 4 );
+        // retries failed fetch agent writes up to 20 times
+        orb->setFetchAgentWriteRetries( 20 );
         prepareORBForExecution(orb);
     }
 
@@ -2766,28 +2811,63 @@ void IOFireWireSBP2Login::fetchAgentWriteComplete( IOReturn status, IOFireWireNu
 	
 		UInt32 retries = fLastORB->getFetchAgentWriteRetries();
 		int ack = fFetchAgentWriteCommand->getAckCode();
+		int rcode = fFetchAgentWriteCommand->getResponseCode();
 	
-		if( ( ack == kFWAckBusyX || 
-			  ack == kFWAckBusyA ||
-			  ack == kFWAckBusyB ||
-			  ack == kFWAckDataError ) &&
-			  status != kIOReturnSuccess && 
-			  status != kIOFireWireBusReset && 
-			  retries != 0 )
+		if(  status != kIOReturnSuccess && 
+			 status != kIOFireWireBusReset && 
+			 retries != 0 )
 		{
+			if( (ack == kFWAckBusyX) || 
+				(ack == kFWAckBusyA) ||
+				(ack == kFWAckBusyB) )
+			{
+	
+	//			IOLog( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed! retrying\n" );
+	
+	#if PANIC_ON_DOUBLE_APPEND			
+				panic( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed!\n" );
+	#endif			
 
-//			IOLog( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed! retrying\n" );
-#if PANIC_ON_DOUBLE_APPEND			
-			panic( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed!\n" );
-#endif			
-			// retry
-			retries--;
-			fLastORB->setFetchAgentWriteRetries( retries );
+				// retry
+				retries--;
+				fLastORB->setFetchAgentWriteRetries( retries );
+
+				// on busy family already delays for split timeout
+				
+				if( kFetchAgentRetryInterval > kFetchAgentSplitTimeout )
+				{
+					// wait a bit logner
+					startFetchAgentRetryTimer( kFetchAgentRetryInterval - kFetchAgentSplitTimeout );
+				}
+				else
+				{
+					// waited long enough, append
+					appendORBImmediate( fLastORB );
+				}
+				
+				return;
+			}
+			else if ( (ack == kFWAckDataError) ||
+					  (rcode == kFWResponseConflictError) ||
+					  (rcode == kFWResponseDataError) )
+			{
 			
-			appendORBImmediate( fLastORB );
-			return;
+	//			IOLog( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed! retrying\n" );
+	#if PANIC_ON_DOUBLE_APPEND			
+				panic( "IOFireWireSBP2Login::fetchAgentWriteComplete fetch agent write failed!\n" );
+	#endif			
+
+				// retry
+				retries--;
+				fLastORB->setFetchAgentWriteRetries( retries );
+
+				// family does not delay on these acks and rcodes
+				
+				startFetchAgentRetryTimer( kFetchAgentRetryInterval );
+			
+				return;
+			}
 		}
-		
     }
 	
 	//
@@ -2823,13 +2903,75 @@ void IOFireWireSBP2Login::fetchAgentWriteComplete( IOReturn status, IOFireWireNu
         (*fFetchAgentWriteCompletion)( fFetchAgentWriteRefCon, status, fLastORB );
 }
 
+//
+// fetch agent retry timer
+//
+
+// startFetchAgentRetryTimer
+//
+//
+
+void IOFireWireSBP2Login::startFetchAgentRetryTimer( UInt32 duration )
+{
+	// shouldn't already be set
+    FWKLOGASSERT( fFetchAgentRetryTimerSet == false );
+	
+	// stop it if it is
+	stopFetchAgentRetryTimer();
+	
+	fFetchAgentRetryTimerCommand->reinit( duration,
+									  IOFireWireSBP2Login::fetchAgentRetryTimerStatic, this );
+
+    // wait a little bit before retrying
+    fFetchAgentRetryTimerSet = true;
+	
+	IOReturn status = fFetchAgentRetryTimerCommand->submit();
+	if( status != kIOReturnSuccess )
+	{
+		fFetchAgentRetryTimerSet = false;
+	}
+}
+
+// stopFetchAgentRetryTimer
+//
+//
+
+void IOFireWireSBP2Login::stopFetchAgentRetryTimer( void )
+{
+	if( fFetchAgentRetryTimerSet )
+	{
+		fFetchAgentRetryTimerCommand->cancel(kIOReturnAborted);
+	}
+}
+
+// fetchAgentRetryTimer
+//
+//
+
+void IOFireWireSBP2Login::fetchAgentRetryTimerStatic( void *refcon, IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd )
+{
+    ((IOFireWireSBP2Login*)refcon)->fetchAgentRetryTimer( status, bus, fwCmd );
+}
+
+void IOFireWireSBP2Login::fetchAgentRetryTimer( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd )
+{
+    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx>IOFireWireSBP2Login::fetchAgentRetryTimer\n", (UInt32)this ) );
+    
+    fFetchAgentRetryTimerSet = false;
+
+	if( status == kIOReturnTimeout )
+    {
+		appendORBImmediate( fLastORB );
+	}
+}
+
 // isFetchAgentWriteInProgress
 //
 // do we have a fetch agent write in progress
 
 bool IOFireWireSBP2Login::isFetchAgentWriteInProgress( void )
 {
-    return fFetchAgentWriteCommandInUse;
+    return (fFetchAgentWriteCommandInUse || fFetchAgentRetryTimerSet);
 }
 
 // fetch agent reset
@@ -3095,6 +3237,8 @@ IOReturn IOFireWireSBP2Login::appendORBImmediate( IOFireWireSBP2ORB * orb )
 	fFetchAgentWriteCommand->reinit( fFetchAgentAddress,
 										fFetchAgentWriteCommandMemory,
 										IOFireWireSBP2Login::fetchAgentWriteCompleteStatic, this, true );
+	
+	fFetchAgentWriteCommand->setRetries( 0 );
 	
 	fFetchAgentWriteCommand->updateNodeID( fLoginGeneration, fLoginNodeID );
 							

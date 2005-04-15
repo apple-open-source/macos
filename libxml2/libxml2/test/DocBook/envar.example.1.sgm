@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-In order to translate public identifiers into local system identifiers,
-<application>Jade</> and <application>SP</> read the catalog files
-pointed to by <envar>SGML_CATALOG_FILES</envar>.
-</para>

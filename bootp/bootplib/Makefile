@@ -16,7 +16,7 @@ CLASSES = clientTypes.m subnetDescr.m
 
 HFILES = afp.h arp.h bpflib.h clientTypes.h dhcp.h dhcplib.h\
          dprintf.h gen_dhcp_parse_table.h gen_dhcp_tags.h\
-         gen_dhcp_types.h hfsvols.h hostlist.h host_identifier.h\
+         gen_dhcp_types.h hostlist.h host_identifier.h\
          inetroute.h interfaces.h in_cksum.h netinfo.h NIDomain.h\
          rfc_options.h subnetDescr.h util.h ipcfg.h lockc.h ts_log.h\
          ipconfig_ext.h ipconfig_types.h machcompat.h threadcompat.h\
@@ -26,7 +26,7 @@ HFILES = afp.h arp.h bpflib.h clientTypes.h dhcp.h dhcplib.h\
          NetBootImageInfo.h bsdplib.h
 
 CFILES = arp.c bootp_transmit.c bpflib.c dhcplib.c dhcp_options.c\
-         dynarray.c hfsvols.c hostlist.c host_identifier.c inetroute.c\
+         dynarray.c hostlist.c host_identifier.c inetroute.c\
          interfaces.c in_cksum.c ipcfg.c macnc_options.c nbsp.c\
          netinfo.c NICache.c NIDomain.c ptrlist.c tftplib.c ts_log.c\
          util.c ioregpath.c cfutil.c nbimages.c bsdplib.c

@@ -407,7 +407,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 	if (dptrs_open >= MAX_OPEN_DIRECTORIES)
 		dptr_idleoldest();
 
-	dptr = (dptr_struct *)malloc(sizeof(dptr_struct));
+	dptr = SMB_MALLOC_P(dptr_struct);
 	if(!dptr) {
 		DEBUG(0,("malloc fail in dptr_create.\n"));
 		return -1;
@@ -763,7 +763,8 @@ static BOOL user_can_write_file(connection_struct *conn, char *name, SMB_STRUCT_
 		return True;
 	else
 		fsp = open_file_shared1(conn, name, pst, FILE_WRITE_ATTRIBUTES, SET_DENY_MODE(DENY_NONE),
-			(FILE_FAIL_IF_NOT_EXIST|FILE_EXISTS_OPEN), FILE_ATTRIBUTE_NORMAL, 0, &access_mode, &smb_action);
+			(FILE_FAIL_IF_NOT_EXIST|FILE_EXISTS_OPEN), FILE_ATTRIBUTE_NORMAL, INTERNAL_OPEN_ONLY,
+			&access_mode, &smb_action);
 
 	if (!fsp)
 		return False;
@@ -818,7 +819,7 @@ void *OpenDir(connection_struct *conn, const char *name, BOOL use_veto)
 
 	if (!p)
 		return(NULL);
-	dirp = (Dir *)malloc(sizeof(Dir));
+	dirp = SMB_MALLOC_P(Dir);
 	if (!dirp) {
 		DEBUG(0,("Out of memory in OpenDir\n"));
 		SMB_VFS_CLOSEDIR(conn,p);
@@ -899,7 +900,7 @@ void *OpenDir(connection_struct *conn, const char *name, BOOL use_veto)
 		if (used + l > dirp->mallocsize) {
 			int s = MAX(used+l,used+2000);
 			char *r;
-			r = (char *)Realloc(dirp->data,s);
+			r = (char *)SMB_REALLOC(dirp->data,s);
 			if (!r) {
 				DEBUG(0,("Out of memory in OpenDir\n"));
 					break;
@@ -984,113 +985,4 @@ int TellDir(void *p)
 		return(-1);
   
 	return(dirp->pos);
-}
-
-/*******************************************************************************
- This section manages a global directory cache.
- (It should probably be split into a separate module.  crh)
-********************************************************************************/
-
-typedef struct {
-	ubi_dlNode node;
-	char *path;
-	char *name;
-	char *dname;
-	int snum;
-} dir_cache_entry;
-
-static ubi_dlNewList( dir_cache );
-
-/*****************************************************************************
- Add an entry to the directory cache.
- Input:  path  -
-         name  -
-         dname -
-         snum  -
- Output: None.
-*****************************************************************************/
-
-void DirCacheAdd( const char *path, const char *name, const char *dname, int snum )
-{
-	int pathlen;
-	int namelen;
-	dir_cache_entry  *entry;
-
-	/*
-	 * Allocate the structure & string space in one go so that it can be freed
-	 * in one call to free().
-	 */
-	pathlen = strlen(path) + 1;  /* Bytes required to store path (with nul). */
-	namelen = strlen(name) + 1;  /* Bytes required to store name (with nul). */
-	entry = (dir_cache_entry *)malloc( sizeof( dir_cache_entry )
-					+ pathlen
-					+ namelen
-					+ strlen( dname ) +1 );
-	if( NULL == entry )   /* Not adding to the cache is not fatal,  */
-		return;             /* so just return as if nothing happened. */
-
-	/* Set pointers correctly and load values. */
-	entry->path  = memcpy( (char *)&entry[1], path, strlen(path)+1 );
-	entry->name  = memcpy( &(entry->path[pathlen]), name, strlen(name)+1 );
-	entry->dname = memcpy( &(entry->name[namelen]), dname, strlen(dname)+1 );
-	entry->snum  = snum;
-
-	/* Add the new entry to the linked list. */
-	(void)ubi_dlAddHead( dir_cache, entry );
-	DEBUG( 4, ("Added dir cache entry %s %s -> %s\n", path, name, dname ) );
-
-	/* Free excess cache entries. */
-	while( DIRCACHESIZE < dir_cache->count )
-		safe_free( ubi_dlRemTail( dir_cache ) );
-}
-
-/*****************************************************************************
- Search for an entry to the directory cache.
- Input:  path  -
-         name  -
-         snum  -
- Output: The dname string of the located entry, or NULL if the entry was
-         not found.
-
- Notes:  This uses a linear search, which is is okay because of
-         the small size of the cache.  Use a splay tree or hash
-         for large caches.
-*****************************************************************************/
-
-char *DirCacheCheck( const char *path, const char *name, int snum )
-{
-	dir_cache_entry *entry;
-
-	for( entry = (dir_cache_entry *)ubi_dlFirst( dir_cache );
-			NULL != entry;
-			entry = (dir_cache_entry *)ubi_dlNext( entry ) ) {
-		if( entry->snum == snum
-				&& entry->name && 0 == strcmp( name, entry->name )
-				&& entry->path && 0 == strcmp( path, entry->path ) ) {
-			DEBUG(4, ("Got dir cache hit on %s %s -> %s\n",path,name,entry->dname));
-			return( entry->dname );
-		}
-	}
-
-	return(NULL);
-}
-
-/*****************************************************************************
- Remove all cache entries which have an snum that matches the input.
- Input:  snum  -
- Output: None.
-*****************************************************************************/
-
-void DirCacheFlush(int snum)
-{
-	dir_cache_entry *entry;
-	ubi_dlNodePtr    next;
-
-	for(entry = (dir_cache_entry *)ubi_dlFirst( dir_cache ); 
-	    NULL != entry; )  {
-		next = ubi_dlNext( entry );
-		if( entry->snum == snum )
-			safe_free( ubi_dlRemThis( dir_cache, entry ) );
-		entry = (dir_cache_entry *)next;
-	}
 }

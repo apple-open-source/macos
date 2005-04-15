@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,16 +39,28 @@ class KWQArrayImpl
     KWQArrayImpl(const KWQArrayImpl &);
     KWQArrayImpl &operator=(const KWQArrayImpl &);
     
-    void *at(size_t pos) const;
+    void *at(size_t pos) const { return &d->data[pos * d->itemSize]; }
+
     void *data() const;
     uint size() const;
     bool resize(size_t size);
     void duplicate(const void *data, size_t size);
     bool fill(const void *item, int size = -1);
+    void detach();
     
     bool operator==(const KWQArrayImpl &) const;
+
  private:
-    class KWQArrayPrivate;
+    class KWQArrayPrivate
+    {
+    public:	
+	KWQArrayPrivate(size_t pNumItems, size_t pItemSize);
+	~KWQArrayPrivate();
+	size_t numItems;
+	size_t itemSize;
+	char *data;
+	int refCount;
+    };
 
     KWQRefPtr<KWQArrayPrivate> d;
 };

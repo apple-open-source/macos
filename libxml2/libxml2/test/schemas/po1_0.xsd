@@ -16,8 +16,8 @@ Purchase order schema for Example.com.
     <xsd:sequence>
       <xsd:element name="shipTo" type="po:USAddress"/>
       <xsd:element name="billTo" type="po:USAddress"/>
-      <xsd:element ref="comment" minOccurs="0"/>
-      <xsd:element name="items" type="Items"/>
+      <xsd:element ref="po:comment" minOccurs="0"/>
+      <xsd:element name="items" type="po:Items"/>
     </xsd:sequence>
     <xsd:attribute name="orderDate" type="xsd:date"/>
   </xsd:complexType>
@@ -45,10 +45,10 @@ Purchase order schema for Example.com.
               </xsd:simpleType>
             </xsd:element>
             <xsd:element name="USPrice" type="xsd:decimal"/>
-            <xsd:element ref="comment" minOccurs="0"/>
+            <xsd:element ref="po:comment" minOccurs="0"/>
             <xsd:element name="shipDate" type="xsd:date" minOccurs="0"/>
           </xsd:sequence>
-          <xsd:attribute name="partNum" type="SKU" use="required"/>
+          <xsd:attribute name="partNum" type="po:SKU" use="required"/>
         </xsd:complexType>
       </xsd:element>
     </xsd:sequence>
@@ -60,4 +60,5 @@ Purchase order schema for Example.com.
     </xsd:restriction>
   </xsd:simpleType>
 </xsd:schema>
+
 

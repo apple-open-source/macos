@@ -161,6 +161,12 @@ static unsigned long get_align(
     unsigned long size,
     char *name,
     enum bool swapped);
+static unsigned long get_align_64(
+    struct mach_header_64 *mhp64,
+    struct load_command *load_commands,
+    unsigned long size,
+    char *name,
+    enum bool swapped);
 static unsigned long guess_align(
     unsigned long vmaddr);
 static void print_arch(
@@ -681,7 +687,7 @@ unknown_flag:
 		    printf("Fat header in: %s\n", input_files[i].name);
 		    printf("fat_magic 0x%x\n",
 			  (unsigned int)(input_files[i].fat_header->magic));
-		    printf("nfat_arch %lu\n",
+		    printf("nfat_arch %u\n",
 			   input_files[i].fat_header->nfat_arch);
 		    for(j = 0; j < input_files[i].fat_header->nfat_arch; j++){
 			printf("architecture ");
@@ -689,11 +695,11 @@ unknown_flag:
 			printf("\n");
 			print_cputype(input_files[i].fat_arches[j].cputype,
 				      input_files[i].fat_arches[j].cpusubtype);
-			printf("    offset %lu\n",
+			printf("    offset %u\n",
 			       input_files[i].fat_arches[j].offset);
-			printf("    size %lu\n",
+			printf("    size %u\n",
 			       input_files[i].fat_arches[j].size);
-			printf("    align 2^%lu (%d)\n",
+			printf("    align 2^%u (%d)\n",
 			       input_files[i].fat_arches[j].align,
 			       1 << input_files[i].fat_arches[j].align);
 		    }
@@ -858,6 +864,7 @@ struct input_file *input)
     char *addr;
     struct thin_file *thin;
     struct mach_header *mhp, mh;
+    struct mach_header_64 *mhp64, mh64;
     struct load_command *lcp;
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
@@ -934,15 +941,15 @@ struct input_file *input)
 			  "end of the file) %s", input->fat_arches[i].cputype,
 			  input->fat_arches[i].cpusubtype, input->name);
 		if(input->fat_arches[i].align > MAXSECTALIGN)
-		    fatal("align (2^%lu) too large of fat file %s (cputype (%d)"
+		    fatal("align (2^%u) too large of fat file %s (cputype (%d)"
 			  " cpusubtype (%d)) (maximum 2^%d)",
 			  input->fat_arches[i].align, input->name,
 			  input->fat_arches[i].cputype,
 			  input->fat_arches[i].cpusubtype, MAXSECTALIGN);
 		if(input->fat_arches[i].offset %
 		   (1 << input->fat_arches[i].align) != 0)
-		    fatal("offset %lu of fat file %s (cputype (%d) cpusubtype "
-			  "(%d)) not aligned on it's alignment (2^%lu)",
+		    fatal("offset %u of fat file %s (cputype (%d) cpusubtype "
+			  "(%d)) not aligned on it's alignment (2^%u)",
 			  input->fat_arches[i].offset, input->name,
 			  input->fat_arches[i].cputype,
 			  input->fat_arches[i].cpusubtype,
@@ -973,7 +980,7 @@ struct input_file *input)
 		    archives_in_input = TRUE;
 	    }
 	}
-	/* see if this file is Mach-O file */
+	/* see if this file is Mach-O file for 32-bit architectures */
 	else if(size >= sizeof(struct mach_header) &&
 	        (*((unsigned long *)addr) == MH_MAGIC ||
 	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC))){
@@ -1000,6 +1007,38 @@ struct input_file *input)
 	    thin->fat_arch.size = size;
 	    thin->fat_arch.align = get_align(mhp, lcp, size, input->name,
 					     swapped);
+
+	    /* if the arch type is specified make sure it matches the object */
+	    if(input->arch_flag.name != NULL)
+		check_arch(input, thin);
+	}
+	/* see if this file is Mach-O file for 64-bit architectures */
+	else if(size >= sizeof(struct mach_header_64) &&
+	        (*((unsigned long *)addr) == MH_MAGIC_64 ||
+	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC_64))){
+
+	    /* this is a Mach-O file so create a thin file struct for it */
+	    thin = new_thin();
+	    input->is_thin = TRUE;
+	    thin->name = input->name;
+	    thin->addr = addr;
+	    mhp64 = (struct mach_header_64 *)addr;
+	    lcp = (struct load_command *)((char *)mhp64 +
+					  sizeof(struct mach_header_64));
+	    if(mhp64->magic == SWAP_LONG(MH_MAGIC_64)){
+		swapped = TRUE;
+		mh64 = *mhp64;
+		swap_mach_header_64(&mh64, get_host_byte_sex());
+		mhp64 = &mh64;
+	    }
+	    else
+		swapped = FALSE;
+	    thin->fat_arch.cputype = mhp64->cputype;
+	    thin->fat_arch.cpusubtype = mhp64->cpusubtype;
+	    thin->fat_arch.offset = 0;
+	    thin->fat_arch.size = size;
+	    thin->fat_arch.align = get_align_64(mhp64, lcp, size, input->name,
+					        swapped);
 
 	    /* if the arch type is specified make sure it matches the object */
 	    if(input->arch_flag.name != NULL)
@@ -1072,6 +1111,7 @@ struct replace *replace)
     kern_return_t r;
     char *addr;
     struct mach_header *mhp, mh;
+    struct mach_header_64 *mhp64, mh64;
     struct load_command *lcp;
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
@@ -1100,7 +1140,7 @@ struct replace *replace)
 	    fatal("replacement file: %s is a fat file (must be a thin file)",
 		  replace->thin_file.name);
 	}
-	/* see if this file is Mach-O file */
+	/* see if this file is Mach-O file for 32-bit architectures */
 	else if(size >= sizeof(struct mach_header) &&
 	        (*((unsigned long *)addr) == MH_MAGIC ||
 	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC))){
@@ -1124,6 +1164,31 @@ struct replace *replace)
 	    replace->thin_file.fat_arch.size = size;
 	    replace->thin_file.fat_arch.align =
 		    get_align(mhp, lcp, size, replace->thin_file.name, swapped);
+	}
+	/* see if this file is Mach-O file for 64-bit architectures */
+	else if(size >= sizeof(struct mach_header_64) &&
+	        (*((unsigned long *)addr) == MH_MAGIC_64 ||
+	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC_64))){
+
+	    /* this is a Mach-O file so fill in the thin file struct for it */
+	    replace->thin_file.addr = addr;
+	    mhp64 = (struct mach_header_64 *)addr;
+	    lcp = (struct load_command *)((char *)mhp64 +
+					  sizeof(struct mach_header_64));
+	    if(mhp64->magic == SWAP_LONG(MH_MAGIC_64)){
+		swapped = TRUE;
+		mh64 = *mhp64;
+		swap_mach_header_64(&mh64, get_host_byte_sex());
+		mhp64 = &mh64;
+	    }
+	    else
+		swapped = FALSE;
+	    replace->thin_file.fat_arch.cputype = mhp64->cputype;
+	    replace->thin_file.fat_arch.cpusubtype = mhp64->cpusubtype;
+	    replace->thin_file.fat_arch.offset = 0;
+	    replace->thin_file.fat_arch.size = size;
+	    replace->thin_file.fat_arch.align =
+	       get_align_64(mhp64, lcp, size, replace->thin_file.name, swapped);
 	}
 	/* see if this file is an archive file */
 	else if(size >= SARMAG && strncmp(addr, ARMAG, SARMAG) == 0){
@@ -1174,6 +1239,7 @@ cpu_subtype_t *cpusubtype)
 {
     unsigned long offset, magic, i, ar_name_size;
     struct mach_header mh;
+    struct mach_header_64 mh64;
     struct ar_hdr *ar_hdr;
     char *ar_name;
 
@@ -1227,6 +1293,26 @@ cpu_subtype_t *cpusubtype)
 			      "archive members cputype (%d) and cpusubtype"
 			      " (%d) (all members must match)", name,
 			      (int)i, ar_name, mh.cputype, mh.cpusubtype,
+			      *cputype, *cpusubtype);
+		    }
+		}
+		else if((size - ar_name_size) - offset >=
+		    sizeof(struct mach_header_64) &&
+		   (magic == MH_MAGIC_64 || magic == SWAP_LONG(MH_MAGIC_64))){
+		    memcpy(&mh64, addr + offset + ar_name_size,
+			   sizeof(struct mach_header_64));
+		    if(mh64.magic == SWAP_LONG(MH_MAGIC_64))
+			swap_mach_header_64(&mh64, get_host_byte_sex());
+		    if(*cputype == 0){
+			*cputype = mh64.cputype;
+			*cpusubtype = mh64.cpusubtype;
+		    }
+		    else if(*cputype != mh64.cputype){
+			fatal("archive member %s(%.*s) cputype (%d) and "
+			      "cpusubtype (%d) does not match previous "
+			      "archive members cputype (%d) and cpusubtype"
+			      " (%d) (all members must match)", name,
+			      (int)i, ar_name, mh64.cputype, mh64.cpusubtype,
 			      *cputype, *cpusubtype);
 		    }
 		}
@@ -1354,6 +1440,84 @@ enum bool swapped)
 }
 
 /*
+ * get_align_64 is passed a pointer to a mach_header_64 and size of the object.
+ * It returns the segment alignment the object was created with.  It guesses but
+ * it is conservative.  The maximum alignment is that the link editor will allow
+ * MAXSECTALIGN and the minimum is the conserative alignment for a long long
+ * which appears in a mach object files (2^3 worst case for all 64-bit
+ * machines).
+ */
+static
+unsigned long
+get_align_64(
+struct mach_header_64 *mhp64,
+struct load_command *load_commands,
+unsigned long size,
+char *name,
+enum bool swapped)
+{
+    unsigned long i, j, cur_align, align;
+    struct load_command *lcp, l;
+    struct segment_command_64 *sgp, sg;
+    struct section_64 *sp, s;
+    enum byte_sex host_byte_sex;
+
+	host_byte_sex = get_host_byte_sex();
+
+	/* set worst case the link editor uses first */
+	cur_align = MAXSECTALIGN;
+	if(mhp64->sizeofcmds + sizeof(struct mach_header_64) > size)
+	    fatal("truncated or malformed object (load commands would "
+		  "extend past the end of the file) in: %s", name);
+	lcp = load_commands;
+	for(i = 0; i < mhp64->ncmds; i++){
+	    l = *lcp;
+	    if(swapped)
+		swap_load_command(&l, host_byte_sex);
+	    if(l.cmdsize % sizeof(long long) != 0)
+		error("load command %lu size not a multiple of "
+		      "sizeof(long long) in: %s", i, name);
+	    if(l.cmdsize <= 0)
+		fatal("load command %lu size is less than or equal to zero "
+		      "in: %s", i, name);
+	    if((char *)lcp + l.cmdsize >
+	       (char *)load_commands + mhp64->sizeofcmds)
+		fatal("load command %lu extends past end of all load "
+		      "commands in: %s", i, name);
+	    if(l.cmd == LC_SEGMENT_64){
+		sgp = (struct segment_command_64 *)lcp;
+		sg = *sgp;
+		if(swapped)
+		    swap_segment_command_64(&sg, host_byte_sex);
+		if(mhp64->filetype == MH_OBJECT){
+		    /* this is the minimum alignment, then take largest */
+		    align = 3; /* 2^3 sizeof(long long) */
+		    sp = (struct section_64 *)((char *)sgp +
+					    sizeof(struct segment_command_64));
+		    for(j = 0; j < sg.nsects; j++){
+			s = *sp;
+			if(swapped)
+			    swap_section_64(&s, 1, host_byte_sex);
+			if(s.align > align)
+			    align = s.align;
+			sp++;
+		    }
+		    if(align < cur_align)
+			cur_align = align;
+		}
+		else{
+		    /* guess the smallest alignment and use that */
+		    align = guess_align(sg.vmaddr);
+		    if(align < cur_align)
+			cur_align = align;
+		}
+	    }
+	    lcp = (struct load_command *)((char *)lcp + l.cmdsize);
+	}
+	return(cur_align);
+}
+
+/*
  * guess_align is passed a vmaddr of a segment and guesses what the segment
  * alignment was.  It uses the most conservative guess up to the maximum
  * alignment that the link editor uses.
@@ -1442,6 +1606,18 @@ struct fat_arch *fat_arch)
 		break;
 	    case CPU_SUBTYPE_POWERPC_970:
 		printf("ppc970");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_POWERPC64:
+	    switch(fat_arch->cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_ALL:
+		printf("ppc64");
+		break;
+	    case CPU_SUBTYPE_POWERPC_970:
+		printf("ppc970-64");
 		break;
 	    default:
 		goto print_arch_unknown;
@@ -1622,6 +1798,20 @@ cpu_subtype_t cpusubtype)
 		break;
 	    case CPU_SUBTYPE_POWERPC_970:
 		printf("    cputype CPU_TYPE_POWERPC\n"
+		       "    cpusubtype CPU_SUBTYPE_POWERPC_970\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_POWERPC64:
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_ALL:
+		printf("    cputype CPU_TYPE_POWERPC64\n"
+		       "    cpusubtype CPU_SUBTYPE_POWERPC_ALL\n");
+		break;
+	    case CPU_SUBTYPE_POWERPC_970:
+		printf("    cputype CPU_TYPE_POWERPC64\n"
 		       "    cpusubtype CPU_SUBTYPE_POWERPC_970\n");
 		break;
 	    default:

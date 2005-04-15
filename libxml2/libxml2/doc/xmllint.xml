@@ -10,6 +10,9 @@
     <copyright>
       <year>2001</year>
     </copyright>
+    <copyright>
+      <year>2004</year>
+    </copyright>
     <author>
       <firstname>John</firstname>
       <surname>Fleck</surname>
@@ -26,7 +29,7 @@
     </author>
     <address><email>hwr@pilhuhn.de</email></address>
     
-    <releaseinfo>This is release 0.2 of the xmllint Manual.</releaseinfo>
+    <releaseinfo>This is release 0.5 of the xmllint Manual.</releaseinfo>
   </refentryinfo>
 
   <refmeta>
@@ -50,9 +53,10 @@
 	<arg>--copy</arg>
 	<arg>--recover</arg>
 	<arg>--noent</arg>
-	<arg>--nocdata</arg>
-	<arg>--nsclean</arg>
 	<arg>--noout</arg>
+	<arg>--nonet</arg>
+	<arg>--path <replaceable>paths</replaceable></arg>
+	<arg>--load-trace</arg>
 	<arg>--htmlout</arg>
 	<arg>--nowrap</arg>
 	<arg>--valid</arg>
@@ -60,29 +64,37 @@
 	<arg>--dtdvalid <replaceable>URL</replaceable></arg>
 	<arg>--dtdvalidfpi <replaceable>FPI</replaceable></arg>
 	<arg>--timing</arg>
+	<arg>--output <replaceable>file</replaceable></arg>
 	<arg>--repeat</arg>
 	<arg>--insert</arg>
 	<arg>--compress</arg>
 	<arg>--html</arg>
+	<arg>--xmlout</arg>
 	<arg>--push</arg>
 	<arg>--memory</arg>
+	<arg>--maxmem <replaceable>nbbytes</replaceable></arg>
 	<arg>--nowarning</arg>
 	<arg>--noblanks</arg>
+	<arg>--nocdata</arg>
 	<arg>--format</arg>
-	<arg>--testIO</arg>
 	<arg>--encode <replaceable>encoding</replaceable></arg>
+	<arg>--dropdtd</arg>
+	<arg>--nsclean</arg>
+	<arg>--testIO</arg>
 	<arg>--catalogs</arg>
 	<arg>--nocatalogs</arg>
 	<arg>--auto</arg>
 	<arg>--xinclude</arg>
+	<arg>--noxincludenode</arg>
 	<arg>--loaddtd</arg>
 	<arg>--dtdattr</arg>
-	<arg>--dropdtd</arg>
 	<arg>--stream</arg>
+	<arg>--walker</arg>
+	<arg>--pattern <replaceable>patternvalue</replaceable></arg>
 	<arg>--chkregister</arg>
 	<arg>--relaxng</arg>
 	<arg>--schema</arg>
-	<arg>--nonet</arg>
+	<arg>--c14n</arg>
       </group>
       <arg><option><replaceable>xmlfile</replaceable></option></arg>
   </cmdsynopsis>
@@ -92,7 +104,8 @@
     <title>Introduction</title>
     <para>
       The xmllint program parses one or more XML files, specified on the
-      command line as <replaceable>xmlfile</replaceable>. It prints various
+      command line as <replaceable>xmlfile</replaceable> (or the standard
+      input if the filename provided is - ). It prints various
       types of output, depending upon the options selected. It is useful for
       detecting errors both in <acronym>XML</acronym> code and in the
       <acronym>XML</acronym> parser itself.
@@ -203,6 +216,44 @@
 	</listitem>
       </varlistentry>
 
+      <varlistentry>
+	<term><option>--nonet</option></term>
+	<listitem>
+	  <simpara>
+	    Do not use the Internet to fetch DTD's or entities.
+	  </simpara>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--nonet</option></term>
+	<listitem>
+	  <simpara>
+	    Do not use the Internet to fetch DTD's or entities.
+	  </simpara>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term> <option>--path</option> <replaceable>paths</replaceable></term>
+	<listitem>
+	  <simpara>
+	    Use the list (separated by space or column) of filesystem path
+	specified by <replaceable>paths</replaceable>  to load
+        <acronym>DTDs</acronym> or entities .
+	  </simpara>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--load-trace</option></term>
+	<listitem>
+	  <simpara>
+	    Display to stderr all the documents loaded during the processing.
+	  </simpara>
+	</listitem>
+      </varlistentry>
+
     <varlistentry>
 	<term><option>--htmlout</option></term>
 	<listitem>
@@ -279,7 +330,14 @@
 	  </simpara>
 	</listitem>
       </varlistentry>
-
+      <varlistentry>
+	<term><option>--output</option> <replaceable>file</replaceable></term>
+	<listitem>
+	  <simpara>Define a file path where xmllint will save the result of
+	  parsing. Usually the programs build a tree and save it on stdout, with
+	  this option the result XML instance will be saved onto a file.</simpara>
+	</listitem>
+      </varlistentry>
    <varlistentry>
 	<term><option>--repeat</option></term>
 	<listitem>
@@ -315,7 +373,15 @@
 	  </simpara>
 	</listitem>
       </varlistentry>
-   
+      <varlistentry>
+	<term><option>--xmlout</option></term>
+	<listitem>
+	  <simpara>Used in conjusntion with <option>--html</option>. Usually
+  when HTML is parsed the document is saved with the HTML serializer, but with
+  this option the resulting document is saved with the XML serializer. This is
+  primarily used to generate XHTML from HTML input.</simpara>
+	</listitem>
+      </varlistentry>
     <varlistentry>
 	<term><option>--push</option></term>
 	<listitem>
@@ -334,7 +400,16 @@
 	  </simpara>
 	</listitem>
       </varlistentry>
-
+      <varlistentry>
+	<term><option>--maxmem</option> <replaceable>nnbytes</replaceable></term>
+	<listitem>
+	  <simpara>Test the parser memory
+  support. <replaceable>nnbytes</replaceable> is the maximum number of bytes the
+  library is allowed to allocate. This can also be used to make sure batch
+  processing of XML files will not exhaust the virtual memory of the server
+  running them.</simpara>
+	</listitem>
+      </varlistentry>
     <varlistentry>
 	<term><option>--nowarning</option></term>
 	<listitem>
@@ -419,6 +494,15 @@
 	</listitem>
       </varlistentry>
     <varlistentry>
+	<term><option>--noxincludenode</option></term>
+	<listitem>
+	  <simpara>
+	   Do XInclude processing but do not generate XInclude start and end
+	   nodes.
+	  </simpara>
+	</listitem>
+      </varlistentry>
+    <varlistentry>
 	<term><option>--loaddtd</option></term>
 	<listitem>
 	  <simpara>
@@ -452,10 +536,27 @@
 	</listitem>
       </varlistentry>
       <varlistentry>
+	<term><option>--walker</option></term>
+	<listitem>
+	  <simpara>Test the walker module, which is a reader interface but for a
+  document tree, instead of using the reader API on an unparsed document it
+  works on a existing in-memory tree. Used in debugging.</simpara> 
+	</listitem>
+      </varlistentry>
+      <varlistentry>
 	<term><option>--chkregister</option></term>
 	<listitem>
-	  <simpara>Turn on node registration. Useful for developeres testing
+	  <simpara>Turn on node registration. Useful for developers testing
 	  libxml2 node tracking code.</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--pattern</option> <replaceable>patternvalue</replaceable></term>
+	<listitem>
+	  <simpara>Used to exercise the pattern recognition engine, which can be
+	  used with the reader interface to the parser. It allows to select some
+	  nodes in the document based on an XPath (subset) expression. Used for
+	  debugging.</simpara>
 	</listitem>
       </varlistentry>
       <varlistentry>
@@ -473,9 +574,11 @@
       </varlistentry>
       <varlistentry>
 	<term>
-      <option>--nonet</option></term>
+      <option>--c14n</option></term>
 	<listitem>
-	  <simpara>Do not use the Internet to fetch DTD's or entities.</simpara>
+	  <simpara>Use the W3C XML Canonicalisation (C14N) to
+serialize the result of parsing to stdout. It keeps comments in
+the result.</simpara>
 	</listitem>
       </varlistentry>
     </variablelist>
@@ -623,10 +726,87 @@
      
     </variablelist>
   </refsect1>
+<refsect1>
+   <title>Catalogs</title>
+     <para>Catalog behavior can be changed by redirecting
+     queries to the user's own set of catalogs. This can be done by setting the
+     <varname>XML_CATALOG_FILES</varname> environment variable to a list of
+     catalogs. An empty one should deactivate loading the default
+      <filename>/etc/xml/catalog</filename> default catalog.</para>
+  </refsect1>
   <refsect1>
     <title>Debugging Catalogs</title>
     <para>Setting the environment variable <varname>XML_DEBUG_CATALOG</varname>
     using the command <command>&quot;export XML_DEBUG_CATALOG=&quot;</command>
     outputs debugging information related to catalog operations.</para>
+  </refsect1>
+  <refsect1>
+    <title>Error Return Codes</title>
+    <para>On the completion of execution, <application>Xmllint</application>
+    returns the following error codes:</para>
+    <variablelist>
+      <varlistentry>
+	<term>0</term>
+	<listitem>
+	  <simpara>No error</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>1</term>
+	<listitem>
+	  <simpara>Unclassified</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>2</term>
+	<listitem>
+	  <simpara>Error in DTD</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>3</term>
+	<listitem>
+	  <simpara>Validation error</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>4</term>
+	<listitem>
+	  <simpara>Validation error</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>5</term>
+	<listitem>
+	  <simpara>Error in schema compilation</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>6</term>
+	<listitem>
+	  <simpara>Error writing output</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>7</term>
+	<listitem>
+	  <simpara>Error in pattern (generated when
+	  <optional>--pattern</optional> option is used)</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>8</term>
+	<listitem>
+	  <simpara>Error in Reader registration (generated when
+	  <optional>--chkregister</optional> option is used)</simpara>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>9</term>
+	<listitem>
+	  <simpara>Out of memory error</simpara>
+	</listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 </refentry>

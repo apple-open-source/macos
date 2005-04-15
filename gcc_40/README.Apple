@@ -1,0 +1,464 @@
+APPLE LOCAL file documentation
+
+This file describes Apple's version of GCC 3.x modified for Darwin /
+Mac OS X.  Although Apple's stated policy is to contribute all of its
+GCC work to the FSF GCC mainstream, at any given moment there will be
+changes that are permanently unacceptable for FSF GCC, in need of
+rework before acceptance, or that we simply aren't ready to send in.
+This version of GCC contains all those changes.
+
+In keeping with provision 2a of the GPL, each Apple change is marked
+with a comment saying "APPLE LOCAL", followed by optional words "begin",
+"end", or "file", followed by a short phrase describing the change
+generally ("AltiVec" for instance, if the change is related to AltiVec
+support), followed by an optional date in the form yyyy-mm-dd,
+optionally followed by the initials or email address of the person
+making the change.  The words "begin" and "end" indicate that the
+comments delimit a multi-line change, while the word "file" indicates
+that the entire file is an Apple addition.  Additional explanatory
+comments should be in a separate comment.
+
+You may also isolate Apple's changes by diffing with the FSF mainline
+sources as of the date mentioned in gcc/version.c; this date is
+updated in the FSF repository daily, and is preserved when we import
+FSF sources into Apple's repository (the tag for the imported source
+is "fsf-cvs").
+
+The primary purpose of this version of GCC is to be the main system
+compiler for Darwin and Mac OS X.  However, since additions such as
+PFE precompiled headers and Objective-C++ are of interest on other
+platforms, we have generally conditionalized Mac-specific code so that
+the compiler will build and run elsewhere.  You may however run into
+mistakes; please let us know about them and we will
+fix these if possible.
+
+NOTE!  It's best to assume that this code has been updated from FSF
+development sources recently, and has received very little testing
+before being imported.  There is a good chance that your favorite
+program will not compile or run when compiled with this program.  The
+version of the compiler that ships with OS X is the standard for
+correctness; any time something works with that compiler but fails
+with this one is probably a bug, and should be reported to
+darwin-development@lists.apple.com.
+
+PREREQUISITES
+
+Presumably if you're reading this, you've figured out how to get the
+sources. :-) But just to be complete, these sources are available from
+the Darwin repository at opensource.apple.com, CVS module "gcc",
+branch "apple-ppc-branch".  See
+http://www.opensource.apple.com/tools/cvs if this isn't enough info
+yet.
+
+If you want C++ exception handling to work, you will need a modified
+crt1.o. (crt1.o is the bit of code that sets up for execution and
+calls your program's main().) The modified crt1.o is standard in 10.2,
+but 10.1, you will need to set it up yourself.
+
+If you can't get a modified crt1.o from somebody else, you can patch a
+copy of the sources to the "Csu" project and build it yourself.  The
+patch is included in this directory, as "csu-patch".  The build is
+easy, just say "make" in the Csu directory, and then copy the crt1.o
+to /usr/lib/crt1.o (as usual, it's prudent to keep around a copy of
+the original crt1.o, just in case).  You will need to have built the
+"cctools" project as well, in order to get the helper tool "indr"
+(which is expected to be installed as /usr/local/bin/indr).
+
+BUILDING, THE APPLE WAY
+
+To build things the Apple way, just say (in the source directory)
+
+	mkdir -p build/obj build/dst build/sym
+	gnumake install RC_OS=macos RC_ARCHS=ppc TARGETS=ppc \
+		SRCROOT=`pwd` OBJROOT=`pwd`/build/obj \
+		DSTROOT=`pwd`/build/dst SYMROOT=`pwd`/build/sym
+
+This will configure and then do a full bootstrap build, with all the
+results going into the subdirectory build/ that you created.  The
+final results will be in the "dest root" directory build/dst, in the
+form of an image of the installed directory structure.  The drivers
+and other user-visible tools have a "3" suffixed, so for instance the
+driver is /usr/bin/gcc3, and the demangler is /usr/bin/c++filt3.
+
+To install the results, become root and do
+
+	ditto build/dst /
+
+Various knobs and switches are available, but even so, the Apple
+makefile machinery is mainly designed for mass builds of all the
+projects that make up Darwin and/or Mac OS X, and is thus not as
+flexible as the standard GCC build process.
+
+To build for i386 Darwin, set TARGETS=i386.  To build fat, set
+RC_ARCHS='i386 ppc' TARGETS='i386 ppc'.  Note that you must have a
+complete set of fat libraries and i386-targeting cctools for this
+all to work.
+
+You can set the four *ROOT variables to point anywhere, but they must
+always be absolute pathnames.
+
+This way of building may or may not work on non-Macs, and if it
+doesn't, you're on your own.
+
+BUILDING, THE FSF WAY
+
+In general, standard GCC procedures work for building this version.
+We recommend that you build in a separate objdir; create a sibling
+to the toplevel source dir, call it whatever you want, cd into it,
+and say "../gcc/configure".  This way you can have more than one
+build using the same set of sources.
+
+If you insist on building in the source directory using "./configure",
+the GNUmakefile that supports the Apple build process (see above) will
+shadow your makefile, and you will need to override this behavior by
+saying "make -f Makefile" (or by moving GNUmakefile out of the way).
+
+For instance:
+
+	mkdir darwin
+	cd darwin
+	../configure --prefix=/tmp/testplace
+	make bootstrap
+	make install
+
+does a full build, plus two generations of self-compilation for
+GCC proper, then an install.
+
+To avoid building every language, use --enable-languages argument to
+configure.  For instance, '--enable-languages=objc,c++,objc++' skips
+the Fortran and Java compilers.  (The C compiler will always be
+built.)
+
+To build an x86 cross-compiler, add "--target=i386-darwin" to the
+configure line.  The x86 compiler works, but to make it useful you
+will need libraries and such from x86 Darwin.
+
+There is a ProjectBuilder (PB) project also, but at the moment it's
+only useful for browsing.  We expect to make it useful for building
+eventually.  To keep it out of the way until then, it's in
+"pbproj/gcc3.pbproj".
+
+Tools built the FSF way are *not* usually going to be dropin
+replacements for already-installed tools built the Apple way, because
+search paths and other details will be different.
+
+TESTING
+
+This package includes a copy of the test framework of DejaGNU, for
+convenience in running GCC's testsuite.  If you've done a make
+from the top, DejaGNU will have been built already; otherwise at
+the top of the objdir say "make all-dejagnu".
+
+Once the DejaGNU is available, you can cd into the gcc objdir and type
+"make check" to run all the tests.  This will take several hours.  You
+can do things like "make check-gcc" just to run C tests, or "make
+check-g77" for Fortran tests, which take less time.
+
+USING
+
+While this compiler can be used with 10.1, it is aimed at 10.2
+(Jaguar) and later releases.  Built correctly, using the "Apple way",
+it can be a dropin replacement for the 10.2 system compiler.
+
+* Compatibility Issues
+
+This section lists areas where this compiler behaves differently
+from other versions of GCC.
+
+Built-in functions are not automatically declared
+
+GCC knows about some functions, such as memcpy, so it can generate
+better code for them.  However, 2.95.2 let C++ programs refer to them
+without ever declaring them.  The current C++ compiler now does the
+right thing by requiring you to declare all functions.
+
+alloca is a built-in function
+
+Normally only __builtin_alloca is a built-in function, and user
+code #defines alloca as __builtin_alloca.  This version of GCC
+also recognizes alloca as built-in, and compiles it into a single
+stack adjustment.
+
+va_arg cannot take chars, shorts, or floats
+
+You can no longer pass "char", "short", or "float" as the second
+argument to va_arg() when using varargs.
+
+#pragma once is silently accepted
+
+GCC handles #pragma once correctly, but the standard compiler warns
+that the pragma is obsolete.  This version of GCC is silent by
+default.  Use -Wpragma-once to see the warnings again.
+
+#import is silently accepted
+
+GCC handles #import correctly, but the standard compiler warns that
+the directive is obsolete.  This version of GCC is silent by default.
+Use -Wimport to see the warnings again.
+
+Extra tokens after #endif and friends are silently accepted
+
+Standard GCC now warns about extra tokens after #endif and other
+preprocessor directives.  This version of GCC is silent by default.
+Use -Wextra-tokens to see these warnings.
+
+Files with missing newlines are silently accepted
+
+Standard GCC warns about files that do not end with a newline.
+This seems to be common in Apple headers and sources, so this
+version does not warn.  Use -Wnewline-eof to see these warnings.
+
+-fpermissive by default
+
+The C++ compiler is normally strict about adherence to the language
+standard, but the -fpermissive flag is available to convert many
+errors into warnings.  Apple's compiler is set to be permissive
+by default.  This is temporary as of 1/27/02.
+
+GNU stddef.h not installed
+
+If built the Apple way, GCC's stddef.h is installed as "gnu-stddef.h",
+and so by default you will get the /usr/include/stddef.h that comes
+with Darwin.
+
+libobjc not built
+
+Since GNU libobjc and its headers would mask the system library
+and headers, this version of GCC does not build or install them
+if targeting Darwin.
+
+Objective-C structure returns
+
+When using the NeXT runtime, methods returning structures will work,
+while they will fail when using FSF GCC.
+
+All assembly files are preprocessed
+
+FSF GCC only runs the C preprocessor on files with extension .S, and
+does not run it on files ending in .s.  Apple GCC runs the
+preprocessor on .s files also.
+
+Bug reporting address different
+
+If the compiler gets an internal error, it will ask you to report the
+error to Apple, rather than to the FSF.
+
+* Extensions
+
+This section briefly describes Apple's extensions to GCC.  Further
+details may be found in the GCC manual (usually).
+
+__APPLE_CC__
+
+The preprocessor symbol __APPLE_CC__ identifies a specific "build
+number" of the compiler.  These numbers are finer-grained than the
+generic GCC version numbers, and for gcc3 they range from 1000 up
+(2.95.2 versions are in the 900s).
+
+Framework includes
+
+Headers may be found by pathname in the usual way, or as part of
+"frameworks" which are assemblages of library/headers/resources.  For
+instance, #include <IOKit/IOTypes.h> will be found as
+/System/Library/Frameworks/IOKit.framework/Headers/IOTypes.h.  The
+-F<pathname> adds <pathname> as a place to search for frameworks; by
+default, the compiler will look in /System/Library/Frameworks,
+/Library/Frameworks, and /Local/Library/Frameworks.
+
+Frameworks may also have subframeworks, and the framework include
+machinery will find headers in subframeworks if the outer framework
+(known as an "umbrella framework) is being included.
+
+Objective-C++
+
+Objective-C++ is C++ extended to understand Objective-C constructs.
+The two object models are separate and "mutually oblivious", so C++
+code generally works unchanged, as well as Objective-C code that
+conforms to C++ restrictions (similar to the restrictions placed on
+plain C code by C++).  Objective-C++ files must have the extension .mm
+or .M (but note that .M will conflict with .m files on HFS
+filesystems, so .mm is preferred).
+
+Pascal strings
+
+The flag -fpascal-strings enables the use of "\p" to designate a
+length byte, originally used for C-Pascal interoperation on Macs, but
+now mostly a human-appendix-like compatibility option.
+
+Macintosh alignment
+
+The options -malign-mac68k, -malign-power, and -malign-natural are 
+available to control whether the alignment of structure fields 
+follows 68K, PowerPC, or "natural" rules.  These options are
+useful to applications which need to be binary-compatible with
+very old Mac applications, libraries, or resources.  The "natural"
+alignment mode may be useful to applications whose performance is
+sensitive to misaligned data accesses.
+
+In addition, #pragma options align=<option> is available, where
+<option> may be mac68k, native, natural, packed, power, or reset.
+(native == power on a PowerPC.)  The pragma effectively pushes the
+alignment onto a stack, while align=reset pops the alignment, thus
+allowing nested pragmas to work.  #pragma pack is also available and
+works with the same stack.
+
+private extern symbols
+
+You can declare symbols as "private extern", which means that they
+behave as extern until linking, then they are made private, and are
+not visible outside the library.  To declare something as private
+extern, add "__private_extern__" where you might normally say
+"extern".
+
+Coalescing
+
+Using "-fcoalesce", "-fcoalesce-templates" and "-fweak-coalesced"
+flags can reduce the amount of duplicated code.  Coalescing and C++
+template coalescing are enabled by default, at least if a
+recent-enough cctools version (10.2 or later) has been installed.
+
+-dynamiclib
+
+You can build shared libraries (aka dylibs) by using -dynamiclib.
+This invokes libtool (not to be confused with GNU libtool) instead of
+ld.  See the libtool man page for more detail on options that can be
+passed to libtool.
+
+Linker flags
+
+This version of GCC understands the plethora of linker-related flags,
+such as -framework, -flat_namespace, etc.  The functionality should be
+the same as for 2.95.2 and as documented in the linker man page; any
+discrepancies are probably bugs.
+
+AltiVec
+
+The complete AltiVec programming interface, as defined in the PIM, is
+available.  Use -faltivec to enable it.
+
+Note that the PIM, section 2.1 mentions that AltiVec data types using
+the 'long' keyword (i.e., vector [un]signed long) are deprecated and
+that the 'int' should be used.  The compiler will thus issue a warning
+for these cases.  The warning may be suppressed by specifying
+-Wno-altivec-long-deprecated.
+
+-mdynamic-no-pic
+
+The option -mdynamic-no-pic generates code that make references to
+PIC, but is not itself position-independent and thus more efficient.
+This option is suitable for applications but not dylibs.
+
+unavailable attribute
+
+The attribute "unavailable" is available :-) to declare that a
+symbol is not available.
+
+weak_import attribute
+
+The attribute weak_import is available to declare that a symbol
+should be designated as a weak reference.
+
+CALL_ON_LOAD and CALL_ON_UNLOAD pragmas
+
+The pragmas CALL_ON_LOAD and CALL_ON_UNLOAD allow you to declare
+that a given name is the name of a function to be called when
+a module is loaded or unloaded by the system.
+
+IOKit support
+
+There are a number of changes to support the building of IOKit drivers.
+
+The option -findirect-virtual-calls forces all virtual calls to go
+through the vtable, while the option -fterminated-vtables adds a null
+termination to vtables.  -fapple-kext turns on all of these, plus any
+future options that may be needed to compile kexts.
+
+There is a library libcc_kext.a that is libgcc.a compiled static and
+including only routines that are allowed in the kernel.
+
+The PowerPC-only option -mlong-branch is available to generate full
+32-bit jumps, since kexts may not be loaded at addresses close to the
+kernel.
+
+Dependency file names
+
+When you use -MD to output dependencies, you can also use
+-dependency-file <name> to write the dependencies into the file named
+<name>.  (By default, they go into <inputfilename>.d .)
+
+Fat builds
+
+You can compile for a specific target type by using -arch <archname>.
+Multiple -arch options also work, and result in "fat binaries".  -arch
+works with -c, -precomp (to make fat precomps), but not -S or
+-save-temps.
+
+At present, only "i386" and "ppc" may be used as architecture names.
+Note that building for a specific arch will only work if you have
+assembler and libraries for that arch.
+
+-ObjC, -ObjC++
+
+These options set the default language to be Objective-C and
+Objective-C++, respectively.  Note that this behavior is slightly
+different from the -x options, because -x affects only the files
+appearing after it on the command line, while -ObjC and -ObjC++ affect
+all input files.  Nevertheless, -x is standard and thus preferable.
+(-fobjc works and is equivalent to -ObjC, but it's even more
+deprecated.)
+
+-Wmost
+
+The option -Wmost is equivalent to -Wall -Wno-parentheses.  It is
+present for compatibility with some existing Mac OS X projects.
+
+-Wno-#warnings
+
+The option -Wno-#warnings suppresses warnings issued by #warning.
+
+-Wno-altivec-long-deprecated
+
+The option -Wno-altivec-long-deprecated suppresses warnings about
+'int' being preferred to 'long' in AltiVec vector types.
+
+-Werror suppression
+
+The environment variable QA_DISABLE_WERROR, if set (to any value),
+disables the effect of -Werror on the command line; warnings will
+not result in an error.
+
+PB indexing
+
+If the environment variable PB_INDEX_SOCKET_PORT is defined, then the
+compiler will output PB indexing information to that port.  The option
+-fdebug-gen-index will do the same port, but sending the information
+to standard output, for debugging indexing.
+
+Header mapfiles
+
+This is the support for a PB feature where actual pathnames for
+headers come from a given file rather than being searched for in the
+various include paths.  It's not useful outside of the PB environment.
+
+QA_OVERRIDE_GCC3_OPTIONS environment variable
+
+Allows overriding, adding, or changing options sent to toplev.c.  This
+allows you, for example, to override the -O setting that the driver
+sends to the command line.  Documentation is in toplev.c.
+
+* Miscellaneous Issues
+
+GCC uses a syntax for rlwinm instructions that is only supported
+by the assembler in 10.1 or later.  If you need to run 10.0, and
+can't build cctools-364, then you can try to dig up the workaround;
+versions of gcc3 before December 2001 have it, look for references
+to rlwinm in gcc/config/rs6000/rs6000.md.
+
+TO DO
+
+This section lists specific features that we're still working on.
+
+Make fat building work when the compiler is built the FSF way.
+
+Implement floating point precision control (-ffppc) for i386.
+

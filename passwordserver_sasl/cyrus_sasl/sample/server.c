@@ -1,6 +1,6 @@
-/* $Id: server.c,v 1.1 2002/02/28 00:18:29 snsimon Exp $ */
+/* $Id: server.c,v 1.4 2005/01/10 19:03:59 snsimon Exp $ */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +45,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <sysexits.h>
 #include <errno.h>
 #include <string.h>
 
@@ -62,8 +61,14 @@
 
 #include "common.h"
 
+#if !defined(IPV6_BINDV6ONLY) && defined(IN6P_IPV6_V6ONLY)
+#define IPV6_BINDV6ONLY IN6P_BINDV6ONLY
+#endif
 #if !defined(IPV6_V6ONLY) && defined(IPV6_BINDV6ONLY)
 #define	IPV6_V6ONLY	IPV6_BINDV6ONLY
+#endif
+#ifndef IPV6_BINDV6ONLY
+#undef      IPV6_V6ONLY
 #endif
 
 /* create a socket listening on port 'port' */
@@ -319,6 +324,7 @@ int main(int argc, char *argv[])
 	char myhostname[1024+1];
 	char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
 	struct sockaddr_storage local_ip, remote_ip;
+	int niflags, error;
 	int salen;
 	int nfds, fd = -1;
 	FILE *in, *out;
@@ -354,19 +360,37 @@ int main(int argc, char *argv[])
 	if (getsockname(fd, (struct sockaddr *)&local_ip, &salen) < 0) {
 	    perror("getsockname");
 	}
-	getnameinfo((struct sockaddr *)&local_ip, salen,
-		    hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-		    NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
-	snprintf(localaddr, sizeof(localaddr), "%s;%s", hbuf, pbuf);
+	niflags = (NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef NI_WITHSCOPEID
+	if (((struct sockaddr *)&local_ip)->sa_family == AF_INET6)
+	    niflags |= NI_WITHSCOPEID;
+#endif
+	error = getnameinfo((struct sockaddr *)&local_ip, salen, hbuf,
+			    sizeof(hbuf), pbuf, sizeof(pbuf), niflags);
+	if (error != 0) {
+	    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(error));
+	    strcpy(hbuf, "unknown");
+	    strcpy(pbuf, "unknown");
+	}
+        snprintf(localaddr, sizeof(localaddr), "%s;%s", hbuf, pbuf);
 
 	salen = sizeof(remote_ip);
 	if (getpeername(fd, (struct sockaddr *)&remote_ip, &salen) < 0) {
 	    perror("getpeername");
 	}
 
-	getnameinfo((struct sockaddr *)&remote_ip, salen,
-		    hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-		    NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+	niflags = (NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef NI_WITHSCOPEID
+	if (((struct sockaddr *)&remote_ip)->sa_family == AF_INET6)
+	    niflags |= NI_WITHSCOPEID;
+#endif
+	error = getnameinfo((struct sockaddr *)&remote_ip, salen, hbuf,
+			    sizeof(hbuf), pbuf, sizeof(pbuf), niflags);
+	if (error != 0) {
+	    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(error));
+	    strcpy(hbuf, "unknown");
+	    strcpy(pbuf, "unknown");
+	}
 	snprintf(remoteaddr, sizeof(remoteaddr), "%s;%s", hbuf, pbuf);
 
 	r = gethostname(myhostname, sizeof(myhostname)-1);

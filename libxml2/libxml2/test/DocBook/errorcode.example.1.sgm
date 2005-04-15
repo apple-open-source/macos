@@ -1,7 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para> 
-On most DOS-derived systems, functions signal a <errorname>File
-Not Found</errorname> error by returning
-<errorcode>2</errorcode>.  This is usually a
-<errortype>recoverable</errortype> (non-fatal) error.
-</para>

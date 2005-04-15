@@ -38,7 +38,7 @@ DEFS=   	@DEFS@
 # Customizable but not set by configure
 
 OPT=		@OPT@
-CFLAGS=		$(OPT) $(DEFS)
+CFLAGS=		@CFLAGS@ $(OPT) $(DEFS)
 PACKAGEDIR=	$(prefix)/Mailman
 DATADIR=	$(var_prefix)/data
 ICONDIR=	$(prefix)/icons
@@ -91,7 +91,7 @@ install-packages:
 	for p in $(PACKAGES); \
 	do \
 	    gunzip -c $(srcdir)/$$p.tar.gz | (cd $(PKGDIR) ; tar xf -); \
-	    (cd $(PKGDIR)/$$p ; umask 022 ; PYTHONPATH=$(PYTHONLIBDIR) $(PYTHON) $(SETUPCMD)); \
+	    (cd $(PKGDIR)/$$p ; umask 022 ; PYTHONPATH=$(PYTHONLIBDIR) CFLAGS="$(CFLAGS)" $(PYTHON) $(SETUPCMD)); \
 	done
 	find $(DESTDIR)$(PYTHONLIBDIR) -type d \
 	    -exec $(CHMOD) $(DIRMODE) {} \; \

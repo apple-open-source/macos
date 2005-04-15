@@ -81,7 +81,10 @@ static BOOL cli_session_setup_lanman2(struct cli_state *cli, const char *user,
 	if (passlen > 0 && (cli->sec_mode & NEGOTIATE_SECURITY_CHALLENGE_RESPONSE) && passlen != 24) {
 		/* Encrypted mode needed, and non encrypted password supplied. */
 		lm_response = data_blob(NULL, 24);
-		SMBencrypt(pass, cli->secblob.data,(uchar *)lm_response.data);
+		if (!SMBencrypt(pass, cli->secblob.data,(uchar *)lm_response.data)) {
+			DEBUG(1, ("Password is > 14 chars in length, and is therefore incompatible with Lanman authentication\n"));
+			return False;
+		}
 	} else if ((cli->sec_mode & NEGOTIATE_SECURITY_CHALLENGE_RESPONSE) && passlen == 24) {
 		/* Encrypted mode needed, and encrypted password supplied. */
 		lm_response = data_blob(pass, passlen);
@@ -106,7 +109,7 @@ static BOOL cli_session_setup_lanman2(struct cli_state *cli, const char *user,
 
 	p = smb_buf(cli->outbuf);
 	memcpy(p,lm_response.data,lm_response.length);
-	p += passlen;
+	p += lm_response.length;
 	p += clistr_push(cli, p, user, -1, STR_TERMINATE|STR_UPPER);
 	p += clistr_push(cli, p, workgroup, -1, STR_TERMINATE|STR_UPPER);
 	p += clistr_push(cli, p, "Unix", -1, STR_TERMINATE);
@@ -665,17 +668,22 @@ static NTSTATUS cli_session_setup_ntlmssp(struct cli_state *cli, const char *use
 		DATA_BLOB key = data_blob(ntlmssp_state->session_key.data,
 					  ntlmssp_state->session_key.length);
 		DATA_BLOB null_blob = data_blob(NULL, 0);
+		BOOL res;
 
 		fstrcpy(cli->server_domain, ntlmssp_state->server_domain);
 		cli_set_session_key(cli, ntlmssp_state->session_key);
 
-		if (cli_simple_set_signing(cli, key, null_blob)) {
+		res = cli_simple_set_signing(cli, key, null_blob);
+
+		data_blob_free(&key);
+
+		if (res) {
 			
 			/* 'resign' the last message, so we get the right sequence numbers
 			   for checking the first reply from the server */
 			cli_calculate_sign_mac(cli);
 			
-			if (!cli_check_sign_mac(cli, True)) {
+			if (!cli_check_sign_mac(cli)) {
 				nt_status = NT_STATUS_ACCESS_DENIED;
 			}
 		}
@@ -749,7 +757,7 @@ ADS_STATUS cli_session_setup_spnego(struct cli_state *cli, const char *user,
 			int ret;
 			
 			use_in_memory_ccache();
-			ret = kerberos_kinit_password(user, pass, 0 /* no time correction for now */, NULL);
+			ret = kerberos_kinit_password(user, pass, 0 /* no time correction for now */, NULL, NULL);
 			
 			if (ret){
 				SAFE_FREE(principal);
@@ -1130,6 +1138,7 @@ BOOL cli_negprot(struct cli_state *cli)
 		cli->use_spnego = False;
 		cli->sec_mode = SVAL(cli->inbuf,smb_vwv1);
 		cli->max_xmit = SVAL(cli->inbuf,smb_vwv2);
+		cli->max_mux = SVAL(cli->inbuf, smb_vwv3); 
 		cli->sesskey = IVAL(cli->inbuf,smb_vwv6);
 		cli->serverzone = SVALS(cli->inbuf,smb_vwv10);
 		cli->serverzone *= 60;

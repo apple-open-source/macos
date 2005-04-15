@@ -46,6 +46,7 @@ namespace DOM {
 class ElementImpl;
 class DocumentImpl;
 class NamedAttrMapImpl;
+class AtomicStringList;
 
 // this has no counterpart in DOM, purely internal
 // representation of the nodevalue of an Attr.
@@ -60,39 +61,34 @@ class AttributeImpl : public khtml::Shared<AttributeImpl>
 
 public:
     // null value is forbidden !
-    AttributeImpl(NodeImpl::Id id, DOMStringImpl* value)
-        : m_id(id), _prefix(0), _value(value), _impl(0)
-        { _value->ref(); };
-    ~AttributeImpl() {
-        if (_prefix) _prefix->deref();
-        if (_value) _value->deref();
-        // assert : _impl == 0
-    }
-
-    DOMString value() const { return _value; }
-    DOMStringImpl* val() const { return _value; }
-    DOMStringImpl* prefix() const { return _prefix; }
+    AttributeImpl(NodeImpl::Id id, const AtomicString& value)
+        : m_id(id), _value(value), _impl(0)
+        { };
+    virtual ~AttributeImpl() {};
+    
+    const AtomicString& value() const { return _value; }
+    const AtomicString& prefix() const { return _prefix; }
     NodeImpl::Id id() const { return m_id; }
     AttrImpl* attrImpl() const { return _impl; }
 
+    bool isNull() const { return _value.isNull(); }
+    bool isEmpty() const { return _value.isEmpty(); }
+    
+    virtual AttributeImpl* clone(bool preserveDecl=true) const;
+
 private:
-    // null pointers can never happen here
-    void setValue(DOMStringImpl* value) {
-        _value->deref();
+    void setValue(const AtomicString& value) {
         _value = value;
-        _value->ref();
     }
-    void setPrefix(DOMStringImpl* prefix) {
-        if (_prefix) _prefix->deref();
+    void setPrefix(const AtomicString& prefix) {
         _prefix = prefix;
-        if (_prefix) _prefix->ref();
     }
     void allocateImpl(ElementImpl* e);
 
 protected:
     NodeImpl::Id m_id;
-    DOMStringImpl *_prefix;
-    DOMStringImpl *_value;
+    AtomicString _prefix;
+    AtomicString _value;
     AttrImpl* _impl;
 };
 
@@ -161,10 +157,17 @@ public:
     ElementImpl(DocumentPtr *doc);
     ~ElementImpl();
 
-    DOMString getAttribute( NodeImpl::Id id ) const;
+    // Used to quickly determine whether or not an element has a given CSS class.
+    virtual const AtomicStringList* getClassList() const;
+    const AtomicString& getIDAttribute() const;
+    const AtomicString& getAttribute( NodeImpl::Id id ) const;
+    const AtomicString& getAttribute(const DOMString& localName) const { return getAttributeNS(QString::null, localName); }
+    const AtomicString& getAttributeNS(const DOMString &namespaceURI,
+                                       const DOMString &localName) const;
     void setAttribute( NodeImpl::Id id, DOMStringImpl* value, int &exceptioncode );
     void removeAttribute( NodeImpl::Id id, int &exceptioncode );
-
+    bool hasAttributes() const;
+    
     DOMString prefix() const { return m_prefix; }
     void setPrefix(const DOMString &_prefix, int &exceptioncode );
 
@@ -174,18 +177,16 @@ public:
     virtual NodeImpl *cloneNode ( bool deep );
     virtual DOMString nodeName() const;
     virtual bool isElementNode() const { return true; }
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
 
     // convenience methods which ignore exceptions
     void setAttribute (NodeImpl::Id id, const DOMString &value);
 
-    NamedAttrMapImpl* attributes(bool readonly = false) const
-    {
-        if (!readonly && !namedAttrMap) createAttributeMap();
-        return namedAttrMap;
-    }
+    NamedAttrMapImpl* attributes(bool readonly = false) const;
 
-    //This is always called, whenever an attribute changed
-    virtual void parseAttribute(AttributeImpl *) {}
+    // This method is called whenever an attribute is added, changed or removed.
+    virtual void attributeChanged(AttributeImpl* attr, bool preserveDecls = false) {}
 
     // not part of the DOM
     void setAttributeMap ( NamedAttrMapImpl* list );
@@ -194,7 +195,6 @@ public:
     virtual QString state() { return QString::null; }
 
     virtual void attach();
-    virtual void detach();
     virtual khtml::RenderStyle *styleForRenderer(khtml::RenderObject *parent);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     virtual void recalcStyle( StyleChange = NoChange );
@@ -202,21 +202,18 @@ public:
     virtual void mouseEventHandler( MouseEvent */*ev*/, bool /*inside*/ ) {};
     virtual bool childAllowed( NodeImpl *newChild );
     virtual bool childTypeAllowed( unsigned short type );
-
-    DOM::CSSStyleDeclarationImpl *styleRules() {
-      if (!m_styleDecls) createDecl();
-      return m_styleDecls;
-    }
-    // used by table cells to share style decls created by the enclosing table.
-    virtual DOM::CSSStyleDeclarationImpl* getAdditionalStyleDecls() { return 0; }
+ 
+    virtual AttributeImpl* createAttribute(NodeImpl::Id id, DOMStringImpl* value);
     
     void dispatchAttrRemovalEvent(AttributeImpl *attr);
     void dispatchAttrAdditionEvent(AttributeImpl *attr);
 
-    virtual void accessKeyAction() {};
+    virtual void accessKeyAction(bool sendToAnyEvent) { };
 
     virtual DOMString toString() const;
 
+    virtual bool isURLAttribute(AttributeImpl *attr) const;
+    
 #ifndef NDEBUG
     virtual void dump(QTextStream *stream, QString ind = "") const;
 #endif
@@ -224,23 +221,22 @@ public:
 #if APPLE_CHANGES
     static Element createInstance(ElementImpl *impl);
 #endif
+
+#ifndef NDEBUG
+    virtual void formatForDebugger(char *buffer, unsigned length) const;
+#endif
+
 protected:
-    void createAttributeMap() const;
-    void createDecl();
+    virtual void createAttributeMap() const;
     DOMString openTagStartToString() const;
 
 private:
-    // map of default attributes. derived element classes are responsible
-    // for setting this according to the corresponding element description
-    // in the DTD
-    virtual NamedAttrMapImpl* defaultMap() const;
+    void updateId(const AtomicString& oldId, const AtomicString& newId);
 
-    void updateId(DOMStringImpl* oldId, DOMStringImpl* newId);
+    virtual void updateStyleAttributeIfNeeded() const {};
 
 protected: // member variables
     mutable NamedAttrMapImpl *namedAttrMap;
-
-    DOM::CSSStyleDeclarationImpl *m_styleDecls;
     DOMStringImpl *m_prefix;
 };
 
@@ -281,8 +277,9 @@ public:
     virtual Node removeNamedItem ( NodeImpl::Id id, int &exceptioncode );
     virtual Node setNamedItem ( NodeImpl* arg, int &exceptioncode );
 
+
     virtual AttrImpl *item ( unsigned long index ) const;
-    virtual unsigned long length(  ) const;
+    unsigned long length() const { return len; }
 
     // Other methods (not part of DOM)
     virtual NodeImpl::Id mapId(const DOMString& namespaceURI,  const DOMString& localName,  bool readonly);
@@ -299,18 +296,24 @@ public:
             newAttribute->deref();
     }
 
-private:
+    virtual bool isHTMLAttributeMap() const;
+
+    const AtomicString& id() const { return m_id; }
+    void setID(const AtomicString& _id) { m_id = _id; }
+    
+protected:
     // this method is internal, does no error checking at all
     void addAttribute(AttributeImpl* newAttribute);
     // this method is internal, does no error checking at all
     void removeAttribute(NodeImpl::Id id);
-    void clearAttributes();
+    virtual void clearAttributes();
     void detachFromElement();
 
 protected:
     ElementImpl *element;
     AttributeImpl **attrs;
     uint len;
+    AtomicString m_id;
 };
 
 }; //namespace

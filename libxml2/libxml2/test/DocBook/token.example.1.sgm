@@ -1,5 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-In parsing, line ends are turned into the <token>CRLF</token>, all other
-whitespace becomes <token>WHITESP</token>.
-</para>

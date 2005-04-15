@@ -36,7 +36,7 @@ struct frchain {			/* control building of a frag chain */
     struct frag     *frch_last;		/* last struct frag in chain, or NULL */
     struct frchain  *frch_next;		/* next in chain of struct frchain-s */
 
-    struct section   frch_section;	/* section info, name, type, etc. */
+    section_t	     frch_section;	/* section info, name, type, etc. */
     unsigned long    frch_nsect;	/* section number (1,2,3,...) */
     struct fix      *frch_fix_root;	/* section fixups */
     isymbolS	    *frch_isym_root;	/* 1st indirect symbol in chain */

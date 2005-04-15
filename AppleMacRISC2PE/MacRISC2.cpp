@@ -731,10 +731,18 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
         IORegistryEntry      *extInt;
         OSObject             *extIntControllerName;
         OSObject             *extIntControllerData;
+        OSString			 *platformModel;
     
         // Set the no-nvram property.
         service->setProperty("no-nvram", service);
     
+        //  [4037930] Set the platform-model property for future updates
+        platformModel = OSString::withCString (provider_name);
+        if (platformModel) {
+            service->setProperty("platform-model", platformModel);
+            platformModel->release();
+        }
+        
         // Find the new interrupt information.
         extIntList = IODTFindMatchingEntries(getProvider(), kIODTRecursive, "'extint-gpio1'");
         extInt = (IORegistryEntry *)extIntList->getNextObject();

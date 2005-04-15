@@ -84,11 +84,6 @@ fi
 
 # System tuning
 sysctl -w kern.maxvnodes=$(echo $(sysctl -n hw.physmem) '33554432 / 512 * 1024 +p'|dc)
-sysctl -w kern.sysv.shmmax=4194304
-sysctl -w kern.sysv.shmmin=1
-sysctl -w kern.sysv.shmmni=32
-sysctl -w kern.sysv.shmseg=8
-sysctl -w kern.sysv.shmall=1024
 if [ -f /etc/sysctl-macosxserver.conf ]; then
 	awk '{ if (!index($1, "#") && index($1, "=")) print $1 }' < /etc/sysctl-macosxserver.conf | while read
 	do
@@ -102,6 +97,14 @@ if [ -f /etc/sysctl.conf ]; then
 		sysctl -w ${REPLY}
 	done
 fi
+
+sysctl -w kern.sysv.shmmax=4194304
+sysctl -w kern.sysv.shmmin=1
+sysctl -w kern.sysv.shmmni=32
+sysctl -w kern.sysv.shmseg=8
+sysctl -w kern.sysv.shmall=1024
+
+[ -f /etc/rc.local_tuning ] && . /etc/rc.local_tuning
 
 # Logs are important. Start syslogd after the boot disk becomes r/w but before
 # everything else starts. In the future, we should launch this lazily when it
@@ -281,5 +284,9 @@ fi
 export LANGUAGE
 
 SystemStarter -gr ${VerboseFlag} ${SafeBoot}
+
+if [ -f /etc/rc.local ]; then
+        sh /etc/rc.local
+fi
 
 exit 0

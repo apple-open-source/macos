@@ -22,6 +22,38 @@
 #ifndef PROP_H
 #define PROP_H 1
 
+/* The following ifdef block is the standard way of creating macros
+ * which make exporting from a DLL simpler. All files within this DLL
+ * are compiled with the LIBSASL_EXPORTS symbol defined on the command
+ * line. this symbol should not be defined on any project that uses
+ * this DLL. This way any other project whose source files include
+ * this file see LIBSASL_API functions as being imported from a DLL,
+ * wheras this DLL sees symbols defined with this macro as being
+ * exported.  */
+/* Under Unix, life is simpler: we just need to mark library functions
+ * as extern.  (Technically, we don't even have to do that.) */
+#ifdef WIN32
+# ifdef LIBSASL_EXPORTS
+#  define LIBSASL_API  __declspec(dllexport)
+# else /* LIBSASL_EXPORTS */
+#  define LIBSASL_API  __declspec(dllimport)
+# endif /* LIBSASL_EXPORTS */
+#else /* WIN32 */
+# define LIBSASL_API extern
+#endif /* WIN32 */
+
+/* Same as above, but used during a variable declaration. Only Unix definition
+ * is different, as we can't assign an initial value to an extern variable */ 
+#ifdef WIN32
+# ifdef LIBSASL_EXPORTS
+#  define LIBSASL_VAR  __declspec(dllexport)
+# else /* LIBSASL_EXPORTS */
+#  define LIBSASL_VAR  __declspec(dllimport)
+# endif /* LIBSASL_EXPORTS */
+#else /* WIN32 */
+# define LIBSASL_VAR
+#endif /* WIN32 */
+
 /* the resulting structure for property values
  */
 struct propval {
@@ -40,18 +72,22 @@ struct propval {
 #define PROP_DEFAULT 4		/* default number of propvals to assume */
 struct propctx;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* create a property context
  *  estimate -- an estimate of the storage needed for requests & responses
  *              0 will use module default
  * returns a new property context on success and NULL on any error
  */
-struct propctx *prop_new(unsigned estimate);
+LIBSASL_API struct propctx *prop_new(unsigned estimate);
 
 /* create new propctx which duplicates the contents of an existing propctx
  * returns SASL_OK on success
  * possible other return values include: SASL_NOMEM, SASL_BADPARAM
  */
-int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx);
+LIBSASL_API int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx);
 
 /* Add property names to request
  *  ctx       -- context from prop_new()
@@ -63,7 +99,7 @@ int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx);
  * returns SASL_OK on success
  * possible other return values include: SASL_NOMEM, SASL_BADPARAM
  */
-int prop_request(struct propctx *ctx, const char **names);
+LIBSASL_API int prop_request(struct propctx *ctx, const char **names);
 
 /* return array of struct propval from the context
  *  return value persists until next call to
@@ -71,7 +107,7 @@ int prop_request(struct propctx *ctx, const char **names);
  *
  *  returns NULL on error
  */
-const struct propval *prop_get(struct propctx *ctx);
+LIBSASL_API const struct propval *prop_get(struct propctx *ctx);
 
 /* Fill in an array of struct propval based on a list of property names
  *  return value persists until next call to
@@ -85,23 +121,23 @@ const struct propval *prop_get(struct propctx *ctx);
  * returns # of matching properties on success
  * possible other return values include: SASL_BADPARAM
  */
-int prop_getnames(struct propctx *ctx, const char **names,
+LIBSASL_API int prop_getnames(struct propctx *ctx, const char **names,
 		  struct propval *vals);
 
 /* clear values and optionally requests from property context
  *  ctx      -- property context
  *  requests -- 0 = don't clear requests, 1 = clear requests
  */
-void prop_clear(struct propctx *ctx, int requests);
+LIBSASL_API void prop_clear(struct propctx *ctx, int requests);
 
 /* erase the value of a property
  */
-void prop_erase(struct propctx *ctx, const char *name);
+LIBSASL_API void prop_erase(struct propctx *ctx, const char *name);
 
 /* dispose of property context
  *  ctx      -- is disposed and set to NULL; noop if ctx or *ctx is NULL
  */
-void prop_dispose(struct propctx **ctx);
+LIBSASL_API void prop_dispose(struct propctx **ctx);
 
 
 /****fetcher interfaces****/
@@ -116,7 +152,7 @@ void prop_dispose(struct propctx **ctx);
  * returns SASL_OK on success
  * returns SASL_BADPARAM or amount of additional space needed on failure
  */
-int prop_format(struct propctx *ctx, const char *sep, int seplen,
+LIBSASL_API int prop_format(struct propctx *ctx, const char *sep, int seplen,
 		char *outbuf, unsigned outmax, unsigned *outlen);
 
 /* add a property value to the context
@@ -125,11 +161,11 @@ int prop_format(struct propctx *ctx, const char *sep, int seplen,
  *            if NULL, add to the same name as previous prop_set/setvals call
  *  value  -- a value for the property; will be copied into context
  *            if NULL, remove existing values
- *  vallen -- length of value, if < 0 then strlen(value) will be used
+ *  vallen -- length of value, if <= 0 then strlen(value) will be used
  * returns SASL_OK on success
  * possible error return values include: SASL_BADPARAM, SASL_NOMEM
  */
-int prop_set(struct propctx *ctx, const char *name,
+LIBSASL_API int prop_set(struct propctx *ctx, const char *name,
 	     const char *value, int vallen);
 
 /* set the values for a property
@@ -141,8 +177,11 @@ int prop_set(struct propctx *ctx, const char *name,
  * returns SASL_OK on success
  * possible error return values include: SASL_BADPARAM, SASL_NOMEM
  */
-int prop_setvals(struct propctx *ctx, const char *name,
+LIBSASL_API int prop_setvals(struct propctx *ctx, const char *name,
 		 const char **values);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PROP_H */

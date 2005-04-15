@@ -306,7 +306,7 @@
 				MODULE_NAME = com.apple.filesystems.smbfs;
 				MODULE_START = smbfs_module_start;
 				MODULE_STOP = smbfs_module_stop;
-				MODULE_VERSION = 1.0.0;
+				MODULE_VERSION = 1.2.2;
 				OTHER_CFLAGS = "-no-cpp-precomp -DSMP -DNETSMB=1 -DNETSMBCRYPTO=1 -DNSMB=1 -fno-builtin";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -343,11 +343,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -2246,11 +2246,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 </dict>
 </plist>
 ";

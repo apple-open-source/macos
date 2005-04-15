@@ -31,7 +31,7 @@
 using namespace KJS::Bindings;
 using namespace KJS;
 
-RuntimeMethodImp::RuntimeMethodImp(ExecState *exec, const Identifier &ident, Bindings::MethodList *m) : FunctionImp (exec, ident)
+RuntimeMethodImp::RuntimeMethodImp(ExecState *exec, const Identifier &ident, Bindings::MethodList &m) : FunctionImp (exec, ident)
 {
     _methodList = m;
 }
@@ -60,7 +60,7 @@ Value RuntimeMethodImp::get(ExecState *exec, const Identifier &propertyName) con
         // just pick the first method.  The fundamental problem here is that 
         // JavaScript doesn't have the notion of method overloading and
         // Java does.
-        return Number(_methodList->methodAt(0)->numParameters());
+        return Number(_methodList.methodAt(0)->numParameters());
     }
     
     return FunctionImp::get(exec, propertyName);
@@ -73,8 +73,18 @@ bool RuntimeMethodImp::implementsCall() const
 
 Value RuntimeMethodImp::call(ExecState *exec, Object &thisObj, const List &args)
 {
-    if (_methodList) {
-        RuntimeObjectImp *imp = static_cast<RuntimeObjectImp*>(thisObj.imp());
+    if (_methodList.length() > 0) {
+	RuntimeObjectImp *imp;
+	
+	// If thisObj is the DOM object for a plugin, get the corresponding
+	// runtime object from the DOM object.
+	if (thisObj.classInfo() != &KJS::RuntimeObjectImp::info) {
+	    Value runtimeObject = thisObj.get(exec, "__apple_runtime_object");
+	    imp = static_cast<RuntimeObjectImp*>(runtimeObject.imp());
+	}
+	else {
+	    imp = static_cast<RuntimeObjectImp*>(thisObj.imp());
+	}
         if (imp) {
             Instance *instance = imp->getInternalInstance();
             

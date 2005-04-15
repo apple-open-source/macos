@@ -73,6 +73,26 @@ void E_md4hash(const char *passwd, uchar p16[16])
 }
 
 /**
+ * Creates the MD5 Hash of a combination of 16 byte salt and 16 byte NT hash.
+ * @param 16 byte salt.
+ * @param 16 byte NT hash.
+ * @param 16 byte return hashed with md5, caller allocated 16 byte buffer
+ */
+
+void E_md5hash(const uchar salt[16], const uchar nthash[16], uchar hash_out[16])
+{
+	struct MD5Context tctx;
+	uchar array[32];
+	
+	memset(hash_out, '\0', 16);
+	memcpy(array, salt, 16);
+	memcpy(&array[16], nthash, 16);
+	MD5Init(&tctx);
+	MD5Update(&tctx, array, 32);
+	MD5Final(hash_out, &tctx);
+}
+
+/**
  * Creates the DES forward-only Hash of the users password in DOS ASCII charset
  * @param passwd password in 'unix' charset.
  * @param p16 return password hashed with DES, caller allocated 16 byte buffer
@@ -352,7 +372,7 @@ static DATA_BLOB NTLMv2_generate_client_data(const DATA_BLOB *names_blob)
 	DATA_BLOB response = data_blob(NULL, 0);
 	char long_date[8];
 
-	generate_random_buffer(client_chal, sizeof(client_chal), False);
+	generate_random_buffer(client_chal, sizeof(client_chal));
 
 	put_long_date(long_date, time(NULL));
 
@@ -406,7 +426,7 @@ static DATA_BLOB LMv2_generate_response(const uchar ntlm_v2_hash[16],
 	
 	/* LMv2 */
 	/* client-supplied random data */
-	generate_random_buffer(lmv2_client_data.data, lmv2_client_data.length, False);	
+	generate_random_buffer(lmv2_client_data.data, lmv2_client_data.length);	
 
 	/* Given that data, and the challenge from the server, generate a response */
 	SMBOWFencrypt_ntv2(ntlm_v2_hash, server_chal, &lmv2_client_data, lmv2_response);
@@ -476,7 +496,7 @@ BOOL encode_pw_buffer(char buffer[516], const char *password, int string_flags)
 	
 	memcpy(&buffer[512 - new_pw_len], new_pw, new_pw_len);
 
-	generate_random_buffer((unsigned char *)buffer, 512 - new_pw_len, True);
+	generate_random_buffer((unsigned char *)buffer, 512 - new_pw_len);
 
 	/* 
 	 * The length of the new password is in the last 4 bytes of

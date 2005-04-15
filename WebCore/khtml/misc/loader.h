@@ -3,7 +3,7 @@
 
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
-    Copyright (C) 2003 Apple Computer, Inc.
+    Copyright (C) 2004 Apple Computer, Inc.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -68,7 +68,17 @@ namespace DOM
 };
 
 #if APPLE_CHANGES
+
 class KWQLoader;
+
+#if __OBJC__
+@class NSData;
+@class NSURLResponse;
+#else
+class NSData;
+class NSURLResponse;
+#endif
+
 #endif
 
 namespace khtml
@@ -102,6 +112,12 @@ namespace khtml
 	    Image,
 	    CSSStyleSheet,
 	    Script
+#ifdef KHTML_XSLT
+            , XSLStyleSheet
+#endif
+#ifndef KHTML_NO_XBL
+            , XBL
+#endif
 	};
 
 	enum Status {
@@ -125,6 +141,7 @@ namespace khtml
 	    m_request = 0;
 #if APPLE_CHANGES
         m_response = 0;
+        m_allData = 0;
 #endif            
 	    m_expireDate = _expireDate;
         m_deleted = false;
@@ -174,9 +191,12 @@ namespace khtml
         void setRequest(Request *_request);
 
 #if APPLE_CHANGES
-        void *response() { return m_response; }
-        void setResponse (void *response);
+        NSURLResponse *response() const { return m_response; }
+        void setResponse(NSURLResponse *response);
+        NSData *allData() const { return m_allData; }
+        void setAllData (NSData *data);
 #endif
+
         bool canDelete() const { return (m_clients.count() == 0 && !m_request); }
 
 	void setExpireDate(time_t _expireDate, bool changeHttpCache);
@@ -201,7 +221,8 @@ namespace khtml
         QString m_accept;
         Request *m_request;
 #if APPLE_CHANGES
-        void *m_response;
+        NSURLResponse *m_response;
+        NSData *m_allData;
 #endif
 	Type m_type;
 	Status m_status;
@@ -284,6 +305,30 @@ namespace khtml
 
     class ImageSource;
 
+#if APPLE_CHANGES    
+    class CachedImage;
+    
+    class CachedImageCallback
+    {
+    public:
+        CachedImageCallback (CachedImage *c) : cachedImage(c), refCount(1), headerReceived(false) {};
+
+        void ref() { refCount++; }
+        void deref() { if (--refCount == 0) delete this; }
+        
+        void notifyUpdate();
+        void notifyFinished();
+        void notifyDecodingError();
+        void clear();
+        void handleError();
+        
+    private:
+        CachedImage *cachedImage;
+        uint refCount;
+	bool headerReceived;
+    };
+#endif
+        
     /**
      * a cached image
      */
@@ -354,10 +399,63 @@ namespace khtml
 #if APPLE_CHANGES
     public:
         int dataSize() const { return m_dataSize; }
+	CachedImageCallback *decoderCallback() const { return m_decoderCallback; }
     private:
+        friend class CachedImageCallback;
+        
         int m_dataSize;
+        CachedImageCallback *m_decoderCallback;
 #endif
     };
+
+#ifdef KHTML_XSLT
+    class CachedXSLStyleSheet : public CachedObject
+    {
+public:
+        CachedXSLStyleSheet(DocLoader* dl, const DOM::DOMString &url, KIO::CacheControl cachePolicy, time_t _expireDate);
+
+        const DOM::DOMString& sheet() const { return m_sheet; }
+        
+        virtual void ref(CachedObjectClient *consumer);
+        virtual void deref(CachedObjectClient *consumer);
+        
+        virtual void data(QBuffer &buffer, bool eof);
+        virtual void error(int err, const char *text);
+        
+        virtual bool schedule() const { return true; }
+        
+        void checkNotify();
+        
+protected:
+        DOM::DOMString m_sheet;
+        QTextCodec* m_codec;
+    };
+#endif
+    
+#ifndef KHTML_NO_XBL
+    class CachedXBLDocument : public CachedObject
+    {
+    public:
+        CachedXBLDocument(DocLoader* dl, const DOM::DOMString &url, KIO::CacheControl cachePolicy, time_t _expireDate);
+        virtual ~CachedXBLDocument();
+        
+        XBL::XBLDocumentImpl* document() const { return m_document; }
+        
+        virtual void ref(CachedObjectClient *consumer);
+        virtual void deref(CachedObjectClient *consumer);
+        
+        virtual void data( QBuffer &buffer, bool eof );
+        virtual void error( int err, const char *text );
+        
+        virtual bool schedule() const { return true; }
+        
+        void checkNotify();
+        
+protected:
+        XBL::XBLDocumentImpl* m_document;
+        QTextCodec* m_codec;
+    };
+#endif
 
     /**
      * @internal
@@ -373,6 +471,13 @@ namespace khtml
 	CachedImage *requestImage( const DOM::DOMString &url);
 	CachedCSSStyleSheet *requestStyleSheet( const DOM::DOMString &url, const QString& charset);
         CachedScript *requestScript( const DOM::DOMString &url, const QString& charset);
+
+#ifdef KHTML_XSLT
+        CachedXSLStyleSheet* requestXSLStyleSheet(const DOM::DOMString& url);
+#endif
+#ifndef KHTML_NO_XBL
+        CachedXBLDocument* requestXBLDocument(const DOM::DOMString &url);
+#endif
 
 	bool autoloadImages() const { return m_bautoloadImages; }
         KIO::CacheControl cachePolicy() const { return m_cachePolicy; }
@@ -424,7 +529,7 @@ namespace khtml
     {
 	Q_OBJECT
 
-    public:
+    public:	
 	Loader();
 	~Loader();
 
@@ -433,6 +538,10 @@ namespace khtml
         int numRequests( DocLoader* dl ) const;
         void cancelRequests( DocLoader* dl );
 
+#if APPLE_CHANGES
+	void removeBackgroundDecodingRequest (Request *r);
+#endif
+	
         // may return 0L
         KIO::Job *jobForRequest( const DOM::DOMString &url ) const;
 
@@ -441,16 +550,19 @@ namespace khtml
 #endif
 
     signals:
+	friend class CachedImageCallback;
+
         void requestStarted( khtml::DocLoader* dl, khtml::CachedObject* obj );
 	void requestDone( khtml::DocLoader* dl, khtml::CachedObject *obj );
 	void requestFailed( khtml::DocLoader* dl, khtml::CachedObject *obj );
 
     protected slots:
-	void slotFinished( KIO::Job * );
 #if APPLE_CHANGES
+        void slotFinished( KIO::Job * , NSData *allData);
 	void slotData( KIO::Job *, const char *data, int size );
-        void slotReceivedResponse ( KIO::Job *, void *response );
+        void slotReceivedResponse ( KIO::Job *, NSURLResponse *response );
 #else
+        void slotFinished( KIO::Job * );
 	void slotData( KIO::Job *, const QByteArray & );
 #endif
 
@@ -459,6 +571,11 @@ namespace khtml
 
 	QPtrList<Request> m_requestsPending;
 	QPtrDict<Request> m_requestsLoading;
+
+#if APPLE_CHANGES
+	QPtrList<Request> m_requestsBackgroundDecoding;
+#endif
+
 #ifdef HAVE_LIBJPEG
         KJPEGFormatType m_jpegloader;
 #endif
@@ -479,7 +596,7 @@ namespace khtml
 	 * before using it.
 	 */
 	static void init();
-
+        
 	/**
 	 * Ask the cache for some url. Will return a cachedObject, and
 	 * load the requested data in case it's not cahced
@@ -487,12 +604,24 @@ namespace khtml
          * Otherwise, it is automatically base-url expanded
 	 */
 	static CachedImage *requestImage( DocLoader* l, const DOM::DOMString &url, bool reload=false, time_t _expireDate=0);
+        static CachedImage *requestImage( DocLoader* l, const KURL &url, bool reload=false, time_t _expireDate=0);
 
 	/**
 	 * Ask the cache for some url. Will return a cachedObject, and
 	 * load the requested data in case it's not cached
 	 */
 	static CachedCSSStyleSheet *requestStyleSheet( DocLoader* l, const DOM::DOMString &url, bool reload=false, time_t _expireDate=0, const QString& charset = QString::null);
+
+#ifdef KHTML_XSLT
+        // Ask the cache for an XSL stylesheet.
+        static CachedXSLStyleSheet* requestXSLStyleSheet(DocLoader* l, const DOM::DOMString &url, 
+                                                         bool reload=false, time_t _expireDate=0);
+#endif
+#ifndef KHTML_NO_XBL
+        // Ask the cache for an XBL document.
+        static CachedXBLDocument* requestXBLDocument(DocLoader* l, const DOM::DOMString &url, 
+                                                     bool reload=false, time_t _expireDate=0);
+#endif
 
         /**
          * Pre-loads a stylesheet into the cache.
@@ -519,6 +648,8 @@ namespace khtml
 	 * returns the size of the cache
 	 */
 	static int size() { return maxSize; };
+
+        static int maxCacheableObjectSize() { return maxCacheable; }
 
 	/**
 	 * prints some statistics to stdout
@@ -556,6 +687,12 @@ namespace khtml
             TypeStatistic movies;
             TypeStatistic styleSheets;
             TypeStatistic scripts;
+#ifdef KHTML_XSLT
+            TypeStatistic xslStyleSheets;
+#endif
+#ifndef KHTML_NO_XBL
+            TypeStatistic xblDocs;
+#endif
             TypeStatistic other;
         };
 
@@ -577,6 +714,7 @@ namespace khtml
         static QPtrList<DocLoader>* docloader;
     
         static int maxSize;
+        static int maxCacheable;
         static int flushCount;
     
         static Loader *m_loader;

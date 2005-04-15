@@ -36,4 +36,9 @@ void ReadOnlyPart::setName(const QString &name)
     _name = name; 
 }
 
-};
+bool ReadOnlyPart::isKPartsReadOnlyPart() const
+{
+    return true;
+}
+
+}

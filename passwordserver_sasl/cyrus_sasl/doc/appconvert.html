@@ -21,8 +21,8 @@ given by sasl_client_step or sasl_decode.</P>
 <UL>
 <LI>Change configure scripts to search for libsasl2 and include files
 prefixed with sasl/ (sasl/sasl.h, sasl/saslutil.h, etc)</LI>
-<LI>Both <tt>sasl_decode64</tt> and <tt>sasl_encode64</tt> now take an
-additional parameter that is the size of the buffer they are passed.</LI>
+<LI><tt>sasl_decode64</tt> now takes an
+additional parameter that is the size of the buffer it is passed.</LI>
 <LI>External authentication properties are no longer handled by a
 <tt>sasl_external_properties_t</tt>.  Instead you make 2 separate calls to
 <tt>sasl_setprop.</tt>
@@ -32,7 +32,7 @@ the authentication name.</LI>
 <LI>
 <tt>sasl_getprop</tt> now returns its value in a <tt>const void **</tt>
 </LI>
-<LI><tt>sasl_encode</tt> and sasl_decode now return a constant output buffer, which
+<LI><tt>sasl_encode</tt> and <tt>sasl_decode</tt> now return a constant output buffer, which
 you do not need to free (it is only valid until the next call for this sasl_
 conn_t, however)</LI>
 <LI>The SASL_IP_REMOTE and SASL_IP_LOCAL properties are now SASL_IPLOCALPORT
@@ -48,6 +48,9 @@ are in one of the following formats:
 to return a "reply" string no longer do.  Now you should (always) check
 <tt>sasl_errdetail</tt>.  Callbacks MUST likewise use <tt>sasl_seterror</tt>
 instead of setting their (now nonexistent) reply parameter.</li>
+<li>Be very careful about your handling of maxoutbuf.  If you claim that
+you can only read 4096 bytes at a time, be sure to only pass at most
+that much at a time to the SASL library!</li>
 </UL></LI>
 
 <LI>Tips for clients:</LI>
@@ -82,7 +85,7 @@ namely, the <tt>maxbufsize</tt> member of the
 <LI><tt>sasl_server_new</tt> now can take ip address strings.</li>
 <LI><tt>sasl_checkpass</tt> no longer has a "reply" parameter.  There
 are also considerably fewer possible values for the pwcheck_method
-option (now only auxprop, saslauthd, and pwcheck).</li>
+option (now only auxprop, saslauthd, authdaemond, and pwcheck).</li>
 <li><tt>sasl_server_start</tt> / <tt>sasl_server_step</tt> have same
 output parameter deal as their equivalents on the client side</li>
 <li><tt>sasl_listmech</tt> has a constant output parameter</li>

@@ -2,6 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,7 +19,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_stylesheetimpl.h,v 1.5 2003/02/25 20:00:15 hyatt Exp $
+ * $Id: css_stylesheetimpl.h,v 1.10 2004/08/04 22:05:48 hyatt Exp $
  */
 #ifndef _CSS_css_stylesheetimpl_h_
 #define _CSS_css_stylesheetimpl_h_
@@ -37,6 +38,7 @@ namespace khtml {
 
 namespace DOM {
 
+class CSSParser;
 class StyleSheet;
 class CSSStyleSheet;
 class MediaListImpl;
@@ -70,6 +72,8 @@ public:
     MediaListImpl *media() const { return m_media; }
     void setMedia( MediaListImpl *media );
 
+    virtual bool isLoading() { return false; }
+
 protected:
     DOM::NodeImpl *m_parentNode;
     DOM::DOMString m_strHref;
@@ -87,7 +91,9 @@ public:
     // clone from a cached version of the sheet
     CSSStyleSheetImpl(DOM::NodeImpl *parentNode, CSSStyleSheetImpl *orig);
     CSSStyleSheetImpl(CSSRuleImpl *ownerRule, CSSStyleSheetImpl *orig);
-
+    
+    ~CSSStyleSheetImpl() { delete m_namespaces; }
+    
     virtual bool isCSSStyleSheet() const { return true; }
 
     virtual DOM::DOMString type() const { return "text/css"; }
@@ -96,11 +102,14 @@ public:
     CSSRuleList cssRules();
     unsigned long insertRule ( const DOM::DOMString &rule, unsigned long index, int &exceptioncode );
     void deleteRule ( unsigned long index, int &exceptioncode );
+    unsigned long addRule ( const DOMString &selector, const DOMString &style, long index, int &exceptioncode );
 
+    void addNamespace(CSSParser* p, const DOM::DOMString& prefix, const DOM::DOMString& uri);
+    void determineNamespace(Q_UINT32& id, const DOM::DOMString& prefix);
+    
     virtual bool parseString( const DOMString &string, bool strict = true );
 
-    bool isLoading();
-    void setNonCSSHints();
+    virtual bool isLoading();
 
     virtual void checkLoaded();
     khtml::DocLoader *docLoader();
@@ -109,6 +118,7 @@ public:
 protected:
     DocumentImpl *m_doc;
     bool m_implicit;
+    CSSNamespace* m_namespaces;
 };
 
 // ----------------------------------------------------------------------------

@@ -409,11 +409,12 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				   in smbstatus for port 445 connects */
 				set_remote_machine_name(get_peer_addr(smbd_server_fd()), False);
 				
-				/* Reset global variables in util.c so
-				   that client substitutions will be
-				   done correctly in the process.  */
-				reset_globals_after_fork();
+				/* Reset the state of the random
+				 * number generation system, so
+				 * children do not get the same random
+				 * numbers as each other */
 
+				set_need_random_reseed();
 				/* tdb needs special fork handling - remove CLEAR_IF_FIRST flags */
 				if (tdb_reopen_all() == -1) {
 					DEBUG(0,("tdb_reopen_all failed.\n"));
@@ -494,18 +495,16 @@ BOOL reload_services(BOOL test)
 
 	load_interfaces();
 
-	{
-		if (smbd_server_fd() != -1) {      
-			set_socket_options(smbd_server_fd(),"SO_KEEPALIVE");
-			set_socket_options(smbd_server_fd(), user_socket_options);
-		}
+	if (smbd_server_fd() != -1) {      
+		set_socket_options(smbd_server_fd(),"SO_KEEPALIVE");
+		set_socket_options(smbd_server_fd(), user_socket_options);
 	}
 
 	mangle_reset_cache();
 	reset_stat_cache();
 
 	/* this forces service parameters to be flushed */
-	set_current_service(NULL,True);
+	set_current_service(NULL,0,True);
 
 	return(ret);
 }
@@ -545,6 +544,10 @@ static BOOL dump_core(void)
 
 
 	DEBUG(0,("Dumping core in %s\n", dname));
+	/* Ensure we don't have a signal handler for abort. */
+#ifdef SIGABRT
+	CatchSignal(SIGABRT,SIGNAL_CAST SIG_DFL);
+#endif
 	abort();
 	return(True);
 }
@@ -715,7 +718,7 @@ void build_options(BOOL screen);
 
 	/* we want to re-seed early to prevent time delays causing
            client problems at a later date. (tridge) */
-	generate_random_buffer(NULL, 0, False);
+	generate_random_buffer(NULL, 0);
 
 	/* make absolutely sure we run as root - to handle cases where people
 	   are crazy enough to have it setuid */
@@ -843,14 +846,17 @@ void build_options(BOOL screen);
 		exit(1);
 
 	/* Setup the main smbd so that we can get messages. */
+	/* don't worry about general printing messages here */
+
 	claim_connection(NULL,"",0,True,FLAG_MSG_GENERAL|FLAG_MSG_SMBD);
 
-	/* 
-	   DO NOT ENABLE THIS TILL YOU COPE WITH KILLING THESE TASKS AND INETD
-	   THIS *killed* LOTS OF BUILD FARM MACHINES. IT CREATED HUNDREDS OF 
-	   smbd PROCESSES THAT NEVER DIE
-	   start_background_queue(); 
-	*/
+	/* only start the background queue daemon if we are 
+	   running as a daemon -- bad things will happen if
+	   smbd is launched via inetd and we fork a copy of 
+	   ourselves here */
+
+	if ( is_daemon )
+		start_background_queue(); 
 
 	if (!open_sockets_smbd(is_daemon, interactive, ports))
 		exit(1);
@@ -904,6 +910,15 @@ void build_options(BOOL screen);
 	smbd_process();
 	
 	namecache_shutdown();
+
+	if (interactive) {
+		TALLOC_CTX *mem_ctx = talloc_init("end_description");
+		char *description = talloc_describe_all(mem_ctx);
+
+		DEBUG(3, ("tallocs left:\n%s\n", description));
+		talloc_destroy(mem_ctx);
+	}
+
 	exit_server("normal exit");
 	return(0);
 }

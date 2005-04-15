@@ -25,6 +25,8 @@ var verMajor;
 var verMinor;
 var verMicro;
 var verMicroSuffix;
+var verCvs;
+var useCvsVer = true;
 /* Libxml features. */
 var withTrio = false;
 var withThreads = "native";
@@ -162,8 +164,23 @@ function usage()
    file included by our makefile. */
 function discoverVersion()
 {
-	var fso, cf, vf, ln, s;
+	var fso, cf, vf, ln, s, iDot, iSlash;
 	fso = new ActiveXObject("Scripting.FileSystemObject");
+	verCvs = "";
+	if (useCvsVer && fso.FileExists("..\\CVS\\Entries")) {
+		cf = fso.OpenTextFile("..\\CVS\\Entries", 1);
+		while (cf.AtEndOfStream != true) {
+			ln = cf.ReadLine();
+			s = new String(ln);
+			if (s.search(/^\/ChangeLog\//) != -1) {
+				iDot = s.indexOf(".");
+				iSlash = s.indexOf("/", iDot);
+				verCvs = "CVS" + s.substring(iDot + 1, iSlash);
+				break;
+			}
+		}
+		cf.Close();
+	}
 	cf = fso.OpenTextFile(configFile, 1);
 	if (compiler == "msvc")
 		versionFile = ".\\config.msvc";
@@ -263,6 +280,8 @@ function configureLibxml()
 		} else if (s.search(/\@LIBXML_VERSION_NUMBER\@/) != -1) {
 			of.WriteLine(s.replace(/\@LIBXML_VERSION_NUMBER\@/, 
 				verMajor*10000 + verMinor*100 + verMicro*1));
+		} else if (s.search(/\@LIBXML_VERSION_EXTRA\@/) != -1) {
+			of.WriteLine(s.replace(/\@LIBXML_VERSION_EXTRA\@/, verCvs));
 		} else if (s.search(/\@WITH_TRIO\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_TRIO\@/, withTrio? "1" : "0"));
 		} else if (s.search(/\@WITH_THREADS\@/) != -1) {
@@ -365,36 +384,16 @@ function genReadme(bname, ver, file)
 	f.WriteLine("  This is " + bname + ", version " + ver + ", binary package for the native Win32/IA32");
 	f.WriteLine("platform.");
 	f.WriteBlankLines(1);
-	f.WriteLine("  The directory named 'include' contains the header files. Place its");
-	f.WriteLine("contents somewhere where it can be found by the compiler.");
-	f.WriteLine("  The directory which answers to the name 'lib' contains the static and");
-	f.WriteLine("dynamic libraries. Place them somewhere where they can be found by the");
-	f.WriteLine("linker. The files whose names end with '_a.lib' are aimed for static");
-	f.WriteLine("linking, the other files are lib/dll pairs.");
-	f.WriteLine("  The directory called 'util' contains various programs which count as a");
-	f.WriteLine("part of " + bname + ".");
+	f.WriteLine("  The files in this package do not require any special installation");
+	f.WriteLine("steps. Extract the contents of the archive whereever you wish and");
+	f.WriteLine("make sure that your tools which use " + bname + " can find it.");
 	f.WriteBlankLines(1);
-	f.WriteLine("  If you plan to develop your own programme, in C, which uses " + bname + ", then");
-	f.WriteLine("you should know what to do with the files in the binary package. If you don't,");
-	f.WriteLine("know this, then please, please do some research on how to use a");
-	f.WriteLine("third-party library in a C programme. The topic belongs to the very basics"); 
-	f.WriteLine("and you will not be able to do much without that knowledge.");
-	f.WriteBlankLines(1);
-	f.WriteLine("  If you wish to use " + bname + " solely through the supplied utilities, such as");
-	f.WriteLine("xmllint or xsltproc, then all you need to do is place the");
-	f.WriteLine("contents of the 'lib' and 'util' directories from the binary package in a"); 
-	f.WriteLine("directory on your disc which is mentioned in your PATH environment"); 
-	f.WriteLine("variable. You can use an existing directory which is allready in the"); 
-	f.WriteLine("path, such as 'C:\WINDOWS', or 'C:\WINNT'. You can also create a new"); 
-	f.WriteLine("directory for " + bname + " and place the files there, but be sure to modify"); 
-	f.WriteLine("the PATH environment variable and add that new directory to its list.");
-	f.WriteBlankLines(1);
-	f.WriteLine("  If you use other software which needs " + bname + ", such as Apache");
-	f.WriteLine("Web Server in certain configurations, then please consult the"); 
-	f.WriteLine("documentation of that software and see if it mentions something about");
-	f.WriteLine("how it uses " + bname + " and how it expects it to be installed. If you find");
-	f.WriteLine("nothing, then the default installation, as described in the previous"); 
-	f.WriteLine("paragraph, should be suficient.");
+	f.WriteLine("  For example, if you want to run the supplied utilities from the command");
+	f.WriteLine("line, you can, if you wish, add the 'bin' subdirectory to the PATH");
+	f.WriteLine("environment variable.");
+	f.WriteLine("  If you want to make programmes in C which use " + bname + ", you'll");
+	f.WriteLine("likely know how to use the contents of this package. If you don't, please");
+	f.WriteLine("refer to your compiler's documentation."); 
 	f.WriteBlankLines(1);
 	f.WriteLine("  If there is something you cannot keep for yourself, such as a problem,");
 	f.WriteLine("a cheer of joy, a comment or a suggestion, feel free to contact me using");
@@ -502,6 +501,8 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			buildInclude = arg.substring(opt.length + 1, arg.length);
 		else if (opt == "lib")
 			buildLib = arg.substring(opt.length + 1, arg.length);
+		else if (opt == "release")
+			useCvsVer = false;
 		else
 			error = 1;
 	} else if (i == 0) {
@@ -545,7 +546,12 @@ if (error != 0) {
 	WScript.Quit(error);
 }
 
-WScript.Echo(baseName + " version: " + verMajor + "." + verMinor + "." + verMicro);
+var outVerString = baseName + " version: " + verMajor + "." + verMinor + "." + verMicro;
+if (verMicroSuffix && verMicroSuffix != "")
+	outVerString += "-" + verMicroSuffix;
+if (verCvs && verCvs != "")
+	outVerString += "-" + verCvs;
+WScript.Echo(outVerString);
 
 // Configure libxml.
 configureLibxml();

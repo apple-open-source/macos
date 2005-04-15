@@ -5,6 +5,7 @@
  * (C) 2000 Gunnstein Lye (gunnstein@netcom.no)
  * (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * (C) 2001 Peter Kelly (pmk@post.com)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,10 +27,15 @@
 #ifndef _DOM2_RangeImpl_h_
 #define _DOM2_RangeImpl_h_
 
+#include <qptrlist.h>
 #include "dom/dom2_range.h"
 #include "misc/shared.h"
 
 namespace DOM {
+
+class DocumentPtr;
+class NodeImpl;
+class Position;
 
 class RangeImpl : public khtml::Shared<RangeImpl>
 {
@@ -49,26 +55,28 @@ public:
     long endOffset(int &exceptioncode) const;
     bool collapsed(int &exceptioncode) const;
 
-    NodeImpl *commonAncestorContainer(int &exceptioncode);
+    NodeImpl *commonAncestorContainer(int &exceptioncode) const;
     static NodeImpl *commonAncestorContainer(NodeImpl *containerA, NodeImpl *containerB);
     void setStart ( NodeImpl *refNode, long offset, int &exceptioncode );
     void setEnd ( NodeImpl *refNode, long offset, int &exceptioncode );
     void collapse ( bool toStart, int &exceptioncode );
-    short compareBoundaryPoints ( Range::CompareHow how, RangeImpl *sourceRange, int &exceptioncode );
-    short compareBoundaryPoints ( NodeImpl *containerA, long offsetA, NodeImpl *containerB, long offsetB );
-    bool boundaryPointsValid (  );
+    short compareBoundaryPoints ( Range::CompareHow how, const RangeImpl *sourceRange, int &exceptioncode ) const;
+    static short compareBoundaryPoints ( NodeImpl *containerA, long offsetA, NodeImpl *containerB, long offsetB );
+    static short compareBoundaryPoints ( const Position &a, const Position &b );
+    bool boundaryPointsValid (  ) const;
     void deleteContents ( int &exceptioncode );
     DocumentFragmentImpl *extractContents ( int &exceptioncode );
     DocumentFragmentImpl *cloneContents ( int &exceptioncode );
     void insertNode( NodeImpl *newNode, int &exceptioncode );
-    DOMString toString ( int &exceptioncode );
-    DOMString toHTML (  );
+    DOMString toString ( int &exceptioncode ) const;
+    DOMString toHTML() const;
+    DOMString text() const;
 
-    DocumentFragmentImpl *createContextualFragment ( DOMString &html, int &exceptioncode );
+    DocumentFragmentImpl *createContextualFragment ( DOMString &html, int &exceptioncode ) const;
     
     void detach ( int &exceptioncode );
     bool isDetached() const;
-    RangeImpl *cloneRange(int &exceptioncode);
+    RangeImpl *cloneRange(int &exceptioncode) const;
 
     void setStartAfter( NodeImpl *refNode, int &exceptioncode );
     void setEndBefore( NodeImpl *refNode, int &exceptioncode );
@@ -85,7 +93,21 @@ public:
     };
     DocumentFragmentImpl *processContents ( ActionType action, int &exceptioncode );
 
-    bool readOnly() { return false; }
+    Position startPosition() const;
+    Position endPosition() const;
+
+    NodeImpl *startNode() const;
+    NodeImpl *pastEndNode() const;
+
+    Position editingStartPosition() const;
+
+#if APPLE_CHANGES
+    static Range createInstance (RangeImpl *impl);
+#endif
+
+#ifndef NDEBUG
+    void formatForDebugger(char *buffer, unsigned length) const;
+#endif
 
 protected:
     DocumentPtr *m_ownerDocument;
@@ -101,10 +123,9 @@ private:
     void setStartContainer(NodeImpl *_startContainer);
     void setEndContainer(NodeImpl *_endContainer);
     void checkDeleteExtract(int &exceptioncode);
-    bool containedByReadOnly();
+    bool containedByReadOnly() const;
 };
 
-}; // namespace
+} // namespace
 
 #endif
-

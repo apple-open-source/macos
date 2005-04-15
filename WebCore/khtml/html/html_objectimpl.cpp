@@ -4,7 +4,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -59,6 +59,7 @@ HTMLAppletElementImpl::HTMLAppletElementImpl(DocumentPtr *doc)
   : HTMLElementImpl(doc)
 {
     appletInstance = 0;
+    m_allParamsAvailable = false;
 }
 
 HTMLAppletElementImpl::~HTMLAppletElementImpl()
@@ -71,30 +72,45 @@ NodeImpl::Id HTMLAppletElementImpl::id() const
     return ID_APPLET;
 }
 
-void HTMLAppletElementImpl::parseAttribute(AttributeImpl *attr)
+bool HTMLAppletElementImpl::mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const
 {
-    switch( attr->id() )
-    {
+    switch (attr) {
+        case ATTR_WIDTH:
+        case ATTR_HEIGHT:
+            result = eUniversal;
+            return false;
+        case ATTR_ALIGN:
+            result = eReplaced; // Share with <img> since the alignment behavior is the same.
+            return false;
+        default:
+            break;
+    }
+    
+    return HTMLElementImpl::mapToEntry(attr, result);
+}
+
+void HTMLAppletElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
+{
+    switch (attr->id()) {
     case ATTR_ALT:
     case ATTR_ARCHIVE:
     case ATTR_CODE:
     case ATTR_CODEBASE:
-    case ATTR_ID:
     case ATTR_MAYSCRIPT:
     case ATTR_NAME:
     case ATTR_OBJECT:
         break;
     case ATTR_WIDTH:
-        addCSSLength(CSS_PROP_WIDTH, attr->value());
+        addCSSLength(attr, CSS_PROP_WIDTH, attr->value());
         break;
     case ATTR_HEIGHT:
-        addCSSLength(CSS_PROP_HEIGHT, attr->value());
+        addCSSLength(attr, CSS_PROP_HEIGHT, attr->value());
         break;
     case ATTR_ALIGN:
-	addHTMLAlignment( attr->value() );
+	addHTMLAlignment(attr);
 	break;
     default:
-        HTMLElementImpl::parseAttribute(attr);
+        HTMLElementImpl::parseHTMLAttribute(attr);
     }
 }
 
@@ -188,22 +204,35 @@ KJS::Bindings::Instance *HTMLAppletElementImpl::getAppletInstance() const
         r->createWidgetIfNecessary();
         if (r->widget()){
             // Call into the part (and over the bridge) to pull the Bindings::Instance
-            // from the guts of the Java VM.
+            // from the guts of the plugin.
             void *_view = r->widget()->getView();
             appletInstance = KWQ(part)->getAppletInstanceForView((NSView *)_view);
         }
     }
     return appletInstance;
 }
+
+void HTMLAppletElementImpl::closeRenderer()
+{
+    // The parser just reached </applet>, so all the params are available now.
+    m_allParamsAvailable = true;
+    if( m_render )
+        m_render->setNeedsLayout(true); // This will cause it to create its widget & the Java applet
+    
+    HTMLElementImpl::closeRenderer();
+}
+
+bool HTMLAppletElementImpl::allParamsAvailable()
+{
+    return m_allParamsAvailable;
+}
 #endif
 
 // -------------------------------------------------------------------------
 
 HTMLEmbedElementImpl::HTMLEmbedElementImpl(DocumentPtr *doc)
-    : HTMLElementImpl(doc)
-{
-    hidden = false;
-}
+    : HTMLElementImpl(doc), embedInstance(0)
+{}
 
 HTMLEmbedElementImpl::~HTMLEmbedElementImpl()
 {
@@ -214,12 +243,58 @@ NodeImpl::Id HTMLEmbedElementImpl::id() const
     return ID_EMBED;
 }
 
-void HTMLEmbedElementImpl::parseAttribute(AttributeImpl *attr)
+#if APPLE_CHANGES
+KJS::Bindings::Instance *HTMLEmbedElementImpl::getEmbedInstance() const
 {
-  DOM::DOMStringImpl *stringImpl = attr->val();
-  QConstString cval(stringImpl->s, stringImpl->l);
-  QString val = cval.string();
+    KHTMLPart* part = getDocument()->part();
+    if (!part)
+        return 0;
 
+    if (embedInstance)
+        return embedInstance;
+    
+    RenderPartObject *r = static_cast<RenderPartObject*>(m_render);
+    if (r) {
+        if (r->widget()){
+            // Call into the part (and over the bridge) to pull the Bindings::Instance
+            // from the guts of the Java VM.
+            void *_view = r->widget()->getView();
+            embedInstance = KWQ(part)->getEmbedInstanceForView((NSView *)_view);
+            // Applet may specified with <embed> tag.
+            if (!embedInstance)
+                embedInstance = KWQ(part)->getAppletInstanceForView((NSView *)_view);
+        }
+    }
+    return embedInstance;
+}
+#endif
+
+bool HTMLEmbedElementImpl::mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const
+{
+    switch (attr) {
+        case ATTR_WIDTH:
+        case ATTR_HEIGHT:
+        case ATTR_BORDER:
+        case ATTR_VSPACE:
+        case ATTR_HSPACE:
+        case ATTR_VALIGN:
+        case ATTR_HIDDEN:
+            result = eUniversal;
+            return false;
+        case ATTR_ALIGN:
+            result = eReplaced; // Share with <img> since the alignment behavior is the same.
+            return false;
+        default:
+            break;
+    }
+    
+    return HTMLElementImpl::mapToEntry(attr, result);
+}
+
+void HTMLEmbedElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
+{
+  QString val = attr->value().string();
+  
   int pos;
   switch ( attr->id() )
   {
@@ -231,47 +306,49 @@ void HTMLEmbedElementImpl::parseAttribute(AttributeImpl *attr)
         break;
      case ATTR_CODE:
      case ATTR_SRC:
-         url = khtml::parseURL(attr->val()).string();
+         url = khtml::parseURL(attr->value()).string();
          break;
      case ATTR_WIDTH:
-        addCSSLength( CSS_PROP_WIDTH, attr->value() );
+        addCSSLength( attr, CSS_PROP_WIDTH, attr->value() );
         break;
      case ATTR_HEIGHT:
-        addCSSLength( CSS_PROP_HEIGHT, attr->value());
+        addCSSLength( attr, CSS_PROP_HEIGHT, attr->value());
         break;
      case ATTR_BORDER:
-        addCSSLength(CSS_PROP_BORDER_WIDTH, attr->value());
-        addCSSProperty( CSS_PROP_BORDER_TOP_STYLE, CSS_VAL_SOLID );
-        addCSSProperty( CSS_PROP_BORDER_RIGHT_STYLE, CSS_VAL_SOLID );
-        addCSSProperty( CSS_PROP_BORDER_BOTTOM_STYLE, CSS_VAL_SOLID );
-        addCSSProperty( CSS_PROP_BORDER_LEFT_STYLE, CSS_VAL_SOLID );
+        addCSSLength(attr, CSS_PROP_BORDER_WIDTH, attr->value());
+        addCSSProperty( attr, CSS_PROP_BORDER_TOP_STYLE, CSS_VAL_SOLID );
+        addCSSProperty( attr, CSS_PROP_BORDER_RIGHT_STYLE, CSS_VAL_SOLID );
+        addCSSProperty( attr, CSS_PROP_BORDER_BOTTOM_STYLE, CSS_VAL_SOLID );
+        addCSSProperty( attr, CSS_PROP_BORDER_LEFT_STYLE, CSS_VAL_SOLID );
         break;
      case ATTR_VSPACE:
-        addCSSLength(CSS_PROP_MARGIN_TOP, attr->value());
-        addCSSLength(CSS_PROP_MARGIN_BOTTOM, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_TOP, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_BOTTOM, attr->value());
         break;
      case ATTR_HSPACE:
-        addCSSLength(CSS_PROP_MARGIN_LEFT, attr->value());
-        addCSSLength(CSS_PROP_MARGIN_RIGHT, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_LEFT, attr->value());
+        addCSSLength(attr, CSS_PROP_MARGIN_RIGHT, attr->value());
         break;
      case ATTR_ALIGN:
-	addHTMLAlignment( attr->value() );
+	addHTMLAlignment(attr);
 	break;
      case ATTR_VALIGN:
-        addCSSProperty(CSS_PROP_VERTICAL_ALIGN, attr->value());
+        addCSSProperty(attr, CSS_PROP_VERTICAL_ALIGN, attr->value());
         break;
      case ATTR_PLUGINPAGE:
      case ATTR_PLUGINSPAGE:
         pluginPage = val;
         break;
      case ATTR_HIDDEN:
-        if (val.lower()=="yes" || val.lower()=="true")
-           hidden = true;
-        else
-           hidden = false;
+        if (val.lower()=="yes" || val.lower()=="true") {
+            // FIXME: Not dynamic, but it's not really important that such a rarely-used
+            // feature work dynamically.
+            addCSSLength( attr, CSS_PROP_WIDTH, "0" );
+            addCSSLength( attr, CSS_PROP_HEIGHT, "0" );
+        }
         break;
      default:
-        HTMLElementImpl::parseAttribute( attr );
+        HTMLElementImpl::parseHTMLAttribute( attr );
   }
 }
 
@@ -290,28 +367,32 @@ RenderObject *HTMLEmbedElementImpl::createRenderer(RenderArena *arena, RenderSty
 
 void HTMLEmbedElementImpl::attach()
 {
-    if (hidden) {
-        // FIXME: Not dynamic, but it's not really important that such a rarely-used
-        // feature work dynamically.
-        addCSSLength( CSS_PROP_WIDTH, "0" );
-        addCSSLength( CSS_PROP_HEIGHT, "0" );
-    }
-    
     HTMLElementImpl::attach();
     if (m_render) {
         static_cast<RenderPartObject*>(m_render)->updateWidget();
     }
 }
 
+bool HTMLEmbedElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    return attr->id() == ATTR_SRC;
+}
+
 // -------------------------------------------------------------------------
 
-HTMLObjectElementImpl::HTMLObjectElementImpl(DocumentPtr *doc) : HTMLElementImpl(doc)
+HTMLObjectElementImpl::HTMLObjectElementImpl(DocumentPtr *doc) 
+#if APPLE_CHANGES
+: HTMLElementImpl(doc), m_imageLoader(0), objectInstance(0)
+#else
+: HTMLElementImpl(doc), m_imageLoader(0)
+#endif
 {
     needWidgetUpdate = false;
 }
 
 HTMLObjectElementImpl::~HTMLObjectElementImpl()
 {
+    delete m_imageLoader;
 }
 
 NodeImpl::Id HTMLObjectElementImpl::id() const
@@ -319,15 +400,54 @@ NodeImpl::Id HTMLObjectElementImpl::id() const
     return ID_OBJECT;
 }
 
+#if APPLE_CHANGES
+KJS::Bindings::Instance *HTMLObjectElementImpl::getObjectInstance() const
+{
+    KHTMLPart* part = getDocument()->part();
+    if (!part)
+        return 0;
+
+    if (objectInstance)
+        return objectInstance;
+    
+    RenderPartObject *r = static_cast<RenderPartObject*>(m_render);
+    if (r) {
+        if (r->widget()){
+            // Call into the part (and over the bridge) to pull the Bindings::Instance
+            // from the guts of the plugin.
+            void *_view = r->widget()->getView();
+            objectInstance = KWQ(part)->getObjectInstanceForView((NSView *)_view);
+            // Applet may specified with <object> tag.
+            if (!objectInstance)
+                objectInstance = KWQ(part)->getAppletInstanceForView((NSView *)_view);
+        }
+    }
+    return objectInstance;
+}
+#endif
+
 HTMLFormElementImpl *HTMLObjectElementImpl::form() const
 {
   return 0;
 }
 
-void HTMLObjectElementImpl::parseAttribute(AttributeImpl *attr)
+bool HTMLObjectElementImpl::mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const
 {
-  DOM::DOMStringImpl *stringImpl = attr->val();
-  QString val = QConstString( stringImpl->s, stringImpl->l ).string();
+    switch (attr) {
+        case ATTR_WIDTH:
+        case ATTR_HEIGHT:
+            result = eUniversal;
+            return false;
+        default:
+            break;
+    }
+    
+    return HTMLElementImpl::mapToEntry(attr, result);
+}
+
+void HTMLObjectElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
+{
+  QString val = attr->value().string();
   int pos;
   switch ( attr->id() )
   {
@@ -336,32 +456,44 @@ void HTMLObjectElementImpl::parseAttribute(AttributeImpl *attr)
       pos = serviceType.find( ";" );
       if ( pos!=-1 )
           serviceType = serviceType.left( pos );
-      needWidgetUpdate = true;
+      if (m_render)
+          needWidgetUpdate = true;
+      if (!canRenderImageType(serviceType) && m_imageLoader) {
+          delete m_imageLoader;
+          m_imageLoader = 0;
+      }
       break;
     case ATTR_DATA:
       url = khtml::parseURL(  val ).string();
-      needWidgetUpdate = true;
+      if (m_render)
+          needWidgetUpdate = true;
+      if (m_render && canRenderImageType(serviceType)) {
+          if (!m_imageLoader)
+              m_imageLoader = new HTMLImageLoader(this);
+          m_imageLoader->updateFromElement();
+      }
       break;
     case ATTR_WIDTH:
-      addCSSLength( CSS_PROP_WIDTH, attr->value());
+      addCSSLength( attr, CSS_PROP_WIDTH, attr->value());
       break;
     case ATTR_HEIGHT:
-      addCSSLength( CSS_PROP_HEIGHT, attr->value());
+      addCSSLength( attr, CSS_PROP_HEIGHT, attr->value());
       break;
     case ATTR_CLASSID:
       classId = val;
-      needWidgetUpdate = true;
+      if (m_render)
+          needWidgetUpdate = true;
       break;
     case ATTR_ONLOAD: // ### support load/unload on object elements
         setHTMLEventListener(EventImpl::LOAD_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONUNLOAD:
         setHTMLEventListener(EventImpl::UNLOAD_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string()));
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     default:
-      HTMLElementImpl::parseAttribute( attr );
+      HTMLElementImpl::parseHTMLAttribute( attr );
   }
 }
 
@@ -408,19 +540,26 @@ void HTMLObjectElementImpl::attach()
 
     if (m_render) {
         if (canRenderImageType(serviceType)) {
-            m_render->updateFromElement();
+            if (!m_imageLoader)
+                m_imageLoader = new HTMLImageLoader(this);
+            m_imageLoader->updateFromElement();
+            if (renderer()) {
+                RenderImage* imageObj = static_cast<RenderImage*>(renderer());
+                imageObj->setImage(m_imageLoader->image());
+            }
         } else {
-            // If we are already cleared, then it means that we were attach()-ed previously
-            // with no renderer. We will actually need to do an update in order to ensure
-            // that the plugin shows up.  This fix is necessary to work with async
-            // render tree construction caused by stylesheet loads. -dwh
-            needWidgetUpdate = false;
+            if (needWidgetUpdate) {
+                // Set needWidgetUpdate to false before calling updateWidget because updateWidget may cause
+                // this method or recalcStyle (which also calls updateWidget) to be called.
+                needWidgetUpdate = false;
+                static_cast<RenderPartObject*>(m_render)->updateWidget();
+                dispatchHTMLEvent(EventImpl::LOAD_EVENT,false,false);
+            } else {
+                needWidgetUpdate = true;
+                setChanged();
+            }
         }
     }
-
-    // ### do this when we are actually finished loading instead
-    if (m_render)
-        dispatchHTMLEvent(EventImpl::LOAD_EVENT,false,false);
 }
 
 void HTMLObjectElementImpl::detach()
@@ -433,14 +572,29 @@ void HTMLObjectElementImpl::detach()
   HTMLElementImpl::detach();
 }
 
-void HTMLObjectElementImpl::recalcStyle( StyleChange ch )
+void HTMLObjectElementImpl::recalcStyle(StyleChange ch)
 {
-    if (needWidgetUpdate) {
-        if(m_render && strcmp( m_render->renderName(),  "RenderPartObject" ) == 0 )
-            static_cast<RenderPartObject*>(m_render)->updateWidget();
+    if (needWidgetUpdate && m_render && !canRenderImageType(serviceType)) {
+        // Set needWidgetUpdate to false before calling updateWidget because updateWidget may cause
+        // this method or attach (which also calls updateWidget) to be called.
         needWidgetUpdate = false;
+        static_cast<RenderPartObject*>(m_render)->updateWidget();
+        dispatchHTMLEvent(EventImpl::LOAD_EVENT,false,false);
     }
-    HTMLElementImpl::recalcStyle( ch );
+    HTMLElementImpl::recalcStyle(ch);
+}
+
+void HTMLObjectElementImpl::childrenChanged()
+{
+    if (inDocument()) {
+        needWidgetUpdate = true;
+        setChanged();
+    }
+}
+
+bool HTMLObjectElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    return (attr->id() == ATTR_DATA || (attr->id() == ATTR_USEMAP && attr->value().domString()[0] != '#'));
 }
 
 // -------------------------------------------------------------------------
@@ -448,14 +602,10 @@ void HTMLObjectElementImpl::recalcStyle( StyleChange ch )
 HTMLParamElementImpl::HTMLParamElementImpl(DocumentPtr *doc)
     : HTMLElementImpl(doc)
 {
-    m_name = 0;
-    m_value = 0;
 }
 
 HTMLParamElementImpl::~HTMLParamElementImpl()
 {
-    if(m_name) m_name->deref();
-    if(m_value) m_value->deref();
 }
 
 NodeImpl::Id HTMLParamElementImpl::id() const
@@ -463,20 +613,34 @@ NodeImpl::Id HTMLParamElementImpl::id() const
     return ID_PARAM;
 }
 
-void HTMLParamElementImpl::parseAttribute(AttributeImpl *attr)
+void HTMLParamElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 {
     switch( attr->id() )
     {
     case ATTR_ID:
+        // Must call base class so that hasID bit gets set.
+        HTMLElementImpl::parseHTMLAttribute(attr);
         if (getDocument()->htmlMode() != DocumentImpl::XHtml) break;
         // fall through
     case ATTR_NAME:
-        m_name = attr->val();
-        if (m_name) m_name->ref();
+        m_name = attr->value();
         break;
     case ATTR_VALUE:
-        m_value = attr->val();
-        if (m_value) m_value->ref();
+        m_value = attr->value();
         break;
     }
+}
+
+bool HTMLParamElementImpl::isURLAttribute(AttributeImpl *attr) const
+{
+    if (attr->id() == ATTR_VALUE) {
+        AttributeImpl *attr = attributes()->getAttributeItem(ATTR_NAME);
+        if (attr) {
+            DOMString value = attr->value().string().lower();
+            if (value == "src" || value == "movie" || value == "data") {
+                return true;
+            }
+        }
+    }
+    return false;
 }

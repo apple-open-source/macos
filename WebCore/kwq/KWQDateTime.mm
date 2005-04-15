@@ -26,6 +26,7 @@
 #import <Foundation/Foundation.h>
 #import "KWQDateTime.h"
 #import <time.h>
+#import "WebCoreGraphicsBridge.h"
 
 static CFTimeZoneRef systemTimeZone()
 {
@@ -51,7 +52,7 @@ int QTime::msec() const
     return (int)(seconds * 1000) % 1000;
 }
 
-int QTime::elapsed()
+int QTime::elapsed() const
 {
     CFTimeInterval elapsed = CFAbsoluteTimeGetCurrent() - timeInSeconds;
     return (int)(elapsed * 1000);
@@ -82,6 +83,17 @@ QDateTime::QDateTime(const QDate &d, const QTime &t)
 int QDateTime::secsTo(const QDateTime &b) const
 {
     return (int)(b.dateInSeconds - dateInSeconds);
+}
+
+bool KWQUIEventTime::uiEventPending() const
+{
+    return false;
+/*
+    unsigned int mask = NSAnyEventMask & 
+      ~(NSFlagsChangedMask | NSAppKitDefinedMask | NSSystemDefinedMask | NSApplicationDefinedMask | NSPeriodicMask | NSCursorUpdateMask);
+    return [[NSApplication sharedApplication] nextEventMatchingMask:mask untilDate:nil
+                                              inMode:NSEventTrackingRunLoopMode dequeue:NO] != nil;
+*/
 }
 
 #ifdef _KWQ_IOSTREAM_

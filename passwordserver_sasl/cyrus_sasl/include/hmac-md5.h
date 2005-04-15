@@ -19,6 +19,10 @@ typedef struct HMAC_MD5_STATE_s {
     UINT4 ostate[4];
 } HMAC_MD5_STATE;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* One step hmac computation
  *
  * digest may be same as text or key
@@ -47,5 +51,9 @@ void _sasl_hmac_md5_import(HMAC_MD5_CTX *hmac, HMAC_MD5_STATE *state);
  */
 void _sasl_hmac_md5_final(unsigned char digest[HMAC_MD5_SIZE],
 			  HMAC_MD5_CTX *hmac);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* HMAC_MD5_H */

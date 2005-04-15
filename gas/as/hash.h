@@ -1,63 +1,90 @@
-#ifndef _HASH_H_
-#define _HASH_H_
-/* hash.h - for hash.c
-   Copyright (C) 1987 Free Software Foundation, Inc.
+/* hash.h -- header file for gas hash table routines
+   Copyright 1987, 1992, 1993, 1995, 1999 Free Software Foundation, Inc.
 
-This file is part of GAS, the GNU Assembler.
+   This file is part of GAS, the GNU Assembler.
 
-GAS is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+   GAS is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-GAS is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GAS is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GAS; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GAS; see the file COPYING.  If not, write to the Free
+   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.  */
 
-struct hash_entry
-{
-  char *      hash_string;	/* points to where the symbol string is */
-				/* NULL means slot is not used */
-				/* DELETED means slot was deleted */
-  char *      hash_value;	/* user's datum, associated with symbol */
-};
+#ifndef HASH_H
+#define HASH_H
 
-
-#define HASH_STATLENGTH	(6)
-struct hash_control
-{
-  struct hash_entry * hash_where; /* address of hash table */
-  int         hash_sizelog;	/* Log of ( hash_mask + 1 ) */
-  int         hash_mask;	/* masks a hash into index into table */
-  int         hash_full;	/* when hash_stat[STAT_USED] exceeds this, */
-				/* grow table */
-  struct hash_entry * hash_wall; /* point just after last (usable) entry */
-				/* here we have some statistics */
-  int hash_stat[HASH_STATLENGTH]; /* lies & statistics */
-				/* we need STAT_USED & STAT_SIZE */
-};
+/* Add some declarations that, in less ancient versions of binutils,
+   appear in ansidecls.h.  --mha */
+#ifndef PTR
+#define PTR             void *
+#endif
+#ifndef ATTRIBUTE_UNUSED
+#define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
+#endif 
 
 
-/*						returns		  */
-extern struct hash_control *hash_new(	/* [control block]	  */
-    void);			
-extern char *hash_insert(		/* error string           */
-    struct hash_control *handle,
-    char *string,
-    char *value);
-extern char *hash_apply(		/* 0 means OK             */
-    struct hash_control *handle,
-    char *(*function)(char *hash_string, char *hash_value));
-extern char *hash_find(			/* value                  */
-    struct hash_control *handle,
-    char *string);
-extern char *hash_jam(			/* error text (internal)  */
-    struct hash_control *handle,
-    char *string,
-    char *value);
-#endif /* _HASH_H_ */
+struct hash_control;
+
+/* Create a hash table.  This return a control block.  */
+
+extern struct hash_control *hash_new (void);
+
+/* Delete a hash table, freeing all allocated memory.  */
+
+extern void hash_die (struct hash_control *);
+
+/* Insert an entry into a hash table.  This returns NULL on success.
+   On error, it returns a printable string indicating the error.  It
+   is considered to be an error if the entry already exists in the
+   hash table.  */
+
+extern const char *hash_insert (struct hash_control *,
+				const char *key, PTR value);
+
+/* Insert or replace an entry in a hash table.  This returns NULL on
+   success.  On error, it returns a printable string indicating the
+   error.  If an entry already exists, its value is replaced.  */
+
+extern const char *hash_jam (struct hash_control *,
+			     const char *key, PTR value);
+
+/* Replace an existing entry in a hash table.  This returns the old
+   value stored for the entry.  If the entry is not found in the hash
+   table, this does nothing and returns NULL.  */
+
+extern PTR hash_replace (struct hash_control *, const char *key,
+			 PTR value);
+
+/* Find an entry in a hash table, returning its value.  Returns NULL
+   if the entry is not found.  */
+
+extern PTR hash_find (struct hash_control *, const char *key);
+
+/* Delete an entry from a hash table.  This returns the value stored
+   for that entry, or NULL if there is no such entry.  */
+
+extern PTR hash_delete (struct hash_control *, const char *key);
+
+/* Traverse a hash table.  Call the function on every entry in the
+   hash table.  */
+
+extern void hash_traverse (struct hash_control *,
+			   void (*pfn) (const char *key, PTR value));
+
+/* Print hash table statistics on the specified file.  NAME is the
+   name of the hash table, used for printing a header.  */
+
+#ifdef HASH_STATISTICS
+extern void hash_print_statistics (FILE *, const char *name,
+				   struct hash_control *);
+#endif
+
+#endif /* HASH_H */

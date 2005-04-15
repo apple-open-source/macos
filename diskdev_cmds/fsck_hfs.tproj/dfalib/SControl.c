@@ -872,6 +872,11 @@ static int ScavSetUp( SGlob *GPtr)
 		}
 		return( R_NoMem );
 	}
+	
+	// Convert the security attribute name from utf8 to utf16.  This will
+	// avoid repeated conversion of all extended attributes to compare with
+	// security attribute name
+	(void) utf_decodestr(KAUTH_FILESEC_XATTR, strlen(KAUTH_FILESEC_XATTR), GPtr->securityAttrName, &GPtr->securityAttrLen);
 
 	return( noErr );
 

@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <string.h>
+#include "stuff/target_arch.h"
 #include "stuff/ofile.h"
 
 /*
@@ -35,16 +36,16 @@ void *get_word_data /* struct mach_object_file *ofile */ )
 {
     unsigned long i, j;
     struct load_command *lc;
-    struct segment_command *sg;
-    struct section *s;
+    segment_command_t *sg;
+    section_t *s;
     struct ofile *ofile;
 
 	ofile = (struct ofile *)get_word_data;
 	for(i = 0, lc = ofile->load_commands; i < ofile->mh->ncmds; i++){
-	    if(lc->cmd == LC_SEGMENT){
-		sg = (struct segment_command *)lc;
-		s = (struct section *)
-		    ((char *)sg + sizeof(struct segment_command));
+	    if(lc->cmd == LC_SEGMENT_VALUE){
+		sg = (segment_command_t *)lc;
+		s = (section_t *)
+		    ((char *)sg + sizeof(segment_command_t));
 		for(j = 0 ; j < sg->nsects ; j++){
 		    if(addr >= s->addr && addr < s->addr + s->size){
 			if(s->flags == S_ZEROFILL)

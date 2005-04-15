@@ -8,21 +8,21 @@
 dlname='libotp.2.so'
 
 # Names of this library.
-library_names='libotp.2.0.1.so libotp.2.so libotp.so'
+library_names='libotp.2.0.18.so libotp.2.so libotp.so'
 
 # The name of the static archive.
 old_library=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/usr/local/lib -lcrypto'
+dependency_libs=' -lcrypto -lresolv -lresolv'
 
 # Version information for libotp.
 current=2
 age=0
-revision=1
+revision=18
 
 # Is this an already installed library?
-installed=yes
+installed=no
 
 # Directory that this library needs to be installed in:
 libdir='/usr/lib/sasl2'

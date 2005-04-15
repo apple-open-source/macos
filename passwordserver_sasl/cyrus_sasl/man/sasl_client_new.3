@@ -52,7 +52,7 @@ sasl_client_new \- Create a new client authentication object
 .BI "			 const char " *iplocalport ", "
 .BI "			 const char " *ipremoteport ", "
 .BI "			 const sasl_callback_t " *prompt_supp,
-.BI "			 unsigned " secflags ", "
+.BI "			 unsigned " flags ", "
 .BI "			 sasl_conn_t ** " pconn ");"
 
 .fi
@@ -81,38 +81,24 @@ iplocalport)
 .I prompt_supp
 is a list of client interactions supported that is unique to this connection. If this parameter is NULL the global callbacks (specified in sasl_client_init) will be used. See sasl_callback for more information.
 .PP
-.I secflags
-are security flags (see below)
+.I flags
+are connection flags (see below)
 .PP
 .I pconn
 is the conection context allocated by the library. This structure will be used for all future SASL calls for this connection.
 .PP
-.B Security Flags
+.B Connection Flags
 .PP
-Security flags that may be passed to
+Flags that may be passed to
 .B sasl_server_new()
 include
 .TP 0.8i
-.B SASL_SEC_NOPLAINTEXT
-Don't permit mechanisms susceptible to simple passive attack (e.g., PLAIN, LOGIN)
+.B SASL_SUCCESS_DATA
+The protocol supports a server-last send
 .TP 0.8i
-.B SASL_SEC_NOACTIVE
-Protection from active (non-dictionary) attacks during authentication exchange. Authenticates server.
-.TP 0.8i
-.B SASL_SEC_NODICTIONARY
-Don't permit mechanisms susceptible to passive dictionary attack
-.TP 0.8i
-.B SASL_SEC_FORWARD_SECURITY
-Require forward secrecy between sessions. (breaking one won't help break next)
-.TP 0.8i
-.B SASL_SEC_NOANONYMOUS
-Don't permit mechanisms that allow anonymous login
-.TP 0.8i
-.B SASL_SEC_PASS_CREDENTIALS
-Require mechanisms which pass client credentials, and allow mechanisms which can pass credentials to do so.
-.TP 0.8i
-.B SASL_SEC_MAXIMUM
-All of the above.
+.B SASL_NEED_PROXY
+Force the use of a mechanism that supports an authorization id that is
+not the authentication id.
 
 .SH "RETURN VALUE"
 

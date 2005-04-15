@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,22 +37,21 @@
 - (NSString *)_KWQ_truncateToNumComposedCharacterSequences:(int)num;
 @end
 
+@interface NSTextField (KWQTextField)
+- (NSText *)_KWQ_currentEditor;
+@end
+
 @interface NSCell (KWQTextFieldKnowsAppKitSecrets)
 - (NSMutableDictionary *)_textAttributes;
 @end
 
-@interface KWQTextField (KWQInternal)
-- (void)setHasFocus:(BOOL)hasFocus;
-@end
-
-// KWQTextFieldCell allows us to tell when we get focus without an editor subclass,
+// The three cell subclasses allow us to tell when we get focus without an editor subclass,
 // and override the base writing direction.
 @interface KWQTextFieldCell : NSTextFieldCell
-{
-    NSWritingDirection baseWritingDirection;
-}
-- (void)setBaseWritingDirection:(NSWritingDirection)direction;
-- (NSWritingDirection)baseWritingDirection;
+@end
+@interface KWQSecureTextFieldCell : NSSecureTextFieldCell
+@end
+@interface KWQSearchFieldCell : NSSearchFieldCell
 @end
 
 // KWQTextFieldFormatter enforces a maximum length.
@@ -64,177 +63,73 @@
 - (int)maximumLength;
 @end
 
-// KWQSecureTextField has a few purposes.
-// One is a workaround for bug 3024443.
-// Another is hook up next and previous key views to KHTML.
-@interface KWQSecureTextField : NSSecureTextField <KWQWidgetHolder>
-{
-    QLineEdit *widget;
-    BOOL inNextValidKeyView;
-    BOOL inSetFrameSize;
-}
-
-- (id)initWithQLineEdit:(QLineEdit *)widget;
-
+@interface KWQTextFieldController (KWQInternal)
+- (id)initWithTextField:(NSTextField *)f QLineEdit:(QLineEdit *)w;
+- (QWidget *)widget;
+- (void)textChanged;
+- (void)setInDrawingMachinery:(BOOL)inDrawing;
+- (BOOL)textView:(NSTextView *)view shouldDrawInsertionPointInRect:(NSRect)rect color:(NSColor *)color turnedOn:(BOOL)drawInsteadOfErase;
+- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event;
+- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event;
+- (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string;
+- (void)updateTextAttributes:(NSMutableDictionary *)attributes;
+- (NSString *)preprocessString:(NSString *)string;
 @end
 
-// KWQSecureTextFieldCell allows us to tell when we get focus without an editor subclass,
-// and override the base writing direction.
-@interface KWQSecureTextFieldCell : NSSecureTextFieldCell
+@implementation KWQTextFieldController
+
+- (id)initWithTextField:(NSTextField *)f QLineEdit:(QLineEdit *)w
 {
-    NSWritingDirection baseWritingDirection;
-}
-- (void)setBaseWritingDirection:(NSWritingDirection)direction;
-@end
+    [self init];
 
-@implementation KWQTextField
-
-+ (void)initialize
-{
-    if (self == [KWQTextField class]) {
-        [self setCellClass:[KWQTextFieldCell class]];
-    }
-}
-
-- (void)setUpTextField:(NSTextField *)field
-{
-    // This is initialization that's shared by both self and the secure text field.
-
+    // This is initialization that's shared by all types of text fields.
+    widget = w;
+    field = f;
+    formatter = [[KWQTextFieldFormatter alloc] init];
+    lastSelectedRange.location = NSNotFound;
     [[field cell] setScrollable:YES];
-    
     [field setFormatter:formatter];
-
     [field setDelegate:self];
     
-    [field setTarget:self];
-    [field setAction:@selector(action:)];
-}
-
--(id)initWithFrame:(NSRect)frame
-{
-    [super initWithFrame:frame];
-    formatter = [[KWQTextFieldFormatter alloc] init];
-    [self setUpTextField:self];
-    lastSelectedRange.location = NSNotFound;
+    if (widget->type() == QLineEdit::Search) {
+        [field setTarget:self];
+        [field setAction:@selector(action:)];
+    }
+    
     return self;
 }
 
--(id)initWithQLineEdit:(QLineEdit *)w 
+- (void)detachQLineEdit
 {
-    widget = w;
-    return [self init];
+    widget = 0;
 }
 
--(void)invalidate
+- (void)action:(id)sender
 {
-    widget = NULL;
-}
-
-- (void)action:sender
-{
-    if (!widget) {
+    if (!widget)
 	return;
-    }
-
-    widget->returnPressed();
+    widget->textChanged();
+    if (!widget)
+        return;
+    widget->performSearch();
 }
 
 - (void)dealloc
 {
-    [secureField release];
     [formatter release];
     [super dealloc];
 }
 
-- (KWQTextFieldFormatter *)formatter
+- (QWidget*)widget
 {
-    return formatter;
-}
-
-- (void)updateSecureFieldFrame
-{
-    [secureField setFrame:[self bounds]];
-}
-
-- (void)setFrameSize:(NSSize)size
-{
-    [super setFrameSize:size];
-    [self updateSecureFieldFrame];
-}
-
-- (void)setPasswordMode:(BOOL)flag
-{
-    if (!flag == ![secureField superview]) {
-        return;
-    }
-    
-    if (!flag) {
-        // Don't use [self setStringValue:] because there are unwanted side effects,
-        // like sending out a text changed signal.
-        [super setStringValue:[secureField stringValue]];
-        [secureField removeFromSuperview];
-    } else {
-        if (secureField == nil) {
-            secureField = [[KWQSecureTextField alloc] initWithQLineEdit:widget];
-            [secureField setFormatter:formatter];
-            [secureField setFont:[self font]];
-            [secureField setEditable:[self isEditable]];
-            [secureField setSelectable:[self isSelectable]];
-            [[secureField cell] setBaseWritingDirection:[[self cell] baseWritingDirection]];
-            [self setUpTextField:secureField];
-            [self updateSecureFieldFrame];
-        }
-        [secureField setStringValue:[super stringValue]];
-        [self addSubview:secureField];
-    }
-}
-
-- (void)setEditable:(BOOL)flag
-{
-    [secureField setEditable:flag];
-    [super setEditable:flag];
-}
-
-- (void)setSelectable:(BOOL)flag
-{
-    [secureField setSelectable:flag];
-    [super setSelectable:flag];
-}
-
-- (void)selectText:(id)sender
-{
-    if ([self passwordMode]) {
-        [secureField selectText:sender];
-        return;
-    }
-    
-    // Don't call the NSTextField's selectText if the field is already first responder.
-    // If we do, we'll end up deactivating and then reactivating, which will send
-    // unwanted onBlur events.
-    NSText *editor = [self currentEditor];
-    if (editor) {
-        [editor setSelectedRange:NSMakeRange(0, [[editor string] length])];
-        return;
-    }
-    
-    [super selectText:sender];
-}
-
-- (BOOL)isEditable
-{
-    return [super isEditable];
-}
-
-- (BOOL)passwordMode
-{
-    return [secureField superview] != nil;
+    return widget;
 }
 
 - (void)setMaximumLength:(int)len
 {
-    NSString *oldValue = [self stringValue];
+    NSString *oldValue = [self string];
     if ([oldValue _KWQ_numComposedCharacterSequences] > len) {
-        [self setStringValue:[oldValue _KWQ_truncateToNumComposedCharacterSequences:len]];
+        [field setStringValue:[oldValue _KWQ_truncateToNumComposedCharacterSequences:len]];
     }
     [formatter setMaximumLength:len];
 }
@@ -254,53 +149,53 @@
     edited = ed;
 }
 
--(void)controlTextDidBeginEditing:(NSNotification *)notification
+- (void)controlTextDidBeginEditing:(NSNotification *)notification
 {
-    if (!widget) {
+    if (!widget)
 	return;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidBeginEditing:notification];
 }
 
--(void)controlTextDidEndEditing:(NSNotification *)notification
+- (void)controlTextDidEndEditing:(NSNotification *)notification
 {
-    if (!widget) {
+    if (!widget)
 	return;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidEndEditing:notification];
     
     [self setHasFocus:NO];
+
+    if (widget && [[[notification userInfo] objectForKey:@"NSTextMovement"] intValue] == NSReturnTextMovement)
+        widget->returnPressed();
 }
 
--(void)controlTextDidChange:(NSNotification *)notification
+- (void)controlTextDidChange:(NSNotification *)notification
 {
-    if (!widget) {
+    if (!widget)
 	return;
-    }
     
-    if (KWQKHTMLPart::handleKeyboardOptionTabInView(self)) {
+    if (KWQKHTMLPart::handleKeyboardOptionTabInView(field))
         return;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge controlTextDidChange:notification];
     
     edited = YES;
-    widget->textChanged();
+    if (widget) {
+        widget->textChanged();
+    }
 }
 
--(BOOL)control:(NSControl *)control textShouldBeginEditing:(NSText *)fieldEditor
+- (BOOL)control:(NSControl *)control textShouldBeginEditing:(NSText *)fieldEditor
 {
-    if (!widget) {
-	return NO;
-    }
-
+    if (!widget)
+        return NO;
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
-
+    
     // In WebHTMLView, we set a clip. This is not typical to do in an
     // NSView, and while correct for any one invocation of drawRect:,
     // it causes some bad problems if that clip is cached between calls.
@@ -312,165 +207,64 @@
     // See bug 3457875 and 3310943 for more context.
     [fieldEditor releaseGState];
     [[fieldEditor superview] releaseGState];
-
+    
     return [bridge control:control textShouldBeginEditing:fieldEditor];
 }
 
--(BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
+- (BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
 {
-    if (!widget) {
+    if (!widget)
 	return NO;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control textShouldEndEditing:fieldEditor];
 }
 
--(BOOL)control:(NSControl *)control didFailToFormatString:(NSString *)string errorDescription:(NSString *)error
+- (BOOL)control:(NSControl *)control didFailToFormatString:(NSString *)string errorDescription:(NSString *)error
 {
-    if (!widget) {
+    if (!widget)
 	return NO;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control didFailToFormatString:string errorDescription:error];
 }
 
--(void)control:(NSControl *)control didFailToValidatePartialString:(NSString *)string errorDescription:(NSString *)error
+- (void)control:(NSControl *)control didFailToValidatePartialString:(NSString *)string errorDescription:(NSString *)error
 {
-    if (!widget) {
+    if (!widget)
 	return;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     [bridge control:control didFailToValidatePartialString:string errorDescription:error];
 }
 
--(BOOL)control:(NSControl *)control isValidObject:(id)obj
+- (BOOL)control:(NSControl *)control isValidObject:(id)obj
 {
-    if (!widget) {
+    if (!widget)
 	return NO;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control isValidObject:obj];
 }
 
--(BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
+- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
 {
-    if (!widget) {
+    if (!widget)
 	return NO;
-    }
-
+    
     WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
     return [bridge control:control textView:textView doCommandBySelector:commandSelector];
 }
 
--(NSString *)stringValue
+- (void)textChanged
 {
-    if ([secureField superview]) {
-        return [secureField stringValue];
-    }
-    return [super stringValue];
+    if (widget)
+        widget->textChanged();
 }
 
--(void)setStringValue:(NSString *)string
+- (void)setInDrawingMachinery:(BOOL)inDrawing
 {
-    if (!widget) {
-	return;
-    }
-
-    int maxLength = [formatter maximumLength];
-    string = [string _KWQ_truncateToNumComposedCharacterSequences:maxLength];
-    [secureField setStringValue:string];
-    [super setStringValue:string];
-    widget->textChanged();
-}
-
--(void)setFont:(NSFont *)font
-{
-    [secureField setFont:font];
-    [super setFont:font];
-}
-
--(NSView *)nextKeyView
-{
-    if (!widget) {
-	return [super nextKeyView];
-    }
-
-    return inNextValidKeyView
-        ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext)
-        : [super nextKeyView];
-}
-
--(NSView *)previousKeyView
-{
-    if (!widget) {
-	return [super previousKeyView];
-    }
-
-    return inNextValidKeyView
-        ? KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious)
-        : [super previousKeyView];
-}
-
--(NSView *)nextValidKeyView
-{
-    inNextValidKeyView = YES;
-    NSView *view = [super nextValidKeyView];
-    inNextValidKeyView = NO;
-    return view;
-}
-
--(NSView *)previousValidKeyView
-{
-    inNextValidKeyView = YES;
-    NSView *view = [super previousValidKeyView];
-    inNextValidKeyView = NO;
-    return view;
-}
-
-- (BOOL)acceptsFirstResponder
-{
-    return [self isEnabled];
-}
-
-- (BOOL)becomeFirstResponder
-{
-    if ([self passwordMode]) {
-        return [[self window] makeFirstResponder:secureField];
-    }
-    return [super becomeFirstResponder];
-}
-
-- (void)display
-{
-    // This is a workaround for Radar 2753974.
-    // Also, in the web page context, it's never OK to just display.
-    [self setNeedsDisplay:YES];
-}
-
-- (QWidget *)widget
-{
-    return widget;
-}
-
-- (void)setAlignment:(NSTextAlignment)alignment
-{
-    [secureField setAlignment:alignment];
-    [super setAlignment:alignment];
-}
-
-// This is the only one of the display family of calls that we use, and the way we do
-// displaying in WebCore means this is called on this NSView explicitly, so this catches
-// all cases where we are inside the normal display machinery. (Used only by the insertion
-// point method below.)
-- (void)displayRectIgnoringOpacity:(NSRect)rect
-{
-    inDrawingMachinery = YES;
-    [super displayRectIgnoringOpacity:rect];
-    inDrawingMachinery = NO;
+    inDrawingMachinery = inDrawing;
 }
 
 // Use the "needs display" mechanism to do all insertion point drawing in the web view.
@@ -479,9 +273,8 @@
     // We only need to take control of the cases where we are being asked to draw by something
     // outside the normal display machinery, and when we are being asked to draw the insertion
     // point, not erase it.
-    if (inDrawingMachinery || !drawInsteadOfErase) {
+    if (inDrawingMachinery || !drawInsteadOfErase)
         return YES;
-    }
 
     // NSTextView's insertion-point drawing code sets the rect width to 1.
     // So we do the same thing, to affect exactly the same rectangle.
@@ -501,66 +294,67 @@
 
 - (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
 {
-    if (!widget) {
+    if (!widget)
 	return YES;
-    }
-
+    
     NSEventType type = [event type];
-    if ((type == NSKeyDown || type == NSKeyUp) && 
-	![[NSInputManager currentInputManager] hasMarkedText]) {
+    if ((type == NSKeyDown || type == NSKeyUp) && ![[NSInputManager currentInputManager] hasMarkedText]) {
         WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
-        BOOL intercepted = [bridge interceptKeyEvent:event toView:view];
-        // Always return NO for key up events because we don't want them
+
+        QWidget::setDeferFirstResponderChanges(true);
+
+        BOOL intercepted = [bridge control:field textView:view shouldHandleEvent:event];
+        if (!intercepted) {
+            intercepted = [bridge interceptKeyEvent:event toView:view];
+        }
+
+        // Always intercept key up events because we don't want them
         // passed along the responder chain. This is arguably a bug in
         // NSTextView; see Radar 3507083.
-        return type != NSKeyUp && !intercepted;
+        if (type == NSKeyUp) {
+            intercepted = YES;
+        }
+
+        if (intercepted || !widget) {
+            QWidget::setDeferFirstResponderChanges(false);
+            return NO;
+        }
     }
+
     return YES;
 }
 
 - (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
 {
-    if (!widget) {
+    QWidget::setDeferFirstResponderChanges(false);
+
+    if (!widget)
 	return;
-    }
+
     if ([event type] == NSLeftMouseUp) {
         widget->sendConsumedMouseUp();
-        widget->clicked();
+        if (widget) {
+            widget->clicked();
+        }
     }
 }
 
 - (void)setBaseWritingDirection:(NSWritingDirection)direction
 {
-    KWQTextFieldCell *cell = [self cell];
-    if ([cell baseWritingDirection] != direction) {
-        [cell setBaseWritingDirection:direction];
-        [[secureField cell] setBaseWritingDirection:direction];
-
-        // One call to setNeedsDisplay will take care of both text fields.
-        [self setNeedsDisplay:YES];
+    if (baseWritingDirection != direction) {
+        baseWritingDirection = direction;
+        [field setNeedsDisplay:YES];
     }
 }
 
-@end
-
-@implementation KWQTextField (KWQInternal)
-
-- (NSText *)currentEditorForEitherField
+- (NSWritingDirection)baseWritingDirection
 {
-    NSResponder *firstResponder = [[self window] firstResponder];
-    if ([firstResponder isKindOfClass:[NSText class]]) {
-        NSText *editor = (NSText *)firstResponder;
-        id delegate = [editor delegate];
-        if (delegate == self || delegate == secureField) {
-            return editor;
-        }
-    }
-    return nil;
+    return baseWritingDirection;
 }
 
 - (NSRange)selectedRange
 {
-    NSText *editor = [self currentEditorForEitherField];
+    NSText *editor = [field _KWQ_currentEditor];
     return editor ? [editor selectedRange] : NSMakeRange(NSNotFound, 0);
 }
 
@@ -569,7 +363,7 @@
     // Range check just in case the saved range has gotten out of sync.
     // Even though we don't see this in testing, we really don't want
     // an exception in this case, so we protect ourselves.
-    NSText *editor = [self currentEditorForEitherField];    
+    NSText *editor = [field _KWQ_currentEditor];    
     if (NSMaxRange(range) <= [[editor string] length]) {
         [editor setSelectedRange:range];
     }
@@ -577,34 +371,28 @@
 
 - (void)setHasFocus:(BOOL)nowHasFocus
 {
-    if (!widget) {
+    if (!widget || nowHasFocus == hasFocus)
 	return;
-    }
-
-    if (nowHasFocus == hasFocus) {
-        return;
-    }
 
     hasFocus = nowHasFocus;
-
+    
     if (nowHasFocus) {
         // Select all the text if we are tabbing in, but otherwise preserve/remember
         // the selection from last time we had focus (to match WinIE).
-        if ([[self window] keyViewSelectionDirection] != NSDirectSelection) {
+        if ([[field window] keyViewSelectionDirection] != NSDirectSelection)
             lastSelectedRange.location = NSNotFound;
-        }
-
-        if (lastSelectedRange.location != NSNotFound) {
+        
+        if (lastSelectedRange.location != NSNotFound)
             [self setSelectedRange:lastSelectedRange];
+        
+        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget))
+            [field _KWQ_scrollFrameToVisible];
+        
+        if (widget) {
+            QFocusEvent event(QEvent::FocusIn);
+            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
         
-        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
-            [self _KWQ_scrollFrameToVisible];
-        }
-
-        QFocusEvent event(QEvent::FocusIn);
-        const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
-
 	// Sending the onFocus event above, may have resulted in a blur() - if this
 	// happens when tabbing from another text field, then endEditing: and
 	// controlTextDidEndEditing: will never be called. The bad side effects of this 
@@ -612,17 +400,205 @@
 	// and the text field will think it's still editing, so it will continue to draw
 	// the focus ring. So we call endEditing: manually if we detect this inconsistency,
 	// and the correct our internal impression of the focus state.
-
-	if ([self currentEditorForEitherField] == nil && [self currentEditor] != nil) {
-	    [[self cell] endEditing:[self currentEditor]];
+	if ([field _KWQ_currentEditor] == nil && [field currentEditor] != nil) {
+	    [[field cell] endEditing:[field currentEditor]];
 	    [self setHasFocus:NO];
 	}
     } else {
         lastSelectedRange = [self selectedRange];
-
-        QFocusEvent event(QEvent::FocusOut);
-        const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+        
+        if (widget) {
+            QFocusEvent event(QEvent::FocusOut);
+            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+        }
     }
+}
+
+- (void)updateTextAttributes:(NSMutableDictionary *)attributes
+{
+    NSParagraphStyle *style = [attributes objectForKey:NSParagraphStyleAttributeName];
+    ASSERT(style != nil);
+    if ([style baseWritingDirection] != baseWritingDirection) {
+        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
+        [mutableStyle setBaseWritingDirection:baseWritingDirection];
+        [attributes setObject:mutableStyle forKey:NSParagraphStyleAttributeName];
+        [mutableStyle release];
+    }
+}
+
+- (NSString *)string
+{
+#if BUILDING_ON_PANTHER
+    // On Panther, the secure text field's editor does not contain the real
+    // string, so we must always call stringValue on the field. We'll live
+    // with the side effect of ending International inline input for these
+    // password fields on Panther only, since it's fixed in Tiger.
+    if ([field isKindOfClass:[NSSecureTextField class]]) {
+	    return [field stringValue];
+    }
+#endif
+    // Calling stringValue can have a side effect of ending International inline input.
+    // So don't call it unless there's no editor.
+    NSText *editor = [field _KWQ_currentEditor];
+    if (editor == nil) {
+        return [field stringValue];
+    }
+    return [editor string];
+}
+
+- (BOOL)textView:(NSTextView *)textView shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string
+{
+    NSRange newline = [string rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"\r\n"]];
+    if (newline.location == NSNotFound) {
+        return YES;
+    }
+    NSString *truncatedString = [string substringToIndex:newline.location];
+    if ([textView shouldChangeTextInRange:range replacementString:truncatedString]) {
+        [textView replaceCharactersInRange:range withString:truncatedString];
+        [textView didChangeText];
+    }
+    return NO;
+}
+
+- (NSString *)preprocessString:(NSString *)string
+{
+    NSString *result = string;
+    NSRange newline = [result rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"\r\n"]];
+    if (newline.location != NSNotFound)
+        result = [result substringToIndex:newline.location];
+    return [result _KWQ_truncateToNumComposedCharacterSequences:[formatter maximumLength]];
+}
+
+@end
+
+@implementation KWQTextField
+
++ (Class)cellClass
+{
+    return [KWQTextFieldCell class];
+}
+
+- (id)initWithQLineEdit:(QLineEdit *)w 
+{
+    [self init];
+    controller = [[KWQTextFieldController alloc] initWithTextField:self QLineEdit:w];
+    return self;
+}
+
+- (void)dealloc
+{
+    [controller release];
+    [super dealloc];
+}
+
+- (KWQTextFieldController *)controller
+{
+    return controller;
+}
+
+- (QWidget *)widget
+{
+    return [controller widget];
+}
+
+- (void)selectText:(id)sender
+{
+    // Don't call the NSTextField's selectText if the field is already first responder.
+    // If we do, we'll end up deactivating and then reactivating, which will send
+    // unwanted onBlur events.
+    NSText *editor = [self currentEditor];
+    if (editor) {
+        [editor setSelectedRange:NSMakeRange(0, [[editor string] length])];
+        return;
+    }
+    
+    [super selectText:sender];
+}
+
+- (void)setStringValue:(NSString *)string
+{
+    [super setStringValue:[controller preprocessString:string]];
+    [controller textChanged];
+}
+
+- (NSView *)nextKeyView
+{
+    if (!inNextValidKeyView)
+	return [super nextKeyView];
+    QWidget* widget = [controller widget];
+    if (!widget)
+	return [super nextKeyView];
+    return KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext);
+}
+
+- (NSView *)previousKeyView
+{
+    if (!inNextValidKeyView)
+	return [super previousKeyView];
+    QWidget* widget = [controller widget];
+    if (!widget)
+	return [super previousKeyView];
+    return KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious);
+}
+
+- (NSView *)nextValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super nextValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+- (NSView *)previousValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super previousValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+- (BOOL)acceptsFirstResponder
+{
+    return [self isEnabled];
+}
+
+- (void)display
+{
+    // This is a workaround for Radar 2753974.
+    // Also, in the web page context, it's never OK to just display.
+    [self setNeedsDisplay:YES];
+}
+
+// This is the only one of the display family of calls that we use, and the way we do
+// displaying in WebCore means this is called on this NSView explicitly, so this catches
+// all cases where we are inside the normal display machinery. (Used only by the insertion
+// point method below.)
+- (void)displayRectIgnoringOpacity:(NSRect)rect
+{
+    [controller setInDrawingMachinery:YES];
+    [super displayRectIgnoringOpacity:rect];
+    [controller setInDrawingMachinery:NO];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldDrawInsertionPointInRect:(NSRect)rect color:(NSColor *)color turnedOn:(BOOL)drawInsteadOfErase
+{
+    return [controller textView:view shouldDrawInsertionPointInRect:rect color:color turnedOn:drawInsteadOfErase];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
+{
+    return [controller textView:view shouldHandleEvent:event];
+}
+
+- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
+{
+    [controller textView:view didHandleEvent:event];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string
+{
+    return [controller textView:view shouldChangeTextInRange:range replacementString:string]
+        && [super textView:view shouldChangeTextInRange:range replacementString:string];
 }
 
 @end
@@ -633,38 +609,400 @@
 {
     [super editWithFrame:frame inView:view editor:editor delegate:delegate event:event];
     ASSERT([delegate isKindOfClass:[KWQTextField class]]);
-    [(KWQTextField *)delegate setHasFocus:YES];
+    [[(KWQTextField *)delegate controller] setHasFocus:YES];
 }
 
 - (void)selectWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate start:(int)start length:(int)length
 {
     [super selectWithFrame:frame inView:view editor:editor delegate:delegate start:start length:length];
     ASSERT([delegate isKindOfClass:[KWQTextField class]]);
-    [(KWQTextField *)delegate setHasFocus:YES];
-}
-
-- (void)setBaseWritingDirection:(NSWritingDirection)direction
-{
-    baseWritingDirection = direction;
-}
-
-- (NSWritingDirection)baseWritingDirection
-{
-    return baseWritingDirection;
+    [[(KWQTextField *)delegate controller] setHasFocus:YES];
 }
 
 - (NSMutableDictionary *)_textAttributes
 {
-    NSMutableDictionary *attributes = [super _textAttributes];
-    NSParagraphStyle *style = [attributes objectForKey:NSParagraphStyleAttributeName];
-    ASSERT(style != nil);
-    if ([style baseWritingDirection] != baseWritingDirection) {
-        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
-        [mutableStyle setBaseWritingDirection:baseWritingDirection];
-        [attributes setObject:mutableStyle forKey:NSParagraphStyleAttributeName];
-        [mutableStyle release];
-    }
+    ASSERT([[self controlView] isKindOfClass:[KWQTextField class]]);
+    NSMutableDictionary* attributes = [super _textAttributes];
+    [[(KWQTextField*)[self controlView] controller] updateTextAttributes:attributes];
     return attributes;
+}
+
+// Ignore the per-application typesetter setting and instead always use the latest behavior for
+// text fields in web pages. This fixes the "text fields too tall" problem.
+- (NSTypesetterBehavior)_typesetterBehavior
+{
+    return NSTypesetterLatestBehavior;
+}
+
+@end
+
+
+@implementation KWQSecureTextField
+
++ (Class)cellClass
+{
+    return [KWQSecureTextFieldCell class];
+}
+
+- (id)initWithQLineEdit:(QLineEdit *)w 
+{
+    [self init];
+    controller = [[KWQTextFieldController alloc] initWithTextField:self QLineEdit:w];
+    return self;
+}
+
+- (void)dealloc
+{
+    [controller release];
+    [super dealloc];
+}
+
+- (KWQTextFieldController *)controller
+{
+    return controller;
+}
+
+- (QWidget *)widget
+{
+    return [controller widget];
+}
+
+- (void)setStringValue:(NSString *)string
+{
+    [super setStringValue:[controller preprocessString:string]];
+    [controller textChanged];
+}
+
+- (NSView *)nextKeyView
+{
+    if (!inNextValidKeyView)
+	return [super nextKeyView];
+    QWidget* widget = [controller widget];
+    if (!widget)
+	return [super nextKeyView];
+    return KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext);
+}
+
+- (NSView *)previousKeyView
+{
+    if (!inNextValidKeyView)
+	return [super previousKeyView];
+    QWidget* widget = [controller widget];
+    if (!widget)
+	return [super previousKeyView];
+    return KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious);
+}
+
+- (NSView *)nextValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super nextValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+- (NSView *)previousValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super previousValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+- (BOOL)acceptsFirstResponder
+{
+    return [self isEnabled];
+}
+
+- (void)display
+{
+    // This is a workaround for Radar 2753974.
+    // Also, in the web page context, it's never OK to just display.
+    [self setNeedsDisplay:YES];
+}
+
+// This is the only one of the display family of calls that we use, and the way we do
+// displaying in WebCore means this is called on this NSView explicitly, so this catches
+// all cases where we are inside the normal display machinery. (Used only by the insertion
+// point method below.)
+- (void)displayRectIgnoringOpacity:(NSRect)rect
+{
+    [controller setInDrawingMachinery:YES];
+    [super displayRectIgnoringOpacity:rect];
+    [controller setInDrawingMachinery:NO];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldDrawInsertionPointInRect:(NSRect)rect color:(NSColor *)color turnedOn:(BOOL)drawInsteadOfErase
+{
+    return [controller textView:view shouldDrawInsertionPointInRect:rect color:color turnedOn:drawInsteadOfErase];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
+{
+    return [controller textView:view shouldHandleEvent:event];
+}
+
+- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
+{
+    [controller textView:view didHandleEvent:event];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string
+{
+    return [controller textView:view shouldChangeTextInRange:range replacementString:string]
+        && [super textView:view shouldChangeTextInRange:range replacementString:string];
+}
+
+// These next two methods are the workaround for bug 3024443.
+// Basically, setFrameSize ends up calling an inappropriate selectText, so we just ignore
+// calls to selectText while setFrameSize is running.
+
+- (void)selectText:(id)sender
+{
+    if (sender == self && inSetFrameSize) {
+        return;
+    }
+
+    // Don't call the NSSecureTextField's selectText if the field is already first responder.
+    // If we do, we'll end up deactivating and then reactivating, which will send
+    // unwanted onBlur events and wreak havoc in other ways as well by setting the focus
+    // back to the window.
+    NSText *editor = [self _KWQ_currentEditor];
+    if (editor) {
+        [editor setSelectedRange:NSMakeRange(0, [[editor string] length])];
+        return;
+    }
+
+    [super selectText:sender];
+}
+
+- (void)setFrameSize:(NSSize)size
+{
+    inSetFrameSize = YES;
+    [super setFrameSize:size];
+    inSetFrameSize = NO;
+}
+
+- (void)textDidEndEditing:(NSNotification *)notification
+{
+    [super textDidEndEditing:notification];
+
+    // When tabbing from one secure text field to another, the super
+    // call above will change the focus, and then turn off bullet mode
+    // for the secure field, leaving the plain text showing. As a
+    // workaround for this AppKit bug, we detect this circumstance
+    // (changing from one secure field to another) and set selectable
+    // to YES, and then back to whatever it was - this has the side
+    // effect of turning on bullet mode. This is also helpful when
+    // we end editing once, but we've already started editing
+    // again on the same text field. (On Panther we only did this when
+    // advancing to a *different* secure text field.)
+
+    NSTextView *textObject = [notification object];
+    id delegate = [textObject delegate];
+    if ([delegate isKindOfClass:[NSSecureTextField class]]) {
+	BOOL oldSelectable = [textObject isSelectable];
+	[textObject setSelectable:YES];
+	[textObject setSelectable:oldSelectable];
+    }
+}
+
+@end
+
+@implementation KWQSecureTextFieldCell
+
+- (void)editWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate event:(NSEvent *)event
+{
+    [super editWithFrame:frame inView:view editor:editor delegate:delegate event:event];
+    ASSERT([delegate isKindOfClass:[KWQSecureTextField class]]);
+    [[(KWQSecureTextField *)delegate controller] setHasFocus:YES];
+}
+
+- (void)selectWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate start:(int)start length:(int)length
+{
+    [super selectWithFrame:frame inView:view editor:editor delegate:delegate start:start length:length];
+    ASSERT([delegate isKindOfClass:[KWQSecureTextField class]]);
+    [[(KWQSecureTextField *)delegate controller] setHasFocus:YES];
+}
+
+- (NSMutableDictionary *)_textAttributes
+{
+    ASSERT([[self controlView] isKindOfClass:[KWQSecureTextField class]]);
+    NSMutableDictionary* attributes = [super _textAttributes];
+    [[(KWQSecureTextField*)[self controlView] controller] updateTextAttributes:attributes];
+    return attributes;
+}
+
+// Ignore the per-application typesetter setting and instead always use the latest behavior for
+// text fields in web pages. This fixes the "text fields too tall" problem.
+- (NSTypesetterBehavior)_typesetterBehavior
+{
+    return NSTypesetterLatestBehavior;
+}
+
+@end
+
+@implementation KWQSearchField
+
++ (Class)cellClass
+{
+    return [KWQSearchFieldCell class];
+}
+
+- (id)initWithQLineEdit:(QLineEdit *)w 
+{
+    [self init];
+    controller = [[KWQTextFieldController alloc] initWithTextField:self QLineEdit:w];
+    return self;
+}
+
+- (void)dealloc
+{
+    [controller release];
+    [super dealloc];
+}
+
+- (KWQTextFieldController *)controller
+{
+    return controller;
+}
+
+- (QWidget *)widget
+{
+    return [controller widget];
+}
+
+- (void)selectText:(id)sender
+{
+    // Don't call the NSTextField's selectText if the field is already first responder.
+    // If we do, we'll end up deactivating and then reactivating, which will send
+    // unwanted onBlur events.
+    NSText *editor = [self currentEditor];
+    if (editor) {
+        [editor setSelectedRange:NSMakeRange(0, [[editor string] length])];
+        return;
+    }
+    
+    [super selectText:sender];
+}
+
+- (void)setStringValue:(NSString *)string
+{
+    [super setStringValue:[controller preprocessString:string]];
+    [controller textChanged];
+}
+
+- (NSView *)nextKeyView
+{
+    if (!inNextValidKeyView)
+	return [super nextKeyView];
+    QWidget* widget = [controller widget];
+    if (!widget)
+	return [super nextKeyView];
+    return KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingNext);
+}
+
+- (NSView *)previousKeyView
+{
+    if (!inNextValidKeyView)
+	return [super previousKeyView];
+    QWidget* widget = [controller widget];
+    if (!widget)
+	return [super previousKeyView];
+    return KWQKHTMLPart::nextKeyViewForWidget(widget, KWQSelectingPrevious);
+}
+
+- (NSView *)nextValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super nextValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+- (NSView *)previousValidKeyView
+{
+    inNextValidKeyView = YES;
+    NSView *view = [super previousValidKeyView];
+    inNextValidKeyView = NO;
+    return view;
+}
+
+- (BOOL)acceptsFirstResponder
+{
+    return [self isEnabled];
+}
+
+- (void)display
+{
+    // This is a workaround for Radar 2753974.
+    // Also, in the web page context, it's never OK to just display.
+    [self setNeedsDisplay:YES];
+}
+
+// This is the only one of the display family of calls that we use, and the way we do
+// displaying in WebCore means this is called on this NSView explicitly, so this catches
+// all cases where we are inside the normal display machinery. (Used only by the insertion
+// point method below.)
+- (void)displayRectIgnoringOpacity:(NSRect)rect
+{
+    [controller setInDrawingMachinery:YES];
+    [super displayRectIgnoringOpacity:rect];
+    [controller setInDrawingMachinery:NO];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldDrawInsertionPointInRect:(NSRect)rect color:(NSColor *)color turnedOn:(BOOL)drawInsteadOfErase
+{
+    return [controller textView:view shouldDrawInsertionPointInRect:rect color:color turnedOn:drawInsteadOfErase];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
+{
+    return [controller textView:view shouldHandleEvent:event];
+}
+
+- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
+{
+    [controller textView:view didHandleEvent:event];
+}
+
+- (BOOL)textView:(NSTextView *)view shouldChangeTextInRange:(NSRange)range replacementString:(NSString *)string
+{
+    return [controller textView:view shouldChangeTextInRange:range replacementString:string]
+        && [super textView:view shouldChangeTextInRange:range replacementString:string];
+}
+
+@end
+
+@implementation KWQSearchFieldCell
+
+- (void)editWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate event:(NSEvent *)event
+{
+    [super editWithFrame:frame inView:view editor:editor delegate:delegate event:event];
+    ASSERT([delegate isKindOfClass:[KWQSearchField class]]);
+    [[(KWQSearchField *)delegate controller] setHasFocus:YES];
+}
+
+- (void)selectWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate start:(int)start length:(int)length
+{
+    [super selectWithFrame:frame inView:view editor:editor delegate:delegate start:start length:length];
+    ASSERT([delegate isKindOfClass:[KWQSearchField class]]);
+    [[(KWQSearchField *)delegate controller] setHasFocus:YES];
+}
+
+- (NSMutableDictionary *)_textAttributes
+{
+    ASSERT([[self controlView] isKindOfClass:[KWQSearchField class]]);
+    NSMutableDictionary* attributes = [super _textAttributes];
+    [[(KWQSearchField*)[self controlView] controller] updateTextAttributes:attributes];
+    return attributes;
+}
+
+// Ignore the per-application typesetter setting and instead always use the latest behavior for
+// text fields in web pages. This fixes the "text fields too tall" problem.
+- (NSTypesetterBehavior)_typesetterBehavior
+{
+    return NSTypesetterLatestBehavior;
 }
 
 @end
@@ -699,205 +1037,35 @@
     return YES;
 }
 
-- (BOOL)isPartialStringValid:(NSString *)partialString newEditingString:(NSString **)newString errorDescription:(NSString **)error
+- (BOOL)isPartialStringValid:(NSString **)partialStringPtr proposedSelectedRange:(NSRangePointer)proposedSelectedRangePtr
+    originalString:(NSString *)originalString originalSelectedRange:(NSRange)originalSelectedRange errorDescription:(NSString **)errorDescription
 {
-    if ([partialString _KWQ_numComposedCharacterSequences] > maxLength) {
-        *newString = nil;
-        return NO;
+    NSString *p = *partialStringPtr;
+
+    int length = [p _KWQ_numComposedCharacterSequences];
+    if (length <= maxLength) {
+        return YES;
     }
 
-    return YES;
+    int composedSequencesToRemove = length - maxLength;
+    int removeRangeEnd = proposedSelectedRangePtr->location;
+    int removeRangeStart = removeRangeEnd;
+    while (composedSequencesToRemove > 0 && removeRangeStart != 0) {
+        removeRangeStart = [p rangeOfComposedCharacterSequenceAtIndex:removeRangeStart - 1].location;
+        --composedSequencesToRemove;
+    }
+
+    if (removeRangeStart != 0) {
+        *partialStringPtr = [[p substringToIndex:removeRangeStart] stringByAppendingString:[p substringFromIndex:removeRangeEnd]];
+        proposedSelectedRangePtr->location = removeRangeStart;
+    }
+
+    return NO;
 }
 
 - (NSAttributedString *)attributedStringForObjectValue:(id)anObject withDefaultAttributes:(NSDictionary *)attributes
 {
     return nil;
-}
-
-@end
-
-@implementation KWQSecureTextField
-
--(id)initWithQLineEdit:(QLineEdit *)w 
-{
-    widget = w;
-    return [self init];
-}
-
-// Can't use setCellClass: because NSSecureTextField won't let us (for no good reason).
-+ (Class)cellClass
-{
-    return [KWQSecureTextFieldCell class];
-}
-
-- (NSView *)nextKeyView
-{
-    return inNextValidKeyView
-        ? KWQKHTMLPart::nextKeyViewForWidget([self widget], KWQSelectingNext)
-        : [super nextKeyView];
-}
-
-- (NSView *)previousKeyView
-{
-   return inNextValidKeyView
-        ? KWQKHTMLPart::nextKeyViewForWidget([self widget], KWQSelectingPrevious)
-        : [super previousKeyView];
-}
-
-- (NSView *)nextValidKeyView
-{
-    inNextValidKeyView = YES;
-    NSView *view = [super nextValidKeyView];
-    inNextValidKeyView = NO;
-    return view;
-}
-
-- (NSView *)previousValidKeyView
-{
-    inNextValidKeyView = YES;
-    NSView *view = [super previousValidKeyView];
-    inNextValidKeyView = NO;
-    return view;
-}
-
-// The currentEditor method does not work for secure text fields.
-// This works around that limitation.
-- (NSText *)currentEditorForSecureField
-{
-    NSResponder *firstResponder = [[self window] firstResponder];
-    if ([firstResponder isKindOfClass:[NSText class]]) {
-        NSText *editor = (NSText *)firstResponder;
-        if ([editor delegate] == self) {
-            return editor;
-        }
-    }
-    return nil;
-}
-
-// These next two methods are the workaround for bug 3024443.
-// Basically, setFrameSize ends up calling an inappropriate selectText, so we just ignore
-// calls to selectText while setFrameSize is running.
-
-- (void)selectText:(id)sender
-{
-    if (sender == self && inSetFrameSize) {
-        return;
-    }
-
-    // Don't call the NSSecureTextField's selectText if the field is already first responder.
-    // If we do, we'll end up deactivating and then reactivating, which will send
-    // unwanted onBlur events and wreak havoc in other ways as well by setting the focus
-    // back to the window.
-    NSText *editor = [self currentEditorForSecureField];
-    if (editor) {
-        [editor setSelectedRange:NSMakeRange(0, [[editor string] length])];
-        return;
-    }
-
-    [super selectText:sender];
-}
-
-- (void)setFrameSize:(NSSize)size
-{
-    inSetFrameSize = YES;
-    [super setFrameSize:size];
-    inSetFrameSize = NO;
-}
-
-- (void)display
-{
-    // This is a workaround for Radar 2753974.
-    // Also, in the web page context, it's never OK to just display.
-    [self setNeedsDisplay:YES];
-}
-
-- (QWidget *)widget
-{
-    ASSERT([[self delegate] isKindOfClass:[KWQTextField class]]);
-    return [(KWQTextField *)[self delegate] widget];
-}
-
-- (void)textDidEndEditing:(NSNotification *)notification
-{
-    [super textDidEndEditing:notification];
-
-    // When tabbing from one secure text field to another, the super
-    // call above will change the focus, and then turn off bullet mode
-    // for the secure field, leaving the plain text showing. As a
-    // workaround for this AppKit bug, we detect this circumstance
-    // (changing from one secure field to another) and set selectable
-    // to YES, and then back to whatever it was - this has the side
-    // effect of turning on bullet mode.
-
-    NSTextView *textObject = [notification object];
-    id delegate = [textObject delegate];
-    if (delegate != self && [delegate isKindOfClass:[NSSecureTextField class]]) {
-	BOOL oldSelectable = [textObject isSelectable];
-	[textObject setSelectable:YES];
-	[textObject setSelectable:oldSelectable];
-    }
-}
-
-- (BOOL)textView:(NSTextView *)view shouldHandleEvent:(NSEvent *)event
-{
-    if (!widget) {
-	return YES;
-    }
-
-    if (([event type] == NSKeyDown || [event type] == NSKeyUp) &&
-	![[NSInputManager currentInputManager] hasMarkedText]) {
-        WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(widget);
-        return ![bridge interceptKeyEvent:event toView:view];
-    }
-    return YES;
-}
-
-- (void)textView:(NSTextView *)view didHandleEvent:(NSEvent *)event
-{
-    if (!widget) {
-	return;
-    }
-    if ([event type] == NSLeftMouseUp) {
-        widget->sendConsumedMouseUp();
-        widget->clicked();
-    }
-}
-
-@end
-
-@implementation KWQSecureTextFieldCell
-
-- (void)editWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate event:(NSEvent *)event
-{
-    [super editWithFrame:frame inView:view editor:editor delegate:delegate event:event];
-    ASSERT([[delegate delegate] isKindOfClass:[KWQTextField class]]);
-    [(KWQTextField *)[delegate delegate] setHasFocus:YES];
-}
-
-- (void)selectWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate start:(int)start length:(int)length
-{
-    [super selectWithFrame:frame inView:view editor:editor delegate:delegate start:start length:length];
-    ASSERT([[delegate delegate] isKindOfClass:[KWQTextField class]]);
-    [(KWQTextField *)[delegate delegate] setHasFocus:YES];
-}
-
-- (void)setBaseWritingDirection:(NSWritingDirection)direction
-{
-    baseWritingDirection = direction;
-}
-
-- (NSMutableDictionary *)_textAttributes
-{
-    NSMutableDictionary *attributes = [super _textAttributes];
-    NSParagraphStyle *style = [attributes objectForKey:NSParagraphStyleAttributeName];
-    ASSERT(style != nil);
-    if ([style baseWritingDirection] != baseWritingDirection) {
-        NSMutableParagraphStyle *mutableStyle = [style mutableCopy];
-        [mutableStyle setBaseWritingDirection:baseWritingDirection];
-        [attributes setObject:mutableStyle forKey:NSParagraphStyleAttributeName];
-        [mutableStyle release];
-    }
-    return attributes;
 }
 
 @end
@@ -930,6 +1098,24 @@
         }
     }
     return [self substringToIndex:i];
+}
+
+@end
+
+@implementation NSTextField (KWQTextField)
+
+// The currentEditor method does not work for secure text fields.
+// This works around that limitation.
+- (NSText *)_KWQ_currentEditor
+{
+    NSResponder *firstResponder = [[self window] firstResponder];
+    if ([firstResponder isKindOfClass:[NSText class]]) {
+        NSText *editor = (NSText *)firstResponder;
+        id delegate = [editor delegate];
+        if (delegate == self)
+            return editor;
+    }
+    return nil;
 }
 
 @end

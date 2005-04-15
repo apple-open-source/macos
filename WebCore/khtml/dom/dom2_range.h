@@ -5,6 +5,7 @@
  * (C) 2000 Gunnstein Lye (gunnstein@netcom.no)
  * (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * (C) 2001 Peter Kelly (pmk@post.com)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -462,16 +463,48 @@ public:
      * @internal
      * not part of the DOM
      */
+    Range(RangeImpl *i);
     RangeImpl *handle() const;
     bool isNull() const;
 
 protected:
     RangeImpl *impl;
-    Range(RangeImpl *i);
+
 private:
     void throwException(int exceptioncode) const;
 };
 
-}; // namespace
+bool operator==(const Range &, const Range &);
+inline bool operator!=(const Range &a, const Range &b) { return !(a == b); }
+
+// Used determine how to interpret the offsets used in DOM Ranges.
+inline bool offsetInCharacters(unsigned short type)
+{
+    switch (type) {
+        case Node::ATTRIBUTE_NODE:
+        case Node::DOCUMENT_FRAGMENT_NODE:
+        case Node::DOCUMENT_NODE:
+        case Node::ELEMENT_NODE:
+        case Node::ENTITY_REFERENCE_NODE:
+            return false;
+
+        case Node::CDATA_SECTION_NODE:
+        case Node::COMMENT_NODE:
+        case Node::PROCESSING_INSTRUCTION_NODE:
+        case Node::TEXT_NODE:
+            return true;
+
+        case Node::DOCUMENT_TYPE_NODE:
+        case Node::ENTITY_NODE:
+        case Node::NOTATION_NODE:
+            assert(false); // should never be reached
+            return false;
+    }
+
+    assert(false); // should never be reached
+    return false;
+}
+
+} // namespace
 
 #endif

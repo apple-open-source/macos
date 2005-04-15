@@ -1,0 +1,816 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>IMCLIENT</title>
+</head>
+<body>
+
+<h1 align=center>IMCLIENT</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#KEYWORDS">KEYWORDS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:18 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>imclient library - authenticating callback interface to
+IMAP/IMSP servers</p>
+</td>
+</table></p>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>#include &lt;cyrus/imclient.h&gt;</b></p>
+<!-- INDENTATION -->
+<p><b>int imclient_connect(struct imclient
+**</b><i>imclient</i><b>, const char *</b><i>host</i><b>,
+const char *</b><i>port</i><b>);</b></p>
+<!-- INDENTATION -->
+<p><b>void imclient_close (struct imclient
+*</b><i>imclient</i><b>);<br>
+void imclient_setflags(struct imclient
+*</b><i>imclient</i><b>, int</b><i>flags</i><b>);<br>
+void imclient_clearflags (struct imclient
+*</b><i>imclient</i><b>, int</b><i>flags</i><b>);<br>
+char* imclient_servername (struct imclient
+*</b><i>imclient</i><b>);<br>
+void imclient_addcallback (struct imclient * imclient
+,...);<br>
+void imclient_send (struct imclient *</b><i>imclient</i><b>,
+void (*</b><i>finishproc</i><b>)(), void
+*</b><i>finishrock</i><b>, const char *</b><i>fmt</i><b>,
+...);<br>
+void imclient_getselectinfo (struct imclient
+*</b><i>imclient</i><b>, int *</b><i>fd</i><b>, int *</b>
+<i>wanttowrite</i><b>);<br>
+void imclient_processoneevent (struct imclient
+*</b><i>imclient</i><b>);<br>
+int imclient_authenticate (struct imclient
+*</b><i>imclient</i><b>, struct sasl_client
+**</b><i>availmech</i><b>, const char
+*</b><i>service</i><b>, const char *</b><i>user</i><b>,
+int</b> <i>protallowed</i><b>);</b></p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>The imclient library functions are distributed with Cyrus
+IMAP and IMSP. These functions are used for building
+IMAP/IMSP client software. These functions handle Kerberos
+authentication and can set callbacks based on the keyword in
+untagged replies or based on the command tag at the end of
+command replies.</p>
+<!-- INDENTATION -->
+<p>Users must link with the -lcyrus switch, and must supply
+a function called <i>fatal</i> to be called in case of any
+error within <i>libcyrus.a.</i></p>
+<!-- INDENTATION -->
+<p>All of the <b>imclient</b> functions begin with the
+prefix <i>imclient</i> and takes an argument of type
+<b>struct imclient *</b> as the first argument which is
+initialized by <b>imclient_connect</b> and freed by
+<b>imclient_close.</b></p>
+<!-- INDENTATION -->
+<p>See below for a description of each function.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_connect()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Connects the client server to the host. If successful, it
+returns 0 and sets the imclient argument to a pointer to an
+<b>imclient</b> struct. The <b>imclient</b> struct
+represents the current connection, flags, and callbacks. On
+failure, the current <b>errno</b> is returned if a system
+call failed, -1 is returned if the host name was not found,
+and -2 is returned if the service name was not found.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_close()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Closes and frees the <b>imclient</b> connection.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_setflags()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Sets the flags specified by the <b>flags</b> argument on
+the <b>imclient</b> connection. Currently the only flag
+allowed is <b>IMCLIENT_CONN_NONSYNCLITERAL</b> (this flag
+indicates that the server supports non-synchronizing
+literals described by the LITERAL+ extension).</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_clearflags()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Clears the flags specified by the <b>flags</b> argument
+on the <b>imclient</b> connection.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_servername()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Returns a char * pointer to the name of the server
+connected to by <b>imclient.</b></p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_addcallback()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Adds an untagged data callback to the <b>imclient</b>
+connection. The function <b>imclient_addcallback</b> takes
+callbacks of the type <b>imclient_proc_t</b> which is
+defined to be:</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>typedef void imclient_proc_t (struct imclient *imclient,
+void *rock, struct imclient_reply *reply);</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>and <b>struct imclient_reply *</b> is defined to
+be:</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>struct imclient_reply {</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="29%"></td>
+<td width="70%">
+<p>char *keyword; long msgno; char *text;</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>};</p></td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>After the first argument <b>imclient,</b> there can be
+zero or more instances of the set of <b>keyword, flags,
+proc,</b> and <b>rock,</b> each adding or changing a single
+callback. Each instance adds or changes the callback for
+<b>keyword.</b> The argument, <b>flags,</b> specifies
+information about the parsing of the untagged data.
+<b>proc</b> and <b>rock</b> specify the callback function
+and rock to invoke when the untagged data is received.
+<b>proc</b> may be a null pointer, in which case no function
+is invoked. The callback function may not call the functions
+<b>imclient_close(), imclient_send(), imclient_eof(),
+imclient_processoneevent(),</b> or
+<b>imclient_authenticate()</b> on the connection. The
+callback function may over write the text of untagged
+data.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_send()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Sends a new command to the <b>imclient</b> connection.
+<b>finishproc</b> and <b>finnishrock</b> are the function
+and rock called when the command completes.
+<b>functionproc</b> may be a null pointer, in which case no
+callback is made. The call back function may not call the
+functions <b>imclient_close(), imclient_send(),
+imclient_eof(), imclient_processoneevent(),</b> or
+<b>imclient_authenticate()</b> on the connection. The
+argument, <b>fmt</b> , is a print like specification of the
+command. It must not include the tag as the tag is
+automatically added by imclient_send(). The defined
+%-sequences are:</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p><b>%%</b> for %<b><br>
+%a</b> for an IMAP atom<b><br>
+%s</b> for an astring (which will be quoted or literalized
+as needed)<b><br>
+%d</b> for a decimal<b><br>
+%u</b> for an unsigned decimal<b><br>
+%v</b> for #astring (argument is a null-terminated array of
+<b>char *</b> which are written as space separated
+astrings)</p></td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_getselectinfo()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Gets the information for calling <b>select(2). fd</b> is
+filled in with the file descriptor to <b>select(2)</b> for
+read. <b>wanttowrite</b> is filled in with a nonzero value
+if select should be used for write as well.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_processoneevent()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Processes one input or output event on the
+<b>imclient</b> connection.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_authenticate()</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Authenticates the <b>imclient</b> connection using one of
+the mechanisms in <b>availmech.</b> The argument,
+<b>user,</b> if not NULL, specifies the user to authenticate
+as. If the user is NULL, the current user is used. The
+argument <b>protallowed</b> is a bitmask of permissible
+protection mechanisms.<br>
+On success, 0 is returned. On failure (i.e., &quot;BAD&quot;
+keyboard, or no authentication mechanisms worked), 1 is
+returned. On extreme failure (premature &quot;OK&quot;), 2
+is returned.</p>
+</td>
+</table>
+<a name="EXAMPLES"></a>
+<h2>EXAMPLES</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>The following code is a possible skeletion of
+<b>imclient</b> that relies on Kerberos to do
+authentication. This code preforms an IMAP CAPABILITY
+request and prints out the result.</p>
+<!-- INDENTATION -->
+<pre>struct sasl_client;
+#include &lt;cyrus/xmalloc.h&gt; /* example uses xstrdup */
+#include &lt;cyrus/sasl.h&gt;
+#include &lt;cyrus/imclient.h&gt;
+#include &lt;stdio.h&gt;
+
+extern struct sasl_client krb_sasl_client;
+
+struct sasl_client *login_sasl_client[] = {
+    &amp;krb_sasl_client,
+    NULL
+};
+struct imclient *imclient;
+char server[] = &quot;cyrus.andrew.cmu.edu&quot; ;
+char port[] = &quot;imap&quot;;
+
+void fatal(char* message, int rc) {
+    fprintf(stderr, &quot;fatal error: %s\n&quot;, message);
+    exit(rc);
+}
+
+static void callback_capability(struct imclient *imclient,
+</pre>
+</td>
+</table></p>
+<!-- TABS -->
+
+<table width="100%" border=0 rules="none" frame="void"
+       cols="6" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="63%">
+
+<p>void *rock,</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="63%">
+
+<p>struct imclient_reply *reply) {</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>if (reply-&gt;text != NULL) {</p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="92%">
+
+<p>*((char**)rock) = xstrdup( reply-&gt;text );</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}<br>
+}</p>
+<!-- INDENTATION -->
+<p>static void end_command (struct imclient *connection,
+void*</p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>rock, struct imclient_reply *inmsg) {</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>(*(int*)rock)--;<br>
+}</p>
+<!-- INDENTATION -->
+<p>main() {<br>
+char* capability_string;<br>
+int nc;</p>
+<!-- INDENTATION -->
+<p>if (imclient_connect(&amp;imclient, server, port))
+{</p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="0%"></td>
+<td width="7%"></td>
+<td width="7%">
+
+<p>fprintf(stderr,</p>
+</td>
+<td width="77%">
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="0%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="77%">
+
+<p>&quot;error: Couldn&rsquo;t connect to %s
+%s\n&quot;,</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="0%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="77%">
+
+<p>server, port);</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="0%"></td>
+<td width="7%"></td>
+<td width="7%">
+
+<p>exit(1);</p>
+</td>
+<td width="77%">
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+<!-- INDENTATION -->
+<p>if (imclient_authenticate(imclient, login_sasl_client,
+&quot;imap&quot;</p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>/* service */,</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>NULL /* user */, SASL_PROT_ANY)) {</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="7%">
+
+<p>exit(1);</p>
+</td>
+<td width="7%"></td>
+<td width="70%">
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+<!-- INDENTATION -->
+<p>imclient_addcallback(imclient,
+&quot;CAPABILITY&quot;,</p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>CALLBACK_NOLITERAL,</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>callback_capability,</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>&amp;capability_string,</p>
+</td>
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>NULL);</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>nc = 1;</p>
+<!-- INDENTATION -->
+<p>imclient_send(imclient, end_command,</p></td>
+</table></p>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="7%">
+</td>
+<td width="77%">
+
+<p>(void*) &amp;nc, &quot;CAPABILITY&quot;);</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>while(nc &gt; 0) {</p></td>
+</table></p>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="92%">
+
+<p>imclient_processoneevent(imclient);</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+<!-- INDENTATION -->
+<p>if (strstr(&quot;LITERAL+&quot;, capability_string))
+{</p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="7%"></td>
+<td width="92%">
+
+<p>imclient_setflags(imclient,
+IMCLIENT_CONN_NONSYNCLITERAL);</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+<!-- INDENTATION -->
+<p>imclient_send(imclient, NULL, NULL,
+&quot;LOGOUT&quot;);<br>
+imclient_close(imclient);</p>
+<!-- INDENTATION -->
+<p>printf(&quot;capability text is: %s\n&quot;,
+capability_string);</p>
+<!-- INDENTATION -->
+<p>free(capability_string);<br>
+}</p>
+</td>
+</table>
+<a name="BUGS"></a>
+<h2>BUGS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>No known bugs.</p>
+</td>
+</table></p>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>cyradm, imapd, imspd,</b> RFC2033 (IMAP LITERAL+
+extension), RFC2060 (IMAP4rev1 specification), and
+<b>select(2)</b></p>
+</td>
+</table></p>
+<a name="KEYWORDS"></a>
+<h2>KEYWORDS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>IMAP, ACAP, IMSP, Kerberos, Authentication</p>
+</td>
+</table></p>
+<a name="COPYRIGHT"></a>
+<h2>COPYRIGHT</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>Copyright 1997-2002, Carnegie Mellon University. All
+Rights Reserved.</p>
+<!-- INDENTATION -->
+<p>See the source distribution for copying information.</p>
+</td>
+</table></p>
+<hr>
+</body>
+</html>

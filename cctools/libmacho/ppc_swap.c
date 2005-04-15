@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #import <mach-o/ppc/swap.h>
 #import <architecture/nrw/reg_help.h>
 
@@ -67,7 +68,7 @@ enum NXByteOrder target_byte_sex)
 	cpu->xer = NXSwapLong(cpu->xer);
 	cpu->ctr = NXSwapLong(cpu->ctr);
 	cpu->mq  = NXSwapLong(cpu->mq);
-	cpu->pad = NXSwapLong(cpu->pad);
+	cpu->vrsave = NXSwapLong(cpu->vrsave);
 
 }
 
@@ -100,3 +101,4 @@ enum NXByteOrder target_byte_sex)
 	for(i = 0; i < 4; i++)
 	    state->pad1[i] = NXSwapLong(state->pad1[i]);
 }
+#endif /* !defined(RLD) */

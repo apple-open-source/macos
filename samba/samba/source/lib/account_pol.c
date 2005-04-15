@@ -30,19 +30,16 @@ static TDB_CONTEXT *tdb; /* used for driver files */
 
 BOOL init_account_policy(void)
 {
-	static pid_t local_pid;
 	const char *vstring = "INFO/version";
 	uint32 version;
 
-	if (tdb && local_pid == sys_getpid())
+	if (tdb)
 		return True;
 	tdb = tdb_open_log(lock_path("account_policy.tdb"), 0, TDB_DEFAULT, O_RDWR|O_CREAT, 0600);
 	if (!tdb) {
 		DEBUG(0,("Failed to open account policy database\n"));
 		return False;
 	}
-
-	local_pid = sys_getpid();
 
 	/* handle a Samba upgrade */
 	tdb_lock_bystring(tdb, vstring,0);
@@ -81,6 +78,30 @@ static const struct {
 	{0, NULL}
 };
 
+char *account_policy_names_list(void)
+{
+	char *nl, *p;
+	int i;
+	size_t len = 0;
+
+	for (i=0; account_policy_names[i].string; i++) {
+		len += strlen(account_policy_names[i].string) + 1;
+	}
+	len++;
+	nl = SMB_MALLOC(len);
+	if (!nl) {
+		return NULL;
+	}
+	p = nl;
+	for (i=0; account_policy_names[i].string; i++) {
+		memcpy(p, account_policy_names[i].string, strlen(account_policy_names[i].string) + 1);
+		p[strlen(account_policy_names[i].string)] = '\n';
+		p += strlen(account_policy_names[i].string) + 1;
+	}
+	*p = '\0';
+	return nl;
+}
+
 /****************************************************************************
 Get the account policy name as a string from its #define'ed number
 ****************************************************************************/
@@ -111,9 +132,9 @@ int account_policy_name_to_fieldnum(const char *name)
 
 }
 
-
 /****************************************************************************
 ****************************************************************************/
+
 BOOL account_policy_get(int field, uint32 *value)
 {
 	fstring name;
@@ -159,4 +180,3 @@ BOOL account_policy_set(int field, uint32 value)
 	
 	return True;
 }
-

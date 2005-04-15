@@ -67,18 +67,20 @@ QWidget *KWQWindowWidget::topLevelWidget() const
     return (QWidget *)this;
 }
 
-QPoint KWQWindowWidget::mapToGlobal(const QPoint &p) const
-{
-    NSPoint windowPoint = NSMakePoint(p.x(), [d->bridge windowFrame].size.height - p.y());
-    NSPoint screenPoint = [[d->bridge window] convertBaseToScreen:windowPoint];
-    return QPoint((int)screenPoint.x, (int)(NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - screenPoint.y));
-}
-
+// Note these routines work on QT window coords - origin upper left
 QPoint KWQWindowWidget::mapFromGlobal(const QPoint &p) const
 {
     NSPoint screenPoint = NSMakePoint(p.x(), NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - p.y());
     NSPoint windowPoint = [[d->bridge window] convertScreenToBase:screenPoint];
-    return QPoint((int)windowPoint.x, (int)([[d->bridge window] frame].size.height - windowPoint.y));
+    return QPoint((int)windowPoint.x, (int)([d->bridge windowFrame].size.height - windowPoint.y));
+}
+
+// maps "viewport" (actually Cocoa window coords) to screen coords
+QPoint KWQWindowWidget::viewportToGlobal(const QPoint &p) const
+{
+    NSPoint windowPoint = NSMakePoint(p.x(), p.y());
+    NSPoint screenPoint = [[d->bridge window] convertBaseToScreen:windowPoint];
+    return QPoint((int)screenPoint.x, (int)(NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - screenPoint.y));
 }
 
 void KWQWindowWidget::setFrameGeometry(const QRect &r)

@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <mach/mach.h>
 #else /* defined(KLD) && defined(__STATIC__) */
+#include <mach/mach.h>
 #include <mach/kern_return.h>
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
 #include <stdarg.h>
@@ -53,6 +54,7 @@
 #include "stuff/bytesex.h"
 
 #include "ld.h"
+#include "live_refs.h"
 #include "objects.h"
 #include "sections.h"
 #include "pass2.h"
@@ -74,6 +76,16 @@ static unsigned long lookup_literal_pointer(
     struct literal_pointer_data *data, 
     struct merged_section *ms,
     enum bool *new);
+
+#ifndef RLD
+static unsigned long literal_pointer_order_line(
+    unsigned long *line_start,
+    unsigned long line_number,
+    struct literal_pointer_data *data, 
+    struct merged_section *ms,
+    char *buffer);
+#endif /* !defined(RLD) */
+
 static void count_reloc(
     struct merged_section *ms,
     enum bool new,
@@ -82,8 +94,11 @@ static void count_reloc(
 
 /*
  * literal_pointer_merge() merges literal pointers from the specified section
- * in the current object file (cur_obj).  It allocates a fine relocation map and
- * sets the fine_relocs field in the section_map to it (as well as the count).
+ * current object file (cur_obj). When redo_live is FALSE it allocates a fine
+ * relocation map and sets the fine_relocs field in the section_map to it (as
+ * well as the count).  When redo_live is TRUE it re-merges only the live
+ * literal pointers based on the live bit in the previouly allocated
+ * fine_relocs.
  */
 __private_extern__
 void
@@ -91,7 +106,8 @@ literal_pointer_merge(
 struct literal_pointer_data *data, 
 struct merged_section *ms,
 struct section *s, 
-struct section_map *section_map)
+struct section_map *section_map,
+enum bool redo_live)
 {
     long i;
     unsigned long nliterals, j;
@@ -115,8 +131,10 @@ struct section_map *section_map)
 		  offset;
 
     if(s->size == 0){
-	section_map->fine_relocs = NULL;
-	section_map->nfine_relocs = 0;
+	if(redo_live == FALSE){
+	    section_map->fine_relocs = NULL;
+	    section_map->nfine_relocs = 0;
+	}
 	return;
     }
     if(s->size % 4 != 0){
@@ -132,27 +150,42 @@ struct section_map *section_map)
 	return;
     }
 #ifdef DEBUG
-    data->nfiles++;
-    data->nliterals += nliterals;
+    if(redo_live == FALSE){
+	data->nfiles++;
+	data->nliterals += nliterals;
+    }
 #endif /* DEBUG */
     /*
      * The size is not zero an it has as many relocation entries as literals so
-     * this section is being relocated.
+     * this section is being relocated (as long as -dead_strip is not
+     * specified).
      */
-    ms->relocated = TRUE;
+    if(dead_strip == FALSE)
+	ms->relocated = TRUE;
 
     /*
-     * Set the output_offset to -1 here so that when going through the
-     * relocation entries to merge the literals the error of having more than
-     * one relocation entry for each literal can be caught.
+     * If redo_live == FALSE this is the first time we are called so set the
+     * output_offset to -1 here so that when going through the relocation
+     * entries to merge the literals the error of having more than one
+     * relocation entry for each literal can be caught.
      */
-    fine_relocs = allocate(nliterals * sizeof(struct fine_reloc));
-    memset(fine_relocs, '\0', nliterals * sizeof(struct fine_reloc));
-    for(j = 0; j < nliterals; j++){
-	fine_relocs[j].output_offset = -1;
+    if(redo_live == FALSE){
+	fine_relocs = allocate(nliterals * sizeof(struct fine_reloc));
+	memset(fine_relocs, '\0', nliterals * sizeof(struct fine_reloc));
+	for(j = 0; j < nliterals; j++){
+	    fine_relocs[j].output_offset = -1;
+	}
+	section_map->fine_relocs = fine_relocs;
+	section_map->nfine_relocs = nliterals;
     }
-    section_map->fine_relocs = fine_relocs;
-    section_map->nfine_relocs = nliterals;
+    else{
+	/*
+	 * redo_live is TRUE so this is the second time we are called to
+	 * re-merge just the live fine_relocs.
+	 */
+	fine_relocs = section_map->fine_relocs;
+	nliterals = section_map->nfine_relocs;
+    }
 
     /*
      * Because at this point it is known that their are exactly as many literals
@@ -175,8 +208,10 @@ struct section_map *section_map)
      */
     relocs = (struct relocation_info *)(cur_obj->obj_addr + s->reloff);
     literals = (char *)(cur_obj->obj_addr + s->offset);
-    if(cur_obj->swapped)
+    if(cur_obj->swapped && section_map->input_relocs_already_swapped == FALSE){
 	swap_relocation_info(relocs, s->nreloc, host_byte_sex);
+	section_map->input_relocs_already_swapped = TRUE;
+    }
     merged_symbol = NULL;
     for(i = s->nreloc - 1; i >= 0 ; i--){
 	/*
@@ -568,7 +603,8 @@ struct section_map *section_map)
 	 * for this literal does not have an output_offset of -1 it is an error
 	 * because we have seen it before.
 	 */ 
-	if((int)(fine_relocs[r_address/4].output_offset) != -1){
+	if(redo_live == FALSE &&
+	   (int)(fine_relocs[r_address/4].output_offset) != -1){
 	    error_with_cur_obj("more than one relocation entry for literal "
 		"pointer at address 0x%x (r_address 0x%x) in section "
 		"(%.16s,%.16s)", (unsigned int)(s->addr + r_address),
@@ -577,14 +613,39 @@ struct section_map *section_map)
 	}
 
 	/*
-	 * Now at long last the literal pointer can be merged and the fine
-	 * relocation entries for it can be built.
+	 * If redo_live == FALSE this is the first time we are called and now
+	 * at long last the literal pointer can be merged and the fine 
+	 * relocation entry for it can be built.
 	 */
-	fine_relocs[r_address/4].input_offset = r_address;
-	fine_relocs[r_address/4].output_offset =
-		lookup_literal_pointer(merged_symbol, literal_ms,
-			       merged_section_offset, offset, data, ms, &new);
-	count_reloc(ms, new, r_extern, defined);
+	if(redo_live == FALSE){
+	    fine_relocs[r_address/4].input_offset = r_address;
+	    fine_relocs[r_address/4].output_offset =
+		    lookup_literal_pointer(merged_symbol, literal_ms,
+				   merged_section_offset, offset, data,
+				   ms, &new);
+	    count_reloc(ms, new, r_extern, defined);
+	}
+	else{
+	    /*
+	     * redo_live == TRUE so if this fine_reloc is live re-merge it.
+	     */
+	    if(fine_relocs[r_address/4].live == TRUE){
+		/*
+     		 * Since we now know that there will be a live pointer in this
+		 * section and since it has a relocation entry mark the merged
+		 * section as relocated.
+		 */
+		ms->relocated = TRUE;
+		fine_relocs[r_address/4].output_offset =
+			lookup_literal_pointer(merged_symbol, literal_ms,
+				       merged_section_offset, offset, data,
+				       ms, &new);
+		count_reloc(ms, new, r_extern, defined);
+	    }
+	    else{
+		fine_relocs[r_address/4].output_offset = 0;
+	    }
+	}
     }
 }
 
@@ -670,20 +731,10 @@ struct literal_pointer_data *data,
 struct merged_section *ms)
 {
 #ifndef RLD
-    unsigned long i, j, line_number, line_length, max_line_length, char_pos,
-	 merged_section_offset;
-    char *buffer, segname[17], sectname[17];
-    struct merged_section *literal_ms;
-    struct literal8 literal8;
-    struct literal4 literal4;
+    unsigned long i, line_number, line_length, max_line_length, output_offset;
+    char *buffer;
     kern_return_t r;
-    enum bool new;
-#ifdef __MWERKS__
-    struct literal_pointer_data *dummy1;
-    struct merged_section *dummy2;
-        dummy1 = data;
-        dummy2 = ms;
-#endif
+    struct literal_pointer_order_line *order_lines;
 
 	/*
 	 * Parse the load order file by changing '\n' to '\0'.  Also check for
@@ -706,6 +757,7 @@ struct merged_section *ms)
 		if(line_length > max_line_length)
 		    max_line_length = line_length;
 		line_length = 1;
+		line_number++;
 	    }
 	    else
 		line_length++;
@@ -718,129 +770,39 @@ struct merged_section *ms)
 	buffer = allocate(max_line_length + 1);
 
 	/*
-	 * Process each line in the order file by translating all escape
-	 * characters and then entering the cstring using lookup_cstring().
+	 * If -dead_strip is specified allocate the needed structures so that
+	 * the order of the live literal pointers can be recreated later by
+	 * literal_pointer_reset_live().
+	 */
+	order_lines = NULL;
+	if(dead_strip == TRUE){
+	    data->literal_pointer_load_order_data =
+		allocate(sizeof(struct literal_pointer_load_order_data));
+	    order_lines = allocate(sizeof(struct literal_pointer_order_line) *
+					   (line_number - 1));
+	    data->literal_pointer_load_order_data->order_line_buffer =
+		buffer;
+	    data->literal_pointer_load_order_data->literal_pointer_order_lines =
+		order_lines;
+	    data->literal_pointer_load_order_data->nliteral_pointer_order_lines
+		= (line_number - 1);
+	}
+
+	/*
+	 * Process each line in the order file.
 	 */
 	line_number = 1;
 	for(i = 0; i < ms->order_size; i++){
-	    
-	    char_pos = 1;
-	    /* copy segment name into segname */
-	    j = 0;
-	    while(i < ms->order_size &&
-		  ms->order_addr[i] != ':' &&
-		  ms->order_addr[i] != '\0'){
-		if(j <= 16)
-		    segname[j++] = ms->order_addr[i++];
-		else
-		    i++;
-		char_pos++;
-	    }
-	    if(i >= ms->order_size || ms->order_addr[i] == '\0'){
-		error("format error in -sectorder file: %s line %lu for section"
-		      " (%.16s,%.16s) (missing ':' after segment name)",
-		      ms->order_filename, line_number, ms->s.segname,
-		      ms->s.sectname);
-		continue;
-	    }
-	    segname[j] = '\0';
-	    i++;
-	    char_pos++;
 
-	    /* copy section name into sectname */
-	    j = 0;
-	    while(i < ms->order_size &&
-		  ms->order_addr[i] != ':' &&
-		  ms->order_addr[i] != '\0'){
-		if(j <= 16)
-		    sectname[j++] = ms->order_addr[i++];
-		else
-		    i++;
-		char_pos++;
+	    if(dead_strip == TRUE){
+		order_lines[line_number - 1].character_index = i;
+		order_lines[line_number - 1].line_number = line_number;
 	    }
-	    if(i >= ms->order_size || ms->order_addr[i] == '\0'){
-		error("format error in -sectorder file: %s line %lu for section"
-		      " (%.16s,%.16s) (missing ':' after section name)",
-		      ms->order_filename, line_number, ms->s.segname,
-		      ms->s.sectname);
-		continue;
-	    }
-	    sectname[j] = '\0';
-	    i++;
-	    char_pos++;
-	
-	    literal_ms = lookup_merged_section(segname, sectname);
-	    if(literal_ms == NULL){
-		error("error in -sectorder file: %s line %lu for section "
-		      "(%.16s,%.16s) (specified section (%s,%s) is not "
-		      "loaded objects)", ms->order_filename, line_number,
-		      ms->s.segname, ms->s.sectname, segname, sectname);
-	    }
-	    else{
-		switch(literal_ms->s.flags & SECTION_TYPE){
-		case S_CSTRING_LITERALS:
-		    get_cstring_from_sectorder(ms, &i, buffer, line_number,
-					       char_pos);
-		    merged_section_offset = lookup_cstring(buffer,
-					  literal_ms->literal_data, literal_ms);
-		    (void)lookup_literal_pointer(NULL, literal_ms,
-				    merged_section_offset, 0, data, ms, &new);
-		    count_reloc(ms, new, 0, FALSE);
-		    break;
-		case S_4BYTE_LITERALS:
-		    if(get_hex_from_sectorder(ms, &i, &(literal4.long0),
-					      line_number) == TRUE){
-			merged_section_offset = lookup_literal4(literal4,
-					  literal_ms->literal_data, literal_ms);
-		        (void)lookup_literal_pointer(NULL, literal_ms,
-				    merged_section_offset, 0, data, ms, &new);
-			count_reloc(ms, new, 0, FALSE);
-		    }
-		    else{
-			error("error in -sectorder file: %s line %lu for "
-			      "section (%.16s,%.16s) (missing hex number for "
-			      "specified 4 byte literal section (%s,%s))",
-			      ms->order_filename, line_number,
-			      ms->s.segname, ms->s.sectname, segname, sectname);
-		    }
-		    break;
-		case S_8BYTE_LITERALS:
-		    if(get_hex_from_sectorder(ms, &i, &(literal8.long0),
-					      line_number) == TRUE){
-			if(get_hex_from_sectorder(ms, &i, &(literal8.long1),
-						  line_number) == TRUE){
-			    merged_section_offset = lookup_literal8(literal8,
-						  literal_ms->literal_data,
-						  literal_ms);
-			    (void)lookup_literal_pointer(NULL, literal_ms,
-				    merged_section_offset, 0, data, ms, &new);
-			    count_reloc(ms, new, 0, FALSE);
-			}
-			else{
-			    error("error in -sectorder file: %s line %lu for "
-				  "section (%.16s,%.16s) (missing second hex "
-				  "number for specified 8 byte literal section "
-				  "(%s,%s))", ms->order_filename, line_number,
-				  ms->s.segname, ms->s.sectname, segname,
-				  sectname);
-			}
-		    }
-		    else{
-			error("error in -sectorder file: %s line %lu for "
-			      "section (%.16s,%.16s) (missing first hex number "
-			      "for specified 8 byte literal section (%s,%s))",
-			      ms->order_filename, line_number,
-			      ms->s.segname, ms->s.sectname, segname, sectname);
-		    }
-		    break;
-		default:
-		    error("error in -sectorder file: %s line %lu for section "
-			  "(%.16s,%.16s) (specified section (%s,%s) is not a "
-			  "literal section)", ms->order_filename, line_number,
-			  ms->s.segname, ms->s.sectname, segname, sectname);
-		    break;
-		}
-	    }
+
+	    output_offset = literal_pointer_order_line(&i, line_number, data,
+						       ms, buffer);
+	    if(dead_strip == TRUE)
+		order_lines[line_number - 1].output_offset = output_offset;
 
 	    /* skip any trailing characters on the line */
 	    while(i < ms->order_size && ms->order_addr[i] != '\0')
@@ -849,31 +811,285 @@ struct merged_section *ms)
 	    line_number++;
 	}
 
-	/* deallocate the buffer */
-	free(buffer);
+	/*
+	 * If -dead_strip is not specified free up the memory for the line
+	 * buffer and the load order file.  If -dead_strip is specified these
+	 * will be free'ed up in literal_pointer_reset_live().
+	 */
+	if(dead_strip == FALSE){
+	    /* deallocate the buffer */
+	    free(buffer);
+
+	    /*
+	     * Deallocate the memory for the load order file now that it is
+	     * nolonger needed (since the memory has been written on it is
+	     * allways deallocated so it won't get written to the swap file
+	     * unnecessarily).
+	     */
+	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)
+		ms->order_addr, ms->order_size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_deallocate() memory for -sectorder "
+			   "file: %s for section (%.16s,%.16s)",
+			   ms->order_filename, ms->s.segname,
+			   ms->s.sectname);
+	    ms->order_addr = NULL;
+	}
+#endif /* !defined(RLD) */
+}
+
+#ifndef RLD
+/*
+ * literal_pointer_order_line() parses out and enters the literal pointer and
+ * literal from the order line specified by the parameters.  The parameter
+ * buffer is a buffer used to parse any C string on the line and must be as
+ * large as the longest line in the order file.  It returns the output_offset
+ * in the merged section for the literal pointer and indirectly returns the
+ * resulting line_start after the characters for this line.
+ */
+static
+unsigned long
+literal_pointer_order_line(
+unsigned long *line_start,
+unsigned long line_number,
+struct literal_pointer_data *data, 
+struct merged_section *ms,
+char *buffer)
+{
+    unsigned long i, j, char_pos, output_offset, merged_section_offset;
+    char segname[17], sectname[17];
+    struct merged_section *literal_ms;
+    struct literal8 literal8;
+    struct literal4 literal4;
+    enum bool new;
 
 	/*
-	 * Deallocate the memory for the load order file now that it is
-	 * nolonger needed (since the memory has been written on it is
-	 * allways deallocated so it won't get written to the swap file
-	 * unnecessarily).
+	 * An order line for a literal pointer is three parts:
+	 * 	segment_name:section_name:literal
+	 * The segment_name and section_name are strings separated by a colon
+	 * character ':' which also separates the literal.  The literal is just
+	 * as it would be for a cstring, 4-byte or 8-byte literal.  The literals
+	 * are looked up using the function for each literal then the literal
+	 * pointer is looked up.
 	 */
-	if((r = vm_deallocate(mach_task_self(), (vm_address_t)
-	    ms->order_addr, ms->order_size)) != KERN_SUCCESS)
-	    mach_fatal(r, "can't vm_deallocate() memory for -sectorder "
-		       "file: %s for section (%.16s,%.16s)",
-		       ms->order_filename, ms->s.segname,
-		       ms->s.sectname);
-	ms->order_addr = NULL;
-#else /* RLD */
-#ifdef __MWERKS__
-    struct literal_pointer_data *dummy1;
-    struct merged_section *dummy2;
-        dummy1 = data;
-        dummy2 = ms;
-#endif
-#endif /* RLD */
+	output_offset = 0;
+	i = *line_start;
+	char_pos = 1;
+	/* copy segment name into segname */
+	j = 0;
+	while(i < ms->order_size &&
+	      ms->order_addr[i] != ':' &&
+	      ms->order_addr[i] != '\0'){
+	    if(j <= 16)
+		segname[j++] = ms->order_addr[i++];
+	    else
+		i++;
+	    char_pos++;
+	}
+	if(i >= ms->order_size || ms->order_addr[i] == '\0'){
+	    error("format error in -sectorder file: %s line %lu for section"
+		  " (%.16s,%.16s) (missing ':' after segment name)",
+		  ms->order_filename, line_number, ms->s.segname,
+		  ms->s.sectname);
+	    *line_start = i;
+	    return(output_offset);
+	}
+	segname[j] = '\0';
+	i++;
+	char_pos++;
+
+	/* copy section name into sectname */
+	j = 0;
+	while(i < ms->order_size &&
+	      ms->order_addr[i] != ':' &&
+	      ms->order_addr[i] != '\0'){
+	    if(j <= 16)
+		sectname[j++] = ms->order_addr[i++];
+	    else
+		i++;
+	    char_pos++;
+	}
+	if(i >= ms->order_size || ms->order_addr[i] == '\0'){
+	    error("format error in -sectorder file: %s line %lu for section"
+		  " (%.16s,%.16s) (missing ':' after section name)",
+		  ms->order_filename, line_number, ms->s.segname,
+		  ms->s.sectname);
+	    *line_start = i;
+	    return(output_offset);
+	}
+	sectname[j] = '\0';
+	i++;
+	char_pos++;
+    
+	literal_ms = lookup_merged_section(segname, sectname);
+	if(literal_ms == NULL){
+	    error("error in -sectorder file: %s line %lu for section "
+		  "(%.16s,%.16s) (specified section (%s,%s) is not "
+		  "loaded objects)", ms->order_filename, line_number,
+		  ms->s.segname, ms->s.sectname, segname, sectname);
+	}
+	else{
+	    switch(literal_ms->s.flags & SECTION_TYPE){
+	    case S_CSTRING_LITERALS:
+		get_cstring_from_sectorder(ms, &i, buffer, line_number,
+					   char_pos);
+		merged_section_offset = lookup_cstring(buffer,
+				      literal_ms->literal_data, literal_ms);
+		output_offset = lookup_literal_pointer(NULL, literal_ms,
+				merged_section_offset, 0, data, ms, &new);
+		count_reloc(ms, new, 0, FALSE);
+		break;
+	    case S_4BYTE_LITERALS:
+		if(get_hex_from_sectorder(ms, &i, &(literal4.long0),
+					  line_number) == TRUE){
+		    merged_section_offset = lookup_literal4(literal4,
+				      literal_ms->literal_data, literal_ms);
+		    output_offset = lookup_literal_pointer(NULL, literal_ms,
+				merged_section_offset, 0, data, ms, &new);
+		    count_reloc(ms, new, 0, FALSE);
+		}
+		else{
+		    error("error in -sectorder file: %s line %lu for "
+			  "section (%.16s,%.16s) (missing hex number for "
+			  "specified 4 byte literal section (%s,%s))",
+			  ms->order_filename, line_number,
+			  ms->s.segname, ms->s.sectname, segname, sectname);
+		}
+		break;
+	    case S_8BYTE_LITERALS:
+		if(get_hex_from_sectorder(ms, &i, &(literal8.long0),
+					  line_number) == TRUE){
+		    if(get_hex_from_sectorder(ms, &i, &(literal8.long1),
+					      line_number) == TRUE){
+			merged_section_offset = lookup_literal8(literal8,
+					      literal_ms->literal_data,
+					      literal_ms);
+			output_offset = lookup_literal_pointer(NULL, literal_ms,
+				merged_section_offset, 0, data, ms, &new);
+			count_reloc(ms, new, 0, FALSE);
+		    }
+		    else{
+			error("error in -sectorder file: %s line %lu for "
+			      "section (%.16s,%.16s) (missing second hex "
+			      "number for specified 8 byte literal section "
+			      "(%s,%s))", ms->order_filename, line_number,
+			      ms->s.segname, ms->s.sectname, segname,
+			      sectname);
+		    }
+		}
+		else{
+		    error("error in -sectorder file: %s line %lu for "
+			  "section (%.16s,%.16s) (missing first hex number "
+			  "for specified 8 byte literal section (%s,%s))",
+			  ms->order_filename, line_number,
+			  ms->s.segname, ms->s.sectname, segname, sectname);
+		}
+		break;
+	    default:
+		error("error in -sectorder file: %s line %lu for section "
+		      "(%.16s,%.16s) (specified section (%s,%s) is not a "
+		      "literal section)", ms->order_filename, line_number,
+		      ms->s.segname, ms->s.sectname, segname, sectname);
+		break;
+	    }
+	}
+	*line_start = i;
+	return(output_offset);
 }
+#endif /* !defined(RLD) */
+
+/*
+ * literal_pointer_reset_live() is called when -dead_strip is specified after
+ * all the literal pointers from the input objects are merged.  It clears out
+ * the literal_pointer_data so the live literal pointers can be re-merged (by
+ * later calling literal_pointer_merge() with redo_live == TRUE.  In here we
+ * first merge in the live literal pointers from the order file if any. 
+ */
+__private_extern__
+void
+literal_pointer_reset_live(
+struct literal_pointer_data *data, 
+struct merged_section *ms)
+{
+#ifndef RLD
+    unsigned long i, norder_lines, line_number, character_index, output_offset;
+    char *buffer;
+    struct literal_pointer_order_line *order_lines;
+    enum bool live;
+    kern_return_t r;
+
+	/* reset the merge section size back to zero */
+	ms->s.size = 0;
+
+	/* reset the count of relocation entries for this merged section */
+	if(output_for_dyld){
+	    ms->nlocrel = 0;
+	    ms->nextrel = 0;
+	}
+	else if(save_reloc){
+	    nreloc -= ms->s.nreloc;
+	    ms->s.nreloc = 0;
+	}
+
+	/* clear out the previously merged data */
+	literal_pointer_free(data);
+
+	/*
+	 * If this merged section has an order file we need to re-merged only
+	 * the live literals from that order file.
+	 */
+	if(ms->order_filename != NULL){
+	    buffer = data->literal_pointer_load_order_data->order_line_buffer;
+	    order_lines = data->literal_pointer_load_order_data->
+		literal_pointer_order_lines;
+	    norder_lines = data->literal_pointer_load_order_data->
+		nliteral_pointer_order_lines;
+	    for(i = 0; i < norder_lines; i++){
+		/*
+		 * Figure out if this literal pointer order line's output_index
+		 * is live and if so re-merge the literal pointer.
+		 */
+		live = is_literal_output_offset_live(
+			ms, order_lines[i].output_offset);
+		line_number = order_lines[i].line_number;
+		if(live){
+		    character_index = order_lines[i].character_index;
+		    output_offset = literal_pointer_order_line(
+			&character_index, line_number, data, ms, buffer);
+		}
+		else{
+		    if(sectorder_detail == TRUE)
+			warning("specification of literal pointer in "
+				"-sectorder file: %s on line %lu for section "
+				"(%.16s,%.16s) not used (dead stripped)",
+				ms->order_filename, line_number, ms->s.segname,
+				ms->s.sectname);
+		}
+	    }
+
+	    /* deallocate the various data structures no longer needed */
+	    free(data->literal_pointer_load_order_data->order_line_buffer);
+	    free(data->literal_pointer_load_order_data->
+		 literal_pointer_order_lines);
+	    free(data->literal_pointer_load_order_data);
+	    data->literal_pointer_load_order_data = NULL;
+
+	    /*
+	     * Deallocate the memory for the load order file now that it is
+	     * nolonger needed (since the memory has been written on it is
+	     * allways deallocated so it won't get written to the swap file
+	     * unnecessarily).
+	     */
+	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)
+		ms->order_addr, ms->order_size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_deallocate() memory for -sectorder "
+			   "file: %s for section (%.16s,%.16s)",
+			   ms->order_filename, ms->s.segname,
+			   ms->s.sectname);
+	    ms->order_addr = NULL;
+	}
+#endif /* !defined(RLD) */
+}
+
 /*
  * lookup_literal_pointer() is passed a quad that defined a literal pointer
  * (merged_symbol, literal_ms, merged_section_offset, offset).  If merged_symbol
@@ -1250,7 +1466,7 @@ struct merged_section *ms)
 	    return;
 	print("literal pointer section (%.16s,%.16s) contains:\n",
 	      ms->s.segname, ms->s.sectname);
-	print("    %lu merged literal pointers\n", ms->s.size / 4);
+	print("    %u merged literal pointers\n", ms->s.size / 4);
 	print("    from %lu files and %lu total literal pointers from those "
 	      "files\n", data->nfiles, data->nliterals);
 	print("    average number of literals per file %g\n",

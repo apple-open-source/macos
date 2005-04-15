@@ -1,0 +1,575 @@
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>CYRUS.CONF</title>
+</head>
+<body>
+
+<h1 align=center>CYRUS.CONF</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SECTION DESCRIPTIONS">SECTION DESCRIPTIONS</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#ACCESS CONTROL">ACCESS CONTROL</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+<!-- Creator     : groff version 1.18 -->
+<!-- CreationDate: Mon Feb 14 13:02:17 2005 -->
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>cyrus.conf &minus; Cyrus configuration file</p>
+</td>
+</table></p>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/cyrus.conf</b> is the configuration file for the
+Cyrus <b>master</b> process. It defines the startup
+procedures, services and events to be spawned by
+<b>master</b>.</p>
+<!-- INDENTATION -->
+<p>The <b>/etc/cyrus.conf</b> file consists of a series of
+entries divided into sections of the form</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="20%"></td>
+<td width="79%">
+<p><i>section</i> {</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="30%"></td>
+<td width="69%">
+<p><i>name arguments</i></p></td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="3" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="38%"></td>
+<td width="7%">
+
+<p><i>...</i></p>
+</td>
+<td width="54%">
+</td>
+<tr valign="top" align="left">
+<td width="38%"></td>
+<td width="7%">
+
+<p><i>...</i></p>
+</td>
+<td width="54%">
+</td>
+<tr valign="top" align="left">
+<td width="38%"></td>
+<td width="7%">
+
+<p><i>...</i></p>
+</td>
+<td width="54%">
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="20%"></td>
+<td width="79%">
+<p>}</p></td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>where <i>section</i> is the name of the section,
+<i>name</i> is the name of the entry and <i>arguments</i> is
+the whitespace-separated list of arguments for the
+entry.</p>
+<!-- INDENTATION -->
+<p>Blank lines and lines beginning with
+&lsquo;&lsquo;#&rsquo;&rsquo; are ignored.</p>
+</td>
+</table></p>
+<a name="SECTION DESCRIPTIONS"></a>
+<h2>SECTION DESCRIPTIONS</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>The paragraphs below detail the three sections
+(<b>START</b>, <b>SERVICES</b>, <b>EVENTS</b>) that can be
+placed in the <b>/etc/cyrus.conf</b> file. The arguments
+that are available for each entry within the section are
+described, and each argument&rsquo;s default value is
+shown.</p>
+<!-- INDENTATION -->
+<p>Arguments can appear in any order. Some arguments have no
+default value, these are listed with &lsquo;&lsquo;&lt;no
+default&gt;&rsquo;&rsquo;. For string arguments, the value
+MUST be enclosed in double quotes.</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="4%"></td>
+<td width="95%">
+<p><b>START</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>This section lists the processes to run before any
+<b>SERVICES</b> are spawned. This section is typically used
+to initialize databases and start long running daemons.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>cmd=</b>&lt;no default&gt;</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The command (with options) to spawn as a child process.
+This string argument is required.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="4%"></td>
+<td width="95%">
+<p><b>SERVICES</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>This section is the heart of the <b>/etc/cyrus.conf</b>
+file. It lists the processes that should be spawned to
+handle client connections made on certain Internet/UNIX
+sockets.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>cmd=</b>&lt;no default&gt;</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The command (with options) to spawn as a child process.
+This string argument is required.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>listen=</b>&lt;no default&gt;</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The UNIX or internet socket to listen on. This string
+field is required and takes one of the following forms:</p>
+<!-- INDENTATION -->
+<p><i>path</i><br>
+[ <i>host</i> <b>:</b> ] <i>port</i></p>
+<!-- INDENTATION -->
+<p>where <i>path</i> is the explicit path to a UNIX socket,
+<i>host</i> is either the hostname or bracket-enclosed IP
+address of a network interface, and <i>port</i> is either a
+port number or service name (as listed in
+<b>/etc/services</b>).</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>proto=</b>tcp</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The protocol used for this service (<i>tcp</i>,
+<i>tcp4</i>, <i>tcp6</i>, <i>udp</i>, <i>udp4</i>,
+<i>udp6</i>). This string argument is optional.</p>
+<!-- INDENTATION -->
+<p><b>tcp4</b>, <b>udp4</b>: These arguments are used to
+bind the service to IPv4 only.<b><br>
+tcp6</b>, <b>udp6</b>: These arguments are used to bind the
+service to IPv6 only, if the operating system supports
+this.<b><br>
+tcp</b>, <b>udp</b>: These arguments are used to bind to
+both IPv4 and IPv6 if possible.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>prefork=</b>0</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The number of instances of this service to always have
+running and waiting for a connection (for faster initial
+response time). This integer value is optional.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>maxchild=</b>-1</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The maximum number of instances of this service to spawn.
+A value of -1 means unlimited. This integer value is
+optional.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>maxfds=</b>256</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The maximum number of file descriptors to which to limit
+this process. This integer value is optional.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="4%"></td>
+<td width="95%">
+<p><b>EVENTS</b></p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>This section lists processes that should be run at
+specific intervals, similar to cron jobs. This section is
+typically used to perform scheduled cleanup/maintenance.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>cmd=</b>&lt;no default&gt;</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The command (with options) to spawn as a child process.
+This string argument is required.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>period=</b>0</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The interval (in minutes) at which to run the command.
+This integer value is optional, but SHOULD be a positive
+integer &gt; 10.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>at=</b>&lt;hhmm&gt;</p></td>
+</table></p>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>The time (24-hour format) at which to run the command
+each day. If set to a valid time (0000-2359), period is
+automatically set to 1440. This string argument is
+optional.</p>
+</td>
+</table>
+<a name="EXAMPLE"></a>
+<h2>EXAMPLE</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p># example cyrus.conf</p>
+</td>
+</table></p>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%">
+
+<p>START { recover</p>
+</td>
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>cmd=&quot;ctl_cyrusdb -r&quot;</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+</td>
+</table></p>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="6" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%">
+
+<p>SERVICES { imap</p>
+</td>
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>cmd=&quot;imapd&quot; listen=&quot;imap&quot; prefork=1
+imaps</p>
+</td>
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%"></td>
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>cmd=&quot;imapd -s&quot; listen=&quot;imaps&quot;
+prefork=0 lmtpunix</p>
+</td>
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%"></td>
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="70%">
+
+<p>cmd=&quot;lmtpd&quot;
+listen=&quot;/var/imap/socket/lmtp&quot; lmtp</p>
+</td>
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%"></td>
+<td width="7%"></td>
+<td width="7%"></td>
+<td width="7%">
+</td>
+<td width="70%">
+
+<p>cmd=&quot;lmtpd&quot;
+listen=&quot;localhost:lmtp&quot;</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+</td>
+</table></p>
+<!-- TABS -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="5" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%">
+
+<p>EVENTS { checkpoint</p>
+</td>
+<td width="14%"></td>
+<td width="7%"></td>
+<td width="70%">
+
+<p>cmd=&quot;ctl_cyrusdb -c&quot; period=30 delprune</p>
+</td>
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%"></td>
+<td width="14%"></td>
+<td width="7%"></td>
+<td width="70%">
+
+<p>cmd=&quot;cyr_expire -E 3&quot; at=0400 tlsprune</p>
+</td>
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="-2%"></td>
+<td width="14%"></td>
+<td width="7%"></td>
+<td width="70%">
+
+<p>cmd=&quot;tls_prune&quot; at=0400</p>
+</td>
+</table></p>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>}</p>
+</td>
+</table></p>
+<a name="ACCESS CONTROL"></a>
+<h2>ACCESS CONTROL</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>When TCP Wrappers is used to control access to Cyrus
+services, the <i>name</i> of the service entry should be
+used as the process name in the <b>hosts_access(5)</b>
+table. For instance, in the example above, &quot;imap&quot;,
+&quot;imaps&quot;, &quot;lmtpunix&quot; and &quot;lmtp&quot;
+would be used as the process names. This allows a single
+daemon such as imapd to be run in different modes or
+configurations (i.e., SSL and non-SSL enabled) yet still
+have separate access control rules.</p>
+</td>
+</table></p>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<p><table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>master(8)</b>, <b>imapd(8)</b>, <b>pop3d(8)</b>,
+<b>lmtpd(8)</b>, <b>timsieved(8)</b>, <b>idled(8)</b>,
+<b>notifyd(8)</b>, <b>ctl_cyrusdb(8)</b>,
+<b>ctl_deliver(8)</b>, <b>tls_prune(8)</b>,
+<b>hosts_access(5)</b></p>
+</td>
+</table></p>
+<hr>
+</body>
+</html>

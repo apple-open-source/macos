@@ -22,11 +22,13 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include "stuff/target_arch.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
 #include "stuff/bytesex.h"
 #include "ofile_print.h"
+#include "stuff/symbol.h"
 #include "otool.h"
 
 #define GET_DOUBLE(sect, left, length, swapped, d) \
@@ -172,9 +174,9 @@ static unsigned long print_ef(
     unsigned long size,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    struct nlist *symbols,
+    nlist_t *symbols,
     unsigned long nsymbols,
-    struct nlist *sorted_symbols,
+    struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     char *strings,
     unsigned long strings_size,
@@ -191,15 +193,15 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *sorted_relocs,
 unsigned long nsorted_relocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
 unsigned long *indirect_symbols,
 unsigned long nindirect_symbols,
-struct mach_header *mh,
+mach_header_t *mh,
 struct load_command *load_commands,
 enum bool verbose)
 {
@@ -2207,9 +2209,9 @@ unsigned long *left,
 unsigned long size,
 struct relocation_info *sorted_relocs,
 unsigned long nsorted_relocs,
-struct nlist *symbols,
+nlist_t *symbols,
 unsigned long nsymbols,
-struct nlist *sorted_symbols,
+struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,

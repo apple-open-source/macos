@@ -166,7 +166,7 @@ static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, B
 
 	*store_size = PAI_ENTRIES_BASE + ((num_entries + num_def_entries)*PAI_ENTRY_LENGTH);
 
-	pai_buf = malloc(*store_size);
+	pai_buf = SMB_MALLOC(*store_size);
 	if (!pai_buf) {
 		return NULL;
 	}
@@ -180,7 +180,7 @@ static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, B
 
 	entry_offset = pai_buf + PAI_ENTRIES_BASE;
 
-	for (ace_list = dir_ace_list; ace_list; ace_list = ace_list->next) {
+	for (ace_list = file_ace_list; ace_list; ace_list = ace_list->next) {
 		if (ace_list->inherited) {
 			uint8 type_val = (unsigned char)ace_list->owner_type;
 			uint32 entry_val = get_entry_val(ace_list);
@@ -191,7 +191,7 @@ static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, B
 		}
 	}
 
-	for (ace_list = file_ace_list; ace_list; ace_list = ace_list->next) {
+	for (ace_list = dir_ace_list; ace_list; ace_list = ace_list->next) {
 		if (ace_list->inherited) {
 			uint8 type_val = (unsigned char)ace_list->owner_type;
 			uint32 entry_val = get_entry_val(ace_list);
@@ -245,7 +245,7 @@ static void store_inheritance_attributes(files_struct *fsp, canon_ace *file_ace_
 	SAFE_FREE(pai_buf);
 
 	DEBUG(10,("store_inheritance_attribute:%s for file %s\n", protected ? " (protected)" : "", fsp->fsp_name));
-	if (ret == -1 && errno != ENOSYS)
+	if (ret == -1 && !no_acl_syscall_error(errno))
 		DEBUG(1,("store_inheritance_attribute: Error %s\n", strerror(errno) ));
 }
 
@@ -343,7 +343,7 @@ static struct pai_val *create_pai_val(char *buf, size_t size)
 	if (!check_pai_ok(buf, size))
 		return NULL;
 
-	paiv = malloc(sizeof(struct pai_val));
+	paiv = SMB_MALLOC_P(struct pai_val);
 	if (!paiv)
 		return NULL;
 
@@ -362,7 +362,7 @@ static struct pai_val *create_pai_val(char *buf, size_t size)
 	for (i = 0; i < paiv->num_entries; i++) {
 		struct pai_entry *paie;
 
-		paie = malloc(sizeof(struct pai_entry));
+		paie = SMB_MALLOC_P(struct pai_entry);
 		if (!paie) {
 			free_inherited_info(paiv);
 			return NULL;
@@ -393,7 +393,7 @@ static struct pai_val *create_pai_val(char *buf, size_t size)
 	for (i = 0; i < paiv->num_def_entries; i++) {
 		struct pai_entry *paie;
 
-		paie = malloc(sizeof(struct pai_entry));
+		paie = SMB_MALLOC_P(struct pai_entry);
 		if (!paie) {
 			free_inherited_info(paiv);
 			return NULL;
@@ -438,7 +438,7 @@ static struct pai_val *load_inherited_info(files_struct *fsp)
 	if (!lp_map_acl_inherit(SNUM(fsp->conn)))
 		return NULL;
 
-	if ((pai_buf = malloc(pai_buf_size)) == NULL)
+	if ((pai_buf = SMB_MALLOC(pai_buf_size)) == NULL)
 		return NULL;
 
 	do {
@@ -456,7 +456,10 @@ static struct pai_val *load_inherited_info(files_struct *fsp)
 			/* Buffer too small - enlarge it. */
 			pai_buf_size *= 2;
 			SAFE_FREE(pai_buf);
-			if ((pai_buf = malloc(pai_buf_size)) == NULL)
+			if (pai_buf_size > 1024*1024) {
+				return NULL; /* Limit malloc to 1mb. */
+			}
+			if ((pai_buf = SMB_MALLOC(pai_buf_size)) == NULL)
 				return NULL;
 		}
 	} while (ret == -1);
@@ -523,7 +526,7 @@ static void free_canon_ace_list( canon_ace *list_head )
 
 static canon_ace *dup_canon_ace( canon_ace *src_ace)
 {
-	canon_ace *dst_ace = (canon_ace *)malloc(sizeof(canon_ace));
+	canon_ace *dst_ace = SMB_MALLOC_P(canon_ace);
 
 	if (dst_ace == NULL)
 		return NULL;
@@ -880,7 +883,7 @@ static mode_t map_nt_perms( SEC_ACCESS sec_access, int type)
  Unpack a SEC_DESC into a UNIX owner and group.
 ****************************************************************************/
 
-static BOOL unpack_nt_owners(SMB_STRUCT_STAT *psbuf, uid_t *puser, gid_t *pgrp, uint32 security_info_sent, SEC_DESC *psd)
+static BOOL unpack_nt_owners(int snum, SMB_STRUCT_STAT *psbuf, uid_t *puser, gid_t *pgrp, uint32 security_info_sent, SEC_DESC *psd)
 {
 	DOM_SID owner_sid;
 	DOM_SID grp_sid;
@@ -910,15 +913,17 @@ static BOOL unpack_nt_owners(SMB_STRUCT_STAT *psbuf, uid_t *puser, gid_t *pgrp, 
 	if (security_info_sent & OWNER_SECURITY_INFORMATION) {
 		sid_copy(&owner_sid, psd->owner_sid);
 		if (!NT_STATUS_IS_OK(sid_to_uid(&owner_sid, puser))) {
-#if ACL_FORCE_UNMAPPABLE
-			/* this allows take ownership to work reasonably */
-			extern struct current_user current_user;
-			*puser = current_user.uid;
-#else
-			DEBUG(3,("unpack_nt_owners: unable to validate owner sid for %s\n",
-				 sid_string_static(&owner_sid)));
-			return False;
-#endif
+			if (lp_force_unknown_acl_user(snum)) {
+				/* this allows take ownership to work
+				 * reasonably */
+				extern struct current_user current_user;
+				*puser = current_user.uid;
+			} else {
+				DEBUG(3,("unpack_nt_owners: unable to validate"
+					 " owner sid for %s\n",
+					 sid_string_static(&owner_sid)));
+				return False;
+			}
 		}
  	}
 
@@ -930,14 +935,16 @@ static BOOL unpack_nt_owners(SMB_STRUCT_STAT *psbuf, uid_t *puser, gid_t *pgrp, 
 	if (security_info_sent & GROUP_SECURITY_INFORMATION) {
 		sid_copy(&grp_sid, psd->grp_sid);
 		if (!NT_STATUS_IS_OK(sid_to_gid( &grp_sid, pgrp))) {
-#if ACL_FORCE_UNMAPPABLE
-			/* this allows take group ownership to work reasonably */
-			extern struct current_user current_user;
-			*pgrp = current_user.gid;
-#else
-			DEBUG(3,("unpack_nt_owners: unable to validate group sid.\n"));
-			return False;
-#endif
+			if (lp_force_unknown_acl_user(snum)) {
+				/* this allows take group ownership to work
+				 * reasonably */
+				extern struct current_user current_user;
+				*pgrp = current_user.gid;
+			} else {
+				DEBUG(3,("unpack_nt_owners: unable to validate"
+					 " group sid.\n"));
+				return False;
+			}
 		}
 	}
 
@@ -1079,7 +1086,7 @@ static BOOL ensure_canon_entry_valid(canon_ace **pp_ace,
 	}
 
 	if (!got_user) {
-		if ((pace = (canon_ace *)malloc(sizeof(canon_ace))) == NULL) {
+		if ((pace = SMB_MALLOC_P(canon_ace)) == NULL) {
 			DEBUG(0,("ensure_canon_entry_valid: malloc fail.\n"));
 			return False;
 		}
@@ -1109,7 +1116,7 @@ static BOOL ensure_canon_entry_valid(canon_ace **pp_ace,
 	}
 
 	if (!got_grp) {
-		if ((pace = (canon_ace *)malloc(sizeof(canon_ace))) == NULL) {
+		if ((pace = SMB_MALLOC_P(canon_ace)) == NULL) {
 			DEBUG(0,("ensure_canon_entry_valid: malloc fail.\n"));
 			return False;
 		}
@@ -1135,7 +1142,7 @@ static BOOL ensure_canon_entry_valid(canon_ace **pp_ace,
 	}
 
 	if (!got_other) {
-		if ((pace = (canon_ace *)malloc(sizeof(canon_ace))) == NULL) {
+		if ((pace = SMB_MALLOC_P(canon_ace)) == NULL) {
 			DEBUG(0,("ensure_canon_entry_valid: malloc fail.\n"));
 			return False;
 		}
@@ -1319,7 +1326,7 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 		 * Create a cannon_ace entry representing this NT DACL ACE.
 		 */
 
-		if ((current_ace = (canon_ace *)malloc(sizeof(canon_ace))) == NULL) {
+		if ((current_ace = SMB_MALLOC_P(canon_ace)) == NULL) {
 			free_canon_ace_list(file_ace);
 			free_canon_ace_list(dir_ace);
 			DEBUG(0,("create_canon_ace_lists: malloc fail.\n"));
@@ -2110,8 +2117,10 @@ static canon_ace *canonicalise_acl( files_struct *fsp, SMB_ACL_T posix_acl, SMB_
 					 * entries out of the blue when setting ACLs, so a get/set
 					 * cycle will drop them.
 					 */
-					if (the_acl_type == SMB_ACL_TYPE_ACCESS && *puid == psbuf->st_uid)
+					if (the_acl_type == SMB_ACL_TYPE_ACCESS && *puid == psbuf->st_uid) {
+						SMB_VFS_SYS_ACL_FREE_QUALIFIER(conn, (void *)puid,tagtype);
 						continue;
+					}
 					uid_to_sid( &sid, *puid);
 					unix_ug.uid = *puid;
 					owner_type = UID_ACE;
@@ -2155,7 +2164,7 @@ static canon_ace *canonicalise_acl( files_struct *fsp, SMB_ACL_T posix_acl, SMB_
 		 * Add this entry to the list.
 		 */
 
-		if ((ace = (canon_ace *)malloc(sizeof(canon_ace))) == NULL)
+		if ((ace = SMB_MALLOC_P(canon_ace)) == NULL)
 			goto fail;
 
 		ZERO_STRUCTP(ace);
@@ -2237,7 +2246,7 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 
 	if (the_acl == NULL) {
 
-		if (errno != ENOSYS) {
+		if (!no_acl_syscall_error(errno)) {
 			/*
 			 * Only print this error message if we have some kind of ACL
 			 * support that's not working. Otherwise we would always get this.
@@ -2402,13 +2411,9 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 			 * Some systems allow all the above calls and only fail with no ACL support
 			 * when attempting to apply the acl. HPUX with HFS is an example of this. JRA.
 			 */
-			if (errno == ENOSYS)
+			if (no_acl_syscall_error(errno)) {
 				*pacl_set_support = False;
-
-#ifdef ENOTSUP
-			if (errno == ENOTSUP)
-				*pacl_set_support = False;
-#endif
+			}
 
 			DEBUG(2,("set_canon_ace_list: sys_acl_set_file type %s failed for file %s (%s).\n",
 					the_acl_type == SMB_ACL_TYPE_DEFAULT ? "directory default" : "file",
@@ -2421,13 +2426,9 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 			 * Some systems allow all the above calls and only fail with no ACL support
 			 * when attempting to apply the acl. HPUX with HFS is an example of this. JRA.
 			 */
-			if (errno == ENOSYS)
+			if (no_acl_syscall_error(errno)) {
 				*pacl_set_support = False;
-
-#ifdef ENOTSUP
-			if (errno == ENOTSUP)
-				*pacl_set_support = False;
-#endif
+			}
 
 			DEBUG(2,("set_canon_ace_list: sys_acl_set_file failed for file %s (%s).\n",
 					fsp->fsp_name, strerror(errno) ));
@@ -2795,7 +2796,7 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 			num_dir_acls = count_canon_ace_list(dir_ace);
 
 			/* Allocate the ace list. */
-			if ((nt_ace_list = (SEC_ACE *)malloc((num_acls + num_profile_acls + num_dir_acls)* sizeof(SEC_ACE))) == NULL) {
+			if ((nt_ace_list = SMB_MALLOC_ARRAY(SEC_ACE, num_acls + num_profile_acls + num_dir_acls)) == NULL) {
 				DEBUG(0,("get_nt_acl: Unable to malloc space for nt_ace_list.\n"));
 				goto done;
 			}
@@ -2857,7 +2858,7 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 		}
 
 		if (num_aces) {
-			if((psa = make_sec_acl( main_loop_talloc_get(), ACL_REVISION, num_aces, nt_ace_list)) == NULL) {
+			if((psa = make_sec_acl( main_loop_talloc_get(), NT4_ACL_REVISION, num_aces, nt_ace_list)) == NULL) {
 				DEBUG(0,("get_nt_acl: Unable to malloc space for acl.\n"));
 				goto done;
 			}
@@ -3003,7 +3004,7 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 	 * Unpack the user/group/world id's.
 	 */
 
-	if (!unpack_nt_owners( &sbuf, &user, &grp, security_info_sent, psd))
+	if (!unpack_nt_owners( SNUM(conn), &sbuf, &user, &grp, security_info_sent, psd))
 		return False;
 
 	/*
@@ -3189,6 +3190,7 @@ int get_acl_group_bits( connection_struct *conn, const char *fname, mode_t *mode
 	int entry_id = SMB_ACL_FIRST_ENTRY;
 	SMB_ACL_ENTRY_T entry;
 	SMB_ACL_T posix_acl;
+	int result = -1;
 
 	posix_acl = SMB_VFS_SYS_ACL_GET_FILE(conn, fname, SMB_ACL_TYPE_ACCESS);
 	if (posix_acl == (SMB_ACL_T)NULL)
@@ -3203,21 +3205,23 @@ int get_acl_group_bits( connection_struct *conn, const char *fname, mode_t *mode
 			entry_id = SMB_ACL_NEXT_ENTRY;
 
 		if (SMB_VFS_SYS_ACL_GET_TAG_TYPE(conn, entry, &tagtype) ==-1)
-			return -1;
+			break;
 
 		if (tagtype == SMB_ACL_GROUP_OBJ) {
 			if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, entry, &permset) == -1) {
-				return -1;
+				break;
 			} else {
 				*mode &= ~(S_IRGRP|S_IWGRP|S_IXGRP);
 				*mode |= (SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_READ) ? S_IRGRP : 0);
 				*mode |= (SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_WRITE) ? S_IWGRP : 0);
 				*mode |= (SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_EXECUTE) ? S_IXGRP : 0);
-				return 0;;
+				result = 0;
+				break;
 			}
 		}
 	}
-	return -1;
+	SMB_VFS_SYS_ACL_FREE_ACL(conn, posix_acl);
+	return result;
 }
 
 /****************************************************************************

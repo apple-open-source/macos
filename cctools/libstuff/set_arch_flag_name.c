@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <stdio.h>
 #include "stuff/arch.h"
 #include "stuff/allocate.h"
@@ -52,3 +53,4 @@ struct arch_flag *p)
 		    p->cputype, p->cpusubtype);
 	}
 }
+#endif /* !defined(RLD) */

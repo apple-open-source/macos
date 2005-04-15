@@ -126,7 +126,7 @@ Value MathObjectImp::getValueProperty(ExecState *, int token) const
 
 MathFuncImp::MathFuncImp(ExecState *exec, int i, int l)
   : InternalFunctionImp(
-    static_cast<FunctionPrototypeImp*>(exec->interpreter()->builtinFunctionPrototype().imp())
+    static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
     ), id(i)
 {
   Value protect(this);
@@ -185,7 +185,7 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
         result = NaN;
         break;
       }
-      if ( val > result )
+      if ( val > result || (val == 0 && result == 0 && !signbit(val)) )
         result = val;
     }
     break;
@@ -200,7 +200,7 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
         result = NaN;
         break;
       }
-      if ( val < result )
+      if ( val < result || (val == 0 && result == 0 && signbit(val)) )
         result = val;
     }
     break;
@@ -209,22 +209,26 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
     // ECMA 15.8.2.1.13 (::pow takes care of most of the critera)
     if (KJS::isNaN(arg2))
       result = NaN;
+#if !APPLE_CHANGES
     else if (arg2 == 0)
       result = 1;
+#endif
     else if (KJS::isNaN(arg) && arg2 != 0)
       result = NaN;
+#if !APPLE_CHANGES
     else if (::fabs(arg) > 1 && KJS::isPosInf(arg2))
       result = Inf;
     else if (::fabs(arg) > 1 && KJS::isNegInf(arg2))
       result = +0;
-    else if (::fabs(arg) == 1 && KJS::isPosInf(arg2))
+#endif
+    else if (::fabs(arg) == 1 && KJS::isInf(arg2))
       result = NaN;
-    else if (::fabs(arg) == 1 && KJS::isNegInf(arg2))
-      result = NaN;
+#if !APPLE_CHANGES
     else if (::fabs(arg) < 1 && KJS::isPosInf(arg2))
       result = +0;
     else if (::fabs(arg) < 1 && KJS::isNegInf(arg2))
       result = Inf;
+#endif
     else
       result = ::pow(arg, arg2);
     break;
@@ -233,14 +237,10 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
     result = result / RAND_MAX;
     break;
   case MathObjectImp::Round:
-    if (isNaN(arg))
-      result = arg;
-    else if (isInf(arg) || isInf(-arg))
-      result = arg;
-    else if (arg == -0.5)
-      result = 0;
+    if (signbit(arg) && arg >= -0.5)
+        result = -0.0;
     else
-      result = (double)(arg >= 0.0 ? int(arg + 0.5) : int(arg - 0.5));
+        result = ::floor(arg + 0.5);
     break;
   case MathObjectImp::Sin:
     result = ::sin(arg);

@@ -2,7 +2,7 @@
  * Rob Earhart
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,22 +48,25 @@
 #ifndef WIN32
 #include <termios.h>
 #include <unistd.h>
-#else
+
+/* perror can't be used on Windows system calls, so we define a new macro to underline this */
+#define	p_oserror(str)	    perror(str)
+
+#else /* WIN32 */
+
 #include <stdio.h>
 #include <io.h>
-typedef int ssize_t;
-#define STDIN_FILENO stdin
+
 #include <saslutil.h>
 __declspec(dllimport) char *optarg;
 __declspec(dllimport) int optind;
-__declspec(dllimport) int getsubopt(char **optionp, char * const *tokens, char **valuep);
+
+/* perror can't be used on Windows system calls, so we define a new macro to underline this */
+void p_oserror (const char *string);
 #endif /*WIN32*/
+
 #include <sasl.h>
 #include <saslplug.h>
-#include "../sasldb/sasldb.h"
-
-/* Cheating to make the utils work out right */
-extern const sasl_utils_t *sasl_global_utils;
 
 char myhostname[1025];
 
@@ -73,6 +76,53 @@ static const char build_ident[] = "$Build: saslpasswd " PACKAGE "-" VERSION " $"
 
 const char *progname = NULL;
 char *sasldb_path = NULL;
+
+#ifdef WIN32
+
+/* This is almost like _plug_get_error_message(), but uses malloc */
+char * _get_error_message (
+   DWORD error
+)
+{
+    char * return_value;
+    LPVOID lpMsgBuf;
+
+    FormatMessage( 
+	FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+	FORMAT_MESSAGE_FROM_SYSTEM | 
+	FORMAT_MESSAGE_IGNORE_INSERTS,
+	NULL,
+	error,
+	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+	(LPTSTR) &lpMsgBuf,
+	0,
+	NULL 
+    );
+
+    return_value = strdup (lpMsgBuf);
+
+    LocalFree( lpMsgBuf );
+    return (return_value);
+}
+
+/* perror() like function that works on OS error codes returned by GetLastError() */
+void p_oserror (
+    const char *message
+)
+{
+/* Try to match perror() behaviour:
+    string is printed first, followed by a colon, then by the system error message
+    for the last library call that produced the error, and finally by a newline
+    character. If string is a null pointer or a pointer to a null string, perror
+    prints only the system error message.
+ */
+    if (message && *message) {
+	fprintf (stderr, "%s: %s\n", message, _get_error_message(GetLastError()));
+    } else {
+	fprintf (stderr, "%s\n", _get_error_message(GetLastError()));
+    }
+}
+#endif /* WIN32 */
 
 void read_password(const char *prompt,
 		   int flag_pipe,
@@ -88,8 +138,8 @@ void read_password(const char *prompt,
   DWORD n_read, fdwMode, fdwOldMode;
   hStdin = GetStdHandle(STD_INPUT_HANDLE);
   if (hStdin == INVALID_HANDLE_VALUE) {
-	  perror(progname);
-	  exit(-SASL_FAIL);
+	  p_oserror(progname);
+	  exit(-(SASL_FAIL));
   }
 #endif /*WIN32*/
 
@@ -99,18 +149,28 @@ void read_password(const char *prompt,
 #ifndef WIN32
     tcgetattr(STDIN_FILENO, &ts);
     nts = ts;
-    nts.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHOCTL| ECHOPRT | ECHOKE);
+    nts.c_lflag &= ~(ECHO | ECHOE | ECHOK
+#ifdef ECHOCTL
+    | ECHOCTL
+#endif
+#ifdef ECHOPRT
+    | ECHOPRT
+#endif
+#ifdef ECHOKE
+    | ECHOKE
+#endif
+    );
     nts.c_lflag |= ICANON | ECHONL;
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &nts);
 #else
   if (! GetConsoleMode(hStdin, &fdwOldMode)) {
-	  perror(progname);
-	  exit(-SASL_FAIL);
+	  p_oserror(progname);
+	  exit(-(SASL_FAIL));
   }
   fdwMode = fdwOldMode & ~ENABLE_ECHO_INPUT;
   if (! SetConsoleMode(hStdin, fdwMode)) {
-	  perror(progname);
-	  exit(-SASL_FAIL);
+	  p_oserror(progname);
+	  exit(-(SASL_FAIL));
   }
 #endif /*WIN32*/
   }
@@ -122,8 +182,8 @@ void read_password(const char *prompt,
   if (! ReadFile(hStdin, buf, PW_BUF_SIZE, &n_read, NULL)) {
 #endif /*WIN32*/
 
-    perror(progname);
-    exit(-SASL_FAIL);
+    p_oserror(progname);
+    exit(-(SASL_FAIL));
   }
 
   if (! flag_pipe) {
@@ -152,8 +212,9 @@ void read_password(const char *prompt,
 
   *password = malloc(n_read + 1);
   if (! *password) {
+/* Can use perror() here even on Windows, as malloc is in std C library */
     perror(progname);
-    exit(-SASL_FAIL);
+    exit(-(SASL_FAIL));
   }
 
   memcpy(*password, buf, n_read);
@@ -170,7 +231,7 @@ exit_sasl(int result, const char *errstr)
 		progname,
 		sasl_errstring(result, NULL, NULL),
 		errstr);
-  exit(-result);
+  exit(result < 0 ? -result : result);
 }
 
 int good_getopt(void *context __attribute__((unused)), 
@@ -194,120 +255,6 @@ static struct sasl_callback goodsasl_cb[] = {
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
-/* returns the realm we should pretend to be in */
-static int parseuser(char **user, char **realm, const char *user_realm, 
-		     const char *serverFQDN, const char *input)
-{
-    char *r;
-
-    assert(user && realm && serverFQDN);
-
-    *realm = *user = NULL;
-
-    if (!user_realm) {
-	*realm = strdup(serverFQDN);
-	*user = strdup(input);
-    } else if (user_realm[0]) {
-	*realm = strdup(user_realm);
-	*user = strdup(input);
-    } else {
-	/* otherwise, we gotta get it from the user */
-	r = strchr(input, '@');
-	if (!r) {
-	    /* hmmm, the user didn't specify a realm */
-	    /* we'll default to the serverFQDN */
-	    *realm = strdup(serverFQDN);
-	    *user = strdup(input);
-	} else {
-	    r++;
-	    *realm = strdup(r);
-	    *--r = '\0';
-	    *user = malloc(r - input + 1);
-	    if (*user) {
-		strncpy(*user, input, r - input +1);
-	    } else {
-		return SASL_NOMEM;
-	    }
-	    *r = '@';
-	}
-    }
-
-    if(! *user && ! *realm ) return SASL_FAIL;
-    else return SASL_OK;
-}
-
-/* this routine sets the sasldb password given a user/pass */
-int _sasl_sasldb_set_pass(sasl_conn_t *conn,
-			  const char *serverFQDN,
-			  const char *userstr, 
-			  const char *pass,
-			  unsigned passlen,
-			  const char *user_realm,
-			  int flags)
-{
-    char *userid = NULL;
-    char *realm = NULL;
-    int ret = SASL_OK;
-
-    ret = parseuser(&userid, &realm, user_realm, serverFQDN, userstr);
-    if (ret != SASL_OK) {
-	return ret;
-    }
-
-    if (pass != NULL && !(flags & SASL_SET_DISABLE)) {
-	/* set the password */
-	sasl_secret_t *sec = NULL;
-
-	/* if SASL_SET_CREATE is set, we don't want to overwrite an
-	   existing account */
-	if (flags & SASL_SET_CREATE) {
-	    ret = _sasldb_getsecret(sasl_global_utils,
-				    conn, userid, realm, &sec);
-	    if (ret == SASL_OK) {
-		memset(sec->data, 0, sec->len);
-		free(sec);
-		sec = NULL;
-		ret = SASL_NOCHANGE;
-	    } else {
-		/* Don't give up yet-- the DB might have failed because
-		 * does not exist, but will be created later... */
-		ret = SASL_OK;
-	    }
-	}
-	
-	/* ret == SASL_OK iff we still want to set this password */
-	if (ret == SASL_OK) {
-	    /* Create the sasl_secret_t */
-	    sec = malloc(sizeof(sasl_secret_t) + passlen);
-	    if(!sec) ret = SASL_NOMEM;
-	    else {
-		memcpy(sec->data, pass, passlen);
-		sec->data[passlen] = '\0';
-		sec->len = passlen;
-	    }
-	}
-	if (ret == SASL_OK) {
-	    ret = _sasldb_putsecret(sasl_global_utils,
-				    conn, userid, realm, sec);
-	}
-	if ( ret != SASL_OK ) {
-	    printf("Could not set secret for %s\n", userid);
-	}
-	if (sec) {
-	    memset(sec->data, 0, sec->len);
-	    free(sec);
-	    sec = NULL;
-	}
-    } else { 
-	/* SASL_SET_DISABLE specified */
-	ret = _sasldb_putsecret(sasl_global_utils, conn, userid, realm, NULL);
-    }
-
-    if (userid)   free(userid);
-    if (realm)    free(realm);
-    return ret;
-}
-
 int
 main(int argc, char *argv[])
 {
@@ -321,6 +268,21 @@ main(int argc, char *argv[])
   sasl_conn_t *conn;
   char *user_domain = NULL;
   char *appname = "saslpasswd";
+  const char *sasl_implementation;
+  int libsasl_version;
+  int libsasl_major;
+  int libsasl_minor;
+  int libsasl_step;
+
+#ifdef WIN32
+  /* initialize winsock */
+  WSADATA wsaData;
+
+  result = WSAStartup( MAKEWORD(2, 0), &wsaData );
+  if ( result != 0) {
+    exit_sasl(SASL_FAIL, "WSAStartup");
+  }
+#endif
 
   memset(myhostname, 0, sizeof(myhostname));
   result = gethostname(myhostname, sizeof(myhostname)-1);
@@ -329,14 +291,14 @@ main(int argc, char *argv[])
   if (! argv[0])
     progname = "saslpasswd";
   else {
-    progname = strrchr(argv[0], '/');
+    progname = strrchr(argv[0], HIER_DELIMITER);
     if (progname)
       progname++;
     else
       progname = argv[0];
   }
 
-  while ((c = getopt(argc, argv, "pcdnf:u:a:h?")) != EOF)
+  while ((c = getopt(argc, argv, "vpcdnf:u:a:h?")) != EOF)
     switch (c) {
     case 'p':
       flag_pipe = 1;
@@ -365,9 +327,23 @@ main(int argc, char *argv[])
     case 'a':
       appname = optarg;
       if (strchr(optarg, '/') != NULL) {
-        (void)fprintf(stderr, "filename must not contain /\n");
-        exit(-SASL_FAIL);
+        (void)fprintf(stderr, "appname must not contain /\n");
+        exit(-(SASL_FAIL));
       }
+      break;
+    case 'v':
+      sasl_version (&sasl_implementation, &libsasl_version);
+      libsasl_major = libsasl_version >> 24;
+      libsasl_minor = (libsasl_version >> 16) & 0xFF;
+      libsasl_step = libsasl_version & 0xFFFF;
+
+      (void)fprintf(stderr, "\nThis product includes software developed by Computing Services\n"
+	 "at Carnegie Mellon University (http://www.cmu.edu/computing/).\n\n"
+	 "Built against SASL API version %u.%u.%u\n"
+	 "LibSasl version %u.%u.%u by \"%s\"\n",
+	 SASL_VERSION_MAJOR, SASL_VERSION_MINOR, SASL_VERSION_STEP,
+	 libsasl_major, libsasl_minor, libsasl_step, sasl_implementation);
+      exit(0);
       break;
     default:
       flag_error = 1;
@@ -379,7 +355,9 @@ main(int argc, char *argv[])
 
   if (flag_error) {
     (void)fprintf(stderr,
-		  "%s: usage: %s [-p] [-c] [-d] [-a appname] [-f sasldb] [-u DOM] userid\n"
+	"\nThis product includes software developed by Computing Services\n"
+	 "at Carnegie Mellon University (http://www.cmu.edu/computing/).\n\n"
+	"%s: usage: %s [-v] [-c [-p] [-n]] [-d] [-a appname] [-f sasldb] [-u DOM] userid\n"
 		  "\t-p\tpipe mode -- no prompt, password read on stdin\n"
 		  "\t-c\tcreate -- ask mechs to create the account\n"
 		  "\t-d\tdisable -- ask mechs to disable/delete the account\n"
@@ -387,9 +365,10 @@ main(int argc, char *argv[])
 		  "\t  \t                   (only set mechanism-specific secrets)\n"
 		  "\t-f sasldb\tuse given file as sasldb\n"
 		  "\t-a appname\tuse appname as application name\n"
-		  "\t-u DOM\tuse DOM for user domain\n",
+		  "\t-u DOM\tuse DOM for user domain\n"
+		  "\t-v\tprint version numbers and exit\n",
 		  progname, progname);
-    exit(-SASL_FAIL);
+    exit(-(SASL_FAIL));
   }
 
   userid = argv[optind];
@@ -424,62 +403,48 @@ main(int argc, char *argv[])
 	      || memcmp(password, verify, verifylen)) {
 	      fprintf(stderr, "%s: passwords don't match; aborting\n", 
 		      progname);
-	      exit(-SASL_BADPARAM);
+	      exit(-(SASL_BADPARAM));
 	  }
       }
   }
 
-  if(!flag_nouserpass) {
-      if((result = _sasl_check_db(sasl_global_utils,conn)) == SASL_OK) {
-	  result = _sasl_sasldb_set_pass(conn, myhostname, userid, password,
-					 passlen, user_domain,
-					 (flag_create ? SASL_SET_CREATE : 0)
-					 | (flag_disable ? SASL_SET_DISABLE : 0));
-      }
-  }
-  
-
-  if(result != SASL_OK && !flag_disable)
-      exit_sasl(result, NULL);
-  else {
-      int ret = 1;
-      /* Either we were setting and succeeded or we were disableing and
-	 failed.  In either case, we want to wipe old entries */
-
-      /* Delete the possibly old entries */
-      /* We don't care if these fail */
-      ret = _sasldb_putdata(sasl_global_utils, conn,
-			    userid, (user_domain ? user_domain : myhostname),
-			    "cmusaslsecretCRAM-MD5", NULL, 0);
-      if(ret == SASL_OK) result = ret;
-
-      ret = _sasldb_putdata(sasl_global_utils, conn,
-			    userid, (user_domain ? user_domain : myhostname),
-			    "cmusaslsecretDIGEST-MD5", NULL, 0);
-      if(ret == SASL_OK) result = ret;
-
-      ret = _sasldb_putdata(sasl_global_utils, conn,
-			    userid, (user_domain ? user_domain : myhostname),
-			    "cmusaslsecretPLAIN", NULL, 0);
-      if(ret == SASL_OK) result = ret;
-
-#if 0
-      /* Were we disableing and failed above? */
-      if(result != SASL_OK)
-	  exit_sasl(result, NULL);
-#endif
-  }
-      
-      
   result = sasl_setpass(conn,
 			userid,
 			password,
 			passlen,
 			NULL, 0,
 			(flag_create ? SASL_SET_CREATE : 0)
-			| (flag_disable ? SASL_SET_DISABLE : 0));
+			| (flag_disable ? SASL_SET_DISABLE : 0)
+			| (flag_nouserpass ? SASL_SET_NOPLAIN : 0));
 
+  if (result != SASL_OK && !flag_disable)
+      exit_sasl(result, NULL);
+  else {
+      struct propctx *propctx = NULL;
+      const char *delete_request[] = { "cmusaslsecretCRAM-MD5",
+				       "cmusaslsecretDIGEST-MD5",
+				       "cmusaslsecretPLAIN",
+				       NULL };
+      int ret = SASL_OK;
+      /* Either we were setting and succeeded or we were disabling and
+	 failed.  In either case, we want to wipe old entries */
+
+      /* Delete the possibly old entries */
+      /* We don't care if these fail */
+      propctx = prop_new(0);
+      if (!propctx) ret = SASL_FAIL;
+      if (!ret) ret = prop_request(propctx, delete_request);
+      if (!ret) {
+	  ret = prop_set(propctx, "cmusaslsecretCRAM-MD5", NULL, 0);
+	  ret = prop_set(propctx, "cmusaslsecretDIGEST-MD5", NULL, 0);
+	  ret = prop_set(propctx, "cmusaslsecretPLAIN-MD5", NULL, 0);
+	  ret = sasl_auxprop_store(conn, propctx, userid);
+      }
+      if (propctx) prop_dispose(&propctx);
+  }
+      
   if (result != SASL_OK)
+/* errstr is currently always NULL */
     exit_sasl(result, errstr);
 
   sasl_dispose(&conn);
@@ -487,4 +452,3 @@ main(int argc, char *argv[])
 
   return 0;
 }
-

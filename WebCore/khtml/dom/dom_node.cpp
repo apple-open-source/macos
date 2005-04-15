@@ -2,6 +2,7 @@
  * This file is part of the DOM implementation for KDE.
  *
  * (C) 1999 Lars Knoll (knoll@kde.org)
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,10 +27,13 @@
 #include "xml/dom_docimpl.h"
 #include "xml/dom_elementimpl.h"
 #include "xml/dom2_eventsimpl.h"
+#include "editing/markup.h"
 
 #include <qrect.h>
 
 using namespace DOM;
+
+using khtml::createMarkup;
 
 NamedNodeMap::NamedNodeMap()
 {
@@ -318,13 +322,9 @@ void Node::normalize (  )
     impl->normalize();
 }
 
-bool Node::isSupported( const DOMString &feature,
-                        const DOMString &version ) const
+bool Node::isSupported( const DOMString &feature, const DOMString &version ) const
 {
-    DOMString upFeature = feature.upper();
-    return (upFeature == "HTML" ||
-            upFeature == "XML" ||
-            upFeature == "CORE");
+    return DOMImplementationImpl::instance()->hasFeature(feature, version);
 }
 
 DOMString Node::namespaceURI(  ) const
@@ -397,8 +397,7 @@ unsigned long Node::index() const
 
 QString Node::toHTML()
 {
-    if (!impl) return QString::null;
-    return impl->toHTML();
+    return createMarkup(impl);
 }
 
 void Node::applyChanges()
@@ -407,26 +406,16 @@ void Node::applyChanges()
     impl->recalcStyle( NodeImpl::Inherit );
 }
 
-void Node::getCursor(int offset, int &_x, int &_y, int &height)
-{
-    if (!impl) throw DOMException(DOMException::NOT_FOUND_ERR);
-    impl->getCursor(offset, _x, _y, height);
-}
-
 QRect Node::getRect()
 {
     if (!impl) throw DOMException(DOMException::NOT_FOUND_ERR);
     return impl->getRect();
 }
 
-bool Node::isNull() const
+bool Node::isContentEditable() const
 {
-    return (impl == 0);
-}
-
-NodeImpl *Node::handle() const
-{
-    return impl;
+    if (!impl) return false;
+    return impl->isContentEditable();
 }
 
 //-----------------------------------------------------------------------------
@@ -474,6 +463,13 @@ unsigned long NodeList::length() const
     if (!impl) return 0;
     return impl->length();
 }
+
+Node NodeList::itemById (const DOMString& elementId) const
+{
+    if (!impl) return 0;
+    return impl->itemById(elementId);
+}
+
 
 NodeListImpl *NodeList::handle() const
 {

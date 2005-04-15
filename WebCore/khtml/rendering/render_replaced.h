@@ -22,10 +22,14 @@
 #ifndef render_replaced_h
 #define render_replaced_h
 
-#include "render_box.h"
+#include "render_container.h"
 #include <qobject.h>
 class KHTMLView;
 class QWidget;
+
+namespace DOM {
+    class Position;
+}
 
 namespace khtml {
 
@@ -41,22 +45,32 @@ public:
 
     virtual void calcMinMaxWidth();
 
-    virtual void paint(QPainter *, int x, int y, int w, int h,
-                       int tx, int ty, PaintAction paintAction);
-    virtual void paintObject(QPainter *p, int x, int y, int w, int h, int tx, int ty,
-                             PaintAction paintAction) = 0;
+    bool shouldPaint(PaintInfo& i, int& _tx, int& _ty);
+    virtual void paint(PaintInfo& i, int _tx, int _ty) = 0;
 
-    virtual short intrinsicWidth() const { return m_intrinsicWidth; }
+    virtual int intrinsicWidth() const { return m_intrinsicWidth; }
     virtual int intrinsicHeight() const { return m_intrinsicHeight; }
 
     void setIntrinsicWidth(int w) {  m_intrinsicWidth = w; }
     void setIntrinsicHeight(int h) { m_intrinsicHeight = h; }
 
-    virtual bool canHaveChildren() const;
+    virtual long caretMinOffset() const;
+    virtual long caretMaxOffset() const;
+    virtual unsigned long caretMaxRenderedOffset() const;
+    virtual VisiblePosition positionForCoordinates(int x, int y);
+    
+    virtual bool canBeSelectionLeaf() const { return true; }
+    virtual SelectionState selectionState() const { return m_selectionState; }
+    virtual void setSelectionState(SelectionState s);
+    virtual QRect selectionRect();
+    
+    virtual QColor selectionColor(QPainter *p) const;
 
-private:
-    short m_intrinsicWidth;
-    short m_intrinsicHeight;
+protected:
+    int m_intrinsicWidth;
+    int m_intrinsicHeight;
+    
+    SelectionState m_selectionState : 3;
 };
 
 
@@ -69,8 +83,7 @@ public:
 
     virtual void setStyle(RenderStyle *style);
 
-    virtual void paintObject(QPainter *p, int x, int y, int w, int h, int tx, int ty,
-                             PaintAction paintAction);
+    virtual void paint(PaintInfo& i, int tx, int ty);
 
     virtual bool isWidget() const { return true; };
 
@@ -82,6 +95,8 @@ public:
 
     RenderArena *ref() { _ref++; return renderArena(); }
     void deref(RenderArena *arena);
+    
+    virtual void setSelectionState(SelectionState s);
 
 #if APPLE_CHANGES 
     void sendConsumedMouseUp(const QPoint &mousePos, int button, int state);

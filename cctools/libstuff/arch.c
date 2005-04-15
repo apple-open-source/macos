@@ -20,7 +20,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include "stdio.h"
+#endif /* !defined(RLD) */
 #include "stdlib.h"
 #include "string.h"
 #include <mach/mach.h>
@@ -40,6 +42,16 @@ static const struct arch_flag arch_flags[] = {
     { "any",	CPU_TYPE_ANY,	  CPU_SUBTYPE_MULTIPLE },
     { "little",	CPU_TYPE_ANY,	  CPU_SUBTYPE_LITTLE_ENDIAN },
     { "big",	CPU_TYPE_ANY,	  CPU_SUBTYPE_BIG_ENDIAN },
+
+/* 64-bit Mach-O architectures */
+
+    /* architecture families */
+    { "ppc64",     CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC_ALL },
+    /* specific architecture implementations */
+    { "ppc970-64", CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC_970 },
+
+/* 32-bit Mach-O architectures */
+
     /* architecture families */
     { "ppc",    CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_ALL },
     { "i386",   CPU_TYPE_I386,    CPU_SUBTYPE_I386_ALL },
@@ -76,6 +88,7 @@ static const struct arch_flag arch_flags[] = {
     { NULL,	0,		  0 }
 };
 
+#ifndef RLD
 /*
  * get_arch_from_flag() is passed a name of an architecture flag and returns
  * zero if that flag is not known and non-zero if the flag is known.
@@ -113,6 +126,7 @@ void)
 {
 	return(arch_flags);
 }
+#endif /* !defined(RLD) */
 
 /*
  * get_arch_name_from_types() returns the name of the architecture for the
@@ -134,9 +148,14 @@ cpu_subtype_t cpusubtype)
 	       arch_flags[i].cpusubtype == cpusubtype)
 		return(arch_flags[i].name);
 	}
+#ifndef RLD
 	p = savestr("cputype 1234567890 cpusubtype 1234567890");
 	if(p != NULL)
 	    sprintf(p, "cputype %u cpusubtype %u", cputype, cpusubtype);
+#else
+	/* there is no sprintf() in the rld kernel API's */
+	p = savestr("cputype ?? cpusubtype ??");
+#endif
 	return(p);
 }
 
@@ -173,6 +192,7 @@ const struct arch_flag *flag)
    if(flag->cputype == CPU_TYPE_MC680x0 ||
       flag->cputype == CPU_TYPE_MC88000 ||
       flag->cputype == CPU_TYPE_POWERPC ||
+      flag->cputype == CPU_TYPE_POWERPC64 ||
       flag->cputype == CPU_TYPE_HPPA ||
       flag->cputype == CPU_TYPE_SPARC ||
       flag->cputype == CPU_TYPE_I860 ||
@@ -184,6 +204,7 @@ const struct arch_flag *flag)
         return UNKNOWN_BYTE_SEX;
 }
 
+#ifndef RLD
 /*
  * get_stack_direction_from_flag() returns the direction the stack grows as
  * either positive (+1) or negative (-1) of the architecture for the
@@ -260,6 +281,7 @@ const struct arch_flag *flag)
 
     return(64*1024*1024);
 }
+#endif /* !defined(RLD) */
 
 /*
  * get_segalign_from_flag() returns the default segment alignment (page size).

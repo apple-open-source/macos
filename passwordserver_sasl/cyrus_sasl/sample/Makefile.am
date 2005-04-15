@@ -59,3 +59,5 @@ client_LDADD = ../lib/libsasl2.la $(LIB_SOCKET)
 
 sample_client_LDADD = ../lib/libsasl2.la $(LIB_SOCKET)
 sample_server_LDADD = ../lib/libsasl2.la $(LIB_SOCKET)
+
+EXTRA_DIST = NTMakefile

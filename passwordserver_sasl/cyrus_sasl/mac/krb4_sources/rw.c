@@ -45,7 +45,7 @@
 
 #include "sasl_mac_krb_locl.h"
 
-RCSID("$Id: rw.c,v 1.1 2002/02/28 00:30:46 snsimon Exp $");
+RCSID("$Id: rw.c,v 1.4 2005/01/10 19:10:47 snsimon Exp $");
 
 int
 krb_get_int(void *f, u_int32_t *to, int size, int lsb)

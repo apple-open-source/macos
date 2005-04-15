@@ -1,0 +1,15 @@
+# APPLE LOCAL file testsuite
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+#3863563: obj-c++.dg/basic.mm (test for excess errors)
+#3869273: obj-c++.dg/cxx-ivars-2.mm execution test
+#3869280: obj-c++.dg/template-4.mm (test for excess errors)

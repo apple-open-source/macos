@@ -19,7 +19,7 @@
 
 
 #include "includes.h"
-#include "../web/swat_proto.h"
+#include "web/swat_proto.h"
 
 #define MAX_VARIABLES 10000
 
@@ -59,7 +59,7 @@ static char *grab_line(FILE *f, int *cl)
 			char *ret2;
 			if (len == 0) len = 1024;
 			else len *= 2;
-			ret2 = (char *)Realloc(ret, len);
+			ret2 = (char *)SMB_REALLOC(ret, len);
 			if (!ret2) return ret;
 			ret = ret2;
 		}
@@ -135,8 +135,8 @@ void cgi_load_variables(void)
 			
 			*p = 0;
 			
-			variables[num_variables].name = strdup(line);
-			variables[num_variables].value = strdup(p+1);
+			variables[num_variables].name = SMB_STRDUP(line);
+			variables[num_variables].value = SMB_STRDUP(p+1);
 
 			SAFE_FREE(line);
 			
@@ -170,8 +170,8 @@ void cgi_load_variables(void)
 			
 			*p = 0;
 			
-			variables[num_variables].name = strdup(tok);
-			variables[num_variables].value = strdup(p+1);
+			variables[num_variables].name = SMB_STRDUP(tok);
+			variables[num_variables].value = SMB_STRDUP(p+1);
 
 			if (!variables[num_variables].name || 
 			    !variables[num_variables].value)
@@ -196,22 +196,22 @@ void cgi_load_variables(void)
         printf("<!== End dump in cgi_load_variables() ==>\n");   
 #endif
 
-	/* variables from the client are in display charset - convert them
-	   to our internal charset before use */
+	/* variables from the client are in UTF-8 - convert them
+	   to our internal unix charset before use */
 	for (i=0;i<num_variables;i++) {
 		pstring dest;
 
-		convert_string(CH_DISPLAY, CH_UNIX, 
+		convert_string(CH_UTF8, CH_UNIX, 
 			       variables[i].name, -1, 
 			       dest, sizeof(dest), True);
 		free(variables[i].name);
-		variables[i].name = strdup(dest);
+		variables[i].name = SMB_STRDUP(dest);
 
-		convert_string(CH_DISPLAY, CH_UNIX, 
+		convert_string(CH_UTF8, CH_UNIX, 
 			       variables[i].value, -1,
 			       dest, sizeof(dest), True);
 		free(variables[i].value);
-		variables[i].value = strdup(dest);
+		variables[i].value = SMB_STRDUP(dest);
 	}
 }
 
@@ -334,11 +334,11 @@ static BOOL cgi_handle_authorization(char *line)
 	}
 	*p = 0;
 
-	convert_string(CH_DISPLAY, CH_UNIX, 
+	convert_string(CH_UTF8, CH_UNIX, 
 		       line, -1, 
 		       user, sizeof(user), True);
 
-	convert_string(CH_DISPLAY, CH_UNIX, 
+	convert_string(CH_UTF8, CH_UNIX, 
 		       p+1, -1, 
 		       user_pass, sizeof(user_pass), True);
 
@@ -366,7 +366,7 @@ static BOOL cgi_handle_authorization(char *line)
 			become_user_permanently(pass->pw_uid, pass->pw_gid);
 			
 			/* Save the users name */
-			C_user = strdup(user);
+			C_user = SMB_STRDUP(user);
 			passwd_free(&pass);
 			return True;
 		}
@@ -421,18 +421,38 @@ static void cgi_download(char *file)
 		}
 	}
 
-	if (!file_exist(file, &st)) {
+	if (sys_stat(file, &st) != 0) 
+	{
 		cgi_setup_error("404 File Not Found","",
 				"The requested file was not found");
 	}
 
-	fd = web_open(file,O_RDONLY,0);
+	if (S_ISDIR(st.st_mode))
+	{
+		snprintf(buf, sizeof(buf), "%s/index.html", file);
+		if (!file_exist(buf, &st) || !S_ISREG(st.st_mode))
+		{
+			cgi_setup_error("404 File Not Found","",
+					"The requested file was not found");
+		}
+	}
+	else if (S_ISREG(st.st_mode))
+	{
+		snprintf(buf, sizeof(buf), "%s", file);
+	}
+	else
+	{
+		cgi_setup_error("404 File Not Found","",
+				"The requested file was not found");
+	}
+
+	fd = web_open(buf,O_RDONLY,0);
 	if (fd == -1) {
 		cgi_setup_error("404 File Not Found","",
 				"The requested file was not found");
 	}
 	printf("HTTP/1.0 200 OK\r\n");
-	if ((p=strrchr_m(file,'.'))) {
+	if ((p=strrchr_m(buf, '.'))) {
 		if (strcmp(p,".gif")==0) {
 			printf("Content-Type: image/gif\r\n");
 		} else if (strcmp(p,".jpg")==0) {
@@ -510,11 +530,11 @@ void cgi_setup(const char *rootdir, int auth_required)
 		if (line[0] == '\r' || line[0] == '\n') break;
 		if (strnequal(line,"GET ", 4)) {
 			got_request = True;
-			url = strdup(&line[4]);
+			url = SMB_STRDUP(&line[4]);
 		} else if (strnequal(line,"POST ", 5)) {
 			got_request = True;
 			request_post = 1;
-			url = strdup(&line[5]);
+			url = SMB_STRDUP(&line[5]);
 		} else if (strnequal(line,"PUT ", 4)) {
 			got_request = True;
 			cgi_setup_error("400 Bad Request", "",
@@ -554,7 +574,7 @@ void cgi_setup(const char *rootdir, int auth_required)
 
 	string_sub(url, "/swat/", "", 0);
 
-	if (url[0] != '/' && strstr(url,"..")==0 && file_exist(url, NULL)) {
+	if (url[0] != '/' && strstr(url,"..")==0) {
 		cgi_download(url);
 	}
 

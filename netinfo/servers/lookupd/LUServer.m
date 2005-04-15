@@ -65,6 +65,10 @@
 #define WAIT_FOR_PARALLEL_REPLY 100
 #define forever for(;;)
 
+#define GAI_SEARCHING 0
+#define GAI_GOT_DATA 1
+#define GAI_NO_DATA 2
+
 static unsigned int
 milliseconds_since(struct timeval t)
 {
@@ -1143,10 +1147,10 @@ appendDomainName(char *h, char *d)
 	LUDictionary *item;
 
 	agent = [self agentNamed:"NIL"];
-	
+
 	item = [[LUDictionary alloc] initTimeStamped];
 	[item setValue:val forKey:key];
-	[item setValue:"localhost" forKey:"name"];
+	[item setNegative:YES];
 	[item setValue:"NIL" forKey:"_lookup_agent"];
 	[item setValue:"NIL" forKey:"_lookup_info_system"];
 	[item setValue:"-1" forKey:"_lookup_NIL_best_before"];
@@ -1219,7 +1223,7 @@ appendDomainName(char *h, char *d)
 	{
 		if ([self isLocalInterfaceAddress:val]) return [self localInterfaceItem:key value:val];
 	}
-			
+
 	if (statistics_enabled) gettimeofday(&allStart, (struct timezone *)NULL);
 
 	for (i = 0; i < len; i++)
@@ -1286,7 +1290,7 @@ appendDomainName(char *h, char *d)
 
 	/*
 	 * If we failed to find a name for a local interface
-	 * we return a record with the name "localhost".
+	 * we return a negative record.
 	 */
 	if (isHostByIP && [self isLocalInterfaceAddress:val])
 	{
@@ -1501,10 +1505,11 @@ appendDomainName(char *h, char *d)
  * Essentially the same as gethostbyname, but we continue
  * searching until we find a record with an ipv6_address attribute.
  */
-- (LUDictionary *)ipv6NodeWithName:(char *)name
+- (LUDictionary *)ipv6NodeWithName:(char *)name wantv4:(BOOL)wantv4
 {
 	char **lookupOrder;
 	const char *sname;
+	const char *altkey;
 	LUDictionary *item;
 	LUAgent *agent;
 	int i, len;
@@ -1515,6 +1520,9 @@ appendDomainName(char *h, char *d)
 	BOOL found;
 
 	if (name == NULL) return nil;
+
+	altkey = "namev6";
+	if (wantv4) altkey = "namev46";
 
 	if (statistics_enabled)
 	{
@@ -1539,8 +1547,9 @@ appendDomainName(char *h, char *d)
 		}
 
 		item = nil;
-		if (streq(sname, "Cache")) item = [agent itemWithKey:"namev6" value:name category:LUCategoryHost];
-		else if (streq(sname, "DNS")) item = [agent itemWithKey:"namev6" value:name category:LUCategoryHost];
+		if (streq(sname, "Cache")) item = [agent itemWithKey:(char *)altkey value:name category:LUCategoryHost];
+		else if (streq(sname, "DNS")) item = [agent itemWithKey:(char *)altkey value:name category:LUCategoryHost];
+		else if (streq(sname, "NIL")) item = [agent itemWithKey:(char *)altkey value:name category:LUCategoryHost];
 		else item = [agent itemWithKey:"name" value:name category:LUCategoryHost];
 
 		if (statistics_enabled)
@@ -1585,6 +1594,11 @@ appendDomainName(char *h, char *d)
 	}
 
 	return nil;
+}
+
+- (LUDictionary *)ipv6NodeWithName:(char *)name
+{
+	return [self ipv6NodeWithName:name wantv4:YES];
 }
 
 - (LUDictionary *)serviceWithName:(char *)name
@@ -1799,10 +1813,12 @@ appendDomainName(char *h, char *d)
  * canonname: char *
  */
 
-static LUDictionary *
-new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uint32_t port, char *addr, uint32_t scopeid, char *cname)
+static void
+new_addrinfo(LUArray *res, uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uint32_t port, char *addr, uint32_t scopeid, char *cname)
 {
 	LUDictionary *a;
+
+	if (res == NULL) return;
 
 	if ((scopeid == 0) && (addr != NULL) && (!strncasecmp(addr, "fe80:", 5)))
 	{
@@ -1819,7 +1835,9 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	[a setValue:addr forKey:"address"];
 	if (family == PF_INET6) [a setUnsignedLong:scopeid forKey:"scopeid"];
 	if (cname != NULL) [a setValue:cname forKey:"canonname"];
-	return a;
+
+	[res addObject:a];
+	[a release];
 }
 
 - (void)gaiPP:(char *)nodename port:(uint32_t)port protocol:(uint32_t)proto family:(uint32_t)family setcname:(int)setcname result:(LUArray *)res
@@ -1851,7 +1869,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			count = listLength(addrs);
 			for (i = 0; i < count; i++)
 			{
-				[res addObject:new_addrinfo(0, socktype, proto, PF_INET, port, addrs[i], 0, NULL)];
+				new_addrinfo(res, 0, socktype, proto, PF_INET, port, addrs[i], 0, NULL);
 			}
 
 			[item release];
@@ -1860,7 +1878,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 	if (wantv6 != 0)
 	{
-		item = [self ipv6NodeWithName:nodename];
+		item = [self ipv6NodeWithName:nodename wantv4:NO];
 		if (item != nil)
 		{
 			if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
@@ -1868,7 +1886,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			count = listLength(addrs);
 			for (i = 0; i < count; i++)
 			{
-				[res addObject:new_addrinfo(0, socktype, proto, PF_INET6, port, addrs[i], 0, NULL)];
+				new_addrinfo(res, 0, socktype, proto, PF_INET6, port, addrs[i], 0, NULL);
 			}
 
 			[item release];
@@ -1937,12 +1955,12 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		{
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
 			{
-				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, loopv4, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, loopv4, 0, NULL);
 			}
 
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 			{
-				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, loopv4, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, loopv4, 0, NULL);
 			}
 		}
 
@@ -1950,12 +1968,12 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		{
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
 			{
-				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, loopv6, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, loopv6, 0, NULL);
 			}
 
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 			{
-				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, loopv6, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, loopv6, 0, NULL);
 			}
 		}
 
@@ -1989,16 +2007,14 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		{
 			if (wantv4 != 0)
 			{
-				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, loopv4, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, loopv4, 0, NULL);
 			}
 
 			if (wantv6 != 0)
 			{
-				[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, loopv6, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, loopv6, 0, NULL);
 			}
 		}
-
-		[item release];
 	}
 
 	if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
@@ -2016,16 +2032,14 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		{
 			if (wantv4 != 0)
 			{
-				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, loopv4, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, loopv4, 0, NULL);
 			}
 
 			if (wantv6 != 0)
 			{
-				[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, loopv6, 0, NULL)];
+				new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, loopv6, 0, NULL);
 			}
 		}
-
-		[item release];
 	}
 
 	if ([res count] == 0)
@@ -2074,12 +2088,22 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	setcname = [dict intForKey:"canonname"];
 
 	numerichost = inet_pton(AF_INET, nodename, &a4);
-	if (numerichost != 0) family = PF_INET;
+	if (numerichost != 0)
+	{
+		/* Bail out if the family isn't what was specified */
+		if ((family != PF_INET) && (family != PF_UNSPEC)) return nil;
+		family = PF_INET;
+	}
 
 	if (numerichost == 0)
 	{
 		numerichost = inet_pton(AF_INET6, nodename, &a6);
-		if (numerichost != 0) family = PF_INET6;
+		if (numerichost != 0)
+		{
+			/* Bail out if the family isn't what was specified */
+			if ((family != PF_INET6) && (family != PF_UNSPEC)) return nil;
+			family = PF_INET6;
+		}
 	}
 
 	/* V4 mapped and compat addresses are converted to plain V4 */
@@ -2091,6 +2115,9 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			family = PF_INET;
 		}
 	}
+
+	/* Bail out if nodename is not numeric but AI_NUMERICHOST was specified. */
+	if ((numerichost == 0) && ([dict intForKey:"numerichost"] != 0)) return nil;
 
 	wantv4 = 1;
 	wantv6 = 1;
@@ -2106,22 +2133,16 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		{
 			if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL)
 			{
-				if (port == 0)
+				if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP) || (proto == IPPROTO_TCP))
 				{
-					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET, port, paddr, 0, NULL)];
+					if (proto != IPPROTO_TCP) new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL);
+					if (proto != IPPROTO_UDP) new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL);
 				}
 				else
 				{
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL)];
-					}
-
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL)];
-					}
+					new_addrinfo(res, 0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET, port, paddr, 0, NULL);
 				}
+
 				if (setcname != 0)
 				{
 					item = [self itemWithKey:"ip_address" value:paddr category:LUCategoryHost];
@@ -2142,21 +2163,14 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 			if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL)
 			{
-				if (port == 0)
+				if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP) || (proto == IPPROTO_TCP))
 				{
-					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET6, port, paddr, scopeid, NULL)];
+					if (proto != IPPROTO_TCP) new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL);
+					if (proto != IPPROTO_UDP) new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL);
 				}
 				else
 				{
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL)];
-					}
-
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL)];
-					}
+					new_addrinfo(res, 0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET6, port, paddr, 0, NULL);
 				}
 
 				if (setcname != 0)
@@ -2198,21 +2212,14 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			count = listLength(addrs);
 			for (i = 0; i < count; i++)
 			{
-				if (port == 0)
+				if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP) || (proto == IPPROTO_TCP))
 				{
-					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET, port, addrs[i], 0, NULL)];
+					if (proto != IPPROTO_TCP) new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, addrs[i], 0, NULL);
+					if (proto != IPPROTO_UDP) new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, addrs[i], 0, NULL);
 				}
 				else
 				{
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, addrs[i], 0, NULL)];
-					}
-
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, addrs[i], 0, NULL)];
-					}
+					new_addrinfo(res, 0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET, port, addrs[i], 0, NULL);
 				}
 			}
 
@@ -2222,7 +2229,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 	if (wantv6 != 0)
 	{
-		item = [self ipv6NodeWithName:nodename];
+		item = [self ipv6NodeWithName:nodename wantv4:NO];
 		if (item != nil)
 		{
 			if ((setcname != 0) && (cname == NULL)) cname = copyString([item valueForKey:"name"]);
@@ -2230,21 +2237,14 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			count = listLength(addrs);
 			for (i = 0; i < count; i++)
 			{
-				if (port == 0)
+				if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP) || (proto == IPPROTO_TCP))
 				{
-					[res addObject:new_addrinfo(0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET6, port, addrs[i], 0, NULL)];
+					if (proto != IPPROTO_TCP) new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, addrs[i], 0, NULL);
+					if (proto != IPPROTO_UDP) new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, addrs[i], 0, NULL);
 				}
 				else
 				{
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, addrs[i], 0, NULL)];
-					}
-
-					if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
-					{
-						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, addrs[i], 0, NULL)];
-					}
+					new_addrinfo(res, 0, SOCK_UNSPEC, IPPROTO_UNSPEC, PF_INET6, port, addrs[i], 0, NULL);
 				}
 			}
 
@@ -2298,9 +2298,13 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 		x = random();
 
 		inw = (x % 10000) * x;
+		val = NULL;
 		asprintf(&val, "%u", inw);
-		[initem setValue:val forKey:"weight"];
-		free(val);
+		if (val != NULL) 
+		{
+			[initem setValue:val forKey:"weight"];
+			free(val);
+		}
 	}
 
 	for (i = 0; i < incount; i++)
@@ -2379,15 +2383,24 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	setcname = [dict intForKey:"canonname"];
 
 	numerichost = inet_pton(AF_INET, nodename, &a4);
-	if (numerichost != 0) family = PF_INET;
-
+	if (numerichost != 0)
+	{
+		/* Bail out if the family isn't what was specified */
+		if ((family != PF_INET) && (family != PF_UNSPEC)) return nil;
+		family = PF_INET;
+	}
 
 	if (numerichost == 0)
 	{
 		numerichost = inet_pton(AF_INET6, nodename, &a6);
-		if (numerichost != 0) family = PF_INET6;
+		if (numerichost != 0)
+		{
+			/* Bail out if the family isn't what was specified */
+			if ((family != PF_INET6) && (family != PF_UNSPEC)) return nil;
+			family = PF_INET6;
+		}
 	}
-
+	
 	/* V4 mapped and compat addresses are converted to plain V4 */
 	if ((numerichost != 0) && (family == PF_INET6))
 	{
@@ -2397,6 +2410,9 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			family = PF_INET;
 		}
 	}
+
+	/* Bail out if nodename is not numeric but AI_NUMERICHOST was specified. */
+	if ((numerichost == 0) && ([dict intForKey:"numerichost"] != 0)) return nil;
 
 	wantv4 = 1;
 	wantv6 = 1;
@@ -2425,7 +2441,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 				{
 					if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL)
 					{
-						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL)];
+						new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port, paddr, 0, NULL);
 						if (setcname != 0)
 						{
 							item = [self itemWithKey:"ip_address" value:paddr category:LUCategoryHost];
@@ -2446,7 +2462,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 					if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL)
 					{
-						[res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL)];
+						new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port, paddr, scopeid, NULL);
 						if (setcname != 0)
 						{
 							item = [self itemWithKey:"ipv6_address" value:paddr category:LUCategoryHost];
@@ -2478,7 +2494,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 				{
 					if (inet_ntop(AF_INET, &a4, paddr, 64) != NULL)
 					{
-						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL)];
+						new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port, paddr, 0, NULL);
 					}
 				}
 
@@ -2490,7 +2506,7 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 					if (inet_ntop(AF_INET6, &a6, paddr, 64) != NULL)
 					{
-						[res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL)];
+						new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port, paddr, scopeid, NULL);
 					}
 				}
 			}
@@ -2675,8 +2691,8 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			len = listLength(hosts);
 			for (j = 0; j < len; j++)
 			{
-				if (got_udp != 0) [res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port_udp, hosts[j], 0, NULL)];
-				if (got_tcp != 0) [res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port_tcp, hosts[j], 0, NULL)];
+				if (got_udp != 0) new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET, port_udp, hosts[j], 0, NULL);
+				if (got_tcp != 0) new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET, port_tcp, hosts[j], 0, NULL);
 			}
 		}
 
@@ -2686,8 +2702,8 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 			len = listLength(hosts);
 			for (j = 0; j < len; j++)
 			{
-				if (got_udp != 0) [res addObject:new_addrinfo(0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port_udp, hosts[j], 0, NULL)];
-				if (got_tcp != 0) [res addObject:new_addrinfo(0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port_tcp, hosts[j], 0, NULL)];
+				if (got_udp != 0) new_addrinfo(res, 0, SOCK_DGRAM, IPPROTO_UDP, PF_INET6, port_udp, hosts[j], 0, NULL);
+				if (got_tcp != 0) new_addrinfo(res, 0, SOCK_STREAM, IPPROTO_TCP, PF_INET6, port_tcp, hosts[j], 0, NULL);
 			}
 		}
 	}
@@ -2713,6 +2729,18 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	return res;
 }
 
+- (LUArray *)gai_base:(LUDictionary *)dict
+{
+	char *nodename, *servname;
+
+	nodename = [dict valueForKey:"name"];
+	servname = [dict valueForKey:"service"];
+
+	if (nodename == NULL) return [self gai_service:servname info:dict];
+	if (servname == NULL) return [self gai_node:nodename port:0 info:dict];
+	return [self gai_node:nodename service:servname info:dict];
+}
+
 - (void)gai_async
 {
 	LUDictionary *dict;
@@ -2722,15 +2750,16 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 
 	me = [Thread currentThread];
 	[me setState:ThreadStateActive];
+	res = [me server];
+	list = nil;
 
 	dict = (LUDictionary *)[me data];
-	res = [me server];
 
 	s = [controller checkOutServer];
-	list = [s getaddrinfo:dict];
+	list = [s gai_base:dict];
 	[controller checkInServer:s];
 
-	if (list != nil) *res = list;
+	*res = list;
 
 	/* Signal the fact that we've finished */
 	[dict setNegative:YES];
@@ -2753,150 +2782,278 @@ new_addrinfo(uint32_t flags, uint32_t sock, uint32_t proto, uint32_t family, uin
 	[me terminateSelf];
 }
 
-- (LUArray *)getaddrinfo:(LUDictionary *)dict
+/*
+ * Serial search
+ */
+- (LUArray *)gai_serial:(LUDictionary *)dict type:(uint32_t)search
 {
-	char *nodename, *servname;
-	uint32_t i, count, family, wait, parallel, delta;
+	uint32_t i, count, wait, delta, family2;
+	Thread *main_thread, *worker;
+	LUArray *res, **res2;
+	LUDictionary *dict2;
+	struct timeval start;
+	uint32_t status;
+
+	if ((search == GAI_4) || (search == GAI_6))
+	{
+		family2 = [dict intForKey:"family"];
+		if (family2 == PF_UNSPEC)
+		{
+			if (search == GAI_4) [dict setInt:PF_INET forKey:"family"];
+			else [dict setInt:PF_INET6 forKey:"family"];
+		}
+
+		return [self gai_base:dict];
+	}
+
+	main_thread = [Thread currentThread];
+	res = nil;
+
+	if (search == GAI_S46)
+	{
+		[dict setInt:PF_INET forKey:"family"];
+		family2 = PF_INET6;
+	}
+	else
+	{
+		[dict setInt:PF_INET6 forKey:"family"];
+		family2 = PF_INET;
+	}
+
+	gettimeofday(&start, (struct timezone *)NULL);
+
+	res = [self gai_base:dict];
+
+	if (gai_wait == 0) return res;
+
+	if (res == nil)
+	{
+		[dict setInt:family2 forKey:"family"];
+		return [self gai_base:dict];
+	}
+
+	delta = milliseconds_since(start);
+	wait = ((delta * gai_wait) + (WAIT_FOR_PARALLEL_REPLY - 1)) / WAIT_FOR_PARALLEL_REPLY;
+	
+	dict2 = [dict copy];
+	[dict2 setInt:family2 forKey:"family"];
+
+	worker = [[Thread alloc] init];
+	[worker setName:"GAI SERIAL"];
+	res2 = (LUArray **)malloc(sizeof(LUArray *));
+	*res2 = nil;
+	[worker setServer:res2];
+	[worker setData:dict2];
+	status = GAI_SEARCHING;
+
+	[worker run:@selector(gai_async) context:self];
+
+	/*
+	 * Poll for results (checking isNegative), sleeping WAIT_FOR_PARALLEL_REPLY
+	 * milliseconds each time through the polling loop.  The (gai_wait * delta) timeout
+	 * for the second thread is also rounded up when we calculate the number of
+	 * loop iterations to wait for more data.  This gives the second thread
+	 * up to WAIT_FOR_PARALLEL_REPLY-1 extra milliseconds to complete.
+	 */
+	for (i = 0; i < wait; i++)
+	{
+		if ([dict isNegative]) break;
+		[main_thread usleep:WAIT_FOR_PARALLEL_REPLY];
+	}
+	
+	/* Merge results */
+	if (*res2 != nil)
+	{
+		count = [*res2 count];
+		if (res == nil) res = [[LUArray alloc] init];
+
+		for (i = 0; i < count; i++)
+		{
+			[res addObject:[*res2 objectAtIndex:i]];
+		}
+	}
+
+	[worker shouldTerminate:YES];
+
+	return res;
+}
+
+/*
+ * Parallel search for INET and INET6, with an adaptive
+ * timeout for the second search to deliver results.
+ *
+ * We spin off threads to do independent searches for each address family.
+ * The results are passed back here through res4 and res6.  The addresses
+ * for these are passed to the threads using the "server" variable (kludge #1).
+ * The search args (dict) is passed to the thread as its "data" variable
+ * (only a half-kludge, #1.5).  The threads use the "isNegative" setting of
+ * their dicts as a signal to inform this thread that they've finished
+ * (kludge #2.5).  After that they sleep.  This thread signals them to exit
+ * using shouldTerminate: so that we can copy out the data from res4 and res6.
+ * That allows us to abandon the second threads if it is taking too long.
+ * It will clean up after itself when it finishes its search.
+ */
+- (LUArray *)gai_parallel:(LUDictionary *)dict
+{
+	uint32_t i, count, wait, delta;
 	Thread *main_thread, *worker4, *worker6;
 	LUArray *res, **res4, **res6;
 	LUDictionary *dict4, *dict6;
 	struct timeval start;
-	BOOL finished4, finished6;
+	uint32_t status4, status6;
+
+	main_thread = [Thread currentThread];
+	res = nil;
+
+	worker4 = [[Thread alloc] init];
+	[worker4 setName:"GAI 4"];
+	res4 = (LUArray **)malloc(sizeof(LUArray *));
+	*res4 = nil;
+	dict4 = [dict copy];
+	[dict4 setInt:PF_INET forKey:"family"];
+	[worker4 setServer:res4];
+	[worker4 setData:dict4];
+	status4 = GAI_SEARCHING;
+
+	worker6 = [[Thread alloc] init];
+	[worker6 setName:"GAI 6"];
+	res6 = (LUArray **)malloc(sizeof(LUArray *));
+	*res6 = nil;
+	dict6 = [dict copy];
+	[dict6 setInt:PF_INET6 forKey:"family"];
+	[worker6 setServer:res6];
+	[worker6 setData:dict6];
+	status6 = GAI_SEARCHING;
+
+	delta = 0;
+	gettimeofday(&start, (struct timezone *)NULL);
+
+	[worker4 run:@selector(gai_async) context:self];
+	[worker6 run:@selector(gai_async) context:self];
+
+	/*
+	 * Now wait for data to appear.  When we get a positive result from either
+	 * thread, we wait for a while to let the other thread return its results.
+	 * The second thread gets an extra gai_wait * (time delta for first thread) to return
+	 * an answer, then we give up.
+	 *
+	 * We poll for results (checking isNegative), sleeping WAIT_FOR_PARALLEL_REPLY
+	 * milliseconds each time through the polling loop.  The (gai_wait * delta) timeout
+	 * for the second thread is also rounded up when we calculate the number of
+	 * loop iterations to wait for more data.  This gives the second thread
+	 * up to WAIT_FOR_PARALLEL_REPLY-1 extra milliseconds to complete.
+	 */
+	wait = 0;
+	forever
+	{
+		/* Avoid re-checking isNegative */
+		if ((status4 == GAI_SEARCHING) && [dict4 isNegative])
+		{
+			if (*res4 == nil) status4 = GAI_NO_DATA;
+			else status4 = GAI_GOT_DATA;
+		}
+
+		if ((status6 == GAI_SEARCHING) && [dict6 isNegative])
+		{
+			if (*res6 == nil) status6 = GAI_NO_DATA;
+			else status6 = GAI_GOT_DATA;
+	}
+
+		if ((status4 != GAI_SEARCHING) && (status6 != GAI_SEARCHING)) break;
+
+		if ((status4 == GAI_GOT_DATA) || (status6 == GAI_GOT_DATA))
+		{
+			if (gai_wait == 0) break;
+
+			if (delta == 0)
+			{
+				delta = milliseconds_since(start);
+				wait = ((delta * gai_wait) + (WAIT_FOR_PARALLEL_REPLY - 1)) / WAIT_FOR_PARALLEL_REPLY;
+			}
+
+			if (wait == 0) break;
+			wait--;
+		}
+
+		[main_thread usleep:WAIT_FOR_PARALLEL_REPLY];
+	}
+
+	/* Merge results */
+	if (status4 == GAI_GOT_DATA)
+	{
+		count = [*res4 count];
+		if (res == nil) res = [[LUArray alloc] init];
+
+		for (i = 0; i < count; i++)
+		{
+			[res addObject:[*res4 objectAtIndex:i]];
+		}
+	}
+
+	if (status6 == GAI_GOT_DATA)
+	{
+		count = [*res6 count];
+		if (res == nil) res = [[LUArray alloc] init];
+
+		for (i = 0; i < count; i++)
+		{
+			[res addObject:[*res6 objectAtIndex:i]];
+		}
+	}
+
+	[worker4 shouldTerminate:YES];
+	[worker6 shouldTerminate:YES];
+
+	return res;
+}
+
+/*
+ * Entry point for getaddrinfo.
+ *
+ * There are 5 possible getaddrinfo searches:
+ *
+ * GAI_4    Only look for IPv4 addresses
+ * GAI_6    Only look for IPv6 addresses
+ * GAI_S46  Serial IPv4 then IPv6 (the default - set in lookupd.m)
+ * GAI_S64  Serial IPv6 then IPv4
+ * GAI_P    Parallel IPv4 & IPv6
+ * 
+ * If family is PF_INET, we use GAI_4.
+ * If family is PF_INET6, we use GAI_6.
+ * If family is PF_UNSPEC, we decide which search to use based on the caller's
+ * setting of "parallel", which reflects the AI_PARALLEL flag in the API,
+ * and the setting of the gai_pref config option.
+ *
+ * If the caller set the AI_PARALLEL bit, we use GAI_P.
+ * Otherwise we use the setting of gai_pref.
+ *
+ * In the case of GAI_P, GAI_S46 and GAI_S64, gai_wait controls how long we'll
+ * long we wait after we get the first reply.  We measure the time taken for the
+ * first result (delta).  We wait for (gai_wait * delta) for the second reply.
+ */
+- (LUArray *)getaddrinfo:(LUDictionary *)dict
+{
+	uint32_t search, family, parallel;
 
 	/* N.B. Hints are checked in Libinfo. */
 
 	family = [dict intForKey:"family"];
 	parallel = [dict intForKey:"parallel"];
 
-	if ((family == 0) && (parallel_gai || (parallel != 0)))
+	search = gai_pref;
+	if (family == PF_INET) search = GAI_4;
+	else if (family == PF_INET6) search = GAI_6;
+	else if (parallel == 1) search = GAI_P;
+
+	/* If gai_wait is zero, we simplify */
+	if (gai_wait == 0)
 	{
-		/*
-		 * Parallel search for INET and INET6, with an adaptive
-		 * timeout for the second search to deliver results.
-		 *
-		 * We spin off threads to do independent searches for each address family.
-		 * The results are passed back here through res4 and res6.  The addresses
-		 * for these are passed to the threads using the "server" variable (kludge #1).
-		 * The search args (dict) is passed to the thread as its "data" variable
-		 * (only a half-kludge, #1.5).  The threads use the "isNegative" setting of
-		 * their dicts as a signal to inform this thread that they've finished
-		 * (kludge #2.5).  After that they sleep.  This thread signals them to exit
-		 * using shouldTerminate: so that we can copy out the data from res4 and res6.
-		 * That allows us to abandon the second threads if it is taking too long.
-		 * It will clean up after itself when it finishes its search.
-		 */
-		main_thread = [Thread currentThread];
-		res = nil;
-
-		worker4 = [[Thread alloc] init];
-		[worker4 setName:"GAI 4"];
-		res4 = (LUArray **)malloc(sizeof(LUArray *));
-		*res4 = nil;
-		dict4 = [dict copy];
-		[dict4 setInt:PF_INET forKey:"family"];
-		[worker4 setServer:res4];
-		[worker4 setData:dict4];
-		finished4 = NO;
-
-		worker6 = [[Thread alloc] init];
-		[worker6 setName:"GAI 6"];
-		res6 = (LUArray **)malloc(sizeof(LUArray *));
-		*res6 = nil;
-		dict6 = [dict copy];
-		[dict6 setInt:PF_INET6 forKey:"family"];
-		[worker6 setServer:res6];
-		[worker6 setData:dict6];
-		finished6 = NO;
-
-		delta = 0;
-		gettimeofday(&start, (struct timezone *)NULL);
-
-		[worker4 run:@selector(gai_async) context:self];
-		[worker6 run:@selector(gai_async) context:self];
-
-		/*
-		 * Now wait for data to appear.  When we get a positive result from either
-		 * thread, we wait for a while to let the other thread return its results.
-		 * The second thread gets an extra 2 * (time delta for first thread) to return
-		 * an answer, then we give up.
-		 *
-		 * We poll for results (checking isNegative), sleeping WAIT_FOR_PARALLEL_REPLY
-		 * milliseconds each time through the polling loop.  The 2*delta timeout
-		 * for the second thread is also rounded up when we calculate the number of
-		 * loop iterations to wait for more data.  This gives the second thread
-		 * up to WAIT_FOR_PARALLEL_REPLY-1 extra milliseconds to complete.
-		 */
-		wait = 0;
-		forever
-		{
-			/* Avoid re-checking isNegative */
-			if ((finished4 == NO) && [dict4 isNegative]) finished4 = YES;
-			if ((finished6 == NO) && [dict6 isNegative]) finished6 = YES;
-
-			if (finished4 && finished6) break;
-
-			if (finished4 || finished6)
-			{
-				if (delta == 0)
-				{
-					delta = milliseconds_since(start);
-					wait = ((delta * 2) + (WAIT_FOR_PARALLEL_REPLY - 1)) / WAIT_FOR_PARALLEL_REPLY;
-				}
-
-				if (wait == 0) break;
-				wait--;
-			}
-
-			[main_thread usleep:WAIT_FOR_PARALLEL_REPLY];
-		}
-
-		/* Merge results */
-		if (finished4)
-		{
-			count = 0;
-
-			if (*res4 != nil)
-			{
-				count = [*res4 count];
-				if (res == nil) res = [[LUArray alloc] init];
-			}
-
-			for (i = 0; i < count; i++)
-			{
-				[res addObject:[*res4 objectAtIndex:i]];
-			}
-		}
-
-		if (finished6)
-		{
-			count = 0;
-
-			if (*res6 != nil)
-			{
-				count = [*res6 count];
-				if (res == nil) res = [[LUArray alloc] init];
-			}
-
-			for (i = 0; i < count; i++)
-			{
-				[res addObject:[*res6 objectAtIndex:i]];
-			}
-		}
-
-		[worker4 shouldTerminate:YES];
-		[worker6 shouldTerminate:YES];
-
-		return res;
+		if (search == GAI_S46) search = GAI_4;
+		else if (search == GAI_S64) search = GAI_6;
 	}
 
-	/* Normal getaddrinfo begins here */
-
-	nodename = [dict valueForKey:"name"];
-	servname = [dict valueForKey:"service"];
-
-	if (nodename == NULL) return [self gai_service:servname info:dict];
-	if (servname == NULL) return [self gai_node:nodename port:0 info:dict];
-	return [self gai_node:nodename service:servname info:dict];
+	if (search == GAI_P) return [self gai_parallel:dict];
+	return [self gai_serial:dict type:search];
 }
 
 /*

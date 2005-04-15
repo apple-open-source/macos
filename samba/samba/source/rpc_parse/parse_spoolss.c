@@ -269,7 +269,7 @@ static BOOL smb_io_notify_option_type_ctr(const char *desc, SPOOL_NOTIFY_OPTION_
 
 	/* reading */
 	if (UNMARSHALLING(ps))
-		if((ctr->type=(SPOOL_NOTIFY_OPTION_TYPE *)prs_alloc_mem(ps,ctr->count*sizeof(SPOOL_NOTIFY_OPTION_TYPE))) == NULL)
+		if((ctr->type=PRS_ALLOC_MEM(ps,SPOOL_NOTIFY_OPTION_TYPE,ctr->count)) == NULL)
 			return False;
 		
 	/* the option type struct */
@@ -421,19 +421,19 @@ BOOL smb_io_notify_info_data_strings(const char *desc,SPOOL_NOTIFY_INFO_DATA *da
 
 	case NOTIFY_STRING:
 
-		if (UNMARSHALLING(ps)) {
-			data->notify_data.data.string = 
-				(uint16 *)prs_alloc_mem(ps, data->notify_data.data.length);
-
-			if (!data->notify_data.data.string) 
-				return False;
-		}
-
 		if (MARSHALLING(ps))
 			data->notify_data.data.length /= 2;
 
 		if(!prs_uint32("string length", ps, depth, &data->notify_data.data.length))
 			return False;
+
+		if (UNMARSHALLING(ps)) {
+			data->notify_data.data.string = PRS_ALLOC_MEM(ps, uint16,
+								data->notify_data.data.length);
+
+			if (!data->notify_data.data.string) 
+				return False;
+		}
 
 		if (!prs_uint16uni(True, "string", ps, depth, data->notify_data.data.string,
 				   data->notify_data.data.length))
@@ -447,8 +447,8 @@ BOOL smb_io_notify_info_data_strings(const char *desc,SPOOL_NOTIFY_INFO_DATA *da
 	case NOTIFY_POINTER:
 
 		if (UNMARSHALLING(ps)) {
-			data->notify_data.data.string = 
-				(uint16 *)prs_alloc_mem(ps, data->notify_data.data.length);
+			data->notify_data.data.string = PRS_ALLOC_MEM(ps, uint16,
+								data->notify_data.data.length);
 
 			if (!data->notify_data.data.string) 
 				return False;
@@ -506,7 +506,7 @@ BOOL smb_io_notify_info_data_strings(const char *desc,SPOOL_NOTIFY_INFO_DATA *da
 
 			/* Tallocate memory for string */
 
-			data->notify_data.data.string = (uint16 *)prs_alloc_mem(ps, x * 2);
+			data->notify_data.data.string = PRS_ALLOC_MEM(ps, uint16, x * 2);
 			if (!data->notify_data.data.string) 
 				return False;
 
@@ -679,7 +679,7 @@ BOOL spoolss_io_devmode(const char *desc, prs_struct *ps, int depth, DEVICEMODE 
 	depth++;
 
 	if (UNMARSHALLING(ps)) {
-		devmode->devicename.buffer = (uint16 *)prs_alloc_mem(ps, 32 * sizeof(uint16) );
+		devmode->devicename.buffer = PRS_ALLOC_MEM(ps, uint16, 32);
 		if (devmode->devicename.buffer == NULL)
 			return False;
 	}
@@ -745,7 +745,7 @@ BOOL spoolss_io_devmode(const char *desc, prs_struct *ps, int depth, DEVICEMODE 
 		return False;
 
 	if (UNMARSHALLING(ps)) {
-		devmode->formname.buffer = (uint16 *)prs_alloc_mem(ps, 32 * sizeof(uint16) );
+		devmode->formname.buffer = PRS_ALLOC_MEM(ps, uint16, 32);
 		if (devmode->formname.buffer == NULL)
 			return False;
 	}
@@ -810,7 +810,7 @@ BOOL spoolss_io_devmode(const char *desc, prs_struct *ps, int depth, DEVICEMODE 
 
 	if (devmode->driverextra!=0) {
 		if (UNMARSHALLING(ps)) {
-			devmode->private=(uint8 *)prs_alloc_mem(ps, devmode->driverextra*sizeof(uint8));
+			devmode->private=PRS_ALLOC_MEM(ps, uint8, devmode->driverextra);
 			if(devmode->private == NULL)
 				return False;
 			DEBUG(7,("spoolss_io_devmode: allocated memory [%d] for private\n",devmode->driverextra)); 
@@ -856,7 +856,7 @@ static BOOL spoolss_io_devmode_cont(const char *desc, DEVMODE_CTR *dm_c, prs_str
 	/* so we have a DEVICEMODE to follow */		
 	if (UNMARSHALLING(ps)) {
 		DEBUG(9,("Allocating memory for spoolss_io_devmode\n"));
-		dm_c->devmode=(DEVICEMODE *)prs_alloc_mem(ps,sizeof(DEVICEMODE));
+		dm_c->devmode=PRS_ALLOC_MEM(ps,DEVICEMODE,1);
 		if(dm_c->devmode == NULL)
 			return False;
 	}
@@ -1010,7 +1010,7 @@ BOOL make_spoolss_printer_info_2(TALLOC_CTX *mem_ctx, SPOOL_PRINTER_INFO_LEVEL_2
 	SPOOL_PRINTER_INFO_LEVEL_2 *inf;
 
 	/* allocate the necessary memory */
-	if (!(inf=(SPOOL_PRINTER_INFO_LEVEL_2*)talloc(mem_ctx, sizeof(SPOOL_PRINTER_INFO_LEVEL_2)))) {
+	if (!(inf=TALLOC_P(mem_ctx, SPOOL_PRINTER_INFO_LEVEL_2))) {
 		DEBUG(0,("make_spoolss_printer_info_2: Unable to allocate SPOOL_PRINTER_INFO_LEVEL_2 sruct!\n"));
 		return False;
 	}
@@ -1049,6 +1049,54 @@ BOOL make_spoolss_printer_info_2(TALLOC_CTX *mem_ctx, SPOOL_PRINTER_INFO_LEVEL_2
 	init_unistr2_from_unistr(&inf->datatype, 	&info->datatype);
 
 	*spool_info2 = inf;
+
+	return True;
+}
+
+/*******************************************************************
+create a SPOOL_PRINTER_INFO_3 struct from a PRINTER_INFO_3 struct
+*******************************************************************/
+
+BOOL make_spoolss_printer_info_3(TALLOC_CTX *mem_ctx, SPOOL_PRINTER_INFO_LEVEL_3 **spool_info3, 
+				PRINTER_INFO_3 *info)
+{
+
+	SPOOL_PRINTER_INFO_LEVEL_3 *inf;
+
+	/* allocate the necessary memory */
+	if (!(inf=TALLOC_P(mem_ctx, SPOOL_PRINTER_INFO_LEVEL_3))) {
+		DEBUG(0,("make_spoolss_printer_info_3: Unable to allocate SPOOL_PRINTER_INFO_LEVEL_3 sruct!\n"));
+		return False;
+	}
+	
+	inf->secdesc_ptr 	= (info->secdesc!=NULL)?1:0;
+
+	*spool_info3 = inf;
+
+	return True;
+}
+
+/*******************************************************************
+create a SPOOL_PRINTER_INFO_7 struct from a PRINTER_INFO_7 struct
+*******************************************************************/
+
+BOOL make_spoolss_printer_info_7(TALLOC_CTX *mem_ctx, SPOOL_PRINTER_INFO_LEVEL_7 **spool_info7, 
+				PRINTER_INFO_7 *info)
+{
+
+	SPOOL_PRINTER_INFO_LEVEL_7 *inf;
+
+	/* allocate the necessary memory */
+	if (!(inf=TALLOC_P(mem_ctx, SPOOL_PRINTER_INFO_LEVEL_7))) {
+		DEBUG(0,("make_spoolss_printer_info_7: Unable to allocate SPOOL_PRINTER_INFO_LEVEL_7 struct!\n"));
+		return False;
+	}
+
+	inf->guid_ptr	 	= (info->guid.buffer!=NULL)?1:0;
+	inf->action		= info->action;
+	init_unistr2_from_unistr(&inf->guid,	 	&info->guid);
+
+	*spool_info7 = inf;
 
 	return True;
 }
@@ -1169,6 +1217,36 @@ BOOL spoolss_io_r_open_printer_ex(const char *desc, SPOOL_R_OPEN_PRINTER_EX *r_u
 
 	return True;
 }
+
+/*******************************************************************
+ * init a structure.
+ ********************************************************************/
+BOOL make_spoolss_q_deleteprinterdriverex( TALLOC_CTX *mem_ctx,
+                                           SPOOL_Q_DELETEPRINTERDRIVEREX *q_u, 
+                                           const char *server,
+                                           const char* arch, 
+                                           const char* driver,
+                                           uint32 version)
+{
+	DEBUG(5,("make_spoolss_q_deleteprinterdriverex\n"));
+ 
+	q_u->server_ptr = (server!=NULL)?1:0;
+	q_u->delete_flags = DPD_DELETE_UNUSED_FILES;
+ 
+	/* these must be NULL terminated or else NT4 will
+	   complain about invalid parameters --jerry */
+	init_unistr2(&q_u->server, server, UNI_STR_TERMINATE);
+	init_unistr2(&q_u->arch, arch, UNI_STR_TERMINATE);
+	init_unistr2(&q_u->driver, driver, UNI_STR_TERMINATE);
+
+	if (version >= 0) { 
+		q_u->delete_flags |= DPD_DELETE_SPECIFIC_VERSION;
+		q_u->version = version;
+	}
+
+	return True;
+}
+
 
 /*******************************************************************
  * init a structure.
@@ -1366,7 +1444,7 @@ BOOL spoolss_io_r_getprinterdata(const char *desc, SPOOL_R_GETPRINTERDATA *r_u, 
 		return False;
 	
 	if (UNMARSHALLING(ps) && r_u->size) {
-		r_u->data = (unsigned char *)prs_alloc_mem(ps, r_u->size);
+		r_u->data = PRS_ALLOC_MEM(ps, unsigned char, r_u->size);
 		if(!r_u->data)
 			return False;
 	}
@@ -1807,7 +1885,7 @@ BOOL spoolss_io_q_writeprinter(const char *desc, SPOOL_Q_WRITEPRINTER *q_u, prs_
 	if (q_u->buffer_size!=0)
 	{
 		if (UNMARSHALLING(ps))
-			q_u->buffer=(uint8 *)prs_alloc_mem(ps,q_u->buffer_size*sizeof(uint8));
+			q_u->buffer=PRS_ALLOC_MEM(ps, uint8, q_u->buffer_size);
 		if(q_u->buffer == NULL)
 			return False;	
 		if(!prs_uint8s(True, "buffer", ps, depth, q_u->buffer, q_u->buffer_size))
@@ -1874,7 +1952,7 @@ BOOL spoolss_io_q_rffpcnex(const char *desc, SPOOL_Q_RFFPCNEX *q_u, prs_struct *
 	if (q_u->option_ptr!=0) {
 	
 		if (UNMARSHALLING(ps))
-			if((q_u->option=(SPOOL_NOTIFY_OPTION *)prs_alloc_mem(ps,sizeof(SPOOL_NOTIFY_OPTION))) == NULL)
+			if((q_u->option=PRS_ALLOC_MEM(ps,SPOOL_NOTIFY_OPTION,1)) == NULL)
 				return False;
 	
 		if(!smb_io_notify_option("notify option", q_u->option, ps, depth))
@@ -1925,7 +2003,7 @@ BOOL spoolss_io_q_rfnpcnex(const char *desc, SPOOL_Q_RFNPCNEX *q_u, prs_struct *
 	if (q_u->option_ptr!=0) {
 	
 		if (UNMARSHALLING(ps))
-			if((q_u->option=(SPOOL_NOTIFY_OPTION *)prs_alloc_mem(ps,sizeof(SPOOL_NOTIFY_OPTION))) == NULL)
+			if((q_u->option=PRS_ALLOC_MEM(ps,SPOOL_NOTIFY_OPTION,1)) == NULL)
 				return False;
 	
 		if(!smb_io_notify_option("notify option", q_u->option, ps, depth))
@@ -2151,7 +2229,7 @@ static BOOL smb_io_relarraystr(const char *desc, NEW_BUFFER *buffer, int depth, 
 
 			/* Yes this should be malloc not talloc. Don't change. */
 
-			chaine.buffer = malloc((q-p+1)*sizeof(uint16));
+			chaine.buffer = SMB_MALLOC((q-p+1)*sizeof(uint16));
 			if (chaine.buffer == NULL)
 				return False;
 
@@ -2220,7 +2298,7 @@ static BOOL smb_io_relarraystr(const char *desc, NEW_BUFFER *buffer, int depth, 
 
 				/* Yes this should be realloc - it's freed below. JRA */
 
-				if((tc2=(uint16 *)Realloc(chaine2, realloc_size)) == NULL) {
+				if((tc2=(uint16 *)SMB_REALLOC(chaine2, realloc_size)) == NULL) {
 					SAFE_FREE(chaine2);
 					return False;
 				}
@@ -2236,7 +2314,7 @@ static BOOL smb_io_relarraystr(const char *desc, NEW_BUFFER *buffer, int depth, 
 		if (chaine2)
 		{
 			chaine2[l_chaine2] = '\0';
-			*string=(uint16 *)talloc_memdup(prs_get_mem_context(ps),chaine2,realloc_size);
+			*string=(uint16 *)TALLOC_MEMDUP(prs_get_mem_context(ps),chaine2,realloc_size);
 			SAFE_FREE(chaine2);
 		}
 
@@ -2364,7 +2442,7 @@ static BOOL smb_io_reldevmode(const char *desc, NEW_BUFFER *buffer, int depth, D
 			return False;
 
 		/* read the string */
-		if((*devmode=(DEVICEMODE *)prs_alloc_mem(ps,sizeof(DEVICEMODE))) == NULL)
+		if((*devmode=PRS_ALLOC_MEM(ps,DEVICEMODE,1)) == NULL)
 			return False;
 		if (!spoolss_io_devmode(desc, ps, depth, *devmode))
 			return False;
@@ -3036,7 +3114,7 @@ static BOOL spoolss_io_buffer(const char *desc, prs_struct *ps, int depth, NEW_B
 	depth++;
 	
 	if (UNMARSHALLING(ps))
-		buffer = *pp_buffer = (NEW_BUFFER *)prs_alloc_mem(ps, sizeof(NEW_BUFFER));
+		buffer = *pp_buffer = PRS_ALLOC_MEM(ps, NEW_BUFFER, 1);
 
 	if (buffer == NULL)
 		return False;
@@ -4094,7 +4172,7 @@ BOOL make_spoolss_q_setprinter(TALLOC_CTX *mem_ctx, SPOOL_Q_SETPRINTER *q_u,
 		
 		make_spoolss_printer_info_2 (mem_ctx, &q_u->info.info_2, info->printers_2);
 #if 1	/* JERRY TEST */
-		q_u->secdesc_ctr = (SEC_DESC_BUF*)malloc(sizeof(SEC_DESC_BUF));
+		q_u->secdesc_ctr = SMB_MALLOC_P(SEC_DESC_BUF);
 		if (!q_u->secdesc_ctr)
 			return False;
 		q_u->secdesc_ctr->ptr = (secdesc != NULL) ? 1: 0;
@@ -4113,6 +4191,24 @@ BOOL make_spoolss_q_setprinter(TALLOC_CTX *mem_ctx, SPOOL_Q_SETPRINTER *q_u,
 		q_u->devmode_ctr.devmode = NULL;
 #endif
 		break;
+	case 3:
+		secdesc = info->printers_3->secdesc;
+		
+		make_spoolss_printer_info_3 (mem_ctx, &q_u->info.info_3, info->printers_3);
+		
+		q_u->secdesc_ctr = SMB_MALLOC_P(SEC_DESC_BUF);
+		if (!q_u->secdesc_ctr)
+			return False;
+		q_u->secdesc_ctr->ptr = (secdesc != NULL) ? 1: 0;
+		q_u->secdesc_ctr->max_len = (secdesc) ? sizeof(SEC_DESC) + (2*sizeof(uint32)) : 0;
+		q_u->secdesc_ctr->len = (secdesc) ? sizeof(SEC_DESC) + (2*sizeof(uint32)) : 0;
+		q_u->secdesc_ctr->sec = secdesc;
+
+		break;
+	case 7:
+		make_spoolss_printer_info_7 (mem_ctx, &q_u->info.info_7, info->printers_7);
+		break;
+
 	default: 
 		DEBUG(0,("make_spoolss_q_setprinter: Unknown info level [%d]\n", level));
 			break;
@@ -4915,7 +5011,7 @@ BOOL spool_io_printer_info_level(const char *desc, SPOOL_PRINTER_INFO_LEVEL *il,
 		case 1:
 		{
 			if (UNMARSHALLING(ps)) {
-				if ((il->info_1=(SPOOL_PRINTER_INFO_LEVEL_1 *)prs_alloc_mem(ps,sizeof(SPOOL_PRINTER_INFO_LEVEL_1))) == NULL)
+				if ((il->info_1=PRS_ALLOC_MEM(ps,SPOOL_PRINTER_INFO_LEVEL_1,1)) == NULL)
 					return False;
 			}
 			if (!spool_io_printer_info_level_1("", il->info_1, ps, depth))
@@ -4928,7 +5024,7 @@ BOOL spool_io_printer_info_level(const char *desc, SPOOL_PRINTER_INFO_LEVEL *il,
 		 */	
 		case 2:
 			if (UNMARSHALLING(ps)) {
-				if ((il->info_2=(SPOOL_PRINTER_INFO_LEVEL_2 *)prs_alloc_mem(ps,sizeof(SPOOL_PRINTER_INFO_LEVEL_2))) == NULL)
+				if ((il->info_2=PRS_ALLOC_MEM(ps,SPOOL_PRINTER_INFO_LEVEL_2,1)) == NULL)
 					return False;
 			}
 			if (!spool_io_printer_info_level_2("", il->info_2, ps, depth))
@@ -4938,7 +5034,7 @@ BOOL spool_io_printer_info_level(const char *desc, SPOOL_PRINTER_INFO_LEVEL *il,
 		case 3:
 		{
 			if (UNMARSHALLING(ps)) {
-				if ((il->info_3=(SPOOL_PRINTER_INFO_LEVEL_3 *)prs_alloc_mem(ps,sizeof(SPOOL_PRINTER_INFO_LEVEL_3))) == NULL)
+				if ((il->info_3=PRS_ALLOC_MEM(ps,SPOOL_PRINTER_INFO_LEVEL_3,1)) == NULL)
 					return False;
 			}
 			if (!spool_io_printer_info_level_3("", il->info_3, ps, depth))
@@ -4947,7 +5043,7 @@ BOOL spool_io_printer_info_level(const char *desc, SPOOL_PRINTER_INFO_LEVEL *il,
 		}
 		case 7:
 			if (UNMARSHALLING(ps))
-				if ((il->info_7=(SPOOL_PRINTER_INFO_LEVEL_7 *)prs_alloc_mem(ps,sizeof(SPOOL_PRINTER_INFO_LEVEL_7))) == NULL)
+				if ((il->info_7=PRS_ALLOC_MEM(ps,SPOOL_PRINTER_INFO_LEVEL_7,1)) == NULL)
 					return False;
 			if (!spool_io_printer_info_level_7("", il->info_7, ps, depth))
 				return False;
@@ -5052,7 +5148,7 @@ BOOL spool_io_printer_driver_info_level_3(const char *desc, SPOOL_PRINTER_DRIVER
 		
 	/* reading */
 	if (UNMARSHALLING(ps)) {
-		il=(SPOOL_PRINTER_DRIVER_INFO_LEVEL_3 *)prs_alloc_mem(ps,sizeof(SPOOL_PRINTER_DRIVER_INFO_LEVEL_3));
+		il=PRS_ALLOC_MEM(ps,SPOOL_PRINTER_DRIVER_INFO_LEVEL_3,1);
 		if(il == NULL)
 			return False;
 		*q_u=il;
@@ -5130,7 +5226,7 @@ BOOL spool_io_printer_driver_info_level_6(const char *desc, SPOOL_PRINTER_DRIVER
 		
 	/* reading */
 	if (UNMARSHALLING(ps)) {
-		il=(SPOOL_PRINTER_DRIVER_INFO_LEVEL_6 *)prs_alloc_mem(ps,sizeof(SPOOL_PRINTER_DRIVER_INFO_LEVEL_6));
+		il=PRS_ALLOC_MEM(ps,SPOOL_PRINTER_DRIVER_INFO_LEVEL_6,1);
 		if(il == NULL)
 			return False;
 		*q_u=il;
@@ -5289,7 +5385,7 @@ static BOOL uniarray_2_dosarray(BUFFER5 *buf5, fstring **ar)
 	while (src < ((char *)buf5->buffer) + buf5->buf_len*2) {
 		rpcstr_pull(f, src, sizeof(f)-1, -1, STR_TERMINATE);
 		src = skip_unibuf(src, 2*buf5->buf_len - PTR_DIFF(src,buf5->buffer));
-		tar = (fstring *)Realloc(*ar, sizeof(fstring)*(n+2));
+		tar = SMB_REALLOC_ARRAY(*ar, fstring, n+2);
 		if (!tar)
 			return False;
 		else
@@ -5403,7 +5499,7 @@ BOOL make_spoolss_driver_info_3(TALLOC_CTX *mem_ctx,
 	BOOL		null_char = False;
 	SPOOL_PRINTER_DRIVER_INFO_LEVEL_3 *inf;
 
-	if (!(inf=(SPOOL_PRINTER_DRIVER_INFO_LEVEL_3*)talloc_zero(mem_ctx, sizeof(SPOOL_PRINTER_DRIVER_INFO_LEVEL_3))))
+	if (!(inf=TALLOC_ZERO_P(mem_ctx, SPOOL_PRINTER_DRIVER_INFO_LEVEL_3)))
 		return False;
 	
 	inf->cversion	= info3->version;
@@ -5466,8 +5562,7 @@ BOOL make_spoolss_buffer5(TALLOC_CTX *mem_ctx, BUFFER5 *buf5, uint32 len, uint16
 {
 
 	buf5->buf_len = len;
-	if((buf5->buffer=(uint16*)talloc_memdup(mem_ctx, src, sizeof(uint16)*len)) == NULL)
-	{
+	if((buf5->buffer=(uint16*)TALLOC_MEMDUP(mem_ctx, src, sizeof(uint16)*len)) == NULL) {
 		DEBUG(0,("make_spoolss_buffer5: Unable to malloc memory for buffer!\n"));
 		return False;
 	}
@@ -5576,7 +5671,7 @@ BOOL uni_2_asc_printer_driver_3(SPOOL_PRINTER_DRIVER_INFO_LEVEL_3 *uni,
 	
 	if (*asc==NULL)
 	{
-		*asc=(NT_PRINTER_DRIVER_INFO_LEVEL_3 *)malloc(sizeof(NT_PRINTER_DRIVER_INFO_LEVEL_3));
+		*asc=SMB_MALLOC_P(NT_PRINTER_DRIVER_INFO_LEVEL_3);
 		if(*asc == NULL)
 			return False;
 		ZERO_STRUCTP(*asc);
@@ -5623,7 +5718,7 @@ BOOL uni_2_asc_printer_driver_6(SPOOL_PRINTER_DRIVER_INFO_LEVEL_6 *uni,
 	
 	if (*asc==NULL)
 	{
-		*asc=(NT_PRINTER_DRIVER_INFO_LEVEL_6 *)malloc(sizeof(NT_PRINTER_DRIVER_INFO_LEVEL_6));
+		*asc=SMB_MALLOC_P(NT_PRINTER_DRIVER_INFO_LEVEL_6);
 		if(*asc == NULL)
 			return False;
 		ZERO_STRUCTP(*asc);
@@ -5676,7 +5771,7 @@ BOOL uni_2_asc_printer_info_2(const SPOOL_PRINTER_INFO_LEVEL_2 *uni,
 	if (*asc==NULL) {
 		DEBUGADD(8,("allocating memory\n"));
 
-		*asc=(NT_PRINTER_INFO_LEVEL_2 *)malloc(sizeof(NT_PRINTER_INFO_LEVEL_2));
+		*asc=SMB_MALLOC_P(NT_PRINTER_INFO_LEVEL_2);
 		if(*asc == NULL)
 			return False;
 		ZERO_STRUCTP(*asc);
@@ -6072,7 +6167,7 @@ BOOL spoolss_io_r_enumprinterdata(const char *desc, SPOOL_R_ENUMPRINTERDATA *r_u
 		return False;
 
 	if (UNMARSHALLING(ps) && r_u->valuesize) {
-		r_u->value = (uint16 *)prs_alloc_mem(ps, r_u->valuesize * 2);
+		r_u->value = PRS_ALLOC_MEM(ps, uint16, r_u->valuesize);
 		if (!r_u->value) {
 			DEBUG(0, ("spoolss_io_r_enumprinterdata: out of memory for printerdata value\n"));
 			return False;
@@ -6095,7 +6190,7 @@ BOOL spoolss_io_r_enumprinterdata(const char *desc, SPOOL_R_ENUMPRINTERDATA *r_u
 		return False;
 
 	if (UNMARSHALLING(ps) && r_u->datasize) {
-		r_u->data = (uint8 *)prs_alloc_mem(ps, r_u->datasize);
+		r_u->data = PRS_ALLOC_MEM(ps, uint8, r_u->datasize);
 		if (!r_u->data) {
 			DEBUG(0, ("spoolss_io_r_enumprinterdata: out of memory for printerdata data\n"));
 			return False;
@@ -6230,7 +6325,7 @@ BOOL spoolss_io_q_setprinterdata(const char *desc, SPOOL_Q_SETPRINTERDATA *q_u, 
 		case REG_MULTI_SZ:
             if (q_u->max_len) {
                 if (UNMARSHALLING(ps))
-    				q_u->data=(uint8 *)prs_alloc_mem(ps, q_u->max_len * sizeof(uint8));
+    				q_u->data=PRS_ALLOC_MEM(ps, uint8, q_u->max_len);
     			if(q_u->data == NULL)
     				return False;
     			if(!prs_uint8s(False,"data", ps, depth, q_u->data, q_u->max_len))
@@ -6789,7 +6884,7 @@ static BOOL copy_spool_notify_info_data(SPOOL_NOTIFY_INFO_DATA *dst,
 		if (src->size != POINTER) 
 			continue;
 		len = src->notify_data.data.length;
-		s = malloc(sizeof(uint16)*len);
+		s = SMB_MALLOC_ARRAY(uint16, len);
 		if (s == NULL) {
 			DEBUG(0,("copy_spool_notify_info_data: malloc() failed!\n"));
 			return False;
@@ -6818,7 +6913,7 @@ static BOOL copy_spool_notify_info(SPOOL_NOTIFY_INFO *dst, SPOOL_NOTIFY_INFO *sr
 	
 	if (dst->count) 
 	{
-		dst->data = malloc(dst->count * sizeof(SPOOL_NOTIFY_INFO_DATA));
+		dst->data = SMB_MALLOC_ARRAY(SPOOL_NOTIFY_INFO_DATA, dst->count);
 		
 		DEBUG(10,("copy_spool_notify_info: allocating space for [%d] PRINTER_NOTIFY_INFO_DATA entries\n",
 			dst->count));
@@ -6988,7 +7083,7 @@ BOOL spoolss_io_r_getprinterdataex(const char *desc, SPOOL_R_GETPRINTERDATAEX *r
 		return False;
 	
 	if (UNMARSHALLING(ps) && r_u->size) {
-		r_u->data = (unsigned char *)prs_alloc_mem(ps, r_u->size);
+		r_u->data = PRS_ALLOC_MEM(ps, unsigned char, r_u->size);
 		if(!r_u->data)
 			return False;
 	}
@@ -7046,7 +7141,7 @@ BOOL spoolss_io_q_setprinterdataex(const char *desc, SPOOL_Q_SETPRINTERDATAEX *q
 		case 0x7:
 			if (q_u->max_len) {
 				if (UNMARSHALLING(ps))
-    					q_u->data=(uint8 *)prs_alloc_mem(ps, q_u->max_len * sizeof(uint8));
+    					q_u->data=PRS_ALLOC_MEM(ps, uint8, q_u->max_len);
     				if(q_u->data == NULL)
     					return False;
     				if(!prs_uint8s(False,"data", ps, depth, q_u->data, q_u->max_len))
@@ -7254,8 +7349,7 @@ static BOOL spoolss_io_printer_enum_values_ctr(const char *desc, prs_struct *ps,
 	/* first loop to write basic enum_value information */
 	
 	if (UNMARSHALLING(ps)) {
-		ctr->values = (PRINTER_ENUM_VALUES *)prs_alloc_mem(
-			ps, ctr->size_of_array * sizeof(PRINTER_ENUM_VALUES));
+		ctr->values = PRS_ALLOC_MEM(ps, PRINTER_ENUM_VALUES, ctr->size_of_array);
 		if (!ctr->values)
 			return False;
 	}
@@ -7296,8 +7390,7 @@ static BOOL spoolss_io_printer_enum_values_ctr(const char *desc, prs_struct *ps,
 		
 		if ( ctr->values[i].data_len ) {
 			if ( UNMARSHALLING(ps) ) {
-				ctr->values[i].data = (uint8 *)prs_alloc_mem(
-					ps, ctr->values[i].data_len);
+				ctr->values[i].data = PRS_ALLOC_MEM(ps, uint8, ctr->values[i].data_len);
 				if (!ctr->values[i].data)
 					return False;
 			}
@@ -7358,7 +7451,7 @@ BOOL spoolss_io_r_enumprinterdataex(const char *desc, SPOOL_R_ENUMPRINTERDATAEX 
 
 	if (!prs_set_offset(ps, end_offset))
 		return False;
-																	        	return True;
+	return True;
 }
 
 /*******************************************************************

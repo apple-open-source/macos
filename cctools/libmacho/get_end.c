@@ -20,9 +20,18 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
+#include <string.h>
 #include <mach-o/ldsyms.h>
+#include <mach-o/getsect.h>
 #ifndef __OPENSTEP__
+
+#ifdef __LP64__
+extern struct mach_header_64 *_NSGetMachExecuteHeader(void);
+#else /* !defined(__LP64__) */
 #include <crt_externs.h>
+#endif /* !defined(__LP64__) */
+
 #else /* defined(__OPENSTEP__) */
 #ifdef __DYNAMIC__
 #include "mach-o/dyld.h" /* defines _dyld_lookup_and_bind() */
@@ -46,8 +55,6 @@ if ( var ## _pointer == 0) {				\
 #endif
 #endif /* __OPENSTEP__ */
 
-extern struct section *getsectbyname(char *segname, char *sectname);
-
 /*
  * This routine returns the highest address of the segments in the program (NOT
  * the shared libraries).  It is intended to be used as a stop gap for programs
@@ -61,16 +68,17 @@ extern struct section *getsectbyname(char *segname, char *sectname);
 unsigned long
 get_end(void)
 {
-    static struct mach_header *mhp = (struct mach_header *)0;
+#ifndef __LP64__
+
+    static struct mach_header *mhp = NULL;
     struct segment_command *sgp;
     unsigned long i, _end;
 #ifndef __OPENSTEP__
-	if (mhp  == (struct mach_header *)0) {
+	if(mhp == NULL)
 	    mhp = _NSGetMachExecuteHeader();
-	}
 #else /* defined(__OPENSTEP__) */
-    DECLARE_VAR(_mh_execute_header, struct mach_header);
-    SETUP_VAR(_mh_execute_header);
+	DECLARE_VAR(_mh_execute_header, struct mach_header);
+	SETUP_VAR(_mh_execute_header);
 
 	mhp = (struct mach_header *)(& USE_VAR(_mh_execute_header));
 #endif /* __OPENSTEP__ */
@@ -84,6 +92,27 @@ get_end(void)
 	    sgp = (struct segment_command *)((char *)sgp + sgp->cmdsize);
 	}
 	return(_end);
+
+#else /* defined(__LP64__) */
+
+    static struct mach_header_64 *mhp = NULL;
+    struct segment_command_64 *sgp;
+    unsigned long i, _end;
+
+	if(mhp == NULL)
+	    mhp = _NSGetMachExecuteHeader();
+	_end = 0;
+	sgp = (struct segment_command_64 *)
+	      ((char *)mhp + sizeof(struct mach_header_64));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT_64)
+		if(sgp->vmaddr + sgp->vmsize > _end)
+		    _end = sgp->vmaddr + sgp->vmsize;
+	    sgp = (struct segment_command_64 *)((char *)sgp + sgp->cmdsize);
+	}
+	return(_end);
+
+#endif /* defined(__LP64__) */
 }
 
 /*
@@ -94,7 +123,11 @@ get_end(void)
 unsigned long
 get_etext(void)
 {
-    struct section *sp;
+#ifndef __LP64__
+    const struct section *sp;
+#else /* defined(__LP64__) */
+    const struct section_64 *sp;
+#endif /* defined(__LP64__) */
 
 	sp = getsectbyname(SEG_TEXT, SECT_TEXT);
 	if(sp)
@@ -111,7 +144,11 @@ get_etext(void)
 unsigned long
 get_edata(void)
 {
-    struct section *sp;
+#ifndef __LP64__
+    const struct section *sp;
+#else /* defined(__LP64__) */
+    const struct section_64 *sp;
+#endif /* defined(__LP64__) */
 
 	sp = getsectbyname(SEG_DATA, SECT_DATA);
 	if(sp)
@@ -119,3 +156,4 @@ get_edata(void)
 	else
 	    return(0);
 }
+#endif /* !defined(RLD) */

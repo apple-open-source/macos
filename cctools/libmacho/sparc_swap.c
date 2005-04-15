@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <string.h>
 #import <mach-o/sparc/swap.h>
 #import <architecture/nrw/reg_help.h>
@@ -174,3 +175,4 @@ enum NXByteOrder target_byte_sex)
 	    memcpy(&(fpu->fpu.Fpu_fsr), &sfsr, sizeof(struct swapped_fsr));
 	}
 }
+#endif /* !defined(RLD) */

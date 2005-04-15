@@ -4,7 +4,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +23,7 @@
  */
 
 #include "xml/dom_nodeimpl.h"
+
 #include "dom/dom_exception.h"
 #include "misc/htmlattrs.h"
 #include "misc/htmltags.h"
@@ -30,12 +31,17 @@
 #include "xml/dom_textimpl.h"
 #include "xml/dom2_eventsimpl.h"
 #include "xml/dom_docimpl.h"
-#include "xml/dom_nodeimpl.h"
+#include "xml/dom_position.h"
+#include "xml/dom2_rangeimpl.h"
+#include "css/csshelper.h"
 #include "css/cssstyleselector.h"
+#include "editing/html_interchange.h"
+#include "editing/selection.h"
 
 #include <kglobal.h>
 #include <kdebug.h>
 
+#include "rendering/render_object.h"
 #include "rendering/render_text.h"
 
 #include "ecma/kjs_binding.h"
@@ -43,12 +49,22 @@
 #include "khtmlview.h"
 #include "khtml_part.h"
 
+#include "html/dtd.h"
+
+#ifndef KHTML_NO_XBL
+#include "xbl/xbl_binding_manager.h"
+#endif
+
+#if APPLE_CHANGES
+#include "KWQAssertions.h"
+#include "KWQLogging.h"
+#else
+#define ASSERT(assertion) assert(assertion)
+#define LOG(channel, formatAndArgs...) ((void)0)
+#endif
 
 using namespace DOM;
 using namespace khtml;
-
-const Q_UINT32 NodeImpl::IdNSMask    = 0xffff0000;
-const Q_UINT32 NodeImpl::IdLocalMask = 0x0000ffff;
 
 NodeImpl::NodeImpl(DocumentPtr *doc)
     : document(doc),
@@ -56,6 +72,7 @@ NodeImpl::NodeImpl(DocumentPtr *doc)
       m_next(0),
       m_render(0),
       m_regdListeners( 0 ),
+      m_nodeLists( 0 ),
       m_tabIndex( 0 ),
       m_hasId( false ),
       m_hasClass( false ),
@@ -69,8 +86,7 @@ NodeImpl::NodeImpl(DocumentPtr *doc)
       m_focused( false ),
       m_active( false ),
       m_styleElement( false ),
-      m_implicit( false ),
-      m_rendererNeedsClose( false )
+      m_implicit( false )
 {
     if (document)
         document->ref();
@@ -94,7 +110,10 @@ NodeImpl::~NodeImpl()
 {
     if (m_render)
         detach();
+    if (m_regdListeners && !m_regdListeners->isEmpty() && getDocument() && !inDocument())
+        getDocument()->unregisterDisconnectedNodeWithEventListeners(this);
     delete m_regdListeners;
+    delete m_nodeLists;
     if (document)
         document->deref();
     if (m_previous)
@@ -144,14 +163,26 @@ NodeImpl *NodeImpl::lastChild() const
   return 0;
 }
 
-NodeImpl *NodeImpl::insertBefore( NodeImpl *, NodeImpl *, int &exceptioncode )
+NodeImpl *NodeImpl::lastDescendent() const
 {
+    NodeImpl *n = const_cast<NodeImpl *>(this);
+    while (n && n->lastChild())
+        n = n->lastChild();
+    return n;
+}
+
+NodeImpl *NodeImpl::insertBefore( NodeImpl *newChild, NodeImpl *, int &exceptioncode )
+{
+    newChild->ref();
+    newChild->deref();
     exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
     return 0;
 }
 
-NodeImpl *NodeImpl::replaceChild( NodeImpl *, NodeImpl *, int &exceptioncode )
+NodeImpl *NodeImpl::replaceChild( NodeImpl *newChild, NodeImpl *, int &exceptioncode )
 {
+  newChild->ref();
+  newChild->deref();
   exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
   return 0;
 }
@@ -162,10 +193,23 @@ NodeImpl *NodeImpl::removeChild( NodeImpl *, int &exceptioncode )
   return 0;
 }
 
-NodeImpl *NodeImpl::appendChild( NodeImpl *, int &exceptioncode )
+NodeImpl *NodeImpl::appendChild( NodeImpl *newChild, int &exceptioncode )
 {
-  exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
-  return 0;
+    newChild->ref();
+    newChild->deref();
+    exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
+    return 0;
+}
+
+void NodeImpl::remove(int &exceptioncode)
+{
+    exceptioncode = 0;
+    if (!parentNode()) {
+        exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
+        return;
+    }
+    
+    parentNode()->removeChild(this, exceptioncode);
 }
 
 bool NodeImpl::hasChildNodes(  ) const
@@ -236,110 +280,9 @@ NodeImpl *NodeImpl::addChild(NodeImpl *)
   return 0;
 }
 
-QString NodeImpl::toHTML() const
+bool NodeImpl::isContentEditable() const
 {
-    NodeImpl* fc = firstChild();
-    if ( fc )
-        return fc->recursive_toHTML(true);
-
-    return "";
-}
-
-static QString escapeHTML( const QString& in )
-{
-    QString s;
-    for ( unsigned int i = 0; i < in.length(); ++i ) {
-        switch( in[i].latin1() ) {
-        case '&':
-            s += "&amp;";
-            break;
-        case '<':
-            s += "&lt;";
-            break;
-        case '>':
-            s += "&gt;";
-            break;
-        default:
-            s += in[i];
-        }
-    }
-
-    return s;
-}
-
-QString NodeImpl::recursive_toHTML(bool start) const
-{
-    QString me = "";
-
-    // Copy who I am into the htmlText string
-    if ( nodeType() == Node::TEXT_NODE )
-        me = escapeHTML( nodeValue().string() );
-    else
-    {
-        // If I am an element, not a text
-        NodeImpl* temp = previousSibling();
-        if(temp)
-        {
-            if( !start && (temp->nodeType() != Node::TEXT_NODE && nodeType() != Node::TEXT_NODE ) )
-                me = QString("    ") + QChar('<') + nodeName().string();
-            else
-                me = QChar('<') + nodeName().string();
-        }
-        else
-            me = QChar('<') + nodeName().string();
-        // print attributes
-        if( nodeType() == Node::ELEMENT_NODE )
-        {
-            const ElementImpl *el = static_cast<const ElementImpl *>(this);
-            NamedNodeMap attrs = el->attributes();
-            unsigned long lmap = attrs.length();
-            for( unsigned int j=0; j<lmap; j++ )
-                me += " " + attrs.item(j).nodeName().string() + "=\"" + attrs.item(j).nodeValue().string() + "\"";
-        }
-        // print ending bracket of start tag
-        if( firstChild() == 0 ) {    // if element has no endtag
-	    if (isHTMLElement()) {
-		me +=">";
-	    } else {
-                me +="/>";
-	    }
-	} else                        // if element has endtag
-        {
-                NodeImpl* temp = nextSibling();
-                if(temp)
-                {
-                    if( (temp->nodeType() != Node::TEXT_NODE) )
-                        me += ">\n";
-                    else
-                        me += ">";
-                }
-                else
-                    me += ">";
-        }
-    }
-
-    NodeImpl* n;
-
-    if( (n = firstChild()) )
-    {
-        // print firstChild
-        me += n->recursive_toHTML( );
-
-        // Print my ending tag
-        if ( nodeType() != Node::TEXT_NODE )
-            me += "</" + nodeName().string() + ">\n";
-    }
-    // print next sibling
-    if( (n = nextSibling()) )
-        me += n->recursive_toHTML( );
-
-    return me;
-}
-
-void NodeImpl::getCursor(int offset, int &_x, int &_y, int &height)
-{
-    if(m_render) m_render->cursorPos(offset, _x, _y, height);
-    else _x = _y = height = -1;
+    return m_parent ? m_parent->isContentEditable() : false;
 }
 
 QRect NodeImpl::getRect() const
@@ -399,6 +342,9 @@ unsigned long NodeImpl::nodeIndex() const
 
 void NodeImpl::addEventListener(int id, EventListener *listener, const bool useCapture)
 {
+    if (getDocument() && !getDocument()->attached())
+        return;
+
     switch (id) {
 	case EventImpl::DOMSUBTREEMODIFIED_EVENT:
 	    getDocument()->addListenerType(DocumentImpl::DOMSUBTREEMODIFIED_LISTENER);
@@ -437,6 +383,10 @@ void NodeImpl::addEventListener(int id, EventListener *listener, const bool useC
     // spec says that "duplicate instances are discarded" in this case.
     removeEventListener(id,listener,useCapture);
 
+    // adding the first one
+    if (m_regdListeners->isEmpty() && getDocument() && !inDocument())
+        getDocument()->registerDisconnectedNodeWithEventListeners(this);
+        
     m_regdListeners->append(rl);
     listener->deref();
 }
@@ -452,8 +402,17 @@ void NodeImpl::removeEventListener(int id, EventListener *listener, bool useCapt
     for (; it.current(); ++it)
         if (*(it.current()) == rl) {
             m_regdListeners->removeRef(it.current());
+            // removed last
+            if (m_regdListeners->isEmpty() && getDocument() && !inDocument())
+                getDocument()->unregisterDisconnectedNodeWithEventListeners(this);
             return;
         }
+}
+
+void NodeImpl::removeAllEventListeners()
+{
+    delete m_regdListeners;
+    m_regdListeners = 0;
 }
 
 void NodeImpl::removeHTMLEventListener(int id)
@@ -466,6 +425,9 @@ void NodeImpl::removeHTMLEventListener(int id)
         if (it.current()->id == id &&
             it.current()->listener->eventListenerType() == "_khtml_HTMLEventListener") {
             m_regdListeners->removeRef(it.current());
+            // removed last
+            if (m_regdListeners->isEmpty() && getDocument() && !inDocument())
+                getDocument()->unregisterDisconnectedNodeWithEventListeners(this);
             return;
         }
 }
@@ -500,14 +462,25 @@ EventListener *NodeImpl::getHTMLEventListener(int id)
 
 bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
 {
+    evt->ref();
+
     evt->setTarget(this);
 
-    KHTMLPart *part = document->document()->part();
-
-    // Since event handling code could cause this object to be deleted, grab a reference to the view now
-    KHTMLView *view = document->document()->view();
-    if (view)
-        view->ref();
+    // We've had at least one report of a crash on a page where document is nil here.
+    // Unfortunately that page no longer exists, but we'll make this code robust against
+    // that anyway.
+    // FIXME: Much code in this class assumes document is non-nil; it would be better to
+    // ensure that document can never be nil.
+    KHTMLPart *part = nil;
+    KHTMLView *view = nil;
+    
+    if (document && document->document()) {
+        part = document->document()->part();
+        view = document->document()->view();
+        // Since event handling code could cause this object to be deleted, grab a reference to the view now
+        if (view)
+            view->ref();
+    }    
 
     bool ret = dispatchGenericEvent( evt, exceptioncode );
 
@@ -520,11 +493,15 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
     if (view)
         view->deref();
 
+    evt->deref();
+
     return ret;
 }
 
 bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 {
+    evt->ref();
+
     // ### check that type specified
 
     // work out what nodes to send event to
@@ -554,7 +531,7 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 
 	// Bubbling second. -dwh
 	if (!evt->propagationStopped())
-	  it.current()->handleLocalEvents(evt,false);
+            it.current()->handleLocalEvents(evt,false);
     }
     --it;
 
@@ -591,15 +568,6 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 	    it.current()->defaultEventHandler(evt);
     }
     
-    // In the case of a mouse click, also send a DOMActivate event, which causes things like form submissions
-    // to occur. Note that this only happens for _real_ mouse clicks (for which we get a KHTML_CLICK_EVENT or
-    // KHTML_DBLCLICK_EVENT), not the standard DOM "click" event that could be sent from js code.
-    if (!evt->defaultPrevented() && !disabled())
-        if (evt->id() == EventImpl::KHTML_CLICK_EVENT)
-            dispatchUIEvent(EventImpl::DOMACTIVATE_EVENT, 1);
-        else if (evt->id() == EventImpl::KHTML_DBLCLICK_EVENT)
-            dispatchUIEvent(EventImpl::DOMACTIVATE_EVENT, 2);
-
     // deref all nodes in chain
     it.toFirst();
     for (; it.current(); ++it)
@@ -607,17 +575,18 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 
     DocumentImpl::updateDocumentsRendering();
 
-    return !evt->defaultPrevented(); // ### what if defaultPrevented was called before dispatchEvent?
+    bool defaultPrevented = evt->defaultPrevented();
+
+    evt->deref();
+
+    return !defaultPrevented; // ### what if defaultPrevented was called before dispatchEvent?
 }
 
 bool NodeImpl::dispatchHTMLEvent(int _id, bool canBubbleArg, bool cancelableArg)
 {
     int exceptioncode = 0;
     EventImpl *evt = new EventImpl(static_cast<EventImpl::EventId>(_id),canBubbleArg,cancelableArg);
-    evt->ref();
-    bool r = dispatchEvent(evt,exceptioncode,true);
-    evt->deref();
-    return r;
+    return dispatchEvent(evt,exceptioncode,true);
 }
 
 bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableArg)
@@ -637,7 +606,7 @@ bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableAr
         // This is a DOM extension and is independent of bubbling/capturing rules of
         // the DOM.  You send the event only to the enclosing frame.  It does not
         // bubble through the parent document.
-        DOM::ElementImpl* elt = doc->document()->ownerElement();
+        ElementImpl* elt = doc->document()->ownerElement();
         if (elt && (elt->getDocument()->domain().isNull() ||
                     elt->getDocument()->domain() == doc->document()->domain())) {
             // We also do a security check, since we don't want to allow the enclosing
@@ -678,7 +647,11 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
                 break;
             case QEvent::MouseButtonDblClick:
                 evtId = EventImpl::CLICK_EVENT;
+#if APPLE_CHANGES
+                detail = _mouse->clickCount();
+#else
                 detail = 1; // ### support for multiple double clicks
+#endif
                 break;
             case QEvent::MouseMove:
                 evtId = EventImpl::MOUSEMOVE_EVENT;
@@ -694,13 +667,37 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
 
     int exceptioncode = 0;
 
+#if APPLE_CHANGES
+// Careful here - our viewportToContents() converts points from NSEvents, in NSWindow coord system to
+// our khtmlview's coord system.  This works for QMouseEvents coming from Cocoa because those events
+// hold the location from the NSEvent.  The QMouseEvent param here was made by other khtml code, so it
+// will be a "proper" QT event with coords in terms of this widget.  So in WebCore it would never be
+// right to pass coords from _mouse to viewportToContents().
+#endif
 //    int clientX, clientY;
 //    viewportToContents(_mouse->x(), _mouse->y(), clientX, clientY);
     int clientX = _mouse->x(); // ### adjust to be relative to view
     int clientY = _mouse->y(); // ### adjust to be relative to view
 
+#if APPLE_CHANGES
+    int screenX;
+    int screenY;
+    KHTMLView *view = document->document()->view();
+    if (view) {
+        // This gets us as far as NSWindow coords
+        QPoint windowLoc = view->contentsToViewport(_mouse->pos());
+        // Then from NSWindow coords to screen coords
+        QPoint screenLoc = view->viewportToGlobal(windowLoc);
+        screenX = screenLoc.x();
+        screenY = screenLoc.y();
+    } else {
+        screenX = _mouse->x();
+        screenY = _mouse->y();
+    }
+#else
     int screenX = _mouse->globalX();
     int screenY = _mouse->globalY();
+#endif
 
     int button = -1;
     switch (_mouse->button()) {
@@ -719,16 +716,68 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
     bool ctrlKey = (_mouse->state() & Qt::ControlButton);
     bool altKey = (_mouse->state() & Qt::AltButton);
     bool shiftKey = (_mouse->state() & Qt::ShiftButton);
-    bool metaKey = false; // ### qt support?
+    bool metaKey = (_mouse->state() & Qt::MetaButton);
 
-    EventImpl *evt = new MouseEventImpl(evtId,true,cancelable,getDocument()->defaultView(),
+    bool swallowEvent = false;
+
+    EventImpl *me = new MouseEventImpl(evtId,true,cancelable,getDocument()->defaultView(),
                    detail,screenX,screenY,clientX,clientY,ctrlKey,altKey,shiftKey,metaKey,
                    button,0);
-    evt->ref();
-    bool r = dispatchEvent(evt,exceptioncode,true);
-    evt->deref();
-    return r;
+    me->ref();
+    dispatchEvent(me, exceptioncode, true);
+    bool defaultHandled = me->defaultHandled();
+    bool defaultPrevented = me->defaultPrevented();
+    if (defaultHandled || defaultPrevented)
+        swallowEvent = true;
+    me->deref();
 
+#if APPLE_CHANGES
+    // Special case: If it's a click event, we also send the KHTML_CLICK or KHTML_DBLCLICK event. This is not part
+    // of the DOM specs, but is used for compatibility with the traditional onclick="" and ondblclick="" attributes,
+    // as there is no way to tell the difference between single & double clicks using DOM (only the click count is
+    // stored, which is not necessarily the same)
+    if (evtId == EventImpl::CLICK_EVENT) {
+        evtId = EventImpl::KHTML_CLICK_EVENT;
+
+        me = new MouseEventImpl(EventImpl::KHTML_CLICK_EVENT,
+                                true,cancelable,getDocument()->defaultView(),
+                                detail,screenX,screenY,clientX,clientY,
+                                ctrlKey,altKey,shiftKey,metaKey,
+                                button,0);
+        me->ref();
+        if (defaultHandled)
+            me->setDefaultHandled();
+        dispatchEvent(me,exceptioncode,true);
+        if (me->defaultHandled())
+            defaultHandled = true;
+        if (me->defaultPrevented())
+            defaultPrevented = true;
+        if (me->defaultHandled() || me->defaultPrevented())
+            swallowEvent = true;
+        me->deref();
+
+        if (_mouse->isDoubleClick()) {
+            me = new MouseEventImpl(EventImpl::KHTML_DBLCLICK_EVENT,
+                                    true,cancelable,getDocument()->defaultView(),
+                                    detail,screenX,screenY,clientX,clientY,
+                                    ctrlKey,altKey,shiftKey,metaKey,
+                                    button,0);
+            me->ref();
+            if (defaultHandled)
+                me->setDefaultHandled();
+            dispatchEvent(me,exceptioncode,true);
+            if (me->defaultHandled() || me->defaultPrevented())
+                swallowEvent = true;
+            me->deref();
+        }
+    }
+#endif
+
+    // Also send a DOMActivate event, which causes things like form submissions to occur.
+    if (evtId == EventImpl::KHTML_CLICK_EVENT && !defaultPrevented && !disabled())
+        dispatchUIEvent(EventImpl::DOMACTIVATE_EVENT, detail);
+
+    return swallowEvent;
 }
 
 bool NodeImpl::dispatchUIEvent(int _id, int detail)
@@ -742,17 +791,56 @@ bool NodeImpl::dispatchUIEvent(int _id, int detail)
         cancelable = true;
 
     int exceptioncode = 0;
-    UIEventImpl *evt = new UIEventImpl(static_cast<EventImpl::EventId>(_id),true,
-                                       cancelable,getDocument()->defaultView(),detail);
-    evt->ref();
-    bool r = dispatchEvent(evt,exceptioncode,true);
-    evt->deref();
-    return r;
+    if (getDocument()) {
+        UIEventImpl *evt = new UIEventImpl(static_cast<EventImpl::EventId>(_id),true,
+                                           cancelable,getDocument()->defaultView(),detail);
+        return dispatchEvent(evt,exceptioncode,true);
+    }
+    return false;
 }
 
-bool NodeImpl::dispatchSubtreeModifiedEvent()
+void NodeImpl::registerNodeList(NodeListImpl *list)
 {
-    childrenChanged();
+    if (!m_nodeLists) {
+        m_nodeLists = new QPtrDict<NodeListImpl>;
+    }
+
+    m_nodeLists->insert(list, list);
+}
+
+void NodeImpl::unregisterNodeList(NodeListImpl *list)
+{
+    if (!m_nodeLists)
+        return;
+
+    m_nodeLists->remove(list);
+}
+
+void NodeImpl::notifyLocalNodeListsSubtreeModified()
+{
+    if (!m_nodeLists)
+        return;
+
+    QPtrDictIterator<NodeListImpl> i(*m_nodeLists);
+
+    while (NodeListImpl *list = i.current()) {
+        list->rootNodeSubtreeModified();
+        ++i;
+    }
+}
+
+void NodeImpl::notifyNodeListsSubtreeModified()
+{
+    for (NodeImpl *n = this; n; n = n->parentNode()) {
+        n->notifyLocalNodeListsSubtreeModified();
+    }
+}
+
+bool NodeImpl::dispatchSubtreeModifiedEvent(bool sendChildrenChanged)
+{
+    notifyNodeListsSubtreeModified();
+    if (sendChildrenChanged)
+        childrenChanged();
     if (!getDocument()->hasListenerType(DocumentImpl::DOMSUBTREEMODIFIED_LISTENER))
 	return false;
     int exceptioncode = 0;
@@ -806,7 +894,7 @@ void NodeImpl::defaultEventHandler(EventImpl *evt)
 {
 }
 
-unsigned long NodeImpl::childNodeCount()
+unsigned long NodeImpl::childNodeCount() const
 {
     return 0;
 }
@@ -816,18 +904,42 @@ NodeImpl *NodeImpl::childNode(unsigned long /*index*/)
     return 0;
 }
 
-NodeImpl *NodeImpl::traverseNextNode(NodeImpl *stayWithin) const
+NodeImpl *NodeImpl::traverseNextNode(const NodeImpl *stayWithin) const
 {
-    if (firstChild())
+    if (firstChild()) {
+        assert(!stayWithin || firstChild()->isAncestor(stayWithin));
 	return firstChild();
-    else if (nextSibling())
+    }
+    if (this == stayWithin)
+        return 0;
+    if (nextSibling()) {
+        assert(!stayWithin || nextSibling()->isAncestor(stayWithin));
 	return nextSibling();
-    else {
-	const NodeImpl *n = this;
-	while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
-	    n = n->parentNode();
-	if (n && (!stayWithin || n->parentNode() != stayWithin))
-	    return n->nextSibling();
+    }
+    const NodeImpl *n = this;
+    while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
+        n = n->parentNode();
+    if (n) {
+        assert(!stayWithin || !n->nextSibling() || n->nextSibling()->isAncestor(stayWithin));
+        return n->nextSibling();
+    }
+    return 0;
+}
+
+NodeImpl *NodeImpl::traverseNextSibling(const NodeImpl *stayWithin) const
+{
+    if (this == stayWithin)
+        return 0;
+    if (nextSibling()) {
+        assert(!stayWithin || nextSibling()->isAncestor(stayWithin));
+	return nextSibling();
+    }
+    const NodeImpl *n = this;
+    while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
+        n = n->parentNode();
+    if (n) {
+        assert(!stayWithin || !n->nextSibling() || n->nextSibling()->isAncestor(stayWithin));
+        return n->nextSibling();
     }
     return 0;
 }
@@ -846,6 +958,28 @@ NodeImpl *NodeImpl::traversePreviousNode() const
     else {
         return 0;
     }
+}
+
+NodeImpl *NodeImpl::traversePreviousNodePostOrder(const NodeImpl *stayWithin) const
+{
+    if (lastChild()) {
+        assert(!stayWithin || lastChild()->isAncestor(stayWithin));
+	return lastChild();
+    }
+    if (this == stayWithin)
+        return 0;
+    if (previousSibling()) {
+        assert(!stayWithin || previousSibling()->isAncestor(stayWithin));
+	return previousSibling();
+    }
+    const NodeImpl *n = this;
+    while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
+        n = n->parentNode();
+    if (n) {
+        assert(!stayWithin || !n->previousSibling() || n->previousSibling()->isAncestor(stayWithin));
+        return n->previousSibling();
+    }
+    return 0;
 }
 
 void NodeImpl::checkSetPrefix(const DOMString &_prefix, int &exceptioncode)
@@ -872,7 +1006,7 @@ void NodeImpl::checkSetPrefix(const DOMString &_prefix, int &exceptioncode)
     // - if this node is an attribute and the specified prefix is "xmlns" and
     //   the namespaceURI of this node is different from "http://www.w3.org/2000/xmlns/",
     // - or if this node is an attribute and the qualifiedName of this node is "xmlns" [Namespaces].
-    if (Element::khtmlMalformedPrefix(_prefix) || (!(id() & IdNSMask) && id() > ID_LAST_TAG) ||
+    if (Element::khtmlMalformedPrefix(_prefix) || (namespacePart(id()) == noNamespace && id() > ID_LAST_TAG) ||
         (_prefix == "xml" && DOMString(getDocument()->namespaceURI(id())) != "http://www.w3.org/XML/1998/namespace")) {
         exceptioncode = DOMException::NAMESPACE_ERR;
         return;
@@ -919,7 +1053,7 @@ void NodeImpl::checkAddChild(NodeImpl *newChild, int &exceptioncode)
     // newChild node, or if the node to append is one of this node's ancestors.
 
     // check for ancestor/same node
-    if (isAncestor(newChild)) {
+    if (newChild == this || isAncestor(newChild)) {
         exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
         return;
     }
@@ -931,11 +1065,10 @@ void NodeImpl::checkAddChild(NodeImpl *newChild, int &exceptioncode)
     }
 }
 
-bool NodeImpl::isAncestor( NodeImpl *other )
+bool NodeImpl::isAncestor(const NodeImpl *other) const
 {
-    // Return true if other is the same as this node or an ancestor of it, otherwise false
-    NodeImpl *n;
-    for (n = this; n; n = n->parentNode()) {
+    // Return true if other is an ancestor of this, otherwise false
+    for (const NodeImpl *n = parentNode(); n; n = n->parentNode()) {
         if (n == other)
             return true;
     }
@@ -997,28 +1130,11 @@ void NodeImpl::dump(QTextStream *stream, QString ind) const
 }
 #endif
 
-void NodeImpl::closeRenderer()
-{
-    // It's important that we close the renderer, even if it hasn't been
-    // created yet. This happens even more because of the FOUC fixes we did
-    // at Apple, which prevent renderers from being created until the stylesheets
-    // are all loaded. If the renderer is not here to be closed, we set a flag,
-    // then close it later when it's attached.
-    assert(!m_rendererNeedsClose);
-    if (m_render)
-        m_render->close();
-    else
-        m_rendererNeedsClose = true;
-}
-
 void NodeImpl::attach()
 {
     assert(!attached());
     assert(!m_render || (m_render->style() && m_render->parent()));
-    if (m_render && m_rendererNeedsClose) {
-        m_render->close();
-        m_rendererNeedsClose = false;
-    }
+    getDocument()->incDOMTreeVersion();
     m_attached = true;
 }
 
@@ -1030,6 +1146,9 @@ void NodeImpl::detach()
         m_render->detach();
 
     m_render = 0;
+    DocumentImpl *doc = getDocument();
+    if (doc)
+        doc->incDOMTreeVersion();
     m_attached = false;
 }
 
@@ -1049,11 +1168,17 @@ void NodeImpl::restoreState(QStringList &/*states*/)
 
 void NodeImpl::insertedIntoDocument()
 {
+    if (m_regdListeners && !m_regdListeners->isEmpty() && getDocument())
+        getDocument()->unregisterDisconnectedNodeWithEventListeners(this);
+
     setInDocument(true);
 }
 
 void NodeImpl::removedFromDocument()
 {
+    if (m_regdListeners && !m_regdListeners->isEmpty() && getDocument())
+        getDocument()->registerDisconnectedNodeWithEventListeners(this);
+
     setInDocument(false);
 }
 
@@ -1079,6 +1204,28 @@ bool NodeImpl::isReadOnly()
     return false;
 }
 
+NodeImpl *NodeImpl::previousEditable() const
+{
+    NodeImpl *node = previousLeafNode();
+    while (node) {
+        if (node->isContentEditable())
+            return node;
+        node = node->previousLeafNode();
+    }
+    return 0;
+}
+
+NodeImpl *NodeImpl::nextEditable() const
+{
+    NodeImpl *node = nextLeafNode();
+    while (node) {
+        if (node->isContentEditable())
+            return node;
+        node = node->nextLeafNode();
+    }
+    return 0;
+}
+
 RenderObject * NodeImpl::previousRenderer()
 {
     for (NodeImpl *n = previousSibling(); n; n = n->previousSibling()) {
@@ -1090,6 +1237,11 @@ RenderObject * NodeImpl::previousRenderer()
 
 RenderObject * NodeImpl::nextRenderer()
 {
+    // Avoid an O(n^2) problem with this function by not checking for nextRenderer() when the parent element hasn't even 
+    // been attached yet.
+    if (parent() && !parent()->attached())
+        return 0;
+
     for (NodeImpl *n = nextSibling(); n; n = n->nextSibling()) {
         if (n->renderer())
             return n->renderer();
@@ -1097,8 +1249,66 @@ RenderObject * NodeImpl::nextRenderer()
     return 0;
 }
 
+bool NodeImpl::isAtomicNode() const
+{
+    return !hasChildNodes() || (id() == ID_OBJECT && renderer() && renderer()->isReplaced());
+}
+
+NodeImpl *NodeImpl::previousNodeConsideringAtomicNodes() const
+{
+    if (previousSibling()) {
+        NodeImpl *n = previousSibling();
+        while (!n->isAtomicNode() && n->lastChild())
+            n = n->lastChild();
+        return n;
+    }
+    else if (parentNode()) {
+        return parentNode();
+    }
+    else {
+        return 0;
+    }
+}
+
+NodeImpl *NodeImpl::nextNodeConsideringAtomicNodes() const
+{
+    if (!isAtomicNode() && firstChild())
+	return firstChild();
+    if (nextSibling())
+	return nextSibling();
+    const NodeImpl *n = this;
+    while (n && !n->nextSibling())
+        n = n->parentNode();
+    if (n)
+        return n->nextSibling();
+    return 0;
+}
+
+NodeImpl *NodeImpl::previousLeafNode() const
+{
+    NodeImpl *node = previousNodeConsideringAtomicNodes();
+    while (node) {
+        if (node->isAtomicNode())
+            return node;
+        node = node->previousNodeConsideringAtomicNodes();
+    }
+    return 0;
+}
+
+NodeImpl *NodeImpl::nextLeafNode() const
+{
+    NodeImpl *node = nextNodeConsideringAtomicNodes();
+    while (node) {
+        if (node->isAtomicNode())
+            return node;
+        node = node->nextNodeConsideringAtomicNodes();
+    }
+    return 0;
+}
+
 void NodeImpl::createRendererIfNeeded()
 {
+
 #if APPLE_CHANGES
     if (!getDocument()->shouldCreateRenderers())
         return;
@@ -1114,12 +1324,26 @@ void NodeImpl::createRendererIfNeeded()
     if (parentRenderer && parentRenderer->canHaveChildren()) {
         RenderStyle *style = styleForRenderer(parentRenderer);
         style->ref();
+#ifndef KHTML_NO_XBL
+        bool resolveStyle = false;
+        if (getDocument()->bindingManager()->loadBindings(this, style->bindingURIs(), true, &resolveStyle) && 
+            rendererIsNeeded(style)) {
+            if (resolveStyle) {
+                style->deref();
+                style = styleForRenderer(parentRenderer);
+            }
+#else
         if (rendererIsNeeded(style)) {
+#endif
             m_render = createRenderer(getDocument()->renderArena(), style);
             m_render->setStyle(style);
             parentRenderer->addChild(m_render, nextRenderer());
+#ifndef KHTML_NO_XBL
+        } // avoid confusing the change log code parser by having two close braces to match the two open braces above
+#else
         }
-        style->deref();
+#endif
+        style->deref(getDocument()->renderArena());
     }
 }
 
@@ -1138,6 +1362,185 @@ RenderObject *NodeImpl::createRenderer(RenderArena *arena, RenderStyle *style)
     assert(false);
     return 0;
 }
+
+long NodeImpl::maxOffset() const
+{
+    return 1;
+}
+
+long NodeImpl::caretMinOffset() const
+{
+    return renderer() ? renderer()->caretMinOffset() : 0;
+}
+
+long NodeImpl::caretMaxOffset() const
+{
+    return renderer() ? renderer()->caretMaxOffset() : 1;
+}
+
+unsigned long NodeImpl::caretMaxRenderedOffset() const
+{
+    return renderer() ? renderer()->caretMaxRenderedOffset() : 1;
+}
+
+long NodeImpl::previousOffset (long current) const
+{
+    return renderer() ? renderer()->previousOffset(current) : current - 1;
+}
+
+long NodeImpl::nextOffset (long current) const
+{
+    return renderer() ? renderer()->nextOffset(current) : current + 1;
+}
+
+bool NodeImpl::isBlockFlow() const
+{
+    return renderer() && renderer()->isBlockFlow();
+}
+
+bool NodeImpl::isBlockFlowOrTable() const
+{
+    return renderer() && (renderer()->isBlockFlow() || renderer()->isTable());
+}
+
+bool NodeImpl::isEditableBlock() const
+{
+    return isContentEditable() && isBlockFlow();
+}
+
+ElementImpl *NodeImpl::enclosingBlockFlowOrTableElement() const
+{
+    NodeImpl *n = const_cast<NodeImpl *>(this);
+    if (isBlockFlowOrTable())
+        return static_cast<ElementImpl *>(n);
+
+    while (1) {
+        n = n->parentNode();
+        if (!n)
+            break;
+        if (n->isBlockFlowOrTable() || n->id() == ID_BODY)
+            return static_cast<ElementImpl *>(n);
+    }
+    return 0;
+}
+
+ElementImpl *NodeImpl::enclosingBlockFlowElement() const
+{
+    NodeImpl *n = const_cast<NodeImpl *>(this);
+    if (isBlockFlow())
+        return static_cast<ElementImpl *>(n);
+
+    while (1) {
+        n = n->parentNode();
+        if (!n)
+            break;
+        if (n->isBlockFlow() || n->id() == ID_BODY)
+            return static_cast<ElementImpl *>(n);
+    }
+    return 0;
+}
+
+ElementImpl *NodeImpl::enclosingInlineElement() const
+{
+    NodeImpl *n = const_cast<NodeImpl *>(this);
+    NodeImpl *p;
+
+    while (1) {
+        p = n->parentNode();
+        if (!p || p->isBlockFlow() || p->id() == ID_BODY)
+            return static_cast<ElementImpl *>(n);
+        // Also stop if any previous sibling is a block
+        for (NodeImpl *sibling = n->previousSibling(); sibling; sibling = sibling->previousSibling()) {
+            if (sibling->isBlockFlow())
+                return static_cast<ElementImpl *>(n);
+        }
+        n = p;
+    }
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+ElementImpl *NodeImpl::rootEditableElement() const
+{
+    if (!isContentEditable())
+        return 0;
+
+    NodeImpl *n = const_cast<NodeImpl *>(this);
+    if (n->id() == ID_BODY)
+        return static_cast<ElementImpl *>(n);
+
+    NodeImpl *result = n->isEditableBlock() ? n : 0;
+    while (1) {
+        n = n->parentNode();
+        if (!n || !n->isContentEditable())
+            break;
+        if (n->id() == ID_BODY) {
+            result = n;
+            break;
+        }
+        if (n->isBlockFlow())
+            result = n;
+    }
+    return static_cast<ElementImpl *>(result);
+}
+
+bool NodeImpl::inSameRootEditableElement(NodeImpl *n)
+{
+    return n ? rootEditableElement() == n->rootEditableElement() : false;
+}
+
+bool NodeImpl::inSameContainingBlockFlowElement(NodeImpl *n)
+{
+    return n ? enclosingBlockFlowElement() == n->enclosingBlockFlowElement() : false;
+}
+
+#if APPLE_CHANGES
+NodeImpl::Id NodeImpl::identifier() const
+{
+    return id();
+}
+#endif
+
+#ifndef NDEBUG
+void NodeImpl::displayNode(const char *prefix)
+{
+    if (!prefix)
+        prefix = "";
+    if (isTextNode())
+        fprintf(stderr, "%s%s\t%p \"%s\"\n", prefix, nodeName().string().latin1(), this, nodeValue().string().latin1());
+    else
+        fprintf(stderr, "%s%s\t%p\n", prefix, nodeName().string().latin1(), this);
+}
+
+void NodeImpl::displayTree()
+{
+    NodeImpl    *rootNode = rootEditableElement() ? : this;
+    NodeImpl    *node;
+    
+    for (node = rootNode; node; node = node->traverseNextNode()) {
+        NodeImpl *tmpNode;
+        if (node == this)
+            fprintf(stderr, "*");
+        for (tmpNode = node; tmpNode && tmpNode != rootNode; tmpNode = tmpNode->parentNode())
+            fprintf(stderr, "\t");
+        node->displayNode(0);
+    }
+}
+
+void NodeImpl::formatForDebugger(char *buffer, unsigned length) const
+{
+    DOMString result;
+    DOMString s;
+    
+    s = nodeName();
+    if (s.length() == 0)
+        result += "<none>";
+    else
+        result += s;
+          
+    strncpy(buffer, result.string().latin1(), length - 1);
+}
+#endif
 
 //-------------------------------------------------------------------------
 
@@ -1219,6 +1622,8 @@ NodeImpl *NodeBaseImpl::insertBefore ( NodeImpl *newChild, NodeImpl *refChild, i
     if(!refChild)
         return appendChild(newChild, exceptioncode);
 
+    Node protectNewChild(newChild); // make sure the new child is ref'd and deref'd so we don't leak it
+
     // Make sure adding the new child is ok
     checkAddChild(newChild, exceptioncode);
     if (exceptioncode)
@@ -1235,7 +1640,7 @@ NodeImpl *NodeBaseImpl::insertBefore ( NodeImpl *newChild, NodeImpl *refChild, i
     // If newChild is a DocumentFragment with no children.... there's nothing to do.
     // Just return the document fragment
     if (isFragment && !newChild->firstChild())
-        return newChild;
+        return (newChild->hasOneRef() && !newChild->parent()) ? 0 : newChild;
 
     // Now actually add the child(ren)
     NodeImpl *nextChild;
@@ -1286,6 +1691,8 @@ NodeImpl *NodeBaseImpl::replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, i
 {
     exceptioncode = 0;
 
+    Node protectNewChild(newChild); // make sure the new child is ref'd and deref'd so we don't leak it
+
     if ( oldChild == newChild ) // nothing to do
 	return oldChild;
     
@@ -1303,7 +1710,6 @@ NodeImpl *NodeBaseImpl::replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, i
     bool isFragment = newChild->nodeType() == Node::DOCUMENT_FRAGMENT_NODE;
     NodeImpl *nextChild;
     NodeImpl *child = isFragment ? newChild->firstChild() : newChild;
-
 
     // Remove the old child
     NodeImpl *prev = oldChild->previousSibling();
@@ -1403,38 +1809,48 @@ NodeImpl *NodeBaseImpl::removeChild ( NodeImpl *oldChild, int &exceptioncode )
     // Dispatch post-removal mutation events
     dispatchSubtreeModifiedEvent();
 
-    NodeImpl *p = this;
-    while (p->parentNode())
-	p = p->parentNode();
-    if (p->nodeType() == Node::DOCUMENT_NODE) {
-	for (NodeImpl *c = oldChild; c; c = c->traverseNextNode(oldChild))
-	    c->removedFromDocument();
-    }
+    if (oldChild->inDocument())
+        oldChild->removedFromDocument();
 
     return oldChild;
 }
 
 void NodeBaseImpl::removeChildren()
 {
-    NodeImpl *n, *next;
-    for( n = _first; n != 0; n = next )
-    {
-        next = n->nextSibling();
+    int exceptionCode;
+    while (NodeImpl *n = _first) {
+        NodeImpl *next = n->nextSibling();
+        
+        n->ref();
+
+        // Fire removed from document mutation events.
+        dispatchChildRemovalEvents(n, exceptionCode);
+
         if (n->attached())
 	    n->detach();
         n->setPreviousSibling(0);
         n->setNextSibling(0);
         n->setParent(0);
-        if( !n->refCount() )
-            delete n;
+        
+        if (n->inDocument())
+            n->removedFromDocument();
+
+        n->deref();
+
+        _first = next;
     }
-    _first = _last = 0;
+    _last = 0;
+    
+    // Dispatch a single post-removal mutation event denoting a modified subtree.
+    dispatchSubtreeModifiedEvent();
 }
 
 
 NodeImpl *NodeBaseImpl::appendChild ( NodeImpl *newChild, int &exceptioncode )
 {
     exceptioncode = 0;
+
+    Node protectNewChild(newChild); // make sure the new child is ref'd and deref'd so we don't leak it
 
     // Make sure adding the new child is ok
     checkAddChild(newChild, exceptioncode);
@@ -1555,6 +1971,8 @@ NodeImpl *NodeBaseImpl::addChild(NodeImpl *newChild)
 {
     // do not add applyChanges here! This function is only used during parsing
 
+    Node protectNewChild(newChild); // make sure the new child is ref'd and deref'd so we don't leak it
+
     // short check for consistency with DTD
     if(!isXMLElementNode() && !newChild->isXMLElementNode() && !childAllowed(newChild))
     {
@@ -1576,7 +1994,8 @@ NodeImpl *NodeBaseImpl::addChild(NodeImpl *newChild)
         _first = _last = newChild;
     }
 
-    newChild->insertedIntoDocument();
+    if (inDocument())
+        newChild->insertedIntoDocument();
     childrenChanged();
 
     if(newChild->nodeType() == Node::ELEMENT_NODE)
@@ -1607,6 +2026,20 @@ void NodeBaseImpl::detach()
     NodeImpl::detach();
 }
 
+void NodeBaseImpl::insertedIntoDocument()
+{
+    NodeImpl::insertedIntoDocument();
+    for (NodeImpl *child = _first; child; child = child->nextSibling())
+        child->insertedIntoDocument();
+}
+
+void NodeBaseImpl::removedFromDocument()
+{
+    NodeImpl::removedFromDocument();
+    for (NodeImpl *child = _first; child; child = child->nextSibling())
+        child->removedFromDocument();
+}
+
 void NodeBaseImpl::cloneChildNodes(NodeImpl *clone)
 {
     int exceptioncode = 0;
@@ -1622,14 +2055,14 @@ NodeListImpl* NodeBaseImpl::getElementsByTagNameNS ( DOMStringImpl* namespaceURI
 {
     if (!localName) return 0;
 
-    NodeImpl::Id idMask = NodeImpl::IdNSMask | NodeImpl::IdLocalMask;
+    NodeImpl::Id idMask = namespaceMask | localNameMask;
     if (localName->l && localName->s[0] == '*')
-        idMask &= ~NodeImpl::IdLocalMask;
-    if (namespaceURI && namespaceURI->l && namespaceURI->s[0] == '*')
-        idMask &= ~NodeImpl::IdNSMask;
+        idMask &= ~localNameMask;
+    if (!namespaceURI || (namespaceURI->l && namespaceURI->s[0] == '*'))
+        idMask &= ~namespaceMask;
 
     Id id = 0; // 0 means "all items"
-    if ( (idMask & NodeImpl::IdLocalMask) || namespaceURI ) // not getElementsByTagName("*")
+    if ( (idMask & localNameMask) || namespaceURI ) // not getElementsByTagName("*")
     {
         id = getDocument()->tagId( namespaceURI, localName, true);
         if ( !id ) // not found -> we want to return an empty list, not "all items"
@@ -1757,6 +2190,10 @@ void NodeBaseImpl::setFocus(bool received)
 
     NodeImpl::setFocus(received);
 
+    if (received && isEditableBlock() && !hasChildNodes()) {
+        getDocument()->part()->setSelection(Selection(Position(this, 0), DOWNSTREAM));
+    }
+
     // note that we need to recalc the style
     setChanged();
 }
@@ -1772,7 +2209,7 @@ void NodeBaseImpl::setActive(bool down)
         setChanged();
 }
 
-unsigned long NodeBaseImpl::childNodeCount()
+unsigned long NodeBaseImpl::childNodeCount() const
 {
     unsigned long count = 0;
     NodeImpl *n;
@@ -1785,13 +2222,23 @@ NodeImpl *NodeBaseImpl::childNode(unsigned long index)
 {
     unsigned long i;
     NodeImpl *n = firstChild();
-    for (i = 0; i < index; i++)
+    for (i = 0; n != 0 && i < index; i++)
         n = n->nextSibling();
     return n;
 }
 
 void NodeBaseImpl::dispatchChildInsertedEvents( NodeImpl *child, int &exceptioncode )
 {
+    NodeImpl *p = this;
+    while (p->parentNode())
+        p = p->parentNode();
+
+    if (p->nodeType() == Node::DOCUMENT_NODE) {
+        for (NodeImpl *c = child; c; c = c->traverseNextNode(child)) {
+            c->insertedIntoDocument();
+        }
+    }
+
     if (getDocument()->hasListenerType(DocumentImpl::DOMNODEINSERTED_LISTENER)) {
         child->dispatchEvent(new MutationEventImpl(EventImpl::DOMNODEINSERTED_EVENT,
                                                    true,false,this,DOMString(),DOMString(),DOMString(),0),exceptioncode,true);
@@ -1799,21 +2246,15 @@ void NodeBaseImpl::dispatchChildInsertedEvents( NodeImpl *child, int &exceptionc
             return;
     }
 
-    // dispatch the DOMNOdeInsertedInfoDocument event to all descendants
+    // dispatch the DOMNodeInsertedIntoDocument event to all descendants
     bool hasInsertedListeners = getDocument()->hasListenerType(DocumentImpl::DOMNODEINSERTEDINTODOCUMENT_LISTENER);
-    NodeImpl *p = this;
-    while (p->parentNode())
-        p = p->parentNode();
-    if (p->nodeType() == Node::DOCUMENT_NODE) {
-        for (NodeImpl *c = child; c; c = c->traverseNextNode(child)) {
-            c->insertedIntoDocument();
 
-            if (hasInsertedListeners) {
-                c->dispatchEvent(new MutationEventImpl(EventImpl::DOMNODEINSERTEDINTODOCUMENT_EVENT,
-                                                       false,false,0,DOMString(),DOMString(),DOMString(),0),exceptioncode,true);
-                if (exceptioncode)
-                    return;
-            }
+    if (hasInsertedListeners && p->nodeType() == Node::DOCUMENT_NODE) {
+        for (NodeImpl *c = child; c; c = c->traverseNextNode(child)) {
+            c->dispatchEvent(new MutationEventImpl(EventImpl::DOMNODEINSERTEDINTODOCUMENT_EVENT,
+                                                   false,false,0,DOMString(),DOMString(),DOMString(),0),exceptioncode,true);
+            if (exceptioncode)
+                return;
         }
     }
 }
@@ -1831,11 +2272,8 @@ void NodeBaseImpl::dispatchChildRemovalEvents( NodeImpl *child, int &exceptionco
 
     bool hasRemovalListeners = getDocument()->hasListenerType(DocumentImpl::DOMNODEREMOVEDFROMDOCUMENT_LISTENER);
 
-    // dispatch the DOMNOdeRemovedFromDocument event to all descendants
-    NodeImpl *p = this;
-    while (p->parentNode())
-	p = p->parentNode();
-    if (p->nodeType() == Node::DOCUMENT_NODE) {
+    // dispatch the DOMNodeRemovedFromDocument event to all descendants
+    if (inDocument()) {
 	for (NodeImpl *c = child; c; c = c->traverseNextNode(child)) {
 	    if (hasRemovalListeners) {
 		c->dispatchEvent(new MutationEventImpl(EventImpl::DOMNODEREMOVEDFROMDOCUMENT_EVENT,
@@ -1849,18 +2287,31 @@ void NodeBaseImpl::dispatchChildRemovalEvents( NodeImpl *child, int &exceptionco
 
 // ---------------------------------------------------------------------------
 
-NodeImpl *NodeListImpl::item( unsigned long /*index*/ ) const
+
+NodeListImpl::NodeListImpl(NodeImpl *_rootNode)
+    : rootNode(_rootNode),
+      isLengthCacheValid(false),
+      isItemCacheValid(false)
 {
-    return 0;
+    rootNode->ref();
+    rootNode->registerNodeList(this);
+}    
+
+NodeListImpl::~NodeListImpl()
+{
+    rootNode->unregisterNodeList(this);
+    rootNode->deref();
 }
 
-unsigned long NodeListImpl::length() const
+unsigned long NodeListImpl::recursiveLength( NodeImpl *start ) const
 {
-    return 0;
-}
+    if (!start)
+	start = rootNode;
 
-unsigned long NodeListImpl::recursiveLength(NodeImpl *start) const
-{
+    if (isLengthCacheValid && start == rootNode) {
+        return cachedLength;
+    }
+
     unsigned long len = 0;
 
     for(NodeImpl *n = start->firstChild(); n != 0; n = n->nextSibling()) {
@@ -1871,42 +2322,97 @@ unsigned long NodeListImpl::recursiveLength(NodeImpl *start) const
         }
     }
 
+    if (start == rootNode) {
+        cachedLength = len;
+        isLengthCacheValid = true;
+    }
+
     return len;
 }
 
-NodeImpl *NodeListImpl::recursiveItem ( NodeImpl *start, unsigned long &offset ) const
+NodeImpl *NodeListImpl::recursiveItem ( unsigned long offset, NodeImpl *start) const
 {
-    for(NodeImpl *n = start->firstChild(); n != 0; n = n->nextSibling()) {
-        if ( n->nodeType() == Node::ELEMENT_NODE ) {
-            if (nodeMatches(n))
-                if (!offset--)
-                    return n;
-
-            NodeImpl *depthSearch= recursiveItem(n, offset);
-            if (depthSearch)
-                return depthSearch;
+    int remainingOffset = offset;
+    if (!start) {
+        start = rootNode->firstChild();
+        if (isItemCacheValid) {
+            if (offset == lastItemOffset) {
+                return lastItem;
+            } else if (offset > lastItemOffset) {
+                start = lastItem;
+                remainingOffset -= lastItemOffset;
+            }
         }
+    }
+
+    NodeImpl *n = start;
+
+    while (n) {
+        if ( n->nodeType() == Node::ELEMENT_NODE ) {
+            if (nodeMatches(n)) {
+                if (!remainingOffset) {
+                    lastItem = n;
+                    lastItemOffset = offset;
+                    isItemCacheValid = 1;
+                    return n;
+                }
+                remainingOffset--;
+            }
+        }
+
+        n = n->traverseNextNode(rootNode);
     }
 
     return 0; // no matching node in this subtree
 }
 
-ChildNodeListImpl::ChildNodeListImpl( NodeImpl *n )
+NodeImpl *NodeListImpl::itemById (const DOMString& elementId) const
 {
-    refNode = n;
-    refNode->ref();
+    if (rootNode->isDocumentNode() || rootNode->inDocument()) {
+        NodeImpl *node = rootNode->getDocument()->getElementById(elementId);
+
+        if (node == NULL || !nodeMatches(node))
+            return 0;
+
+        for (NodeImpl *p = node->parentNode(); p; p = p->parentNode()) {
+            if (p == rootNode)
+                return node;
+        }
+
+        return 0;
+    }
+
+    unsigned long l = length();
+
+    for ( unsigned long i = 0; i < l; i++ ) {
+        NodeImpl *node = item(i);
+        
+        if ( static_cast<ElementImpl *>(node)->getIDAttribute() == elementId ) {
+            return node;
+        }
+    }
+
+    return 0;
 }
 
-ChildNodeListImpl::~ChildNodeListImpl()
+
+void NodeListImpl::rootNodeSubtreeModified()
 {
-    refNode->deref();
+    isLengthCacheValid = false;     
+    isItemCacheValid = false;     
+}
+
+
+ChildNodeListImpl::ChildNodeListImpl( NodeImpl *n )
+    : NodeListImpl(n)
+{
 }
 
 unsigned long ChildNodeListImpl::length() const
 {
     unsigned long len = 0;
     NodeImpl *n;
-    for(n = refNode->firstChild(); n != 0; n = n->nextSibling())
+    for(n = rootNode->firstChild(); n != 0; n = n->nextSibling())
         len++;
 
     return len;
@@ -1915,7 +2421,7 @@ unsigned long ChildNodeListImpl::length() const
 NodeImpl *ChildNodeListImpl::item ( unsigned long index ) const
 {
     unsigned int pos = 0;
-    NodeImpl *n = refNode->firstChild();
+    NodeImpl *n = rootNode->firstChild();
 
     while( n != 0 && pos < index )
     {
@@ -1926,30 +2432,26 @@ NodeImpl *ChildNodeListImpl::item ( unsigned long index ) const
     return n;
 }
 
-bool ChildNodeListImpl::nodeMatches( NodeImpl */*testNode*/ ) const
+bool ChildNodeListImpl::nodeMatches(NodeImpl *testNode) const
 {
-    return true;
+    return testNode->parentNode() == rootNode;
 }
 
 TagNodeListImpl::TagNodeListImpl(NodeImpl *n, NodeImpl::Id _id, NodeImpl::Id _idMask )
-    : refNode(n), m_id(_id & _idMask), m_idMask(_idMask)
+    : NodeListImpl(n), 
+      m_id(_id & _idMask), 
+      m_idMask(_idMask)
 {
-    refNode->ref();
-}
-
-TagNodeListImpl::~TagNodeListImpl()
-{
-    refNode->deref();
 }
 
 unsigned long TagNodeListImpl::length() const
 {
-    return recursiveLength( refNode );
+    return recursiveLength();
 }
 
 NodeImpl *TagNodeListImpl::item ( unsigned long index ) const
 {
-    return recursiveItem( refNode, index );
+    return recursiveItem( index );
 }
 
 bool TagNodeListImpl::nodeMatches( NodeImpl *testNode ) const
@@ -1959,25 +2461,18 @@ bool TagNodeListImpl::nodeMatches( NodeImpl *testNode ) const
 }
 
 NameNodeListImpl::NameNodeListImpl(NodeImpl *n, const DOMString &t )
-  : nodeName(t)
+  : NodeListImpl(n), nodeName(t)
 {
-    refNode= n;
-    refNode->ref();
-}
-
-NameNodeListImpl::~NameNodeListImpl()
-{
-    refNode->deref();
 }
 
 unsigned long NameNodeListImpl::length() const
 {
-    return recursiveLength( refNode );
+    return recursiveLength();
 }
 
 NodeImpl *NameNodeListImpl::item ( unsigned long index ) const
 {
-    return recursiveItem( refNode, index );
+    return recursiveItem( index );
 }
 
 bool NameNodeListImpl::nodeMatches( NodeImpl *testNode ) const

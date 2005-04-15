@@ -1,10 +1,10 @@
 /* saslint.h - internal SASL library definitions
  * Rob Siemborski
  * Tim Martin
- * $Id: saslint.h,v 1.2 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: saslint.h,v 1.5 2005/01/10 19:13:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -83,13 +83,24 @@
     RETURN(conn, (val)) }
 
 #ifndef PATH_MAX
-# ifdef _POSIX_PATH_MAX
-#  define PATH_MAX _POSIX_PATH_MAX
+# ifdef WIN32
+#  define PATH_MAX MAX_PATH
 # else
-#  define PATH_MAX 1024         /* arbitrary; probably big enough will
-                                 * probably only be 256+64 on
-                                 * pre-posix machines */
-# endif
+#  ifdef _POSIX_PATH_MAX
+#   define PATH_MAX _POSIX_PATH_MAX
+#  else
+#   define PATH_MAX 1024         /* arbitrary; probably big enough will
+                                  * probably only be 256+64 on
+                                  * pre-posix machines */
+#  endif /* _POSIX_PATH_MAX */
+# endif /* WIN32 */
+#endif
+
+/* : Define directory delimiter in SASL_PATH variable */
+#ifdef WIN32
+#define PATHS_DELIMITER	';'
+#else
+#define PATHS_DELIMITER	':'
 #endif
 
 /* Datatype Definitions */
@@ -113,14 +124,16 @@ typedef struct sasl_string_list
 typedef struct buffer_info
 { 
     char *data;
-    unsigned curlen;
-    unsigned reallen;
+    size_t curlen;
+    size_t reallen;
 } buffer_info_t;
+
+typedef int add_plugin_t(const char *, void *);
 
 typedef struct add_plugin_list 
 {
     const char *entryname;
-    int (*add_plugin)(const char *, void *);
+    add_plugin_t *add_plugin;
 } add_plugin_list_t;
 
 enum Sasl_conn_type { SASL_CONN_UNKNOWN = 0,
@@ -176,7 +189,7 @@ typedef struct mechanism
 {
     int version;
     int condition; /* set to SASL_NOUSER if no available users;
-		      set to SASL_CONTINUE if delayed plugn loading */
+		      set to SASL_CONTINUE if delayed plugin loading */
     char *plugname; /* for AUTHSOURCE tracking */
     const sasl_server_plug_t *plug;
     struct mechanism *next;
@@ -238,7 +251,7 @@ typedef struct sasl_client_conn {
   cmechanism_t *mech;
   sasl_client_params_t *cparams;
 
-  char *serverFQDN;
+  char *clientFQDN;
 
 } sasl_client_conn_t;
 
@@ -277,12 +290,16 @@ struct sasl_verify_password_s {
 /*
  * common.c
  */
-extern const sasl_utils_t *sasl_global_utils;
+LIBSASL_API const sasl_utils_t *sasl_global_utils;
 
-extern void (*_sasl_client_cleanup_hook)(void);
-extern void (*_sasl_server_cleanup_hook)(void);
 extern int (*_sasl_client_idle_hook)(sasl_conn_t *conn);
 extern int (*_sasl_server_idle_hook)(sasl_conn_t *conn);
+
+/* These return SASL_OK if we've actually finished cleanup, 
+ * SASL_NOTINIT if that part of the library isn't inited, and
+ * SASL_CONTINUE if we need to call them again */
+extern int (*_sasl_client_cleanup_hook)(void);
+extern int (*_sasl_server_cleanup_hook)(void);
 
 extern sasl_allocation_utils_t _sasl_allocation_utils;
 extern sasl_mutex_utils_t _sasl_mutex_utils;
@@ -291,11 +308,6 @@ extern sasl_mutex_utils_t _sasl_mutex_utils;
  * checkpw.c
  */
 extern struct sasl_verify_password_s _sasl_verify_password[];
-
-/*
- * dlopen.c and staticopen.c
- */
-extern const int _is_sasl_server_static;
 
 /*
  * server.c
@@ -350,7 +362,7 @@ _sasl_find_getpath_callback(const sasl_callback_t *callbacks);
 extern const sasl_callback_t *
 _sasl_find_verifyfile_callback(const sasl_callback_t *callbacks);
 
-extern int _sasl_common_init(void);
+extern int _sasl_common_init(sasl_global_callbacks_t *global_callbacks);
 
 extern int _sasl_conn_init(sasl_conn_t *conn,
 			   const char *service,
@@ -381,7 +393,7 @@ _sasl_log(sasl_conn_t *conn,
 	  const char *fmt,
 	  ...);
 
-void _sasl_get_errorbuf(sasl_conn_t *conn, char ***bufhdl, unsigned **lenhdl);
+void _sasl_get_errorbuf(sasl_conn_t *conn, char ***bufhdl, size_t **lenhdl);
 int _sasl_add_string(char **out, size_t *alloclen,
 		     size_t *outlen, const char *add);
 
@@ -423,14 +435,14 @@ int _sasl_server_listmech(sasl_conn_t *conn,
 			  const char *sep,
 			  const char *suffix,
 			  const char **result,
-			  size_t *plen,
+			  unsigned *plen,
 			  int *pcount);
 int _sasl_client_listmech(sasl_conn_t *conn,
 			  const char *prefix,
 			  const char *sep,
 			  const char *suffix,
 			  const char **result,
-			  size_t *plen,
+			  unsigned *plen,
 			  int *pcount);
 /* Just create a straight list of them */
 sasl_string_list_t *_sasl_client_mechs(void);
@@ -441,8 +453,6 @@ sasl_string_list_t *_sasl_server_mechs(void);
  */
 extern int sasl_config_init(const char *filename);
 extern const char *sasl_config_getstring(const char *key,const char *def);
-extern int sasl_config_getint(const char *key,int def);
-extern int sasl_config_getswitch(const char *key,int def);
 
 /* checkpw.c */
 #ifdef DO_SASL_CHECKAPOP

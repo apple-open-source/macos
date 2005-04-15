@@ -6,15 +6,15 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp ; \
+	     echo -Wno-long-double -no-cpp-precomp; \
 	     fi; )
 endif
 
 STATIC = -static
 ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -I../include -I$(SRCROOT)
+  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -I$(SRCROOT)
 else
-  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I../include -I$(SRCROOT) \
+  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I$(SRCROOT)/../include -I$(SRCROOT) \
 	   $(X_CFLAGS)
 endif
 
@@ -33,7 +33,21 @@ else
   SYSTEMDIR = /Local/Developer/System
 endif
 ifeq "macos" "$(RC_OS)"
-  LIBS = -L$(NEXT_ROOT)$(SYSTEMDIR) -lc_static
+  LIBS := $(shell if [ "$(RC_RELEASE)" = "Beaker"    ] || \
+		     [ "$(RC_RELEASE)" = "Bunsen"    ] || \
+		     [ "$(RC_RELEASE)" = "Gonzo"     ] || \
+		     [ "$(RC_RELEASE)" = "Kodiak"    ] || \
+		     [ "$(RC_RELEASE)" = "Cheetah"   ] || \
+		     [ "$(RC_RELEASE)" = "Puma"      ] || \
+		     [ "$(RC_RELEASE)" = "Jaguar"    ] || \
+		     [ "$(RC_RELEASE)" = "Panther"   ] || \
+		     [ "$(RC_RELEASE)" = "MuonPrime" ] || \
+		     [ "$(RC_RELEASE)" = "MuonSeed"  ] || \
+		     [ "$(RC_RELEASE)" = "SUPanWheat" ]; then \
+		    echo "-L$(NEXT_ROOT)$(SYSTEMDIR) -lc_static" ; \
+	    else \
+		    echo "-L$(NEXT_ROOT)$(SYSTEMDIR) -lc_static -lm_static" \
+	  ; fi; )
 else
   LIBS = -lc_static
 endif
@@ -47,8 +61,7 @@ endif
 SRCROOT = .
 SYMROOT = .
 OBJROOT = .
-OFILE_DIR = $(OBJROOT)
-VPATH = $(OFILE_DIR)
+OFILE_DIRS = $(OBJROOT)/otool_dir $(OBJROOT)/otool64_dir
 
 BINDIR = /bin
 USRBINDIR = /usr/bin
@@ -62,10 +75,48 @@ HFILES = otool.h ofile_print.h m68k_disasm.h i860_disasm.h \
 OBJS = $(CFILES:.c=.o) ofile.o vers.o
 INSTALL_FILES = $(CFILES) $(HFILES) Makefile notes
 
-PRODUCT = otool
-all: $(OFILE_DIR) $(SYMROOT) $(PRODUCT).NEW
+all:	$(OFILE_DIRS) $(SYMROOT) otool_build otool64_build
 
-$(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
+otool_build:	$(OBJROOT)/otool_dir $(SYMROOT)/otool_dir  
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd otool_dir; $(MAKE) -f ../Makefile otool.NEW PRODUCT="otool" \
+		VPATH=.. OFILE_DIR=. SRCROOT=.. RC_CFLAGS="$(RC_CFLAGS)" \
+		LIBSTUFF="-L../../libstuff -lstuff"			\
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+		MAKEINCDIR="`pwd`" CC="$(CC)";				\
+	else								\
+	    cd $(OBJROOT)/otool_dir; $(MAKE) -f $(SRCROOT)/Makefile	\
+		otool.NEW PRODUCT="otool" VPATH=$(SRCROOT) 		\
+		OFILE_DIR=$(OBJROOT)/otool_dir				\
+		SYMROOT=$(SYMROOT)/otool_dir SRCROOT=$(SRCROOT)		\
+		MAKEINCDIR="`pwd`" 					\
+		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff"		\
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+		RC_CFLAGS="$(RC_CFLAGS)" CC="$(CC)";			\
+	fi
+
+otool64_build:	$(OBJROOT)/otool64_dir $(SYMROOT)/otool64_dir
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    cd otool64_dir; $(MAKE) -f ../Makefile otool64.NEW 		\
+		PRODUCT="otool64" VPATH=.. OFILE_DIR=. SRCROOT=.. 	\
+		RC_CFLAGS="$(RC_CFLAGS) -DARCH64" \
+		LIBSTUFF="-L../../libstuff -lstuff64"			\
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+		MAKEINCDIR="`pwd`" CC="$(CC)" PRODUCT="otool64";	\
+	else								\
+	    cd $(OBJROOT)/otool64_dir; $(MAKE) -f $(SRCROOT)/Makefile	\
+		otool64.NEW PRODUCT="otool64" VPATH=$(SRCROOT) 		\
+		OFILE_DIR=$(OBJROOT)/otool64_dir			\
+		SYMROOT=$(SYMROOT)/otool64_dir SRCROOT=$(SRCROOT)	\
+		MAKEINCDIR="`pwd`" 					\
+		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff64"		\
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+		RC_CFLAGS="$(RC_CFLAGS) -DARCH64" CC="$(CC)";		\
+	fi
+
+$(PRODUCT).NEW:	$(OBJS)
 ifeq "mwccppc" "$(notdir $(CC))"
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/$@ $(OBJS) $(LIBSTUFF)
 else
@@ -105,24 +156,24 @@ else
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
 
-clean: shlib_clean
-	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c
-
-shlib_clean:
-	-cd $(OFILE_DIR); rm -f $(OBJS)
-	-rm -f $(OFILE_DIR)/Makedep make.out
+clean shlib_clean:
+	-rm -r -f $(OFILE_DIRS)
 
 install: all $(RC_OS)_install
 
 teflon_install macos_install:
 	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
-	install -c -s -m 555 $(SYMROOT)/$(PRODUCT).NEW \
-		$(DSTROOT)$(USRBINDIR)/$(PRODUCT)
+	install -c -s -m 555 $(SYMROOT)/otool_dir/otool.NEW \
+		$(DSTROOT)$(USRBINDIR)/otool
+	install -c -s -m 555 $(SYMROOT)/otool64_dir/otool64.NEW \
+		$(DSTROOT)$(USRBINDIR)/otool64
 
 nextstep_install:
 	$(MKDIRS) $(DSTROOT)$(BINDIR)
-	install -c -s -m 555 $(SYMROOT)/$(PRODUCT).NEW \
-		$(DSTROOT)$(BINDIR)/$(PRODUCT)
+	install -c -s -m 555 $(SYMROOT)/otool_dir/otool.NEW \
+		$(DSTROOT)$(BINDIR)/otool
+	install -c -s -m 555 $(SYMROOT)/otool64_dir/otool64.NEW \
+		$(DSTROOT)$(BINDIR)/otool64
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)
@@ -130,7 +181,7 @@ installsrc:
 	gnutar cf - $(INSTALL_FILES) | (cd $(SRCROOT); gnutar xf -)
 	chmod 444 $(SRCROOT)/*
 
-$(OFILE_DIR) $(SYMROOT):
+$(OFILE_DIRS) $(SYMROOT) $(SYMROOT)/otool_dir $(SYMROOT)/otool64_dir: 
 	$(MKDIRS) $@
 
 -include $(OFILE_DIR)/Makedep

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
@@ -375,3 +376,4 @@ struct arch_flag *specific_arch_flag)
 	}
 	return(0);
 }
+#endif /* !defined(RLD) */

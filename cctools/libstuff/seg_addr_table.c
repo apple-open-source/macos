@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef RLD
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -347,3 +348,4 @@ void *cookie)
 	    i++;
 	}
 }
+#endif /* !defined(RLD) */

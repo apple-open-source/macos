@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #import "KWQExceptions.h"
 #import "KWQKHTMLPart.h"
 #import "KWQNSViewExtras.h"
+#import "KWQView.h"
 #import "WebCoreBridge.h"
 
 #import "render_form.h"
@@ -38,7 +39,7 @@
 - (NSMutableDictionary *)_textAttributes;
 @end
 
-@interface KWQButton : NSButton
+@interface KWQButton : NSButton <KWQWidgetHolder>
 {
     QButton *button;
     BOOL needToSendConsumedMouseUp;
@@ -46,6 +47,7 @@
 }
 
 - (id)initWithQButton:(QButton *)b;
+- (void)detachQButton;
 - (void)sendConsumedMouseUpIfNeeded;
 
 @end
@@ -69,8 +71,20 @@
 
 - (id)initWithQButton:(QButton *)b
 {
+    self = [self init];
+
     button = b;
-    return [self init];
+
+    [self setTarget:self];
+    [self setAction:@selector(action:)];
+    
+    return self;
+}
+
+- (void)detachQButton
+{
+    button = 0;
+    [self setTarget:nil];
 }
 
 - (void)action:(id)sender
@@ -82,7 +96,7 @@
 {
     if (needToSendConsumedMouseUp) {
 	needToSendConsumedMouseUp = NO;
-	if ([self target]) {
+	if (button) {
             button->sendConsumedMouseUp();
         }
     } 
@@ -91,19 +105,30 @@
 -(void)mouseDown:(NSEvent *)event
 {
     needToSendConsumedMouseUp = YES;
+
+    QWidget::beforeMouseDown(self);
     [super mouseDown:event];
+    QWidget::afterMouseDown(self);
+
     [self sendConsumedMouseUpIfNeeded];
+}
+
+- (QWidget *)widget
+{
+    return button;
 }
 
 - (BOOL)becomeFirstResponder
 {
     BOOL become = [super becomeFirstResponder];
-    if (become) {
+    if (become && button) {
         if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(button)) {
             [self _KWQ_scrollFrameToVisible];
         }
-        QFocusEvent event(QEvent::FocusIn);
-        const_cast<QObject *>(button->eventFilterObject())->eventFilter(button, &event);
+        if (button) {
+            QFocusEvent event(QEvent::FocusIn);
+            const_cast<QObject *>(button->eventFilterObject())->eventFilter(button, &event);
+        }
     }
     return become;
 }
@@ -111,7 +136,7 @@
 - (BOOL)resignFirstResponder
 {
     BOOL resign = [super resignFirstResponder];
-    if (resign) {
+    if (resign && button) {
         QFocusEvent event(QEvent::FocusOut);
         const_cast<QObject *>(button->eventFilterObject())->eventFilter(button, &event);
     }
@@ -127,9 +152,12 @@
         // widget will remove focus from the widget after
         // we tab to it
         [self resignFirstResponder];
-        view = KWQKHTMLPart::nextKeyViewForWidget(button, KWQSelectingNext);
-    }
-    else { 
+        if (button) {
+            view = KWQKHTMLPart::nextKeyViewForWidget(button, KWQSelectingNext);
+        } else {
+            view = [super nextKeyView];
+        }
+    } else { 
         view = [super nextKeyView];
     }
     return view;
@@ -144,12 +172,25 @@
         // widget will remove focus from the widget after
         // we tab to it
         [self resignFirstResponder];
-        view = KWQKHTMLPart::nextKeyViewForWidget(button, KWQSelectingPrevious);
-    }
-    else { 
+        if (button) {
+            view = KWQKHTMLPart::nextKeyViewForWidget(button, KWQSelectingPrevious);
+        } else {
+            view = [super previousKeyView];
+        }
+    }  else { 
         view = [super previousKeyView];
     }
     return view;
+}
+
+- (BOOL)canBecomeKeyView
+{
+    // Simplified method from NSView; overridden to replace NSView's way of checking
+    // for full keyboard access with ours.
+    if (button && !KWQKHTMLPart::partForWidget(button)->tabsToAllControls()) {
+        return NO;
+    }
+    return ([self window] != nil) && ![self isHiddenOrHasHiddenAncestor] && [self acceptsFirstResponder];
 }
 
 -(NSView *)nextValidKeyView
@@ -207,9 +248,6 @@ QButton::QButton()
     setView(button);
     [button release];
     
-    [button setTarget:button];
-    [button setAction:@selector(action:)];
-    
     [button setTitle:@""];
     [[button cell] setControlSize:NSSmallControlSize];
     [button setFont:[NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSSmallControlSize]]];
@@ -221,8 +259,8 @@ QButton::~QButton()
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    NSButton *button = (NSButton *)getView();
-    [button setTarget:nil];
+    KWQButton *button = (KWQButton *)getView();
+    [button detachQButton];
 
     KWQ_UNBLOCK_EXCEPTIONS;
 }
@@ -272,7 +310,7 @@ void QButton::clicked()
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
-void QButton::click()
+void QButton::click(bool sendMouseEvents)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
@@ -312,12 +350,10 @@ QWidget::FocusPolicy QButton::focusPolicy() const
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    // Add an additional check here.
-    // For now, buttons are only focused when full
-    // keyboard access is turned on.
-    unsigned keyboardUIMode = [KWQKHTMLPart::bridgeForWidget(this) keyboardUIMode];
-    if ((keyboardUIMode & WebCoreKeyboardAccessFull) == 0)
+    WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(this);
+    if (!bridge || ![bridge part] || ![bridge part]->tabsToAllControls()) {
         return NoFocus;
+    }
     
     KWQ_UNBLOCK_EXCEPTIONS;
 

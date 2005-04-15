@@ -245,8 +245,8 @@ void *cookie)
 	   new_dl->dylib.current_version){
 	    if(arch_name != NULL)
 		printf("For architecture %s ", arch_name);
-	    printf("current version of old dynamic shared library (%lu) "
-		   "greater than new dynamic shared library (%lu)\n",
+	    printf("current version of old dynamic shared library (%u) "
+		   "greater than new dynamic shared library (%u)\n",
 		   old_dl->dylib.current_version,new_dl->dylib.current_version);
 	    compatible = FALSE;
 	}
@@ -254,8 +254,8 @@ void *cookie)
 	   new_dl->dylib.compatibility_version){
 	    if(arch_name != NULL)
 		printf("For architecture %s ", arch_name);
-	    printf("compatibility version of old dynamic shared library (%lu) "
-		   "greater than new dynamic shared library (%lu)\n",
+	    printf("compatibility version of old dynamic shared library (%u) "
+		   "greater than new dynamic shared library (%u)\n",
 		   old_dl->dylib.compatibility_version,
 		   new_dl->dylib.compatibility_version);
 	    compatible = FALSE;

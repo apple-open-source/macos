@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -165,6 +165,11 @@ __private_extern__ enum bool dynamic;
 __private_extern__ enum strip_levels strip_level;
 /* Strip the base file symbols (the -A argument's symbols) */
 __private_extern__ enum bool strip_base_symbols;
+
+/* strip dead blocks */
+__private_extern__ enum bool dead_strip;
+/* don't strip module init and term sections */
+__private_extern__ enum bool no_dead_strip_inits_and_terms;
 
 #ifndef RLD
 /*

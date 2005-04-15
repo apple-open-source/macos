@@ -271,6 +271,13 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 		sys_msg(debug_proc, LOG_DEBUG, "	NFLNK");
 	}
 
+	if ([controller checkMountInProgressForTransaction:rpc_xid]) {
+			sys_msg(debug_proc, LOG_DEBUG, "	mount is in progress");
+			sys_msg(debug_proc, LOG_DEBUG, "<- [readlink abandoned]");
+			(void)usleep(100000UL);		/* Sleep for 0.1 Sec. (100,000 uSec.) */
+			return NULL;				/* Try again later... */
+	};
+	
 	if (([n type] == NFLNK) && (![n mounted]))
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "	not mounted");

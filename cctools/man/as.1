@@ -1,4 +1,4 @@
-.TH AS 1 "May 21, 2003" "Apple Computer, Inc."
+.TH AS 1 "September 3, 2003" "Apple Computer, Inc."
 .SH NAME
 as \- Mac OS X Mach-O GNU-based assemblers
 .SH SYNOPSIS
@@ -182,16 +182,6 @@ the assembler behaves like the IBM tools.
 .TP
 .B \-no_ppc601
 Treat any PowerPC 601 instructions as an error.
-.SH "Assembler options for the mc680x0 processors"
-.TP
-.BR \-mc68000 " and " \-mc68010
-Generate branches that the mc68000 and mc68010 can use (that don't use 32-bit
-pc-relative jumps and branches, since they are not implemented on these two
-processors).  Not applicable on NeXT machines.
-.TP
-.B \-mc68020
-Generate branches that use 32-bit pc-relative displacements.
-This is the default.
 .SH FILES
 a.out	output file
 .SH "SEE ALSO"

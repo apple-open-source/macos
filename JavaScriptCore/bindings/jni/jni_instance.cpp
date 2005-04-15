@@ -27,6 +27,7 @@
 #include <jni_runtime.h>
 #include <jni_utility.h>
 #include <runtime_object.h>
+#include <runtime_root.h>
 
 #ifdef NDEBUG
 #define JS_LOG(formatAndArgs...) ((void)0)
@@ -40,10 +41,11 @@
 using namespace KJS::Bindings;
 using namespace KJS;
 
-JavaInstance::JavaInstance (jobject instance) 
+JavaInstance::JavaInstance (jobject instance, const RootObject *r) 
 {
     _instance = new JObjectWrapper (instance);
     _class = 0;
+    setExecutionContext (r);
 };
 
 JavaInstance::~JavaInstance () 
@@ -104,13 +106,13 @@ KJS::Value JavaInstance::booleanValue() const
     return v;
 }
 
-Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList *methodList, const List &args)
+Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &methodList, const List &args)
 {
     int i, count = args.size();
     jvalue *jArgs;
     Value resultValue;
     Method *method = 0;
-    unsigned int numMethods = methodList->length();
+    unsigned int numMethods = methodList.length();
     
     // Try to find a good match for the overloaded method.  The 
     // fundamental problem is that JavaScript doesn have the
@@ -120,7 +122,7 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList *method
     unsigned int methodIndex;
     Method *aMethod;
     for (methodIndex = 0; methodIndex < numMethods; methodIndex++) {
-        aMethod = methodList->methodAt (methodIndex);
+        aMethod = methodList.methodAt (methodIndex);
         if (aMethod->numParameters() == count) {
             method = aMethod;
             break;
@@ -143,26 +145,108 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList *method
     for (i = 0; i < count; i++) {
         JavaParameter *aParameter = static_cast<JavaParameter *>(jMethod->parameterAt(i));
         jArgs[i] = convertValueToJValue (exec, args.at(i), aParameter->getJNIType(), aParameter->type());
+	JS_LOG("arg[%d] = %s\n", i, args.at(i).toString(exec).ascii());
+    }
+        
+
+    jvalue result;
+
+    // Try to use the JNI abstraction first, otherwise fall back to
+    // nornmal JNI.  The JNI dispatch abstraction allows the Java plugin
+    // to dispatch the call on the appropriate internal VM thread.
+    const RootObject *execContext = executionContext();
+    bool handled = false;
+    if (execContext && execContext->nativeHandle()) {
+        jobject obj = _instance->_instance;
+        Value exceptionDescription;
+        const char *callingURL = 0;  // FIXME, need to propagate calling URL to Java
+        handled = dispatchJNICall (execContext->nativeHandle(), obj, jMethod->isStatic(), jMethod->JNIReturnType(), jMethod->methodID(obj), jArgs, result, callingURL, exceptionDescription);
+        if (!exceptionDescription.isNull()) {
+            Object error = Error::create(exec, GeneralError, exceptionDescription.toString(exec).UTF8String().c_str());
+            
+            exec->setException(error);
+            
+            free (jArgs);
+            return Undefined();
+        }
     }
     
-    jvalue result;
-	jobject obj = _instance->_instance;
+    // The following code can be conditionally removed once we have a Tiger update that
+    // contains the new Java plugin.  It is needed for builds prior to Tiger.
+    if (!handled) {    
+        jobject obj = _instance->_instance;
+        switch (jMethod->JNIReturnType()){
+            case void_type: {
+                callJNIVoidMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case object_type: {
+                result.l = callJNIObjectMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case boolean_type: {
+                result.z = callJNIBooleanMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case byte_type: {
+                result.b = callJNIByteMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case char_type: {
+                result.c = callJNICharMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case short_type: {
+                result.s = callJNIShortMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case int_type: {
+                result.i = callJNIIntMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case long_type: {
+                result.j = callJNILongMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case float_type: {
+                result.f = callJNIFloatMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+            
+            case double_type: {
+                result.d = callJNIDoubleMethodIDA (obj, jMethod->methodID(obj), jArgs);
+            }
+            break;
+
+            case invalid_type:
+            default: {
+            }
+            break;
+        }
+    }
+        
     switch (jMethod->JNIReturnType()){
         case void_type: {
-            callJNIVoidMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Undefined();
         }
         break;
         
         case object_type: {
-            result.l = callJNIObjectMethodIDA (obj, jMethod->methodID(obj), jArgs);
             if (result.l != 0) {
                 const char *arrayType = jMethod->returnType();
                 if (arrayType[0] == '[') {
-                    resultValue = JavaArray::convertJObjectToArray (exec, result.l, arrayType);
+                    resultValue = JavaArray::convertJObjectToArray (exec, result.l, arrayType, executionContext());
                 }
                 else {
-                    resultValue = Object(new RuntimeObjectImp(new JavaInstance (result.l)));
+                    resultValue = Instance::createRuntimeObject(Instance::JavaLanguage, result.l, executionContext());
                 }
             }
             else {
@@ -172,49 +256,41 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList *method
         break;
         
         case boolean_type: {
-            result.z = callJNIBooleanMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = KJS::Boolean(result.z);
         }
         break;
         
         case byte_type: {
-            result.b = callJNIByteMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number(result.b);
         }
         break;
         
         case char_type: {
-            result.c = callJNICharMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number(result.c);
         }
         break;
         
         case short_type: {
-            result.s = callJNIShortMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number(result.s);
         }
         break;
         
         case int_type: {
-            result.i = callJNIIntMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number(result.i);
         }
         break;
         
         case long_type: {
-            result.j = callJNILongMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number((long int)result.j);
         }
         break;
         
         case float_type: {
-            result.f = callJNIFloatMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number(result.f);
         }
         break;
         
         case double_type: {
-            result.d = callJNIDoubleMethodIDA (obj, jMethod->methodID(obj), jArgs);
             resultValue = Number(result.d);
         }
         break;
@@ -225,10 +301,15 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList *method
         }
         break;
     }
-        
+
     free (jArgs);
-    
+
     return resultValue;
+}
+
+KJS::Value JavaInstance::invokeDefaultMethod (KJS::ExecState *exec, const KJS::List &args)
+{
+    return Undefined();
 }
 
 

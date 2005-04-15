@@ -84,6 +84,7 @@ char *progname = NULL;
 struct flags {
     enum bool treat_as_data;
     enum bool print_offsets;
+    char *offset_format;
     enum bool all_sections;
     unsigned long minimum_length;
 };
@@ -117,7 +118,7 @@ char **envp)
     char *endp;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;
-    enum bool all_archs;
+    enum bool all_archs, rest_args_files;
 
 	progname = argv[0];
 
@@ -128,13 +129,17 @@ char **envp)
 
 	flags.treat_as_data = FALSE;
 	flags.print_offsets = FALSE;
+	flags.offset_format = NULL;
 	flags.all_sections = FALSE;
 	flags.minimum_length = 4;
 
+	rest_args_files = FALSE;
 	for(i = 1; i < argc; i++){
-	    if(argv[i][0] == '-'){
+	    if(rest_args_files == FALSE && argv[i][0] == '-'){
 		if(argv[i][1] == '\0')
 		    flags.treat_as_data = TRUE;
+		else if(strcmp(argv[i], "--") == 0)
+		    rest_args_files = TRUE;
 		else if(strcmp(argv[i], "-arch") == 0){
 		    if(i + 1 == argc){
 			error("missing argument(s) to %s option", argv[i]);
@@ -157,12 +162,56 @@ char **envp)
 		    }
 		    i++;
 		}
+		else if(strcmp(argv[i], "-n") == 0){
+		    if(i + 1 == argc){
+			error("missing argument to %s option", argv[i]);
+			usage();
+		    }
+		    flags.minimum_length = strtoul(argv[i+1], &endp, 10);
+		    if(*endp != '\0'){
+			error("invalid decimal number in option: %s %s",
+			      argv[i], argv[i+1]);
+			usage();
+		    }
+		    i++;
+		}
+		else if(strcmp(argv[i], "-t") == 0){
+		    if(i + 1 == argc){
+			error("missing argument to %s option", argv[i]);
+			usage();
+		    }
+		    if(argv[i+1][1] != '\0'){
+			error("invalid argument to option: %s %s",
+			      argv[i], argv[i+1]);
+			usage();
+		    }
+		    switch(argv[i+1][0]){
+		    case 'd':
+			flags.print_offsets = TRUE;
+			flags.offset_format = "%d";
+			break;
+		    case 'o':
+			flags.print_offsets = TRUE;
+			flags.offset_format = "%o";
+			break;
+		    case 'x':
+			flags.print_offsets = TRUE;
+			flags.offset_format = "%x";
+			break;
+		    default:
+			error("invalid argument to option: %s %s",
+			      argv[i], argv[i+1]);
+			usage();
+		    }
+		    i++;
+		}
 		else{
 		    endp = NULL;
 		    for(j = 1; argv[i][j] != '\0' && endp == NULL; j++){
 			switch(argv[i][j]){
 			case 'o':
 			    flags.print_offsets = TRUE;
+			    flags.offset_format = "%7lu";
 			    break;
 			case 'a':
 			    flags.all_sections = TRUE;
@@ -190,9 +239,10 @@ char **envp)
 	/*
 	 * Process the file or stdin if there are no files.
 	 */
+	rest_args_files = FALSE;
 	if(nfiles != 0){
 	    for(i = 1; i < argc; i++){
-		if(argv[i][0] != '-'){
+		if(argv[i][0] != '-' || rest_args_files == TRUE){
 		    if(flags.treat_as_data == TRUE){
 			if(freopen(argv[i], "r", stdin) == NULL)
 			    system_error("can't open: %s", argv[i]);
@@ -204,8 +254,12 @@ char **envp)
 				      all_archs, TRUE, TRUE, TRUE,
 				      ofile_processor,&flags);
 		}
-		else if(strcmp(argv[i], "-arch") == 0)
+		else if(strcmp(argv[i], "-arch") == 0 ||
+			strcmp(argv[i], "-n") == 0 ||
+			strcmp(argv[i], "-t") == 0)
 		    i++;
+		else if(strcmp(argv[i], "--") == 0)
+		    rest_args_files = TRUE;
 	    }
 	}
 	else{
@@ -225,8 +279,9 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [-] [-a] [-o] "
-		"[[-arch <arch_flag>] ...] [file ...]\n", progname);
+	fprintf(stderr, "Usage: %s [-] [-a] [-o] [-t format] [-number] "
+		"[-n number] [[-arch <arch_flag>] ...] [--] [file ...]\n",
+		progname);
 	exit(EXIT_FAILURE);
 }
 
@@ -249,10 +304,13 @@ void *cookie)
 {
     char *addr;
     unsigned long offset, size, i, j;
+    uint32_t ncmds;
     struct flags *flags;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
 
 	flags = (struct flags *)cookie;
 
@@ -285,7 +343,11 @@ void *cookie)
 	 * The ofile is an object file so process with reguard to it's sections.
 	 */
 	lc = ofile->load_commands;
-	for(i = 0; i < ofile->mh->ncmds; i++){
+	if(ofile->mh != NULL)
+	    ncmds = ofile->mh->ncmds;
+	else
+	    ncmds = ofile->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)((char *)sg +
@@ -306,6 +368,28 @@ void *cookie)
 			}
 		    }
 		    s++;
+		}
+	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)((char *)sg64 +
+			sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    if(flags->all_sections){
+			if((s64->flags & S_ZEROFILL) != S_ZEROFILL){
+			    ofile_find(ofile->object_addr + s64->offset,
+				       s64->size, s64->offset, flags);
+			}
+		    }
+		    else{
+			if((s64->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (strcmp(s64->sectname, SECT_TEXT) != 0 ||
+			    strcmp(s64->segname, SEG_TEXT) != 0)){
+			    ofile_find(ofile->object_addr + s64->offset,
+				       s64->size, s64->offset, flags);
+			}
+		    }
+		    s64++;
 		}
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -334,9 +418,14 @@ struct flags *flags)
 	    c = addr[i];
 	    if(c == '\n' || dirt(c) || i == size - 1){
 		if(string_length >= flags->minimum_length){
-		    if(flags->print_offsets)
-			printf("%7lu ", offset + (string - addr));
-		    printf("%.*s\n", (int)string_length, string);
+		    if(flags->print_offsets){
+			printf(flags->offset_format, offset + (string - addr));
+			printf(" ");
+		    }
+		    if(i == size - 1 && c != '\n')
+			printf("%.*s\n", (int)string_length + 1, string);
+		    else
+			printf("%.*s\n", (int)string_length, string);
 		}
 		string = addr + i + 1;
 		string_length = 0;
@@ -369,8 +458,11 @@ struct flags *flags)
 				--cp;
 			*cp++ = 0;
 			if (cp > &buf[flags->minimum_length]) {
-				if (flags->print_offsets == TRUE)
-					printf("%7ld ", ftell(stdin) - cc - 1);
+				if (flags->print_offsets == TRUE){
+					printf(flags->offset_format,
+					       ftell(stdin) - cc - 1);
+					printf(" ");
+				}
 				printf("%s\n", buf);
 			}
 			cp = buf, cc = 0;

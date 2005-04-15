@@ -618,6 +618,9 @@ protected:
 	
 	UInt32					fUserLoginGeneration;
 	bool					fUserLoginGenerationSet;
+
+	IOFWDelayCommand *		fFetchAgentRetryTimerCommand;
+    bool					fFetchAgentRetryTimerSet;	
 	
 	virtual IOReturn executeSetBusyTimeout( void );
 	static void setBusyTimeoutCompleteStatic( void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd );
@@ -1036,6 +1039,12 @@ public:
 	
 	virtual void setLoginGeneration( UInt32 generation );
 	virtual void clearLoginGeneration( void );
+
+protected:
+	void startFetchAgentRetryTimer( UInt32 duration );
+	void stopFetchAgentRetryTimer( void );
+	static void fetchAgentRetryTimerStatic( void *refcon, IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd );
+	void fetchAgentRetryTimer( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd );
 	
 private:
     

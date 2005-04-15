@@ -1,0 +1,11 @@
+--- include/libxml/xmlversion.h.in.orig	2004-09-13 16:42:41.000000000 -0700
++++ include/libxml/xmlversion.h.in	2004-09-13 16:43:18.000000000 -0700
+@@ -84,7 +84,7 @@
+  * Whether the thread support is configured in
+  */
+ #if @WITH_THREADS@
+-#if defined(_REENTRANT) || defined(__MT__) || (_POSIX_C_SOURCE - 0 >= 199506L)
++#if defined(_REENTRANT) || defined(__MT__) || (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0 >= 199506L))
+ #define LIBXML_THREAD_ENABLED
+ #endif
+ #endif

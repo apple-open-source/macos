@@ -1,6 +1,0 @@
-<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
-<para>
-The anchor element<anchor id="example.anchor.1"> is empty and contributes
-nothing to the flow of the content in which it occurs.  It is only useful
-as a target.
-</para>

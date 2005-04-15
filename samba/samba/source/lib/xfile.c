@@ -80,7 +80,7 @@ static int x_allocate_buffer(XFILE *f)
 {
 	if (f->buf) return 1;
 	if (f->bufsize == 0) return 0;
-	f->buf = malloc(f->bufsize);
+	f->buf = SMB_MALLOC(f->bufsize);
 	if (!f->buf) return 0;
 	f->next = f->buf;
 	return 1;
@@ -95,7 +95,7 @@ XFILE *x_fopen(const char *fname, int flags, mode_t mode)
 {
 	XFILE *ret;
 
-	ret = (XFILE *)malloc(sizeof(XFILE));
+	ret = SMB_MALLOC_P(XFILE);
 	if (!ret) return NULL;
 
 	memset(ret, 0, sizeof(XFILE));
@@ -135,7 +135,12 @@ int x_fclose(XFILE *f)
 		memset(f->buf, 0, f->bufsize);
 		SAFE_FREE(f->buf);
 	}
-	SAFE_FREE(f);
+	/* check the file descriptor given to the function is NOT one of the static
+	 * descriptor of this libreary or we will free unallocated memory
+	 * --sss */
+	if (f != x_stdin && f != x_stdout && f != x_stderr) {
+		SAFE_FREE(f);
+	}
 	return ret;
 }
 

@@ -22,7 +22,11 @@
 #ifndef render_container_h
 #define render_container_h
 
-#include "render_object.h"
+#include "render_box.h"
+
+namespace DOM {
+    class Position;
+};
 
 namespace khtml
 {
@@ -31,7 +35,7 @@ namespace khtml
 /**
  * Base class for rendering objects that can have children
  */
-class RenderContainer : public RenderObject
+class RenderContainer : public RenderBox
 {
 public:
     RenderContainer(DOM::NodeImpl* node);
@@ -56,6 +60,8 @@ public:
     virtual void removeLeftoverAnonymousBoxes();
 
     void updatePseudoChild(RenderStyle::PseudoId type, RenderObject* child);
+
+    virtual VisiblePosition positionForCoordinates(int x, int y);
 
 private:
     void setFirstChild(RenderObject *first) { m_first = first; }
